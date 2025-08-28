@@ -35,6 +35,7 @@ namespace SUNWODA_SEVB
 
             try
             {
+                ConfigurationGenerator.GenerateDefaultEncryptedConfig();
                 // 步骤1：构建Host
                 _host = BuildHost();
 

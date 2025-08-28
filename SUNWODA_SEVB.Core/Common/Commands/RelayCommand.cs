@@ -7,84 +7,51 @@ namespace SUNWODA_SEVB.Core.Common.Commands
     /// </summary>
     public class RelayCommand : ICommand
     {
-        private readonly Action _execute;
-        private readonly Func<bool>? _canExecute;
-        private readonly HashSet<WeakReference> _canExecuteChangedHandlers = new();
+        private readonly Action<object?> _execute;
+        private readonly Predicate<object?>? _canExecute;
 
-        public RelayCommand(Action execute, Func<bool>? canExecute = null)
+        public RelayCommand(Action execute, Predicate<object?>? canExecute = null)
+        {
+            _execute = (parameter) => execute?.Invoke();
+            _canExecute = canExecute;
+        }
+
+        public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute = null)
         {
             ArgumentNullException.ThrowIfNull(execute);
-            _execute = execute;
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
             _canExecute = canExecute;
         }
 
         public event EventHandler? CanExecuteChanged
         {
-            add
-            {
-                if (value != null)
-                {
-                    _canExecuteChangedHandlers.Add(new WeakReference(value));
-                }
-            }
-            remove
-            {
-                if (value != null)
-                {
-                    _canExecuteChangedHandlers.RemoveWhere(wr => !wr.IsAlive || wr.Target?.Equals(value) == true);
-                }
-            }
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
         }
 
-        public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
+        public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
 
-        public void Execute(object? parameter) => _execute();
-
-        public void NotifyCanExecuteChanged()
-        {
-            _canExecuteChangedHandlers.RemoveWhere(wr => !wr.IsAlive);
-            foreach (var weakRef in _canExecuteChangedHandlers)
-            {
-                if (weakRef.Target is EventHandler handler)
-                {
-                    handler(this, EventArgs.Empty);
-                }
-            }
-        }
+        public void Execute(object? parameter) => _execute(parameter);
     }
 
     /// <summary>
-    /// 带参数的命令实现
+    /// 泛型命令实现
     /// </summary>
     public class RelayCommand<T> : ICommand
     {
         private readonly Action<T?> _execute;
         private readonly Predicate<T?>? _canExecute;
-        private readonly HashSet<WeakReference> _canExecuteChangedHandlers = new();
 
         public RelayCommand(Action<T?> execute, Predicate<T?>? canExecute = null)
         {
-            ArgumentNullException.ThrowIfNull(execute);
-            _execute = execute;
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
             _canExecute = canExecute;
         }
 
         public event EventHandler? CanExecuteChanged
         {
-            add
-            {
-                if (value != null)
-                {
-                    _canExecuteChangedHandlers.Add(new WeakReference(value));
-                }
-            }
-            remove
-            {
-                if (value != null)
-                {
-                    _canExecuteChangedHandlers.RemoveWhere(wr => !wr.IsAlive || wr.Target?.Equals(value) == true);
-                }
-            }
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
         }
 
         public bool CanExecute(object? parameter)
@@ -101,18 +68,6 @@ namespace SUNWODA_SEVB.Core.Common.Commands
             if (parameter is T t || (parameter is null && (typeof(T).IsClass || Nullable.GetUnderlyingType(typeof(T)) != null)))
             {
                 _execute((T?)parameter);
-            }
-        }
-
-        public void NotifyCanExecuteChanged()
-        {
-            _canExecuteChangedHandlers.RemoveWhere(wr => !wr.IsAlive);
-            foreach (var weakRef in _canExecuteChangedHandlers)
-            {
-                if (weakRef.Target is EventHandler handler)
-                {
-                    handler(this, EventArgs.Empty);
-                }
             }
         }
     }

@@ -1,5 +1,6 @@
 ﻿using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Models.Component;
 using System.Collections.ObjectModel;
 using System.Windows.Input;

@@ -193,7 +193,7 @@ namespace SUNWODA_SEVB.Tool.Extension
 
         public static TEnum ToEnum<TEnum>(this string enumStr) where TEnum : struct
         {
-            return Enum.TryParse(enumStr, out TEnum result) ? result : default;
+            return Enum.TryParse(enumStr, true, out TEnum result) ? result : default;
         }
     }
 }

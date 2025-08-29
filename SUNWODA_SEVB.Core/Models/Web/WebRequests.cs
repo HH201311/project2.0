@@ -113,4 +113,15 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? PythonCode { get; set; }
         public string? ExecuteType { get; set; }
     }
+
+    /// <summary>
+    /// dll文件请求
+    /// </summary>
+    public class DownloadDllRequest
+    {
+        public string? AppKey { get; set; }
+        public string? Signature { get; set; }
+        public string? PythonCode { get; set; }
+        public string? ExecuteType { get; set; }
+    }
 }

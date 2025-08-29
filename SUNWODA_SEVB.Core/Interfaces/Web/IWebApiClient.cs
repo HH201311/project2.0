@@ -33,5 +33,6 @@ namespace SUNWODA_SEVB.Core.Interfaces.Web
         // SysCenter接口
         Task<SysCenterFileResponse> DownloadSysCenterFileAsync(string appKey, string signature, string pythonCode, string executeType);
         Task<FileVersionResponse> GetFileVersionAsync(string pythonCode);
+
     }
 }

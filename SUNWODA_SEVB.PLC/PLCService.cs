@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using HslCommunication;
 using HslCommunication.Core;
 using HslCommunication.Core.Device;
@@ -108,7 +109,8 @@ namespace SUNWODA_SEVB.PLC
                     await _globalSettingRepository.GetSettingValueAsync("IsCycleReadPLC") ?? false;
                 IsCycleWritePLC =
                     await _globalSettingRepository.GetSettingValueAsync("IsCycleWritePLC") ?? false;
-                PLCConnectTime = await _globalSettingRepository.GetSettingValue("PLCConnectTime") ?? 5000;
+                PLCConnectTime =
+                    await _globalSettingRepository.GetSettingValueAsync("PLCConnectTime") ?? 5000;
 
                 // 加载配置
                 await LoadConfigurationsAsync(cancellationToken);
@@ -346,7 +348,8 @@ namespace SUNWODA_SEVB.PLC
                     }
 
                     _logger.Warn(
-                        $"连接尝试 {i + 1}/{maxRetries} 失败: {plc.Name}, 原因: {result?.Message}", true
+                        $"连接尝试 {i + 1}/{maxRetries} 失败: {plc.Name}, 原因: {result?.Message}",
+                        true
                     );
 
                     // 根据不同的PLC类型使用不同的重试延迟
@@ -497,6 +500,38 @@ namespace SUNWODA_SEVB.PLC
             }
         }
 
+        public async Task<bool> ReadAddressAsync(PLC plc, PLCRWAddress address)
+        {
+            var result = await plc.ReadAsync(address.Address!, address.Length);
+
+            plc.IsConnect = result?.IsSuccess ?? false;
+            if (plc.IsConnect)
+            {
+                try
+                {
+                    address.MonitorValue = ConvertValue(
+                        result!.Content,
+                        address.Type,
+                        plc.ByteTransform,
+                        plc.AddressWordLength,
+                        0,
+                        address.Length
+                    );
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error($"解析地址数据失败: {address.ParameterName}", ex, true);
+                    return false;
+                }
+            }
+            else
+            {
+                _logger.Warn($"读取失败: {address.Address}, 原因: {result?.Message}", true);
+                return false;
+            }
+        }
+
         /// <summary>
         /// 更新地址值
         /// </summary>
@@ -613,6 +648,28 @@ namespace SUNWODA_SEVB.PLC
         }
 
         /// <summary>
+        /// 写入地址
+        /// </summary>
+        /// <param name="plc"></param>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        public async Task WriteAddressAsync(PLC plc, PLCRWAddress address)
+        {
+            if (address.MonitorValue == null)
+                return;
+
+            var result = await plc.WriteAsync(address.Address, address.Type, address.MonitorValue);
+
+            if (!result.IsSuccess)
+            {
+                _logger.Warn(
+                    $"写入失败: {address.Address}, 值: {address.MonitorValue}, 原因: {result.Message}",
+                    true
+                );
+            }
+        }
+
+        /// <summary>
         /// 监控连接状态
         /// </summary>
         private async Task MonitorConnectionsAsync(CancellationToken cancellationToken)
@@ -637,7 +694,6 @@ namespace SUNWODA_SEVB.PLC
                     {
                         _logger.Debug("监控连接状态延时异常", ex);
                     }
-                    
                 }
                 catch (Exception ex)
                 {

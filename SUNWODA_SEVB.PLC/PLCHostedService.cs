@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.PLC;
 
 namespace SUNWODA_SEVB.PLC
 {
@@ -8,11 +9,11 @@ namespace SUNWODA_SEVB.PLC
     /// </summary>
     public class PLCHostedService : BackgroundService
     {
-        private readonly PLCService _plcService;
+        private readonly IPLCService _plcService;
         private readonly ILoggerService<PLCHostedService> _logger;
 
         public PLCHostedService(
-            PLCService plcService,
+            IPLCService plcService,
             ILoggerService<PLCHostedService> logger)
         {
             _plcService = plcService;

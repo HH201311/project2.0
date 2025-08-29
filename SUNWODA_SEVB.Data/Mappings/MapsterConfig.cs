@@ -1,5 +1,4 @@
 ﻿using Mapster;
-using SUNWODA_SEVB.Core.Entities;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Data.Models;
 

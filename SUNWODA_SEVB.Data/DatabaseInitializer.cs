@@ -171,10 +171,10 @@ namespace SUNWODA_SEVB.Data
             {
                 // 按依赖顺序初始化数据
                 InitializeGlobalSettings();
-                InitializeDevices();
-                InitializePLCConfigs();
-                InitializePLCRWConfigs();
-                InitializePLCAddressConfigs();
+                //InitializeDevices();
+                //InitializePLCConfigs();
+                //InitializePLCRWConfigs();
+                //InitializePLCAddressConfigs();
                 InitializeUsers();
                 InitializeWorkSpaceProjects();
                 //InitializeMESSettings();// 后续启用

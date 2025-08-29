@@ -1,14 +1,7 @@
-﻿using Mapster;
-using SqlSugar;
-using SUNWODA_SEVB.Core.Entities;
+﻿using SqlSugar;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Data.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.Data.Repositories
 {

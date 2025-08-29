@@ -1,7 +1,13 @@
-﻿using SUNWODA_SEVB.Core.Attributes;
+﻿using System.Collections.ObjectModel;
+using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.PLC;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.PLC;
+using SUNWODA_SEVB.Data.Models;
+using SUNWODA_SEVB.PLC;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.Demo
 {
@@ -31,6 +37,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
         public override void OnInitialize()
         {
             // ViewModel初始化完成后调用
+            BindingString = "业务开发演示";
             // 重写OnInitialize方法，这里可以初始化一些变量数据，还有一个异步方法OnInitializeAsync
             base.OnInitialize();
         }
@@ -44,7 +51,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
 
         public override void OnNavigatedTo(object? parameter)
         {
-            BindingString = "业务开发演示";
             // 导航完成后调用，初始加载一些需要绑定的数据，还有一个异步方法OnNavigatedToAsync
             base.OnNavigatedTo(parameter);
         }

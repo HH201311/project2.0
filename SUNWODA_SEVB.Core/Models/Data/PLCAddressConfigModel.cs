@@ -1,6 +1,4 @@
-﻿
-
-namespace SUNWODA_SEVB.Core.Entities
+﻿namespace SUNWODA_SEVB.Core.Models.Data
 {
     public class PLCAddressConfigModel
     {

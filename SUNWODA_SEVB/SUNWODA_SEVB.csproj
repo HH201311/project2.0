@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SUNWODA_SEVB.Component\SUNWODA_SEVB.Component.csproj" />
+    <ProjectReference Include="..\SUNWODA_SEVB.ConfigTool\SUNWODA_SEVB.ConfigTool.csproj" />
     <ProjectReference Include="..\SUNWODA_SEVB.Data\SUNWODA_SEVB.Data.csproj" />
     <ProjectReference Include="..\SUNWODA_SEVB.Logging\SUNWODA_SEVB.Logging.csproj" />
     <ProjectReference Include="..\SUNWODA_SEVB.PLC\SUNWODA_SEVB.PLC.csproj" />

@@ -1,4 +1,4 @@
-﻿using SUNWODA_SEVB.Core.Entities;
+﻿using SUNWODA_SEVB.Core.Models.Data;
 
 namespace SUNWODA_SEVB.Core.Interfaces.Data
 {

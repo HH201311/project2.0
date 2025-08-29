@@ -13,7 +13,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// </summary>
     public class VideoCaptureHelper
     {
-        private string name;
+        private string? name;
         private bool isRelease;
         private string rtspUrl;
         // 自动重加重连
@@ -22,14 +22,14 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 名称
         /// </summary>
-        public string Name { get { return name; } }
+        public string? Name { get { return name; } }
 
         /// <summary>
         /// RTSP地址
         /// </summary>
         public string RtspUrl { get { return rtspUrl; } }
 
-        public VideoCapture videoCapture;
+        public VideoCapture? videoCapture;
 
         /// <summary>
         /// 构造函数
@@ -37,7 +37,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <param name="name"></param>
         /// <param name="rtspUrl"></param>
         /// <param name="isReconnect"></param>
-        public VideoCaptureHelper(string name, string rtspUrl, bool isReconnect = true)
+        public VideoCaptureHelper(string? name, string rtspUrl, bool isReconnect = true)
         {
             this.name = name;
             this.rtspUrl = rtspUrl;
@@ -107,7 +107,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             try
             {
-                if (!videoCapture.IsOpened())
+                if (videoCapture == null || !videoCapture.IsOpened())
                     throw new Exception("无法打开摄像头！");
 
                 // 获取视频的fps/宽度和高度
@@ -160,7 +160,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 当视频流读取时操作-建议异步
         /// </summary>
-        public event OnReadingFrame ExecuteFreame;
+        public event OnReadingFrame? ExecuteFreame;
 
         /// <summary>
         /// 开始读视频流
@@ -186,7 +186,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <param name="action"></param>
         /// <param name="ct"></param>
         /// <returns></returns>
-        private async void VideoReadingAsync(OnReadingFrame executeFreame, CancellationToken ct)
+        private async void VideoReadingAsync(OnReadingFrame? executeFreame, CancellationToken ct)
         {
             var t = Task.Factory.StartNew(async (obj) =>
             {
@@ -211,7 +211,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                                 continue;
                             }
                             // 执行委托
-                            _action?.Invoke(frame?.Clone());
+                            _action?.Invoke(frame.Clone());
                             // 若取消则退出
                             if (ct.IsCancellationRequested) break;
                         }
@@ -256,7 +256,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                                 continue;
                             }
                             // 执行委托
-                            _action?.Invoke(frame?.Clone());
+                            _action?.Invoke(frame.Clone());
                             // 若取消则退出
                             if (ct.IsCancellationRequested) break;
                         }
@@ -275,7 +275,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             await Task.Run(async () =>
             {
-                if (!videoCapture.IsOpened())
+                if (videoCapture == null || !videoCapture.IsOpened())
                 {
                     throw new InvalidOperationException("无法打开摄像头！");
                 }
@@ -373,6 +373,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                     // 创建输出目录
                     var outputDirPath = Path.GetDirectoryName(outputPath);
+                    if (outputDirPath == null) throw new NullReferenceException("保存路径为空！");
                     if (!Directory.Exists(outputDirPath))
                         Directory.CreateDirectory(outputDirPath);
 
@@ -410,6 +411,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             this.isRelease = true;
             videoCapture?.Dispose();
+            videoCapture = null;
         }
     }
 }

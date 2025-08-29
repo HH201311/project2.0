@@ -52,4 +52,13 @@
     <Folder Include="Assets\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="OpenNetV8">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\OpenNetV8.dll</HintPath>
+    </Reference>
+    <Reference Include="YoloV8Net">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YoloV8Net.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

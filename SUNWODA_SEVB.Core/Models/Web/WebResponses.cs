@@ -80,6 +80,31 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public object? DataStr { get; set; }
     }
 
+    public class DownloadDllResponse
+    {
+        /// <summary>
+        /// 是否成功编码，200表示成功，其余表示失败
+        /// </summary>
+        public string? Code { get; set; }
+        /// <summary>
+        /// 文本信息
+        /// </summary>
+        public string? Message { get; set; }
+        /// <summary>
+        /// 返回python脚本执行的数据
+        /// </summary>
+        public string? Data { get; set; }
+        /// <summary>
+        /// 成功为true，失败为false
+        /// </summary>
+        public bool Success { get; set; }
+        /// <summary>
+        /// 接收到的字节流文件数据
+        /// </summary>
+        [JsonIgnore]
+        public byte[]? DataStr { get; set; }
+    }
+
     /// <summary>
     /// 文件版本响应
     /// </summary>

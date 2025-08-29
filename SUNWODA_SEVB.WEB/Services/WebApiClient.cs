@@ -1,9 +1,12 @@
-﻿using System.Diagnostics;
-using System.IO;
+﻿using Newtonsoft.Json;
+using Org.BouncyCastle.Ocsp;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
 
 namespace SUNWODA_SEVB.WEB.Services
 {
@@ -52,7 +55,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}machine/insert";
 
                 var json = JsonHelper.Serialize(request);
-                var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json));
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json)));
 
                 if (!result.Contains("failed"))
                 {
@@ -139,7 +142,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 var statusCode = response?.Code ?? 0;
                 //_logger.LogWebInterface(url, "GET", string.Join("&", parameters.Select(kv => $"{kv.Key}={kv.Value}")), result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
 
-                var hasFailedKeyword = !string.IsNullOrEmpty(result) &&result.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0;
+                var hasFailedKeyword = !string.IsNullOrEmpty(result) && result.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0;
 
                 if (!hasFailedKeyword)
                 {
@@ -195,7 +198,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
 
                 var sw = Stopwatch.StartNew();
-                var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json, headers));
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, headers)));
                 sw.Stop();
 
                 PcInfoResponse? response = null;
@@ -213,7 +216,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 }
 
                 var statusCode = response?.Code ?? 0;
-                _logger.LogWebInterface(url, "pcinfo",json??string.Empty,result??string.Empty, statusCode, sw.ElapsedMilliseconds);
+                _logger.LogWebInterface(url, "pcinfo", json ?? string.Empty, result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
 
                 var hasFailedKeyword = !string.IsNullOrEmpty(result) &&
                                result.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -430,7 +433,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
 
                 var json = JsonHelper.Serialize(request);
-                var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json"));
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
 
                 // 尝试反序列化，如果失败则将结果作为 DataStr 返回
                 if (JsonHelper.TryDeserialize<SysCenterFileResponse>(result, out var response) && response != null)
@@ -449,6 +452,66 @@ namespace SUNWODA_SEVB.WEB.Services
             {
                 _logger.Error("SysCenter文件下载API调用失败", ex);
                 return new SysCenterFileResponse
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        public async Task<DownloadDllResponse> DownloadDllAsync(string appKey, string signature, string pythonCode, string executeType)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new DownloadDllResponse
+                    {
+                        Success = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{settings.WebTestUrlSysCenter}sysCenter/interfaceApi/downloadFile";
+                var request = new DownloadDllRequest
+                {
+                    AppKey = appKey,
+                    Signature = signature,
+                    PythonCode = pythonCode,
+                    ExecuteType = executeType
+                };
+
+                var json = JsonHelper.Serialize(request);
+                var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json"));
+
+                // 接口报错返回字符串包含failed
+                if (Encoding.Default.GetString(result).Contains("failed"))
+                {
+                    return new DownloadDllResponse
+                    {
+                        Success = false,
+                        Message = Encoding.Default.GetString(result)
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<DownloadDllResponse>(Encoding.Default.GetString(result), out var response) && response != null)
+                {
+                    return response;
+                }
+
+                // 如果不能反序列化为 DownloadDllResponse，则将原始结果作为 DataStr 返回
+                return new DownloadDllResponse
+                {
+                    Success = true,
+                    DataStr = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("SysCenter文件下载API调用失败", ex);
+                return new DownloadDllResponse
                 {
                     Success = false,
                     Message = ex.Message

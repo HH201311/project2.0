@@ -80,24 +80,11 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public object? DataStr { get; set; }
     }
 
-    public class DownloadDllResponse
+    /// <summary>
+    /// 库文件.dll下载接口响应
+    /// </summary>
+    public class DownloadDllResponse : BaseResponse
     {
-        /// <summary>
-        /// 是否成功编码，200表示成功，其余表示失败
-        /// </summary>
-        public string? Code { get; set; }
-        /// <summary>
-        /// 文本信息
-        /// </summary>
-        public string? Message { get; set; }
-        /// <summary>
-        /// 返回python脚本执行的数据
-        /// </summary>
-        public string? Data { get; set; }
-        /// <summary>
-        /// 成功为true，失败为false
-        /// </summary>
-        public bool Success { get; set; }
         /// <summary>
         /// 接收到的字节流文件数据
         /// </summary>
@@ -113,5 +100,55 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public bool Success { get; set; }
         public string? Message { get; set; }
         public string? Version { get; set; }
+    }
+
+    /// <summary>
+    /// UE端数据接收接口响应
+    /// 备注：视觉机损检测
+    /// </summary>
+    public class AiDetectionDataResponse : BaseResponse
+    {
+        /// <summary>
+        /// 返回信息
+        /// </summary>
+        [JsonPropertyName("data")]
+        public string? Data { get; set; } // UUID
+    }
+
+    /// <summary>
+    /// 摄像头新增接口响应
+    /// </summary>
+    public class AddCameraResponse : BaseResponse
+    {
+        /// <summary>
+        /// 返回信息
+        /// </summary>
+        [JsonPropertyName("data")]
+        public string? Data { get; set; } // UUID
+    }
+
+    /// <summary>
+    /// 摄像头更新接口响应
+    /// </summary>
+    public class UpdateCameraResponse : BaseResponse
+    {
+        /// <summary>
+        /// 返回信息
+        /// </summary>
+        [JsonPropertyName("data")]
+        public string? Data { get; set; } // UUID
+    }
+
+    /// <summary>
+    /// UE端数据接收接口响应
+    /// 备注：轨迹检测
+    /// </summary>
+    public class TrajectoryDataResponse : BaseResponse
+    {
+        /// <summary>
+        /// 返回信息
+        /// </summary>
+        [JsonPropertyName("data")]
+        public string? Data { get; set; } // UUID
     }
 }

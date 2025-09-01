@@ -7,6 +7,8 @@ using SUNWODA_SEVB.Tool.Helper;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks.Dataflow;
+using static SUNWODA_SEVB.Tool.Helper.NetworkHelper;
 
 namespace SUNWODA_SEVB.WEB.Services
 {
@@ -459,6 +461,14 @@ namespace SUNWODA_SEVB.WEB.Services
             }
         }
 
+        /// <summary>
+        /// 库文件.dll下载接口
+        /// </summary>
+        /// <param name="appKey"></param>
+        /// <param name="signature"></param>
+        /// <param name="pythonCode"></param>
+        /// <param name="executeType"></param>
+        /// <returns></returns>
         public async Task<DownloadDllResponse> DownloadDllAsync(string appKey, string signature, string pythonCode, string executeType)
         {
             try
@@ -468,7 +478,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 {
                     return new DownloadDllResponse
                     {
-                        Success = false,
+                        IsSuccess = false,
                         Message = "WebTestUrlSysCenter未配置"
                     };
                 }
@@ -490,7 +500,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 {
                     return new DownloadDllResponse
                     {
-                        Success = false,
+                        IsSuccess = false,
                         Message = Encoding.Default.GetString(result)
                     };
                 }
@@ -504,7 +514,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 // 如果不能反序列化为 DownloadDllResponse，则将原始结果作为 DataStr 返回
                 return new DownloadDllResponse
                 {
-                    Success = true,
+                    IsSuccess = true,
                     DataStr = result
                 };
             }
@@ -513,7 +523,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 _logger.Error("SysCenter文件下载API调用失败", ex);
                 return new DownloadDllResponse
                 {
-                    Success = false,
+                    IsSuccess = false,
                     Message = ex.Message
                 };
             }
@@ -554,6 +564,304 @@ namespace SUNWODA_SEVB.WEB.Services
                 return new FileVersionResponse
                 {
                     Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// UE端数据接收接口-视觉机损检测
+        /// </summary>
+        /// <param name="barCode"></param>
+        /// <param name="abnormalTimeStamp"></param>
+        /// <param name="score"></param>
+        /// <param name="defectWidth"></param>
+        /// <param name="defectHeight"></param>
+        /// <param name="defectArea"></param>
+        /// <param name="detectionResult"></param>
+        /// <param name="pictureFile"></param>
+        /// <returns></returns>
+        public async Task<AiDetectionDataResponse> AiDetectionDataAsync(string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new AiDetectionDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/aiDetectionData";
+                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
+                var request = new AiDetectionDataRequest
+                {
+                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
+                    Position = settings.DeviceName ?? "",
+                    BarCode = barCode,
+                    AbnormalTimeStamp = abnormalTimeStamp,
+                    Score = score,
+                    DefectWidth = defectWidth,
+                    DefectHeight = defectHeight,
+                    DefectArea = defectArea,
+                    DetectionResult = detectionResult,
+                    PictureFile = pictureFile
+                };
+
+                var json = JsonHelper.Serialize(request);
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "multipart/form-data")));
+
+                // 接口报错返回字符串包含failed
+                if (result.Contains("failed"))
+                {
+                    return new AiDetectionDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = result
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<AiDetectionDataResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new AiDetectionDataResponse
+                {
+                    IsSuccess = false,
+                    Message = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("UE端数据上传API调用失败", ex);
+                return new AiDetectionDataResponse
+                {
+                    IsSuccess = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 摄像头新增接口
+        /// </summary>
+        /// <param name="ipAddress"></param>
+        /// <param name="cameraSn"></param>
+        /// <returns></returns>
+        public async Task<AddCameraResponse> AddCameraAsync(string ipAddress, string cameraSn)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new AddCameraResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{settings.WebTestUrlSysCenter}eeService/device/addCamera";
+                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
+                var request = new AddCameraRequest
+                {
+                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
+                    Position = settings.DeviceName ?? "",
+                    IpAddress = ipAddress,
+                    CameraSn = cameraSn,
+                };
+
+                var json = JsonHelper.Serialize(request);
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
+
+                // 接口报错返回字符串包含failed
+                if (result.Contains("failed"))
+                {
+                    return new AddCameraResponse
+                    {
+                        IsSuccess = false,
+                        Message = result
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<AddCameraResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new AddCameraResponse
+                {
+                    IsSuccess = false,
+                    Message = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("摄像头新增API调用失败", ex);
+                return new AddCameraResponse
+                {
+                    IsSuccess = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 摄像头更新接口
+        /// </summary>
+        /// <param name="ipAddress"></param>
+        /// <param name="cameraSn"></param>
+        /// <param name="enable"></param>
+        /// <returns></returns>
+        public async Task<UpdateCameraResponse> UpdateameraAsync(string ipAddress, string cameraSn, int enable)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new UpdateCameraResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{settings.WebTestUrlSysCenter}eeService/device/updateCamera";
+                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
+                var request = new UpdateCameraRequest
+                {
+                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
+                    Position = settings.DeviceName ?? "",
+                    IpAddress = ipAddress,
+                    CameraSn = cameraSn,
+                    Enable = enable
+                };
+
+                var json = JsonHelper.Serialize(request);
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
+
+                // 接口报错返回字符串包含failed
+                if (result.Contains("failed"))
+                {
+                    return new UpdateCameraResponse
+                    {
+                        IsSuccess = false,
+                        Message = result
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<UpdateCameraResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new UpdateCameraResponse
+                {
+                    IsSuccess = false,
+                    Message = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("摄像头更新API调用失败", ex);
+                return new UpdateCameraResponse
+                {
+                    IsSuccess = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// UE端数据接收-轨迹检测
+        /// </summary>
+        /// <param name="barCode"></param>
+        /// <param name="abnormalTimeStamp"></param>
+        /// <param name="abnormalTimeStampEnd"></param>
+        /// <param name="detectionResult"></param>
+        /// <param name="file"></param>
+        /// <param name="aiPointListDtoList"></param>
+        /// <returns></returns>
+        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<AiPointListDto> aiPointListDtoList)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new TrajectoryDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
+                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
+                var request = new TtrajectoryDataRequest
+                {
+                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
+                    Position = settings.DeviceName ?? "",
+                    BarCode = barCode,
+                    AbnormalTimeStamp = abnormalTimeStamp,
+                    AbnormalTimeStampEnd = abnormalTimeStampEnd,
+                    DetectionResult = detectionResult,
+                    File = file,
+                    AiPointListDtoList = aiPointListDtoList
+                };
+
+                var json = JsonHelper.Serialize(request);
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "multipart/form-data")));
+
+                // 接口报错返回字符串包含failed
+                if (result.Contains("failed"))
+                {
+                    return new TrajectoryDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = result
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<TrajectoryDataResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new TrajectoryDataResponse
+                {
+                    IsSuccess = false,
+                    Message = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("UE端数据接收API调用失败", ex);
+                return new TrajectoryDataResponse
+                {
+                    IsSuccess = false,
                     Message = ex.Message
                 };
             }

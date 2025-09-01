@@ -50,6 +50,8 @@
 
   <ItemGroup>
     <Folder Include="Assets\" />
+    <Folder Include="ViewModels\Pages\CCTB\" />
+    <Folder Include="Views\Pages\CCTB\" />
   </ItemGroup>
 
   <ItemGroup>

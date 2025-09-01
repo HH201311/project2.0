@@ -1,4 +1,5 @@
 ﻿using OpenCvSharp;
+using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Tool.Extension;
 using System;
 using System.Globalization;
@@ -31,14 +32,17 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         public VideoCapture? videoCapture;
 
+        private readonly ILoggerService _logger;
+
         /// <summary>
         /// 构造函数
         /// </summary>
         /// <param name="name"></param>
         /// <param name="rtspUrl"></param>
         /// <param name="isReconnect"></param>
-        public VideoCaptureHelper(string? name, string rtspUrl, bool isReconnect = true)
+        public VideoCaptureHelper(ILoggerService logger, string? name, string rtspUrl, bool isReconnect = true)
         {
+            _logger = logger;
             this.name = name;
             this.rtspUrl = rtspUrl;
             this.isReconnect = isReconnect;
@@ -72,7 +76,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     // 优化缓冲区和超时设置
                     videoCapture.Set(VideoCaptureProperties.BufferSize, 1);
                     // 输出log
-                    Console.WriteLine($"设备[{name}]连接[{videoCapture?.IsOpened() ?? false}]");
+                    _logger.Info($"设备[{name}]连接[{videoCapture?.IsOpened() ?? false}]");
                 }
                 while (isReconnect && !isRelease);
             });
@@ -140,12 +144,12 @@ namespace SUNWODA_SEVB.Tool.Helper
                     currentOutputPath = Path.Combine(outputDirectory, fileName);
                     writer.Dispose();
                     writer = new VideoWriter(currentOutputPath, fourCC, fps, size);
-                    if (!writer.IsOpened()) Console.WriteLine($"无法创建输出视频文件: {currentOutputPath}");
+                    if (!writer.IsOpened()) _logger.Info($"无法创建输出视频文件: {currentOutputPath}");
                 }), ct);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                _logger.Error(ex.Message);
                 throw ex;
             }
         }
@@ -200,14 +204,14 @@ namespace SUNWODA_SEVB.Tool.Helper
                             // 摄像头未打开
                             if (!(videoCapture?.IsOpened() ?? false))
                             {
-                                Console.WriteLine($"设备[{Name}]打开失败，等待重连！");
+                                _logger.Error($"设备[{Name}]打开失败，等待重连！");
                                 await Task.Delay(1000);
                                 continue;
                             }
                             // 读取视频帧
                             if (!videoCapture.Read(frame) || frame.Empty())
                             {
-                                Console.WriteLine($"设备[{Name}]读取视频帧失败！");
+                                _logger.Error($"设备[{Name}]读取视频帧失败！");
                                 continue;
                             }
                             // 执行委托
@@ -219,7 +223,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
+                    _logger.Error(ex.Message);
                     throw ex;
                 }
             }, executeFreame, ct);
@@ -245,14 +249,14 @@ namespace SUNWODA_SEVB.Tool.Helper
                         {
                             if (!(videoCapture?.IsOpened() ?? false))
                             {
-                                Console.WriteLine($"设备[{Name}]打开失败，等待重连！");
+                                _logger.Error($"设备[{Name}]打开失败，等待重连！");
                                 await Task.Delay(1000);
                                 continue;
                             }
                             // 读取视频帧
                             if (!videoCapture.Read(frame) || frame.Empty())
                             {
-                                Console.WriteLine($"设备[{Name}]读取视频帧失败！");
+                                _logger.Equals($"设备[{Name}]读取视频帧失败！");
                                 continue;
                             }
                             // 执行委托
@@ -264,7 +268,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
+                    _logger.Equals(ex.Message);
                     throw ex;
                 }
             }, action, ct);
@@ -308,7 +312,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"视频读取过程中发生错误: {ex.Message}");
+                    _logger.Error($"视频读取过程中发生错误: {ex.Message}");
                     throw;
                 }
             }, ct);
@@ -327,7 +331,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"写入视频帧时发生错误: {ex.Message}");
+                    _logger.Error($"写入视频帧时发生错误: {ex.Message}");
                 }
                 finally
                 {

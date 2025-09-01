@@ -1,4 +1,5 @@
 ﻿using Dm.filter;
+using NLog;
 using OpenCvSharp;
 using OpenNetV8;
 using SUNWODA_SEVB.Core.Attributes;
@@ -44,6 +45,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             _globalSettingRepository = globalSettingRepository;
             _plcConfigRepository = plcConfigRepository;
             _webApiClient = webApiClient;
+
             Init_Process();
         }
 
@@ -57,7 +59,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="executeType"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private async Task<byte[]> DownloadFile(string pythonCode, string appKey, string publicKey, string executeType = "PRED")
+        private async Task<byte[]> DownloadDll(string pythonCode, string appKey, string publicKey, string executeType = "PRED")
         {
             var xmlPublicKey = RasHelper.ToXmlPublicKey(publicKey);
             var signature = RasHelper.RSAEncrypt(xmlPublicKey, appKey);
@@ -224,11 +226,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         private async void Init_Process()
         {
             // 从web获取AI视频流算法  —— TODO
-            var bytes = await DownloadFile("ZZ_YY_C01_DP_DLL", "ZZ_YY", "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCQiNCeYgNIL35V99cJ0giEOtOCd6tf9fVEVCuFmFu0zuskPJYB0D1pUcYjLtJfadGa1HflWYINl/zk9bq0fDipuz5vPkswsp0N4efiVzwoBbzUTpLPePNkpb6rDyd+3RUNAC8UtZU2ptKGCNVvvgMQGZp+2mnIKPamuEXzK5qkkwIDAQAB");
+            var bytes = await DownloadDll("ZZ_YY_C01_DP_DLL", "ZZ_YY", "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCQiNCeYgNIL35V99cJ0giEOtOCd6tf9fVEVCuFmFu0zuskPJYB0D1pUcYjLtJfadGa1HflWYINl/zk9bq0fDipuz5vPkswsp0N4efiVzwoBbzUTpLPePNkpb6rDyd+3RUNAC8UtZU2ptKGCNVvvgMQGZp+2mnIKPamuEXzK5qkkwIDAQAB");
             var cameras = Init_Camera();
             foreach (var cameraInfo in cameras)
             {
-                var camera = new VideoCaptureHelper(cameraInfo.Name, $"rtsp://{cameraInfo.IP}:{cameraInfo.Port}/{cameraInfo.Remake}");
+                var camera = new VideoCaptureHelper(_logger, cameraInfo.Name, $"rtsp://{cameraInfo.IP}:{cameraInfo.Port}/{cameraInfo.Remake}");
                 camera.Connect();
 
                 // 启动流程

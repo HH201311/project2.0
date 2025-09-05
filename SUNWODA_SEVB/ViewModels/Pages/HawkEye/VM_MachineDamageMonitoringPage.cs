@@ -341,7 +341,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             /// </summary>
             public string? Protocol { get; set; }
 
-            private int state;
+            //private int state;
             /// <summary>
             /// 连接状态
             /// </summary>

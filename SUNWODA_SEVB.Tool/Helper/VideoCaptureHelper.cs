@@ -150,7 +150,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             catch (Exception ex)
             {
                 _logger.Error(ex.Message);
-                throw ex;
+                throw ;
             }
         }
 
@@ -224,7 +224,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 catch (Exception ex)
                 {
                     _logger.Error(ex.Message);
-                    throw ex;
+                    throw ;
                 }
             }, executeFreame, ct);
             await t;
@@ -256,7 +256,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                             // 读取视频帧
                             if (!videoCapture.Read(frame) || frame.Empty())
                             {
-                                _logger.Equals($"设备[{Name}]读取视频帧失败！");
+                                _logger.Error($"设备[{Name}]读取视频帧失败！");
                                 continue;
                             }
                             // 执行委托
@@ -268,8 +268,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 catch (Exception ex)
                 {
-                    _logger.Equals(ex.Message);
-                    throw ex;
+                    _logger.Error(ex.Message);
+                    throw ;
                 }
             }, action, ct);
             await t;

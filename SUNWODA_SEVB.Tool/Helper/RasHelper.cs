@@ -154,14 +154,14 @@ namespace SUNWODA_SEVB.Tool.Helper
             {
                 var rsaParams = new RSAParameters()
                 {
-                    Modulus = privateKeyParams.Modulus.ToByteArrayUnsigned(),
-                    Exponent = privateKeyParams.PublicExponent.ToByteArrayUnsigned(),
-                    D = privateKeyParams.Exponent.ToByteArrayUnsigned(),
-                    DP = privateKeyParams.DP.ToByteArrayUnsigned(),
-                    DQ = privateKeyParams.DQ.ToByteArrayUnsigned(),
-                    P = privateKeyParams.P.ToByteArrayUnsigned(),
-                    Q = privateKeyParams.Q.ToByteArrayUnsigned(),
-                    InverseQ = privateKeyParams.QInv.ToByteArrayUnsigned()
+                    Modulus = privateKeyParams?.Modulus.ToByteArrayUnsigned(),
+                    Exponent = privateKeyParams?.PublicExponent.ToByteArrayUnsigned(),
+                    D = privateKeyParams?.Exponent.ToByteArrayUnsigned(),
+                    DP = privateKeyParams?.DP.ToByteArrayUnsigned(),
+                    DQ = privateKeyParams?.DQ.ToByteArrayUnsigned(),
+                    P = privateKeyParams?.P.ToByteArrayUnsigned(),
+                    Q = privateKeyParams?.Q.ToByteArrayUnsigned(),
+                    InverseQ = privateKeyParams?.QInv.ToByteArrayUnsigned()
                 };
                 rsa.ImportParameters(rsaParams);
                 return rsa.ToXmlString(true);
@@ -180,8 +180,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             {
                 var rsaParams = new RSAParameters
                 {
-                    Modulus = p.Modulus.ToByteArrayUnsigned(),
-                    Exponent = p.Exponent.ToByteArrayUnsigned()
+                    Modulus = p?.Modulus.ToByteArrayUnsigned(),
+                    Exponent = p?.Exponent.ToByteArrayUnsigned()
                 };
                 rsa.ImportParameters(rsaParams);
                 return rsa.ToXmlString(false);

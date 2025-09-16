@@ -1,4 +1,5 @@
 ﻿using Dm.filter;
+using Microsoft.IdentityModel.Tokens;
 using NLog;
 using OpenCvSharp;
 using OpenNetV8;
@@ -13,6 +14,7 @@ using SUNWODA_SEVB.ViewModels.Pages.Demo;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -153,8 +155,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <summary>
         /// 执行推理算法：推理多帧图片输出结果
         /// </summary>
-        /// <param name="AIModels"></param>
         /// <param name="FrameList"></param>
+        /// <param name="AIModels"></param>
         /// <param name="ModelAction"></param>
         /// <param name="YingYanAI"></param>
         /// <returns></returns>
@@ -287,10 +289,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
                     // 执行视觉推理算法
                     var re = Execute_ModelAction(frameLis, aiModels, objInfo.ModelAction, objInfo.YingYanAI);
-                    if (!re.IsValid || re.AIResult == null)
+                    // 垃圾帧，跳过
+                    if (!re.IsValid) continue;
+                    // 如果存在null，则有异常
+                    if (re.AIResult == null || re.AIResult.Exists(o => o.IsNullOrEmpty()) || re.AIResult.Exists(o => o.Exists(p => p == null)))
                     {
                         // -TODO   执行异常视频流上传WEB
-                        NGFramesUpLoadWebAsync(frameLis);
+                        NGFramesUpLoadWebAsync(frameLis, re.AIResult);
                         _logger?.Error($"[{camera.Name}]视觉算法推理失败：[{re.IsValid}]-[{re.ExInfo}]");
                         continue;
                     }
@@ -306,12 +311,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// 视频流上传web
         /// </summary>
         /// <param name="frameLis"></param>
+        /// <param name="AIResult"></param>
         /// <returns></returns>
-        private async void NGFramesUpLoadWebAsync(List<Mat> frameLis)
+        private async void NGFramesUpLoadWebAsync(List<Mat> frameLis, List<List<AIResultModel>>? AIResult)
         {
             var t = Task.Factory.StartNew(() =>
             {
-                // -TOD   上传WEB
+                // -TODO    原图处理为结果图（原图中绘制AI检测结果的框框-opencv实现）
+                // -TODO    上传WEB
             });
             await t;
         }

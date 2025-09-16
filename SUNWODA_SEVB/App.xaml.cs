@@ -35,7 +35,8 @@ namespace SUNWODA_SEVB
 
             try
             {
-                ConfigurationGenerator.GenerateDefaultEncryptedConfig();
+                // 确保配置文件存在且有效
+                ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host
                 _host = BuildHost();
 
@@ -54,7 +55,7 @@ namespace SUNWODA_SEVB
                 // 步骤4：配置NLog数据库目标（数据库就绪后）
                 await ConfigureNLogDatabase(appLogger);
 
-                // 步骤5：初始化MES服务（可选）
+                // 步骤5：初始化MES服务
                 await InitializeMESService(appLogger);
 
                 // 步骤6：初始化应用设置
@@ -458,20 +459,34 @@ namespace SUNWODA_SEVB
             {
                 try
                 {
+                    var config = _host.Services.GetRequiredService<IConfiguration>();
+                    var appLogRetentionDays = config.GetValue<int>("LogCleanup:AppLogRetentionDays");
+                    var interfaceLogRetentionDays = config.GetValue<int>("LogCleanup:InterfaceLogRetentionDays");
+                    var maxDatabaseSizeMB = config.GetValue<int>("LogCleanup:MaxDatabaseSizeMB");
+
                     var appLogRepo = scope.ServiceProvider.GetRequiredService<IAppLogRepository>();
                     var mesLogRepo = scope.ServiceProvider.GetRequiredService<IMesInterfaceLogRepository>();
                     var webLogRepo = scope.ServiceProvider.GetRequiredService<IWebInterfaceLogRepository>();
 
                     // 清理应用日志（7天）
-                    var appLogCount = await appLogRepo.DeleteOldLogsAsync(7);
+                    var appLogTimeBasedCount = await appLogRepo.DeleteOldLogsAsync(appLogRetentionDays);
+
+                    // 检查应用日志数据库大小，如果超过100M则按大小清理
+                    var databaseSizeMB = await appLogRepo.GetDatabaseSizeAsync();
+                    int appLogSizeBasedCount = 0;
+                    if (databaseSizeMB > maxDatabaseSizeMB)
+                    {
+                        appLogSizeBasedCount = await appLogRepo.DeleteLogsBySize(maxDatabaseSizeMB);
+                        logger?.Info($"应用日志按大小清理完成，删除了 {appLogSizeBasedCount} 条日志，当前数据库大小: {databaseSizeMB:F2}MB");
+                    }
 
                     // 清理MES日志（30天）
-                    var mesLogCount = await mesLogRepo.DeleteOldLogsAsync(30);
+                    var mesLogCount = await mesLogRepo.DeleteOldLogsAsync(interfaceLogRetentionDays);
 
                     // 清理Web日志（30天）
-                    var webLogCount = await webLogRepo.DeleteOldLogsAsync(30);
+                    var webLogCount = await webLogRepo.DeleteOldLogsAsync(interfaceLogRetentionDays);
 
-                    logger?.Info($"数据库日志清理完成 - 应用日志: {appLogCount}条, MES日志: {mesLogCount}条, Web日志: {webLogCount}条");
+                    logger?.Info($"数据库日志清理完成 - 应用日志(时间): {appLogTimeBasedCount}条, 应用日志(大小): {appLogSizeBasedCount}条, MES日志: {mesLogCount}条, Web日志: {webLogCount}条");
                 }
                 catch (Exception ex)
                 {
@@ -526,41 +541,7 @@ namespace SUNWODA_SEVB
             public int SizeBasedCount { get; set; }
         }
 
-        /// <summary>
-        /// 清理应用日志 - 支持按时间和大小两种方式
-        /// </summary>
-        private async Task<AppLogCleanupResult> CleanupAppLogs(
-            IAppLogRepository appLogRepo,
-            ILoggerService<App>? logger
-        )
-        {
-            var result = new AppLogCleanupResult();
-
-            try
-            {
-                // 1. 按时间清理：删除7天前的日志
-                result.TimeBasedCount = await appLogRepo.DeleteOldLogsAsync(7);
-
-                // 2. 按大小清理：检查数据库大小，如果超过100M则删除更多日志
-                var databaseSizeMB = await appLogRepo.GetDatabaseSizeAsync();
-
-                if (databaseSizeMB > 100)
-                {
-                    logger?.Info($"应用日志数据库大小已达到 {databaseSizeMB:F2}MB，开始按大小清理");
-
-                    // 删除直到数据库小于100MB
-                    result.SizeBasedCount = await appLogRepo.DeleteLogsBySize(100);
-
-                    logger?.Info($"按大小清理完成，删除了 {result.SizeBasedCount} 条日志");
-                }
-            }
-            catch (Exception ex)
-            {
-                logger?.Error("应用日志清理过程中发生错误", ex);
-            }
-
-            return result;
-        }
+       
 
         protected override async void OnExit(ExitEventArgs e)
         {
@@ -595,35 +576,6 @@ namespace SUNWODA_SEVB
             }
         }
 
-        /// <summary>
-        /// 运行数据层测试
-        /// </summary>
-        private async Task RunDataLayerTests()
-        {
-            var logger = _host?.Services.GetRequiredService<ILoggerService<App>>();
-
-            try
-            {
-                logger?.Info("========== 开始数据层测试 ==========");
-
-                var test = new DataLayerTest(_host!.Services);
-
-                Console.WriteLine("===== 设备表CRUD测试 =====");
-                await test.TestDeviceCRUD();
-
-                Console.WriteLine("\n\n===== 全局设置CRUD测试 =====");
-                await test.TestGlobalSettingCRUD();
-
-                Console.WriteLine("\n\n===== 事务测试 =====");
-                await test.TestTransaction();
-
-                logger?.Info("========== 数据层测试完成 ==========");
-            }
-            catch (Exception ex)
-            {
-                logger?.Error("数据层测试失败", ex);
-                throw;
-            }
-        }
+       
     }
 }

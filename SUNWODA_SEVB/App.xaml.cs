@@ -20,6 +20,8 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.WEB;
 using System.IO;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 
 
 namespace SUNWODA_SEVB
@@ -32,7 +34,7 @@ namespace SUNWODA_SEVB
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-
+            //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
                 // 确保配置文件存在且有效

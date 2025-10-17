@@ -30,6 +30,7 @@
     <Folder Include="Animations\" />
     <Folder Include="Behaviors\" />
     <Folder Include="Selectors\" />
+    <Folder Include="UserControls\Project\HawkEye\" />
   </ItemGroup>
 
 </Project>

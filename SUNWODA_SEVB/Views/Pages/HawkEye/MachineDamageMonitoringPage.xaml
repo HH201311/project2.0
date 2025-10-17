@@ -6,6 +6,7 @@
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.HawkEye"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls;assembly=SUNWODA_SEVB.Component"
+    xmlns:cc ="https://github.com/reactivemarbles/CrissCross"
     Title="MachineDamageMonitoringPage"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -28,7 +29,7 @@
                 VerticalAlignment="Center"
                 FontSize="50"
                 Text="视频流控件" />
-            <uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />
+            <cc:WebView2Wpf Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />
         </Grid>
 
         <Grid Grid.Row="1" Margin="5,0,5,5">

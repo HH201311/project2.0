@@ -1,0 +1,95 @@
+﻿<Border
+    x:Class="SUNWODA_SEVB.Views.Dialogs.HawkEye.AddCameraDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.HawkEye"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Width="546"
+    Background="White"
+    CornerRadius="10"
+    mc:Ignorable="d">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <DockPanel LastChildFill="True">
+            <TextBlock Text="检测到新设备接入..." DockPanel.Dock="Left" VerticalAlignment="Center"/>
+            <Button
+                Margin="0,0,0,10"
+                HorizontalAlignment="Right"
+                hc:IconElement.Geometry="{StaticResource CloseGeometry}"
+                BorderThickness="0"
+                Command="{Binding CloseCommand}">
+                <Button.Style>
+                    <Style BasedOn="{StaticResource ButtonIconCircular}" TargetType="Button">
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#ff5858" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="False">
+                                <Setter Property="Background" Value="#e1e1e1" />
+                                <Setter Property="Foreground" Value="Black" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </DockPanel>
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <!--基本信息-->
+            <StackPanel Grid.Row="0" Grid.Column="0" Background="White" Orientation="Vertical">
+                <DockPanel LastChildFill="False" Margin="5">
+                    <TextBlock Text="是否启用:" DockPanel.Dock="Left" Width="80" TextAlignment="Left" VerticalAlignment="Center" FontSize="14PX" FontWeight="Black"/>
+                    <Rectangle Width="10"/>
+                    <CheckBox IsChecked="{Binding CameraModel.Enable}" Content="启用" Margin="0,10,0,10" VerticalContentAlignment="Center" BorderBrush="Blue" FontSize="14PX" FontWeight="Black"/>
+                </DockPanel>
+                <DockPanel LastChildFill="True" Margin="5">
+                    <TextBlock Text="相机名称:" DockPanel.Dock="Left" Width="80" TextAlignment="Left" VerticalAlignment="Center" FontSize="14PX" FontWeight="Black"/>
+                    <Rectangle Width="10"/>
+                    <TextBox Text="{Binding CameraModel.Name}" DockPanel.Dock="Left" BorderBrush="Blue" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" FontSize="14PX" FontWeight="Black"/>
+                </DockPanel>
+                <DockPanel LastChildFill="True" Margin="5">
+                    <TextBlock Text="相机IP:" DockPanel.Dock="Left" Width="80" TextAlignment="Left" VerticalAlignment="Center" FontSize="14PX" FontWeight="Black"/>
+                    <Rectangle Width="10"/>
+                    <TextBox Text="{Binding CameraModel.HostIP}" DockPanel.Dock="Left" BorderBrush="Blue" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" FontSize="14PX" FontWeight="Black"/>
+                </DockPanel>
+                <DockPanel LastChildFill="True" Margin="5">
+                    <TextBlock Text="工位名称:" DockPanel.Dock="Left" Width="80" TextAlignment="Left" VerticalAlignment="Center" FontSize="14PX" FontWeight="Black"/>
+                    <Rectangle Width="10"/>
+                    <TextBox Text="{Binding CameraModel.Workstaion}" DockPanel.Dock="Left" BorderBrush="Blue" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" FontSize="14PX" FontWeight="Black"/>
+                </DockPanel>
+            </StackPanel>
+            <!--其他信息-->
+            <StackPanel Grid.Row="0" Grid.Column="1" Background="White" Orientation="Vertical">
+                <DockPanel LastChildFill="False" Margin="5">
+                    <TextBlock Text="通讯协议:" DockPanel.Dock="Left" Width="80" TextAlignment="Left" VerticalAlignment="Center" FontSize="14PX" FontWeight="Black"/>
+                    <Rectangle Width="10"/>
+                    <TextBlock Text="{Binding CameraModel.Protocol}" DockPanel.Dock="Left" FontSize="14PX" FontWeight="Black"/>
+                </DockPanel>
+                <StackPanel Margin="5">
+                    <TextBlock Text="备注:" HorizontalAlignment="Left" Width="80" TextAlignment="Left" VerticalAlignment="Top" FontSize="14PX" FontWeight="Black"/>
+                    <Rectangle Height="5"/>
+                    <TextBox Text="{Binding CameraModel.Remake}" DockPanel.Dock="Left" Height="105" BorderBrush="Blue" TextWrapping="Wrap" AcceptsTab="True" AcceptsReturn="True" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" FontSize="14PX" FontWeight="Black"/>
+                </StackPanel>
+            </StackPanel>
+            <!--功能区块-->
+            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="White" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="取消" Command="{Binding CancelCommand}" Margin="0,5,10,20" MinWidth="80" VerticalContentAlignment="Center" FontSize="14PX" FontWeight="Black" Foreground="White" Background="#3355FF"/>
+                <Button Content="保存" Command="{Binding SaveCommand}" CommandParameter="{Binding CameraModel}" Margin="0,5,10,20" MinWidth="80" VerticalContentAlignment="Center" FontSize="14PX" FontWeight="Black" Foreground="White" Background="#3355FF"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Border>

@@ -572,6 +572,7 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <summary>
         /// UE端数据接收接口-视觉机损检测
         /// </summary>
+        /// <param name="position"></param>
         /// <param name="barCode"></param>
         /// <param name="abnormalTimeStamp"></param>
         /// <param name="score"></param>
@@ -581,7 +582,7 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <param name="detectionResult"></param>
         /// <param name="pictureFile"></param>
         /// <returns></returns>
-        public async Task<AiDetectionDataResponse> AiDetectionDataAsync(string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile)
+        public async Task<AiDetectionDataResponse> AiDetectionDataAsync(string position, string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile)
         {
             try
             {
@@ -603,7 +604,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
                     Process = workshipParts.ElementAtOrDefault(3) ?? "",
                     DeviceId = settings.DeviceSn ?? "",
-                    Position = settings.DeviceName ?? "",
+                    Position = position,
                     BarCode = barCode,
                     AbnormalTimeStamp = abnormalTimeStamp,
                     Score = score,
@@ -653,10 +654,9 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <summary>
         /// 摄像头新增接口
         /// </summary>
-        /// <param name="ipAddress"></param>
-        /// <param name="cameraSn"></param>
+        /// <param name="cameras"></param>
         /// <returns></returns>
-        public async Task<AddCameraResponse> AddCameraAsync(string ipAddress, string cameraSn)
+        public async Task<AddCameraResponse> AddCameraAsync(List<(string position, string ipAddress, string cameraSn)> cameras)
         {
             try
             {
@@ -672,17 +672,20 @@ namespace SUNWODA_SEVB.WEB.Services
 
                 var url = $"{settings.WebTestUrlSysCenter}eeService/device/addCamera";
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
-                var request = new AddCameraRequest
+                var request = new List<AddCameraRequest>();
+                foreach (var camera in cameras)
                 {
-                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
-                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
-                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
-                    DeviceId = settings.DeviceSn ?? "",
-                    Position = settings.DeviceName ?? "",
-                    IpAddress = ipAddress,
-                    CameraSn = cameraSn,
-                };
-
+                    request.Add(new AddCameraRequest
+                    {
+                        ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                        ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                        Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                        DeviceId = settings.DeviceSn ?? "",
+                        Position = camera.position,
+                        IpAddress = camera.ipAddress,
+                        CameraSn = camera.cameraSn,
+                    });
+                }
                 var json = JsonHelper.Serialize(request);
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
 
@@ -726,7 +729,7 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <param name="cameraSn"></param>
         /// <param name="enable"></param>
         /// <returns></returns>
-        public async Task<UpdateCameraResponse> UpdateameraAsync(string ipAddress, string cameraSn, int enable)
+        public async Task<UpdateCameraResponse> UpdateCameraAsync(List<(string position, string ipAddress, string cameraSn, int enable)> cameras)
         {
             try
             {
@@ -742,17 +745,21 @@ namespace SUNWODA_SEVB.WEB.Services
 
                 var url = $"{settings.WebTestUrlSysCenter}eeService/device/updateCamera";
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
-                var request = new UpdateCameraRequest
+                var request = new List<UpdateCameraRequest>();
+                foreach (var camera in cameras)
                 {
-                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
-                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
-                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
-                    DeviceId = settings.DeviceSn ?? "",
-                    Position = settings.DeviceName ?? "",
-                    IpAddress = ipAddress,
-                    CameraSn = cameraSn,
-                    Enable = enable
-                };
+                    request.Add(new UpdateCameraRequest
+                    {
+                        ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                        ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                        Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                        DeviceId = settings.DeviceSn ?? "",
+                        Position = camera.position,
+                        IpAddress = camera.ipAddress,
+                        CameraSn = camera.cameraSn,
+                        Enable = camera.enable
+                    });
+                }
 
                 var json = JsonHelper.Serialize(request);
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
@@ -793,6 +800,7 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <summary>
         /// UE端数据接收-轨迹检测
         /// </summary>
+        /// <param name="position"></param>
         /// <param name="barCode"></param>
         /// <param name="abnormalTimeStamp"></param>
         /// <param name="abnormalTimeStampEnd"></param>
@@ -800,7 +808,7 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <param name="file"></param>
         /// <param name="aiPointListDtoList"></param>
         /// <returns></returns>
-        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<AiPointListDto> aiPointListDtoList)
+        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<FrameDtoList> frameDtoList)
         {
             try
             {
@@ -822,13 +830,13 @@ namespace SUNWODA_SEVB.WEB.Services
                     ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
                     Process = workshipParts.ElementAtOrDefault(3) ?? "",
                     DeviceId = settings.DeviceSn ?? "",
-                    Position = settings.DeviceName ?? "",
+                    Position = position,
                     BarCode = barCode,
                     AbnormalTimeStamp = abnormalTimeStamp,
                     AbnormalTimeStampEnd = abnormalTimeStampEnd,
                     DetectionResult = detectionResult,
                     File = file,
-                    AiPointListDtoList = aiPointListDtoList
+                    FrameDtoList = frameDtoList
                 };
 
                 var json = JsonHelper.Serialize(request);

@@ -129,6 +129,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? ExecuteType { get; set; }
     }
 
+    #region 鹰眼项目
     /// <summary>
     /// UE端数据接收接请求类
     /// 备注：视觉机损检测
@@ -377,6 +378,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? DetectionResult { get; set; }
 
         /// <summary>
+        /// 报警等级，2轻微，1严重
+        /// </summary>
+        [JsonPropertyName("alertLevel")]
+        public int AlertLevel { get; set; }
+
+        /// <summary>
         /// 视频文件
         /// </summary>
         [JsonPropertyName("file")]
@@ -385,11 +392,39 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 轨迹坐标数据Json数据
         /// </summary>
-        [JsonPropertyName("aiPointListDtoList")]
-        public List<AiPointListDto>? AiPointListDtoList { get; set; }
+        [JsonPropertyName("frameDtoList")]
+        public List<FrameDtoList>? FrameDtoList { get; set; }
     }
 
-    public class AiPointListDto
+    public class FrameDtoList
+    {
+        /// <summary>
+        /// 每一帧的时间戳
+        /// </summary>
+        [JsonPropertyName("frameTimeStamp")]
+        public long FrameTimeStamp { get; set; }
+        /// <summary>
+        /// 类别点位坐标
+        /// </summary>
+        [JsonPropertyName("categoryDtoList")]
+        public List<CategoryDtoList>? CategoryDtoList { get; set; }
+    }
+
+    public class CategoryDtoList
+    {
+        /// <summary>
+        /// 类别:电芯、夹爪、载具
+        /// </summary>
+        [JsonPropertyName("category")]
+        public string? Category { get; set; }
+        /// <summary>
+        /// 轨迹坐标
+        /// </summary>
+        [JsonPropertyName("dataList")]
+        public List<DataList>? DataList { get; set; }
+    }
+
+    public class DataList
     {
         /// <summary>
         /// 轨迹点位名称
@@ -406,6 +441,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
 
     public class AIPointXYZDto
     {
+        /// <summary>
+        /// 实时标题
+        /// </summary>
+        [JsonPropertyName("realtimeTitle")]
+        public string RealtimeTitle { get; set; } = "实时";
+
         /// <summary>
         /// x轴坐标
         /// </summary>
@@ -425,6 +466,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public float Z { get; set; }
 
         /// <summary>
+        /// 标准标题
+        /// </summary>
+        [JsonPropertyName("standardTitle")]
+        public string StandardTitle { get; set; } = "标准";
+
+        /// <summary>
         /// x轴坐标差异，无差异用0
         /// </summary>
         [JsonPropertyName("xDiff")]
@@ -441,6 +488,30 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("zDiff")]
         public float ZDiff { get; set; }
+
+        /// <summary>
+        /// 偏差值标题
+        /// </summary>
+        [JsonPropertyName("diffTitle")]
+        public string DiffTitle { get; set; } = "偏差";
+
+        /// <summary>
+        /// x标准值
+        /// </summary>
+        [JsonPropertyName("xStandard")]
+        public float XStandard { get; set; }
+
+        /// <summary>
+        /// y标准值
+        /// </summary>
+        [JsonPropertyName("yStandard")]
+        public float YStandard { get; set; }
+
+        /// <summary>
+        /// z标准值
+        /// </summary>
+        [JsonPropertyName("zStandard")]
+        public float ZStandard { get; set; }
 
         /// <summary>
         /// 是否异常，1正常，0异常
@@ -472,4 +543,77 @@ namespace SUNWODA_SEVB.Core.Models.Web
         [JsonPropertyName("statusFlag")]
         public int StatusFlag { get; set; }
     }
+
+    /// <summary>
+    /// 4. 实时轨迹接口文档-SOCKET
+    /// </summary>
+    public class HawkEyeSocketRequest
+    {
+        /// <summary>
+        /// 基地
+        /// </summary>
+        [JsonPropertyName("productionBase")]
+        public string? ProductionBase { get; set; }
+
+        /// <summary>
+        /// 拉线
+        /// </summary>
+        [JsonPropertyName("productionLine")]
+        public string? ProductionLine { get; set; }
+
+        /// <summary>
+        /// 工序
+        /// </summary>
+        [JsonPropertyName("process")]
+        public string? Process { get; set; }
+
+        /// <summary>
+        /// 设备ID
+        /// </summary>
+        [JsonPropertyName("deviceId")]
+        public string? DeviceId { get; set; }
+
+        /// <summary>
+        /// 工位
+        /// </summary>
+        [JsonPropertyName("position")]
+        public string? Position { get; set; }
+
+        /// <summary>
+        /// 电芯条码
+        /// </summary>
+        [JsonPropertyName("barCode")]
+        public string? BarCode { get; set; }
+
+        /// <summary>
+        /// 完整性校验码
+        /// </summary>
+        [JsonPropertyName("checkSum")]
+        public int CheckSum { get; set; }
+
+        /// <summary>
+        /// 图片对应的时间戳
+        /// </summary>
+        [JsonPropertyName("detectionTimeStamp")]
+        public long DetectionTimeStamp { get; set; }
+
+        /// <summary>
+        /// 特征提取结果
+        /// </summary>
+        [JsonPropertyName("detectionResult")]
+        public string? DetectionResult { get; set; }
+
+        /// <summary>
+        /// 报警等级，2轻微，1严重
+        /// </summary>
+        [JsonPropertyName("alertLevel")]
+        public int AlertLevel { get; set; }
+
+        /// <summary>
+        /// 轨迹坐标数据Json数据
+        /// </summary>
+        [JsonPropertyName("frameDtoList")]
+        public List<FrameDtoList>? FrameDtoList { get; set; }
+    }
+    #endregion
 }

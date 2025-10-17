@@ -12,14 +12,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Assets\images\plus.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="avatar.ico" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CrissCross.WPF.WebView2" Version="2.6.2" />
     <PackageReference Include="HandyControl" Version="3.5.1" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.20.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
   </ItemGroup>
 
@@ -49,18 +56,50 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Assets\" />
     <Folder Include="ViewModels\Pages\CCTB\" />
     <Folder Include="Views\Pages\CCTB\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="OpenNetV8">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\OpenNetV8.dll</HintPath>
+    <Reference Include="halcondotnet">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
     </Reference>
-    <Reference Include="YoloV8Net">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YoloV8Net.dll</HintPath>
+    <Reference Include="halcondotnetxl">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnetxl.dll</HintPath>
     </Reference>
+    <Reference Include="hdevenginedotnet">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="YingYanAlgoCore">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
+    </Reference>
+    <Reference Include="Yolo8Core">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\Yolo8Core.dll</HintPath>
+    </Reference>
+    <Reference Include="YOLOClsFW48_sevb">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLOClsFW48_sevb.dll</HintPath>
+    </Reference>
+    <Reference Include="YOLODetFW48_sevb">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLODetFW48_sevb.dll</HintPath>
+    </Reference>
+    <Reference Include="YOLOPoseFW48_sevb">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLOPoseFW48_sevb.dll</HintPath>
+    </Reference>
+    <Reference Include="YOLOSegFW48_sevb">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLOSegFW48_sevb.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZC03PDJS">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC03PDJS.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZPack">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\images\plus.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

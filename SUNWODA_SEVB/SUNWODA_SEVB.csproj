@@ -70,6 +70,12 @@
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
     </Reference>
+    <Reference Include="TrajectoryApp">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\TrajectoryApp.dll</HintPath>
+    </Reference>
+    <Reference Include="TrajectoryDiagnosisLib">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\TrajectoryDiagnosisLib.dll</HintPath>
+    </Reference>
     <Reference Include="YingYanAlgoCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
     </Reference>

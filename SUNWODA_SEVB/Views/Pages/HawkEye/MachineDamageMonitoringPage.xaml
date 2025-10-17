@@ -13,13 +13,13 @@
     mc:Ignorable="d">
 
     <Grid>
-        <Grid.RowDefinitions>
+        <!--<Grid.RowDefinitions>
             <RowDefinition />
             <RowDefinition />
-        </Grid.RowDefinitions>
+        </Grid.RowDefinitions>-->
 
         <Grid Margin="5">
-            <Grid.ColumnDefinitions>
+            <!--<Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />
             </Grid.ColumnDefinitions>
@@ -28,11 +28,13 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 FontSize="50"
-                Text="视频流控件" />
-            <cc:WebView2Wpf Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />
+                Text="视频流控件" />-->
+            <!--<cc:WebView2Wpf Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />-->
+            <!--<cc:WebView2Wpf Grid.Column="1" Source="http://10.201.88.153/hsfdev/" />-->
+            <uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.153/hsfdev/" />
         </Grid>
 
-        <Grid Grid.Row="1" Margin="5,0,5,5">
+        <!--<Grid Grid.Row="1" Margin="5,0,5,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />
@@ -42,6 +44,6 @@
             <uc:TrajectoryViewer3D Margin="0,0,5,0" />
             <uc:TrajectoryViewer3D Grid.Column="1" Margin="0,0,5,0" />
             <uc:TrajectoryViewer3D Grid.Column="2" />
-        </Grid>
+        </Grid>-->
     </Grid>
 </Page>

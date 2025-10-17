@@ -1,4 +1,6 @@
 ﻿using Dm.filter;
+using Dm.util;
+using Fleck;
 using HalconDotNet;
 using HandyControl.Controls;
 using HandyControl.Tools.Extension;
@@ -34,6 +36,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -46,10 +50,11 @@ using System.Windows.Media.Media3D;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Xml.Serialization;
+using TrajectoryDiagnosisLib;
 using Yolo8Core;
 using static Mysqlx.Notice.Warning.Types;
 using static SUNWODA_SEVB.ViewModels.Dialogs.HawkEye.VM_AddCameraDialog;
-using static Yolo8Core.BaseClass;
+using static TrajectoryDiagnosisLib.TrajectoryDiagnosis;
 using Path = System.IO.Path;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
@@ -126,7 +131,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             InitBarCodeWatcher(barCodeWatchPath);
             var serverPort = _projectSettingRepository.GetByNameAndVM("ServerPort", "VM_MachineDamageMonitoringPage")?.Value ?? "8000"; ;
             _ = InitServerAsync(int.Parse(serverPort));
-            SearchDevices_Thread();
+            WebSocketInit(8181);
+            //SearchDevices_Thread();
 
             // 从web获取AI算法模型文件onnx  —— TODO
             //modelPath = await DownloadOnnxAsync("ZZ_YY_C01_DP_DLL", "ZZ_YY", "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCQiNCeYgNIL35V99cJ0giEOtOCd6tf9fVEVCuFmFu0zuskPJYB0D1pUcYjLtJfadGa1HflWYINl/zk9bq0fDipuz5vPkswsp0N4efiVzwoBbzUTpLPePNkpb6rDyd+3RUNAC8UtZU2ptKGCNVvvgMQGZp+2mnIKPamuEXzK5qkkwIDAQAB");
@@ -254,21 +260,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var t = new Thread(() =>
             {
                 var aiModels = new List<IPredictor>() { objInit.H246modle };
-                var flag = "0";
-                var frameCacheLis = new List<(DateTime dateTime, string barCode, Mat frame)>();
+                var flag = "0";// 0:开始；1:结束
+                var temp_resultFlag = 0;// 偶数则强制设置大数据组算法输出位NG，——临时测试使用
+                var frameCacheLis = new List<(DateTime dateTime, string barCode, Mat frame, DiagnosisResult dataResult)>();
                 // 循环执行算法
+                var index = 200;
+                var diagnosis = new TrajectoryDiagnosis();
+                diagnosis.Initialize();
                 while (true)
                 {
                     try
                     {
                         // 优雅退出
                         if (token.IsCancellationRequested) return;
+
                         // test
                         if (frameCache.Count == 0)
                         {
-                            var path = workstation == "CT托盘位" ? "D:\\LocalFile\\LocalCode\\SunwodaV2\\SUNWODA_SEVB\\bin\\Debug\\Configs\\托盘关键帧" : "";
+                            //if (index == 610) index = 200;
+                            temp_resultFlag = 0;
+                            var path = workstation == "CT托盘位" ? "../Configs/CT托盘位测试帧" : "../Configs/放料模拟数据";
                             var fileDirectory = Directory.GetFiles(path);
-                            for (int i = 0; i < fileDirectory.Length; i++)
+                            //var f = Cv2.ImRead(fileDirectory[index], ImreadModes.Color);
+                            //frameCache.Enqueue((DateTime.Now, $"{index}", f));
+                            //index++;
+                            for (int i = 200; i < 610; i++)
                             {
                                 var f = Cv2.ImRead(fileDirectory[i], ImreadModes.Color);
                                 frameCache.Enqueue((DateTime.Now, $"{i}", f));
@@ -284,13 +300,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
                         // 执行视觉推理算法
                         var re = Execute_ModelAction(workstation, flag, new List<Mat>() { frameInfo.frame }, aiModels, objInfo.ModelAction, objInfo.YingYanAI);
+
+                        if (re.IsValid)
+                        {
+
+                        }
                         switch (workstation)
                         {
                             case "CT托盘位":
                                 {
                                     // 垃圾帧，跳过
                                     if (!re.IsValid) continue;
-                                    if (re.AIResult?.Count == 0)
+                                    if (re.AIResult?.Count <= 0)
                                     {
                                         _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{re.IsValid}]-[{re.ExInfo}]");
                                         continue;
@@ -300,97 +321,62 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                                     {
                                         if (!re.AIResult[i].Exists(o => o.Name.Contains("无胶套"))) continue;
                                         // 如果包含“无胶套”，则存在NG，需上传web
-                                        NGFramesUpLoadWebAsync(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), re.AIResult?[0]);
+                                        _ = NGFramesUpLoadWebAsync(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), re.AIResult?[0]);
                                     }
                                     _logger?.Info($"[{camera.Name}-{workstation}]视觉算法推理完成：[{re.IsValid}]-[{re.ExInfo}]");
                                     break;
                                 }
                             case "CT放料位":
                                 {
-                                    if (re.AIResult?.Count > 0)
+                                    if (re.AIResult?.Count <= 0)
                                     {
-                                        var AIResultModelList = re.AIResult;
-                                        var categoryMap = new Dictionary<string, (string key, List<DataList> list)>
-                                                {
-                                                    { "电芯", ("电芯", new List<DataList>()) },
-                                                    { "夹爪", ("夹爪", new List<DataList>()) },
-                                                    { "载具", ("载具", new List<DataList>()) }
-                                                };
-
-                                        foreach (var resultModel in AIResultModelList)
-                                        {
-                                            foreach (var item in resultModel)
-                                            {
-                                                var Name = item.Name;
-                                                var X = item.Point3D.X;
-                                                var Y = item.Point3D.Y;
-                                                var Z = item.Point3D.Z;
-
-                                                foreach (var kv in categoryMap)
-                                                {
-                                                    if (Name.Contains(kv.Key))
-                                                    {
-                                                        kv.Value.list.Add(CreateDataList(Name, X, Y, Z));
-                                                    }
-                                                }
-
-                                                item.Img?.Dispose();
-                                                item.Region?.Dispose();
-                                            }
-
-                                            var categoryDtoList = categoryMap.Select(kv => new CategoryDtoList
-                                            {
-                                                Category = kv.Value.key,
-                                                DataList = kv.Value.list
-                                            }).ToList();
-
-                                            var frameDtoList = new List<FrameDtoList>
-                                                {
-                                                    new FrameDtoList
-                                                    {
-                                                        FrameTimeStamp = GetCurrentTimestampSeconds(),
-                                                        CategoryDtoList = categoryDtoList
-                                                    }
-                                                };
-
-                                            var data = new HawkEyeSocketRequest()
-                                            {
-                                                Position = "CT摄像头1",
-                                                Process = "CT",
-                                                ProductionLine = "C06",
-                                                ProductionBase = "枣庄",
-                                                DeviceId = "CT01",
-                                                BarCode = "xxxxx",
-                                                DetectionTimeStamp = GetCurrentTimestampSeconds(),
-                                                DetectionResult = "NG",
-                                                AlertLevel = 1,
-                                                FrameDtoList = frameDtoList
-                                            };
-
-
-                                            var message = System.Text.Json.JsonSerializer.Serialize(data, new JsonSerializerOptions
-                                            {
-                                                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                                                WriteIndented = false
-                                            });
-                                            // 发送测试数据
-                                            _ = server?.SendToAllAsync(message);
-                                            resultModel.Clear();
-                                        }
+                                        flag = re.flag;
+                                        _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{re.IsValid}]-[{re.ExInfo}]");
+                                        continue;
                                     }
 
+                                    // -TODO    处理AI结果数据
+                                    var data = new List<(string, float, float, float)>();
+                                    re.AIResult?[0].ForEach(o => data.Add((o.Name, o.Point3D.X, o.Point3D.Y, o.Point3D.Z)));
+                                    var imageName = (flag == "0" && re.flag == "1") ? "1" : "0";
+                                    var positionName = "下左角电芯";
+                                    if (re.AIResult != null && !re.AIResult[0].Exists(o => o.Name == positionName))
+                                    {
+                                        re.AIResult[0].Add(new AIResultModel() { Name = positionName });
+                                    }
+                                    var x = (double)(re.AIResult?[0]?.First(o => o.Name == positionName)?.Point3D?.X ?? 0);
+                                    var y = (double)(re.AIResult?[0]?.First(o => o.Name == positionName)?.Point3D?.Y ?? 0);
+                                    // -TODO    数据处理
+                                    var result = temp_resultFlag % 2 == 0 ? "NG" : "OK";
+                                    // 执行大数据诊断逻辑算法
+                                    var dataResult = diagnosis.CheckSinglePosition(imageName, positionName, x, y);
+
+                                    dataResult.Status = result;
+
+                                    // 异步发送实时数据：AI结果数据&大数据结果数据
+                                    _ = FramesUpLoadWebAsync(re.AIResult, positionName, dataResult);
+
+                                    // AI判定放料结束：1=》0
                                     if (flag == "1" && re.flag == "0")
                                     {
-                                        var _frameCache = new List<(DateTime dateTime, string barCode, Mat frame)>(frameCacheLis);
+                                        temp_resultFlag++;
+                                        var _frameCache = frameCacheLis.ToList();
                                         frameCacheLis.ForEach(o => o.frame?.Dispose());
                                         frameCacheLis.Clear();
-                                        // -TODO   执行大数据轨迹算法
-                                        // -TODO   数据处理
-                                        // -TODO   上传web
-                                        // _ = server?.SendToAllAsync("");
+
+                                        // -TODO    上传web
+                                        if (result == "NG")
+                                        {
+                                            //  _ = NGFramesUpLoadWebAsync1(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), re.AIResult?[0]);
+                                        }
                                     }
                                     flag = re.flag;
-                                    if (flag == "1") frameCacheLis.Add((frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone()));
+                                    // AI判定放料进行中：1
+                                    if (flag == "1")
+                                    {
+                                        frameCacheLis.Add((frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), dataResult));
+                                    }
+                                    // AI判定放料开始：0
                                     if (flag == "0")
                                     {
                                         if (re.AIResult?.Count == 0)
@@ -420,31 +406,108 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             t.Start();
         }
 
-        private DataList CreateDataList(string name, float x, float y, float z)
+        /// <summary>
+        /// 轨迹算法试试双穿web
+        /// </summary>
+        /// <param name="aiResult"></param>
+        /// <param name="dataResult"></param>
+        /// <returns></returns>
+        private async Task FramesUpLoadWebAsync(List<List<AIResultModel>>? aiResult, string positionName, DiagnosisResult dataResult)
+        {
+            var categoryMap = new Dictionary<string, (string key, List<DataList> list)>();
+            categoryMap.Add("电芯", ("电芯", new List<DataList>()));
+            categoryMap.Add("夹爪", ("夹爪", new List<DataList>()));
+            categoryMap.Add("载具", ("载具", new List<DataList>()));
+
+            foreach (var resultModel in aiResult ?? new List<List<AIResultModel>>())
+            {
+                foreach (var item in resultModel)
+                {
+                    var Name = item.Name;
+                    var X = item.Point3D?.X ?? 0;
+                    var Y = item.Point3D?.Y ?? 0;
+                    var Z = item.Point3D?.Z ?? 0;
+
+                    foreach (var kv in categoryMap)
+                    {
+                        if (Name.Contains(kv.Key))
+                        {
+                            if (Name == positionName)
+                                kv.Value.list.Add(CreateDataList(Name, X, Y, Z, dataResult.Status == "OK" ? 1 : 0, (float)dataResult.Dx, (float)dataResult.Dy));
+                            else
+                                kv.Value.list.Add(CreateDataList(Name, X, Y, Z));
+                        }
+                    }
+
+                    item.Img?.Dispose();
+                    item.Region?.Dispose();
+                }
+
+                var categoryDtoList = categoryMap.Select(kv => new CategoryDtoList
+                {
+                    Category = kv.Value.key,
+                    DataList = kv.Value.list
+                }).ToList();
+
+                var frameDtoList = new List<FrameDtoList>
+                    {
+                        new FrameDtoList
+                        {
+                            FrameTimeStamp = GetCurrentTimestampSeconds(),
+                            CategoryDtoList = categoryDtoList
+                        }
+                    };
+
+                var data1 = new HawkEyeSocketRequest()
+                {
+                    Position = "CT摄像头1",
+                    Process = "CT",
+                    ProductionLine = "C06",
+                    ProductionBase = "枣庄",
+                    DeviceId = "CT01",
+                    BarCode = "xxxxx",
+                    DetectionTimeStamp = GetCurrentTimestampSeconds(),
+                    DetectionResult = "NG",
+                    AlertLevel = 1,
+                    FrameDtoList = frameDtoList
+                };
+
+                var message = System.Text.Json.JsonSerializer.Serialize(data1, new JsonSerializerOptions
+                {
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    WriteIndented = false
+                });
+                // 发送测试数据
+                await WebSocketSendAsync(message);
+                resultModel.Clear();
+            }
+        }
+
+        private DataList CreateDataList(string name, float x, float y, float z, int abnormal = 1, float xDiff = 0f, float yDiff = 0, float zDiff = 0)
         {
             return new DataList
             {
                 PointName = name,
                 AiPointXYZDtoList = new List<AIPointXYZDto>
-        {
-            new AIPointXYZDto
-            {
-                PictureTimeStamp = GetCurrentTimestampSeconds(),
-                StatusFlag = 1,
-                MoveDirection = "x",
-                X = x,
-                Y = y,
-                Z = z,
-                Speed = 3.0f,
-                XDiff = 0.0f,
-                YDiff = 0.0f,
-                ZDiff = 0.0f,
-                Abnormal = 1,
-                XStandard = 131.45f,
-                YStandard = 64.35f,
-                ZStandard = 101.8f
-            }
-        }
+                {
+                    new AIPointXYZDto
+                    {
+                        PictureTimeStamp = GetCurrentTimestampSeconds(),
+                        StatusFlag = 1,
+                        MoveDirection = "x",
+                        X = x,
+                        Y = y,
+                        Z = z,
+                        Speed = 0f,
+                        XDiff = xDiff,
+                        YDiff = yDiff,
+                        ZDiff = zDiff,
+                        Abnormal = abnormal,
+                        XStandard = 0f,
+                        YStandard = 0f,
+                        ZStandard = 0f
+                    }
+                }
             };
         }
 
@@ -466,7 +529,63 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="barCode"></param>
         /// <param name="frame"></param>
         /// <param name="AIResults"></param>
-        private async void NGFramesUpLoadWebAsync(string? position, DateTime dateTime, string barCode, Mat frame, List<AIResultModel>? AIResults)
+        private async Task NGFramesUpLoadWebAsync(string? position, DateTime dateTime, string barCode, Mat frame, List<AIResultModel>? AIResults)
+        {
+            var t = Task.Factory.StartNew(async () =>
+            {
+                try
+                {
+                    foreach (var AIResultModel in AIResults ?? new List<AIResultModel>())
+                    {
+                        // 释放
+                        AIResultModel.Region?.Dispose();
+                        // 目前只上传NG的
+                        if (!AIResultModel.Name.Contains("无胶套")) continue;
+
+                        // 原图处理为结果图（原图中绘制AI检测结果的框框-opencv实现）
+                        var graphicalResult = frame.Clone();
+                        byte[] file;
+                        try
+                        {
+                            var path = Path.Combine(Path.GetRandomFileName(), "temp.png");
+                            Cv2.Rectangle(graphicalResult, AIResultModel.Rectangle, new Scalar(0, 255, 0), 2);
+                            Cv2.ImWrite(path, graphicalResult);
+                            file = File.ReadAllBytes(path);
+                            File.Delete(path);
+                        }
+                        finally
+                        {
+                            graphicalResult?.Dispose();
+                        }
+
+                        // 时间类型转换
+                        var localDateTimeOffset = new DateTimeOffset(dateTime);
+                        var abnormalTimeStamp = localDateTimeOffset.ToUnixTimeSeconds();
+
+                        var re = await _webApiClient.AiDetectionDataAsync($"{position}", $"{barCode}", abnormalTimeStamp,
+                               AIResultModel.Score, AIResultModel.Width, AIResultModel.Height, AIResultModel.Area, "NG", file);
+                        if (re.IsSuccess || re.Code == 200)
+                            _logger.Info($"[{position}-{barCode}]AI算法结果上传web成功！");
+                        else
+                            _logger.Error($"[{position}-{barCode}]AI算法结果上传web失败：[{re.Message}]");
+                    }
+                }
+                finally
+                {
+                    frame?.Dispose();
+                }
+            });
+            await t;
+        }
+        /// <summary>
+        /// 视频流上传web
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="dateTime"></param>
+        /// <param name="barCode"></param>
+        /// <param name="frame"></param>
+        /// <param name="AIResults"></param>
+        private async Task NGFramesUpLoadWebAsync1(string? position, DateTime dateTime, string barCode, Mat frame, List<AIResultModel>? AIResults)
         {
             var t = Task.Factory.StartNew(async () =>
             {
@@ -580,6 +699,53 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             {
                 _logger.Error($"初始化服务器发生异常！", ex);
             }
+        }
+        #endregion
+
+        #region web服务器
+        private WebSocketServer? webServer;
+        private List<IWebSocketConnection> webClients = new List<IWebSocketConnection>();
+        private void WebSocketInit(int port = 8181)
+        {
+            webServer = new WebSocketServer($"ws://0.0.0.0:{port}");
+
+            webServer.Start(socket =>
+            {
+                socket.OnOpen = () =>
+                {
+                    _logger.Info($"[{socket.ConnectionInfo.ClientIpAddress}]客户端已连接！");
+                    webClients.Add(socket);
+                };
+
+                socket.OnClose = () =>
+                {
+                    _logger.Info($"[{socket.ConnectionInfo.ClientIpAddress}]客户端已断开！");
+                    webClients.Remove(socket);
+                };
+
+                socket.OnMessage = message =>
+                {
+                    _logger.Info($"接收[{socket.ConnectionInfo.ClientIpAddress}]客户端消息：[{message}]！");
+                };
+            });
+        }
+
+        private async Task WebSocketSendAsync(string message)
+        {
+            foreach (var webClient in webClients)
+            {
+                await webClient.Send(message);
+            }
+        }
+
+        static string GetLocalIPAddress()
+        {
+            foreach (var ip in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    return ip.ToString();
+            }
+            return "127.0.0.1";
         }
         #endregion
 

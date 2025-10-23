@@ -1,4 +1,7 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -6,6 +9,7 @@ using NLog;
 using NLog.Config;
 using NLog.Extensions.Logging;
 using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Enumerations.Tool;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Data;
@@ -15,12 +19,10 @@ using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Tool.Configuration;
+using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.WEB;
-using System.IO;
-using System.Windows;
-
 
 namespace SUNWODA_SEVB
 {
@@ -28,6 +30,9 @@ namespace SUNWODA_SEVB
     {
         private IHost? _host;
         private CancellationTokenSource _shutdownCts = new CancellationTokenSource();
+        private Mutex? _mutex;
+        private const string ServiceName = "WatchDogService";
+        private string WatchDogExePath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WatchDogService\\SUNWODA_SEVB.WatchDogService.exe");
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -35,6 +40,8 @@ namespace SUNWODA_SEVB
 
             try
             {
+                MonitorAppIsRunning();
+
                 ConfigurationGenerator.GenerateDefaultEncryptedConfig();
                 // 步骤1：构建Host
                 _host = BuildHost();
@@ -79,40 +86,70 @@ namespace SUNWODA_SEVB
         }
 
         /// <summary>
+        /// 监测程序是否在运行，运行则不启动新实例并将已运行程序置顶最前面
+        /// </summary>
+        private void MonitorAppIsRunning()
+        {
+            bool createdNew;
+
+            // 给互斥量取个唯一的全局名字
+            _mutex = new Mutex(true, "Global\\SUNWODA_SEVBMutex", out createdNew);
+
+            if (!createdNew)
+            {
+                var current = Process.GetCurrentProcess();
+
+                foreach (var process in Process.GetProcessesByName(current.ProcessName))
+                {
+                    if (process.Id != current.Id)
+                    {
+                        WinApiHelper.SetForegroundWindow(process.MainWindowHandle);
+                    }
+                }
+                Shutdown();
+                Environment.Exit(0);
+            }
+        }
+
+        /// <summary>
         /// 构建Host
         /// </summary>
         private IHost BuildHost()
         {
             return Host.CreateDefaultBuilder()
                 .UseContentRoot(AppDomain.CurrentDomain.BaseDirectory)
-                .ConfigureAppConfiguration((context, config) =>
-                {
-                    config.Sources.Clear();
-                    config.SetBasePath(AppDomain.CurrentDomain.BaseDirectory);
+                .ConfigureAppConfiguration(
+                    (context, config) =>
+                    {
+                        config.Sources.Clear();
+                        config.SetBasePath(AppDomain.CurrentDomain.BaseDirectory);
 
-                    // 使用支持加密的JSON配置文件加载器
-                    config.AddEncryptedJsonFile(
-                        path: "appsettings.json",
-                        optional: false,
-                        reloadOnChange: true,
-                        encryptionKey: null,
-                        encryptionIV: null
-                    );
+                        // 使用支持加密的JSON配置文件加载器
+                        config.AddEncryptedJsonFile(
+                            path: "appsettings.json",
+                            optional: false,
+                            reloadOnChange: true,
+                            encryptionKey: null,
+                            encryptionIV: null
+                        );
 
-                    // 环境特定的配置文件
-                    config.AddEncryptedJsonFile(
-                        path: $"appsettings.{context.HostingEnvironment.EnvironmentName}.json",
-                        optional: true,
-                        reloadOnChange: true
-                    );
+                        // 环境特定的配置文件
+                        config.AddEncryptedJsonFile(
+                            path: $"appsettings.{context.HostingEnvironment.EnvironmentName}.json",
+                            optional: true,
+                            reloadOnChange: true
+                        );
 
-                    config.AddEnvironmentVariables();
-                })
-                .ConfigureServices((context, services) =>
-                {
-                    ConfigurationHelper.SetConfiguration(context.Configuration);
-                    ConfigureServices(services, context.Configuration);
-                })
+                        config.AddEnvironmentVariables();
+                    }
+                )
+                .ConfigureServices(
+                    (context, services) =>
+                    {
+                        ConfigurationHelper.SetConfiguration(context.Configuration);
+                        ConfigureServices(services, context.Configuration);
+                    }
+                )
                 .ConfigureLogging(logging =>
                 {
                     logging.ClearProviders();
@@ -121,7 +158,6 @@ namespace SUNWODA_SEVB
                 })
                 .Build();
         }
-
 
         private void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
@@ -167,7 +203,10 @@ namespace SUNWODA_SEVB
         /// <summary>
         /// 初始化数据库（带重试机制）
         /// </summary>
-        private async Task<bool> InitializeDatabaseWithRetry(ILoggerService<App> logger, int maxRetries = 3)
+        private async Task<bool> InitializeDatabaseWithRetry(
+            ILoggerService<App> logger,
+            int maxRetries = 3
+        )
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
@@ -188,7 +227,10 @@ namespace SUNWODA_SEVB
                 }
                 catch (Exception ex)
                 {
-                    logger.Error($"数据库初始化异常 (尝试 {attempt}/{maxRetries}): {ex.Message}", ex);
+                    logger.Error(
+                        $"数据库初始化异常 (尝试 {attempt}/{maxRetries}): {ex.Message}",
+                        ex
+                    );
                 }
 
                 if (attempt < maxRetries)
@@ -201,7 +243,6 @@ namespace SUNWODA_SEVB
 
             return false;
         }
-
 
         /// <summary>
         /// 配置NLog数据库目标
@@ -280,24 +321,36 @@ namespace SUNWODA_SEVB
             {
                 try
                 {
-                    var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();                  
+                    var globalSettingRepo =
+                        scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
 
                     // 确保当前用户设置
-                    var currentUser = await globalSettingRepo.GetSettingValueAsync("CurrentUserAccount");
+                    var currentUser = await globalSettingRepo.GetSettingValueAsync(
+                        "CurrentUserAccount"
+                    );
                     if (currentUser != "guest")
                     {
-                        await globalSettingRepo.UpdateSettingValueAsync("CurrentUserAccount", "guest");                     
+                        await globalSettingRepo.UpdateSettingValueAsync(
+                            "CurrentUserAccount",
+                            "guest"
+                        );
                         logger.Info("初始化默认用户账户为 guest");
                     }
 
                     // 加载默认项目
-                    var defaultProject = await globalSettingRepo.GetSettingValueAsync("DefaultProject");
+                    var defaultProject = await globalSettingRepo.GetSettingValueAsync(
+                        "DefaultProject"
+                    );
                     if (!string.IsNullOrEmpty(defaultProject))
                     {
-                        var projectRepo = scope.ServiceProvider.GetRequiredService<IWorkSpaceProjectRepository>();
+                        var projectRepo =
+                            scope.ServiceProvider.GetRequiredService<IWorkSpaceProjectRepository>();
 
                         // 使用异步方法更新项目状态
-                        var updateResult = await projectRepo.UpdateIsEnabledAsync(defaultProject, true);
+                        var updateResult = await projectRepo.UpdateIsEnabledAsync(
+                            defaultProject,
+                            true
+                        );
 
                         if (!updateResult)
                         {
@@ -306,6 +359,30 @@ namespace SUNWODA_SEVB
                         else
                         {
                             logger.Info($"已启用默认项目: {defaultProject}");
+                        }
+                    }
+
+                    // 是否启用看门狗服务
+                    var isEnableWatchDogService = await globalSettingRepo.GetSettingValueAsync(
+                        "IsEnableWatchDogService"
+                    );
+                    if(isEnableWatchDogService)
+                    {
+                        if (!ServiceHelper.IsServiceInstalled(ServiceName))
+                        {
+                            ServiceHelper.InstallService(WatchDogExePath, ServiceName);
+                            ServiceHelper.SetServiceDescription();
+                            ServiceHelper.StartService(ServiceName);
+                            logger.Info("看门狗已启用");
+                        }
+                    }
+                    else
+                    {
+                        if (ServiceHelper.IsServiceInstalled(ServiceName))
+                        {
+                            ServiceHelper.StopService(ServiceName);
+                            ServiceHelper.UninstallService(ServiceName);
+                            logger.Info("看门狗已禁用");
                         }
                     }
                 }
@@ -380,7 +457,6 @@ namespace SUNWODA_SEVB
             };
         }
 
-
         /// <summary>
         /// 启动后台任务
         /// </summary>
@@ -389,8 +465,6 @@ namespace SUNWODA_SEVB
             // 启动日志清理任务
             _ = Task.Run(async () => await RunLogCleanupTask(), _shutdownCts.Token);
         }
-
-
 
         /// <summary>
         /// 启动日志清理任务
@@ -452,15 +526,18 @@ namespace SUNWODA_SEVB
         /// </summary>
         private async Task CleanupDatabaseLogs(ILoggerService<App>? logger)
         {
-            if (_host == null) return;
+            if (_host == null)
+                return;
 
             using (var scope = _host.Services.CreateScope())
             {
                 try
                 {
                     var appLogRepo = scope.ServiceProvider.GetRequiredService<IAppLogRepository>();
-                    var mesLogRepo = scope.ServiceProvider.GetRequiredService<IMesInterfaceLogRepository>();
-                    var webLogRepo = scope.ServiceProvider.GetRequiredService<IWebInterfaceLogRepository>();
+                    var mesLogRepo =
+                        scope.ServiceProvider.GetRequiredService<IMesInterfaceLogRepository>();
+                    var webLogRepo =
+                        scope.ServiceProvider.GetRequiredService<IWebInterfaceLogRepository>();
 
                     // 清理应用日志（7天）
                     var appLogCount = await appLogRepo.DeleteOldLogsAsync(7);
@@ -471,7 +548,9 @@ namespace SUNWODA_SEVB
                     // 清理Web日志（30天）
                     var webLogCount = await webLogRepo.DeleteOldLogsAsync(30);
 
-                    logger?.Info($"数据库日志清理完成 - 应用日志: {appLogCount}条, MES日志: {mesLogCount}条, Web日志: {webLogCount}条");
+                    logger?.Info(
+                        $"数据库日志清理完成 - 应用日志: {appLogCount}条, MES日志: {mesLogCount}条, Web日志: {webLogCount}条"
+                    );
                 }
                 catch (Exception ex)
                 {

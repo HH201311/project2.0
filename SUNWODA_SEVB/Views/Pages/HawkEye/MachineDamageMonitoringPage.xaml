@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.HawkEye"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:rxnav="https://github.com/reactivemarbles/CrissCross"
     xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls;assembly=SUNWODA_SEVB.Component"
     Title="MachineDamageMonitoringPage"
     d:DesignHeight="450"
@@ -27,8 +28,16 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 FontSize="50"
-                Text="视频流控件" />
-            <uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />
+                Text="文字文字" />
+            <rxnav:WebView2Wpf Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />
+            <!--<uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.151/pdtv/#/login?key=Krwf3TwtieHkeiC/g1tAsHVPKhHMgGKSOEXeotAtFuTUVL3Lfrrs/6Db1UvEaTjsvtWB0Jbfi/mo1oahEl0PMXPOQCtwXn04wQWtHTfm91oDC4VpVhMgxjH5GAtqB0EIbwPpFi8Kww1Yvd6mUZesBFxAARrulUHSNUHqbFwYQiL/ZaUfrBAHLhpWb/AjGenRdMFkWi2B38uOaHXMRdhcAScnXraS1OAyTVK6h1PgR6ly9EN+dwxL74D9yCZg8pphWkzI9jT2FqO4oF6OdK7AwlXG14lGtSb7z36Pzodyixr42VCraxhZrcWvggLoA7DPEFYvNd6ocas3WZ5XMNTfLw==" />-->
+            <!--<uc:WebBrowserControl Grid.Column="1" Source="http://127.0.0.1:5100/" />-->
+            <!--<TextBlock
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="50"
+                Text="测试测试" />-->
         </Grid>
 
         <Grid Grid.Row="1" Margin="5,0,5,5">
@@ -38,9 +47,79 @@
                 <ColumnDefinition />
             </Grid.ColumnDefinitions>
 
-            <uc:TrajectoryViewer3D Margin="0,0,5,0" />
+            <uc:TrajectoryViewer3D
+                Margin="0,0,5,0"
+                AxisLabelFontSize="{Binding AxisLabelFontSize}"
+                ChartTitle="{Binding ChartTitle}"
+                GridThickness="{Binding GridThickness}"
+                IsShowLegend="False"
+                SelectedTrajectory="{Binding SelectedTrajectory}"
+                ThresholdBoxCenter="{Binding ThresholdBoxCenter}"
+                ThresholdBoxHalfHeight="{Binding ThresholdBoxHalfHeight}"
+                ThresholdBoxHalfLength="{Binding ThresholdBoxHalfLength}"
+                ThresholdBoxHalfWidth="{Binding ThresholdBoxHalfWidth}"
+                TickLength="{Binding TickLength}"
+                TrajectoriesSource="{Binding Trajectories}"
+                TrajectoryClickCommand="{Binding TrajectoryClickCommand}"
+                XAxisRange="{Binding XAxisRange}"
+                XAxisStep="{Binding GridStep}"
+                XLabel="{Binding XLabel}"
+                YAxisRange="{Binding YAxisRange}"
+                YAxisStep="{Binding GridStep}"
+                YLabel="{Binding YLabel}"
+                ZAxisRange="{Binding ZAxisRange}"
+                ZAxisStep="{Binding GridStep}"
+                ZLabel="{Binding ZLabel}" />
+            <uc:TrajectoryViewer3D
+                Grid.Column="1"
+                Margin="0,0,5,0"
+                AxisLabelFontSize="{Binding AxisLabelFontSize}"
+                ChartTitle="{Binding ChartTitle}"
+                GridThickness="{Binding GridThickness}"
+                IsShowLegend="False"
+                SelectedTrajectory="{Binding SelectedTrajectory}"
+                ThresholdBoxCenter="{Binding ThresholdBoxCenter}"
+                ThresholdBoxHalfHeight="{Binding ThresholdBoxHalfHeight}"
+                ThresholdBoxHalfLength="{Binding ThresholdBoxHalfLength}"
+                ThresholdBoxHalfWidth="{Binding ThresholdBoxHalfWidth}"
+                TickLength="{Binding TickLength}"
+                TrajectoriesSource="{Binding Trajectories}"
+                TrajectoryClickCommand="{Binding TrajectoryClickCommand}"
+                XAxisRange="{Binding XAxisRange}"
+                XAxisStep="{Binding GridStep}"
+                XLabel="{Binding XLabel}"
+                YAxisRange="{Binding YAxisRange}"
+                YAxisStep="{Binding GridStep}"
+                YLabel="{Binding YLabel}"
+                ZAxisRange="{Binding ZAxisRange}"
+                ZAxisStep="{Binding GridStep}"
+                ZLabel="{Binding ZLabel}" />
+            <uc:TrajectoryViewer3D
+                Grid.Column="2"
+                AxisLabelFontSize="{Binding AxisLabelFontSize}"
+                ChartTitle="{Binding ChartTitle}"
+                GridThickness="{Binding GridThickness}"
+                IsShowLegend="False"
+                SelectedTrajectory="{Binding SelectedTrajectory}"
+                ThresholdBoxCenter="{Binding ThresholdBoxCenter}"
+                ThresholdBoxHalfHeight="{Binding ThresholdBoxHalfHeight}"
+                ThresholdBoxHalfLength="{Binding ThresholdBoxHalfLength}"
+                ThresholdBoxHalfWidth="{Binding ThresholdBoxHalfWidth}"
+                TickLength="{Binding TickLength}"
+                TrajectoriesSource="{Binding Trajectories}"
+                TrajectoryClickCommand="{Binding TrajectoryClickCommand}"
+                XAxisRange="{Binding XAxisRange}"
+                XAxisStep="{Binding GridStep}"
+                XLabel="{Binding XLabel}"
+                YAxisRange="{Binding YAxisRange}"
+                YAxisStep="{Binding GridStep}"
+                YLabel="{Binding YLabel}"
+                ZAxisRange="{Binding ZAxisRange}"
+                ZAxisStep="{Binding GridStep}"
+                ZLabel="{Binding ZLabel}" />
+            <!--<uc:TrajectoryViewer3D Margin="0,0,5,0" />
             <uc:TrajectoryViewer3D Grid.Column="1" Margin="0,0,5,0" />
-            <uc:TrajectoryViewer3D Grid.Column="2" />
+            <uc:TrajectoryViewer3D Grid.Column="2" />-->
         </Grid>
     </Grid>
 </Page>

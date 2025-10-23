@@ -132,8 +132,6 @@ namespace SUNWODA_SEVB.Core.Common
             }
         }
 
-        // 后台任务辅助方法
-
         /// <summary>
         /// 后台任务辅助方法
         /// </summary>

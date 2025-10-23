@@ -5,6 +5,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 {
     public class WinApiHelper
     {
+        #region P/Invoke 声明
         /// <summary>
         /// 将窗口设置到前台并激活窗口
         /// </summary>
@@ -39,5 +40,6 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             return ShowWindowAsync(hWnd, (int)windowStateFlag);
         }
+        #endregion
     }
 }

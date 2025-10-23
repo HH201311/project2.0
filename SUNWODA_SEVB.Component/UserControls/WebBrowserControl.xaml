@@ -97,6 +97,7 @@
         <!--  WebView2控件  -->
         <Border x:Name="WebViewBorder" Grid.Row="1">
             <wv2:WebView2 x:Name="webView" />
+            <!--<wv2:WebView2CompositionControl x:Name="webView"/>-->
         </Border>
 
         <!--  加载提示  -->

@@ -32,6 +32,13 @@ namespace SUNWODA_SEVB.Core.Interfaces.Web
 
         // SysCenter接口
         Task<SysCenterFileResponse> DownloadSysCenterFileAsync(string appKey, string signature, string pythonCode, string executeType);
+        Task<DownloadDllResponse> DownloadDllAsync(string appKey, string signature, string pythonCode, string executeType);
         Task<FileVersionResponse> GetFileVersionAsync(string pythonCode);
+
+        // 鹰眼项目接口
+        Task<AiDetectionDataResponse> AiDetectionDataAsync(string position, string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile);
+        Task<AddCameraResponse> AddCameraAsync(List<(string position, string ipAddress, string cameraSn)> cameras);
+        Task<UpdateCameraResponse> UpdateCameraAsync(List<(string position, string ipAddress, string cameraSn, int enable)> cameras);
+        Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<FrameDtoList> frameDtoList);
     }
 }

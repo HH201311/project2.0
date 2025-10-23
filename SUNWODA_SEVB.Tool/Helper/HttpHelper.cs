@@ -18,12 +18,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             };
         }
 
-        public string IMEWebPost(string url, string jsonData, Dictionary<string, string>? headers = null)
+        public byte[] IMEWebPost(string url, string jsonData, Dictionary<string, string>? headers = null)
         {
             return IMEWebPost(url, jsonData, "application/json", headers);
         }
 
-        public string IMEWebPost(string url, string jsonData, string contentType, Dictionary<string, string>? headers = null)
+        public byte[] IMEWebPost(string url, string jsonData, string contentType, Dictionary<string, string>? headers = null)
         {
             try
             {
@@ -42,15 +42,15 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
 
                 var response = _httpClient.SendAsync(request).Result;
-                return response.Content.ReadAsStringAsync().Result;
+                return response.Content.ReadAsByteArrayAsync().Result;
             }
             catch (Exception ex)
             {
-                return $"failed: {ex.Message}";
+                return Encoding.Default.GetBytes($"failed: {ex.Message}");
             }
         }
 
-        public async Task<string> IMEWebPostAsync(string url, string jsonData, string contentType, Dictionary<string, string>? headers = null)
+        public async Task<byte[]> IMEWebPostAsync(string url, string jsonData, string contentType, Dictionary<string, string>? headers = null)
         {
             try
             {
@@ -68,11 +68,11 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
 
                 var response = await _httpClient.SendAsync(request);
-                return await response.Content.ReadAsStringAsync();
+                return await response.Content.ReadAsByteArrayAsync();
             }
             catch (Exception ex)
             {
-                return $"failed: {ex.Message}";
+                return Encoding.Default.GetBytes($"failed: {ex.Message}");
             }
         }
 

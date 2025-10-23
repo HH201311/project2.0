@@ -8,7 +8,7 @@ namespace SUNWODA_SEVB.Core.Common
     public abstract class ViewModelBase : ModelBase
     {
         private readonly Dispatcher _dispatcher;
-
+        protected Dispatcher Dispatcher { get { return _dispatcher; } }
         public ViewModelBase()
         {
             // 保存UI的Dispatcher，用于后续的UI更新
@@ -120,7 +120,7 @@ namespace SUNWODA_SEVB.Core.Common
         /// UI线程辅助方法
         /// </summary>
         /// <param name="action"></param>
-        protected void RunOnUIThread(Action action)
+        public void RunOnUIThread(Action action)
         {
             if (_dispatcher.CheckAccess())
             {

@@ -242,6 +242,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                         {
                             _logger.Error(ex.Message);
                         }
+                        finally
+                        {
+                            await Task.Delay(1);
+                        }
                     }
                 }
             }, executeFreame, ct);

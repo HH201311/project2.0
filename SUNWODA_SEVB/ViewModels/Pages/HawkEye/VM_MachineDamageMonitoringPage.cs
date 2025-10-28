@@ -113,7 +113,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             base.OnInitialize();
         }
 
-
         #region 主流程
         #region 公共参数
         private string barCode = "";
@@ -291,109 +290,42 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                             }
                         }
 
-                        if (frameCache.Count <= 0) continue;
+                        if (frameCache.Count <= 0)
+                        {
+                            // 无数据，则等待一下下
+                            Thread.Sleep(1);
+                            continue;
+                        }
                         if (!frameCache.TryDequeue(out (DateTime dateTime, string barCode, Mat frame) frameInfo))
                         {
+                            // 获取视频帧失败，则等待一下下
+                            Thread.Sleep(1);
                             _logger?.Error($"[{camera.Name}-{workstation}]视觉从队列获取视频帧失败！");
                             continue;
                         }
 
                         // 执行视觉推理算法
-                        var re = Execute_ModelAction(workstation, flag, new List<Mat>() { frameInfo.frame }, aiModels, objInfo.ModelAction, objInfo.YingYanAI);
-
-                        if (re.IsValid)
+                        var aiResult = Execute_ModelAction(workstation, flag, new List<Mat>() { frameInfo.frame }, aiModels, objInfo.ModelAction, objInfo.YingYanAI);
+                        try
                         {
-
-                        }
-                        switch (workstation)
-                        {
-                            case "CT托盘位":
-                                {
-                                    // 垃圾帧，跳过
-                                    if (!re.IsValid) continue;
-                                    if (re.AIResult?.Count <= 0)
-                                    {
-                                        _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{re.IsValid}]-[{re.ExInfo}]");
-                                        continue;
-                                    }
-                                    // 如果存在"无胶套"，则有异常，执行异常视频流上传web
-                                    for (int i = 0; i < re.AIResult?.Count(); i++)
-                                    {
-                                        if (!re.AIResult[i].Exists(o => o.Name.Contains("无胶套"))) continue;
-                                        // 如果包含“无胶套”，则存在NG，需上传web
-                                        _ = NGFramesUpLoadWebAsync(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), re.AIResult?[0]);
-                                    }
-                                    _logger?.Info($"[{camera.Name}-{workstation}]视觉算法推理完成：[{re.IsValid}]-[{re.ExInfo}]");
+                            switch (workstation)
+                            {
+                                case "CT托盘位":
+                                    // 执行CT托盘位
+                                    ExcuteWorkstation_CTTray(workstation, camera, frameInfo, aiResult);
                                     break;
-                                }
-                            case "CT放料位":
-                                {
-                                    if (re.AIResult?.Count <= 0)
-                                    {
-                                        flag = re.flag;
-                                        _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{re.IsValid}]-[{re.ExInfo}]");
-                                        continue;
-                                    }
-
-                                    // -TODO    处理AI结果数据
-                                    var data = new List<(string, float, float, float)>();
-                                    re.AIResult?[0].ForEach(o => data.Add((o.Name, o.Point3D.X, o.Point3D.Y, o.Point3D.Z)));
-                                    var imageName = (flag == "0" && re.flag == "1") ? "1" : "0";
-                                    var positionName = "下左角电芯";
-                                    if (re.AIResult != null && !re.AIResult[0].Exists(o => o.Name == positionName))
-                                    {
-                                        re.AIResult[0].Add(new AIResultModel() { Name = positionName });
-                                    }
-                                    var x = (double)(re.AIResult?[0]?.First(o => o.Name == positionName)?.Point3D?.X ?? 0);
-                                    var y = (double)(re.AIResult?[0]?.First(o => o.Name == positionName)?.Point3D?.Y ?? 0);
-                                    // -TODO    数据处理
-                                    var result = temp_resultFlag % 2 == 0 ? "NG" : "OK";
-                                    // 执行大数据诊断逻辑算法
-                                    var dataResult = diagnosis.CheckSinglePosition(imageName, positionName, x, y);
-
-                                    dataResult.Status = result;
-
-                                    // 异步发送实时数据：AI结果数据&大数据结果数据
-                                    _ = FramesUpLoadWebAsync(re.AIResult, positionName, dataResult);
-
-                                    // AI判定放料结束：1=》0
-                                    if (flag == "1" && re.flag == "0")
-                                    {
-                                        temp_resultFlag++;
-                                        var _frameCache = frameCacheLis.ToList();
-                                        frameCacheLis.ForEach(o => o.frame?.Dispose());
-                                        frameCacheLis.Clear();
-
-                                        // -TODO    上传web
-                                        if (result == "NG")
-                                        {
-                                            //  _ = NGFramesUpLoadWebAsync1(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), re.AIResult?[0]);
-                                        }
-                                    }
-                                    flag = re.flag;
-                                    // AI判定放料进行中：1
-                                    if (flag == "1")
-                                    {
-                                        frameCacheLis.Add((frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), dataResult));
-                                    }
-                                    // AI判定放料开始：0
-                                    if (flag == "0")
-                                    {
-                                        if (re.AIResult?.Count == 0)
-                                        {
-                                            _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{re.IsValid}]-[{re.ExInfo}]");
-                                            continue;
-                                        }
-                                        frameCacheLis.ForEach(o => o.frame?.Dispose());
-                                        frameCacheLis.Clear();
-                                    }
+                                case "CT放料位":
+                                    // 执行CT放料位
+                                    ExcuteWorkstation_CTPut(workstation, camera, frameInfo, aiResult, ref diagnosis, ref flag, ref frameCacheLis, ref temp_resultFlag);
                                     break;
-                                }
-                            default:
-                                {
+                                default:
                                     _logger?.Warn($"未实现[{camera.Name}-{workstation}]逻辑！");
                                     break;
-                                }
+                            }
+                        }
+                        finally
+                        {
+                            frameInfo.frame?.Dispose();
                         }
                     }
                     catch (Exception ex)
@@ -404,6 +336,110 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             });
             t.IsBackground = true;
             t.Start();
+        }
+
+        /// <summary>
+        /// 执行CT托盘位数据处理
+        /// </summary>
+        /// <param name="workstation"></param>
+        /// <param name="camera"></param>
+        /// <param name="frameInfo"></param>
+        /// <param name="aiResult"></param>
+        private void ExcuteWorkstation_CTTray(string workstation, VideoCaptureHelper camera, (DateTime dateTime, string barCode, Mat frame) frameInfo, (bool IsValid, string? ExInfo, List<List<AIResultModel>>? AIResult, string? flag) aiResult)
+        {
+            // 垃圾帧，跳过
+            if (!aiResult.IsValid) return;
+            if (aiResult.AIResult?.Count <= 0)
+            {
+                _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{aiResult.IsValid}]-[{aiResult.ExInfo}]");
+                return;
+            }
+            // 如果存在"无胶套"，则有异常，执行异常视频流上传web
+            for (int i = 0; i < aiResult.AIResult?.Count(); i++)
+            {
+                if (!aiResult.AIResult[i].Exists(o => o.Name.Contains("无胶套"))) continue;
+                // 如果包含“无胶套”，则存在NG，需上传web
+                _ = NGFramesUpLoadWebAsync(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), aiResult.AIResult?[0]);
+            }
+            _logger?.Info($"[{camera.Name}-{workstation}]视觉算法推理完成：[{aiResult.IsValid}]-[{aiResult.ExInfo}]");
+        }
+
+        /// <summary>
+        /// 执行CT放料位数据处理
+        /// </summary>
+        /// <param name="workstation"></param>
+        /// <param name="camera"></param>
+        /// <param name="frameInfo"></param>
+        /// <param name="aiResult"></param>
+        /// <param name="diagnosis"></param>
+        /// <param name="flag"></param>
+        /// <param name="frameCacheLis"></param>
+        private void ExcuteWorkstation_CTPut(string workstation, VideoCaptureHelper camera, (DateTime dateTime, string barCode, Mat frame) frameInfo, (bool IsValid, string? ExInfo, List<List<AIResultModel>>? AIResult, string? flag) aiResult, ref TrajectoryDiagnosis diagnosis, ref string? flag, ref List<(DateTime dateTime, string barCode, Mat frame, DiagnosisResult dataResult)> frameCacheLis, ref int temp_resultFlag)
+        {
+            if (aiResult.AIResult?.Count <= 0)
+            {
+                flag = aiResult.flag;
+                _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{aiResult.IsValid}]-[{aiResult.ExInfo}]");
+                // AI判定放料开始：0
+                if (flag == "0")
+                {
+                    frameCacheLis.ForEach(o => o.frame?.Dispose());
+                    frameCacheLis.Clear();
+                }
+                return;
+            }
+
+            // 处理AI结果数据
+            var imageName = (flag == "0" && aiResult.flag == "1") ? "1" : "0";
+            // 大数据算法固定检测“下左角电芯”数据
+            var positionName = "下左角电芯";
+            if (aiResult.AIResult != null && !aiResult.AIResult[0].Exists(o => o.Name == positionName))
+            {
+                aiResult.AIResult[0].Add(new AIResultModel() { Name = positionName });
+            }
+            var x = (double)(aiResult.AIResult?[0]?.First(o => o.Name == positionName)?.Point3D?.X ?? 0);
+            var y = (double)(aiResult.AIResult?[0]?.First(o => o.Name == positionName)?.Point3D?.Y ?? 0);
+            // test
+            var result = temp_resultFlag % 2 == 0 ? "NG" : "OK";
+            // 执行大数据诊断逻辑算法
+            var dataResult = diagnosis.CheckSinglePosition(imageName, positionName, x, y);
+            // test
+            dataResult.Status = result;
+
+            // 异步发送实时数据：AI结果数据&大数据结果数据
+            _ = FramesUpLoadWebAsync(aiResult.AIResult, positionName, dataResult);
+
+            // AI判定放料结束：1=》0
+            if (flag == "1" && aiResult.flag == "0")
+            {
+                temp_resultFlag++;
+                // var _frameCache = frameCacheLis.ToList();
+                frameCacheLis.ForEach(o => o.frame?.Dispose());
+                frameCacheLis.Clear();
+
+                // -TODO    上传web
+                if (result == "NG")
+                {
+                    //  _ = NGFramesUpLoadWebAsync1(workstation, frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), aiResult.AIResult?[0]);
+                }
+            }
+            flag = aiResult.flag;
+            // AI判定放料进行中：1
+            if (flag == "1")
+            {
+                frameCacheLis.Add((frameInfo.dateTime, frameInfo.barCode, frameInfo.frame.Clone(), dataResult));
+            }
+            // AI判定放料开始：0
+            if (flag == "0")
+            {
+                if (aiResult.AIResult?.Count == 0)
+                {
+                    _logger?.Error($"[{camera.Name}-{workstation}]视觉算法推理失败：[{aiResult.IsValid}]-[{aiResult.ExInfo}]");
+                    return;
+                }
+                frameCacheLis.ForEach(o => o.frame?.Dispose());
+                frameCacheLis.Clear();
+            }
         }
 
         /// <summary>
@@ -423,6 +459,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             {
                 foreach (var item in resultModel)
                 {
+                    // 释放
+                    item.Region?.Dispose();
+
                     var Name = item.Name;
                     var X = item.Point3D?.X ?? 0;
                     var Y = item.Point3D?.Y ?? 0;
@@ -483,6 +522,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
         }
 
+        /// <summary>
+        /// 创建对象
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="z"></param>
+        /// <param name="abnormal"></param>
+        /// <param name="xDiff"></param>
+        /// <param name="yDiff"></param>
+        /// <param name="zDiff"></param>
+        /// <returns></returns>
         private DataList CreateDataList(string name, float x, float y, float z, int abnormal = 1, float xDiff = 0f, float yDiff = 0, float zDiff = 0)
         {
             return new DataList
@@ -521,6 +572,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             long millisecondsSinceEpoch = now.ToUnixTimeMilliseconds();
             return millisecondsSinceEpoch;
         }
+
         /// <summary>
         /// 视频流上传web
         /// </summary>
@@ -1098,6 +1150,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         #endregion
 
         #region Methods
+        #region Camera相关
         /// <summary>
         /// 相机读写锁
         /// </summary>
@@ -1199,6 +1252,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 throw new Exception("删除相机配置信息异常！", ex);
             }
         }
+        #endregion
         #endregion
     }
 }

@@ -206,13 +206,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 特征提取结果
         /// </summary>
         [JsonPropertyName("detectionResult")]
-        public string? DetectionResult { get; set; }
-
-        /// <summary>
-        /// 图片文件
-        /// </summary>
-        [JsonPropertyName("pictureFile")]
-        public byte[]? PictureFile { get; set; }
+        public string? DetectionResult { get; set; }       
     }
 
     /// <summary>
@@ -257,7 +251,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? IpAddress { get; set; }
 
         /// <summary>
-        /// 谁昂头SN码
+        /// 摄像头SN码
         /// </summary>
         [JsonPropertyName("cameraSn")]
         public string? CameraSn { get; set; }
@@ -305,7 +299,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? IpAddress { get; set; }
 
         /// <summary>
-        /// 谁昂头SN码
+        /// 摄像头SN码
         /// </summary>
         [JsonPropertyName("cameraSn")]
         public string? CameraSn { get; set; }
@@ -382,12 +376,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("alertLevel")]
         public int AlertLevel { get; set; }
-
+        
         /// <summary>
-        /// 视频文件
+        /// 起止信号，1为开始，2为结束，其余为0
         /// </summary>
-        [JsonPropertyName("file")]
-        public byte[]? File { get; set; }
+        [JsonPropertyName("statusFlag")]
+        public int StatusFlag { get; set; }
 
         /// <summary>
         /// 轨迹坐标数据Json数据
@@ -535,13 +529,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 移动方向
         /// </summary>
         [JsonPropertyName("moveDirection")]
-        public string? MoveDirection { get; set; }
-
-        /// <summary>
-        /// 起止信号，1为开始，2为结束，其余为0
-        /// </summary>
-        [JsonPropertyName("statusFlag")]
-        public int StatusFlag { get; set; }
+        public string? MoveDirection { get; set; }        
     }
 
     /// <summary>
@@ -614,6 +602,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("frameDtoList")]
         public List<FrameDtoList>? FrameDtoList { get; set; }
+
+        /// <summary>
+        /// 起止信号，1为开始，2为结束，其余为0
+        /// </summary>
+        [JsonPropertyName("statusFlag")]
+        public int StatusFlag { get; set; }
     }
     #endregion
 }

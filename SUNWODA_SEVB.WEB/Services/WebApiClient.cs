@@ -1,13 +1,15 @@
-﻿using Newtonsoft.Json;
+﻿using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks.Dataflow;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using OpenCvSharp;
 using Org.BouncyCastle.Ocsp;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
-using System.Diagnostics;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks.Dataflow;
 using static SUNWODA_SEVB.Tool.Helper.NetworkHelper;
 
 namespace SUNWODA_SEVB.WEB.Services
@@ -611,13 +613,12 @@ namespace SUNWODA_SEVB.WEB.Services
                     DefectWidth = defectWidth,
                     DefectHeight = defectHeight,
                     DefectArea = defectArea,
-                    DetectionResult = detectionResult,
-                    PictureFile = pictureFile
+                    DetectionResult = detectionResult
                 };
 
                 var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "multipart/form-data")));
 
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, pictureFile, url, "image/png", "png")));
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))
                 {
@@ -808,7 +809,12 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <param name="file"></param>
         /// <param name="aiPointListDtoList"></param>
         /// <returns></returns>
-        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<FrameDtoList> frameDtoList)
+        public async Task<TrajectoryDataResponse> TrajectoryDataAsync
+        (
+            string position, string barCode, long abnormalTimeStamp,
+            long abnormalTimeStampEnd, byte[] file,
+            List<FrameDtoList> frameDtoList, string abnormaVideoStatus
+        )
         {
             try
             {
@@ -826,21 +832,27 @@ namespace SUNWODA_SEVB.WEB.Services
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new TtrajectoryDataRequest
                 {
-                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
-                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
-                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
-                    DeviceId = settings.DeviceSn ?? "",
                     Position = position,
+                    Process = "叠片工序",
+                    ProductionLine = "PTO",
+                    ProductionBase = "惠州",
+                    //ProductionBase = "枣庄",
+                    //ProductionLine = "C01A线",
+                    //Process = "CT工序",                    
+                    //Position = "上料工位",
+                    DeviceId = "CT01",
                     BarCode = barCode,
                     AbnormalTimeStamp = abnormalTimeStamp,
                     AbnormalTimeStampEnd = abnormalTimeStampEnd,
-                    DetectionResult = detectionResult,
-                    File = file,
+                    DetectionResult = abnormaVideoStatus,
+                    AlertLevel = 1,
+                    StatusFlag = 1,
                     FrameDtoList = frameDtoList
                 };
 
                 var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "multipart/form-data")));
+                frameDtoList.Clear();
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, "video/mp4", "mp4")));
 
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))

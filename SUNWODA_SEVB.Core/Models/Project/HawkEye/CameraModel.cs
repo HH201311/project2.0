@@ -110,7 +110,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         /// 连接字符串
         /// </summary>
         [XmlIgnore()]
-        public string? ConnectionString { get { return $"rtsp://{HostIP}:554/user=admin&password=&channel=1"; } }
+        public string? ConnectionString { get { return $"rtsp://admin:admin@{HostIP}:554/Streaming/Channels/1"; } }
+
+        // $"rtsp://{HostIP}:554/user=admin&password=admin&channel=1"
 
         /// <summary>
         /// 设备信息

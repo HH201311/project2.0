@@ -222,6 +222,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                         {
                             // 若取消则退出
                             if (ct.IsCancellationRequested) break;
+
                             // 摄像头未打开
                             if ((videoCapture?.IsDisposed ?? true) || !(videoCapture?.IsOpened() ?? false))
                             {

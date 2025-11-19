@@ -529,7 +529,13 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 移动方向
         /// </summary>
         [JsonPropertyName("moveDirection")]
-        public string? MoveDirection { get; set; }        
+        public string? MoveDirection { get; set; }
+
+        /// <summary>
+        /// 斜率
+        /// </summary>
+        [JsonPropertyName("averageSlope")]
+        public float AverageSlope { get; set; }        
     }
 
     /// <summary>

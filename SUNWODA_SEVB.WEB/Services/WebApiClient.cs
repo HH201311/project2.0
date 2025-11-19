@@ -852,6 +852,7 @@ namespace SUNWODA_SEVB.WEB.Services
 
                 var json = JsonHelper.Serialize(request);
                 frameDtoList.Clear();
+                abnormaVideoStatus = string.Empty;
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, "video/mp4", "mp4")));
 
                 // 接口报错返回字符串包含failed

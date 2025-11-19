@@ -78,15 +78,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             // 电芯码监控路径
             if (!_projectSettingRepository.Exists(m => m.BelongToVM == "VM_MachineDamageMonitoringPage" && m.Name == "BarCodeWatchPath"))
             {
-                var psm = new ProjectSettingModel("BarCodeWatchPath", "VM_MachineDamageMonitoringPage", "D:\\Users\\2210120078\\Desktop\\新建文件夹", "string", 0);
-                psm.Remark = "电芯码监控路径（修改后需重启软件后加载！）";
+                var psm = new ProjectSettingModel("BarCodeWatchPath", "VM_MachineDamageMonitoringPage", "D:\\Users\\2210120078\\Desktop\\新建文件夹", "string", 0)
+                {
+                    Remark = "电芯码监控路径（修改后需重启软件后加载！）"
+                };
                 _projectSettingRepository.Add(psm);
             }
             // 监控服务监听端口
             if (!_projectSettingRepository.Exists(m => m.BelongToVM == "VM_MachineDamageMonitoringPage" && m.Name == "ServerPort"))
             {
-                var psm = new ProjectSettingModel("ServerPort", "VM_MachineDamageMonitoringPage", "8000", "int", 0);
-                psm.Remark = "监控服务监听端口（修改后需重启软件后加载！）";
+                var psm = new ProjectSettingModel("ServerPort", "VM_MachineDamageMonitoringPage", "8000", "int", 0)
+                {
+                    Remark = "监控服务监听端口（修改后需重启软件后加载！）"
+                };
                 _projectSettingRepository.Add(psm);
             }
             base.OnInitialize();
@@ -280,7 +284,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                                 "CT托盘位" => "../Configs/放料模拟数据",
                                 "CT放料位" => "../Configs/放料模拟数据",
                                 "PTO叠片粘电芯" => "../Configs/PTO叠片粘电芯数据/全粘连4",
-                                "PTO叠片取放料" => "../Configs/PTO叠片取放料数据/放料倾斜1",
+                                "PTO叠片取放料" => "../Configs/PTO叠片取放料数据/放料倾斜2",
                                 _ => throw new NotImplementedException(),
                             };
                             var fileDirectory = Directory.GetFiles(path);
@@ -641,6 +645,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
         }
 
+
         private void ExcuteWorkstation_PTOStackingPut
         (
             string workstation, VideoCaptureHelper camera,
@@ -860,7 +865,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                                 GetPointValues(item.Name, dataResult).x, GetPointValues(item.Name, dataResult).y, GetPointValues(item.Name, dataResult).z,
                                 GetPointValues(item.Name, dataResult).dx, GetPointValues(item.Name, dataResult).dy, GetPointValues(item.Name, dataResult).dz,
                                 GetPointValues(item.Name, dataResult).xStd, GetPointValues(item.Name, dataResult).yStd, GetPointValues(item.Name, dataResult).zStd,
-                                GetPointValues(item.Name, dataResult).abnormal
+                                GetPointValues(item.Name, dataResult).abnormal, GetPointValues(item.Name, dataResult).averageSlope
                             )
                         );
                     }
@@ -909,35 +914,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         }
 
 
-        private (float x, float y, float z, float xStd, float yStd, float zStd, float dx, float dy, float dz, int abnormal) GetPointValues(string name, UnifiedDiagnosisResult d)
+        private (float x, float y, float z, float xStd, float yStd, float zStd, float dx, float dy, float dz, int abnormal, float averageSlope) GetPointValues(string name, UnifiedDiagnosisResult d)
         {
-            float F(double? v) => (float)(v ?? 0);
-
             return name switch
             {
                 "左点电芯" =>
-                (F(d.LeftReverseProjectedPoint?.X), F(d.LeftReverseProjectedPoint?.Y), F(d.LeftReverseProjectedPoint?.Z),
-                 F(d.ExpectedLeft3DPoint?.X), F(d.ExpectedLeft3DPoint?.Y), F(d.ExpectedLeft3DPoint?.Z),
-                 F(d.LeftDx3D), F(d.LeftDy3D), F(d.LeftDz3D),
-                 d.Status == "OK" ? 1 : 0),
+                (d.LeftReverseProjectedPoint?.X ?? 0.0f, d.LeftReverseProjectedPoint?.Y ?? 0.0f, (d.LeftReverseProjectedPoint?.Z ?? 0.0f),
+                  (d.ExpectedLeft3DPoint?.X ?? 0.0f), (d.ExpectedLeft3DPoint?.Y ?? 0.0f), (d.ExpectedLeft3DPoint?.Z ?? 0.0f),
+                  (d.LeftDx3D), (d.LeftDy3D), (d.LeftDz3D),
+                 d.Status == "OK" ? 1 : 0, d.AverageSlope),
 
                 "中心点电芯" =>
-                (F(d.MiddleReverseProjectedPoint?.X), F(d.MiddleReverseProjectedPoint?.Y), F(d.MiddleReverseProjectedPoint?.Z),
-                 F(d.ExpectedMiddle3DPoint?.X), F(d.ExpectedMiddle3DPoint?.Y), F(d.ExpectedMiddle3DPoint?.Z),
-                 F(d.MiddleDx3D), F(d.MiddleDy3D), F(d.MiddleDz3D),
-                 d.Status == "OK" ? 1 : 0),
+                ((d.MiddleReverseProjectedPoint?.X ?? 0.0f), (d.MiddleReverseProjectedPoint?.Y ?? 0.0f), (d.MiddleReverseProjectedPoint?.Z ?? 0.0f),
+                  (d.ExpectedMiddle3DPoint?.X ?? 0.0f), (d.ExpectedMiddle3DPoint?.Y ?? 0.0f), (d.ExpectedMiddle3DPoint?.Z ?? 0.0f),
+                  (d.MiddleDx3D), (d.MiddleDy3D), (d.MiddleDz3D),
+                 d.Status == "OK" ? 1 : 0, d.AverageSlope),
 
                 "右点电芯" =>
-                (F(d.RightReverseProjectedPoint?.X), F(d.RightReverseProjectedPoint?.Y), F(d.RightReverseProjectedPoint?.Z),
-                 F(d.ExpectedRight3DPoint?.X), F(d.ExpectedRight3DPoint?.Y), F(d.ExpectedRight3DPoint?.Z),
-                 F(d.RightDx3D), F(d.RightDy3D), F(d.RightDz3D),
-                 d.Status == "OK" ? 1 : 0),
+                ((d.RightReverseProjectedPoint?.X ?? 0.0f), (d.RightReverseProjectedPoint?.Y ?? 0.0f), (d.RightReverseProjectedPoint?.Z ?? 0.0f),
+                  (d.ExpectedRight3DPoint?.X ?? 0.0f), (d.ExpectedRight3DPoint?.Y ?? 0.0f), (d.ExpectedRight3DPoint?.Z ?? 0.0f),
+                  (d.RightDx3D), (d.RightDy3D), (d.RightDz3D),
+                 d.Status == "OK" ? 1 : 0, d.AverageSlope),
 
                 _ =>
-                (F(d.ReverseProjectedPoint?.X), F(d.ReverseProjectedPoint?.Y), F(d.ReverseProjectedPoint?.Z),
-                 F(d.Expected3DPoint?.X), F(d.Expected3DPoint?.Y), F(d.Expected3DPoint?.Z),
-                 F(d.Dx3D), F(d.Dy3D), F(d.Dz3D),
-                 d.Status == "OK" ? 1 : 0)
+                ((d.ReverseProjectedPoint?.X ?? 0.0f), (d.ReverseProjectedPoint?.Y ?? 0.0f), (d.ReverseProjectedPoint?.Z ?? 0.0f),
+                  (d.Expected3DPoint?.X ?? 0.0f), (d.Expected3DPoint?.Y ?? 0.0f), (d.Expected3DPoint?.Z ?? 0.0f),
+                  (d.Dx3D), (d.Dy3D), (d.Dz3D),
+                 d.Status == "OK" ? 1 : 0, d.AverageSlope)
             };
         }
 
@@ -963,7 +966,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="yDiff"></param>
         /// <param name="zDiff"></param>
         /// <returns></returns>
-        private DataList CreateDataList(string name, float x, float y, float z, float xDiff = 0f, float yDiff = 0f, float zDiff = 0f, float XStandard = 0f, float YStandard = 0f, float ZStandard = 0f, int abnormal = 1)
+        private DataList CreateDataList(string name, float x, float y, float z, float xDiff = 0f, float yDiff = 0f, float zDiff = 0f, float XStandard = 0f, float YStandard = 0f, float ZStandard = 0f, int abnormal = 1, float averageSlope = 0f)
         {
             return new DataList
             {
@@ -984,7 +987,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                         Abnormal = abnormal,
                         XStandard = XStandard,
                         YStandard = YStandard,
-                        ZStandard = ZStandard
+                        ZStandard = ZStandard,
+                        AverageSlope = averageSlope
                     }
                 ]
             };
@@ -1078,12 +1082,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 }
 
                 var re = await _webApiClient.TrajectoryDataAsync($"{position}", $"{barCode}", dateTime, dateTime, file, frameResultDataList, abnormaVideoStatus);
-                if (re.IsSuccess || re.Code == 200)
-                {
-                    _logger.Info($"[{position}-{barCode}]AI算法结果上传web成功！");
-                    frameResultDataList.Clear();
-                    abnormaVideoStatus = string.Empty;
-                }
+                if (re.IsSuccess || re.Code == 200)               
+                    _logger.Info($"[{position}-{barCode}]AI算法结果上传web成功！");                                                       
                 else
                     _logger.Error($"[{position}-{barCode}]AI算法结果上传web失败：[{re.Message}]");
             }

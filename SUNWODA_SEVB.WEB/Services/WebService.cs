@@ -153,7 +153,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     workship = workshipParts.ElementAtOrDefault(3) ?? "",
                     proceduce = settings.DeviceName ?? "",
                     devId = settings.DeviceSn ?? "",
-                    softName = settings.ZipFileName ?? "",
+                    softName = settings.ZipFileName ?? "aa",
                     softVersion = settings.SoftVersion ?? "",
                     macId = networkInfo.MacAddress,
                     ip = networkInfo.IpAddress ?? ""
@@ -324,7 +324,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 ManagedMemory = memoryInfo.ManagedMemory,
                 SystemMemory = memoryInfo.SystemMemory,  // 系统内存信息
                 Disk = await GetDiskInfoAsync(),
-                EquipmentState = await GetPlcStatusAsync(),
+                EquipmentState = await GetPcStatusAsync(),
                 Time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.FFF")
             };
         }
@@ -498,19 +498,19 @@ namespace SUNWODA_SEVB.WEB.Services
         /// PLC状态获取（模拟实现）
         /// </summary>
         /// <returns></returns>
-        private async Task<string> GetPlcStatusAsync()
+        private async Task<string> GetPcStatusAsync()
         {
             return await Task.Run(() =>
             {
                 try
                 {
-                    // TODO: 从PLC服务获取实际状态
+                    // TODO: 从PC服务获取实际状态
                     // 暂时返回固定值
                     return "正常";
                 }
                 catch (Exception ex)
                 {
-                    _logger.Debug($"获取PLC状态失败: {ex.Message}");
+                    _logger.Debug($"获取PC状态失败: {ex.Message}");
                     return "未知";
                 }
             });

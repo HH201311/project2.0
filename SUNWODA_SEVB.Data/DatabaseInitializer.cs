@@ -177,7 +177,7 @@ namespace SUNWODA_SEVB.Data
                 //InitializePLCAddressConfigs();
                 InitializeUsers();
                 InitializeWorkSpaceProjects();
-                //InitializeMESSettings();// 后续启用
+                InitializeMESSettings();// 后续启用
 
                 _db.Ado.CommitTran();
                 _logger.Info("默认数据初始化完成");
@@ -203,7 +203,7 @@ namespace SUNWODA_SEVB.Data
                 new GlobalSetting { Name = "CurrentUserAccount", Value = "guest", Type = "string", Remark = "当前用户", RoleRank = 0b1000 },//000访客 001工程师  010管理员 100超级管理员 
                 new GlobalSetting { Name = "IsMESEnabled", Value = "false", Type = "bool", Remark = "是否启用MES功能", RoleRank = 2 },
                 new GlobalSetting { Name = "PLCConnectTime", Value = "5000", Type = "int", Unit = "ms", Remark = "PLC重连时间", RoleRank = 2 },
-
+                new GlobalSetting { Name = "IsUseWeb", Value = "false", Type = "bool", Remark = "是否启用WEB服务", RoleRank = 2 },
             };
 
             foreach (var setting in settings)
@@ -378,6 +378,22 @@ namespace SUNWODA_SEVB.Data
         private void InitializeMESSettings()
         {
             // 如果有MES相关的默认设置，在这里初始化
+            var mesSettings = new[]
+            {
+                new MESSetting {ProfileName ="test",Key = "BaseUrl",Value ="http://10.178.5.6:9002",Type = "string", Remark = "MES服务器地址"},
+                new MESSetting {ProfileName ="test",Key = "TimeoutSeconds",Value ="30",Type = "int", Remark = "超时时间(秒)"},
+                new MESSetting { ProfileName ="test",Key = "EnableRetry",Value ="false",Type = "bool", Remark = "是否启用重试"},
+                new MESSetting { ProfileName ="test",Key = "MaxRetryCount",Value ="3",Type = "int", Remark = "重试次数"},
+        
+            };
+
+            foreach(var setting in mesSettings)
+            {
+                if (!_db.Queryable<MESSetting>().Any(it => it.ProfileName == setting.ProfileName && it.Key == setting.Key))
+                {
+                    _db.Insertable(setting).ExecuteCommand();
+                }
+            }
             _logger.Info("MES设置初始化完成");
         }
     }

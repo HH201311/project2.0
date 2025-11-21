@@ -55,22 +55,19 @@ namespace SUNWODA_SEVB
                 // 步骤4：配置NLog数据库目标（数据库就绪后）
                 await ConfigureNLogDatabase(appLogger);
 
-                // 步骤5：初始化MES服务
-                await InitializeMESService(appLogger);
-
-                // 步骤6：初始化应用设置
+                // 步骤5：初始化应用设置(账户、项目)
                 await InitializeApplicationSettings(appLogger);
 
                 // 记录应用启动信息
                 LogApplicationStartup(appLogger);
 
-                // 步骤7：设置全局异常处理
+                // 步骤6：设置全局异常处理
                 SetupGlobalExceptionHandling();
 
-                // 步骤8：启动后台任务
+                // 步骤7：启动后台任务
                 StartBackgroundTasks();
 
-                // 步骤9：创建并显示主窗口
+                // 步骤8：创建并显示主窗口
                 ShowMainWindow();
             }
             catch (Exception ex)
@@ -247,30 +244,30 @@ namespace SUNWODA_SEVB
             }
         }
 
-        /// <summary>
-        /// 初始化MES服务
-        /// </summary>
-        private async Task InitializeMESService(ILoggerService<App> logger)
-        {
-            try
-            {
-                var mesService = _host!.Services.GetRequiredService<IMesService>();
-                var mesInitialized = await mesService.InitializeAsync();
+        ///// <summary>
+        ///// 初始化MES服务
+        ///// </summary>
+        //private async Task InitializeMESService(ILoggerService<App> logger)
+        //{
+        //    try
+        //    {
+        //        var mesService = _host!.Services.GetRequiredService<IMesService>();
+        //        var mesInitialized = await mesService.InitializeAsync();
 
-                if (mesInitialized)
-                {
-                    logger.Info("MES服务初始化成功");
-                }
-                else
-                {
-                    logger.Info("MES服务未启用或初始化失败");
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"MES服务初始化异常: {ex.Message}", ex);
-            }
-        }
+        //        if (mesInitialized)
+        //        {
+        //            logger.Info("MES服务初始化成功");
+        //        }
+        //        else
+        //        {
+        //            logger.Info("MES服务未启用或初始化失败");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        logger.Error($"MES服务初始化异常: {ex.Message}", ex);
+        //    }
+        //}
 
         /// <summary>
         /// 初始化应用设置
@@ -343,7 +340,7 @@ namespace SUNWODA_SEVB
                 var logger = LogManager.GetLogger("UnhandledException");
                 if (args.ExceptionObject is Exception ex)
                 {
-                    logger.Fatal(ex, "发生未处理的域异常");
+                    logger.Fatal(ex, "发生未处理的域异常",true);
                 }
                 else
                 {
@@ -402,15 +399,15 @@ namespace SUNWODA_SEVB
             var logManagementService = _host?.Services?.GetService<ILogManagementService>();
 
             // 延迟启动，确保应用完全初始化
-            await Task.Delay(3000, _shutdownCts.Token);
+            await Task.Delay(2000, _shutdownCts.Token);
 
             try
             {
                 // 执行初始清理
-                logger?.Info("执行初始日志清理...");
+                logger?.Info("执行本地日志清理...");
                 logManagementService?.CleanupOldLogs(90);
                 await CleanupDatabaseLogs(logger);
-                logger?.Info("初始日志清理完成");
+                logger?.Info("本地旧日志清理完成");
             }
             catch (Exception ex)
             {

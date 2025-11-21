@@ -15,6 +15,7 @@ namespace SUNWODA_SEVB.MES.Providers
         private readonly IConfiguration _configuration;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILoggerService<MesConfigurationProvider> _logger;
+        //private readonly IGlobalSettingRepository _globalSettingRepository;
         private readonly SemaphoreSlim _loadLock = new(1, 1);
 
         private MesApiConfiguration? _currentConfiguration;
@@ -153,18 +154,20 @@ namespace SUNWODA_SEVB.MES.Providers
             {
                 _logger.Debug("开始从数据库加载MES配置");
 
-                // 检查配置文件中的MES开关
-                var mesEnabled = _configuration.GetValue<bool>("ProjectSettings:EnableMES", false);
-                if (!mesEnabled)
-                {
-                    _logger.Info("MES服务在配置文件中未开启");
-                    return null;
-                }
-
                 using var scope = _serviceProvider.CreateScope();
                 var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
                 var mesSettingRepo = scope.ServiceProvider.GetRequiredService<IMESSettingRepository>();
 
+                // 检查配置文件中的MES开关
+                var mesEnabledValue = await globalSettingRepo.GetSettingValueAsync("IsMESEnabled");
+                var mesEnabled = mesEnabledValue ?? false;  // 如果为null，默认为false
+                _logger.Debug($"IsMESEnabled 数据库值: {mesEnabled}");
+
+                if (!mesEnabled)
+                {
+                    _logger.Info("MES服务未开启");
+                    return null;
+                }
 
                 // 查询项目的MES Profile
                 var mesProfileSetting = await globalSettingRepo.GetByNameAsync("MesProfile");

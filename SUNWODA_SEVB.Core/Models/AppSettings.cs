@@ -8,7 +8,7 @@ namespace SUNWODA_SEVB.Core.Models
     public class AppSettings
     {
         public ConnectionStrings ConnectionStrings { get; set; } = new();
-        public ProjectSettings ProjectSettings { get; set; } = new();
+        
         public LogCleanupSettings LogCleanup { get; set; } = new();
     }
 
@@ -17,10 +17,6 @@ namespace SUNWODA_SEVB.Core.Models
         public string DefaultConnection { get; set; } = string.Empty;
     }
 
-    public class ProjectSettings
-    {
-        public bool EnableMES { get; set; }
-    }
     public class LogCleanupSettings
     {
         public int AppLogRetentionDays { get; set; } = 7;

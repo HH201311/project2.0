@@ -33,16 +33,15 @@ namespace SUNWODA_SEVB.MES.Services
 
                 // 1. 预加载MES配置（确保配置提供者初始化）
                 var config = await _configProvider.GetConfigurationAsync();
-                if (config != null)
+                if (config == null)
                 {
-                    _logger.Info($"成功预加载MES配置: Profile={config.ProfileName}");
-                }
-                else
-                {
-                    _logger.Info("未找到有效的MES配置或MES服务已禁用");
+                    _logger.Warn("未找到有效MES配置或MES服务已禁用，跳过MES主服务初始化");
+                    _logger.Info("========== MES初始化服务完成 ==========");
+                    return;
                 }
 
                 // 2. 初始化主MES服务
+                _logger.Info($"成功预加载MES配置: Profile={config.ProfileName}");
                 var result = await _mesService.InitializeAsync();
                 if (result)
                 {

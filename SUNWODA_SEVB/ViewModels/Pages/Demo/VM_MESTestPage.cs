@@ -1,13 +1,10 @@
-﻿using Google.Protobuf.WellKnownTypes;
-using Org.BouncyCastle.Asn1.Crmf;
-using RestSharp;
+﻿using RestSharp;
 using SUNWODA_SEVB.Component.UserControls;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.MES;
-using SUNWODA_SEVB.Core.Models.MES;
 using SUNWODA_SEVB.MES.Services;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -18,6 +15,9 @@ using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.Demo
 {
+    /// <summary>
+    /// MES测试页面 ViewModel
+    /// </summary>
     [Module("VM_MESTestPage", "MES测试模块")]
     public class VM_MESTestPage : ViewModelBase
     {

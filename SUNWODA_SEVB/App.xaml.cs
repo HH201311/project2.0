@@ -405,7 +405,7 @@ namespace SUNWODA_SEVB
             {
                 // 执行初始清理
                 logger?.Info("执行本地日志清理...");
-                logManagementService?.CleanupOldLogs(90);
+                logManagementService?.CleanupOldLogs(99);
                 await CleanupDatabaseLogs(logger);
                 logger?.Info("本地旧日志清理完成");
             }
@@ -430,7 +430,7 @@ namespace SUNWODA_SEVB
                         break;
 
                     logger?.Info("执行定时日志清理...");
-                    logManagementService?.CleanupOldLogs(90);
+                    logManagementService?.CleanupOldLogs(99);
                     await CleanupDatabaseLogs(logger);
                     logger?.Info("定时日志清理完成");
                 }

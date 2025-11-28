@@ -15,17 +15,22 @@ namespace SUNWODA_SEVB.MES.Providers
         private readonly IConfiguration _configuration;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILoggerService<MesConfigurationProvider> _logger;
-        //private readonly IGlobalSettingRepository _globalSettingRepository;
+
         private readonly SemaphoreSlim _loadLock = new(1, 1);
+
+        // 用于检测重入
+        private readonly AsyncLocal<bool> _isLoadingOnCurrentThread = new();
 
         private MesApiConfiguration? _currentConfiguration;
         private bool _hasAttemptedLoad = false;
+        private volatile bool _isLoading = false;
 
         private DateTimeOffset _lastSuccessfulLoadUtc = DateTimeOffset.MinValue;
         private DateTimeOffset _lastLoadAttemptUtc = DateTimeOffset.MinValue;
 
         private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
         private readonly TimeSpan _errorBackoff = TimeSpan.FromSeconds(30);
+        private readonly TimeSpan _lockTimeout = TimeSpan.FromSeconds(30);
 
         public MesApiConfiguration? CurrentConfiguration => _currentConfiguration;
 
@@ -39,49 +44,85 @@ namespace SUNWODA_SEVB.MES.Providers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+
+        /// <summary>
+        /// 获取当前是否正在加载配置
+        /// </summary>
+        public bool IsLoading => _isLoading;
+
         public async Task<MesApiConfiguration?> GetConfigurationAsync()
         {
-            // 首次调用时，总是尝试加载
-            if (!_hasAttemptedLoad)
+            if (_isLoadingOnCurrentThread.Value)
             {
-                _logger.Info("首次获取MES配置，尝试从数据库加载");
-                await _loadLock.WaitAsync();
-                try
+                _logger.Debug("检测到重入调用，返回当前缓存配置");
+                return _currentConfiguration;
+            }
+            // 如果其他线程正在加载，短暂等待
+            if (_isLoading)
+            {
+                _logger.Debug("其他线程正在加载配置，等待完成或返回缓存");
+                var waitStart = DateTimeOffset.UtcNow;
+                while (_isLoading && DateTimeOffset.UtcNow - waitStart < TimeSpan.FromSeconds(5))
                 {
-                    if (!_hasAttemptedLoad) // 双重检查
+                    await Task.Delay(50);
+                }
+
+                if (_isLoading)
+                {
+                    _logger.Warn("等待其他线程加载超时，继续执行");
+                }
+                else
+                {
+                    _logger.Debug("其他线程加载完成，检查缓存");
+                    var recentConfig = GetCachedConfigurationIfValid();
+                    if (recentConfig != null)
                     {
-                        var config = await LoadConfigurationFromDatabaseAsync();
-                        _hasAttemptedLoad = true;
-                        if (config != null)
-                        {
-                            _currentConfiguration = config;
-                            _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
-                            _logger.Info("首次加载MES配置成功");
-                        }
-                        else
-                        {
-                            _logger.Warn("首次加载MES配置失败或无配置");
-                        }
-                        return config;
+                        return recentConfig;
                     }
                 }
-                finally
-                {
-                    _loadLock.Release();
-                }
+            }
+            // 快速路径：如果有有效缓存，直接返回
+            var cachedConfig = GetCachedConfigurationIfValid();
+            if (cachedConfig != null)
+            {
+                return cachedConfig;
             }
 
+            // 首次调用或需要刷新缓存
+            return await LoadWithLockAsync(isFirstLoad: !_hasAttemptedLoad);
+        }
+
+        private MesApiConfiguration? GetCachedConfigurationIfValid()
+        {
             var now = DateTimeOffset.UtcNow;
 
             // 如果有缓存且未过期，直接返回
             if (_currentConfiguration != null &&
+                _lastSuccessfulLoadUtc != DateTimeOffset.MinValue &&
                 now - _lastSuccessfulLoadUtc < _cacheExpiration)
             {
                 return _currentConfiguration;
             }
 
-            // 如果最近失败过，进行失败回退
-            if (_currentConfiguration == null &&
+            // 如果已尝试加载但配置为null（MES禁用），且在有效期内，返回null但不重新加载
+            if (_hasAttemptedLoad &&
+                _currentConfiguration == null &&
+                _lastSuccessfulLoadUtc != DateTimeOffset.MinValue &&
+                now - _lastSuccessfulLoadUtc < _cacheExpiration)
+            {
+                return null; // 这是有效的"空配置"缓存
+            }
+
+            return null;
+        }
+
+        private async Task<MesApiConfiguration?> LoadWithLockAsync(bool isFirstLoad)
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            // 失败回退检查（在获取锁之前）
+            if (!isFirstLoad &&
+                _currentConfiguration == null &&
                 _lastLoadAttemptUtc != DateTimeOffset.MinValue &&
                 now - _lastLoadAttemptUtc < _errorBackoff)
             {
@@ -89,64 +130,234 @@ namespace SUNWODA_SEVB.MES.Providers
                 return null;
             }
 
-            await _loadLock.WaitAsync();
+            // 尝试获取锁，带超时
+            bool lockAcquired = false;
             try
             {
-                now = DateTimeOffset.UtcNow;
-                if (_currentConfiguration != null &&
-                    now - _lastSuccessfulLoadUtc < _cacheExpiration)
+                lockAcquired = await _loadLock.WaitAsync(_lockTimeout);
+
+                if (!lockAcquired)
+                {
+                    _logger.Warn($"获取配置加载锁超时（{_lockTimeout.TotalSeconds}s），返回当前缓存");
+                    return _currentConfiguration;
+                }
+
+                // 双重检查：获取锁后再次验证是否需要加载
+                var cachedConfig = GetCachedConfigurationIfValid();
+                if (cachedConfig != null || (_hasAttemptedLoad && _currentConfiguration == null &&
+                    DateTimeOffset.UtcNow - _lastSuccessfulLoadUtc < _cacheExpiration))
                 {
                     return _currentConfiguration;
                 }
 
-                _lastLoadAttemptUtc = now;
-                var cfg = await LoadConfigurationFromDatabaseAsync();
+                // 标记当前上下文正在加载
+                _isLoadingOnCurrentThread.Value = true;
+                _isLoading = true;
 
-                if (cfg != null)
+                try
                 {
-                    _currentConfiguration = cfg;
-                    _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
-                }
+                    if (isFirstLoad)
+                    {
+                        _logger.Info("首次获取MES配置，尝试从数据库加载");
+                    }
 
-                return _currentConfiguration;
+                    _lastLoadAttemptUtc = DateTimeOffset.UtcNow;
+                    var config = await LoadConfigurationFromDatabaseCoreAsync();
+
+                    _hasAttemptedLoad = true;
+
+                    if (config != null)
+                    {
+                        _currentConfiguration = config;
+                        _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
+                        _logger.Info(isFirstLoad ? "首次加载MES配置成功" : "MES配置刷新成功");
+                    }
+                    else
+                    {
+                        // config为null可能是MES禁用，也记录成功时间以启用缓存
+                        _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
+                        _logger.Info(isFirstLoad ? "首次加载MES配置完成（无配置或已禁用）" : "MES配置刷新完成（无配置或已禁用）");
+                    }
+
+                    return config;
+                }
+                finally
+                {
+                    _isLoadingOnCurrentThread.Value = false;
+                    _isLoading = false;
+                }
             }
             finally
             {
-                _loadLock.Release();
+                if (lockAcquired)
+                {
+                    _loadLock.Release();
+                }
             }
         }
 
         public async Task<bool> ReloadConfigurationAsync()
         {
-            await _loadLock.WaitAsync();
+            // 检测重入
+            if (_isLoadingOnCurrentThread.Value)
+            {
+                _logger.Warn("检测到重入的ReloadConfigurationAsync调用，忽略");
+                return false;
+            }
+
+            bool lockAcquired = false;
             try
             {
-                _logger.Info("强制重新加载MES配置");
-                _lastLoadAttemptUtc = DateTimeOffset.MinValue; // 重置失败回退
-                _hasAttemptedLoad = false; // 重置首次加载标志
+                lockAcquired = await _loadLock.WaitAsync(_lockTimeout);
 
-                var config = await LoadConfigurationFromDatabaseAsync();
-
-                if (config != null)
+                if (!lockAcquired)
                 {
-                    _currentConfiguration = config;
-                    _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
-                    _hasAttemptedLoad = true;
-                    _logger.Info("MES配置重新加载成功");
-                    return true;
-                }
-                else
-                {
-                    _hasAttemptedLoad = true;
-                    _logger.Warn("MES配置重新加载失败或无配置");
+                    _logger.Warn($"获取配置重载锁超时（{_lockTimeout.TotalSeconds}s）");
                     return false;
+                }
+
+                _isLoadingOnCurrentThread.Value = true;
+                _isLoading = true;
+
+                try
+                {
+                    _logger.Info("强制重新加载MES配置");
+
+                    // 重置状态
+                    _lastLoadAttemptUtc = DateTimeOffset.MinValue;
+                    _hasAttemptedLoad = false;
+
+                    var config = await LoadConfigurationFromDatabaseCoreAsync();
+
+                    _hasAttemptedLoad = true;
+                    _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
+
+                    if (config != null)
+                    {
+                        _currentConfiguration = config;
+                        _logger.Info("MES配置重新加载成功");
+                        return true;
+                    }
+                    else
+                    {
+                        _currentConfiguration = null;
+                        _logger.Warn("MES配置重新加载完成（无配置或已禁用）");
+                        return false;
+                    }
+                }
+                finally
+                {
+                    _isLoadingOnCurrentThread.Value = false;
+                    _isLoading = false;
                 }
             }
             finally
             {
-                _loadLock.Release();
+                if (lockAcquired)
+                {
+                    _loadLock.Release();
+                }
             }
         }
+
+        /// <summary>
+        /// 核心加载逻辑，不包含锁管理
+        /// </summary>
+        private async Task<MesApiConfiguration?> LoadConfigurationFromDatabaseCoreAsync()
+        {
+            try
+            {
+                _logger.Debug("开始从数据库加载MES配置");
+
+                // 使用独立的scope进行数据库操作
+                using var scope = _serviceProvider.CreateScope();
+                var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+                var mesSettingRepo = scope.ServiceProvider.GetRequiredService<IMESSettingRepository>();
+
+                // 检查配置文件中的MES开关
+                bool mesEnabled;
+                try
+                {
+                    var mesEnabledValue = await globalSettingRepo.GetSettingValueAsync("IsMESEnabled");
+                    mesEnabled = mesEnabledValue ?? false;
+                    _logger.Debug($"IsMESEnabled 数据库值: {mesEnabled}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("获取IsMESEnabled设置失败", ex);
+                    return null;
+                }
+
+                if (!mesEnabled)
+                {
+                    _logger.Info("MES服务未开启");
+                    return null;
+                }
+
+                // 查询项目的MES Profile
+                dynamic? mesProfileSetting;
+                try
+                {
+                    mesProfileSetting = await globalSettingRepo.GetByNameAsync("MesProfile");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("获取MesProfile设置失败", ex);
+                    return null;
+                }
+
+                if (mesProfileSetting == null || string.IsNullOrWhiteSpace(mesProfileSetting?.Value?.ToString()))
+                {
+                    _logger.Info("当前项目未配置MES Profile");
+                    return null;
+                }
+
+                var profileName = mesProfileSetting?.Value.ToString();
+                _logger.Info($"项目使用MES Profile: {profileName}");
+
+                // 加载MES详细配置
+                IEnumerable<dynamic>? mesSettings;
+                try
+                {
+                    mesSettings = await mesSettingRepo.GetByProfileNameAsync(profileName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error($"获取Profile '{profileName}' 的MES配置失败", ex);
+                    return null;
+                }
+
+                if (mesSettings == null || !mesSettings.Any())
+                {
+                    _logger.Warn($"未找到Profile '{profileName}' 的MES配置");
+                    return null;
+                }
+
+                // 构建配置对象
+                var configuration = BuildMesConfiguration(profileName, mesSettings);
+
+                // 验证配置
+                if (!configuration.IsValid(out string? errorMessage))
+                {
+                    _logger.Error($"MES配置验证失败: {errorMessage}");
+                    return null;
+                }
+
+                _logger.Info($"MES配置加载成功: BaseUrl={configuration.BaseUrl}, " +
+                           $"Timeout={configuration.TimeoutSeconds}s, " +
+                           $"EnableRetry={configuration.EnableRetry}");
+
+                return configuration;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("从数据库加载MES配置时发生错误", ex);
+                return null;
+            }
+        }
+
+
+
 
         private async Task<MesApiConfiguration?> LoadConfigurationFromDatabaseAsync()
         {
@@ -165,7 +376,9 @@ namespace SUNWODA_SEVB.MES.Providers
 
                 if (!mesEnabled)
                 {
-                    _logger.Info("MES服务未开启");
+                    _logger.Info("MES服务未开启，将缓存禁用状态，防止重复加载");
+                    _currentConfiguration = null;
+                    _lastSuccessfulLoadUtc = DateTimeOffset.UtcNow;
                     return null;
                 }
 
@@ -325,6 +538,14 @@ namespace SUNWODA_SEVB.MES.Providers
 
 
             return config;
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            _loadLock?.Dispose();
         }
     }
 }

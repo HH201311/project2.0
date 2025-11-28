@@ -47,7 +47,7 @@ namespace SUNWODA_SEVB.MES
             {
                 if (_isInitialized)
                 {
-                    _logger.Debug("MES服务已经初始化");
+                    _logger.Debug("MES服务已经初始化，无需重复初始化");
                     return IsEnabled;
                 }
 
@@ -76,10 +76,11 @@ namespace SUNWODA_SEVB.MES
                 // 3. 初始化HTTP客户端
                 InitializeHttpClient(mesConfig);
 
+                // 4. 标记服务已启用
                 _isEnabled = true;
                 _isInitialized = true;
 
-                _logger.Info($"========== MES服务初始化完成 (启用状态: {IsEnabled}) ==========");
+                _logger.Info($"========== MES服务初始化完成 (启用状态: {IsEnabled}, Profile={mesConfig.ProfileName}) ==========");             
                 return true;
             }
             catch (Exception ex)

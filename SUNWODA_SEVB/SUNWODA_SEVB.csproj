@@ -12,6 +12,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="ViewModels\Pages\CCTB\**" />
+    <Compile Remove="Views\Pages\CCTB\**" />
+    <EmbeddedResource Remove="ViewModels\Pages\CCTB\**" />
+    <EmbeddedResource Remove="Views\Pages\CCTB\**" />
+    <None Remove="ViewModels\Pages\CCTB\**" />
+    <None Remove="Views\Pages\CCTB\**" />
+    <Page Remove="ViewModels\Pages\CCTB\**" />
+    <Page Remove="Views\Pages\CCTB\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="avatar.ico" />
   </ItemGroup>
 
@@ -51,8 +62,6 @@
 
   <ItemGroup>
     <Folder Include="Assets\" />
-    <Folder Include="ViewModels\Pages\CCTB\" />
-    <Folder Include="Views\Pages\CCTB\" />
   </ItemGroup>
 
   <ItemGroup>

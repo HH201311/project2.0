@@ -250,6 +250,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 }
 
                 Mat image = Cv2.ImRead(ImagePath[0], ImreadModes.Color); // 以彩色模式读取
+
                 object[] AIParamData =
                 [
                     image,
@@ -259,8 +260,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     CalibrationPlateModel.ListNumber,
                     CalibrationPlateModel.CheckerboardSize
                 ];
+
                 var pixelAccuracyResult = calibrationMethod?.Invoke(AlgorithmExample, AIParamData);
-                CalibrationPlateModel.PixelPrecision = (double)pixelAccuracyResult;
+                // 获取像素精度
+                if (pixelAccuracyResult is double pixelPrecision)
+                {
+                    CalibrationPlateModel.PixelPrecision = pixelPrecision;
+                }
+                else
+                {
+                    HandyControl.Controls.MessageBox.Show($"像素精度计算结果无效，请检查标定参数或算法返回值！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+
                 image?.Dispose();
             }
             catch (Exception ex)

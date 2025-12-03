@@ -222,7 +222,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         public async Task<byte[]> HttpWebPostAsync(JObject json, string filePath, string url, string fileType)
         {
             _httpClient.Timeout = TimeSpan.FromSeconds(10);
-            
+
             // 创建 multipart/form-data 请求体
             using var form = new MultipartFormDataContent();
 
@@ -251,7 +251,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
 
         public async Task<byte[]> HttpWebPostBytesAsync(JObject json, byte[] fileBytes, string fileName, string url, string fileType)
-        {            
+        {
             using var form = new MultipartFormDataContent();
 
             foreach (var prop in json.Properties())
@@ -290,18 +290,60 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             // 如果有文件数据，则添加文件部分
             if (fileBytes != null && fileBytes.Length > 0)
-            {                
+            {
                 var fileContent = new ByteArrayContent(fileBytes);
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
                 // 自动生成文件名（保证 multipart 格式完整）
                 string autoFileName = $"upload_{DateTime.Now:yyyyMMdd_HHmmssfff}.{format}";
                 form.Add(fileContent, "file", autoFileName);
             }
-            
+
             var response = await _httpClient.PostAsync(url, form);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
-        }        
+        }
+
+        public async Task<byte[]> HttpWebPostMultiFilesAsync
+        (
+            string jsonString,
+            List<(byte[] Bytes, string FileType, string FileName, string FileExt)>? files,
+            string url
+        )
+        {
+            using var form = new MultipartFormDataContent();
+
+            // 解析 JSON 为 form-data 字段
+            if (!string.IsNullOrWhiteSpace(jsonString))
+            {
+                var jsonDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+                if (jsonDict != null)
+                {
+                    foreach (var kv in jsonDict)
+                    {
+                        form.Add(new StringContent(kv.Value?.ToString() ?? string.Empty, Encoding.UTF8), kv.Key);
+                    }
+                }
+            }
+
+            // 支持多文件上传
+            if (files != null)
+            {
+                foreach (var (Bytes, FileType, FileName, FileExt) in files)
+                {
+                    if (Bytes == null || Bytes.Length == 0)
+                        continue;
+
+                    var fileContent = new ByteArrayContent(Bytes);
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue(FileType);
+
+                    form.Add(fileContent, $"{FileExt}", FileName);
+                }
+            }
+
+            var response = await _httpClient.PostAsync(url, form);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync();
+        }
 
         public void Dispose()
         {

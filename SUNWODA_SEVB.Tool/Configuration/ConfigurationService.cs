@@ -86,7 +86,7 @@ namespace SUNWODA_SEVB.Tool.Configuration
                     AppLogRetentionDays = 7,
                     InterfaceLogRetentionDays = 31,
                     MaxDatabaseSizeMB = 100
-                }
+                }             
             };
         }
 

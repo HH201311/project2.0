@@ -147,6 +147,9 @@ namespace SUNWODA_SEVB
             // 添加Web服务
             services.AddWebServices();
 
+            // 添加Socket服务
+            services.AddSocketServices();
+
             // 添加MVVM框架服务
             services.AddMvvmFramework();
 

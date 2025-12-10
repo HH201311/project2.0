@@ -75,6 +75,10 @@ namespace SUNWODA_SEVB.Logging
                 Logger.Info($"开始清理{daysToKeep}天前的日志，截止日期: {cutoffDate:yyyy-MM-dd}");
 
                 int deletedCount = 0;
+                int keptCount = 0;
+                DateTime? earliestKeptDate = null;
+                DateTime? latestKeptDate = null;
+
 
                 foreach (var dir in directories)
                 {
@@ -97,7 +101,17 @@ namespace SUNWODA_SEVB.Logging
                         }
                         else
                         {
-                            Logger.Debug($"保留日志目录: {dir} (日期: {dirDate:yyyy-MM-dd})");
+                            keptCount++;
+
+                            // 更新最早和最晚保留日期
+                            if (earliestKeptDate == null || dirDate < earliestKeptDate)
+                            {
+                                earliestKeptDate = dirDate;
+                            }
+                            if (latestKeptDate == null || dirDate > latestKeptDate)
+                            {
+                                latestKeptDate = dirDate;
+                            }
                         }
                     }
                     else
@@ -105,6 +119,11 @@ namespace SUNWODA_SEVB.Logging
                         Logger.Debug($"跳过非日期格式的目录: {dir}");
                     }
                 }
+                if (keptCount > 0)
+                {
+                    Logger.Info($"保留 {keptCount} 天日志目录 (从 {earliestKeptDate:yyyy-MM-dd} 到 {latestKeptDate:yyyy-MM-dd})");
+                }
+                Logger.Info($"日志清理完成，删除了 {deletedCount} 个过期目录");
             }
             catch (Exception ex)
             {

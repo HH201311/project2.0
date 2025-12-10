@@ -128,7 +128,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
         {
             if (!_initializedView)
             {
-                var moduleName = typeof(VM_DemoPage).GetCustomAttribute<ModuleAttribute>()?.Name;
+                var moduleName = typeof(VM_MESTestPage).GetCustomAttribute<ModuleAttribute>()?.Name;
                 if (moduleName != null)
                 {
                     await RunOnUIThreadAsync(() =>

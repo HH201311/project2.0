@@ -34,17 +34,17 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 设备ID
         /// </summary>
-        public string? DevId { get; set; }
+        public string? devId { get; set; }
 
         /// <summary>
         /// CPU使用率
         /// </summary>
-        public string? Cpu { get; set; }
+        public string? cpu { get; set; }
 
         /// <summary>
         /// 内存使用情况（进程独占的私有内存，保留用于兼容）
         /// </summary>
-        public string? Memory { get; set; }
+        public string? memory { get; set; }
 
         ///// <summary>
         ///// 私有内存（进程独占的内存）
@@ -54,37 +54,37 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 物理内存（工作集）
         /// </summary>
-        public string? PhysicalMemory { get; set; }
+        public string? physicalMemory { get; set; }
 
         /// <summary>
         /// 虚拟内存
         /// </summary>
-        public string? VirtualMemory { get; set; }
+        public string? virtualMemory { get; set; }
 
         /// <summary>
         /// GC托管内存（.NET管理的内存）
         /// </summary>
-        public string? ManagedMemory { get; set; }
+        public string? managedMemory { get; set; }
 
         /// <summary>
         /// 系统内存使用情况
         /// </summary>
-        public string? SystemMemory { get; set; }
+        public string? systemMemory { get; set; }
 
         /// <summary>
         /// 磁盘使用情况
         /// </summary>
-        public string? Disk { get; set; }
+        public string? disk { get; set; }
 
         /// <summary>
         /// 设备状态
         /// </summary>
-        public string? EquipmentState { get; set; }
+        public string? equipmentState { get; set; }
 
         /// <summary>
         /// 采集时间
         /// </summary>
-        public string? Time { get; set; }
+        public string? time { get; set; }
     }
 
     /// <summary>

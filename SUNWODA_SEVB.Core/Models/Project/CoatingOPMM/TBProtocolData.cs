@@ -38,11 +38,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <summary>
         /// 指令名称
         /// </summary>
-        public string CommandName { get; }
+        public string? CommandName { get; }
         /// <summary>
         /// 涂布数据
         /// </summary>
-        public string DataJson { get; }
+        public string? DataJson { get; }
         /// <summary>
         /// 涂布数据CRC验证
         /// </summary>
@@ -104,7 +104,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
             ProtocolData = Header + MessageSequence + Interval + CommandName + Interval + DataJson + Interval + DataCrc + Tail;
         }
         
-        private static string RemoveLast(string value, int length)
+        private static string? RemoveLast(string value, int length)
         {
             if (value == null)
             {

@@ -207,16 +207,10 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("detectionResult")]
         public string? DetectionResult { get; set; }
-
-        /// <summary>
-        /// 图片文件
-        /// </summary>
-        [JsonPropertyName("pictureFile")]
-        public byte[]? PictureFile { get; set; }
     }
 
     /// <summary>
-    /// 摄像头新增接口请求类
+    /// 摄像头新增/更新接口请求类
     /// </summary>
     public class AddCameraRequest
     {
@@ -257,55 +251,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? IpAddress { get; set; }
 
         /// <summary>
-        /// 谁昂头SN码
-        /// </summary>
-        [JsonPropertyName("cameraSn")]
-        public string? CameraSn { get; set; }
-    }
-
-    /// <summary>
-    /// 摄像头更新接口请求类
-    /// </summary>
-    public class UpdateCameraRequest
-    {
-        /// <summary>
-        /// 基地
-        /// </summary>
-        [JsonPropertyName("productionBase")]
-        public string? ProductionBase { get; set; }
-
-        /// <summary>
-        /// 拉线
-        /// </summary>
-        [JsonPropertyName("productionLine")]
-        public string? ProductionLine { get; set; }
-
-        /// <summary>
-        /// 工序
-        /// </summary>
-        [JsonPropertyName("process")]
-        public string? Process { get; set; }
-
-        /// <summary>
-        /// 设备ID
-        /// </summary>
-        [JsonPropertyName("deviceId")]
-        public string? DeviceId { get; set; }
-
-        /// <summary>
-        /// 工位
-        /// </summary>
-        [JsonPropertyName("position")]
-        public string? Position { get; set; }
-
-        /// <summary>
-        /// IP地址
-        /// </summary>
-        [JsonPropertyName("ipAddress")]
-        public string? IpAddress { get; set; }
-
-        /// <summary>
-        /// 谁昂头SN码
+        /// 摄像头SN码
         /// </summary>
         [JsonPropertyName("cameraSn")]
         public string? CameraSn { get; set; }
@@ -314,7 +260,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 1表示是正常启用，0表示禁用
         /// </summary>
         [JsonPropertyName("enable")]
-        public int Enable { get; set; }
+        public bool Enable { get; set; }
     }
 
     /// <summary>
@@ -384,10 +330,10 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public int AlertLevel { get; set; }
 
         /// <summary>
-        /// 视频文件
+        /// 起止信号，1为开始，2为结束，其余为0
         /// </summary>
-        [JsonPropertyName("file")]
-        public byte[]? File { get; set; }
+        [JsonPropertyName("statusFlag")]
+        public int StatusFlag { get; set; }
 
         /// <summary>
         /// 轨迹坐标数据Json数据
@@ -538,10 +484,10 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? MoveDirection { get; set; }
 
         /// <summary>
-        /// 起止信号，1为开始，2为结束，其余为0
+        /// 斜率
         /// </summary>
-        [JsonPropertyName("statusFlag")]
-        public int StatusFlag { get; set; }
+        [JsonPropertyName("averageSlope")]
+        public float AverageSlope { get; set; }
     }
 
     /// <summary>
@@ -614,6 +560,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("frameDtoList")]
         public List<FrameDtoList>? FrameDtoList { get; set; }
+
+        /// <summary>
+        /// 起止信号，1为开始，2为结束，其余为0
+        /// </summary>
+        [JsonPropertyName("statusFlag")]
+        public int StatusFlag { get; set; }
     }
     #endregion
 }

@@ -13,14 +13,14 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace SUNWODA_SEVB.Views.Dialogs.HawkEye
+namespace SUNWODA_SEVB.Views.Pages.HawkEye
 {
     /// <summary>
-    /// AddCameraDialog.xaml 的交互逻辑
+    /// CameraCalibrationPage.xaml 的交互逻辑
     /// </summary>
-    public partial class AddCameraDialog : Border
+    public partial class CameraCalibrationPage : Page
     {
-        public AddCameraDialog()
+        public CameraCalibrationPage()
         {
             InitializeComponent();
         }

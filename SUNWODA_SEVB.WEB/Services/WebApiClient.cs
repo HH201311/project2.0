@@ -1,13 +1,16 @@
-﻿using Newtonsoft.Json;
-using Org.BouncyCastle.Ocsp;
-using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Core.Interfaces.Web;
-using SUNWODA_SEVB.Core.Models.Web;
-using SUNWODA_SEVB.Tool.Helper;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks.Dataflow;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using OpenCvSharp;
+using Org.BouncyCastle.Ocsp;
+using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Web;
+using SUNWODA_SEVB.Core.Models.Project.HawkEye;
+using SUNWODA_SEVB.Core.Models.Web;
+using SUNWODA_SEVB.Tool.Helper;
 using static SUNWODA_SEVB.Tool.Helper.NetworkHelper;
 
 namespace SUNWODA_SEVB.WEB.Services
@@ -611,13 +614,12 @@ namespace SUNWODA_SEVB.WEB.Services
                     DefectWidth = defectWidth,
                     DefectHeight = defectHeight,
                     DefectArea = defectArea,
-                    DetectionResult = detectionResult,
-                    PictureFile = pictureFile
+                    DetectionResult = detectionResult
                 };
 
                 var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "multipart/form-data")));
 
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, pictureFile, url, "image/png", "png")));
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))
                 {
@@ -652,11 +654,11 @@ namespace SUNWODA_SEVB.WEB.Services
         }
 
         /// <summary>
-        /// 摄像头新增接口
+        /// 摄像头新增/更新接口
         /// </summary>
         /// <param name="cameras"></param>
         /// <returns></returns>
-        public async Task<AddCameraResponse> AddCameraAsync(List<(string position, string ipAddress, string cameraSn)> cameras)
+        public async Task<AddCameraResponse> AddCameraAsync(List<CameraModel> cameras)
         {
             try
             {
@@ -673,7 +675,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.WebTestUrlSysCenter}eeService/device/addCamera";
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new List<AddCameraRequest>();
-                foreach (var camera in cameras)
+                foreach (var item in cameras)
                 {
                     request.Add(new AddCameraRequest
                     {
@@ -681,9 +683,10 @@ namespace SUNWODA_SEVB.WEB.Services
                         ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
                         Process = workshipParts.ElementAtOrDefault(3) ?? "",
                         DeviceId = settings.DeviceSn ?? "",
-                        Position = camera.position,
-                        IpAddress = camera.ipAddress,
-                        CameraSn = camera.cameraSn,
+                        Position = item.WorkStaion,
+                        IpAddress = item.Remake,
+                        CameraSn = item.GuidId,
+                        Enable = item.Enable,
                     });
                 }
                 var json = JsonHelper.Serialize(request);
@@ -723,81 +726,6 @@ namespace SUNWODA_SEVB.WEB.Services
         }
 
         /// <summary>
-        /// 摄像头更新接口
-        /// </summary>
-        /// <param name="ipAddress"></param>
-        /// <param name="cameraSn"></param>
-        /// <param name="enable"></param>
-        /// <returns></returns>
-        public async Task<UpdateCameraResponse> UpdateCameraAsync(List<(string position, string ipAddress, string cameraSn, int enable)> cameras)
-        {
-            try
-            {
-                var settings = _configuration.GetSettings();
-                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
-                {
-                    return new UpdateCameraResponse
-                    {
-                        IsSuccess = false,
-                        Message = "WebTestUrlSysCenter未配置"
-                    };
-                }
-
-                var url = $"{settings.WebTestUrlSysCenter}eeService/device/updateCamera";
-                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
-                var request = new List<UpdateCameraRequest>();
-                foreach (var camera in cameras)
-                {
-                    request.Add(new UpdateCameraRequest
-                    {
-                        ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
-                        ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
-                        Process = workshipParts.ElementAtOrDefault(3) ?? "",
-                        DeviceId = settings.DeviceSn ?? "",
-                        Position = camera.position,
-                        IpAddress = camera.ipAddress,
-                        CameraSn = camera.cameraSn,
-                        Enable = camera.enable
-                    });
-                }
-
-                var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
-
-                // 接口报错返回字符串包含failed
-                if (result.Contains("failed"))
-                {
-                    return new UpdateCameraResponse
-                    {
-                        IsSuccess = false,
-                        Message = result
-                    };
-                }
-
-                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
-                if (JsonHelper.TryDeserialize<UpdateCameraResponse>(result, out var response) && response != null)
-                {
-                    return response;
-                }
-
-                return new UpdateCameraResponse
-                {
-                    IsSuccess = false,
-                    Message = result
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("摄像头更新API调用失败", ex);
-                return new UpdateCameraResponse
-                {
-                    IsSuccess = false,
-                    Message = ex.Message
-                };
-            }
-        }
-
-        /// <summary>
         /// UE端数据接收-轨迹检测
         /// </summary>
         /// <param name="position"></param>
@@ -808,7 +736,12 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <param name="file"></param>
         /// <param name="aiPointListDtoList"></param>
         /// <returns></returns>
-        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<FrameDtoList> frameDtoList)
+        public async Task<TrajectoryDataResponse> TrajectoryDataAsync
+        (
+            string position, string barCode, long abnormalTimeStamp,
+            long abnormalTimeStampEnd, byte[] file,
+            List<FrameDtoList> frameDtoList, string abnormaVideoStatus
+        )
         {
             try
             {
@@ -826,21 +759,28 @@ namespace SUNWODA_SEVB.WEB.Services
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new TtrajectoryDataRequest
                 {
-                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
-                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
-                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
-                    DeviceId = settings.DeviceSn ?? "",
                     Position = position,
+                    Process = "叠片工序",
+                    ProductionLine = "PTO",
+                    ProductionBase = "惠州",
+                    //ProductionBase = "枣庄",
+                    //ProductionLine = "C01A线",
+                    //Process = "CT工序",                    
+                    //Position = "上料工位",
+                    DeviceId = "CT01",
                     BarCode = barCode,
                     AbnormalTimeStamp = abnormalTimeStamp,
                     AbnormalTimeStampEnd = abnormalTimeStampEnd,
-                    DetectionResult = detectionResult,
-                    File = file,
+                    DetectionResult = abnormaVideoStatus,
+                    AlertLevel = 1,
+                    StatusFlag = 1,
                     FrameDtoList = frameDtoList
                 };
 
                 var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "multipart/form-data")));
+                frameDtoList.Clear();
+                abnormaVideoStatus = string.Empty;
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, "video/mp4", "mp4")));
 
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))
@@ -874,5 +814,58 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
             }
         }
+
+
+        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(
+    string position,
+    string barCode,
+    long abnormalTimeStamp,
+    long abnormalTimeStampEnd,
+    List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, // <= 1 或 2 或 0 都支持
+    List<FrameDtoList> frameDtoList,
+    string abnormaVideoStatus)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
+
+                var request = new TtrajectoryDataRequest
+                {
+                    Position = position,
+                    Process = "叠片工序",
+                    ProductionLine = "PTO",
+                    ProductionBase = "惠州",
+                    DeviceId = "CT01",
+                    BarCode = barCode,
+                    AbnormalTimeStamp = abnormalTimeStamp,
+                    AbnormalTimeStampEnd = abnormalTimeStampEnd,
+                    DetectionResult = abnormaVideoStatus,
+                    AlertLevel = 1,
+                    StatusFlag = 1,
+                    FrameDtoList = frameDtoList
+                };
+
+                var json = JsonHelper.Serialize(request);
+                frameDtoList.Clear();
+
+                // 上传
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostMultiFilesAsync(json, videoFiles, url)));
+
+                if (result.Contains("failed"))
+                    return new TrajectoryDataResponse { IsSuccess = false, Message = result };
+
+                if (JsonHelper.TryDeserialize<TrajectoryDataResponse>(result, out var response) && response != null)
+                    return response;
+
+                return new TrajectoryDataResponse { IsSuccess = false, Message = result };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("UE端数据接收API失败", ex);
+                return new TrajectoryDataResponse { IsSuccess = false, Message = ex.Message };
+            }
+        }
+
     }
 }

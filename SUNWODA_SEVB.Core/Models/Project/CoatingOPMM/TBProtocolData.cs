@@ -38,11 +38,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <summary>
         /// 指令名称
         /// </summary>
-        public string CommandName { get; }
+        public string? CommandName { get; }
         /// <summary>
         /// 涂布数据
         /// </summary>
-        public string DataJson { get; }
+        public string? DataJson { get; }
         /// <summary>
         /// 涂布数据CRC验证
         /// </summary>
@@ -76,7 +76,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
             if (!protocolData.StartsWith(Header)) return;
             var _protocolData = protocolData.Remove(0, Header.Length);
             _protocolData = RemoveLast(_protocolData, Tail.Length);
-            var dataArr = Regex.Split(_protocolData, Interval);
+            var dataArr = Regex.Split(_protocolData!, Interval);
             if (dataArr.Length != 4) return;
             MessageSequence = int.Parse(dataArr[0]);
             CommandName = dataArr[1];
@@ -104,7 +104,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
             ProtocolData = Header + MessageSequence + Interval + CommandName + Interval + DataJson + Interval + DataCrc + Tail;
         }
         
-        private static string RemoveLast(string value, int length)
+        private static string? RemoveLast(string value, int length)
         {
             if (value == null)
             {
@@ -162,11 +162,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <summary>
         /// 设备编号
         /// </summary>
-        public string DEVICESN { get; set; }
+        public string? DEVICESN { get; set; }
         /// <summary>
         /// 心跳信息(默认写值1)
         /// </summary>
-        public string HEARTMESSAGE { get; set; }
+        public string? HEARTMESSAGE { get; set; }
     }
     #endregion
 
@@ -179,31 +179,31 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <summary>
         /// 数据类型
         /// </summary>
-        public string DEVICENAME { get; set; }
+        public string? DEVICENAME { get; set; }
         /// <summary>
         /// 设备编号
         /// </summary>
-        public string DEVICESN { get; set; }
+        public string? DEVICESN { get; set; }
         /// <summary>
         /// 工艺公差
         /// </summary>
-        public string TECHNIQUE { get; set; }
+        public string? TECHNIQUE { get; set; }
         /// <summary>
         /// 净重目标值
         /// </summary>
-        public string TARGET_VALUE { get; set; }
+        public string? TARGET_VALUE { get; set; }
         /// <summary>
         /// 基材值
         /// </summary>
-        public string BASEVALUE { get; set; }
+        public string? BASEVALUE { get; set; }
         /// <summary>
         /// 净重规格上限
         /// </summary>
-        public string SPEC_UP_LIM { get; set; }
+        public string? SPEC_UP_LIM { get; set; }
         /// <summary>
         /// 净重规格下限
         /// </summary>
-        public string SPEC_DW_LIM { get; set; }
+        public string? SPEC_DW_LIM { get; set; }
         /// <summary>
         /// 净重目标预警公差
         /// </summary>
@@ -231,11 +231,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <summary>
         /// K值
         /// </summary>
-        public string K_VALUE { get; set; }
+        public string? K_VALUE { get; set; }
         /// <summary>
         /// b值
         /// </summary>
-        public string B_VALUE { get; set; }
+        public string? B_VALUE { get; set; }
         /// <summary>
         /// 卷长
         /// </summary>
@@ -243,27 +243,27 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <summary>
         /// 平均值
         /// </summary>
-        public string AVERAGE_VALUE { get; set; }
+        public string? AVERAGE_VALUE { get; set; }
         /// <summary>
         /// 趟数
         /// </summary>
-        public string SCANCOUNT { get; set; }
+        public string? SCANCOUNT { get; set; }
         /// <summary>
         /// 有效膜区分区
         /// </summary>
-        public List<TBAreaInfo> TBAREAINFO { get; set; }
+        public List<TBAreaInfo>? TBAREAINFO { get; set; }
         /// <summary>
         /// 分区数
         /// </summary>
-        public string WEIGHT_COUNT { get; set; }
+        public string? WEIGHT_COUNT { get; set; }
         /// <summary>
         /// 重量数据(数组)
         /// </summary>
-        public string[] WEIGHT { get; set; }
+        public string[]? WEIGHT { get; set; }
         /// <summary>
         /// 报警信息(同时可能有多条报警信息，没有报警为空列表)
         /// </summary>
-        public List<string> ALARMS { get; set; }
+        public List<string>? ALARMS { get; set; }
     }
 
     /// <summary>
@@ -369,7 +369,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <returns></returns>
         public static uint Get_Crc32(byte[] puchMsg)
         {
-            return Get_Crc32(puchMsg, 0, (uint)puchMsg?.Length);
+            return Get_Crc32(puchMsg, 0, (uint)puchMsg!.Length);
         }
 
         /// <summary>
@@ -409,7 +409,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
             int i = 0;
             while (usDataLen-- > 0)
             {
-                ulCRC = (ulCRC >> 8) ^ crc32_Table[(ulCRC & 0xFF) ^ puchMsg[i++]];
+                ulCRC = (ulCRC >> 8) ^ crc32_Table[(ulCRC & 0xFF) ^ puchMsg![i++]];
             }
             // Exclusive OR the result with the beginning value. 
             return ulCRC ^ 0xffffffff;
@@ -490,7 +490,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
         /// <returns></returns>
         public static ushort Get_Crc16(byte[] puchMsg)
         {
-            return Get_Crc16(puchMsg, 0, (uint)puchMsg?.Length);
+            return Get_Crc16(puchMsg, 0, (uint)puchMsg!.Length);
         }
 
         /// <summary>
@@ -535,7 +535,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CoatingOPMM
             int i = 0;
             while (usDataLen-- > 0) /* 传输消息缓冲区 */
             {
-                uIndex = (uint)uchCRCHi ^ puchMsg[i++]; /* 计算CRC */
+                uIndex = (uint)uchCRCHi ^ puchMsg![i++]; /* 计算CRC */
                 uchCRCHi = (byte)(uchCRCLo ^ auchCRCHi[uIndex]);
                 uchCRCLo = auchCRCLo[uIndex];
             }

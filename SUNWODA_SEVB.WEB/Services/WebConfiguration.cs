@@ -69,6 +69,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     newSettings.EnableVersionCheck = await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
                     newSettings.EnablePcInfoUpload = await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
 
+                    newSettings.WebTestUrlSysCenter = await globalSettingRepo.GetSettingValueAsync<string>("WebTestUrlSysCenter", string.Empty);
                     newSettings.CentralControlWebUrl = await globalSettingRepo.GetSettingValueAsync<string>("CentralControlWEBUrl", string.Empty);
 
                     newSettings.DeviceSn = await globalSettingRepo.GetSettingValueAsync<string>("DeviceSn");

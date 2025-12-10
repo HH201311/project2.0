@@ -7,11 +7,17 @@
 	<UseWPF>true</UseWPF>
 	<AssemblyVersion>2.1.0.0</AssemblyVersion>
 	<FileVersion>2.1.0.0</FileVersion>
+	<NoWarn>CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fleck" Version="1.2.0" />
     <PackageReference Include="OpenCvSharp4" Version="4.11.0.20250507" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.8" />
   </ItemGroup>
 
   <ItemGroup>

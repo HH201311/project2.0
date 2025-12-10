@@ -1,0 +1,34 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.DataCellRowControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:model="clr-namespace:SUNWODA_SEVB.Core.Models.Component;assembly=SUNWODA_SEVB.Core"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+    <ItemsControl ItemsSource="{Binding Cells, RelativeSource={RelativeSource AncestorType=UserControl}}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <UniformGrid Columns="{Binding Cells.Count, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="model:CellData">
+                <Border
+                    Background="{Binding Background}"
+                    BorderBrush="Gray"
+                    BorderThickness="1">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground}"
+                        Text="{Binding Value}" />
+                </Border>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

@@ -40,6 +40,20 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// 读取XML文件，反序列化为Model
         /// </summary>
         /// <typeparam name="T"></typeparam>
+        /// <param name="fullPath"></param>
+        /// <returns></returns>
+        public static T? XmlToModel<T>(string fullPath) where T : class, new()
+        {
+            fullPath += fullPath.ToLower().EndsWith(".xml") ? string.Empty : ".xml";
+            var path = Path.GetDirectoryName(fullPath) ?? "";
+            var fileName = Path.GetFileName(fullPath);
+            return XmlToModel<T>(path, fileName);
+        }
+
+        /// <summary>
+        /// 读取XML文件，反序列化为Model
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
         /// <param name="path"></param>
         /// <param name="fileName"></param>
         /// <returns></returns>
@@ -53,8 +67,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 var locker = checkLockerDic(fullPath);
                 lock (locker)
                 {
-                    if (!Directory.Exists(path))
-                        Directory.CreateDirectory(path);
+                    if (!Directory.Exists(path)) Directory.CreateDirectory(path);
                     if (!File.Exists(fullPath))
                     {
                         try
@@ -83,6 +96,20 @@ namespace SUNWODA_SEVB.Tool.Helper
             {
                 throw new Exception($"读取XML文件[{path}]-[{fileName}]异常！", ex);
             }
+        }
+
+        /// <summary>
+        /// Model序列化为XML文件并保存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="obj"></param>
+        /// <param name="fullPath"></param>
+        public static void ModelToXml<T>(T? obj, string fullPath) where T : class, new()
+        {
+            fullPath += fullPath.ToLower().EndsWith(".xml") ? string.Empty : ".xml";
+            var path = Path.GetDirectoryName(fullPath) ?? "";
+            var fileName = Path.GetFileName(fullPath);
+            ModelToXml(obj, path, fileName);
         }
 
         /// <summary>

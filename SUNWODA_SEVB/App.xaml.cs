@@ -16,7 +16,9 @@ using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Tool.Configuration;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
+using SUNWODA_SEVB.ViewModels.Windows.Project;
 using SUNWODA_SEVB.Views.Windows.Common;
+using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using System.IO;
 using System.Windows;
@@ -73,7 +75,7 @@ namespace SUNWODA_SEVB
                 StartBackgroundTasks();
 
                 // 步骤9：创建并显示主窗口
-                ShowMainWindow();
+                ShowMainWindow(appLogger);
             }
             catch (Exception ex)
             {
@@ -161,6 +163,17 @@ namespace SUNWODA_SEVB
             {
                 var viewModel = serviceProvider.GetRequiredService<VM_MainWindow>();
                 var window = new MainWindow { DataContext = viewModel };
+                viewModel.NavigationFrame = window.NavigationFrame;
+                viewModel.InitNavigation();
+                return window;
+            });
+
+            // 注册主窗口的ViewModel和View
+            services.AddSingleton<VM_CCTBMainWindow>();
+            services.AddSingleton<CCTBMainWindow>(serviceProvider =>
+            {
+                var viewModel = serviceProvider.GetRequiredService<VM_CCTBMainWindow>();
+                var window = new CCTBMainWindow { DataContext = viewModel };
                 viewModel.NavigationFrame = window.NavigationFrame;
                 viewModel.InitNavigation();
                 return window;
@@ -283,13 +296,13 @@ namespace SUNWODA_SEVB
             {
                 try
                 {
-                    var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();                  
+                    var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
 
                     // 确保当前用户设置
                     var currentUser = await globalSettingRepo.GetSettingValueAsync("CurrentUserAccount");
                     if (currentUser != "guest")
                     {
-                        await globalSettingRepo.UpdateSettingValueAsync("CurrentUserAccount", "guest");                     
+                        await globalSettingRepo.UpdateSettingValueAsync("CurrentUserAccount", "guest");
                         logger.Info("初始化默认用户账户为 guest");
                     }
 
@@ -500,10 +513,42 @@ namespace SUNWODA_SEVB
         /// <summary>
         /// 显示主窗口
         /// </summary>
-        private void ShowMainWindow()
+        private void ShowMainWindow(ILoggerService<App>? logger)
         {
-            var mainWindow = _host!.Services.GetRequiredService<MainWindow>();
-            mainWindow.Show();
+            var globalSettingRepo = _host!.Services.GetService<IGlobalSettingRepository>();
+            if (globalSettingRepo == null)
+            {
+                var mainWindow = _host!.Services.GetRequiredService<MainWindow>();
+                mainWindow.Show();
+                return;
+            }
+            var appStartMainWindow = globalSettingRepo!.GetSettingValue("AppStartMainWindow");
+            if (appStartMainWindow == null || string.IsNullOrEmpty(appStartMainWindow))
+            {
+                var isAddSuccess = globalSettingRepo!.Add(
+                    new Core.Models.Data.GlobalSettingModel()
+                    {
+                        Name = "AppStartMainWindow",
+                        Value = "MainWindow",
+                        Type = "string",
+                        RoleRank = 2,
+                        Remark = "启动窗口"
+                    });
+            }
+            appStartMainWindow = globalSettingRepo!.GetSettingValue("AppStartMainWindow");
+            if (appStartMainWindow == "MainWindow")
+            {
+                var mainWindow = _host!.Services.GetRequiredService<MainWindow>();
+                mainWindow.Show();
+                return;
+            }
+            if (appStartMainWindow == "CCTBMainWindow")
+            {
+                var mainWindow = _host!.Services.GetRequiredService<CCTBMainWindow>();
+                mainWindow.Show();
+                return;
+            }
+            throw new Exception($"未能加载[{appStartMainWindow}]程序！请检查[AppStartMainWindow]数据库配置！");
         }
 
         /// <summary>
@@ -543,7 +588,7 @@ namespace SUNWODA_SEVB
             public int SizeBasedCount { get; set; }
         }
 
-       
+
 
         protected override async void OnExit(ExitEventArgs e)
         {
@@ -578,6 +623,6 @@ namespace SUNWODA_SEVB
             }
         }
 
-       
+
     }
 }

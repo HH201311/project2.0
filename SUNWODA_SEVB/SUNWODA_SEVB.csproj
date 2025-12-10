@@ -12,10 +12,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Assets\Fonts\iconfont_cctb.ttf" />
+    <None Remove="Assets\Fonts\SourceHanSansCN.otf" />
+    <None Remove="Assets\Fonts\阿里妈妈数黑体.ttf" />
+    <None Remove="Assets\images\logo%402x.png" />
+    <None Remove="Assets\images\logo.png" />
     <None Remove="Assets\images\plus.png" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Assets\images\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\images\logo@2x.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="avatar.ico" />
   </ItemGroup>
 
@@ -57,11 +68,6 @@
     <None Update="nlog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="ViewModels\Pages\CCTB\" />
-    <Folder Include="Views\Pages\CCTB\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -110,6 +116,18 @@
     <Content Include="Assets\images\plus.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\iconfont_cctb.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\SourceHanSansCN.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>

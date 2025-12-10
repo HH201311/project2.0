@@ -18,15 +18,40 @@ namespace SUNWODA_SEVB.Component.UserControls
         private double dangerMaxLimit = 3.6;
         private double dangerMinLimit = -3.6;
         private double centerValue = 0.0;
-        private double warnMaxLimit = 1.0;
-        private double warnMinLimit = -1.0;
+        private double warnMaxLimit = 3.0;
+        private double warnMinLimit = -3.0;
 
         public CoatingZoneDataPlotViewer()
         {
             InitializeComponent();
         }
 
-        // ===== 依赖属性：FilmData（任意数量膜区） =====
+        public double LabelFontSize
+        {
+            get { return (double)GetValue(LabelFontSizeProperty); }
+            set { SetValue(LabelFontSizeProperty, value); }
+        }
+
+        public static readonly DependencyProperty LabelFontSizeProperty =
+            DependencyProperty.Register(
+                "LabelFontSize",
+                typeof(double),
+                typeof(CoatingZoneDataPlotViewer),
+                new PropertyMetadata(16.0, OnLabelFontSizeChanged)
+            );
+
+        private static void OnLabelFontSizeChanged(
+            DependencyObject d,
+            DependencyPropertyChangedEventArgs e
+        )
+        {
+            if (d is CoatingZoneDataPlotViewer viewer)
+            {
+                viewer.UpdateBar();
+                viewer.ShowWeightBar();
+            }
+        }
+
         public List<double[]> FilmData
         {
             get => (List<double[]>)GetValue(FilmDataProperty);
@@ -60,20 +85,14 @@ namespace SUNWODA_SEVB.Component.UserControls
             if (FilmData == null || FilmData.Count == 0)
                 return;
 
-            // 允许任何长度的 zones；每个 zone 允许 null -> 视为空数组
             foreach (var arr in FilmData)
                 _zones.Add(arr ?? Array.Empty<double>());
         }
 
-        // ===== 依赖属性：参考值 RefValue =====
         public Dictionary<string, double> RefValue
         {
             get => (Dictionary<string, double>)GetValue(RefValueProperty);
-            set
-            {
-                // 放宽校验时机，写入时不抛异常；在 OnRefValueChanged 中做健壮解析
-                SetValue(RefValueProperty, value);
-            }
+            set { SetValue(RefValueProperty, value); }
         }
 
         public static readonly DependencyProperty RefValueProperty = DependencyProperty.Register(
@@ -135,7 +154,7 @@ namespace SUNWODA_SEVB.Component.UserControls
                 viewer.ShowWeightBar();
         }
 
-        // ===== 依赖属性：区间分隔空柱数量（默认 3） =====
+        // 区间分隔空柱数量（默认 3）
         public int SeparatorSlots
         {
             get => (int)GetValue(SeparatorSlotsProperty);
@@ -192,12 +211,12 @@ namespace SUNWODA_SEVB.Component.UserControls
                     _labels.Add(
                         new Text
                         {
-                            Location = new Coordinates(pos-0.5, zone[i]),
+                            Location = new Coordinates(pos - 0.5, zone[i]),
                             LabelRotation = -45,
                             LabelText = $"{(BaseValue + zone[i]):F2}",
-                            LabelFontSize = 6
+                            LabelFontSize = (float)LabelFontSize,
                         }
-                        );
+                    );
                     pos++;
                 }
 
@@ -228,22 +247,22 @@ namespace SUNWODA_SEVB.Component.UserControls
             var transparent = ScottPlot.Color.FromColor(System.Drawing.Color.Transparent);
             // > dangerMax
             if (valueNum > dangerMaxLimit)
-                return ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(255, 150, 150));
+                return ScottPlot.Color.FromHtml("#FF3333");
             // (dangerMax, warnMax]
             if (valueNum <= dangerMaxLimit && valueNum > warnMaxLimit)
-                return ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(252, 251, 161));
+                return ScottPlot.Color.FromHtml("#FFBB33");
             // (warnMax, center]
             if (valueNum <= warnMaxLimit && valueNum > centerValue)
-                return ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(160, 247, 126));
+                return ScottPlot.Color.FromHtml("#29CC7A");
             // (center, warnMin]
             if (valueNum <= centerValue && valueNum > warnMinLimit)
-                return ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(160, 247, 126));
+                return ScottPlot.Color.FromHtml("#29CC7A");
             // (warnMin, dangerMin]
             if (valueNum <= warnMinLimit && valueNum > dangerMinLimit)
-                return ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(252, 251, 161));
+                return ScottPlot.Color.FromHtml("#FFBB33");
             // < dangerMin
             if (valueNum <= dangerMinLimit)
-                return ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(255, 150, 150));
+                return ScottPlot.Color.FromHtml("#FF3333");
 
             return transparent;
         }
@@ -268,70 +287,75 @@ namespace SUNWODA_SEVB.Component.UserControls
             var zeroHLine = plt.Add.HorizontalLine(
                 centerValue,
                 0.1f,
-                ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(160, 247, 126))
+                ScottPlot.Color.FromHtml("#29CC7A")
             );
-            zeroHLine.Text = $"{BaseValue + centerValue}";
-            zeroHLine.LabelFontSize = 6;
+            zeroHLine.Text = $"{(BaseValue + centerValue):F2}";
+            zeroHLine.LabelFontSize = (float)LabelFontSize;
             zeroHLine.LabelRotation = 0;
             zeroHLine.LabelBackgroundColor = zeroHLine.Color;
             zeroHLine.LineWidth = 1;
             zeroHLine.IsDraggable = false;
+            zeroHLine.LabelOffsetX = 15;
 
             var warningMinHLine = plt.Add.HorizontalLine(
                 warnMinLimit,
                 0.1f,
-                ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(252, 251, 161)),
+                ScottPlot.Color.FromHtml("#FFBB33"),
                 LinePattern.Dashed
             );
-            warningMinHLine.Text = $"{BaseValue + warnMinLimit}";
-            warningMinHLine.LabelFontSize = 6;
+            warningMinHLine.Text = $"{(BaseValue + warnMinLimit):F2}";
+            warningMinHLine.LabelFontSize = (float)LabelFontSize;
             warningMinHLine.LabelRotation = 0;
             warningMinHLine.LabelAlignment = Alignment.MiddleLeft;
             warningMinHLine.LabelBackgroundColor = warningMinHLine.Color;
             warningMinHLine.LineWidth = 1;
             warningMinHLine.IsDraggable = false;
+            warningMinHLine.LabelOffsetX = 15;
 
             var warningMaxHLine = plt.Add.HorizontalLine(
                 warnMaxLimit,
                 0.1f,
-                ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(252, 251, 161)),
+                ScottPlot.Color.FromHtml("#FFBB33"),
                 LinePattern.Dashed
             );
-            warningMaxHLine.Text = $"{BaseValue + warnMaxLimit}";
-            warningMaxHLine.LabelFontSize = 6;
+            warningMaxHLine.Text = $"{(BaseValue + warnMaxLimit):F2}";
+            warningMaxHLine.LabelFontSize = (float)LabelFontSize;
             warningMaxHLine.LabelRotation = 0;
             warningMaxHLine.LabelAlignment = Alignment.MiddleLeft;
             warningMaxHLine.LabelBackgroundColor = warningMaxHLine.Color;
             warningMaxHLine.LineWidth = 1;
             warningMaxHLine.IsDraggable = false;
+            warningMaxHLine.LabelOffsetX = 15;
 
             var errorMinHLine = plt.Add.HorizontalLine(
                 dangerMinLimit,
                 0.1f,
-                ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(255, 150, 150)),
+                ScottPlot.Color.FromHtml("#FF3333"),
                 LinePattern.Dashed
             );
-            errorMinHLine.Text = $"{BaseValue + dangerMinLimit}";
-            errorMinHLine.LabelFontSize = 6;
+            errorMinHLine.Text = $"{(BaseValue + dangerMinLimit):F2}";
+            errorMinHLine.LabelFontSize = (float)LabelFontSize;
             errorMinHLine.LabelRotation = 0;
             errorMinHLine.LabelAlignment = Alignment.MiddleLeft;
             errorMinHLine.LabelBackgroundColor = errorMinHLine.Color;
             errorMinHLine.LineWidth = 1;
             errorMinHLine.IsDraggable = false;
+            errorMinHLine.LabelOffsetX = 15;
 
             var errorMaxHLine = plt.Add.HorizontalLine(
                 dangerMaxLimit,
                 0.1f,
-                ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(255, 150, 150)),
+                ScottPlot.Color.FromHtml("#FF3333"),
                 LinePattern.Dashed
             );
-            errorMaxHLine.Text = $"{BaseValue + dangerMaxLimit}";
-            errorMaxHLine.LabelFontSize = 6;
+            errorMaxHLine.Text = $"{(BaseValue + dangerMaxLimit):F2}";
+            errorMaxHLine.LabelFontSize = (float)LabelFontSize;
             errorMaxHLine.LabelRotation = 0;
             errorMaxHLine.LabelAlignment = Alignment.MiddleLeft;
             errorMaxHLine.LabelBackgroundColor = errorMaxHLine.Color;
             errorMaxHLine.LineWidth = 1;
             errorMaxHLine.IsDraggable = false;
+            errorMaxHLine.LabelOffsetX = 15;
 
             // 隐藏轴与网格
             plt.Axes.Bottom.IsVisible = false;
@@ -346,10 +370,12 @@ namespace SUNWODA_SEVB.Component.UserControls
             if (_bars.Count > 0)
                 plt.Add.Bars(_bars);
             if (_labels.Count > 0)
-                foreach ( var label in _labels )
+                foreach (var label in _labels)
                 {
                     plt.Add.Plottable(label);
                 }
+
+            plt.Axes.AutoScale();
 
             this.weightBar.Refresh();
         }

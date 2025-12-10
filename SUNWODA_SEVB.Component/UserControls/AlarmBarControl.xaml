@@ -80,18 +80,18 @@
                     Header="报警时间" />
 
                 <!--  报警对象（自适应、权重2）  -->
-                <DataGridTextColumn
+                <!--<DataGridTextColumn
                     Width="*"
                     Binding="{Binding AlarmObject}"
                     ElementStyle="{StaticResource CenterTextStyle}"
-                    Header="报警对象" />
+                    Header="报警对象" />-->
 
                 <!--  报警类型（固定宽度）  -->
-                <DataGridTextColumn
+                <!--<DataGridTextColumn
                     Width="2*"
                     Binding="{Binding AlarmType}"
                     ElementStyle="{StaticResource CenterTextStyle}"
-                    Header="报警类型" />
+                    Header="报警类型" />-->
 
                 <!--  报警详情（自适应、权重3，带省略号与ToolTip）  -->
                 <DataGridTemplateColumn

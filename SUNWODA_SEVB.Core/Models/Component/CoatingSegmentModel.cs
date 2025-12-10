@@ -63,6 +63,21 @@ namespace SUNWODA_SEVB.Core.Models.Component
             set => SetProperty(ref foregroundB, value);
         }
 
+        public double StrokeThickness
+        {
+            get
+            {
+                return Type switch
+                {
+                    CoatingSegmentType.EdgeTab => 2.0,
+                    CoatingSegmentType.MiddleTab => 2.0,
+                    CoatingSegmentType.CIL => 4.0,
+                    CoatingSegmentType.Coating => 4.0,
+                    _ => 0,
+                };
+            }
+        }
+
         public CoatingSegmentModel(string name, CoatingSegmentType type, Brush color)
         {
             Name = name;

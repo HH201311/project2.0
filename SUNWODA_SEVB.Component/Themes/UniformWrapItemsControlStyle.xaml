@@ -46,10 +46,10 @@
             <Setter.Value>
                 <ItemsPanelTemplate>
                     <local:UniformWrapPanel
+                        AutoWrapReferenceWidth="{Binding AutoWrapReferenceWidth, RelativeSource={RelativeSource AncestorType=local:UniformWrapItemsControl}}"
                         Columns="{Binding Columns, RelativeSource={RelativeSource AncestorType=local:UniformWrapItemsControl}}"
                         HorizontalSpacing="{Binding HorizontalSpacing, RelativeSource={RelativeSource AncestorType=local:UniformWrapItemsControl}}"
-                        VerticalSpacing="{Binding VerticalSpacing, RelativeSource={RelativeSource AncestorType=local:UniformWrapItemsControl}}"
-                        AutoWrapReferenceWidth="{Binding AutoWrapReferenceWidth, RelativeSource={RelativeSource AncestorType=local:UniformWrapItemsControl}}" />
+                        VerticalSpacing="{Binding VerticalSpacing, RelativeSource={RelativeSource AncestorType=local:UniformWrapItemsControl}}" />
                 </ItemsPanelTemplate>
             </Setter.Value>
         </Setter>

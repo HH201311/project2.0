@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.IO;
-using System.Windows;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,7 +6,6 @@ using NLog;
 using NLog.Config;
 using NLog.Extensions.Logging;
 using SUNWODA_SEVB.Core.Common;
-using SUNWODA_SEVB.Core.Enumerations.Tool;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Data;
@@ -23,10 +19,9 @@ using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.WEB;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
 
 namespace SUNWODA_SEVB
 {

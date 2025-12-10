@@ -11,7 +11,7 @@
     Title="CoatingSingleFacePage"
     d:DesignHeight="450"
     d:DesignWidth="800"
-    FontSize="6"
+    FontSize="{Binding MainFontSize}"
     mc:Ignorable="d">
 
     <Grid>
@@ -33,52 +33,86 @@
 
             <Border>
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock d:Text="A面干膜-分区数据" Text="{Binding Title, StringFormat={}{0}面干膜-分区数据}" />
+                        <TextBlock
+                            d:Text="A面干膜-分区数据"
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="{Binding Title, StringFormat={}{0}面干膜-分区数据}" />
                     </StackPanel>
 
-                    <uc:CoatingZoneDataPlotViewer x:Name="DemoPlot" FilmData="{Binding FilmData}" />
+                    <uc:CoatingZoneDataPlotViewer
+                        x:Name="DemoPlot"
+                        BaseValue="{Binding ZoneBaseValue}"
+                        FilmData="{Binding FilmData}"
+                        LabelFontSize="{Binding MainFontSize}"
+                        RefValue="{Binding RefValue}" />
                 </DockPanel>
             </Border>
 
             <Border Grid.Row="1">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock d:Text="A面干膜-毫米数据" Text="{Binding Title, StringFormat={}{0}面干膜-毫米数据}" />
+                        <TextBlock
+                            d:Text="A面干膜-毫米数据"
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="{Binding Title, StringFormat={}{0}面干膜-毫米数据}" />
                     </StackPanel>
 
-                    <TextBlock
-                        Grid.Row="1"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Text="毫米数据" />
+                    <uc:MmTrendPlot
+                        AutoFitOnDataChange="True"
+                        Baseline="{Binding MMBaseline}"
+                        LabelFontSize="{Binding MainFontSize}"
+                        LineWidth="2"
+                        ShowFills="False"
+                        ShowLegend="False"
+                        SpecHigh="{Binding SpecHigh}"
+                        SpecLow="{Binding SpecLow}"
+                        WarnHigh="{Binding WarnHigh}"
+                        WarnLow="{Binding WarnLow}"
+                        XValues="{Binding X}"
+                        YValues="{Binding Y}" />
                 </DockPanel>
             </Border>
         </Grid>
 
         <Border Grid.Column="1">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <StackPanel
+                    Margin="0,5"
+                    DockPanel.Dock="Top"
+                    Orientation="Horizontal">
                     <Border
                         Margin="0,0,5,0"
                         Background="Green"
                         BorderBrush="Green"
                         BorderThickness="1" />
-                    <TextBlock d:Text="A面-规格信息" Text="{Binding Title, StringFormat={}{0}面-规格信息}" />
+                    <TextBlock
+                        d:Text="A面-规格信息"
+                        FontSize="{Binding LittleTitleFontSize}"
+                        FontWeight="Bold"
+                        Text="{Binding Title, StringFormat={}{0}面-规格信息}" />
                 </StackPanel>
 
                 <cc:EqualSpacingItemsControl
-                    Margin="10,40"
+                    Margin="10,10"
                     d:ItemsSource="{d:SampleData ItemCount=4}"
                     ItemsSource="{Binding SpecificationInfos}"
                     Orientation="Vertical">
@@ -100,23 +134,30 @@
 
         <Border Grid.Column="2">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <StackPanel
+                    Margin="0,5"
+                    DockPanel.Dock="Top"
+                    Orientation="Horizontal">
                     <Border
                         Margin="0,0,5,0"
                         Background="Green"
                         BorderBrush="Green"
                         BorderThickness="1" />
-                    <TextBlock d:Text="A面-设备监控" Text="{Binding Title, StringFormat={}{0}面-设备监控}" />
+                    <TextBlock
+                        d:Text="A面-设备监控"
+                        FontSize="{Binding LittleTitleFontSize}"
+                        FontWeight="Bold"
+                        Text="{Binding Title, StringFormat={}{0}面-设备监控}" />
                 </StackPanel>
 
                 <cc:UniformWrapItemsControl
-                    Margin="10,20"
+                    Margin="10,30"
                     d:ItemsSource="{d:SampleData ItemCount=9}"
                     AutoWrapReferenceWidth="{Binding RelativeSource={RelativeSource AncestorType=DockPanel}, Path=ActualWidth}"
                     Columns="2"
                     HorizontalSpacing="10"
                     ItemsSource="{Binding DeviceMonitorInfos}"
-                    VerticalSpacing="20">
+                    VerticalSpacing="{Binding ParameterVerticalSpacing}">
                     <cc:UniformWrapItemsControl.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
@@ -131,16 +172,26 @@
 
         <Border Grid.Row="1" Grid.ColumnSpan="3">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <StackPanel
+                    Margin="0,5"
+                    DockPanel.Dock="Top"
+                    Orientation="Horizontal">
                     <Border
                         Margin="0,0,5,0"
                         Background="Green"
                         BorderBrush="Green"
                         BorderThickness="1" />
-                    <TextBlock d:Text="A面-CCD" Text="{Binding Title, StringFormat={}{0}面-CCD}" />
+                    <TextBlock
+                        d:Text="A面-CCD"
+                        FontSize="{Binding LittleTitleFontSize}"
+                        FontWeight="Bold"
+                        Text="{Binding Title, StringFormat={}{0}面-CCD}" />
                 </StackPanel>
 
-                <uc:CoatingZoneDisplayControl RawSegments="{Binding RawSegments}" />
+                <uc:CoatingZoneDisplayControl
+                    FaceALabel="{Binding FaceALabel}"
+                    FaceBlabel="{Binding FaceBLabel}"
+                    RawSegments="{Binding RawSegments}" />
             </DockPanel>
 
         </Border>

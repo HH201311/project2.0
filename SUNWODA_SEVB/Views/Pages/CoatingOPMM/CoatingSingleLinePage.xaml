@@ -10,7 +10,7 @@
     Title="CoatingSingleLinePage"
     d:DesignHeight="450"
     d:DesignWidth="800"
-    FontSize="6"
+    FontSize="{Binding MainFontSize}"
     mc:Ignorable="d">
 
     <Grid>
@@ -22,28 +22,30 @@
         </Grid.RowDefinitions>
 
 
-        <StackPanel
-            Height="40"
-            d:Background="#e9faf1"
-            Background="{Binding StatusBarBrush}"
-            Orientation="Horizontal">
-            <TextBlock
-                Margin="0,0,2,0"
-                VerticalAlignment="Center"
-                d:Text="L1"
-                FontWeight="Bold"
-                Text="{Binding Title}" />
-            <TextBlock
-                Margin="0,0,10,0"
-                VerticalAlignment="Center"
-                Text="涂布机" />
-            <TextBlock
-                VerticalAlignment="Center"
-                d:Foreground="#29cc7a"
-                d:Text="正常"
-                Foreground="{Binding StatusInfoBrush}"
-                Text="{Binding StatusInfo}" />
-        </StackPanel>
+        <Border d:Background="#e9faf1" Background="{Binding StatusBarBrush}">
+            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                <TextBlock
+                    Margin="0,0,2,0"
+                    VerticalAlignment="Center"
+                    d:Text="L1"
+                    FontSize="{Binding LineTitleFontSize}"
+                    FontWeight="Bold"
+                    Text="{Binding Title}" />
+                <TextBlock
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center"
+                    FontSize="{Binding LineTitleFontSize}"
+                    Text="涂布机" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    d:Foreground="#29cc7a"
+                    d:Text="正常"
+                    FontSize="{Binding LineTitleFontSize}"
+                    Foreground="{Binding StatusInfoBrush}"
+                    Text="{Binding StatusInfo}" />
+            </StackPanel>
+        </Border>
+
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -67,13 +69,19 @@
 
             <Border>
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="A面干膜数据" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="A面干膜数据" />
                     </StackPanel>
 
                     <uc:DataCellTableControl Columns="{Binding FaceADryDataTableColumns}" Rows="{Binding FaceADryDataTableRows}" />
@@ -82,13 +90,19 @@
 
             <Border Grid.Column="1">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="B面湿膜数据" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="B面湿膜数据" />
                     </StackPanel>
 
                     <uc:DataCellTableControl Columns="{Binding FaceBWetDataTableColumns}" Rows="{Binding FaceBWetDataTableRows}" />
@@ -98,13 +112,19 @@
 
             <Border Grid.Column="2">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="B面干膜数据" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="B面干膜数据" />
                     </StackPanel>
 
                     <uc:DataCellTableControl Columns="{Binding FaceBDryDataTableColumns}" Rows="{Binding FaceBDryDataTableRows}" />
@@ -114,17 +134,17 @@
 
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="1.5*" />
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="5*" />
-                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="6.5*" />
+                <ColumnDefinition Width="1.5*" />
             </Grid.ColumnDefinitions>
 
             <Border>
                 <DockPanel>
                     <StackPanel
-                        Margin="0,0,0,5"
+                        Margin="0,5"
                         DockPanel.Dock="Top"
                         Orientation="Horizontal">
                         <Border
@@ -132,16 +152,20 @@
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="设备信息" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="设备信息" />
                     </StackPanel>
 
                     <cc:UniformWrapItemsControl
+                        Margin="0,10"
                         d:ItemsSource="{d:SampleData ItemCount=6}"
                         AutoWrapReferenceWidth="{Binding RelativeSource={RelativeSource AncestorType=DockPanel}, Path=ActualWidth}"
                         Columns="2"
                         HorizontalSpacing="5"
                         ItemsSource="{Binding DeviceInfos}"
-                        VerticalSpacing="20">
+                        VerticalSpacing="{Binding ParameterVerticalSpacing}">
                         <cc:UniformWrapItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
@@ -156,13 +180,19 @@
 
             <Border Grid.Column="1">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="A干-B湿错位数据" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="A干-B湿错位数据" />
                     </StackPanel>
 
                     <uc:DataCellTableControl Columns="{Binding FaceADryAndBWetDataTableColumns}" Rows="{Binding FaceADryAndBWetDataTableRows}" />
@@ -171,13 +201,19 @@
 
             <Border Grid.Column="2">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="A干-B干错位数据" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="A干-B干错位数据" />
                     </StackPanel>
 
                     <uc:DataCellTableControl Columns="{Binding FaceADryAndBDryDataTableColumns}" Rows="{Binding FaceADryAndBDryDataTableRows}" />
@@ -186,22 +222,29 @@
 
             <Border Grid.Column="3">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <StackPanel
+                        Margin="0,5"
+                        DockPanel.Dock="Top"
+                        Orientation="Horizontal">
                         <Border
                             Margin="0,0,5,0"
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="通讯参数" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="通讯参数" />
                     </StackPanel>
 
                     <cc:UniformWrapItemsControl
+                        Margin="0,10"
                         d:ItemsSource="{d:SampleData ItemCount=24}"
                         AutoWrapReferenceWidth="{Binding RelativeSource={RelativeSource AncestorType=DockPanel}, Path=ActualWidth}"
                         Columns="8"
                         HorizontalSpacing="5"
                         ItemsSource="{Binding GeneralParameterInfos}"
-                        VerticalSpacing="20">
+                        VerticalSpacing="{Binding ParameterVerticalSpacing}">
                         <cc:UniformWrapItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
@@ -217,7 +260,7 @@
             <Border Grid.Column="4">
                 <DockPanel>
                     <StackPanel
-                        Margin="0,0,0,5"
+                        Margin="0,5"
                         DockPanel.Dock="Top"
                         Orientation="Horizontal">
                         <Border
@@ -225,7 +268,10 @@
                             Background="Green"
                             BorderBrush="Green"
                             BorderThickness="1" />
-                        <TextBlock Text="实时告警栏" />
+                        <TextBlock
+                            FontSize="{Binding LittleTitleFontSize}"
+                            FontWeight="Bold"
+                            Text="实时告警栏" />
                     </StackPanel>
 
                     <uc:AlarmBarControl ItemsSource="{Binding Alarms}" />

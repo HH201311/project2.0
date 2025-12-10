@@ -71,7 +71,7 @@ namespace SUNWODA_SEVB.Component.UserControls
             if (control != null)
             {
                 control.SegmentContainer.ItemsSource = SegmentLayoutHelper.LayoutSegments(
-                    (ObservableCollection<CoatingSegmentModel>)e.NewValue
+                    (ObservableCollection<CoatingSegmentModel>)e.NewValue, 40
                 );
                 var totalWidth = 0.0;
                 foreach (var item in (ObservableCollection<CoatingSegmentModel>)e.NewValue)

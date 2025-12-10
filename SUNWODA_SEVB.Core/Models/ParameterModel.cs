@@ -18,5 +18,11 @@ namespace SUNWODA_SEVB.Core.Models
             get => pValue;
             set => SetProperty(ref pValue, value);
         }
+
+        public ParameterModel(string pName, string pValue)
+        {
+            PName = pName;
+            PValue = pValue;
+        }
     }
 }

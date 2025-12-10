@@ -38,7 +38,7 @@
                     <DataTemplate>
                         <Canvas>
                             <!--  段线  -->
-                            <Path Stroke="{Binding Color}" StrokeThickness="2">
+                            <Path Stroke="{Binding Color}" StrokeThickness="{Binding StrokeThickness}">
                                 <Path.Data>
                                     <LineGeometry StartPoint="{Binding StartX, Converter={StaticResource XToPoint}, ConverterParameter=60}" EndPoint="{Binding EndX, Converter={StaticResource XToPoint}, ConverterParameter=60}" />
                                 </Path.Data>
@@ -48,6 +48,7 @@
                             <TextBlock
                                 Canvas.Left="{Binding LabelStartX}"
                                 Canvas.Top="40"
+                                Margin="-10,0,0,0"
                                 FontSize="8"
                                 Foreground="{Binding ForegroundA}"
                                 Text="{Binding WidthA}" />
@@ -55,6 +56,7 @@
                             <TextBlock
                                 Canvas.Left="{Binding LabelStartX}"
                                 Canvas.Top="80"
+                                Margin="-10,0,0,0"
                                 FontSize="8"
                                 Foreground="{Binding ForegroundB}"
                                 Text="{Binding WidthB}" />

@@ -31,6 +31,15 @@ namespace SUNWODA_SEVB.Tool.Helper
         public static extern uint GetCurrentThreadId();
 
         /// <summary>
+        /// 释放虚拟内存
+        /// </summary>
+        /// <param name="hProcess">进程句柄</param>
+        /// <returns>是否成功</returns>
+        /// <example>EmptyWorkingSet(Process.GetCurrentProcess().Handle);</example>
+        [DllImport("psapi.dll")]
+        public static extern bool EmptyWorkingSet(IntPtr hProcess);
+
+        /// <summary>
         /// 设置窗口显示状态
         /// </summary>
         /// <param name="hWnd">窗口句柄</param>

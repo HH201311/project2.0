@@ -8,10 +8,15 @@
     <UseWPF>true</UseWPF>
     <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <FileVersion>2.1.0.0</FileVersion>
-    <ApplicationIcon>avatar.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Images\avatar.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Assets\Fonts\iconfont_cctb.ttf" />
+    <None Remove="Assets\Fonts\SourceHanSansCN.otf" />
+    <None Remove="Assets\Fonts\阿里妈妈数黑体.ttf" />
+    <None Remove="Assets\images\logo%402x.png" />
+    <None Remove="Assets\images\logo.png" />
     <Compile Remove="ViewModels\Pages\CCTB\**" />
     <Compile Remove="Views\Pages\CCTB\**" />
     <EmbeddedResource Remove="ViewModels\Pages\CCTB\**" />
@@ -27,6 +32,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Assets\images\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\images\logo@2x.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="avatar.ico" />
   </ItemGroup>
 
@@ -44,6 +55,7 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NumSharp" Version="0.30.0" />
+    <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
   </ItemGroup>
 
@@ -60,6 +72,9 @@
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Images\shanggai.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Assets\model\C06CT\C06CT.mtl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -118,6 +133,24 @@
     <Content Include="Assets\images\plus.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\iconfont_cctb.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\SourceHanSansCN.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Reference Include="OpenNetV8">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\OpenNetV8.dll</HintPath>
+    </Reference>
+    <Reference Include="YoloV8Net">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YoloV8Net.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

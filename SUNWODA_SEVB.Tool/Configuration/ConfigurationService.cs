@@ -80,16 +80,13 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 {
                     DefaultConnection = "server=127.0.0.1;database=sunwoda_opmm;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;"
                 },
-                ProjectSettings = new ProjectSettings
-                {
-                    EnableMES = true
-                },
+                // 数据库日志清理默认设置
                 LogCleanup = new LogCleanupSettings
                 {
                     AppLogRetentionDays = 7,
                     InterfaceLogRetentionDays = 31,
                     MaxDatabaseSizeMB = 100
-                }
+                }             
             };
         }
 
@@ -103,10 +100,6 @@ namespace SUNWODA_SEVB.Tool.Configuration
 
             // 比较连接字符串
             if (!AreConnectionStringsEqual(a.ConnectionStrings, b.ConnectionStrings))
-                return false;
-
-            // 比较项目设置
-            if (!AreProjectSettingsEqual(a.ProjectSettings, b.ProjectSettings))
                 return false;
 
             // 比较日志清理设置
@@ -125,17 +118,6 @@ namespace SUNWODA_SEVB.Tool.Configuration
             if (a == null || b == null) return false;
 
             return a.DefaultConnection == b.DefaultConnection;
-        }
-
-        /// <summary>
-        /// 比较两个ProjectSettings对象是否相等
-        /// </summary>
-        private static bool AreProjectSettingsEqual(ProjectSettings a, ProjectSettings b)
-        {
-            if (a == null && b == null) return true;
-            if (a == null || b == null) return false;
-
-            return a.EnableMES == b.EnableMES;
         }
 
         /// <summary>
@@ -296,10 +278,6 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 ConnectionStrings = new ConnectionStrings
                 {
                     DefaultConnection = connectionString
-                },
-                ProjectSettings = new ProjectSettings
-                {
-                    EnableMES = enableMES
                 }
             };
 
@@ -340,7 +318,6 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 var isEncrypted = JsonHelper.IsFileEncrypted(configPath);
                 Console.WriteLine($"配置文件验证成功 - 加密状态: {(isEncrypted ? "已加密" : "未加密")}");
                 Console.WriteLine($"数据库连接: {appSettings.ConnectionStrings.DefaultConnection}");
-                Console.WriteLine($"MES启用: {appSettings.ProjectSettings?.EnableMES}");
 
                 return true;
             }
@@ -389,9 +366,6 @@ namespace SUNWODA_SEVB.Tool.Configuration
         {
             // 读取当前配置
             var appSettings = JsonHelper.ReadJsonFile<AppSettings>(_configPath) ?? new AppSettings();
-
-            // 更新MES设置
-            appSettings.ProjectSettings.EnableMES = enabled;
 
             // 保存配置（保持加密状态）
             var shouldEncrypt = _alwaysEncrypt || JsonHelper.IsFileEncrypted(_configPath);

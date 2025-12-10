@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Threading;
 
 namespace SUNWODA_SEVB.Core.Common
@@ -131,8 +129,6 @@ namespace SUNWODA_SEVB.Core.Common
                 _dispatcher.Invoke(action);
             }
         }
-
-        // 后台任务辅助方法
 
         /// <summary>
         /// 后台任务辅助方法

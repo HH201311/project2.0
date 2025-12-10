@@ -13,14 +13,14 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace SUNWODA_SEVB.Views.Dialogs.HawkEye
+namespace SUNWODA_SEVB.Views.Pages.CoatingOPMM
 {
     /// <summary>
-    /// AddCameraDialog.xaml 的交互逻辑
+    /// CoatingOPMMPage.xaml 的交互逻辑
     /// </summary>
-    public partial class AddCameraDialog : Border
+    public partial class CoatingOPMMPage : Page
     {
-        public AddCameraDialog()
+        public CoatingOPMMPage()
         {
             InitializeComponent();
         }

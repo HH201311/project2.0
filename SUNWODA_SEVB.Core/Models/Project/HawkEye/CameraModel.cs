@@ -23,7 +23,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         private string? protocol;
         private string? workstaion;
         private string? remake;
-        private string? deviceInfoStr;
+        private bool removeDistortion;
 
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         /// 工位名称
         /// </summary>
         [XmlAttribute("工位名称")]
-        public string? Workstaion
+        public string? WorkStaion
         {
             get => workstaion;
             set => SetProperty(ref workstaion, value);
@@ -97,13 +97,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         }
 
         /// <summary>
-        /// 设备信息
+        /// 是否去除畸变
         /// </summary>
-        [XmlAttribute("设备信息")]
-        public string? DeviceInfoStr
+        [XmlAttribute("是否去除畸变")]
+        public bool RemoveDistortion
         {
-            get => deviceInfoStr;
-            set => SetProperty(ref deviceInfoStr, value);
+            get => removeDistortion;
+            set => SetProperty(ref removeDistortion, value);
         }
 
         /// <summary>
@@ -114,10 +114,5 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
 
         // $"rtsp://{HostIP}:554/user=admin&password=admin&channel=1"
 
-        /// <summary>
-        /// 设备信息
-        /// </summary>
-        [XmlIgnore()]
-        public DeviceInfo? DeviceInfo { get { return string.IsNullOrEmpty(DeviceInfoStr) ? null : JsonConvert.DeserializeObject<DeviceInfo>(DeviceInfoStr); } }
-    }
+       }
 }

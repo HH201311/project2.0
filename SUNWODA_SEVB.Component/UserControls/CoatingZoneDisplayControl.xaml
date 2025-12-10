@@ -1,0 +1,70 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.CoatingZoneDisplayControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converter="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <converter:XToPointConverter x:Key="XToPoint" />
+    </UserControl.Resources>
+
+    <Viewbox Stretch="Uniform">
+        <Canvas
+            x:Name="CanvasContainer"
+            Width="2000"
+            Height="120">
+
+            <!--  上 Label (A 面)  -->
+            <TextBlock
+                x:Name="FaceALabelContainer"
+                Canvas.Left="0"
+                Canvas.Top="40"
+                FontSize="8"
+                Foreground="Black" />
+            <!--  下 Label (B 面)  -->
+            <TextBlock
+                x:Name="FaceBLabelContainer"
+                Canvas.Left="0"
+                Canvas.Top="80"
+                FontSize="8"
+                Foreground="Black" />
+
+            <!--  Segments  -->
+            <ItemsControl x:Name="SegmentContainer">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Canvas>
+                            <!--  段线  -->
+                            <Path Stroke="{Binding Color}" StrokeThickness="{Binding StrokeThickness}">
+                                <Path.Data>
+                                    <LineGeometry StartPoint="{Binding StartX, Converter={StaticResource XToPoint}, ConverterParameter=60}" EndPoint="{Binding EndX, Converter={StaticResource XToPoint}, ConverterParameter=60}" />
+                                </Path.Data>
+                            </Path>
+
+                            <!--  上 Label (A 面)  -->
+                            <TextBlock
+                                Canvas.Left="{Binding LabelStartX}"
+                                Canvas.Top="40"
+                                Margin="-10,0,0,0"
+                                FontSize="8"
+                                Foreground="{Binding ForegroundA}"
+                                Text="{Binding WidthA}" />
+                            <!--  下 Label (B 面)  -->
+                            <TextBlock
+                                Canvas.Left="{Binding LabelStartX}"
+                                Canvas.Top="80"
+                                Margin="-10,0,0,0"
+                                FontSize="8"
+                                Foreground="{Binding ForegroundB}"
+                                Text="{Binding WidthB}" />
+                        </Canvas>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </Canvas>
+    </Viewbox>
+</UserControl>

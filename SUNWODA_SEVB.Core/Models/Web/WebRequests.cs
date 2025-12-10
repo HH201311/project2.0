@@ -206,61 +206,13 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 特征提取结果
         /// </summary>
         [JsonPropertyName("detectionResult")]
-        public string? DetectionResult { get; set; }       
+        public string? DetectionResult { get; set; }
     }
 
     /// <summary>
-    /// 摄像头新增接口请求类
+    /// 摄像头新增/更新接口请求类
     /// </summary>
     public class AddCameraRequest
-    {
-        /// <summary>
-        /// 基地
-        /// </summary>
-        [JsonPropertyName("productionBase")]
-        public string? ProductionBase { get; set; }
-
-        /// <summary>
-        /// 拉线
-        /// </summary>
-        [JsonPropertyName("productionLine")]
-        public string? ProductionLine { get; set; }
-
-        /// <summary>
-        /// 工序
-        /// </summary>
-        [JsonPropertyName("process")]
-        public string? Process { get; set; }
-
-        /// <summary>
-        /// 设备ID
-        /// </summary>
-        [JsonPropertyName("deviceId")]
-        public string? DeviceId { get; set; }
-
-        /// <summary>
-        /// 工位
-        /// </summary>
-        [JsonPropertyName("position")]
-        public string? Position { get; set; }
-
-        /// <summary>
-        /// IP地址
-        /// </summary>
-        [JsonPropertyName("ipAddress")]
-        public string? IpAddress { get; set; }
-
-        /// <summary>
-        /// 摄像头SN码
-        /// </summary>
-        [JsonPropertyName("cameraSn")]
-        public string? CameraSn { get; set; }
-    }
-
-    /// <summary>
-    /// 摄像头更新接口请求类
-    /// </summary>
-    public class UpdateCameraRequest
     {
         /// <summary>
         /// 基地
@@ -308,7 +260,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 1表示是正常启用，0表示禁用
         /// </summary>
         [JsonPropertyName("enable")]
-        public int Enable { get; set; }
+        public bool Enable { get; set; }
     }
 
     /// <summary>
@@ -376,7 +328,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("alertLevel")]
         public int AlertLevel { get; set; }
-        
+
         /// <summary>
         /// 起止信号，1为开始，2为结束，其余为0
         /// </summary>
@@ -535,7 +487,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 斜率
         /// </summary>
         [JsonPropertyName("averageSlope")]
-        public float AverageSlope { get; set; }        
+        public float AverageSlope { get; set; }
     }
 
     /// <summary>

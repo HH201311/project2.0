@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+	<OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-SUNWODA_SEVB.WatchDogService-d9f2d1ad-9c1b-4db4-8dfc-eb1b0f93dc01</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Remove="nlog.config" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="nlog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.7" />
+    <PackageReference Include="TaskScheduler" Version="2.12.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SUNWODA_SEVB.Core\SUNWODA_SEVB.Core.csproj" />
+    <ProjectReference Include="..\SUNWODA_SEVB.Logging\SUNWODA_SEVB.Logging.csproj" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /y /d /s &quot;$(TargetDir)*&quot; &quot;$(SolutionDir)SUNWODA_SEVB\bin\$(Configuration)\net8.0-windows\WatchDogService\&quot;" />
+  </Target>
+</Project>

@@ -7,6 +7,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/AIMarkdownViewerStyle.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/EqualSpacingItemsControlStyle.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/UniformWrapItemsControlStyle.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
 

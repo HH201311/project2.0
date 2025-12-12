@@ -124,9 +124,6 @@
     <Reference Include="ZZC03PDJS">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC03PDJS.dll</HintPath>
     </Reference>
-    <Reference Include="ZZPack">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

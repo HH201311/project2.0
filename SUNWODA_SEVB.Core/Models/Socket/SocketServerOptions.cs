@@ -34,5 +34,10 @@ namespace SUNWODA_SEVB.Core.Models.Socket
         /// 默认监听端口
         /// </summary>
         public int DefaultPort { get; set; } = 8080;
+
+        /// <summary>
+        /// 协议配置
+        /// </summary>
+        public ProtocolOptions Protocol { get; set; } = new();
     }
 }

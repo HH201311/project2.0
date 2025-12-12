@@ -1,14 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using Dm.util;
+﻿using Dm.util;
 using Fleck;
 using HelixToolkit.Wpf;
 using LibVLCSharp.Shared;
@@ -18,12 +8,24 @@ using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.Tool.Helper.SocketHelper;
+using SUNWODA_SEVB.Tool.Services.Socket;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using TrajectoryDiagnosisLib;
 using Yolo8Core;
 using ZZYingYanAICore;
@@ -52,7 +54,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
-            IModuleManager moduleManager
+            IModuleManager moduleManager,
+            ISocketServer server
         )
         {
             _logger = logger;
@@ -61,7 +64,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
+            _server = server ?? throw new ArgumentNullException(nameof(server));
             Init_Process();
         }
 
@@ -1280,7 +1283,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         #endregion
 
         #region 服务端
-        private SocketServer? server;
+        private readonly ISocketServer _server;
 
         /// <summary>
         /// 初始化服务端
@@ -1290,25 +1293,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         {
             try
             {
-                server = new SocketServer("127.0.0.1", port, _logger);
-                server.OnClientConnected += new EventHandler<ClientEventArgs<string>>((s, e) =>
+                // 订阅客户端连接事件
+                _server.ClientConnected += (s, e) =>
                 {
-                    _logger.Info($"[{e.ClientSocket.RemoteEndPoint}]客户端已连接！");
-                });
-                server.OnClientDisconnected += new EventHandler<ClientEventArgs<string>>((s, e) =>
+                    _logger.Info($"[{e.EndPoint}]客户端已连接！");
+                };
+                // 订阅客户端断开事件
+                _server.ClientDisconnected += (s, e) =>
                 {
-                    _logger.Info($"[{e.ClientSocket.RemoteEndPoint}]客户端已断开！");
-                });
-                server.OnMessageReceived += new EventHandler<ClientEventArgs<byte[]>>((s, e) =>
+                    _logger.Info($"[{e.EndPoint}]客户端已断开！");
+                };
+                // 订阅数据接收事件
+                _server.DataReceived += (s, e) =>
                 {
-                    _logger.Info($"接收[{e.ClientSocket.RemoteEndPoint}]客户端消息：[{Encoding.UTF8.GetString(e.Message ?? new byte[0])}]！");
-                    //((JavaSocketServer?)s)?.SendToClientAsync(e.ClientSocket, "123123123");
-                });
-                await server.StartAsync();
+                    _logger.Info($"接收[{e.ClientEndPoint}]客户端消息：[{Encoding.UTF8.GetString(e.Data ?? Array.Empty<byte>())}]！");
+                };
+                // 订阅错误事件（新增）
+                _server.ErrorOccurred += (s, e) =>
+                {
+                    _logger.Error($"Socket服务错误[{e.ClientEndPoint}]：{e.Message}", e.Exception);
+                };
+                // 启动服务 - 注意参数变化
+                // 参数：port, moduleName, ip, cancellationToken
+                var result = await _server.StartAsync(port, "VM_MachineDamageMonitoringPage", null);
+                if (result)
+                {
+                    _logger.Info($"Socket服务启动成功，端口：{port}");
+                }
+                else
+                {
+                    _logger.Error($"Socket服务启动失败，端口：{port}");
+                }
             }
             catch (Exception ex)
             {
-                _logger.Error($"初始化服务器发生异常！", ex);
+                _logger.Error($"初始化Sorcket服务器发生异常！", ex);
             }
         }
         #endregion

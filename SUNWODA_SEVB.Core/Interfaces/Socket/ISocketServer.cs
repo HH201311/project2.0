@@ -46,7 +46,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Socket
         /// <summary>
         /// 启动服务
         /// </summary>
-        Task<bool> StartAsync(int port, string moduleName, CancellationToken cancellationToken = default);
+        Task<bool> StartAsync(int port, string moduleName, string? ip,CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 停止服务

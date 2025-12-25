@@ -153,7 +153,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     workship = workshipParts.ElementAtOrDefault(3) ?? "",
                     proceduce = settings.DeviceName ?? "",
                     devId = settings.DeviceSn ?? "",
-                    softName = settings.ZipFileName ?? "",
+                    softName = settings.ZipFileName ?? "aa",
                     softVersion = settings.SoftVersion ?? "",
                     macId = networkInfo.MacAddress,
                     ip = networkInfo.IpAddress ?? ""
@@ -200,7 +200,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     return false;
                 }
 
-                var softName = settings.ZipFileName ?? "";
+                var softName = settings.ZipFileName ?? "aa" ;
                 var softVersion = settings.SoftVersion ?? "";
                 var deviceSn = settings.DeviceSn ?? "";
 

@@ -5,17 +5,6 @@ using SUNWODA_SEVB.MES.Models;
 namespace SUNWODA_SEVB.MES.Services
 {
     /// <summary>
-    /// Marking数据上传服务接口
-    /// </summary>
-    public interface IMarkingDataUploadService : IMesService
-    {
-        Task<IncreaseMarkingResponse> UploadAsync(
-            string productSn,
-            List<string>? defectList = null,
-            CancellationToken cancellationToken = default);
-    }
-
-    /// <summary>
     /// Marking数据上传服务实现
     /// </summary>
     public class MarkingDataUploadService : IMarkingDataUploadService
@@ -44,15 +33,7 @@ namespace SUNWODA_SEVB.MES.Services
                 var config = await _configProvider.GetConfigurationAsync();
                 IsEnabled = config != null;
 
-                if (IsEnabled)
-                {
-                    _logger.Info($"{ServiceName} 服务初始化成功");
-                }
-                else
-                {
-                    _logger.Info($"{ServiceName} 服务未启用");
-                }
-
+                _logger.Info($"{ServiceName} 服务初始化{(IsEnabled ? "成功" : "失败(配置不可用)")}");
                 return IsEnabled;
             }
             catch (Exception ex)
@@ -130,42 +111,75 @@ namespace SUNWODA_SEVB.MES.Services
             }
         }
 
-        public async Task<bool> CheckHealthAsync()
-        {
-            if (!IsEnabled)
-                return false;
-
-            try
-            {
-                var testRequest = new IncreaseMarkingRequest
-                {
-                    DeviceSn = "HEALTH_CHECK",
-                    SerialNumber = "HEALTH_CHECK",
-                    GroupCode = "HEALTH_CHECK",
-                    ControlGroup = "HEALTH_CHECK",
-                    TimeStamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    Remark = "Health Check"
-                };
-
-                var response = await _apiClient.PostAsync<IncreaseMarkingRequest, IncreaseMarkingResponse>(
-                    "HealthCheck",
-                    testRequest,
-                    CancellationToken.None);
-
-                return response?.Success ?? false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
+      
 
         public async Task ResetAsync()
         {
             IsEnabled = false;
+            _logger.Info($"{ServiceName} 已重置");
             await Task.CompletedTask;
         }
 
-        public string GetVersion() => "1.0.0";
+        public async Task<bool> UploadMarkingDataAsync(string serialNumber, string markingData)
+        {
+            if (!IsEnabled)
+            {
+                _logger.Warn($"{ServiceName} 服务未启用");
+                return false;
+            }
+
+            try
+            {
+                var config = await _configProvider.GetConfigurationAsync();
+                if (config == null)
+                {
+                    throw new InvalidOperationException("MES配置不可用");
+                }
+
+                var request = new IncreaseMarkingRequest
+                {
+                    DeviceSn = config.DeviceSn,
+                    SerialNumber = serialNumber,
+                    GroupCode = config.GroupCode,
+                    ControlGroup = config.ControlGroup,
+                    TimeStamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Remark = markingData ?? string.Empty
+                };
+
+                var response = await _apiClient.PostAsync<IncreaseMarkingRequest, IncreaseMarkingResponse>(
+                    "IncreaseMarking",
+                    request);
+
+                return response.Success;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"上传Marking数据失败: {serialNumber}", ex);
+                return false;
+            }
+        }
+
+        public async Task<bool> UpdateEnabledStatusAsync()
+        {
+            try
+            {
+                var config = await _configProvider.GetConfigurationAsync();
+                var newStatus = config != null;
+
+                if (newStatus != IsEnabled)
+                {
+                    IsEnabled = newStatus;
+                    _logger.Info($"{ServiceName} 状态已更新: {IsEnabled}");
+                }
+
+                return IsEnabled;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"{ServiceName} 更新状态失败", ex);
+                return IsEnabled;
+            }
+        }
+
     }
 }

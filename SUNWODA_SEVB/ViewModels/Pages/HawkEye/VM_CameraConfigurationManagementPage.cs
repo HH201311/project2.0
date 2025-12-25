@@ -59,15 +59,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             // 更新行列
             Items.CollectionChanged += ((s, e) =>
             {
-                if (!(s is ObservableCollection<CameraModel> cms)) return;
+                if (s is not ObservableCollection<CameraModel> cms) return;
                 Columns = 3;
                 Rows = (cms.Count + 1) / 3 >= 3 ? (Items.Count / 3 + 1) : 3;
             });
-            CompositeItems = new CompositeCollection();
-            // 添加数据源集合
-            CompositeItems.Add(new CollectionContainer { Collection = Items });
-            // 添加“新增功能”的 Button
-            CompositeItems.Add(AddCommand);
+            CompositeItems =
+            [
+                // 添加数据源集合
+                new CollectionContainer { Collection = Items },
+                // 添加“新增功能”的 Button
+                AddCommand,
+            ];
         }
 
         private int columns = 3;
@@ -117,7 +119,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         private void _SaveCommand(object? obj)
         {
             if (!(obj is CameraModel cm)) return;
-            if (string.IsNullOrEmpty(cm.Name) || string.IsNullOrEmpty(cm.HostIP) || string.IsNullOrEmpty(cm.Workstaion))
+            if (string.IsNullOrEmpty(cm.Name) || string.IsNullOrEmpty(cm.HostIP) || string.IsNullOrEmpty(cm.WorkStaion))
             {
                 HandyControl.Controls.MessageBox.Show(
                         $"[名称、相机IP、工位名称]不可为空，请确认！",
@@ -171,8 +173,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="obj"></param>
         private void _AddCommand()
         {
-            var cm = new CameraModel();
-            cm.Protocol = "RTSP";
+            var cm = new CameraModel
+            {
+                Protocol = "RTSP"
+            };
             Items.Add(cm);
         }
         #endregion

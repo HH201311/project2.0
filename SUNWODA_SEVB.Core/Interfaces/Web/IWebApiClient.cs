@@ -1,4 +1,5 @@
 ﻿
+using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 
 namespace SUNWODA_SEVB.Core.Interfaces.Web
@@ -37,8 +38,8 @@ namespace SUNWODA_SEVB.Core.Interfaces.Web
 
         // 鹰眼项目接口
         Task<AiDetectionDataResponse> AiDetectionDataAsync(string position, string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile);
-        Task<AddCameraResponse> AddCameraAsync(List<(string position, string ipAddress, string cameraSn)> cameras);
-        Task<UpdateCameraResponse> UpdateCameraAsync(List<(string position, string ipAddress, string cameraSn, int enable)> cameras);
-        Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, int abnormalTimeStamp, long abnormalTimeStampEnd, string detectionResult, byte[] file, List<FrameDtoList> frameDtoList);
+        Task<AddCameraResponse> AddCameraAsync(List<CameraModel> cameras);
+        Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, long abnormalTimeStamp, long abnormalTimeStampEnd, byte[] file, List<FrameDtoList> frameDtoList, string abnormaVideoStatus);
+        Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, long abnormalTimeStamp, long abnormalTimeStampEnd, List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, List<FrameDtoList> frameDtoList, string abnormaVideoStatus);
     }
 }

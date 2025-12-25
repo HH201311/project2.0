@@ -316,16 +316,16 @@ namespace SUNWODA_SEVB.WEB.Services
 
             return new PcInfoRequest
             {
-                DevId = settings.DeviceSn,
-                Cpu = await GetCpuUsageAsync(),
-                Memory = memoryInfo.PrivateMemory,  // 软件私有内存作为主要内存显示
-                PhysicalMemory = memoryInfo.PhysicalMemory,
-                VirtualMemory = memoryInfo.VirtualMemory,
-                ManagedMemory = memoryInfo.ManagedMemory,
-                SystemMemory = memoryInfo.SystemMemory,  // 系统内存信息
-                Disk = await GetDiskInfoAsync(),
-                EquipmentState = await GetPlcStatusAsync(),
-                Time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.FFF")
+                devId = settings.DeviceSn,
+                cpu = await GetCpuUsageAsync(),
+                memory = memoryInfo.PrivateMemory,  // 软件私有内存作为主要内存显示
+                physicalMemory = memoryInfo.PhysicalMemory,
+                virtualMemory = memoryInfo.VirtualMemory,
+                managedMemory = memoryInfo.ManagedMemory,
+                systemMemory = memoryInfo.SystemMemory,  // 系统内存信息
+                disk = await GetDiskInfoAsync(),
+                equipmentState = await GetPcStatusAsync(),
+                time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.FFF")
             };
         }
 
@@ -498,19 +498,19 @@ namespace SUNWODA_SEVB.WEB.Services
         /// PLC状态获取（模拟实现）
         /// </summary>
         /// <returns></returns>
-        private async Task<string> GetPlcStatusAsync()
+        private async Task<string> GetPcStatusAsync()
         {
             return await Task.Run(() =>
             {
                 try
                 {
-                    // TODO: 从PLC服务获取实际状态
+                    // TODO: 从PC服务获取实际状态
                     // 暂时返回固定值
                     return "正常";
                 }
                 catch (Exception ex)
                 {
-                    _logger.Debug($"获取PLC状态失败: {ex.Message}");
+                    _logger.Debug($"获取PC状态失败: {ex.Message}");
                     return "未知";
                 }
             });

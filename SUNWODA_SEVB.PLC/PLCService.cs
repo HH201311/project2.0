@@ -182,7 +182,8 @@ namespace SUNWODA_SEVB.PLC
                                 addressConfig.Unit,
                                 addressConfig.Remark,
                                 GetAddressNumber(addressConfig.Address)
-                                    - rwConfig.StartAddress.ToInt()
+                                    - rwConfig.StartAddress.ToInt(),
+                                GetAddressBitNumber(addressConfig.Address)
                             );
                             _rwAddresses[addressConfig.ID] = rwAddress;
                         }
@@ -500,7 +501,7 @@ namespace SUNWODA_SEVB.PLC
             }
         }
 
-        public async Task<bool> ReadAddressAsync(PLC plc, PLCRWAddress address)
+        public async Task<bool> ReadAddressAsync(PLC plc, PLCRWAddress address, int bitIndex)
         {
             var result = await plc.ReadAsync(address.Address!, address.Length);
 
@@ -515,6 +516,7 @@ namespace SUNWODA_SEVB.PLC
                         plc.ByteTransform,
                         plc.AddressWordLength,
                         0,
+                        bitIndex,
                         address.Length
                     );
                     return true;
@@ -551,6 +553,7 @@ namespace SUNWODA_SEVB.PLC
                             plc.ByteTransform,
                             plc.AddressWordLength,
                             address.Index,
+                            address.BitIndex,
                             address.Length
                         );
                     }
@@ -739,6 +742,7 @@ namespace SUNWODA_SEVB.PLC
             IByteTransform? byteTransform,
             int addressWordLength,
             int index,
+            int bitIndex,
             int length = 1
         )
         {
@@ -781,8 +785,20 @@ namespace SUNWODA_SEVB.PLC
                     ? byteTransform.TransUInt64(bytes, offset, length)[0]
                     : byteTransform.TransUInt64(bytes, offset, length),
                 "BOOL" => length == 1
-                    ? byteTransform.TransBool(bytes, offset, length)[0]
-                    : byteTransform.TransBool(bytes, offset, length),
+                    ? byteTransform.TransBool(
+                        BitConverter.GetBytes(byteTransform.TransInt16(bytes, offset)),
+                        offset,
+                        bitIndex + 1
+                    )[bitIndex]
+                    : byteTransform
+                        .TransBool(
+                            BitConverter.GetBytes(byteTransform.TransInt16(bytes, offset)),
+                            offset,
+                            bitIndex + 1 + length
+                        )
+                        .Skip(bitIndex)
+                        .Take(length)
+                        .ToArray(),
                 _ => null,
             };
         }
@@ -817,6 +833,17 @@ namespace SUNWODA_SEVB.PLC
             }
 
             return 0;
+        }
+
+        private static int GetAddressBitNumber(string source)
+        {
+            string[] result = source.Split('.');
+            if (result.Length > 2)
+                return int.Parse(result[2]);
+            else if (result.Length == 2)
+                return int.Parse(result[1]);
+            else
+                return 0;
         }
 
         // 辅助方法

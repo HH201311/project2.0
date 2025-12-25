@@ -131,6 +131,96 @@ namespace SUNWODA_SEVB.Services
             }
         }
 
+        public void AutoRegisterModulesByName(params string[] moduleNames)
+        {
+            _logger?.Info("开始自动注册业务模块");
+
+            var assemblies = AppDomain
+                .CurrentDomain.GetAssemblies()
+                .Where(a => a.FullName?.StartsWith(this.GetType().Namespace?.Split('.')[0] ?? "SUNWODA_SEVB") ?? false)
+                .ToList();
+
+            // 并行处理程序集以提高性能
+            Parallel.ForEach(
+                assemblies,
+                assembly =>
+                {
+                    RegisterModulesFromAssemblyWithNames(assembly, moduleNames);
+                }
+            );
+
+            // 按Order排序
+            lock (_modules)
+            {
+                _modules.Sort((a, b) => a.Order.CompareTo(b.Order));
+            }
+
+            OrganizeModuleHierarchy();
+
+            _logger?.Info($"业务模块注册完成，总业务模块数: {_modules.Count}");
+        }
+
+        private void RegisterModulesFromAssemblyWithNames(Assembly assembly, params string[] moduleNames)
+        {
+            try
+            {
+                _logger?.Debug($"扫描程序集: {assembly.FullName}");
+
+                var viewModelTypes = assembly
+                    .GetTypes()
+                    .Where(t =>
+                        t.IsClass
+                        && !t.IsAbstract
+                        && t.IsSubclassOf(typeof(ViewModelBase))
+                        && t.GetCustomAttribute<ModuleAttribute>() != null
+                    )
+                    .ToList();
+
+                foreach (var vmType in viewModelTypes)
+                {
+                    var moduleAttr = vmType.GetCustomAttribute<ModuleAttribute>();
+                    var viewType = FindViewForViewModel(vmType, assembly);
+                    var isContains = moduleNames.Contains(vmType.Name);
+            
+                    if (isContains)
+                    {
+                        if (viewType != null && moduleAttr != null)
+                        {
+                            var moduleInfo = new ModuleInfo
+                            {
+                                Name = moduleAttr.Name,
+                                DisplayName = moduleAttr.DisplayName,
+                                Icon = moduleAttr.Icon,
+                                Order = moduleAttr.Order,
+                                Category = moduleAttr.Category,
+                                Type = moduleAttr.Type,
+                                RequiredPermissions = moduleAttr.RequiredPermissions,
+                                ViewType = viewType,
+                                ViewModelType = vmType,
+                            };
+
+                            lock (_modules)
+                            {
+                                RegisterModule(moduleInfo);
+                            }
+
+                            _logger?.Info(
+                                $"注册业务模块: {moduleInfo.Name} ({moduleInfo.DisplayName})"
+                            );
+                        }
+                        else
+                        {
+                            _logger?.Warn($"没有找到 ViewModel 对应的 View: {vmType.Name}", true);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error($"无法从 {assembly.FullName} 中注册业务模块", ex, true);
+            }
+        }
+
         private Type? FindViewForViewModel(Type viewModelType, Assembly assembly)
         {
             Type? viewType = null;

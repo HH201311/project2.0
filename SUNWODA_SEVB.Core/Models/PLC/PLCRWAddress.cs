@@ -82,6 +82,13 @@ namespace SUNWODA_SEVB.Core.Models.PLC
             set => SetProperty(ref index, value);
         }
 
+        private int bitIndex;
+        public int BitIndex
+        {
+            get => bitIndex;
+            set => SetProperty(ref bitIndex, value);
+        }
+
         private dynamic? monitorValue;
         public dynamic? MonitorValue
         {
@@ -116,7 +123,8 @@ namespace SUNWODA_SEVB.Core.Models.PLC
             string address,
             string unit,
             string remark,
-            int index
+            int index,
+            int bitIndex = 0
         )
         {
             ID = id;
@@ -130,6 +138,7 @@ namespace SUNWODA_SEVB.Core.Models.PLC
             Unit = unit;
             Remark = remark;
             Index = index;
+            BitIndex = bitIndex;
             MonitorValue = GetDefaultDynamicValue(Type);
             IsShowOnPlotView = false;
         }

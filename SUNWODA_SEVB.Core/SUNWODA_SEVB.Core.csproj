@@ -111,6 +111,7 @@
     <Folder Include="Interfaces\Project\HawkEye\" />
     <Folder Include="Interfaces\Project\CCTB\" />
     <Folder Include="Models\Project\CCTB\" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.7" />
   </ItemGroup>
 
 </Project>

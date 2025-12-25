@@ -16,7 +16,7 @@ using System.Windows.Media.Media3D;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.Demo
 {
-    [Module("AIMarkdownViewerTestPage", "AI Markdown控件演示")]
+    [Module("AIMarkdownViewerTestPage", "AI Markdown控件演示", Category = "Demo/AIMarkdownViewerTestPage")]
     public class VM_AIMarkdownViewerTestPage : ViewModelBase
     {
         private readonly ILoggerService<VM_MainWindow> _logger;

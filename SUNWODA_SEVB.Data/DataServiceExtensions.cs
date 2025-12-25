@@ -167,7 +167,7 @@ namespace SUNWODA_SEVB.Data
                     var operation = GetSqlOperation(sql);
                     Console.WriteLine($"[SQL] {operation} 表[{tableName}]");
                 }
-            };
+             };
 
             // SQL执行后事件 - 只在慢查询时记录
             db.Aop.OnLogExecuted = (sql, pars) =>

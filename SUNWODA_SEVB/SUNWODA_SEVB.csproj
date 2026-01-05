@@ -47,7 +47,9 @@
     <PackageReference Include="Extended.Wpf.Toolkit" Version="5.0.0" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="HandyControl" Version="3.5.1" />
-    <PackageReference Include="itext7" Version="9.3.0" />
+    <PackageReference Include="itext7" Version="8.0.0" />
+    <PackageReference Include="itext7.bouncy-castle-adapter" Version="8.0.0" />
+    <PackageReference Include="MahApps.Metro" Version="2.4.11" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.0.0" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.5" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
@@ -101,6 +103,9 @@
     <Reference Include="C01Infer">
       <HintPath>..\..\在线CT\1105\C01Infer.dll</HintPath>
     </Reference>
+    <Reference Include="C06Infer">
+      <HintPath>..\..\在线CT\1222\C06Infer.dll</HintPath>
+    </Reference>
     <Reference Include="Calibration">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Calibration.dll</HintPath>
     </Reference>
@@ -144,6 +149,9 @@
     </Reference>
     <Reference Include="ZZC1OnlineCTModel">
       <HintPath>..\..\在线CT\1111\ZZC1OnlineCTModel.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZC6OnlineCTModel">
+      <HintPath>..\..\在线CT\1222\ZZC6OnlineCTModel.dll</HintPath>
     </Reference>
     <Reference Include="ZZPack">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>

@@ -41,6 +41,7 @@ namespace SUNWODA_SEVB
             //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
+                MonitorAppIsRunning();
                 // 确保配置文件存在且有效
                 ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host

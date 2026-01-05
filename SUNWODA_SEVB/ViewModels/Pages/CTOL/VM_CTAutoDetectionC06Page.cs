@@ -2,6 +2,7 @@
 using Dm.filter;
 using halcondotnet::HalconDotNet;
 using HandyControl.Controls;
+using iText.IO.Image;
 using Microsoft.Data.Sqlite;
 using Microsoft.Win32;
 using MySqlX.XDevAPI.Common;
@@ -11,7 +12,6 @@ using OpenCvSharp.Text;
 using OxyPlot;
 using OxyPlot.Legends;
 using OxyPlot.Series;
-
 using SUNWODA_SEVB.Component.UserControls;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -46,8 +46,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
-using Yolo11seg_CT01;
+using Yolo11seg_CT06;
 using ZZC1OnlineCTModel;
+using ZZC6OnlineCTModel;
 using HalconDotNet = halcondotnet::HalconDotNet;
 using HObject = halcondotnet::HalconDotNet.HObject;
 
@@ -60,7 +61,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private IPredictor? LCDmodel;
         private IPredictor? RABmodel;
         private IPredictor? RCDmodel;
-        ZZC1CTModel ai = new ZZC1CTModel();
+        ZZC6CTModel ai = new ZZC6CTModel();
 
         #region 结果界面操作
         #region LAB
@@ -78,7 +79,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ICommand ZoomOutRealTimeCommandLAB { get; }
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandLAB { get; }
-
+        // 选择结果路径的命令
         public ICommand SelectResultImagePath { get; }
         private const double ZoomStepLAB = 0.1;
         private const double MinScaleLAB = 0.2;
@@ -132,7 +133,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ICommand ZoomOutRealTimeCommandLCD { get; }
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandLCD { get; }
-
+        // 选择结果路径的命令
+        //public ICommand SelectResultImagePath { get; }
         private const double ZoomStepLCD = 0.1;
         private const double MinScaleLCD = 0.2;
         private const double MaxScaleLCD = 5.0;
@@ -185,7 +187,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ICommand ZoomOutRealTimeCommandRAB { get; }
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandRAB { get; }
-
+        // 选择结果路径的命令
+        //public ICommand SelectResultImagePath { get; }
         private const double ZoomStepRAB = 0.1;
         private const double MinScaleRAB = 0.2;
         private const double MaxScaleRAB = 5.0;
@@ -224,11 +227,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private double _startTranslateYRAB; // 拖动起始Y偏移
         #endregion
         #region RCD
-        // 鼠标按下命令
+        // 鼠标按下命令（开始拖动）
         public ICommand ImageMouseDownCommandRCD { get; }
-        // 鼠标移动命令
+        // 鼠标移动命令（拖动中）
         public ICommand ImageMouseMoveCommandRCD { get; }
-        // 鼠标松开命令
+        // 鼠标松开命令（结束拖动）
         public ICommand ImageMouseUpCommandRCD { get; }
         // 鼠标滚轮缩放
         public ICommand ZoomRealTimeImageCommandRCD { get; }
@@ -238,7 +241,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ICommand ZoomOutRealTimeCommandRCD { get; }
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandRCD { get; }
-
+        // 选择结果路径的命令
+        //public ICommand SelectResultImagePath { get; }
         private const double ZoomStepRCD = 0.1;
         private const double MinScaleRCD = 0.2;
         private const double MaxScaleRCD = 5.0;
@@ -1444,7 +1448,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly ConcurrentQueue<string> _safeDetectQueueLAB = new ConcurrentQueue<string>();
         private bool _isQueueRunningLAB;
         private readonly SemaphoreSlim _semaphoreLAB = new SemaphoreSlim(MaxConcurrentLAB); // LAB并发控制
-        private const int MaxConcurrentLAB = 4; //LAB最大并发数
+        private const int MaxConcurrentLAB = 1; //LAB最大并发数
         // 等待句柄,唤醒线程
         private readonly AutoResetEvent _queueEventLAB = new AutoResetEvent(false);  // 初始为未触发状态
 
@@ -1453,7 +1457,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly ConcurrentQueue<string> _safeDetectQueueLCD = new ConcurrentQueue<string>();
         private bool _isQueueRunningLCD;
         private readonly SemaphoreSlim _semaphoreLCD = new SemaphoreSlim(MaxConcurrentLCD);
-        private const int MaxConcurrentLCD = 4;
+        private const int MaxConcurrentLCD = 1;
         private readonly AutoResetEvent _queueEventLCD = new AutoResetEvent(false);
 
         //RAB
@@ -1461,7 +1465,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly ConcurrentQueue<string> _safeDetectQueueRAB = new ConcurrentQueue<string>();
         private bool _isQueueRunningRAB;
         private readonly SemaphoreSlim _semaphoreRAB = new SemaphoreSlim(MaxConcurrentRAB);
-        private const int MaxConcurrentRAB = 4;
+        private const int MaxConcurrentRAB = 1;
         private readonly AutoResetEvent _queueEventRAB = new AutoResetEvent(false);
 
         //RCD
@@ -1469,7 +1473,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly ConcurrentQueue<string> _safeDetectQueueRCD = new ConcurrentQueue<string>();
         private bool _isQueueRunningRCD;
         private readonly SemaphoreSlim _semaphoreRCD = new SemaphoreSlim(MaxConcurrentRCD);
-        private const int MaxConcurrentRCD = 4;
+        private const int MaxConcurrentRCD = 1;
         private readonly AutoResetEvent _queueEventRCD = new AutoResetEvent(false);
         private readonly object _stationCountLock = new object();
         private int _runningStationsCount = 0;
@@ -1689,16 +1693,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     while (true)
                     {
                         string? filePath = null;
-                        lock (_queueLockLAB)
+
+                        if (_safeDetectQueueLAB.TryDequeue(out filePath))
                         {
-                            if (_safeDetectQueueLAB.TryDequeue(out filePath))
-                            {
-                                //AddLog($"[LAB-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
-                            }
-                            else
-                            {
-                                break; // 队列空，退出内层循环
-                            }
+                            //AddLog($"[LAB-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
+                        }
+                        else
+                        {
+                            break; // 队列空，退出内层循环
                         }
 
                         if (filePath == null) break;
@@ -2061,7 +2063,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _ = ProcessQueueConcurrentLCD();
             }
         }
-        private readonly SemaphoreSlim _lcdProcessingSemaphore = new SemaphoreSlim(2, 2);
+        //private readonly SemaphoreSlim _lcdProcessingSemaphore = new SemaphoreSlim(2, 2);
         private async Task ProcessQueueConcurrentLCD()
         {
             await _semaphoreLCD.WaitAsync();
@@ -2073,16 +2075,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     {
                         string? filePath = null;
                         // 从LCD队列中出队文件路径
-                        lock (_queueLockLCD)
+
+                        if (_safeDetectQueueLCD.TryDequeue(out filePath))
                         {
-                            if (_safeDetectQueueLCD.TryDequeue(out filePath))
-                            {
-                                //AddLog($"[LCD-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
-                            }
-                            else
-                            {
-                                break; // 队列空，退出内层循环
-                            }
+                            //AddLog($"[LCD-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
+                        }
+                        else
+                        {
+                            break; // 队列空，退出内层循环
                         }
 
                         if (filePath == null) break;
@@ -2447,17 +2447,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     while (true)
                     {
                         string? filePath = null;
-                        lock (_queueLockRAB)
+
+                        if (_safeDetectQueueRAB.TryDequeue(out filePath))
                         {
-                            if (_safeDetectQueueRAB.TryDequeue(out filePath))
-                            {
-                                //AddLog($"[RAB-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
-                            }
-                            else
-                            {
-                                break;
-                            }
+                            //AddLog($"[RAB-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
                         }
+                        else
+                        {
+                            break;
+                        }
+
 
                         if (filePath == null) break;
 
@@ -2825,17 +2824,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     {
                         string? filePath = null;
 
-                        lock (_queueLockRCD)
+
+                        if (_safeDetectQueueRCD.TryDequeue(out filePath))
                         {
-                            if (_safeDetectQueueRCD.TryDequeue(out filePath))
-                            {
-                                //AddLog($"[RCD-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
-                            }
-                            else
-                            {
-                                break;
-                            }
+                            //AddLog($"[RCD-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
                         }
+                        else
+                        {
+                            break;
+                        }
+
 
                         if (filePath == null) break;
 
@@ -3060,10 +3058,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         {
 
             SelectedResultImagePath = _projectsetting.GetSettingValue("SelectedResultImagePath", "VM_CTAutoDetectionC06Page");
-            ai.Model_init(@"E:\在线CT\1119\best.onnx", true, out LABmodel, out string runinfoLAB);
-            ai.Model_init(@"E:\在线CT\1119\best.onnx", true, out LCDmodel, out string runinfoLCD);
-            ai.Model_init(@"E:\在线CT\1119\best.onnx", true, out RABmodel, out string runinfoRAB);
-            ai.Model_init(@"E:\在线CT\1119\best.onnx", true, out RCDmodel, out string runinfoRCD);
+            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out LABmodel, out string runinfoLAB);
+            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out LCDmodel, out string runinfoLCD);
+            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out RABmodel, out string runinfoRAB);
+            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out RCDmodel, out string runinfoRCD);
             if (!string.IsNullOrEmpty(runinfoLAB))
             {
                 Console.WriteLine($"LAB模型初始化异常：{runinfoLAB}");
@@ -3110,7 +3108,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             _imeresultRoot = Path.Combine(SelectedResultImagePath ?? @"E:\", "IMEResult");
             // 指定新目标根路径， "\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C01CT看图（中工序）（A线）（勿删）\CT\IMEResult"
-            _archiveTargetRoot = @"\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C01CT看图（中工序）（B线）（勿删）\CT\IMEResult";
+            _archiveTargetRoot = @"\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C06CT看图（中工序）（A线）勿删\IMEResult";
             // 初始化文件移动服务
             _fileMoverService = new DefectFileMoverService(_imeresultRoot, _archiveTargetRoot);
             _fileMoverService.AddLog = this.AddLog;
@@ -3409,10 +3407,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             if (CheckArrayOutOfRange(ImgName, aaaa, out string? rangeResult))
                 return rangeResult;
             //判断多片少片
-            if (aa != 107)
-                return aa > 107 ? "NG_正极多片" : "NG_正极少片";
-            if (bb != 108)
-                return bb > 108 ? "NG_负极多片" : "NG_负极少片";
+            if (aa != 76)
+                return aa > 76 ? "NG_正极多片" : "NG_正极少片";
+            if (bb != 77)
+                return bb > 77 ? "NG_负极多片" : "NG_负极少片";
             //判断间隙不良
             if (CheckGapMax(ImgName, gap0MaxArray, out string? gapMaxResult))
                 return gapMaxResult;
@@ -3483,12 +3481,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
 
             //初始化结果数组
-            double[] result = new double[107];
-            double[] result2 = new double[107];
-            double[] result3 = new double[107];
+            double[] result = new double[76];
+            double[] result2 = new double[76];
+            double[] result3 = new double[76];
 
             //逐元素计算
-            for (int i = 0; i < 107; i++)
+            for (int i = 0; i < 76; i++)
             {
                 // 获取当前索引的值
                 double y1Value = Y1 != null && Y1.Length > i ? Y1[i] : 0;
@@ -3877,41 +3875,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             Stopwatch processingStopwatch = Stopwatch.StartNew();
             Stopwatch gapDetectionTimer = Stopwatch.StartNew();
 
-            int maxRetries = 5;  // 最大重试次数
-            int retryDelayMs = 200;  // 每次重试间隔（毫秒）
-            bool isFileReady = false;
+            //int maxRetries = 5;  // 最大重试次数
+            //int retryDelayMs = 200;  // 每次重试间隔（毫秒）
+            //bool isFileReady = false;
 
             AddLog($"[检测开始] 文件：{Path.GetFileName(imageFilePath)}");
 
-            //等待文件就绪
-            for (int i = 0; i < maxRetries; i++)
-            {
-                FileStream? fs = null;
-                try
-                {
-                    // 尝试以「独占读写」模式打开文件
-                    fs = File.Open(imageFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    isFileReady = true;
-                    break;
-                }
-                catch (IOException)
-                {
-                    // 捕获「文件被占用」异常，等待后重试
-                    AddLog($"[文件等待] 第{i + 1}/{maxRetries}次等待文件就绪... 文件：{Path.GetFileName(imageFilePath)}");
-                    System.Threading.Thread.Sleep(retryDelayMs);
-                }
-                finally
-                {
-                    fs?.Close();  //关闭文件流
-                }
-            }
+            ////等待文件就绪
+            //for (int i = 0; i < maxRetries; i++)
+            //{
+            //    FileStream? fs = null;
+            //    try
+            //    {
+            //        // 尝试以「独占读写」模式打开文件
+            //        fs = File.Open(imageFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            //        isFileReady = true;
+            //        break; 
+            //    }
+            //    catch (IOException)
+            //    {
+            //        // 捕获「文件被占用」异常，等待后重试
+            //        AddLog($"[文件等待] 第{i + 1}/{maxRetries}次等待文件就绪... 文件：{Path.GetFileName(imageFilePath)}");
+            //        System.Threading.Thread.Sleep(retryDelayMs);
+            //    }
+            //    finally
+            //    {
+            //        fs?.Close();  //关闭文件流
+            //    }
+            //}
 
-            // 检查文件是否就绪，未就绪则直接返回失败
-            if (!isFileReady)
-            {
-                AddLog($"[文件读取失败] 重试{maxRetries}次后仍无法获取文件，可能被占用或写入未完成。文件：{Path.GetFileName(imageFilePath)}");
-                return ("文件未就绪", null);
-            }
+            //// 检查文件是否就绪，未就绪则直接返回失败
+            //if (!isFileReady)
+            //{
+            //    AddLog($"[文件读取失败] 重试{maxRetries}次后仍无法获取文件，可能被占用或写入未完成。文件：{Path.GetFileName(imageFilePath)}");
+            //    return ("文件未就绪", null);
+            //}
 
 
             try
@@ -4792,9 +4790,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     // 缺陷优先级排序
                     Dictionary<string, int> badTypePriority = new Dictionary<string, int>
                         {
-                            {"OH不良", 1}, {"负极多片", 2},{"负极压伤", 3},{"负极边缘间隙不良", 4},  {"正极少片", 5},
-                            {"正极多片", 6}, {"正极边缘间隙不良", 7},{"正极中间间隙不良", 8}, {"负极少片", 9},
-                            {"正极Y方向掉片", 10},{"负极差不良", 11},
+                            {"负极压伤", 1},{"负极边缘间隙不良", 2}, {"正极边缘间隙不良", 3},  {"正极中间间隙不良", 4},
+                            {"负极多片", 5},{"正极Y方向掉片", 6},{"OH不良", 7},{"负极少片", 8}, {"正极少片", 9},
+                            {"正极多片", 10}, {"负极差不良", 11}
                         };
 
                     var topPriorityDefect = confirmedDefects.Distinct()
@@ -5305,27 +5303,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     peRows.Length, neRows.Length, hDNe, distOHInt, distOHOut,
                     arr1, arr2, ohAbnormalPositions1, ohAbnormalPositions2, tempWindow, distGapMax);
                 // 导出最终图像
+
+                // 备用方案：临时文件
                 try
                 {
-                    HOperatorSet.DumpWindowImage(out finalImage, tempWindow.Handle);
-                    AddLog($"[结果图生成成功] 尺寸：{windowWidth}x{windowHeight}，文件：{Path.GetFileName(imageFilePath)}");
+                    string tempFile = Path.GetTempFileName() + ".png";
+                    tempWindow.DumpWindow("png", tempFile);
+                    HOperatorSet.ReadImage(out finalImage, tempFile);
+                    File.Delete(tempFile);
+                    AddLog($"[使用临时文件方式导出成功] 文件：{Path.GetFileName(imageFilePath)}");
                 }
-                catch (Exception dumpEx)
+                catch (Exception tempFileEx)
                 {
-                    // 备用方案：临时文件
-                    try
-                    {
-                        string tempFile = Path.GetTempFileName() + ".png";
-                        tempWindow.DumpWindow("png", tempFile);
-                        HOperatorSet.ReadImage(out finalImage, tempFile);
-                        File.Delete(tempFile);
-                        AddLog($"[使用临时文件方式导出成功] 文件：{Path.GetFileName(imageFilePath)}");
-                    }
-                    catch (Exception tempFileEx)
-                    {
-                        AddLog($"[临时文件方式也失败] {tempFileEx.Message}, 文件：{Path.GetFileName(imageFilePath)}");
-                    }
-                    AddLog($"{dumpEx}");
+                    AddLog($"[临时文件方式也失败] {tempFileEx.Message}, 文件：{Path.GetFileName(imageFilePath)}");
                 }
 
                 return finalImage;
@@ -5676,10 +5666,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 window.DispText(peTitle,
                     "window", startHeight, titleX, "orange", "box", "false");
                 // 绘制数据
-                string peData = $"{peCount} (标准107)";
-                window.SetColor(peCount != 107 ? "red" : "green");
+                string peData = $"{peCount} (标准76)";
+                window.SetColor(peCount != 76 ? "red" : "green");
                 window.DispText(peData,
-                    "window", startHeight, 100, peCount != 107 ? "red" : "green", "box", "false");
+                    "window", startHeight, 100, peCount != 76 ? "red" : "green", "box", "false");
 
 
                 // 负极层数
@@ -5687,10 +5677,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 window.SetColor("orange");
                 window.DispText(neTitle,
                     "window", startHeight + lineHeight, titleX, "orange", "box", "false");
-                string neData = $"{neCount} (标准108)";
-                window.SetColor(neCount != 108 ? "red" : "green");
+                string neData = $"{neCount} (标准77)";
+                window.SetColor(neCount != 77 ? "red" : "green");
                 window.DispText(neData,
-                    "window", startHeight + lineHeight, 100, neCount != 108 ? "red" : "green", "box", "false");
+                    "window", startHeight + lineHeight, 100, neCount != 77 ? "red" : "green", "box", "false");
 
 
                 //OH最大值
@@ -7204,47 +7194,47 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _projectsetting.UpdateSettingValue("Gap1Limit", "VM_CTAutoDetectionC06Page", 0.50);
                 _projectsetting.UpdateSettingValue("Gap2Limit", "VM_CTAutoDetectionC06Page", 2.75);
                 _projectsetting.UpdateSettingValue("Gap3Limit", "VM_CTAutoDetectionC06Page", 2.2);
-                _projectsetting.UpdateSettingValue("Gap4Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap4Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap5Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap6Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap6Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap7Limit", "VM_CTAutoDetectionC06Page", 0.50);
                 _projectsetting.UpdateSettingValue("Gap8Limit", "VM_CTAutoDetectionC06Page", 2.4);
                 _projectsetting.UpdateSettingValue("Gap9Limit", "VM_CTAutoDetectionC06Page", 2.4);
-                _projectsetting.UpdateSettingValue("Gap10Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap10Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap11Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap12Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap12Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap13Limit", "VM_CTAutoDetectionC06Page", 0.5);
                 _projectsetting.UpdateSettingValue("Gap14Limit", "VM_CTAutoDetectionC06Page", 2);
-                _projectsetting.UpdateSettingValue("Gap15Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap15Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap16Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap17Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap17Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap18Limit", "VM_CTAutoDetectionC06Page", 0.50);
                 _projectsetting.UpdateSettingValue("Gap19Limit", "VM_CTAutoDetectionC06Page", 2.4);
-                _projectsetting.UpdateSettingValue("Gap20Limit", "VM_CTAutoDetectionC06Page", 0.70);
+                _projectsetting.UpdateSettingValue("Gap20Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap21Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap22Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap22Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap23Limit", "VM_CTAutoDetectionC06Page", 0.5);
                 _projectsetting.UpdateSettingValue("Gap24Limit", "VM_CTAutoDetectionC06Page", 2.75);
-                _projectsetting.UpdateSettingValue("Gap25Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap25Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap26Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap27Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap27Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap28Limit", "VM_CTAutoDetectionC06Page", 0.5);
                 _projectsetting.UpdateSettingValue("Gap29Limit", "VM_CTAutoDetectionC06Page", 2.4);
-                _projectsetting.UpdateSettingValue("Gap30Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap30Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap31Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap32Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap32Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap33Limit", "VM_CTAutoDetectionC06Page", 0.5);
                 _projectsetting.UpdateSettingValue("Gap34Limit", "VM_CTAutoDetectionC06Page", 2);
                 _projectsetting.UpdateSettingValue("Gap35Limit", "VM_CTAutoDetectionC06Page", 2.2);
-                _projectsetting.UpdateSettingValue("Gap36Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap36Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap37Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap38Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap38Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap39Limit", "VM_CTAutoDetectionC06Page", 0.5);
                 _projectsetting.UpdateSettingValue("Gap40Limit", "VM_CTAutoDetectionC06Page", 2.4);
                 _projectsetting.UpdateSettingValue("Gap41Limit", "VM_CTAutoDetectionC06Page", 2.4);
-                _projectsetting.UpdateSettingValue("Gap42Limit", "VM_CTAutoDetectionC06Page", 0.7);
+                _projectsetting.UpdateSettingValue("Gap42Limit", "VM_CTAutoDetectionC06Page", 0.64);
                 _projectsetting.UpdateSettingValue("Gap43Limit", "VM_CTAutoDetectionC06Page", 0.45);
-                _projectsetting.UpdateSettingValue("Gap44Limit", "VM_CTAutoDetectionC06Page", 0.35);
+                _projectsetting.UpdateSettingValue("Gap44Limit", "VM_CTAutoDetectionC06Page", 0.45);
                 _projectsetting.UpdateSettingValue("Gap45Limit", "VM_CTAutoDetectionC06Page", 0.3);
                 _projectsetting.UpdateSettingValue("Gap46Limit", "VM_CTAutoDetectionC06Page", 0.3);
                 _projectsetting.UpdateSettingValue("Gap47Limit", "VM_CTAutoDetectionC06Page", 0.5);

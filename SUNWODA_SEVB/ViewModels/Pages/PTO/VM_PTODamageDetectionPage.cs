@@ -4928,7 +4928,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 DirectoryInfo currentDir = new DirectoryInfo(dirPath);
 
-                // 向上查找纯数字目录（电芯号）
+                // 向上查找纯数字目录
                 DirectoryInfo? tempDir = currentDir;
                 while (tempDir != null)
                 {
@@ -4979,7 +4979,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                     else
                     {
-                        // 离线模式：首次启动时记录启动时间
                         if (!_offlineStartTime.HasValue)
                         {
                             _offlineStartTime = DateTime.Now; // 记录离线启动时间
@@ -5113,19 +5112,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     bool writeSuccess = TryWriteLinesDirectly(lines);
                     if (writeSuccess)
                     {
-                        // 缓存补写逻辑
                         if (_csvCacheQueue.Count > 0)
                         {
                             string? cacheTempPath = isOnline ? _csvCacheTempPath : _csvCacheTempPathOffline;
                             if (!string.IsNullOrEmpty(cacheTempPath))
                             {
-                                Task.Run(() => FlushCacheToCsv(isOnline)); // 传入模式参数
+                                Task.Run(() => FlushCacheToCsv(isOnline));
                             }
                         }
                         return;
                     }
 
-                    // 原有缓存逻辑
                     lines.ForEach(line => _csvCacheQueue.Enqueue(line));
                     SaveCacheToTempFile(isOnline);
                     StartCacheMonitor(isOnline);
@@ -5152,7 +5149,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 if (string.IsNullOrEmpty(_currentCsvFilePath))
                 {
-                    // 可以记录日志、抛出异常或采取其他适当的措施
                     AddLog("错误：CSV 文件路径为空，无法写入数据。");
                     throw new InvalidOperationException("CSV file path is not set.");
                 }
@@ -5207,7 +5203,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
 
         /// <summary>
-        /// 启动定时任务检测文件是否释放（适配在线/离线模式）
+        /// 启动定时任务检测文件是否释放
         /// </summary>
         private void StartCacheMonitor(bool isOnline)
         {
@@ -5253,7 +5249,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 var linesToWrite = new List<string[]>();
                 try
                 {
-                    // 原有逻辑保留：取出缓存数据
                     while (_csvCacheQueue.TryDequeue(out var line))
                     {
                         linesToWrite.Add(line);
@@ -5280,7 +5275,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         }
                     }
 
-                    // 清理对应模式的缓存文件
                     if (!string.IsNullOrEmpty(cacheTempPath) && File.Exists(cacheTempPath))
                     {
                         File.Delete(cacheTempPath);
@@ -5380,14 +5374,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         private void ShowExcelOpenPrompt()
         {
-            // WPF UI线程判断
+
             if (!Application.Current.Dispatcher.CheckAccess())
             {
                 Application.Current.Dispatcher.Invoke(new Action(ShowExcelOpenPrompt));
                 return;
             }
 
-            // 判断当前模式
             bool isOnline = !string.IsNullOrEmpty(_currentCsvDateOnline);
             // 获取当前模式对应的CSV路径
             string? csvPath = isOnline ? _currentCsvFilePath : _currentOfflineCsvFilePath;
@@ -5411,7 +5404,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 if (result == MessageBoxResult.OK)
                 {
-                    //用户点击“确定”：先检查文件是否已释放
                     if (IsFileInUse(csvPath))
                     {
                         // 文件仍被占用 → 提示继续关闭，保持循环

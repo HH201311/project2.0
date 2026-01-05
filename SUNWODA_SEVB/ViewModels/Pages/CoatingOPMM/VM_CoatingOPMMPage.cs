@@ -41,6 +41,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         private FrameworkElement? line1Page;
         private FrameworkElement? line2Page;
         private Random rnd = new Random();
+        private Brush pageBackground = new SolidColorBrush(Colors.White);
         public ObservableCollection<ColumnHeader> FaceAColumns { get; set; } =
             new ObservableCollection<ColumnHeader>()
             {
@@ -114,7 +115,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
             set => SetProperty(ref line2Page, value);
         }
 
+        public Brush PageBackground
+        {
+            get => pageBackground;
+            set => SetProperty(ref pageBackground, value);
+        }
+
+        public Brush TimeForeground { get; set; } = Brushes.Black;
+
         public bool IsInitPageData { get; set; } = false;
+
+        public bool L1MMDataReverseSwitch { get; set; } = false;
+        public bool L2MMDataReverseSwitch { get; set; } = false;
 
         public VM_CoatingOPMMPage(
             ILoggerService<VM_CoatingOPMMPage> logger,
@@ -254,8 +266,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
             {
                 _projectSettingRepository.Add(
                     new ProjectSettingModel("IsBigScreen", "VM_CoatingOPMMPage", "True", "bool", 2)
+                    {
+                        Remark = "是否是大屏显示",
+                    }
                 );
             }
+
+            if (!_projectSettingRepository.Exists(model => model.Name == "DrakTheme"))
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel("DrakTheme", "VM_CoatingOPMMPage", "True", "bool", 2)
+                    {
+                        Remark = "明/暗主题切换",
+                    }
+                );
+            }
+
             if (!_projectSettingRepository.Exists(model => model.Name == "L1MESClientDataPath"))
             {
                 _projectSettingRepository.Add(
@@ -266,6 +292,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         "string",
                         2
                     )
+                    {
+                        Remark = "L1涂布机MESClientData文件路径",
+                    }
                 );
             }
             if (!_projectSettingRepository.Exists(model => model.Name == "L2MESClientDataPath"))
@@ -278,6 +307,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         "string",
                         2
                     )
+                    {
+                        Remark = "L2涂布机MESClientData文件路径",
+                    }
+                );
+            }
+
+            if (!_projectSettingRepository.Exists(model => model.Name == "L1MMDataReverseSwitch"))
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(
+                        "L1MMDataReverseSwitch",
+                        "VM_CoatingOPMMPage",
+                        "False",
+                        "bool",
+                        2
+                    )
+                    {
+                        Remark = "L1测重仪毫米数据反转切换",
+                    }
+                );
+            }
+
+            if (!_projectSettingRepository.Exists(model => model.Name == "L2MMDataReverseSwitch"))
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(
+                        "L2MMDataReverseSwitch",
+                        "VM_CoatingOPMMPage",
+                        "False",
+                        "bool",
+                        2
+                    )
+                    {
+                        Remark = "L2测重仪毫米数据反转切换",
+                    }
                 );
             }
 
@@ -311,6 +375,95 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 Line2PageViewModel!.FaceBPageViewModel!.MainFontSize = 6;
                 Line2PageViewModel.FaceBPageViewModel!.LittleTitleFontSize = 8;
                 Line2PageViewModel.FaceBPageViewModel!.ParameterVerticalSpacing = 40;
+            }
+
+            if (
+                _projectSettingRepository.GetSettingValue("DrakTheme", "VM_CoatingOPMMPage") == true
+            )
+            {
+                RunOnUIThread(() =>
+                {
+                    PageBackground = new SolidColorBrush(Color.FromArgb(255, 17, 14, 38));
+                    TimeForeground = Brushes.White;
+                    Line1PageViewModel!.PageForeground = new SolidColorBrush(Colors.White);
+                    Line2PageViewModel!.PageForeground = new SolidColorBrush(Colors.White);
+
+                    Line1PageViewModel!.FaceAPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.White
+                    );
+                    Line1PageViewModel!.FaceAPageViewModel!.PlotBackgroundColorHex = "#110e26";
+                    Line1PageViewModel!.FaceAPageViewModel!.PlotLabelFontColorHex = "#FFFFFF";
+                    Line1PageViewModel!.FaceBPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.White
+                    );
+                    Line1PageViewModel!.FaceBPageViewModel!.PlotBackgroundColorHex = "#110e26";
+                    Line1PageViewModel!.FaceBPageViewModel!.PlotLabelFontColorHex = "#FFFFFF";
+
+                    Line2PageViewModel!.FaceAPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.White
+                    );
+                    Line2PageViewModel!.FaceAPageViewModel!.PlotBackgroundColorHex = "#110e26";
+                    Line2PageViewModel!.FaceAPageViewModel!.PlotLabelFontColorHex = "#FFFFFF";
+                    Line2PageViewModel!.FaceBPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.White
+                    );
+                    Line2PageViewModel!.FaceBPageViewModel!.PlotBackgroundColorHex = "#110e26";
+                    Line2PageViewModel!.FaceBPageViewModel!.PlotLabelFontColorHex = "#FFFFFF";
+                });
+            }
+            else
+            {
+                RunOnUIThread(() =>
+                {
+                    PageBackground = new SolidColorBrush(Colors.White);
+                    TimeForeground = Brushes.Black;
+                    Line1PageViewModel!.PageForeground = new SolidColorBrush(Colors.Black);
+                    Line2PageViewModel!.PageForeground = new SolidColorBrush(Colors.Black);
+
+                    Line1PageViewModel!.FaceAPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.Black
+                    );
+                    Line1PageViewModel!.FaceAPageViewModel!.PlotBackgroundColorHex = "#FFFFFF";
+                    Line1PageViewModel!.FaceAPageViewModel!.PlotLabelFontColorHex = "#000000";
+                    Line1PageViewModel!.FaceBPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.Black
+                    );
+                    Line1PageViewModel!.FaceBPageViewModel!.PlotBackgroundColorHex = "#FFFFFF";
+                    Line1PageViewModel!.FaceBPageViewModel!.PlotLabelFontColorHex = "#000000";
+
+                    Line2PageViewModel!.FaceAPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.Black
+                    );
+                    Line2PageViewModel!.FaceAPageViewModel!.PlotBackgroundColorHex = "#FFFFFF";
+                    Line2PageViewModel!.FaceAPageViewModel!.PlotLabelFontColorHex = "#000000";
+                    Line2PageViewModel!.FaceBPageViewModel!.PageForeground = new SolidColorBrush(
+                        Colors.Black
+                    );
+                    Line2PageViewModel!.FaceBPageViewModel!.PlotBackgroundColorHex = "#FFFFFF";
+                    Line2PageViewModel!.FaceBPageViewModel!.PlotLabelFontColorHex = "#000000";
+                });
+            }
+
+            if (
+                _projectSettingRepository.GetSettingValue("L1MMDataReverseSwitch", "VM_CoatingOPMMPage") == true
+            )
+            {
+                L1MMDataReverseSwitch = true;
+            }
+            else
+            {
+                L1MMDataReverseSwitch = false;
+            }
+
+            if (
+                _projectSettingRepository.GetSettingValue("L2MMDataReverseSwitch", "VM_CoatingOPMMPage") == true
+            )
+            {
+                L2MMDataReverseSwitch = true;
+            }
+            else
+            {
+                L2MMDataReverseSwitch = false;
             }
         }
 
@@ -964,38 +1117,50 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
             var L1WeightGaugeServer = new WeightGaugeDeviceTcpServer(_logger);
             L1WeightGaugeServer.WeightMessageParseSEvent +=
                 L1WeightGaugeServer_WeightMessageParseSEvent;
-            await L1WeightGaugeServer.StartAsync(9000);
+            await L1WeightGaugeServer.StartAsync(8080); //9000|8080
 
             var L1CCDGaugeServer = new DeviceTcpServer(_logger);
             L1CCDGaugeServer.DeviceName = "L1 CCD";
             L1CCDGaugeServer.DataTypeJsonParse += L1CCDGaugeServer_DataTypeJsonParse;
             L1CCDGaugeServer.AlarmTypeJsonParse += L1CCDGaugeServer_AlarmTypeJsonParse;
-            await L1CCDGaugeServer.StartAsync(9001);
+            await L1CCDGaugeServer.StartAsync(8081);
 
             var L1PLCServer = new DeviceTcpServer(_logger);
             L1PLCServer.DeviceName = "L1 PLC";
             L1PLCServer.DataTypeJsonParse += L1PLCServer_DataTypeJsonParse;
-            L1PLCServer.ConnectedEvent += () => { Line1PageViewModel!.Status = true; };
-            L1PLCServer.ClosedEvent += () => { Line1PageViewModel!.Status = false; };
-            await L1PLCServer.StartAsync(9002);
+            L1PLCServer.ConnectedEvent += () =>
+            {
+                Line1PageViewModel!.Status = true;
+            };
+            L1PLCServer.ClosedEvent += () =>
+            {
+                Line1PageViewModel!.Status = false;
+            };
+            await L1PLCServer.StartAsync(8082);
 
             var L2WeightGaugeServer = new WeightGaugeDeviceTcpServer(_logger);
             L2WeightGaugeServer.WeightMessageParseSEvent +=
                 L2WeightGaugeServer_WeightMessageParseSEvent;
-            await L2WeightGaugeServer.StartAsync(9010);
+            await L2WeightGaugeServer.StartAsync(8090); //9010|8090
 
             var L2CCDGaugeServer = new DeviceTcpServer(_logger);
             L2CCDGaugeServer.DeviceName = "L2 CCD";
             L2CCDGaugeServer.DataTypeJsonParse += L2CCDGaugeServer_DataTypeJsonParse;
             L2CCDGaugeServer.AlarmTypeJsonParse += L2CCDGaugeServer_AlarmTypeJsonParse;
-            await L2CCDGaugeServer.StartAsync(9011);
+            await L2CCDGaugeServer.StartAsync(8091);
 
             var L2PLCServer = new DeviceTcpServer(_logger);
             L2PLCServer.DeviceName = "L2 PLC";
             L2PLCServer.DataTypeJsonParse += L2PLCServer_DataTypeJsonParse;
-            L2PLCServer.ConnectedEvent += () => { Line2PageViewModel!.Status = true; };
-            L2PLCServer.ClosedEvent += () => { Line2PageViewModel!.Status = false; };
-            await L2PLCServer.StartAsync(9012);
+            L2PLCServer.ConnectedEvent += () =>
+            {
+                Line2PageViewModel!.Status = true;
+            };
+            L2PLCServer.ClosedEvent += () =>
+            {
+                Line2PageViewModel!.Status = false;
+            };
+            await L2PLCServer.StartAsync(8092);
         }
 
         private Brush GetRandomColor()
@@ -1126,6 +1291,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 x.Add(i);
             }
             Line1PageViewModel!.FaceAPageViewModel!.X = x;
+            if (L1MMDataReverseSwitch)
+            {
+                mmData.Reverse();
+            }
             Line1PageViewModel!.FaceAPageViewModel!.Y = mmData;
         }
         #endregion
@@ -1341,6 +1510,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 x.Add(i);
             }
             Line1PageViewModel!.FaceBPageViewModel!.X = x;
+            if (L1MMDataReverseSwitch)
+            {
+                mmData.Reverse();
+            }
             Line1PageViewModel!.FaceBPageViewModel!.Y = mmData;
         }
         #endregion
@@ -1485,6 +1658,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                     vm.AlarmZone = "L1";
                     vm.AlarmInfo = $"xxxxxxxxxxxxxxxxxxxxx";
                     vm.MainFontSize = Line1PageViewModel.LineTitleFontSize;
+                    vm.Background = PageBackground;
+                    vm.Foreground = TimeForeground;
                 })
                 .GetResultAsync<bool>();
         }
@@ -1520,6 +1695,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                     vm.AlarmZone = "L1测重仪";
                                     vm.AlarmInfo = $"{alarmInfo}";
                                     vm.MainFontSize = Line1PageViewModel.LineTitleFontSize;
+                                    vm.Background = PageBackground;
+                                    vm.Foreground = TimeForeground;
                                 })
                                 .GetResultAsync<bool>();
                         }
@@ -2170,6 +2347,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                         vm.AlarmZone = "L1 涂布机";
                                         vm.AlarmInfo = $"{address.Value.ParameterName}";
                                         vm.MainFontSize = Line1PageViewModel.LineTitleFontSize;
+                                        vm.Background = PageBackground;
+                                        vm.Foreground = TimeForeground;
                                     })
                                     .GetResultAsync<bool>();
                             });
@@ -2292,6 +2471,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 x.Add(i);
             }
             Line2PageViewModel!.FaceAPageViewModel!.X = x;
+            if (L2MMDataReverseSwitch)
+            {
+                mmData.Reverse();
+            }
             Line2PageViewModel!.FaceAPageViewModel!.Y = mmData;
         }
         #endregion
@@ -2507,6 +2690,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 x.Add(i);
             }
             Line2PageViewModel!.FaceBPageViewModel!.X = x;
+            if (L2MMDataReverseSwitch)
+            {
+                mmData.Reverse();
+            }
             Line2PageViewModel!.FaceBPageViewModel!.Y = mmData;
         }
         #endregion
@@ -2673,6 +2860,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 vm.AlarmZone = "L2测重仪";
                                 vm.AlarmInfo = $"{alarmInfo}";
                                 vm.MainFontSize = Line2PageViewModel.LineTitleFontSize;
+                                vm.Background = PageBackground;
+                                vm.Foreground = TimeForeground;
                             })
                             .GetResultAsync<bool>();
                     });
@@ -3318,6 +3507,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                         vm.AlarmZone = "L2 涂布机";
                                         vm.AlarmInfo = $"{address.Value.ParameterName}";
                                         vm.MainFontSize = Line2PageViewModel.LineTitleFontSize;
+                                        vm.Background = PageBackground;
+                                        vm.Foreground = TimeForeground;
                                     })
                                     .GetResultAsync<bool>();
                             });
@@ -3351,7 +3542,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
             {
                 while (true)
                 {
-                    L1PageStatusUpdateByOne();
+                    //L1PageStatusUpdateByOne();
 
                     //L1PageFaceAFilmDataUpateTestByOne();
                     //L1PageFaceBFilmDataUpateTestByOne();
@@ -3365,9 +3556,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                     //L1PageFaceADeviceMonitorInfoUpateTestByOne();
                     //L1PageFaceBDeviceMonitorInfoUpateTestByOne();
 
-                    L1PageDeviceInfoUpdateByOne();
+                    //L1PageDeviceInfoUpdateByOne();
 
-                    L1PageGeneralParameterInfoUpdateByOne();
+                    //L1PageGeneralParameterInfoUpdateByOne();
 
                     RunOnUIThread(() =>
                     {
@@ -3386,8 +3577,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
 
                             //L1PageADryAndBDryMistakeDataUpdateTestByOne();
 
-                            //L1PageWeightAlarmInfoUpdateTestByOne();
-                            L1PagePLCAlarmInfoUpdateByOne();
+                            L1PageWeightAlarmInfoUpdateTestByOne();
+                            //L1PagePLCAlarmInfoUpdateByOne();
                         }
                         catch (Exception ex)
                         {
@@ -3397,7 +3588,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
 
                     //GC.Collect();
 
-                    Thread.Sleep(1000);
+                    Thread.Sleep(6000);
                 }
             }
             catch (Exception ex)
@@ -3799,6 +3990,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 vm.AlarmZone = $"L1 : {zone}";
                                 vm.AlarmInfo = $"{info}";
                                 vm.MainFontSize = Line1PageViewModel.LineTitleFontSize;
+                                vm.Background = PageBackground;
+                                vm.Foreground = TimeForeground;
                             })
                             .GetResultAsync<bool>();
                     }
@@ -3851,6 +4044,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 vm.AlarmZone = $"L2 : {zone}";
                                 vm.AlarmInfo = $"{info}";
                                 vm.MainFontSize = Line2PageViewModel.LineTitleFontSize;
+                                vm.Background = PageBackground;
+                                vm.Foreground = TimeForeground;
                             })
                             .GetResultAsync<bool>();
                     }
@@ -3874,52 +4069,52 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 .GetProperty("tab_width")
                 .Deserialize<List<ParameterModel>>();
 
-            foreach (var item in tab_width!)
-            {
-                _logger.Info($"{item.PName}: {item.PValue}");
-            }
+            //foreach (var item in tab_width!)
+            //{
+            //    _logger.Info($"{item.PName}: {item.PValue}");
+            //}
 
             var cil_width = dataJsonElement
                 .GetProperty("cil_width")
                 .Deserialize<List<ParameterModel>>();
 
-            foreach (var item in cil_width!)
-            {
-                _logger.Info($"{item.PName}: {item.PValue}");
-            }
+            //foreach (var item in cil_width!)
+            //{
+            //    _logger.Info($"{item.PName}: {item.PValue}");
+            //}
 
             var coating_width = dataJsonElement
                 .GetProperty("coating_width")
                 .Deserialize<List<ParameterModel>>();
 
-            foreach (var item in coating_width!)
-            {
-                _logger.Info($"{item.PName}: {item.PValue}");
-            }
+            //foreach (var item in coating_width!)
+            //{
+            //    _logger.Info($"{item.PName}: {item.PValue}");
+            //}
 
             var coating_total_width = dataJsonElement
                 .GetProperty("coating_total_width")
                 .GetDouble();
 
-            _logger.Info($"涂膜总宽：{coating_total_width}");
+            //_logger.Info($"涂膜总宽：{coating_total_width}");
 
             var judge_res = dataJsonElement
                 .GetProperty("judge_res")
                 .Deserialize<List<JudgeResult>>();
 
-            foreach (var item in judge_res!)
-            {
-                _logger.Info($"{item.Zone}: {item.Result}");
-            }
+            //foreach (var item in judge_res!)
+            //{
+            //    _logger.Info($"{item.Zone}: {item.Result}");
+            //}
 
             var tab_specification = dataJsonElement
                 .GetProperty("tab_specification")
                 .Deserialize<List<ParameterModel>>();
 
-            foreach (var item in tab_specification!)
-            {
-                _logger.Info($"{item.PName}: {item.PValue}");
-            }
+            //foreach (var item in tab_specification!)
+            //{
+            //    _logger.Info($"{item.PName}: {item.PValue}");
+            //}
 
             foreach (var item in tab_specification!)
             {
@@ -3979,10 +4174,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 .GetProperty("cil_specification")
                 .Deserialize<List<ParameterModel>>();
 
-            foreach (var item in cil_specification!)
-            {
-                _logger.Info($"{item.PName}: {item.PValue}");
-            }
+            //foreach (var item in cil_specification!)
+            //{
+            //    _logger.Info($"{item.PName}: {item.PValue}");
+            //}
 
             foreach (var item in cil_specification!)
             {
@@ -4013,10 +4208,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 .GetProperty("coating_specification")
                 .Deserialize<List<ParameterModel>>();
 
-            foreach (var item in coating_specification!)
-            {
-                _logger.Info($"{item.PName}: {item.PValue}");
-            }
+            //foreach (var item in coating_specification!)
+            //{
+            //    _logger.Info($"{item.PName}: {item.PValue}");
+            //}
 
             foreach (var item in coating_specification!)
             {
@@ -4063,15 +4258,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         .GetProperty("misalign_specification")
                         .Deserialize<List<ParameterModel>>();
 
-                    foreach (var item in misalign!)
-                    {
-                        _logger.Info($"{item.PName}: {item.PValue}");
-                    }
+                    //foreach (var item in misalign!)
+                    //{
+                    //    _logger.Info($"{item.PName}: {item.PValue}");
+                    //}
 
-                    foreach (var item in misalign_specification!)
-                    {
-                        _logger.Info($"{item.PName}: {item.PValue}");
-                    }
+                    //foreach (var item in misalign_specification!)
+                    //{
+                    //    _logger.Info($"{item.PName}: {item.PValue}");
+                    //}
 
                     foreach (var item in misalign_specification!)
                     {
@@ -4285,7 +4480,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in ranksegs)
@@ -4313,7 +4508,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                                 .. ranksegs,
                             ];
@@ -4330,7 +4525,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in misalign!)
@@ -4377,15 +4572,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         .GetProperty("misalign_specification")
                         .Deserialize<List<ParameterModel>>();
 
-                    foreach (var item in misalign!)
-                    {
-                        _logger.Info($"{item.PName}: {item.PValue}");
-                    }
+                    //foreach (var item in misalign!)
+                    //{
+                    //    _logger.Info($"{item.PName}: {item.PValue}");
+                    //}
 
-                    foreach (var item in misalign_specification!)
-                    {
-                        _logger.Info($"{item.PName}: {item.PValue}");
-                    }
+                    //foreach (var item in misalign_specification!)
+                    //{
+                    //    _logger.Info($"{item.PName}: {item.PValue}");
+                    //}
 
                     foreach (var item in misalign_specification!)
                     {
@@ -4534,7 +4729,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in ranksegs)
@@ -4554,7 +4749,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in misalign!)
@@ -4973,7 +5168,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in ranksegs)
@@ -5001,7 +5196,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                                 .. ranksegs,
                             ];
@@ -5018,7 +5213,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in misalign!)
@@ -5183,7 +5378,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in ranksegs)
@@ -5203,7 +5398,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                 {
                                     Value = $"{getDataTime:HH:mm:ss}",
                                     Background = Brushes.Transparent,
-                                    Foreground = Brushes.Black,
+                                    Foreground = TimeForeground,
                                 },
                             };
                             foreach (var item in misalign!)
@@ -5346,6 +5541,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                                     $"{model.PName.Replace("OPMM_", "")}";
                                                 vm.MainFontSize =
                                                     Line1PageViewModel.LineTitleFontSize;
+                                                vm.Background = PageBackground;
+                                                vm.Foreground = TimeForeground;
                                             })
                                             .GetResultAsync<bool>();
                                     });
@@ -5407,6 +5604,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                                     $"{model.PName.Replace("OPMM_", "")}";
                                                 vm.MainFontSize =
                                                     Line1PageViewModel.LineTitleFontSize;
+                                                vm.Background = PageBackground;
+                                                vm.Foreground = TimeForeground;
                                             })
                                             .GetResultAsync<bool>();
                                     });
@@ -5547,6 +5746,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                                     $"{model.PName.Replace("OPMM_", "")}";
                                                 vm.MainFontSize =
                                                     Line2PageViewModel.LineTitleFontSize;
+                                                vm.Background = PageBackground;
+                                                vm.Foreground = TimeForeground;
                                             })
                                             .GetResultAsync<bool>();
                                     });
@@ -5608,6 +5809,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                                                     $"{model.PName.Replace("OPMM_", "")}";
                                                 vm.MainFontSize =
                                                     Line2PageViewModel.LineTitleFontSize;
+                                                vm.Background = PageBackground;
+                                                vm.Foreground = TimeForeground;
                                             })
                                             .GetResultAsync<bool>();
                                     });

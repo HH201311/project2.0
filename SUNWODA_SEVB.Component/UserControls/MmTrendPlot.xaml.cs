@@ -162,8 +162,6 @@ namespace SUNWODA_SEVB.Component.UserControls
             new PropertyMetadata(2.0, OnStyleChanged)
         );
 
-
-
         public double LabelFontSize
         {
             get { return (double)GetValue(LabelFontSizeProperty); }
@@ -171,7 +169,12 @@ namespace SUNWODA_SEVB.Component.UserControls
         }
 
         public static readonly DependencyProperty LabelFontSizeProperty =
-            DependencyProperty.Register("LabelFontSize", typeof(double), typeof(MmTrendPlot), new PropertyMetadata(16.0, OnStyleChanged));
+            DependencyProperty.Register(
+                "LabelFontSize",
+                typeof(double),
+                typeof(MmTrendPlot),
+                new PropertyMetadata(16.0, OnStyleChanged)
+            );
 
         #endregion
 
@@ -181,6 +184,44 @@ namespace SUNWODA_SEVB.Component.UserControls
         ) => (d as MmTrendPlot)?.Render();
 
         private static void OnStyleChanged(
+            DependencyObject d,
+            DependencyPropertyChangedEventArgs e
+        ) => (d as MmTrendPlot)?.Render();
+
+        public string BackgroundColorHex
+        {
+            get { return (string)GetValue(BackgroundColorHexProperty); }
+            set { SetValue(BackgroundColorHexProperty, value); }
+        }
+
+        public static readonly DependencyProperty BackgroundColorHexProperty =
+            DependencyProperty.Register(
+                "BackgroundColorHex",
+                typeof(string),
+                typeof(MmTrendPlot),
+                new PropertyMetadata("#FFFFFF", OnBackgroundColorHexChanged)
+            );
+
+        private static void OnBackgroundColorHexChanged(
+            DependencyObject d,
+            DependencyPropertyChangedEventArgs e
+        ) => (d as MmTrendPlot)?.Render();
+
+        public string LabelFontColorHex
+        {
+            get { return (string)GetValue(LabelFontColorHexProperty); }
+            set { SetValue(LabelFontColorHexProperty, value); }
+        }
+
+        public static readonly DependencyProperty LabelFontColorHexProperty =
+            DependencyProperty.Register(
+                "LabelFontColorHex",
+                typeof(string),
+                typeof(MmTrendPlot),
+                new PropertyMetadata("#000000", OnLabelFontColorHexChanged)
+            );
+
+        private static void OnLabelFontColorHexChanged(
             DependencyObject d,
             DependencyPropertyChangedEventArgs e
         ) => (d as MmTrendPlot)?.Render();
@@ -209,6 +250,10 @@ namespace SUNWODA_SEVB.Component.UserControls
             plt.Axes.Left.RemoveTickGenerator();
             plt.Axes.Right.IsVisible = false;
             plt.Grid.IsVisible = false;
+            plt.FigureBackground = new BackgroundStyle()
+            {
+                Color = ScottPlot.Color.FromHex(BackgroundColorHex),
+            };
 
             // 数据校验
             if (YValues is not { Count: > 1 })
@@ -234,8 +279,6 @@ namespace SUNWODA_SEVB.Component.UserControls
             if (ShowFills)
                 AddFills(plt);
 
-
-            
             // Legend
             plt.Legend.IsVisible = ShowLegend;
             plt.Legend.Alignment = ScottPlot.Alignment.UpperRight;
@@ -243,7 +286,10 @@ namespace SUNWODA_SEVB.Component.UserControls
             if (AutoFitOnDataChange)
                 plt.Axes.AutoScale(true, false);
 
-            plt.Axes.SetLimitsY(SpecLow + (SpecLow - Baseline) * 0.25, SpecHigh + (SpecHigh - Baseline) * 0.25);
+            plt.Axes.SetLimitsY(
+                SpecLow + (SpecLow - Baseline) * 0.25,
+                SpecHigh + (SpecHigh - Baseline) * 0.25
+            );
 
             PART_Plot.Refresh();
         }
@@ -387,7 +433,11 @@ namespace SUNWODA_SEVB.Component.UserControls
 
         private void AddLimitLines(Plot plot)
         {
-            var baseLine = plot.Add.HorizontalLine(Baseline, 1.0f, ScottPlot.Color.FromHtml("#29CC7A"));
+            var baseLine = plot.Add.HorizontalLine(
+                Baseline,
+                1.0f,
+                ScottPlot.Color.FromHtml("#29CC7A")
+            );
             baseLine.Text = $"{Baseline:F2}";
             baseLine.LabelFontSize = (float)LabelFontSize;
             baseLine.LabelRotation = 0;

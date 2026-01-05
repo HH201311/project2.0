@@ -44,6 +44,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         private double lineTitleFontSize = 30;
         private double littleTitleFontSize = 18;
         private double parameterVerticalSpacing = 30;
+        private Brush pageForeground = new SolidColorBrush(Colors.Black);
 
         public double MainFontSize
         {
@@ -67,6 +68,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         {
             get => parameterVerticalSpacing;
             set => SetProperty(ref parameterVerticalSpacing, value);
+        }
+
+        public Brush PageForeground
+        {
+            get => pageForeground;
+            set => SetProperty(ref pageForeground, value);
         }
 
         public VM_CoatingSingleFacePage? FaceAPageViewModel { get; set; }

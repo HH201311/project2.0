@@ -101,10 +101,10 @@
 
   <ItemGroup>
     <Reference Include="C01Infer">
-      <HintPath>..\..\在线CT\1105\C01Infer.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\C01Infer.dll</HintPath>
     </Reference>
     <Reference Include="C06Infer">
-      <HintPath>..\..\在线CT\1222\C06Infer.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\C06Infer.dll</HintPath>
     </Reference>
     <Reference Include="Calibration">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Calibration.dll</HintPath>
@@ -124,7 +124,7 @@
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\TrajectoryDiagnosisLib.dll</HintPath>
     </Reference>
     <Reference Include="UIAutoMonitorCore">
-      <HintPath>bin\Debug\net8.0-windows\UIAutoMonitorCore.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
     <Reference Include="YingYanAlgoCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
@@ -148,10 +148,10 @@
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC03PDJS.dll</HintPath>
     </Reference>
     <Reference Include="ZZC1OnlineCTModel">
-      <HintPath>..\..\在线CT\1111\ZZC1OnlineCTModel.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC1OnlineCTModel.dll</HintPath>
     </Reference>
     <Reference Include="ZZC6OnlineCTModel">
-      <HintPath>..\..\在线CT\1222\ZZC6OnlineCTModel.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
     </Reference>
     <Reference Include="ZZPack">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>

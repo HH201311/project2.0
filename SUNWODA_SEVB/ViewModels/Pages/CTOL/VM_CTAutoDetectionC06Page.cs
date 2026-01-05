@@ -1,6 +1,5 @@
-﻿extern alias halcondotnet;
-using Dm.filter;
-using halcondotnet::HalconDotNet;
+﻿using Dm.filter;
+using HalconDotNet;
 using HandyControl.Controls;
 using iText.IO.Image;
 using Microsoft.Data.Sqlite;
@@ -19,6 +18,8 @@ using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Data.Repositories;
 using SUNWODA_SEVB.Tool;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Pages.Common;
@@ -49,8 +50,7 @@ using System.Windows.Media.Imaging;
 using Yolo11seg_CT06;
 using ZZC1OnlineCTModel;
 using ZZC6OnlineCTModel;
-using HalconDotNet = halcondotnet::HalconDotNet;
-using HObject = halcondotnet::HalconDotNet.HObject;
+
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 {
@@ -3006,6 +3006,981 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
         private void InitThreshold()
         {
+            if (!_projectsetting.Exists(model => model.Name == "Gap1Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap1Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-XOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap2Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap2Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.75",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-XOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap3Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap3Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.2",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-X负极差阈值",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap4Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap4Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-X负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap5Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap5Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-X正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap6Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap6Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-X正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap7Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap7Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-YOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap8Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap8Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.4",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-YOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap9Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap9Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.4",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-Y负极差阈值",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap10Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap10Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-Y负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap11Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap11Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-Y正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap12Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap12Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1-Y正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap13Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap13Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-XOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap14Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap14Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-XOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap15Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap15Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-X负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap16Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap16Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-X正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap17Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap17Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-X正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap18Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap18Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-YOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap19Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap19Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.4",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-YOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap20Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap20Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-Y负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap21Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap21Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-Y正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap22Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap22Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "2-Y正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap23Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap23Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-XOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap24Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap24Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.75",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-XOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap25Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap25Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-X负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap26Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap26Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-X正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap27Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap27Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-X正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap28Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap28Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-YOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap29Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap29Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.4",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-YOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap30Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap30Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-Y负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap31Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap31Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-Y正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap32Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap32Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "3-Y正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap33Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap33Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-XOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap34Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap34Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-XOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap35Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap35Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.2",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-X负极差阈值",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap36Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap36Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-X负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap37Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap37Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-X正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap38Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap38Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-X正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap39Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap39Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-YOH下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap40Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap40Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.4",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-YOH上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap41Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap41Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "2.4",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-Y负极差阈值",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap42Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap42Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.64",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-Y负极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap43Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap43Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-Y正极边缘间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap44Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap44Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.45",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "4-Y正极中间间隙",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap45Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap45Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.3",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "中间层与相邻层差值的绝对值",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap46Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap46Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.3",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "1Y+3Y-2Y-4Y的绝对值",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Gap47Limit"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Gap47Limit",
+                        "VM_CTAutoDetectionC06Page",
+                        "0.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "|1Y-3Y|或|2Y-4Y|",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "SelectedMonitorFolderPathLAB"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "SelectedMonitorFolderPathLAB",
+                        "VM_CTAutoDetectionC06Page",
+                        "",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = "LAB的监控路径",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "SelectedMonitorFolderPathLCD"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "SelectedMonitorFolderPathLCD",
+                        "VM_CTAutoDetectionC06Page",
+                        "",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = "LCD的监控路径",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "SelectedMonitorFolderPathRAB"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "SelectedMonitorFolderPathRAB",
+                        "VM_CTAutoDetectionC06Page",
+                        "",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = "RAB的监控路径",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "SelectedMonitorFolderPathRCD"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "SelectedMonitorFolderPathRCD",
+                        "VM_CTAutoDetectionC06Page",
+                        "",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = "RCD的监控路径",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "OKDetectionNum"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "OKDetectionNum",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "OK数",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "NGDetectionNum"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "NGDetectionNum",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "NG数",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_ZJDP"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_ZJDP",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "正极多片数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_ZJSP"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_ZJSP",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "正极少片数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_FJSP"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_FJSP",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "负极少片数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_FJDP"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_FJDP",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "负极多片数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_OHBL"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_OHBL",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "OH不良数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_CPBL"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_CPBL",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "负极差不良数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_ZJYDP"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_ZJYDP",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "正极Y方向掉片数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_FJBYJXBL"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_FJBYJXBL",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "负极边缘间隙不良数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_ZJBYJXBL"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_ZJBYJXBL",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "正极边缘间隙不良数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_ZJZJJXBL"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_ZJZJJXBL",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "正极中间间隙不良数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "Count_FJYS"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "Count_FJYS",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "int",
+                        0
+                    )
+                    {
+                        Remark = "负极压伤数量",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "SelectedResultImagePath "))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "SelectedResultImagePath ",
+                        "VM_CTAutoDetectionC06Page",
+                        "0",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = "结果保存盘符",
+                    }
+                );
+            }
             Gap1Limit = _projectsetting.GetSettingValue("Gap1Limit", "VM_CTAutoDetectionC06Page");
             Gap2Limit = _projectsetting.GetSettingValue("Gap2Limit", "VM_CTAutoDetectionC06Page");
             Gap3Limit = _projectsetting.GetSettingValue("Gap3Limit", "VM_CTAutoDetectionC06Page");

@@ -111,7 +111,7 @@
     </Reference>
     <Reference Include="halcondotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
-      <Aliases>halcondotnet</Aliases>
+      <Aliases></Aliases>
     </Reference>
     <Reference Include="halcondotnetxl">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnetxl.dll</HintPath>

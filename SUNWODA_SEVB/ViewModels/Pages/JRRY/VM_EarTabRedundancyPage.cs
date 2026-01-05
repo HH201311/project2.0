@@ -1,5 +1,4 @@
-﻿extern alias halcondotnet;
-using halcondotnet::HalconDotNet;
+﻿using HalconDotNet;
 using HandyControl.Controls;
 using Microsoft.Win32;
 //using Microsoft.WindowsAPICodePack.Dialogs;
@@ -19,6 +18,7 @@ using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
+using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper;
 
@@ -675,6 +675,141 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
 
         private void InitParameters()
         {
+            if (!_projectsetting.Exists(model => model.Name == "L0Upper"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L0Upper",
+                        "VM_EarTabRedundancyPage",
+                        "10",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L0上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L1Upper"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L1Upper",
+                        "VM_EarTabRedundancyPage",
+                        "1.89",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L1上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L2Upper"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L2Upper",
+                        "VM_EarTabRedundancyPage",
+                        "1.49",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L2上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L3Upper"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L3Upper",
+                        "VM_EarTabRedundancyPage",
+                        "1.1",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L3上限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L0Lower"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L0Lower",
+                        "VM_EarTabRedundancyPage",
+                        "1.9",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L0下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L1Lower"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L1Lower",
+                        "VM_EarTabRedundancyPage",
+                        "1.5",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L1下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L2Lower"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L2Lower",
+                        "VM_EarTabRedundancyPage",
+                        "1.11",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L2下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "L3Lower"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "L3Lower",
+                        "VM_EarTabRedundancyPage",
+                        "0",
+                        "double",
+                        1
+                    )
+                    {
+                        Remark = "L3下限",
+                    }
+                );
+            }
+            if (!_projectsetting.Exists(model => model.Name == "SelectedMonitorFolderPath"))
+            {
+                _projectsetting.Add(
+                    new ProjectSettingModel(
+                        "SelectedMonitorFolderPath",
+                        "VM_EarTabRedundancyPage",
+                        "",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = "监控路径",
+                    }
+                );
+            }
             L0Upper = _projectsetting.GetSettingValue("L0Upper", "VM_EarTabRedundancyPage");
             L1Upper = _projectsetting.GetSettingValue("L1Upper", "VM_EarTabRedundancyPage");
             L2Upper = _projectsetting.GetSettingValue("L2Upper", "VM_EarTabRedundancyPage");

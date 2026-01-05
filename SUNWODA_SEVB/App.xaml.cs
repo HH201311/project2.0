@@ -1,4 +1,8 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.IO;
+using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,13 +19,10 @@ using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Tool.Configuration;
+using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.WEB;
-using System.IO;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
 
 
 namespace SUNWODA_SEVB
@@ -72,7 +73,10 @@ namespace SUNWODA_SEVB
                 // 步骤8：启动后台任务
                 StartBackgroundTasks();
 
-                // 步骤9：创建并显示主窗口
+                // 步骤9：判断是否启用python线程
+                await InitPythonEnvironment();
+
+                // 步骤10：创建并显示主窗口
                 ShowMainWindow();
             }
             catch (Exception ex)
@@ -495,6 +499,40 @@ namespace SUNWODA_SEVB
                     logger?.Error($"数据库日志清理失败: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// 初始化python环境
+        /// </summary>
+        private async Task InitPythonEnvironment()
+        {
+            var logger = _host?.Services?.GetService<ILoggerService<App>>();
+            using var scope = _host!.Services.CreateScope();
+            try
+            {
+                var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+
+                var IsInitPythonEnvironment = await globalSettingRepo.GetSettingValueAsync("IsInitPythonEnvironment");
+                var PythonSearchDir = await globalSettingRepo.GetSettingValueAsync("PythonSearchDir");
+                var PythonInstallDir = await globalSettingRepo.GetSettingValueAsync("PythonInstallDir");
+                if (IsInitPythonEnvironment == true)
+                {
+                    PythonConfigHelper.Start();
+                    if (string.IsNullOrEmpty(PythonSearchDir))
+                    {
+                        PythonConfigHelper.InitPythonConfig(PythonInstallDir);
+                    }
+                    else
+                    {
+                        var pySearchDir = PythonSearchDir?.Split(';');
+                        PythonConfigHelper.InitPythonConfig(PythonInstallDir, pySearchDir);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.Error($"python模块环境初始化失败: {ex.Message}", ex);
+            }            
         }
 
         /// <summary>

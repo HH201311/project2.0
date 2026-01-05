@@ -117,7 +117,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 // 参数容错处理，避免 null
                 var parameters = new Dictionary<string, string>
                 {
-                    { "devId", deviceSn ?? string.Empty },
+                    { "DevId", deviceSn ?? string.Empty },
                     { "state", state ?? string.Empty },
                     { "info",  info  ?? string.Empty },
                     { "UUID",  uuid  ?? string.Empty }
@@ -269,9 +269,9 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}machineHeart/checkVerInfo";
                 var headers = new Dictionary<string, string>
                 {
-                    {"softName", softName},
-                    {"softVersion", softVersion},
-                    {"devId", deviceSn}
+                    {"SoftName", softName},
+                    {"SoftVersion", softVersion},
+                    {"DevId", deviceSn}
                 };
 
                 var result = await Task.Run(() => _httpHelper.IMEWebGet(url, headers));
@@ -320,8 +320,8 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}MachineSoftUpdateController/downloadFile";
                 var headers = new Dictionary<string, string>
                 {
-                    {"softName", softName},
-                    {"softVersion", softVersion},
+                    {"SoftName", softName},
+                    {"SoftVersion", softVersion},
                     {"UUID", uuid}
                 };
 
@@ -380,8 +380,8 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}MachineSoftUpdateController/uploadFile";
                 var body = new Dictionary<string, string>
                 {
-                    {"softVersion", version},
-                    {"softName", name}
+                    {"SoftVersion", version},
+                    {"SoftName", name}
                 };
 
                 var result = await Task.Run(() =>
@@ -683,14 +683,14 @@ namespace SUNWODA_SEVB.WEB.Services
                         ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
                         Process = workshipParts.ElementAtOrDefault(3) ?? "",
                         DeviceId = settings.DeviceSn ?? "",
-                        Position = item.WorkStaion,
+                        Position = item.WorkStation,
                         IpAddress = item.Remake,
                         CameraSn = item.GuidId,
-                        Enable = item.Enable,
+                        Enable = item.Enable ? 1 : 0,
                     });
                 }
                 var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPostAsync(url, json, "application/json", null)));
 
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))
@@ -816,27 +816,29 @@ namespace SUNWODA_SEVB.WEB.Services
         }
 
 
-        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(
-    string position,
-    string barCode,
-    long abnormalTimeStamp,
-    long abnormalTimeStampEnd,
-    List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, // <= 1 或 2 或 0 都支持
-    List<FrameDtoList> frameDtoList,
-    string abnormaVideoStatus)
+        public async Task<TrajectoryDataResponse> TrajectoryDataAsync
+        (
+            string position,
+            string barCode,
+            long abnormalTimeStamp,
+            long abnormalTimeStampEnd,
+            List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles,
+            List<FrameDtoList> frameDtoList,
+            string abnormaVideoStatus
+        )
         {
             try
             {
-                var settings = _configuration.GetSettings();
+                var settings = _configuration.GetSettings();                
                 var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
-
+                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new TtrajectoryDataRequest
                 {
+                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
                     Position = position,
-                    Process = "叠片工序",
-                    ProductionLine = "PTO",
-                    ProductionBase = "惠州",
-                    DeviceId = "CT01",
                     BarCode = barCode,
                     AbnormalTimeStamp = abnormalTimeStamp,
                     AbnormalTimeStampEnd = abnormalTimeStampEnd,
@@ -848,7 +850,7 @@ namespace SUNWODA_SEVB.WEB.Services
 
                 var json = JsonHelper.Serialize(request);
                 frameDtoList.Clear();
-
+                
                 // 上传
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostMultiFilesAsync(json, videoFiles, url)));
 

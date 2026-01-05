@@ -1,19 +1,21 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
+using System.Reactive.Concurrency;
 using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using Dm.util;
+using System.Text.RegularExpressions;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Dm;
 using Fleck;
 using HelixToolkit.Wpf;
-using LibVLCSharp.Shared;
 using Newtonsoft.Json;
 using OpenCvSharp;
+using OpenCvSharp.WpfExtensions;
+using Org.BouncyCastle.Tsp;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
@@ -23,11 +25,8 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
-using SUNWODA_SEVB.Tool.Helper.SocketHelper;
 using TrajectoryDiagnosisLib;
 using Yolo8Core;
-using ZZYingYanAICore;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using static Yolo8Core.BaseClass;
 using Path = System.IO.Path;
 
@@ -43,10 +42,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
 
+        List<CameraModel> Cameras { get; set; }
+
         /// <summary>
         /// 构造函数
         /// </summary>
-        public VM_MachineDamageMonitoringPage(
+        public VM_MachineDamageMonitoringPage
+        (
             ILoggerService<VM_MachineDamageMonitoringPage> logger,
             IGlobalSettingRepository globalSettingRepository,
             IPLCConfigRepository plcConfigRepository,
@@ -82,7 +84,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             // 监控服务监听端口
             if (!_projectSettingRepository.Exists(m => m.BelongToVM == "VM_MachineDamageMonitoringPage" && m.Name == "ServerPort"))
             {
-                var psm = new ProjectSettingModel("ServerPort", "VM_MachineDamageMonitoringPage", "8000", "int", 0)
+                var psm = new ProjectSettingModel("ServerPort", "VM_MachineDamageMonitoringPage", "8181", "int", 0)
                 {
                     Remark = "监控服务监听端口（修改后需重启软件后加载！）"
                 };
@@ -118,18 +120,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         {
             var barCodeWatchPath = _projectSettingRepository.GetByNameAndVM("BarCodeWatchPath", "VM_MachineDamageMonitoringPage")?.Value ?? ""; ;
             InitBarCodeWatcher(barCodeWatchPath);
-            var serverPort = _projectSettingRepository.GetByNameAndVM("ServerPort", "VM_MachineDamageMonitoringPage")?.Value ?? "8000"; ;
-            _ = InitServerAsync(int.Parse(serverPort));
-            
-            StartServer(8181);
+            var serverPort = _projectSettingRepository.GetByNameAndVM("ServerPort", "VM_MachineDamageMonitoringPage")?.Value ?? "8181"; ;
+            StartServer(int.Parse(serverPort));
 
-            var cameras = GetCameras();
-            var re = await _webApiClient.AddCameraAsync(cameras);            
+            // 加载配置上传相机配置信息到web端
+            //var cameras = GetCameras();
+            //var re = await _webApiClient.AddCameraAsync(cameras);
 
-            if (re.IsSuccess || re.Code == 200)
-                _logger.Info($"数据上传成功！");
-            else
-                _logger.Error($"数据上传失败：[{re.Message}]");
+            //if (re.IsSuccess || re.Code == 200)
+            //    _logger.Info($"相机配置上传成功！");
+            //else
+            //    _logger.Error($"相机配置上传失败：[{re.Message}]");
 
             // 从web获取AI算法模型文件onnx  —— TODO
             //modelPath = await DownloadOnnxAsync("ZZ_YY_C01_DP_DLL", "ZZ_YY", "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCQiNCeYgNIL35V99cJ0giEOtOCd6tf9fVEVCuFmFu0zuskPJYB0D1pUcYjLtJfadGa1HflWYINl/zk9bq0fDipuz5vPkswsp0N4efiVzwoBbzUTpLPePNkpb6rDyd+3RUNAC8UtZU2ptKGCNVvvgMQGZp+2mnIKPamuEXzK5qkkwIDAQAB");
@@ -153,14 +154,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var videoCaptureCache = new Dictionary<string, VideoCaptureHelper>();
             // 机损检测线程缓存字典
             var machineDamageMonitoringCache = new Dictionary<string, CancellationTokenSource>();
-            var thread = new Thread(() =>
+
+            Task.Run(async () =>
             {
+                Cameras = GetCameras();
+
                 while (true)
                 {
                     try
                     {
-                        var cameras = GetCameras();
-                        foreach (var camera in cameras ?? [])
+                        //var cameras = GetCameras();
+                        foreach (var camera in Cameras ?? [])
                         {
                             // 未开启则断开相机、取消机损检测
                             if (!camera.Enable)
@@ -168,37 +172,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                                 // 关闭相机
                                 if (videoCaptureCache.TryGetValue(camera.GuidId, out VideoCaptureHelper? VideoCaptureHelper))
                                 {
-                                    _logger.Info($"[{camera.Name} ip:{camera.HostIP}]正在断开相机连接...");
+                                    _logger.Info($"[{camera.Name} Ip:{camera.HostIP}]正在断开相机连接...");
                                     VideoCaptureHelper.DisConnect();
                                     videoCaptureCache.Remove(camera.GuidId);
-                                    _logger.Info($"[{camera.Name} ip:{camera.HostIP}]已断开相机连接！");
+                                    _logger.Info($"[{camera.Name} Ip:{camera.HostIP}]已断开相机连接！");
                                 }
                                 // 关闭机损检测任务
                                 if (machineDamageMonitoringCache.TryGetValue(camera.GuidId, out CancellationTokenSource? CancellationTokenSource))
                                 {
-                                    _logger.Info($"[{camera.Name} ip:{camera.HostIP}] 工位:{camera.WorkStaion}正在停止机损检测任务...");
+                                    _logger.Info($"[{camera.Name} Ip:{camera.HostIP}] 工位:{camera.WorkStation}正在停止机损检测任务...");
                                     CancellationTokenSource?.Cancel();
                                     machineDamageMonitoringCache.Remove(camera.GuidId);
-                                    _logger.Info($"[{camera.Name} ip:{camera.HostIP}] 工位:{camera.WorkStaion}已停止机损检测任务！");
+                                    _logger.Info($"[{camera.Name} Ip:{camera.HostIP}] 工位:{camera.WorkStation}已停止机损检测任务！");
                                 }
                                 continue;
                             }
                             // 连接相机
                             if (!videoCaptureCache.TryGetValue(camera.GuidId, out VideoCaptureHelper? videoCapture))
                             {
-                                _logger.Info($"[{camera.Name} ip:{camera.HostIP}]相机正在连接！");
+                                _logger.Info($"[{camera.Name} Ip:{camera.HostIP}]相机正在连接！");
                                 videoCapture = new VideoCaptureHelper(_logger, camera.Name, $"{camera.Remake}");
                                 videoCapture.Connect();
                                 videoCaptureCache[camera.GuidId] = videoCapture;
-                                _logger.Info($"[{camera.Name} ip:{camera.HostIP}]相机已连接！");
+                                _logger.Info($"[{camera.Name} Ip:{camera.HostIP}]相机已连接！");
                             }
                             // 启动流程
                             if (!machineDamageMonitoringCache.ContainsKey(camera.GuidId))
-                            {
+                            {                                
                                 var cts = new CancellationTokenSource();
-                                MachineDamageMonitoring_Thread(camera.WorkStaion, camera.RemoveDistortion, videoCapture, cts.Token);
+                                MachineDamageMonitoring_Thread(camera, videoCapture, cts.Token);
                                 machineDamageMonitoringCache[camera.GuidId] = cts;
-                                _logger.Info($"[{camera.Name} ip:{camera.HostIP}] 工位:{camera.WorkStaion} 机损检测流程启动成功！");
+                                _logger.Info($"[{camera.Name} Ip:{camera.HostIP}] 工位:{camera.WorkStation} 机损检测流程启动成功！");
                             }
                         }
                     }
@@ -208,12 +212,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     }
                     finally
                     {
-                        Thread.Sleep(5000);
+                        await Task.Delay(5000);
                     }
                 }
             });
-            thread.IsBackground = true;
-            thread.Start();
         }
 
         /// <summary>
@@ -222,26 +224,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="bytes"></param>
         /// <param name="frameCount"></param>
         /// <param name="camera"></param>
-        private void MachineDamageMonitoring_Thread(string? workStation, bool removeDistortion, VideoCaptureHelper camera, CancellationToken token)
+        private void MachineDamageMonitoring_Thread(CameraModel cameraConfig, VideoCaptureHelper camera, CancellationToken token)
         {
             #region 初始化AI算法
             // 初始化算法实例
             var (YingYanAI, ModelInit, ModelAction, Undistorted, CropImgMat) = Init_YingYanAI(dllBytes);
+            _logger.Info($"[{camera.Name}-{cameraConfig.WorkStation}]初始化算法实例成功！");
             // 初始化算法模型(先用一次，以预加载)          
-            var mPath = workStation switch
+            var mPath = cameraConfig.WorkStation switch
             {
                 "CT托盘位" => modelPath2,
                 "CT放料位" => modelPath1,
                 "PTO叠片粘电芯" => modelPath3,
+                "PTO叠片粘电芯1" => modelPath3,
+                "PTO叠片粘电芯2" => modelPath3,
+                "PTO叠片粘电芯3" => modelPath3,
                 "PTO叠片取放料" => modelPath4,
-                _ => throw new Exception($"[{camera.Name}]-{workStation}]工位未实现相关功能!!!"),
+                "PTO叠片取放料1" => modelPath4,
+                "PTO叠片取放料2" => modelPath4,
+                "PTO叠片取放料3" => modelPath4,
+                "PTO叠片取放料4" => modelPath4,
+                "PTO叠片取放料5" => modelPath4,
+                _ => throw new Exception($"[{camera.Name}]-{cameraConfig.WorkStation}]工位未实现相关功能!!!"),
             };
-            var objInit = Execute_ModelInit(mPath, workStation, ModelInit, YingYanAI);
+            var kk = cameraConfig.WorkStation;
+            kk = Regex.Replace(kk, @"\d", "");
+            //var objInit = Execute_ModelInit(mPath, cameraConfig.WorkStation, ModelInit, YingYanAI);
+            var objInit = Execute_ModelInit(mPath, kk, ModelInit, YingYanAI);
             if (!objInit.IsValid || objInit.H246modle == null)
             {
-                throw new Exception($"[{camera.Name}]-{workStation}]视觉算法模型初始化异常：[{objInit.IsValid}]-[{objInit.ExInfo}]");
+                _logger.Error($"[{camera.Name}-{cameraConfig.WorkStation}]模型失败！{objInit.ExInfo}");
+                throw new Exception($"[{camera.Name}]-{cameraConfig.WorkStation}]视觉算法模型初始化异常：[{objInit.IsValid}]-[{objInit.ExInfo}]");
             }
-            _logger.Info($"[{camera.Name}-{workStation}]模型预加载成功！");
+            _logger.Info($"[{camera.Name}-{cameraConfig.WorkStation}]模型预加载成功！，模型为{objInit.H246modle}");
             #endregion
 
             #region 初始化相机
@@ -250,15 +265,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             // 执行视频读取
             camera.ExecuteFrame += ((frame) =>
             {
+                _logger.Info($"[{camera.Name}-{cameraConfig.WorkStation}]-获取流当前时间为{DateTime.Now: HH:mm:ss.fff}");
                 //frameCache.Enqueue((GetCurrentTimestampSeconds(), barCode, frame));
                 //// 缓存过多则清理
                 //if (frameCache.Count > 100) frameCache.TryDequeue(out _);
             });
             camera.StartReading();
-            _logger.Info($"相机[{camera.Name}-{workStation}]加载完成！");
+            _logger.Info($"相机[{camera.Name}-{cameraConfig.WorkStation}]加载完成！");
             #endregion            
 
-            var t = new Thread(() =>
+            var t = new Thread(async () =>
             {
                 var aiModels = new List<IPredictor>() { objInit.H246modle };
                 var flag = "0";// 0->1:开始；1->0:结束                
@@ -285,27 +301,51 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                         if (token.IsCancellationRequested) return;
 
                         #region test
-                        if (frameCache.Count == 0)
+                        if (frameCache.IsEmpty)
                         {
-                            var path = workStation switch
+                            var path = cameraConfig.WorkStation switch
                             {
                                 "CT托盘位" => "../Configs/放料模拟数据",
                                 "CT放料位" => "../Configs/放料模拟数据",
-                                "PTO叠片粘电芯" => "../Configs/PTO叠片粘电芯数据/全粘连4",
-                                "PTO叠片取放料" => "../Configs/PTO叠片取放料数据/放料倾斜4",
+                                "PTO叠片粘电芯" => "../Configs/PTO叠片粘电芯数据/后角边粘连",
+                                "PTO叠片粘电芯1" => "../Configs/PTO叠片粘电芯数据/前角边粘连",
+                                "PTO叠片粘电芯2" => "../Configs/PTO叠片粘电芯数据/全粘连",
+                                "PTO叠片粘电芯3" => "../Configs/PTO叠片粘电芯数据/前粘连",
+                                "PTO叠片取放料" => "../Configs/PTO叠片取放料数据/5mm",
+                                "PTO叠片取放料1" => "../Configs/PTO叠片取放料数据/6mm",
+                                "PTO叠片取放料2" => "../Configs/PTO叠片取放料数据/7mm",
+                                "PTO叠片取放料3" => "../Configs/PTO叠片取放料数据/8mm",
+                                "PTO叠片取放料4" => "../Configs/PTO叠片取放料数据/12mm",
+                                "PTO叠片取放料5" => "../Configs/PTO叠片取放料数据/放料倾斜2",
+
                                 _ => throw new NotImplementedException(),
                             };
+                            cameraConfig.WorkStation = Regex.Replace(cameraConfig.WorkStation, @"\d", "");
+
                             var fileDirectory = Directory.GetFiles(path);
 
                             for (int i = 0; i < fileDirectory.Length; i++)
                             {
                                 var f = Cv2.ImRead(fileDirectory[i], ImreadModes.Color);
                                 frameCache.Enqueue((GetCurrentTimestampSeconds(), $"{Path.GetFileName(fileDirectory[i])}", f));
+
+
+                                //cameraConfig.Enable = false;
+
+                                //RunOnUIThread(() =>
+                                //{
+                                //    var wb = new WriteableBitmap(640, 480, 96, 96, PixelFormats.Bgr24, null);
+                                //    //cameraConfig.ImageSource = wb;
+                                //    cameraConfig.RealTimeDisplay = true;
+                                //    cameraConfig.Enable = false;
+                                //    cameraConfig.ImageSources = @"D:\单机数字化平台\sunwoda_Sevb\SUNWODA_SEVB\bin\Debug\Configs\PTO叠片粘电芯数据\OK1\0105_Start.jpg";
+                                //});
+
                             }
                         }
                         #endregion                        
 
-                        if (frameCache.Count <= 0)
+                        if (frameCache.IsEmpty)
                         {
                             // 无数据，则等待一下下
                             Thread.Sleep(5);
@@ -315,41 +355,98 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                         {
                             // 获取视频帧失败，则等待一下下
                             Thread.Sleep(1);
-                            _logger?.Error($"[{camera.Name}-{workStation}]视觉从队列获取视频帧失败！");
+                            _logger?.Error($"[{camera.Name}-{cameraConfig.WorkStation}]视觉从队列获取视频帧失败！");
                             continue;
                         }
 
                         // ======== 执行去畸变算法 ==========
-                        if (removeDistortion)
+                        if (cameraConfig.RemoveDistortion)
                         {
-                            // 读取标定文件
-                            var json = File.ReadAllText("D:\\Users\\2207130097\\Desktop\\标定data\\testdata\\标定文件.json");
-                            var calibrationResult = JsonConvert.DeserializeObject<CalibrationResult>(json);
-                            Execute_Undistorted(calibrationResult, Undistorted, YingYanAI, ref frameInfo.frame);
+                            if (!string.IsNullOrEmpty(cameraConfig.CalibrationFilePath) && File.Exists(cameraConfig.CalibrationFilePath))
+                            {
+                                try
+                                {
+                                    // 读文件内容
+                                    string json = File.ReadAllText(cameraConfig.CalibrationFilePath);
+
+                                    // 反序列化
+                                    var calibrationResult = JsonConvert.DeserializeObject<CalibrationResult>(json);
+
+                                    // 反序列化失败也不执行
+                                    if (calibrationResult != null)
+                                    {
+                                        Execute_Undistorted(calibrationResult, Undistorted, YingYanAI, ref frameInfo.frame);
+                                    }
+                                    else
+                                    {
+                                        _logger?.Warn($"标定文件解析失败：{cameraConfig.CalibrationFilePath}，跳过去畸变");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger?.Error($"读取或解析标定文件失败：{ex.Message}，跳过去畸变");
+                                }
+                            }
+                            else
+                            {
+                                _logger?.Warn($"标定文件路径无效或文件不存在：{cameraConfig.CalibrationFilePath}，跳过去畸变");
+                            }
                         }
 
+
+                        //if (!frameInfo.frame.Empty())
+                        //{
+                        //    var bitmap = frameInfo.frame.Clone().ToWriteableBitmap();
+                        //    await RunOnUIThreadAsync(() =>
+                        //    {
+                        //        cameraConfig.ImageSource = bitmap;                                                                                             
+                        //    });
+                        //}
+
+
                         // 执行视觉推理算法
-                        var aiResult = Execute_ModelAction(workStation, flag, [frameInfo.frame], aiModels, ModelAction, YingYanAI);
+                        var aiResult = Execute_ModelAction(cameraConfig.WorkStation, flag, [frameInfo.frame], aiModels, ModelAction, YingYanAI);
 
                         try
                         {
-                            switch (workStation)
+                            switch (cameraConfig.WorkStation)
                             {
                                 case "CT托盘位":
-                                    ExcuteWorkstation_CTTray(workStation, camera, frameInfo, aiResult);
+                                    ExcuteWorkstation_CTTray(cameraConfig.WorkStation, camera, frameInfo, aiResult);
                                     break;
                                 case "CT放料位":
-                                    ExcuteWorkstation_CTPut(workStation, camera, frameInfo, aiResult, ref diagnosis, ref flag, ref lastFrameIsValid, ref abnormalFrames, ref frameResultDataList, ref resultStatus, ref abnormaVideoStatus);
+                                    ExcuteWorkstation_CTPut
+                                    (
+                                        cameraConfig.WorkStation, cameraConfig.Resolution,
+                                        camera, frameInfo, aiResult, CropImgMat,
+                                        YingYanAI, ref diagnosis, ref flag,
+                                        ref lastFrameIsValid, ref abnormalFrames, ref frameResultDataList,
+                                        ref resultStatus, ref abnormaVideoStatus, ref abnormalKeyFrames
+                                    );
                                     break;
                                 case "PTO叠片粘电芯":
-                                    ExcuteWorkstation_PTOStackingBondingBatteryCell(workStation, camera, frameInfo, aiResult, ref diagnosis, ref flag, ref lastFrameIsValid, ref abnormalFrames, ref frameResultDataList, ref resultStatus, ref abnormaVideoStatus);
+                                    ExcuteWorkstation_PTOStackingBondingBatteryCell
+                                    (
+                                        cameraConfig.WorkStation, cameraConfig.Resolution,
+                                        camera, frameInfo, aiResult, CropImgMat,
+                                        YingYanAI, ref diagnosis, ref flag,
+                                        ref lastFrameIsValid, ref abnormalFrames, ref frameResultDataList,
+                                        ref resultStatus, ref abnormaVideoStatus, ref abnormalKeyFrames
+                                    );
                                     break;
                                 case "PTO叠片取放料":
-                                    ExcuteWorkstation_PTOStackingPut(workStation, camera, frameInfo, aiResult, CropImgMat, YingYanAI, ref diagnosis, ref flag, ref lastFrameIsValid, ref abnormalFrames, ref frameResultDataList, ref resultStatus, ref abnormaVideoStatus, ref abnormalKeyFrames);
+                                    ExcuteWorkstation_PTOStackingPut
+                                    (
+                                        cameraConfig.WorkStation, cameraConfig.Resolution,
+                                        camera, frameInfo, aiResult, CropImgMat,
+                                        YingYanAI, ref diagnosis, ref flag,
+                                        ref lastFrameIsValid, ref abnormalFrames, ref frameResultDataList,
+                                        ref resultStatus, ref abnormaVideoStatus, ref abnormalKeyFrames
+                                    );
                                     break;
                                 default:
                                     flag = aiResult.flag;
-                                    _logger?.Warn($"未实现[{camera.Name}-{workStation}]逻辑！");
+                                    _logger?.Warn($"未实现[{camera.Name}-{cameraConfig.WorkStation}]逻辑！");
                                     break;
                             }
                         }
@@ -360,7 +457,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     }
                     catch (Exception ex)
                     {
-                        _logger?.Error($"[{camera.Name}-{workStation}]机损检测异常！", ex);
+                        _logger?.Error($"[{camera.Name}-{cameraConfig.WorkStation}]机损检测异常！", ex);
                     }
                 }
             });
@@ -407,16 +504,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         private void ExcuteWorkstation_CTPut
         (
             string workstation,
+            double resolution,
             VideoCaptureHelper camera,
             (long dateTime, string barCode, Mat frame) frameInfo,
             (bool IsValid, string? ExInfo, List<List<AIResultModel>>? AIResult, string? flag) aiResult,
+            MethodInfo? CropImgMat,
+            object? YingYanAI,
             ref UnifiedTrajectoryDiagnosis diagnosis,
             ref string? flag,
             ref bool lastFrameIsValid,
             ref List<Mat> abnormalFrames,
             ref List<FrameDtoList> frameResultDataList,
             ref List<string> resultStatus,
-            ref string abnormaVideoStatus
+            ref string abnormaVideoStatus,
+            ref List<Mat> abnormalKeyFrames
         )
         {
             // 更新标志位
@@ -483,6 +584,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 abnormaVideoStatus = dataResultLis.FirstOrDefault(o => o.PositionName == "下左角电芯")?.AbnormalType ?? "NG";
             }
 
+            // === 图像切割获取异常关键帧 === 
+            if (dataResultLis.FirstOrDefault(o => o.PositionName == "下左角电芯")?.AbnormalDetected == 1 || dataResultLis.FirstOrDefault(o => o.PositionName == "下左角电芯")?.AbnormalDetected == 2)
+            {
+                Execute_ImageCutting(frameInfo.frame, CropImgMat, YingYanAI, abnormalKeyFrames);
+            }
+
             // === 根据状态执行不同动作 ===
             switch (frameStatus)
             {
@@ -504,7 +611,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
                     if (resultStatus.Contains("NG"))
                     {
-                        _ = NGVideoUpLoadWebAsync("上料工位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, frameResultDataList, abnormaVideoStatus);
+                        _ = NGVideoUpLoadWebAsync("上料工位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, abnormalKeyFrames, frameResultDataList, abnormaVideoStatus, resolution);
                     }
                     abnormalFrames.Clear();
                     resultStatus.Clear();
@@ -527,16 +634,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
         private void ExcuteWorkstation_PTOStackingBondingBatteryCell
         (
-            string workstation, VideoCaptureHelper camera,
+            string workstation,
+            double resolution,
+            VideoCaptureHelper camera,
             (long dateTime, string barCode, Mat frame) frameInfo,
             (bool IsValid, string? ExInfo, List<List<AIResultModel>>? AIResult, string? flag) aiResult,
+            MethodInfo? CropImgMat,
+            object? YingYanAI,
             ref UnifiedTrajectoryDiagnosis diagnosis,
             ref string? flag,
             ref bool lastFrameIsValid,
             ref List<Mat> abnormalFrames,
             ref List<FrameDtoList> frameResultDataList,
             ref List<string> resultStatus,
-            ref string abnormaVideoStatus
+            ref string abnormaVideoStatus,
+            ref List<Mat> abnormalKeyFrames
         )
         {
             try
@@ -589,6 +701,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 //SaveTXTFile($"../结果数据", "粘电芯结果数据", $"{frameInfo.barCode}\t左点电芯X\t{left.Point3D.X}\t左点电芯Y\t{left.Point3D.Y}\t中心点电芯X\t{mid.Point3D.X}\t中心点电芯Y\t{mid.Point3D.Y}\t右点电芯X\t{right.Point3D.X}\t右点电芯Y\t{right.Point3D.Y}");
 
                 // === 执行诊断逻辑 ===
+                _logger.Info($"[{camera.Name}-{workstation}]-准备执行大数据轨迹算法");
+                Stopwatch stopwatch = new();
+                stopwatch.Restart();
                 diagnosis.SelectProgram("PTO叠片粘电芯");
 
                 UnifiedDiagnosisResult diagnosisResult = diagnosis.ExecuteDiagnosis
@@ -598,37 +713,57 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     mid.Point3D.X, mid.Point3D.Y,
                     right.Point3D.X, right.Point3D.Y
                 );
+                stopwatch.Stop();
+                _logger.Info($"[{camera.Name} - {workstation}]-大数据轨迹算法执行完毕,耗时为{stopwatch.ElapsedMilliseconds}");
 
                 // === 获取异常视频的类型 ===
                 if (!string.IsNullOrEmpty(diagnosisResult.AbnormalType))
                     abnormaVideoStatus = diagnosisResult.AbnormalType;
 
+                // === 图像切割获取异常关键帧 ===                
+                if (diagnosisResult.AbnormalDetected == 1 || diagnosisResult.AbnormalDetected == 2)
+                {
+                    _logger.Info($"[{camera.Name}-{workstation}]-准备执行视觉图像分割算法");
+                    Execute_ImageCutting(frameInfo.frame, CropImgMat, YingYanAI, abnormalKeyFrames);
+                }
+
+                // === 日志 ===
+                _logger?.Info($"[{camera.Name}-{workstation}] 流程执行完成：" + $"[Valid={aiResult.IsValid}] [当前时间为：{DateTime.Now:HH:mm:ss:fff}]");
+
                 // === 根据状态执行不同动作 ===
                 switch (frameStatus)
                 {
                     case "1": // 起始帧
-                        //_logger?.Info($"[{workstation}]-获得起始帧");
+                        _logger?.Info($"[{camera.Name}-{workstation}]-识别到起始帧");
                         abnormalFrames.ForEach(frameInfo => frameInfo?.Dispose());
                         abnormalFrames.Clear();
+
+                        abnormalKeyFrames.ForEach(f => f.Dispose());
+                        abnormalKeyFrames.Clear();
+
                         abnormalFrames.Add(frameInfo.frame.Clone());
 
                         resultStatus.Clear();
                         resultStatus.Add(diagnosisResult.Status);
+
+                        frameResultDataList.Clear();
                         break;
 
                     case "0": // 过程帧
+                        _logger?.Info($"[{camera.Name}-{workstation}]-识别到过程帧");
                         abnormalFrames.Add(frameInfo.frame.Clone());
                         resultStatus.Add(diagnosisResult.Status);
                         break;
 
-                    case "2": // 结束帧                        
+                    case "2": // 结束帧
+                        _logger?.Info($"[{camera.Name}-{workstation}]-识别到结束帧");
                         // 异步发送实时数据：AI结果数据&大数据结果数据
                         _ = FramesUpLoadWebAsync("热压点位", resultList, [diagnosisResult], frameResultDataList, aiResult.IsValid, int.Parse(frameStatus));
 
                         if (resultStatus.Contains("NG"))
                         {
-                            //_logger?.Info($"[{workstation}]-开始生成异常视频");
-                            _ = NGVideoUpLoadWebAsync("热压点位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, frameResultDataList, abnormaVideoStatus);
+                            _logger?.Info($"[{camera.Name}-{workstation}]-识别到NG状态,准备开始执行生成异常视频流程");
+                            _ = NGVideoUpLoadWebAsync("热压点位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, abnormalKeyFrames, frameResultDataList, abnormaVideoStatus, resolution);
                         }
 
                         abnormalFrames.ForEach(f => f.Dispose());
@@ -643,9 +778,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
                 // === 更新帧状态 ===
                 lastFrameIsValid = aiResult.IsValid;
-
-                // === 日志 ===
-                _logger?.Info($"[{camera.Name}-{workstation}] 视觉算法推理完成：" + $"[Valid={aiResult.IsValid}] [Info={aiResult.ExInfo}]");
             }
             catch (Exception ex)
             {
@@ -660,7 +792,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
         private void ExcuteWorkstation_PTOStackingPut
         (
-            string workstation, VideoCaptureHelper camera,
+            string workstation,
+            double resolution,
+            VideoCaptureHelper camera,
             (long dateTime, string barCode, Mat frame) frameInfo,
             (bool IsValid, string? ExInfo, List<List<AIResultModel>>? AIResult, string? flag) aiResult,
             MethodInfo? CropImgMat,
@@ -700,7 +834,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     _ => "3"                // 其它情况（不会触发）
                 };
 
-
                 // === 确保关键点存在 ===
                 string[] requiredNames = { "右夹爪关键点", "左夹爪关键点", "中心点", "左点", "右点" };
                 foreach (var name in requiredNames)
@@ -729,7 +862,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
                 //SaveTXTFile($"../结果数据", "取放料结果数据", $"{frameInfo.barCode}\t左点电芯X\t{left.Point3D.X}\t左点电芯Y\t{left.Point3D.Y}\t中心点电芯X\t{mid.Point3D.X}\t中心点电芯Y\t{mid.Point3D.Y}\t右点电芯X\t{right.Point3D.X}\t右点电芯Y\t{right.Point3D.Y}");
 
-                // === 执行诊断逻辑 ===
+                // === 执行轨迹诊断逻辑 ===
+                _logger.Info($"[{camera.Name}-{workstation}]-准备执行大数据轨迹算法");
+                Stopwatch stopwatch = new();
+                stopwatch.Restart();
                 diagnosis.SelectProgram("PTO叠片取放料");
 
                 UnifiedDiagnosisResult diagnosisResult = diagnosis.ExecuteDiagnosis
@@ -739,68 +875,57 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     mid.Point3D.X, mid.Point3D.Y,
                     right.Point3D.X, right.Point3D.Y
                 );
+                stopwatch.Stop();
+                _logger.Info($"[{camera.Name} - {workstation}]-大数据轨迹算法执行完毕,耗时为{stopwatch.ElapsedMilliseconds}");
 
                 // === 获取异常视频的类型 ===
                 if (!string.IsNullOrEmpty(diagnosisResult.AbnormalType))
                     abnormaVideoStatus = diagnosisResult.AbnormalType;
 
-                if (diagnosisResult.AbnormalDetected == 2)
+                // === 图像切割获取异常关键帧 === 
+                if (diagnosisResult.AbnormalDetected == 1 || diagnosisResult.AbnormalDetected == 2)
                 {
-                    var AIParamData = new object?[]
-                    {
-                        frameInfo.frame,     // 模型列表
-                        800,        // 帧图片
-                        1130,  // 工位名称
-                        1600,         // 默认传"0"
-                        2300,         // 推理结果列表
-                        null,         // 调用是否有效
-                        null         // 接口异常返回信息                        
-                    };
-                    CropImgMat.Invoke(YingYanAI, AIParamData);
-                    abnormalKeyFrames.Add((Mat)AIParamData[5]);
+                    _logger.Info($"[{camera.Name}-{workstation}]-准备执行视觉图像分割算法");
+                    Execute_ImageCutting(frameInfo.frame, CropImgMat, YingYanAI, abnormalKeyFrames);
                 }
 
-                if (diagnosisResult.AbnormalDetected == 1)
-                {
-                    var AIParamData = new object?[]
-                    {
-                        frameInfo.frame,     // 模型列表
-                        800,        // 帧图片
-                        1130,  // 工位名称
-                        1600,         // 默认传"0"
-                        2300,         // 推理结果列表
-                        null,         // 调用是否有效
-                        null         // 接口异常返回信息                        
-                    };
-                    CropImgMat.Invoke(YingYanAI, AIParamData);
-                    abnormalKeyFrames.Add((Mat)AIParamData[5]);
-                }
+                // === 日志 ===
+                _logger?.Info($"[{camera.Name}-{workstation}] 流程执行完成：" + $"[Valid={aiResult.IsValid}] [当前时间为：{DateTime.Now:HH:mm:ss:fff}]");
 
                 // === 根据状态执行不同动作 ===
                 switch (frameStatus)
                 {
                     case "1": // 起始帧
+                        _logger?.Info($"[{camera.Name}-{workstation}]-识别到起始帧");
                         abnormalFrames.ForEach(frameInfo => frameInfo?.Dispose());
                         abnormalFrames.Clear();
+
+                        abnormalKeyFrames.ForEach(f => f.Dispose());
+                        abnormalKeyFrames.Clear();
+
                         abnormalFrames.Add(frameInfo.frame.Clone());
 
                         resultStatus.Clear();
                         resultStatus.Add(diagnosisResult.Status);
+
+                        frameResultDataList.Clear();
                         break;
 
                     case "0": // 过程帧
+                        _logger?.Info($"[{camera.Name}-{workstation}]-识别到过程帧");
                         abnormalFrames.Add(frameInfo.frame.Clone());
                         resultStatus.Add(diagnosisResult.Status);
                         break;
 
                     case "2": // 结束帧
+                        _logger?.Info($"[{camera.Name}-{workstation}]-识别到结束帧");
                         // 异步发送实时数据：AI结果数据&大数据结果数据
                         _ = FramesUpLoadWebAsync("电芯转运点位", resultList, [diagnosisResult], frameResultDataList, aiResult.IsValid, int.Parse(frameStatus));
 
                         if (resultStatus.Contains("NG"))
                         {
-                            // _ = NGVideoUpLoadWebAsync("电芯转运点位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, frameResultDataList, abnormaVideoStatus);
-                            _ = NGVideoUpLoadWebAsync("电芯转运点位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, abnormalKeyFrames, frameResultDataList, abnormaVideoStatus);
+                            _logger?.Info($"[{camera.Name}-{workstation}]-识别到NG状态,准备开始执行生成异常视频流程");
+                            _ = NGVideoUpLoadWebAsync("电芯转运点位", frameInfo.dateTime, frameInfo.barCode, abnormalFrames, abnormalKeyFrames, frameResultDataList, abnormaVideoStatus, resolution);
                         }
 
                         abnormalFrames.ForEach(f => f.Dispose());
@@ -817,9 +942,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
                 // === 更新帧状态 ===
                 lastFrameIsValid = aiResult.IsValid;
-
-                // === 日志 ===
-                _logger?.Info($"[{camera.Name}-{workstation}] 视觉算法推理完成：" + $"[Valid={aiResult.IsValid}] [Info={aiResult.ExInfo}]");
             }
             catch (Exception ex)
             {
@@ -884,6 +1006,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         {
             try
             {
+                _logger?.Info($"[{position}]-[FramesUpLoadWebAsync]-准备处理实时轨迹数据进行上传");
                 // —— 诊断结果缓存
                 var diagnosisList = diagnosisResults?.ToList() ?? [];
                 var firstDiagnosis = diagnosisList.FirstOrDefault();
@@ -914,6 +1037,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                                 GetPointValues(item.Name, dataResult).x, GetPointValues(item.Name, dataResult).y, GetPointValues(item.Name, dataResult).z,
                                 GetPointValues(item.Name, dataResult).dx, GetPointValues(item.Name, dataResult).dy, GetPointValues(item.Name, dataResult).dz,
                                 GetPointValues(item.Name, dataResult).xStd, GetPointValues(item.Name, dataResult).yStd, GetPointValues(item.Name, dataResult).zStd,
+                                item.Point3D.X, item.Point3D.Y, item.Point3D.Z,
                                 GetPointValues(item.Name, dataResult).abnormal, GetPointValues(item.Name, dataResult).averageSlope
                             )
                         );
@@ -955,6 +1079,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 await BroadcastAsync(jsonMsg);
 
                 aiResult.Clear();
+                _logger?.Info($"[{position}]-[FramesUpLoadWebAsync]-实时轨迹数据上传完毕");
             }
             catch (Exception ex)
             {
@@ -1015,7 +1140,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="yDiff"></param>
         /// <param name="zDiff"></param>
         /// <returns></returns>
-        private DataList CreateDataList(string name, float x, float y, float z, float xDiff = 0f, float yDiff = 0f, float zDiff = 0f, float XStandard = 0f, float YStandard = 0f, float ZStandard = 0f, int abnormal = 1, float averageSlope = 0f)
+        private DataList CreateDataList
+        (
+            string name, float x, float y, float z,
+            float xDiff = 0f, float yDiff = 0f, float zDiff = 0f,
+            float XStandard = 0f, float YStandard = 0f, float ZStandard = 0f,
+            float PixelCoordinateX = 0f, float PixelCoordinateY = 0f, float PixelCoordinateZ = 0f,
+            int abnormal = 1, float averageSlope = 0f
+        )
         {
             return new DataList
             {
@@ -1037,6 +1169,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                         XStandard = XStandard,
                         YStandard = YStandard,
                         ZStandard = ZStandard,
+                        PixelCoordinateX= PixelCoordinateX,
+                        PixelCoordinateY= PixelCoordinateY,
+                        PixelCoordinateZ= PixelCoordinateZ,
                         AverageSlope = averageSlope
                     }
                 ]
@@ -1120,24 +1255,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             List<Mat> abnormalFrames,
             List<Mat>? abnormalKeyFrames,
             List<FrameDtoList> frameResultDataList,
-            string abnormaVideoStatus
+            string abnormaVideoStatus,
+            double resolution
         )
         {
             try
             {
                 var videoFiles = new List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)>();
+                Stopwatch stopwatch = new();
 
                 // 生成异常视频
                 if (abnormalFrames?.Count > 0)
                 {
-                    var file = SaveToMP4Bytes(abnormalFrames, abnormalFrames[0].Cols, abnormalFrames[0].Rows);
+                    _logger?.Info($"[{position}]-当前异常视频帧数为{abnormalFrames.Count},准备开始生成异常视频");
+
+                    stopwatch.Restart();
+                    var file = SaveToMP4Bytes(abnormalFrames, abnormalFrames[0].Cols, abnormalFrames[0].Rows, resolution);
+                    stopwatch.Stop();
+
+                    _logger?.Info($"[{position}]-异常视频生成完毕,耗时为{stopwatch.ElapsedMilliseconds}ms");
                     videoFiles.Add((file, "video/mp4", "abnormal.mp4", "file"));
                 }
 
                 // 可选：生成异常关键帧视频（如果有）
                 if (abnormalKeyFrames != null && abnormalKeyFrames.Count > 0)
                 {
-                    var file = SaveToMP4Bytes(abnormalKeyFrames, abnormalKeyFrames[0].Cols, abnormalKeyFrames[0].Rows);
+                    _logger?.Info($"[{position}]-当前异常关键帧视频帧数为{abnormalKeyFrames.Count},准备开始生成异常关键帧视频");
+
+                    stopwatch.Restart();
+                    var file = SaveToMP4Bytes(abnormalKeyFrames, abnormalKeyFrames[0].Cols, abnormalKeyFrames[0].Rows, resolution);
+                    stopwatch.Stop();
+
+                    _logger?.Info($"[{position}]-异常关键帧视频生成完毕,耗时为{stopwatch.ElapsedMilliseconds}ms");
+
                     videoFiles.Add((file, "video/mp4", "abnormalKey.mp4", "featureFile"));
                 }
 
@@ -1146,6 +1296,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     frameResultDataList.RemoveRange(0, 200);
 
                 // 上传（自动适配 1 或 2 个视频）
+                _logger?.Info($"[{position}]-准备上传数据！");
                 var re = await _webApiClient.TrajectoryDataAsync
                 (
                     position, barCode, dateTime, dateTime,
@@ -1153,45 +1304,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 );
 
                 if (re.IsSuccess || re.Code == 200)
-                    _logger.Info($"[{position}-{barCode}] 数据上传成功！");
+                    _logger?.Info($"[{position}-{barCode}] 数据上传成功！");
                 else
-                    _logger.Error($"[{position}-{barCode}] 数据上传失败：[{re.Message}]");
+                    _logger?.Error($"[{position}-{barCode}] 数据上传失败：[{re.Message}]");
             }
             catch (Exception ex)
             {
                 _logger.Error($"[NGVideoUpLoadWebAsync] 上传异常: {ex.Message}");
-            }
-        }
-
-
-        /// <summary>
-        /// 视频流上传web
-        /// </summary>
-        /// <param name="position"></param>
-        /// <param name="dateTime"></param>
-        /// <param name="barCode"></param>
-        /// <param name="frame"></param>
-        /// <param name="AIResults"></param>
-        private async Task NGVideoUpLoadWebAsync(string? position, long dateTime, string barCode, List<Mat> abnormalFrames, List<FrameDtoList> frameResultDataList, string abnormaVideoStatus)
-        {
-            try
-            {
-                var file = SaveToMP4Bytes(abnormalFrames, abnormalFrames[0].Cols, abnormalFrames[0].Rows);
-
-                if (frameResultDataList.Count > 300)
-                {
-                    frameResultDataList.RemoveRange(0, Math.Min(200, frameResultDataList.Count));
-                }
-                
-                var re = await _webApiClient.TrajectoryDataAsync($"{position}", $"{barCode}", dateTime, dateTime, file, frameResultDataList, abnormaVideoStatus);
-                if (re.IsSuccess || re.Code == 200)
-                    _logger.Info($"[{position}-{barCode}]AI算法结果上传web成功！");
-                else
-                    _logger.Error($"[{position}-{barCode}]AI算法结果上传web失败：[{re.Message}]");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"[NGVideoUpLoadWebAsync]视频流上传错误: {ex.Message}");
             }
         }
 
@@ -1277,44 +1396,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 _logger.Error($"初始化电芯码检测任务发生异常！", ex);
             }
         }
-        #endregion
+        #endregion        
 
-        #region 服务端
-        private SocketServer? server;
-
-        /// <summary>
-        /// 初始化服务端
-        /// </summary>
-        /// <returns></returns>
-        private async Task InitServerAsync(int port)
-        {
-            try
-            {
-                server = new SocketServer("127.0.0.1", port, _logger);
-                server.OnClientConnected += new EventHandler<ClientEventArgs<string>>((s, e) =>
-                {
-                    _logger.Info($"[{e.ClientSocket.RemoteEndPoint}]客户端已连接！");
-                });
-                server.OnClientDisconnected += new EventHandler<ClientEventArgs<string>>((s, e) =>
-                {
-                    _logger.Info($"[{e.ClientSocket.RemoteEndPoint}]客户端已断开！");
-                });
-                server.OnMessageReceived += new EventHandler<ClientEventArgs<byte[]>>((s, e) =>
-                {
-                    _logger.Info($"接收[{e.ClientSocket.RemoteEndPoint}]客户端消息：[{Encoding.UTF8.GetString(e.Message ?? new byte[0])}]！");
-                    //((JavaSocketServer?)s)?.SendToClientAsync(e.ClientSocket, "123123123");
-                });
-                await server.StartAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"初始化服务器发生异常！", ex);
-            }
-        }
-        #endregion
-
-        #region web服务器        
-        private readonly ConcurrentBag<IWebSocketConnection> webClients = [];       
+        #region websocket服务端       
+        private readonly ConcurrentBag<IWebSocketConnection> webClients = [];
         private DateTime _lastSend = DateTime.MinValue;
         private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(10); // 节流间隔，防止CPU占用高          
 
@@ -1351,10 +1436,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         private void RemoveClient(IWebSocketConnection client)
         {
             var clients = webClients.ToList();
-            if (clients.Contains(client))
-            {
-                clients.Remove(client);
-            }
+            clients.Remove(client);
         }
 
         // 高频安全广播
@@ -1391,7 +1473,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
 
             await Task.WhenAll(tasks);
         }
-        
+
         #endregion
 
         #region 视频流算法
@@ -1539,6 +1621,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         {
             try
             {
+                _logger.Info($"[{workstation}]准备执行视觉推理算法");
+                Stopwatch stopwatch = new();
+                stopwatch.Restart();
                 var AIParamData = new object?[]
                 {
                     AIModels,     // 模型列表
@@ -1552,11 +1637,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 };
                 // 执行推理算法
                 var re = ModelAction?.Invoke(YingYanAI, AIParamData);
+                stopwatch.Stop();
+                _logger.Info($"[{workstation}]-视觉推理算法执行完毕,耗时为{stopwatch.ElapsedMilliseconds}");
 
                 var AIResult = AIParamData[4] as List<List<AIResultModel>>;
                 var IsValid = AIParamData[5] as bool?;
                 var reFlag = AIParamData[6] as string;
                 var ExInfo = AIParamData[7] as string;
+
+                _logger.Info($"[{workstation}]视觉推理算法执行完毕,[IsValid]={IsValid},[reFlag]={reFlag},结果数量为{AIResult[0].Count},模型为{AIModels[0]}");
+
                 return (IsValid ?? false, ExInfo, AIResult, reFlag);
             }
             catch (Exception ex)
@@ -1584,6 +1674,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     Frame?.Dispose();
                     // 算法返回的结果图片
                     Frame = AIResultImg;
+                    _logger.Info($"执行去畸变算法成功!");
                     return;
                 }
                 _logger.Error($"执行去畸变算法后返回为{AIParamData[2]}，采用原图");
@@ -1591,6 +1682,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             catch (Exception ex)
             {
                 _logger.Error($"执行去畸变算法异常：{ex.Message}，采用原图");
+            }
+        }
+
+        private void Execute_ImageCutting(Mat Frame, MethodInfo? CropImgMat, object? YingYanAI, List<Mat> AbnormalKeyFrames)
+        {
+            try
+            {
+                var AIParamData = new object?[]
+                {
+                    Frame,      // 原图片
+                    800,        // 裁图左上角行坐标
+                    1130,       // 裁图左上角列坐标
+                    1600,       // 裁图右下角行坐标
+                    2300,       // 裁图右下角列坐标                        
+                    null,       // 裁切后图片
+                    null        // 接口异常返回信息                        
+                };
+
+                Stopwatch stopwatch = new();
+                stopwatch.Restart();
+                // 执行图片裁切算法
+                CropImgMat?.Invoke(YingYanAI, AIParamData);
+                stopwatch.Stop();
+
+                if (AIParamData[5] is Mat AIResultImg && !AIResultImg.Empty())
+                {
+                    AbnormalKeyFrames.Add(AIResultImg);
+                    _logger.Info($"执行图像裁切算法成功!,耗时为{stopwatch.ElapsedMilliseconds}");
+                    return;
+                }
+                _logger.Error($"执行图像裁切算法异常：返回为{AIParamData[5]}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"执行图像裁切算法异常：{ex.Message}");
             }
         }
         #endregion
@@ -1656,17 +1782,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             {
                 throw new Exception("新增或更新相机配置信息异常！", ex);
             }
-        }
-
-        /// <summary>
-        /// 删除
-        /// </summary>
-        /// <param name="cameras"></param>
-        public static void DeleteCameras(params CameraModel[] cameras)
-        {
-            if (cameras == null || cameras.Length <= 0) return;
-            var guidIds = cameras.Select(o => o.GuidId).ToArray();
-            DeleteCameras(guidIds);
         }
 
         /// <summary>

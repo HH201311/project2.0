@@ -10,6 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="UserControls\Project\**" />
+    <EmbeddedResource Remove="UserControls\Project\**" />
+    <None Remove="UserControls\Project\**" />
+    <Page Remove="UserControls\Project\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="HandyControl" Version="3.5.1" />
     <PackageReference Include="HelixToolkit.Core.Wpf" Version="2.27.0" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.9.3" />
@@ -30,7 +37,6 @@
     <Folder Include="Animations\" />
     <Folder Include="Behaviors\" />
     <Folder Include="Selectors\" />
-    <Folder Include="UserControls\Project\HawkEye\" />
   </ItemGroup>
 
 </Project>

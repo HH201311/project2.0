@@ -203,7 +203,9 @@ namespace SUNWODA_SEVB.Data
                 new GlobalSetting { Name = "CurrentUserAccount", Value = "guest", Type = "string", Remark = "当前用户", RoleRank = 0b1000 },//000访客 001工程师  010管理员 100超级管理员 
                 new GlobalSetting { Name = "IsMESEnabled", Value = "false", Type = "bool", Remark = "是否启用MES功能", RoleRank = 2 },
                 new GlobalSetting { Name = "PLCConnectTime", Value = "5000", Type = "int", Unit = "ms", Remark = "PLC重连时间", RoleRank = 2 },
-
+                new GlobalSetting { Name = "PythonInstallDir", Value = "", Type = "string", Remark = "Python安装目录", RoleRank = 2 },
+                new GlobalSetting { Name = "PythonSearchDir", Value = "", Type = "string", Remark = "Python搜索目录", RoleRank = 2 },
+                new GlobalSetting { Name = "IsInitPythonEnvironment", Value = "false", Type = "bool", Remark = "是否初始化Python环境,true为开启,false为关闭,默认false", RoleRank = 2 },
             };
 
             foreach (var setting in settings)

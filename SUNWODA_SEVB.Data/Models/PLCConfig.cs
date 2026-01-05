@@ -12,7 +12,7 @@ namespace SUNWODA_SEVB.Data.Models
         public string Name { get; set; } = null!;
         [SugarColumn(ColumnName = "device_id", ColumnDescription = "设备ID")]
         public int DeviceID { get; set; }
-        [SugarColumn(ColumnName = "ip", ColumnDescription = "IP地址")]
+        [SugarColumn(ColumnName = "Ip", ColumnDescription = "IP地址")]
         public string IP { get; set; } = null!;
         [SugarColumn(ColumnName = "port", ColumnDescription = "端口号")]
         public int Port { get; set; }

@@ -1,0 +1,108 @@
+﻿<Page
+    x:Class="SUNWODA_SEVB.Views.Pages.CapacityPrediction.CapacityPredictionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CapacityPrediction"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="CapacityPredictionPage"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+
+    <Grid>
+        <DockPanel Margin="5">
+            <Button
+                Height="40"
+                MinWidth="90"
+                Margin="100,0,0,0"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#3355FF"
+                Command="{Binding ExportDirectoryFile}"
+                Content="导入文件夹"
+                FontSize="14"
+                FontWeight="Black"
+                Foreground="White"
+                ToolTip="导入文件夹" />
+            <TextBlock
+                Margin="15,5,0,0"
+                HorizontalAlignment="left"
+                VerticalAlignment="Center"
+                FontSize="14PX"
+                FontWeight="Black"
+                Text="文件夹路径:"
+                TextAlignment="Left" />
+            <TextBlock
+                Margin="15,5,0,0"
+                HorizontalAlignment="left"
+                VerticalAlignment="Center"
+                FontSize="14PX"
+                FontWeight="Black"
+                Text="{Binding DirectoryFilePath}"
+                TextAlignment="Left" />
+        </DockPanel>
+        <DockPanel Margin="5,110,5,5">
+            <Button
+                Height="40"
+                MinWidth="90"
+                Margin="100,0,0,0"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#3355FF"
+                Command="{Binding LoadFile}"
+                Content="导入文件"
+                FontSize="14"
+                FontWeight="Black"
+                Foreground="White"
+                ToolTip="导入文件" />
+            <TextBlock
+                Margin="15,5,0,0"
+                HorizontalAlignment="left"
+                VerticalAlignment="Center"
+                FontSize="14PX"
+                FontWeight="Black"
+                Text="文件路径:"
+                TextAlignment="Left" />
+            <TextBlock
+                Margin="31,5,0,0"
+                HorizontalAlignment="left"
+                VerticalAlignment="Center"
+                FontSize="14PX"
+                FontWeight="Black"
+                Text="{Binding FilePath}"
+                TextAlignment="Left" />
+        </DockPanel>
+        <DockPanel Margin="5,210,5,5">
+            <Button
+                Height="40"
+                MinWidth="90"
+                Margin="100,0,0,0"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#3355FF"
+                Command="{Binding ExportFile}"
+                Content="设置导出文件夹路径"
+                FontSize="14"
+                FontWeight="Black"
+                Foreground="White"
+                ToolTip="导入文件" />
+            <TextBlock
+                Margin="15,5,0,0"
+                HorizontalAlignment="left"
+                VerticalAlignment="Center"
+                FontSize="14PX"
+                FontWeight="Black"
+                Text="文件夹路径:"
+                TextAlignment="Left" />
+            <TextBlock
+                Margin="31,5,0,0"
+                HorizontalAlignment="left"
+                VerticalAlignment="Center"
+                FontSize="14PX"
+                FontWeight="Black"
+                Text="{Binding OutFilePath}"
+                TextAlignment="Left" />
+        </DockPanel>
+    </Grid>
+</Page>

@@ -11,16 +11,35 @@ namespace SUNWODA_SEVB.Core.Models.Web
     /// </summary>
     public class DeviceBindingRequest
     {
-        public string? park { get; set; }
-        public string? stage { get; set; }
-        public string? line { get; set; }
-        public string? workship { get; set; }
-        public string? proceduce { get; set; }
-        public string? devId { get; set; }
-        public string? softName { get; set; }
-        public string? softVersion { get; set; }
-        public string? macId { get; set; }
-        public string? ip { get; set; }
+        [JsonPropertyName("park")]
+        public string? Park { get; set; }
+
+        [JsonPropertyName("stage")]
+        public string? Stage { get; set; }
+
+        [JsonPropertyName("line")]
+        public string? Line { get; set; }
+
+        [JsonPropertyName("workship")]
+        public string? Workship { get; set; }
+
+        [JsonPropertyName("procedure")]
+        public string? Procedure { get; set; }
+
+        [JsonPropertyName("devId")]
+        public string? DevId { get; set; }
+
+        [JsonPropertyName("softName")]
+        public string? SoftName { get; set; }
+
+        [JsonPropertyName("softVersion")]
+        public string? SoftVersion { get; set; }
+
+        [JsonPropertyName("macId")]
+        public string? MacId { get; set; }
+
+        [JsonPropertyName("ip")]
+        public string? Ip { get; set; }
     }
 
     /// <summary>
@@ -34,11 +53,13 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 设备ID
         /// </summary>
+        [JsonPropertyName("devId")]
         public string? DevId { get; set; }
 
         /// <summary>
         /// CPU使用率
         /// </summary>
+        [JsonPropertyName("cpu")]
         public string? Cpu { get; set; }
 
         /// <summary>
@@ -260,7 +281,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 1表示是正常启用，0表示禁用
         /// </summary>
         [JsonPropertyName("enable")]
-        public bool Enable { get; set; }
+        public int Enable { get; set; }
     }
 
     /// <summary>
@@ -488,6 +509,24 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("averageSlope")]
         public float AverageSlope { get; set; }
+
+        /// <summary>
+        /// 像素x轴坐标
+        /// </summary>
+        [JsonPropertyName("pixelCoordinateX")]
+        public float PixelCoordinateX { get; set; }
+
+        /// <summary>
+        /// 像素y轴坐标
+        /// </summary>
+        [JsonPropertyName("pixelCoordinateY")]
+        public float PixelCoordinateY { get; set; }
+
+        /// <summary>
+        /// 像素z轴坐标
+        /// </summary>
+        [JsonPropertyName("pixelCoordinateZ")]
+        public float PixelCoordinateZ { get; set; }
     }
 
     /// <summary>

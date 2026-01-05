@@ -147,16 +147,16 @@ namespace SUNWODA_SEVB.WEB.Services
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new DeviceBindingRequest
                 {
-                    park = workshipParts.ElementAtOrDefault(0) ?? "",
-                    stage = workshipParts.ElementAtOrDefault(1) ?? "",
-                    line = workshipParts.ElementAtOrDefault(2) ?? "",
-                    workship = workshipParts.ElementAtOrDefault(3) ?? "",
-                    proceduce = settings.DeviceName ?? "",
-                    devId = settings.DeviceSn ?? "",
-                    softName = settings.ZipFileName ?? "",
-                    softVersion = settings.SoftVersion ?? "",
-                    macId = networkInfo.MacAddress,
-                    ip = networkInfo.IpAddress ?? ""
+                    Park = workshipParts.ElementAtOrDefault(0) ?? "",
+                    Stage = workshipParts.ElementAtOrDefault(1) ?? "",
+                    Line = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Workship = workshipParts.ElementAtOrDefault(3) ?? "",
+                    Procedure = settings.DeviceName ?? "",
+                    DevId = settings.DeviceSn ?? "",
+                    SoftName = settings.ZipFileName ?? "",
+                    SoftVersion = settings.SoftVersion ?? "",
+                    MacId = networkInfo.MacAddress,
+                    Ip = networkInfo.IpAddress ?? ""
                 };
 
                 var response = await _apiClient.BindDeviceAsync(request);

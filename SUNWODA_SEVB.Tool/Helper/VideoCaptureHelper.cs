@@ -109,19 +109,22 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// </summary>
         public void DisConnect()
         {
-            StopReading();
-            ExecuteFrame = null;
-            videoCapture?.Dispose();
-            videoCapture = null;
+            lock (lockObj)
+            {
+                StopReading();
+                ExecuteFrame = null;
+                videoCapture?.Dispose();
+                videoCapture = null;
+            }
         }
 
         /// <summary>
         /// 摄像头是否打开
         /// </summary>
-        public bool IsOpened { get { return videoCapture?.IsOpened() ?? false; } }             
+        public bool IsOpened { get { return videoCapture?.IsOpened() ?? false; } }
 
         #region 视频流操作
-        private CancellationTokenSource? cts = new CancellationTokenSource();
+        private CancellationTokenSource? cts = new();
         /// <summary>
         /// 当视频流读取时操作
         /// </summary>
@@ -137,11 +140,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// </summary>
         public void StartReading()
         {
-            lock (lockObj)             
-            {
-                cts = new CancellationTokenSource();
-                VideoReadingAsync(ExecuteFrame, cts.Token);
-            }            
+            cts = new CancellationTokenSource();
+            VideoReadingAsync(ExecuteFrame, cts.Token);
         }
 
         /// <summary>
@@ -174,18 +174,21 @@ namespace SUNWODA_SEVB.Tool.Helper
                             // 若取消则退出
                             if (ct.IsCancellationRequested) break;
 
-                            // 摄像头未打开
-                            if ((videoCapture?.IsDisposed ?? true) || !(videoCapture?.IsOpened() ?? false))
+                            lock (lockObj)
                             {
-                                _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]打开失败，等待重连！");
-                                await Task.Delay(5000);
-                                continue;
-                            }
-                            // 读取视频帧
-                            if (!videoCapture.Read(frame) || frame.Empty())
-                            {
-                                _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]读取视频帧失败！");
-                                continue;
+                                // 摄像头未打开
+                                if ((videoCapture?.IsDisposed ?? true) || !(videoCapture?.IsOpened() ?? false))
+                                {
+                                    _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]打开失败，等待重连！");
+                                    Task.Delay(5000);
+                                    continue;
+                                }
+                                // 读取视频帧
+                                if (!videoCapture.Read(frame) || frame.Empty())
+                                {
+                                    _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]读取视频帧失败！");
+                                    continue;
+                                }
                             }
                             // 执行委托
                             _action?.Invoke(frame.Clone());
@@ -247,7 +250,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }, action, ct);
             await t;
-        }        
+        }
 
         /// <summary>
         /// 释放

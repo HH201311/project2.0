@@ -1,12 +1,14 @@
 ﻿
-using Newtonsoft.Json;
-using SUNWODA_SEVB.Core.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Xml.Serialization;
+using Newtonsoft.Json;
+using SUNWODA_SEVB.Core.Common;
 
 namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
 {
@@ -18,13 +20,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
     {
         private string guidId = Guid.NewGuid().ToString();
         private bool enable;
+        private bool isEnable;
         private string? name;
         private string? hostIP;
-        private string? protocol;
-        private string? workstaion;
+        private string? protocol = "RTSP";
+        private string? workstation;
         private string? remake;
         private bool removeDistortion;
-
+        private string? calibrationFilePath;
+        private double resolution = 25;
+        private bool videoSaving = false;
+        private bool realTimeDisplay = false;
+        private ImageSource? imageSource;
 
         /// <summary>
         /// 编号
@@ -42,7 +49,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         [XmlAttribute("是否启用")]
         public bool Enable
         {
-            get => enable;
+            get
+            {
+                IsEnable = !enable;
+                return enable;
+            }
             set => SetProperty(ref enable, value);
         }
 
@@ -80,10 +91,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         /// 工位名称
         /// </summary>
         [XmlAttribute("工位名称")]
-        public string? WorkStaion
+        public string? WorkStation
         {
-            get => workstaion;
-            set => SetProperty(ref workstaion, value);
+            get => workstation;
+            set => SetProperty(ref workstation, value);
         }
 
         /// <summary>
@@ -107,12 +118,80 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
         }
 
         /// <summary>
-        /// 连接字符串
+        /// 标定文件路径
+        /// </summary>
+        [XmlAttribute("标定文件路径")]
+        public string? CalibrationFilePath
+        {
+            get => calibrationFilePath;
+            set => SetProperty(ref calibrationFilePath, value);
+        }
+
+        /// <summary>
+        /// 分辨率
+        /// </summary>
+        [XmlAttribute("分辨率")]
+        public double Resolution
+        {
+            get => resolution;
+            set => SetProperty(ref resolution, value);
+        }
+
+        /// <summary>
+        /// 视频保存
+        /// </summary>
+        [XmlAttribute("视频保存")]
+        public bool VideoSaving
+        {
+            get => videoSaving;
+            set => SetProperty(ref videoSaving, value);
+        }
+
+        /// <summary>
+        /// 实时界面展示
+        /// </summary>
+        [XmlAttribute("实时界面展示")]
+        public bool RealTimeDisplay
+        {
+            get => realTimeDisplay;
+            set => SetProperty(ref realTimeDisplay, value);
+        }
+
+        /// <summary>
+        /// 通讯协议列表
         /// </summary>
         [XmlIgnore()]
-        public string? ConnectionString { get { return $"rtsp://admin:admin@{HostIP}:554/Streaming/Channels/1"; } }
+        public List<string> ProtocolList { get; } = ["RTSP", "USB"];
 
-        // $"rtsp://{HostIP}:554/user=admin&password=admin&channel=1"
+        /// <summary>
+        /// 是否可以设置
+        /// </summary>
+        [XmlIgnore()]
+        public bool IsEnable
+        {
+            get => isEnable;
+            set => SetProperty(ref isEnable, value);
+        }
 
-       }
+        /// <summary>
+        /// 实时显示图片源
+        /// </summary>
+        [XmlIgnore()]
+        public ImageSource? ImageSource
+        {
+            get => imageSource;
+            set => SetProperty(ref imageSource, value);
+        }
+
+        private string? imageSources = "D:\\单机数字化平台\\sunwoda_Sevb\\SUNWODA_SEVB\\bin\\Debug\\Configs\\PTO叠片取放料数据\\5mm\\0167_Start.jpg";
+        /// <summary>
+        /// 实时显示图片源
+        /// </summary>
+        [XmlIgnore()]
+        public string? ImageSources
+        {
+            get => imageSources;
+            set => SetProperty(ref imageSources, value);
+        }
+    }
 }

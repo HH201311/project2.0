@@ -286,12 +286,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             {
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
-                var dataPortString = await projectSettingRepo.GetSettingValueAsync("Port", "ConConectorInstaller");
-
-                if (int.TryParse(dataPortString, out int portFromDb) && portFromDb > 0)
+                var dataPort = await projectSettingRepo.GetByNameAndVMAsync("Port", "ConConectorInstaller");
+                if (int.TryParse(dataPort?.Value, out int portFromDb) && portFromDb > 0)
                 {
                     Port = portFromDb;
-                    LogInfo($"从数据库获取端口配置: {Port}");
                 }
                 else
                 {
@@ -311,7 +309,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             if (IsServerRunning) return;
             await InitializePortAsync();
 
-            var success = await _socketServer.StartAsync(0, "ConConectorInstaller");
+            var success = await _socketServer.StartAsync(0, "ConConectorInstaller",null);
             if (success)
             {
                 IsServerRunning = true;
@@ -326,7 +324,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         {
             if (!IsServerRunning) return;
 
-            await _socketServer.StopAsync();
+            // 临时取消错误事件订阅
+            _socketServer.ErrorOccurred -= OnErrorOccurred;
+
+            try
+            {
+                await _socketServer.StopAsync();
+            }
+            finally
+            {
+                // 重新订阅
+                _socketServer.ErrorOccurred += OnErrorOccurred;
+            }
+
             IsServerRunning = false;
             ConnectedClients.Clear();
             LogInfo("服务已停止");
@@ -404,63 +414,137 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         /// </summary>
         private void ProcessReceivedData(string clientEndPoint, string message)
         {
+            // 二次确认忽略心跳消息
+            if (string.IsNullOrWhiteSpace(message) ||
+                message.Equals("Send", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             try
             {
-                // 这里根据实际协议解析数据
-                // 示例：假设数据格式为JSON
-                var data = JsonSerializer.Deserialize<TighteningData>(message);
-                if (data == null) return;
-
-                // 更新Pack包和螺丝标签
-                RunOnUIThread(() =>
+                var options = new JsonSerializerOptions
                 {
-                    CurrentPackCode = data.PackCode ?? CurrentPackCode;
-                    SelectedScrewLabel = data.ScrewLabel ?? SelectedScrewLabel;
-                });
-
-                // 生成曲线数据点
-                var dataPoints = new ObservableCollection<PlotDataPoint>();
-                if (data.CurveData != null)
-                {
-                    for (int i = 0; i < data.CurveData.Length; i++)
-                    {
-                        dataPoints.Add(new PlotDataPoint(i * 0.01, data.CurveData[i]));
-                    }
-                }
-
-                // 创建数据系列
-                var series = new PlotDataSeries
-                {
-                    Name = $"{data.ScrewLabel} - {DateTime.Now:HH:mm:ss}",
-                    DataPoints = dataPoints
+                    PropertyNameCaseInsensitive = true
                 };
 
-                // 根据结果添加到对应曲线
+                var data = JsonSerializer.Deserialize<TighteningResult>(message, options);
+                if (data?.TestData == null || data.TestData.Count == 0)
+                {
+                    LogWarn($"端口{clientEndPoint}接收到的数据为空或无测试数据");
+                    return;
+                }
+
+                // 更新Pack包编码
                 RunOnUIThread(() =>
                 {
-                    if (data.IsOk)
-                    {
-                        OkPlotDataSeries.Add(series);
-                        // 限制最大曲线数量
-                        while (OkPlotDataSeries.Count > 10)
-                        {
-                            OkPlotDataSeries.RemoveAt(0);
-                        }
-                    }
-                    else
-                    {
-                        NgPlotDataSeries.Add(series);
-                        while (NgPlotDataSeries.Count > 10)
-                        {
-                            NgPlotDataSeries.RemoveAt(0);
-                        }
-                    }
+                    CurrentPackCode = data.ProductSn ?? CurrentPackCode;
                 });
+
+                // 按 paramSort 分组处理（每个螺丝位置有扭矩和角度两条数据）
+                var groupedBySort = data.TestData
+                    .GroupBy(p => p.ParamSort)
+                    .OrderBy(g => int.TryParse(g.Key, out var sortNum) ? sortNum : 0);
+
+                foreach (var group in groupedBySort)
+                {
+                    var torqueParam = group.FirstOrDefault(p =>
+                        p.ParamUnit?.Equals("N.M", StringComparison.OrdinalIgnoreCase) == true);
+                    var angleParam = group.FirstOrDefault(p =>
+                        p.ParamUnit?.Equals("°", StringComparison.OrdinalIgnoreCase) == true);
+
+                    if (torqueParam == null) continue;
+
+                    var screwLabel = ExtractScrewLabel(torqueParam.ParamName, group.Key);
+                    var isItemOk = group.All(p => p.IsOk);
+
+                    // 更新当前螺丝标签
+                    RunOnUIThread(() => SelectedScrewLabel = screwLabel);
+
+                    // 创建曲线数据（这里用扭矩值作为示例，实际可能需要曲线数据）
+                    var series = CreatePlotSeries(screwLabel, torqueParam, angleParam);
+
+                    // 根据结果添加到对应曲线集合
+                    AddToPlotCollection(series, isItemOk);
+                }
+
+                // 记录整体结果
+                var resultText = data.IsOk ? "OK" : "NG";
+                var screwCount = groupedBySort.Count();
+                var okCount = groupedBySort.Count(g => g.All(p => p.IsOk));
+
+                LogInfo($"数据处理完成 - 产品: {data.ProductSn}, 结果: {resultText}, " +$"螺丝数: {screwCount}, OK: {okCount}, NG: {screwCount - okCount}");
+            }
+            catch (JsonException ex)
+            {
+                LogError($"JSON解析失败: {ex.Message}");
             }
             catch (Exception ex)
             {
-                LogError($"解析数据失败: {ex.Message}");
+                LogError($"处理数据失败: {ex.Message}");
             }
+        }
+        /// <summary>
+        /// 从参数名提取螺丝标签
+        /// </summary>
+        private string ExtractScrewLabel(string? paramName, string? sortIndex)
+        {
+            // "上盖螺栓固定扭矩1" -> "螺丝 #1"
+            if (!string.IsNullOrEmpty(sortIndex))
+            {
+                return $"螺丝 #{sortIndex}";
+            }
+            return paramName ?? "未知螺丝";
+        }
+        /// <summary>
+        /// 创建曲线数据系列
+        /// </summary>
+        private PlotDataSeries CreatePlotSeries(string screwLabel, TighteningParam torque, TighteningParam? angle)
+        {
+            var dataPoints = new ObservableCollection<PlotDataPoint>();
+
+            // 由于实际数据只有最终值，没有过程曲线
+            // 这里可以显示：上下限范围 + 实际值的柱状/点图
+            // 或者如果有曲线数据源，需要另外处理
+
+            // 示例：创建简单的数据点（扭矩值）
+            if (double.TryParse(torque.ParamFirstLower, out var lower) &&
+                double.TryParse(torque.ParamFirstUpper, out var upper))
+            {
+                // 添加上下限参考线的点
+                dataPoints.Add(new PlotDataPoint(0, lower));  // 下限
+                dataPoints.Add(new PlotDataPoint(1, torque.NumericValue));  // 实际值
+                dataPoints.Add(new PlotDataPoint(2, upper));  // 上限
+            }
+            else
+            {
+                dataPoints.Add(new PlotDataPoint(0, torque.NumericValue));
+            }
+
+            return new PlotDataSeries
+            {
+                Name = $"{screwLabel} ({torque.ParamValue}{torque.ParamUnit}) - {DateTime.Now:HH:mm:ss}",
+                DataPoints = dataPoints,
+                LineWidth = 2
+            };
+        }
+
+        /// <summary>
+        /// 添加到对应的曲线集合
+        /// </summary>
+        private void AddToPlotCollection(PlotDataSeries series, bool isOk)
+        {
+            RunOnUIThread(() =>
+            {
+                var collection = isOk ? OkPlotDataSeries : NgPlotDataSeries;
+                collection.Add(series);
+
+                // 限制最大曲线数量
+                while (collection.Count > 10)
+                {
+                    collection.RemoveAt(0);
+                }
+            });
         }
 
         /// <summary>

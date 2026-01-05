@@ -200,7 +200,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     return false;
                 }
 
-                var softName = settings.ZipFileName ?? "";
+                var softName = settings.ZipFileName ?? "aa" ;
                 var softVersion = settings.SoftVersion ?? "";
                 var deviceSn = settings.DeviceSn ?? "";
 

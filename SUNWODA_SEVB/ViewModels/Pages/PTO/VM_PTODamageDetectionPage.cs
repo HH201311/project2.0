@@ -373,18 +373,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             set
             {
                 InitReportFunction();
-
-                // ⭐ 初始化阶段不触发任何逻辑（关键）
                 if (_isInitializing)
                 {
                     _isOnlineDetectionEnabledB = value;
                     OnPropertyChanged();
                     return;
                 }
-
                 if (_isOnlineDetectionEnabledB == value) return;
                 IsOfflineProgressVisible = Visibility.Collapsed;
-
                 // 在线检测开启逻辑
                 if (value)
                 {
@@ -476,7 +472,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged();
             }
         }
-        //当前在线监控的工位（A/B，默认空）
+        //当前在线监控的工位
         private string? _currentMonitoringStation;
         public string? CurrentMonitoringStation
         {
@@ -5917,26 +5913,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 离线检测全部完成后，主动生成剩余报表
         /// </summary>
-        private void GenerateOfflineFinalReport()
+        private async Task GenerateOfflineFinalReport()
         {
             if (!_isOfflineMode || _isOfflineDetectionCompleted)
                 return;
 
-            lock (_queue1Lock)
-            {
+
                 // 停止超时定时器
                 _reportTimer?.Stop();
 
                 //若队列中有剩余电芯编码，逐个生成报表直到队列为空
                 while (_cellCodeQueue.Count > 0)
                 {
-                    GenerateReport().Wait();
+                    await GenerateReport();
                 }
 
                 //标记检测已完成，防止重复调用
                 _isOfflineDetectionCompleted = true;
                 AddLog("[离线报表完成] 所有剩余电芯编码已处理完成");
-            }
+
         }
 
 
@@ -6417,7 +6412,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
 
 
-                            // 每个图片都显示电芯编码
+                            // 每个图片都显示电芯编码，确保清晰
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"电芯编码：{imgInfo.CellCode}").SetBold().SetMarginBottom(0));
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"班次：{imgInfo.Shift}").SetMarginBottom(0));
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"正负极：{imgInfo.Polarity}").SetMarginBottom(0));
@@ -6500,6 +6495,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+        // 修改后的辅助方法
         private void AddInfoRowToSubTable(iText.Layout.Element.Table table, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor, string label, string value)
         {
             // 标签单元格 - 统一设置所有边框
@@ -6516,7 +6512,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetPadding(5));
         }
 
-        //表头单元格创建
+        // 简化表头单元格创建
         private iText.Layout.Element.Cell CreateHeaderCell(string text, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor)
         {
             return new iText.Layout.Element.Cell()
@@ -6528,7 +6524,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetPadding(5);
         }
 
-        //数据单元格创建
+        // 简化数据单元格创建
         private iText.Layout.Element.Cell CreateDataCell(string text, iText.Layout.Borders.Border border)
         {
             return new iText.Layout.Element.Cell()

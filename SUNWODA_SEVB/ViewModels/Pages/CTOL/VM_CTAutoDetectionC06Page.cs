@@ -1484,6 +1484,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         // 定时清理超时条码的Timer
         private System.Timers.Timer _timeoutCleanupTimer;
 
+        // 缓存每张图的间隙最大值数组（键=图片路径，值=gapMaxArray：[0]负极边缘 [1]正极边缘 [2]正极中间）
+        private readonly ConcurrentDictionary<string, double[]> _imageGapValueCache = new ConcurrentDictionary<string, double[]>();
+        // CSV保存路径（可自定义）
+        private readonly string _gapDefectCsvPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GapDefectDetail.csv");
+        // CSV写入锁
+        private readonly object _gapCsvLock = new object();
+
         #region LAB在线监控参数
         private string? _selectedMonitorFolderPathLAB;
         public string? SelectedMonitorFolderPathLAB
@@ -3972,7 +3979,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     new ProjectSettingModel(
                         "SelectedResultImagePath ",
                         "VM_CTAutoDetectionC06Page",
-                        "0",
+                        "",
                         "string",
                         1
                     )
@@ -4083,7 +4090,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             _imeresultRoot = Path.Combine(SelectedResultImagePath ?? @"E:\", "IMEResult");
             // 指定新目标根路径， "\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C01CT看图（中工序）（A线）（勿删）\CT\IMEResult"
-            _archiveTargetRoot = @"\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C06CT看图（中工序）（A线）勿删\IMEResult";
+            _archiveTargetRoot = @"\\10.178.5.10\质量部看图文件夹\La6中工序B线\IMEResult";
             // 初始化文件移动服务
             _fileMoverService = new DefectFileMoverService(_imeresultRoot, _archiveTargetRoot);
             _fileMoverService.AddLog = this.AddLog;
@@ -5036,6 +5043,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     drawStopwatch.Stop();
                     AddLog($"[绘图耗时] {drawStopwatch.ElapsedMilliseconds} ms");
 
+                    //--------------CSV记录阈值（后续可以删掉）------------------------
+                    if (gapMaxArray != null && gapMaxArray.Length >= 3)
+                    {
+                        _imageGapValueCache.TryAdd(imageFilePath, gapMaxArray);
+                        AddLog($"[间隙值缓存] {Path.GetFileName(imageFilePath)} - 负极边缘：{gapMaxArray[0]:F3}，正极边缘：{gapMaxArray[1]:F3}，正极中间：{gapMaxArray[2]:F3}");
+                    }
+                    else
+                    {
+                        AddLog($"[间隙值缓存失败] {Path.GetFileName(imageFilePath)} - gapMaxArray为空或长度不足");
+                        // 兜底：存入空数组避免后续报错
+                        _imageGapValueCache.TryAdd(imageFilePath, new double[] { 0, 0, 0 });
+                    }
+                    //------------------------------------------------------------------
+
+
                     // 更新UI实时预览
                     if (resultImage != null && resultImage.IsInitialized())
                     {
@@ -5708,8 +5730,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             bool finalIsOK = true;
             string finalHighestPriorityDefect = "无缺陷";
             List<string> confirmedDefects = new List<string>();
-            DateTime processStartTime = DateTime.Now;
-            DateTime endTime = DateTime.Now;
+           // DateTime processStartTime = DateTime.Now;
+            //DateTime endTime = DateTime.Now;
+
+            List<CsvGapDetail> csvGapDetails = new List<CsvGapDetail>();
 
             try
             {
@@ -5753,9 +5777,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                     else
                     {
+
                         individualResultName = "OK";
                     }
-
+                    //--------------------CSV记录阈值(后续可删掉)-------------------
+                    double[] gapValues = _imageGapValueCache.TryGetValue(result.imgPath, out var arr)
+                        ? arr
+                        : new double[] { 0, 0, 0 }; // 兜底空值
+                    csvGapDetails.Add(new CsvGapDetail
+                    {
+                        ImageName = Path.GetFileName(result.imgPath),
+                        DetectionResult = individualResultName,
+                        NegativeEdgeGap = gapValues.Length > 0 ? gapValues[0] : 0,
+                        PositiveEdgeGap = gapValues.Length > 1 ? gapValues[1] : 0,
+                        PositiveMiddleGap = gapValues.Length > 2 ? gapValues[2] : 0
+                    });
+                    //-----------------------------------------------------------------
                     imageFinalResults.Add((result.imgPath, result.resultImage, individualResultName));
                 }
                 if (confirmedDefects.Any())
@@ -5800,6 +5837,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                     break;
                             }
                             UpdateRiskRatios();
+                        }
+                        if (IsTargetGapDefect(finalHighestPriorityDefect))
+                        {
+                            // 异步写入CSV，不阻塞主线程
+                            await Task.Run(() =>
+                            {
+                                AppendGapDetailToCsv(csvGapDetails, barcode, station);
+                                foreach (var result in firstDetectionResults)
+                                {
+                                    _imageGapValueCache.TryRemove(result.imgPath, out _);
+                                }
+                            });
                         }
                     }
                 }
@@ -5866,24 +5915,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                 });
                 // 记录结束时间
-                endTime = DateTime.Now;
+                //endTime = DateTime.Now;
 
-                // 计算各个阶段耗时
-                TimeSpan totalTime = endTime - startTime;
-                TimeSpan queueWaitTime = processStartTime - startTime;
-                TimeSpan processingTime = endTime - processStartTime;
+                //// 计算各个阶段耗时
+                //TimeSpan totalTime = endTime - startTime;
+                //TimeSpan queueWaitTime = processStartTime - startTime;
+                //TimeSpan processingTime = endTime - processStartTime;
 
-                // 记录到CSV文件
-                LogCellDetectionTimeToCSV(
-                    station: station,
-                    barcode: barcode,
-                    startTime: startTime,
-                    endTime: endTime,
-                    result: finalIsOK ? "OK" : "NG",
-                    defectType: finalHighestPriorityDefect,
-                    queueWaitMs: (int)queueWaitTime.TotalMilliseconds,
-                    processingMs: (int)processingTime.TotalMilliseconds
-                );
+                //// 记录到CSV文件
+                //LogCellDetectionTimeToCSV(
+                //    station: station,
+                //    barcode: barcode,
+                //    startTime: startTime,
+                //    endTime: endTime,
+                //    result: finalIsOK ? "OK" : "NG",
+                //    defectType: finalHighestPriorityDefect,
+                //    queueWaitMs: (int)queueWaitTime.TotalMilliseconds,
+                //    processingMs: (int)processingTime.TotalMilliseconds
+                //);
 
                 //更新UI列表
                 await Application.Current.Dispatcher.InvokeAsync(new Action(() =>
@@ -5916,7 +5965,109 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             //    }
             //}
         }
+        #region 记录正负极间隙值到CSV
+        /// <summary>
+        /// CSV明细数据模型（对应表头：图片名、检测结果、负极边缘间隙、正极边缘间隙、正极中间间隙）
+        /// </summary>
+        private class CsvGapDetail
+        {
+            public string ImageName { get; set; } = string.Empty;    // 图片名
+            public string DetectionResult { get; set; } = string.Empty; // 检测结果
+            public double NegativeEdgeGap { get; set; } // 负极边缘间隙
+            public double PositiveEdgeGap { get; set; } // 正极边缘间隙
+            public double PositiveMiddleGap { get; set; } // 正极中间间隙
+        }
 
+        /// <summary>
+        /// 判断是否是目标间隙不良
+        /// </summary>
+        private bool IsTargetGapDefect(string defectType)
+        {
+            return defectType == "负极边缘间隙不良" ||
+                   defectType == "正极边缘间隙不良" ||
+                   defectType == "正极中间间隙不良";
+        }
+
+
+        // CSV根路径
+        private readonly string _gapCsvRootPath = AppDomain.CurrentDomain.BaseDirectory;
+        private readonly string _gapCsvFolderName = "正负极间隙值";
+
+        private string _gapCsvFolderPath => Path.Combine(Environment.CurrentDirectory, "..", _gapCsvFolderName);
+
+        /// <summary>
+        /// 获取当日的间隙值CSV文件路径
+        /// </summary>
+        private string GetDailyGapCsvPath()
+        {
+            if (!Directory.Exists(_gapCsvFolderPath))
+            {
+                Directory.CreateDirectory(_gapCsvFolderPath);
+                AddLog($"[CSV文件夹创建] 已创建专属文件夹：{_gapCsvFolderPath}");
+            }
+            string dateStr = DateTime.Now.ToString("yyyyMMdd");
+            string fileName = $"GapDefectDetail_{dateStr}.csv";
+            string fullPath = Path.Combine(_gapCsvFolderPath, fileName);
+            return fullPath;
+        }
+
+
+        /// <summary>
+        /// 初始化间隙不良CSV文件
+        /// </summary>
+        private void InitGapCsvFile()
+        {
+            // 动态获取当日CSV路径
+            string dailyCsvPath = GetDailyGapCsvPath();
+            if (!File.Exists(dailyCsvPath))
+            {
+                lock (_gapCsvLock)
+                {
+                    if (!File.Exists(dailyCsvPath))
+                    {
+                        // 确保软件同级目录存在
+                        Directory.CreateDirectory(Path.GetDirectoryName(dailyCsvPath)!);
+                        // 写入当日CSV表头
+                        string header = "电芯条码,工位,图片名,检测结果,负极边缘间隙,正极边缘间隙,正极中间间隙";
+                        File.WriteAllText(dailyCsvPath, header + Environment.NewLine, Encoding.UTF8);
+                        AddLog($"[间隙CSV初始化] 已创建当日文件：{dailyCsvPath}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 追加8张图的间隙明细到CSV
+        /// </summary>
+        private void AppendGapDetailToCsv(List<CsvGapDetail> gapDetails, string barcode, string station)
+        {
+            if (gapDetails == null || gapDetails.Count != 8)
+            {
+                AddLog($"[间隙CSV写入失败] 电芯{barcode}数据条数异常：{gapDetails?.Count ?? 0}/8");
+                return;
+            }
+
+            lock (_gapCsvLock)
+            {
+                // 初始化当日CSV
+                InitGapCsvFile();
+                // 获取当日CSV路径
+                string dailyCsvPath = GetDailyGapCsvPath();
+
+                StringBuilder sb = new StringBuilder();
+                foreach (var detail in gapDetails)
+                {
+                    string imageName = EscapeCsvField(detail.ImageName);
+                    string detectResult = EscapeCsvField(detail.DetectionResult);
+                    sb.AppendLine($"{barcode},{station},{imageName},{detectResult}," +
+                                  $"{detail.NegativeEdgeGap:F3},{detail.PositiveEdgeGap:F3},{detail.PositiveMiddleGap:F3}");
+                }
+                // 追加写入当日CSV
+                File.AppendAllText(dailyCsvPath, sb.ToString(), Encoding.UTF8);
+                //AddLog($"[间隙CSV写入成功] 电芯{barcode}（{station}工位）8张图明细已写入：{dailyCsvPath}");
+            }
+        }
+        #endregion
         private async Task<string?> GetUnifiedSaveDirectory(string sampleImagePath, string barcode, string defectType)
         {
             return await Task.Run(() =>

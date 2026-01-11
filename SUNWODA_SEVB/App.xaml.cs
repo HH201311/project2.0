@@ -14,6 +14,7 @@ using SUNWODA_SEVB.Logging.Targets;
 using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
+using SUNWODA_SEVB.Services.Project;
 using SUNWODA_SEVB.Tool.Configuration;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
@@ -41,6 +42,7 @@ namespace SUNWODA_SEVB
             //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
+                MonitorAppIsRunning();
                 // 确保配置文件存在且有效
                 ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host
@@ -182,11 +184,11 @@ namespace SUNWODA_SEVB
             // 添加Web服务
             services.AddWebServices();
 
-            // 添加Socket服务
-            services.AddSocketServices();
-
             // 添加MVVM框架服务
             services.AddMvvmFramework();
+
+            // 注册项目相关服务(后期合并)
+            services.AddProjectServices();
 
             // 注册主窗口的ViewModel和View
             services.AddSingleton<VM_MainWindow>();
@@ -298,30 +300,7 @@ namespace SUNWODA_SEVB
             }
         }
 
-        ///// <summary>
-        ///// 初始化MES服务
-        ///// </summary>
-        //private async Task InitializeMESService(ILoggerService<App> logger)
-        //{
-        //    try
-        //    {
-        //        var mesService = _host!.Services.GetRequiredService<IMesService>();
-        //        var mesInitialized = await mesService.InitializeAsync();
-
-        //        if (mesInitialized)
-        //        {
-        //            logger.Info("MES服务初始化成功");
-        //        }
-        //        else
-        //        {
-        //            logger.Info("MES服务未启用或初始化失败");
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        logger.Error($"MES服务初始化异常: {ex.Message}", ex);
-        //    }
-        //}
+    
 
         /// <summary>
         /// 初始化应用设置

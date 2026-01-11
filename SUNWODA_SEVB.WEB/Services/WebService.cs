@@ -4,12 +4,9 @@ using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
-using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.WEB.Services
 {

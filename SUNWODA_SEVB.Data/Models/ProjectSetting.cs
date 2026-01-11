@@ -13,7 +13,7 @@ namespace SUNWODA_SEVB.Data.Models
         public string Name { get; set; } = null!;
         [SugarColumn(ColumnName = "belong_to_vm", ColumnDescription = "属于哪个应用的VM")]
         public string BelongToVM { get; set; } = null!;
-        [SugarColumn(ColumnName = "value", ColumnDescription = "值")]
+        [SugarColumn(ColumnName = "value", ColumnDescription = "值",ColumnDataType ="text")]
         public string Value { get; set; } = null!;
         [SugarColumn(ColumnName = "type", ColumnDescription = "变量类型")]
         public string Type { get; set; } = null!;

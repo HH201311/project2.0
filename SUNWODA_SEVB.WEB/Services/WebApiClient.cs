@@ -1,17 +1,11 @@
 ﻿using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Threading.Tasks.Dataflow;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using OpenCvSharp;
-using Org.BouncyCastle.Ocsp;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
-using static SUNWODA_SEVB.Tool.Helper.NetworkHelper;
 
 namespace SUNWODA_SEVB.WEB.Services
 {
@@ -817,13 +811,13 @@ namespace SUNWODA_SEVB.WEB.Services
 
 
         public async Task<TrajectoryDataResponse> TrajectoryDataAsync(
-    string position,
-    string barCode,
-    long abnormalTimeStamp,
-    long abnormalTimeStampEnd,
-    List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, // <= 1 或 2 或 0 都支持
-    List<FrameDtoList> frameDtoList,
-    string abnormaVideoStatus)
+            string position,
+            string barCode,
+            long abnormalTimeStamp,
+            long abnormalTimeStampEnd,
+            List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, // <= 1 或 2 或 0 都支持
+            List<FrameDtoList> frameDtoList,
+            string abnormaVideoStatus)
         {
             try
             {

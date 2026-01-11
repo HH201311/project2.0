@@ -834,7 +834,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
         }
 
-        public static void SaveTXTFile(string FilePath, string FileName, string content)
+        public void SaveTXTFile(string FilePath, string FileName, string content)
         {
             try
             {
@@ -861,6 +861,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
             catch (Exception ex)
             {
+                _logger.Error($"保存TXT文件出错{ex.Message}");
                 throw;
             }
         }

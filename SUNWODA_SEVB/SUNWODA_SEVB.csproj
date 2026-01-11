@@ -83,7 +83,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="nlog.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
@@ -108,21 +108,6 @@
     </Reference>
     <Reference Include="Yolo8Core">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Yolo8Core.dll</HintPath>
-    </Reference>
-    <Reference Include="YOLOClsFW48_sevb">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLOClsFW48_sevb.dll</HintPath>
-    </Reference>
-    <Reference Include="YOLODetFW48_sevb">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLODetFW48_sevb.dll</HintPath>
-    </Reference>
-    <Reference Include="YOLOPoseFW48_sevb">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLOPoseFW48_sevb.dll</HintPath>
-    </Reference>
-    <Reference Include="YOLOSegFW48_sevb">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLOSegFW48_sevb.dll</HintPath>
-    </Reference>
-    <Reference Include="ZZC03PDJS">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC03PDJS.dll</HintPath>
     </Reference>
   </ItemGroup>
 

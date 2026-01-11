@@ -34,20 +34,76 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
         private FrameParseResult ParseStartEndDelimiter(byte[] buffer, int offset, int length)
         {
             if (_options.StartDelimiter == null || _options.EndDelimiter == null)
+            {
                 return new FrameParseResult { Success = false };
+            }
+
+            //// 添加调试信息
+            //var searchData = new byte[Math.Min(length, 50)]; // 只显示前50字节
+            //Array.Copy(buffer, offset, searchData, 0, searchData.Length);
+            //var searchHex = BitConverter.ToString(searchData);
+            //var startDelimHex = BitConverter.ToString(_options.StartDelimiter);
+            //var endDelimHex = BitConverter.ToString(_options.EndDelimiter);
+
+            //Console.WriteLine($"[DEBUG] 搜索数据: [{searchHex}]");
+            //Console.WriteLine($"[DEBUG] 起始符: [{startDelimHex}], 结束符: [{endDelimHex}]");
 
             var startIndex = FindPattern(buffer, offset, length, _options.StartDelimiter);
-            if (startIndex < 0)
-                return new FrameParseResult { Success = false };
+            //Console.WriteLine($"[DEBUG] startIndex = {startIndex}");
 
+            if (startIndex < 0)
+            {
+                var keepBytes = Math.Min(length, _options.StartDelimiter.Length - 1);
+                var skipBytes = length - keepBytes;
+
+                return new FrameParseResult
+                {
+                    Success = false,
+                    ConsumedBytes = skipBytes > 0 ? skipBytes : 0
+                };
+            }
+
+            // 起始符之前有无效数据，先跳过
+            if (startIndex > offset)
+            {
+                return new FrameParseResult
+                {
+                    Success = false,
+                    ConsumedBytes = startIndex - offset  // 跳过起始符之前的无效数据
+                };
+            }
+
+            // 在起始符之后搜索结束符
             var searchOffset = startIndex + _options.StartDelimiter.Length;
             var searchLength = length - (searchOffset - offset);
+
+            if (searchLength <= 0)
+            {
+                // 数据不足，等待更多数据
+                return new FrameParseResult { Success = false, ConsumedBytes = 0 };
+            }
             var endIndex = FindPattern(buffer, searchOffset, searchLength, _options.EndDelimiter);
 
+            // 找不到结束符 - 数据不完整，等待更多数据
             if (endIndex < 0)
-                return new FrameParseResult { Success = false };
+            {
+                // 检查是否超过最大帧长度
+                var currentFrameLength = length - (startIndex - offset);
+                if (currentFrameLength > _options.MaxFrameLength)
+                {
+                    // 帧太长，丢弃起始符，重新搜索
+                    return new FrameParseResult
+                    {
+                        Success = false,
+                        ConsumedBytes = _options.StartDelimiter.Length,
+                        ErrorMessage = $"帧长度超过限制 {_options.MaxFrameLength}"
+                    };
+                }
+                // 正常情况：等待更多数据
+                return new FrameParseResult { Success = false, ConsumedBytes = 0 };
+            }
 
-            // 提取帧数据
+            // 找到完整帧，提取数据
             int frameStart, frameLength;
             if (_options.StripDelimiters)
             {

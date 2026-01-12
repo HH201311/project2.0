@@ -4,15 +4,15 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converter="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Windows.Project"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:hc="https://handyorg.github.io/handycontrol"  
+    xmlns:interactivity="clr-namespace:HandyControl.Interactivity;assembly=HandyControl"
     xmlns:uccctb="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB;assembly=SUNWODA_SEVB.Component"
     Title="单机数字化平台" Foreground="White" WindowStyle="None" AllowsTransparency="True"
     Background="#FF121212"
-    Width="1920"
-    Height="1080"
+    d:DesignHeight="1080" d:DesignWidth="1920"
     WindowState="Maximized"
     mc:Ignorable="d">
     <!--  添加资源和转换器  -->
@@ -20,7 +20,9 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml"/>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBGrowlControlStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="hc:Growl" BasedOn="{StaticResource IndustrialGrowlStyle}"/>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -123,6 +125,11 @@
                     </Style>
                 </Frame.Resources>
             </Frame>
+
+            <!-- Growl 专用容器 -->
+            <ScrollViewer Margin="0,0,0,-20" Width="Auto" HorizontalAlignment="Right">
+                <StackPanel hc:Growl.Token="ProductionMonitor" VerticalAlignment="Top" HorizontalAlignment="Right"/>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </hc:Window>

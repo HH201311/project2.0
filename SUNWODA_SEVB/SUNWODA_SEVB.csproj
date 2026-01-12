@@ -12,22 +12,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Assets\Fonts\iconfont_cctb.ttf" />
-    <None Remove="Assets\Fonts\SourceHanSansCN.otf" />
-    <None Remove="Assets\Fonts\阿里妈妈数黑体.ttf" />
-    <None Remove="Assets\images\logo%402x.png" />
-    <None Remove="Assets\images\logo.png" />
-    <Compile Remove="ViewModels\Pages\CCTB\**" />
-    <Compile Remove="Views\Pages\CCTB\**" />
-    <EmbeddedResource Remove="ViewModels\Pages\CCTB\**" />
-    <EmbeddedResource Remove="Views\Pages\CCTB\**" />
-    <None Remove="ViewModels\Pages\CCTB\**" />
-    <None Remove="Views\Pages\CCTB\**" />
-    <Page Remove="ViewModels\Pages\CCTB\**" />
-    <Page Remove="Views\Pages\CCTB\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="Assets\images\plus.png" />
   </ItemGroup>
 
@@ -120,9 +104,6 @@
     <Reference Include="ZZC03PDJS">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC03PDJS.dll</HintPath>
     </Reference>
-    <Reference Include="ZZPack">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -141,6 +122,21 @@
     <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

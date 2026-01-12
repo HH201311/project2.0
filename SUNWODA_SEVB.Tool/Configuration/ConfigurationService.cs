@@ -79,14 +79,8 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 ConnectionStrings = new ConnectionStrings
                 {
                     DefaultConnection = "server=127.0.0.1;database=sunwoda_demo;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;"
-<<<<<<< HEAD
                 },
-                ProjectSettings = new ProjectSettings
-                {
-                    EnableMES = true
-=======
->>>>>>> 406fc79b79af19514865fa1108955082265a99c7
-                },
+
                 // 数据库日志清理默认设置
                 LogCleanup = new LogCleanupSettings
                 {

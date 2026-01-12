@@ -54,5 +54,4 @@
     <Folder Include="Selectors\" />
     <Folder Include="UserControls\Project\HawkEye\" />
   </ItemGroup>
-
 </Project>

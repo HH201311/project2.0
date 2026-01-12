@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="9.0.7" />
@@ -102,16 +103,11 @@
     <None Update="Dlls\ZZC03PDJS.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Dlls\ZZPack.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Interfaces\Project\HawkEye\" />
     <Folder Include="Interfaces\Project\CCTB\" />
-    <Folder Include="Models\Project\CCTB\" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.7" />
   </ItemGroup>
 
 </Project>

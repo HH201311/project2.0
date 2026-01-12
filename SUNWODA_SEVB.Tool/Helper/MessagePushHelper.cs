@@ -36,10 +36,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 _configuration = builder.Build();
 
                 // 初始化配置（文本/文件URL分开配置）
-                _pushTextApiUrl = _configuration?["PushConfig:PushTextApiUrl"] ?? "http://10.201.88.151:10100/userCenter/message/sendTextFs";
-                _pushFileApiUrl = _configuration?["PushConfig:PushFileApiUrl"] ?? "http://10.201.88.151:10100/userCenter/message/sendFsTextAndFile";
-                _defaultSystemTypeId = int.TryParse(_configuration?["PushConfig:SystemTypeId"], out int stId) ? stId : 31;
-                _defaultUserId = _configuration?["PushConfig:UserId"] ?? "oc_713fbc8ebd0af75235e06c93346c4752";
+                _pushTextApiUrl = _configuration?["PushConfig:PushTextApiUrl"] ?? "http://10.201.88.151:10100/userCenter/message/sendTextFs";//极耳消息推送
+                _pushFileApiUrl = _configuration?["PushConfig:PushFileApiUrl"] ?? "http://10.201.88.151:10100/userCenter/message/sendFsTextAndFile";//PTO PDF推送
+                _defaultSystemTypeId = int.TryParse(_configuration?["PushConfig:SystemTypeId"], out int stId) ? stId : 31;//
+                _defaultUserId = _configuration?["PushConfig:UserId"] ?? "oc_713fbc8ebd0af75235e06c93346c4752";//极耳推送群编号
                 _defaultAppId = _configuration?["PushConfig:AppId"] ?? "cli_a68c3b89643bd00c";
                 _defaultSystemType = _configuration?["PushConfig:SystemType"] ?? "12";
                 _maxRetryCount = int.TryParse(_configuration?["PushConfig:PushRetryCount"], out int retry) ? retry : 3;

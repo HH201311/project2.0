@@ -1,0 +1,766 @@
+﻿<Page x:Class="SUNWODA_SEVB.Views.Pages.JRRY.EarTabRedundancyPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.JRRY"
+      xmlns:oxy="clr-namespace:OxyPlot.Wpf;assembly=OxyPlot.Wpf"
+      xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+      mc:Ignorable="d" 
+      d:DesignHeight="1080" d:DesignWidth="1920" FontSize="15"
+      Title="EarTabRedundancyPage" >
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部标题行 -->
+        <Grid Grid.Row="0" Background="LightGray"  Margin="0,0,0,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10">
+                <!-- logo图片 -->
+                <Image Source="pack://application:,,,/SUNWODA_SEVB;component/Assets/images/logo.png" MaxWidth="80" MaxHeight="90"/>
+                <!-- 项目名称文本 -->
+                <TextBlock Text="极耳冗余 AI检测系统V1.0" 
+           FontSize="35" FontWeight="Bold" 
+           Foreground="Black" VerticalAlignment="Center" MinWidth="400"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*"/>
+                <ColumnDefinition Width="1.8*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" Margin="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition MaxHeight="350"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,4" >
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" 
+                            BorderBrush="White" 
+                            BorderThickness="1" 
+                            Margin="0,0,5,0">
+                        <Grid Margin="5" ClipToBounds="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="原始图像" FontWeight="Bold" FontSize="20" HorizontalAlignment="Center" Grid.Row="0"/>
+
+                            <Viewbox Grid.Row="1" Stretch="Uniform">
+                                <Image x:Name="ImgOriginal" 
+                                               Stretch="None" 
+                                               Margin="5" 
+                                               Source="{Binding CurrentOriginalImage}"
+                                               RenderTransformOrigin="0.5,0.5">
+                                    <Image.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform 
+                                            ScaleX="{Binding RealTimeImageScaleX}" 
+                                            ScaleY="{Binding RealTimeImageScaleY}"/>
+                                            <TranslateTransform 
+                                            X="{Binding RealTimeImageTranslateX}" 
+                                            Y="{Binding RealTimeImageTranslateY}"/>
+                                        </TransformGroup>
+                                    </Image.RenderTransform>
+                                    <behaviors:Interaction.Triggers>
+                                        <behaviors:EventTrigger EventName="MouseWheel">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ZoomRealTimeImageCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+                                        
+                                        <behaviors:EventTrigger EventName="MouseLeftButtonDown">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ImageMouseDownCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+
+                                        <behaviors:EventTrigger EventName="MouseMove">
+                                            <behaviors:InvokeCommandAction 
+                                                Command="{Binding ImageMouseMoveCommand}" 
+                                                PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+
+                                        <behaviors:EventTrigger EventName="MouseLeftButtonUp">
+                                            <behaviors:InvokeCommandAction 
+                                                Command="{Binding ImageMouseUpCommand}" 
+                                                PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+
+                                        <behaviors:EventTrigger EventName="MouseLeave">
+                                            <behaviors:InvokeCommandAction 
+                                                Command="{Binding ImageMouseUpCommand}" 
+                                                PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+                                    </behaviors:Interaction.Triggers>
+                                    <Image.InputBindings>
+                                        <MouseBinding 
+                                            MouseAction="LeftDoubleClick" 
+                                            Command="{Binding ResetRealTimeImageZoomCommand}"
+                                            CommandParameter="{Binding RelativeSource={RelativeSource Self}}"/>
+                                    </Image.InputBindings>
+                                    <Image.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="放大" Command="{Binding ZoomInRealTimeCommand}"/>
+                                            <MenuItem Header="缩小" Command="{Binding ZoomOutRealTimeCommand}"/>
+                                            <MenuItem Header="适应窗口" Command="{Binding ResetRealTimeImageZoomCommand}"/>
+                                        </ContextMenu>
+                                    </Image.ContextMenu>
+                                </Image>
+
+                            </Viewbox>
+
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="1" 
+                            BorderBrush="White" 
+                            BorderThickness="1" 
+                            Margin="5,0,0,0"
+                            Background="Transparent">
+                        <Grid Margin="5" ClipToBounds="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="结果图像" FontWeight="Bold" FontSize="20" HorizontalAlignment="Center" Grid.Row="0"/>
+
+                            <Viewbox Grid.Row="1" Stretch="Uniform">
+                                <Image x:Name="ImgResult" 
+                                               Stretch="None" 
+                                               Margin="5" 
+                                               Source="{Binding CurrentResultImage}" 
+                                               RenderTransformOrigin="0.5,0.5">
+                                    <Image.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform 
+                                                 ScaleX="{Binding RealTimeImageScaleX}" 
+                                                 ScaleY="{Binding RealTimeImageScaleY}"/>
+                                            <TranslateTransform 
+                                                 X="{Binding RealTimeImageTranslateX}" 
+                                                 Y="{Binding RealTimeImageTranslateY}"/>
+                                        </TransformGroup>
+                                    </Image.RenderTransform>
+                                    <behaviors:Interaction.Triggers>
+                                        <behaviors:EventTrigger EventName="MouseWheel">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ZoomRealTimeImageCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+                                        
+                                        <behaviors:EventTrigger EventName="MouseLeftButtonDown">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ImageMouseDownCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+
+                                        <behaviors:EventTrigger EventName="MouseMove">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ImageMouseMoveCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+
+                                        <behaviors:EventTrigger EventName="MouseLeftButtonUp">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ImageMouseUpCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+
+                                        <behaviors:EventTrigger EventName="MouseLeave">
+                                            <behaviors:InvokeCommandAction 
+                                            Command="{Binding ImageMouseUpCommand}" 
+                                            PassEventArgsToCommand="True"/>
+                                        </behaviors:EventTrigger>
+                                    </behaviors:Interaction.Triggers>
+                                    <Image.InputBindings>
+                                        <MouseBinding 
+                                            MouseAction="LeftDoubleClick" 
+                                            Command="{Binding ResetRealTimeImageZoomCommand}"
+                                            CommandParameter="{Binding RelativeSource={RelativeSource Self}}"/>
+                                    </Image.InputBindings>
+                                    <Image.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="放大" Command="{Binding ZoomInRealTimeCommand}"/>
+                                            <MenuItem Header="缩小" Command="{Binding ZoomOutRealTimeCommand}"/>
+                                            <MenuItem Header="适应窗口" Command="{Binding ResetRealTimeImageZoomCommand}"/>
+                                        </ContextMenu>
+                                    </Image.ContextMenu>
+                                </Image>
+                            </Viewbox>
+                        </Grid>
+                    </Border>
+
+                    <Grid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="放大" Command="{Binding ZoomInRealTimeCommand}"/>
+                            <MenuItem Header="缩小" Command="{Binding ZoomOutRealTimeCommand}"/>
+                            <MenuItem Header="适应窗口" Command="{Binding ResetRealTimeImageZoomCommand}"/>
+                        </ContextMenu>
+                    </Grid.ContextMenu>
+
+                    <Grid.InputBindings>
+                        <MouseBinding 
+                             MouseAction="LeftDoubleClick" 
+                             Command="{Binding ResetRealTimeImageZoomCommand}"/>
+                    </Grid.InputBindings>
+                </Grid>
+
+                <Border Grid.Row="1" BorderBrush="Black" BorderThickness="1" Margin="0" Background="Transparent">
+                    <Grid Margin="0" >
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+
+                        <TextBlock Text="系统日志" FontWeight="Bold" FontSize="20" Margin="0,0,0,0"/>
+                        <DataGrid 
+                                    x:Name="LogDataGrid"
+                                    Grid.Row="1"
+                                    ItemsSource="{Binding LogTable, Mode=OneWay}" 
+                                    AutoGenerateColumns="False"
+                                    CanUserAddRows="False"
+                                    IsReadOnly="True"
+                                    RowHeaderWidth="0"
+                                    HeadersVisibility="None"
+                                    Background="White"
+                                    HorizontalScrollBarVisibility="Auto"
+                                    RowHeight="24">
+
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="White"/>
+                                            <Setter Property="Foreground" Value="Black"/>
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            
+                            <DataGrid.Columns>
+                                <DataGridTextColumn 
+                                    Binding="{Binding Item1}" 
+                                    Width="180" 
+                                    IsReadOnly="True">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="DataGridCell">
+                                            <Setter Property="Background" Value="White"/>
+                                            <Setter Property="Foreground" Value="Black"/>
+                                            <Setter Property="FontSize" Value="14"/>
+                                            <Setter Property="HorizontalAlignment" Value="Left"/>
+                                        </Style>
+
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn 
+                                    Binding="{Binding Item2}" 
+                                    Width="*"
+                                    IsReadOnly="True">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="DataGridCell">
+                                            <Setter Property="Background" Value="White"/>
+                                            <Setter Property="Foreground" Value="Black"/>
+                                            <Setter Property="FontSize" Value="14"/>
+                                            <Setter Property="HorizontalAlignment" Value="Left"/>
+                                            <Setter Property="Padding" Value="5,2"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="DataGridCell">
+                                                        <ScrollViewer 
+                                                            HorizontalScrollBarVisibility="Auto" 
+                                                            VerticalScrollBarVisibility="Disabled"
+                                                            Margin="{TemplateBinding Padding}">
+                                                            <TextBlock 
+                                                            Text="{Binding Item2}" 
+                                                            Foreground="{TemplateBinding Foreground}"
+                                                            FontSize="{TemplateBinding FontSize}"/>
+                                                        </ScrollViewer>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="1" BorderBrush="Black" BorderThickness="1" Margin="0,0,0,0" 
+        VerticalAlignment="Stretch">
+
+                <TabControl Margin="0" VerticalAlignment="Stretch">
+                    <TabItem Header="数据" FontSize="25">
+                        <Grid Margin="0" VerticalAlignment="Stretch">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <DataGrid x:Name="DgDetection" Grid.Row="1"
+                                AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                 RowHeaderWidth="0" AlternationCount="2"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                 Margin="0,0,0,0" MaxHeight="800"
+                                        HorizontalScrollBarVisibility="Auto" 
+                                      FontSize="18"
+                                 ItemsSource="{Binding DetectionDataList}" CanUserSortColumns="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="电芯编码" Binding="{Binding cellCode}" Width="*" MinWidth="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextWrapping" Value="Wrap"/>
+                                                <Setter Property="FontSize" Value="10"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="左侧距离dl" Binding="{Binding LeftDistance}" Width="1.2*" MinWidth="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                <Setter Property="FontSize" Value="15"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="右侧距离dr" Binding="{Binding RightDistance}" Width="1.2*" MinWidth="80">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                <Setter Property="FontSize" Value="15"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="风险等级" Binding="{Binding RiskLevel}" Width="*" MinWidth="80">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                <Setter Property="FontSize" Value="15"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="检测结果" Binding="{Binding DetectionResult}" Width="1*" MinWidth="80">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Green"/>
+                                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                <Setter Property="FontSize" Value="15"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DetectionResult}" Value="NG">
+                                                        <Setter Property="Foreground" Value="Red" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <!-- 查看结果按钮列 -->
+                                    <DataGridTemplateColumn Header="查看结果" Width="1*" MinWidth="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="查看" 
+                                                     Command="{Binding DataContext.ViewResultCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                     CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <Border Grid.Row="2" BorderBrush="LightGray" BorderThickness="1" Margin="0,0,0,0" MaxHeight="400">
+                                <StackPanel Margin="5" Height="Auto">
+                                    <TextBlock Text="状态信息" FontWeight="Bold" FontSize="20" Margin="0,0,0,10"/>
+                                    <Grid Margin="5" Height="Auto">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4*"/>
+                                            <ColumnDefinition Width="6*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,5,0" HorizontalAlignment="Center">
+                                            <oxy:PlotView
+                                                    Model="{Binding PieModel}"
+                                                    Height="200"
+                                                    Width="250"
+                                                    IsHitTestVisible="False"/>
+
+                                            <StackPanel Orientation="Vertical" Margin="0,20,0,0" HorizontalAlignment="Center">
+                                                <Grid Margin="2" HorizontalAlignment="Left">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="20"/>
+                                                        <ColumnDefinition Width="50"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Rectangle Width="15" Height="15" Fill="#2F80ED" Margin="2" 
+                                                                Grid.Column="0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="OK" Margin="2,0" 
+                                                                Grid.Column="1" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding OKRate}" Margin="2,0" 
+                                                                Grid.Column="2" VerticalAlignment="Center"/>
+                                                </Grid>
+
+                                                <Grid Margin="2" HorizontalAlignment="Left">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="20"/>
+                                                        <ColumnDefinition Width="50"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Rectangle Width="15" Height="15" Fill="#FF9800" Margin="2" 
+                                                                Grid.Column="0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="NG" Margin="2,0" 
+                                                                Grid.Column="1" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding NGRate}" Margin="2,0" 
+                                                                Grid.Column="2" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- 右侧状态表格 -->
+                                        <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                            <Grid Margin="0,0,0,5">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="风险等级" FontWeight="SemiBold" Grid.Column="0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="数量" FontWeight="SemiBold" Grid.Column="1" VerticalAlignment="Center"/>
+                                                <TextBlock Text="占比" FontWeight="SemiBold" Grid.Column="2" VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <Separator Margin="0,0,0,5" Background="LightGray"/>
+
+                                            <!-- L0-L3数据行 -->
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="L0" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Count_L0}" Grid.Column="1"/>
+                                                <TextBlock Text="{Binding Ratio_L0}" Grid.Column="2"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="L1" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Count_L1}" Grid.Column="1"/>
+                                                <TextBlock Text="{Binding Ratio_L1}" Grid.Column="2"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="L2" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Count_L2}" Grid.Column="1"/>
+                                                <TextBlock Text="{Binding Ratio_L2}" Grid.Column="2"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="L3" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Count_L3}" Grid.Column="1"/>
+                                                <TextBlock Text="{Binding Ratio_L3}" Grid.Column="2"/>
+                                            </Grid>
+
+                                            <!-- 汇总信息 -->
+                                            <Separator Margin="0,8,0,5" Background="LightGray"/>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="总检测数" Grid.Column="0" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding TotalDetectionCount}" Grid.Column="1"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="NG" Grid.Column="0" FontWeight="SemiBold" Foreground="#FF9800"/>
+                                                <TextBlock Text="{Binding NGCount}" Grid.Column="1"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="OK" Grid.Column="0" FontWeight="SemiBold" Foreground="#2F80ED"/>
+                                                <TextBlock Text="{Binding OKCount}" Grid.Column="1"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="一次优率" Grid.Column="0" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding OKRate}" Grid.Column="1"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- 「设置」标签页-->
+                    <TabItem Header="设置" FontSize="25">
+                        <StackPanel Margin="10,0,10,0" Height="Auto" VerticalAlignment="Stretch" Orientation="Vertical">
+                            <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                                <TextBlock Text="监听路径：" FontWeight="Bold" VerticalAlignment="Center" Width="Auto"/>
+                                <TextBox 
+                                     Text="{Binding SelectedMonitorFolderPath, Mode=TwoWay}" 
+                                        IsEnabled="{Binding IsInAnyDetection}"
+                                     Width="200" Height="30" 
+                                     Margin="5,0" 
+                                     BorderBrush="#CCCCCC" BorderThickness="1" />
+                                <Button 
+                                     Content="浏览..." 
+                                     Command="{Binding SelectMonitorFolderCommand}" 
+                                     IsEnabled="{Binding IsInAnyDetection}"
+                                     Width="60" Height="30" 
+                                     Margin="5,0" 
+                                     Background="#5DADE2" Foreground="White"
+                                     BorderThickness="0"/>
+                            </StackPanel>
+                            <!--在线检测功能 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,20,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="在线检测：" FontWeight="Bold" Width="Auto"/>
+                                <ToggleButton 
+                                         FontSize="15"
+                                         Height="30"
+                                         IsChecked="{Binding IsOnlineDetectionEnabled, Mode=TwoWay}" 
+                                         IsEnabled="{Binding IsOnlineToggleEnabled}"
+                                         Margin="0,0,0,0">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonSwitch.Small}">
+                                            <Setter Property="Content" Value="已关闭"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
+                                                    <Setter Property="Content" Value="已打开"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
+                                                    <Setter Property="Content" Value="已关闭"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
+                                </ToggleButton>
+                            </StackPanel>
+                            <!--一键仿真区域 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,20,0,15">
+                                <TextBlock Text="一键仿真:" FontWeight="Bold" VerticalAlignment="Center" FontSize="25"/>
+                                <Button Content="文件" Width="80" Height="30" Margin="30,0,10,0" Background="#5DADE2" FontSize="15"
+                            Command="{Binding File_Button}" IsEnabled="{Binding IsFileSelectEnabled}"/>
+                                <Button Content="文件夹" Width="80" Height="30" Margin="10,0,0,0" Background="#5DADE2" FontSize="15"
+                            Command="{Binding Folder_Button}" IsEnabled="{Binding IsFolderSelectEnabled}"/>
+                            </StackPanel>
+
+                            <!-- 图像存储区域 -->
+                            <Grid Margin="0,5,0,15" Height="Auto">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Text="图像存储：" FontWeight="Bold" Margin="0,0,8,0" Grid.Column="0" VerticalAlignment="Center" FontSize="25"/>
+                                <TextBlock Text="原图:" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontSize="20"/>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Vertical">
+                                    <CheckBox Content="OK" IsChecked="{Binding IsSaveOriginalOK}" Margin="0,2,0,2" IsEnabled="{Binding IsInAnyDetection}"/>
+                                    <CheckBox Content="NG" IsChecked="{Binding IsSaveOriginalNG}" Margin="0,2,0,2" IsEnabled="{Binding IsInAnyDetection}"/>
+                                </StackPanel>
+                                <TextBlock Text="结果图：" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" FontSize="20"/>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Vertical">
+                                    <CheckBox Content="OK" IsChecked="{Binding IsSaveResultOK}" Margin="0,2,0,2" IsEnabled="{Binding IsInAnyDetection}"/>
+                                    <CheckBox Content="NG" IsChecked="{Binding IsSaveResultNG}" Margin="0,2,0,2" IsEnabled="{Binding IsInAnyDetection}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,5,0,10" Height="Auto" IsEnabled="{Binding IsThresholdSettingEnabled}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                    <TextBlock Text="风险等级阈值设置：" FontWeight="Bold" Margin="0,0,0,8" FontSize="25"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,5" HorizontalAlignment="Stretch">
+                                        <Grid Margin="5,0,20,0" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L0：" FontWeight="Bold" Grid.Column="0" VerticalAlignment="Center" FontSize="20" />
+                                            <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="上限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12" 
+                                                             Text="{Binding TempL0Upper}"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="下限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL0Lower}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- L1 上下限 -->
+                                        <Grid Margin="20,0,5,0" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L1：" FontWeight="Bold" Grid.Column="0" VerticalAlignment="Center" FontSize="20"/>
+                                            <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="上限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL1Upper}"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="下限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL1Lower}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                        <Grid Margin="5,0,20,0" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L2：" FontWeight="Bold" Grid.Column="0" VerticalAlignment="Center" FontSize="20" />
+                                            <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="上限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL2Upper}"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="下限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL2Lower}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid Margin="20,0,5,0" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L3：" FontWeight="Bold" Grid.Column="0" VerticalAlignment="Center" FontSize="20"/>
+                                            <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="上限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL3Upper}"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="下限：" Width="Auto" FontSize="18" VerticalAlignment="Center"/>
+                                                    <TextBox Width="60" Margin="2" FontSize="12"
+                                                             Text="{Binding TempL3Lower}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="100,0,0,0" Grid.ColumnSpan="2">
+                                    <Button Content="保存设置" Width="100" Height="35" Command="{Binding SaveSettingsCommand}"
+                                Background="#4CAF50" Foreground="White" FontSize="20"/>
+                                    <Button Content="一键重置" Width="100" Height="35" Margin="0,20,0,0"
+                                            Background="#F44336" Foreground="White" FontSize="20"
+                                            Command="{Binding ResetSettingsCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,40,0,0">
+                                <Button 
+                                    Content="停止检测" 
+                                    FontSize="16" 
+                                    Width="120" 
+                                    Height="35" 
+                                    Background="#F5B0"
+                                    Foreground="Black"
+                                    BorderBrush="Gray"
+                                    BorderThickness="1"
+                                    Command="{Binding StopDetectionCommand}"
+                                    Margin="0,0,40,0"/>
+                                <Button 
+                                    Content="清空列表" 
+                                    FontSize="16" 
+                                    Width="120" 
+                                    Height="35" 
+                                    Background="#F5B041"
+                                    Foreground="Black"
+                                    BorderBrush="Gray"
+                                    BorderThickness="1"
+                                    Command="{Binding ClearListCommand}"
+                                    Margin="0,0,20,0"/>
+                                <Button 
+                                    Content="统计清零" 
+                                    FontSize="16" 
+                                    Width="120" 
+                                    Height="35" 
+                                    Background="#F5B041"
+                                    Foreground="Black"
+                                    BorderBrush="Gray"
+                                    BorderThickness="1"
+                                    Command="{Binding ClearStatisticsCommand}"
+                                    Margin="20,0,0,0"/>
+
+                            </StackPanel>
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </Border>
+        </Grid>
+        <!-- 底部版权栏 -->
+        <Grid Grid.Row="2" Margin="0,0,0,0" Background="LightGray">
+            <TextBlock Text="Copyright ©欣旺达动力科技 — 仿真及AI部 — 工程AI部" 
+                   HorizontalAlignment="Right" Margin="5" FontSize="15"/>
+
+        </Grid>
+    </Grid>
+</Page>

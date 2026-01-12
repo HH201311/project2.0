@@ -24,4 +24,10 @@
     <ProjectReference Include="..\SUNWODA_SEVB.Core\SUNWODA_SEVB.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="halcondotnet">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

@@ -1051,8 +1051,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         }
 
         protected void L1PageFaceAFilmDataUpateByOne(
-            List<TBAreaInfo> tbAreaInfos,
-            List<double> weight,
+            List<TBAreaInfo>? tbAreaInfos,
+            List<double>? weight,
             double baseValue,
             double warnLow,
             double warnHigh,
@@ -1070,19 +1070,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 { "warnMinLimit", warnLow - baseValue },
             };
 
-            var data = new List<double[]>();
-            var count = 0;
-            for (int i = 0; i < tbAreaInfos.Count; i++)
+            if (tbAreaInfos != null && weight != null)
             {
-                var arr = new double[tbAreaInfos[i].AreaCount];
-                for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                var data = new List<double[]>();
+                var count = 0;
+                for (int i = 0; i < tbAreaInfos.Count; i++)
                 {
-                    arr[j] = weight[count] - baseValue;
-                    count++;
+                    var arr = new double[tbAreaInfos[i].AreaCount];
+                    for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                    {
+                        arr[j] = weight[count] - baseValue;
+                        count++;
+                    }
+                    data.Add(arr);
                 }
-                data.Add(arr);
+                Line1PageViewModel!.FaceAPageViewModel!.FilmData = data;
             }
-            Line1PageViewModel!.FaceAPageViewModel!.FilmData = data;
         }
         #endregion
 
@@ -1263,8 +1266,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         }
 
         protected void L1PageFaceBFilmDataUpateByOne(
-            List<TBAreaInfo> tbAreaInfos,
-            List<double> weight,
+            List<TBAreaInfo>? tbAreaInfos,
+            List<double>? weight,
             double baseValue,
             double warnLow,
             double warnHigh,
@@ -1282,19 +1285,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 { "warnMinLimit", warnLow - baseValue },
             };
 
-            var data = new List<double[]>();
-            var count = 0;
-            for (int i = 0; i < tbAreaInfos.Count; i++)
+            if (tbAreaInfos != null && weight != null)
             {
-                var arr = new double[tbAreaInfos[i].AreaCount];
-                for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                var data = new List<double[]>();
+                var count = 0;
+                for (int i = 0; i < tbAreaInfos.Count; i++)
                 {
-                    arr[j] = weight[count] - baseValue;
-                    count++;
+                    var arr = new double[tbAreaInfos[i].AreaCount];
+                    for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                    {
+                        arr[j] = weight[count] - baseValue;
+                        count++;
+                    }
+                    data.Add(arr);
                 }
-                data.Add(arr);
+                Line1PageViewModel!.FaceBPageViewModel!.FilmData = data;
             }
-            Line1PageViewModel!.FaceBPageViewModel!.FilmData = data;
         }
         #endregion
 
@@ -1483,43 +1489,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 .GetResultAsync<bool>();
         }
 
-        protected void L1PageWeightAlarmInfoUpdateByOne(List<string> alarmInfos)
+        protected void L1PageWeightAlarmInfoUpdateByOne(List<string>? alarmInfos)
         {
-            foreach (var alarmInfo in alarmInfos)
+            if (alarmInfos != null)
             {
-                _logger.Warn($"L1测重仪报警：{alarmInfo}");
-
-                RunOnUIThread(() =>
+                foreach (var alarmInfo in alarmInfos)
                 {
-                    try
-                    {
-                        Line1PageViewModel!.AddAlarmInfo(
-                            new AlarmInfo
-                            {
-                                AlarmTime = DateTime.Now,
-                                AlarmObject = "",
-                                AlarmType = "",
-                                AlarmDetail = $"{alarmInfo}",
-                                AlarmLevel = AlarmLevel.Warning,
-                            }
-                        );
+                    _logger.Warn($"L1测重仪报警：{alarmInfo}");
 
-                        Dialog
-                            .Show(new VM_AlarmInfoDialog().UIElement)
-                            .Initialize<VM_AlarmInfoDialog>(vm =>
-                            {
-                                vm.AlarmLevel = "警告";
-                                vm.AlarmZone = "L1测重仪";
-                                vm.AlarmInfo = $"{alarmInfo}";
-                                vm.MainFontSize = Line1PageViewModel.LineTitleFontSize;
-                            })
-                            .GetResultAsync<bool>();
-                    }
-                    catch (Exception ex)
+                    RunOnUIThread(() =>
                     {
-                        _logger.Error("更新报警异常", ex);
-                    }
-                });
+                        try
+                        {
+                            Line1PageViewModel!.AddAlarmInfo(
+                                new AlarmInfo
+                                {
+                                    AlarmTime = DateTime.Now,
+                                    AlarmObject = "",
+                                    AlarmType = "",
+                                    AlarmDetail = $"{alarmInfo}",
+                                    AlarmLevel = AlarmLevel.Warning,
+                                }
+                            );
+
+                            Dialog
+                                .Show(new VM_AlarmInfoDialog().UIElement)
+                                .Initialize<VM_AlarmInfoDialog>(vm =>
+                                {
+                                    vm.AlarmLevel = "警告";
+                                    vm.AlarmZone = "L1测重仪";
+                                    vm.AlarmInfo = $"{alarmInfo}";
+                                    vm.MainFontSize = Line1PageViewModel.LineTitleFontSize;
+                                })
+                                .GetResultAsync<bool>();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error("更新报警异常", ex);
+                        }
+                    });
+                }
             }
         }
         #endregion
@@ -2208,8 +2217,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         }
 
         protected void L2PageFaceAFilmDataUpateByOne(
-            List<TBAreaInfo> tbAreaInfos,
-            List<double> weight,
+            List<TBAreaInfo>? tbAreaInfos,
+            List<double>? weight,
             double baseValue,
             double warnLow,
             double warnHigh,
@@ -2227,19 +2236,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 { "warnMinLimit", warnLow - baseValue },
             };
 
-            var data = new List<double[]>();
-            var count = 0;
-            for (int i = 0; i < tbAreaInfos.Count; i++)
+            if (tbAreaInfos != null && weight != null)
             {
-                var arr = new double[tbAreaInfos[i].AreaCount];
-                for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                var data = new List<double[]>();
+                var count = 0;
+                for (int i = 0; i < tbAreaInfos.Count; i++)
                 {
-                    arr[j] = weight[count] - baseValue;
-                    count++;
+                    var arr = new double[tbAreaInfos[i].AreaCount];
+                    for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                    {
+                        arr[j] = weight[count] - baseValue;
+                        count++;
+                    }
+                    data.Add(arr);
                 }
-                data.Add(arr);
+                Line2PageViewModel!.FaceAPageViewModel!.FilmData = data;
             }
-            Line2PageViewModel!.FaceAPageViewModel!.FilmData = data;
         }
         #endregion
 
@@ -2420,8 +2432,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         }
 
         protected void L2PageFaceBFilmDataUpateByOne(
-            List<TBAreaInfo> tbAreaInfos,
-            List<double> weight,
+            List<TBAreaInfo>? tbAreaInfos,
+            List<double>? weight,
             double baseValue,
             double warnLow,
             double warnHigh,
@@ -2439,19 +2451,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                 { "warnMinLimit", warnLow - baseValue },
             };
 
-            var data = new List<double[]>();
-            var count = 0;
-            for (int i = 0; i < tbAreaInfos.Count; i++)
+            if (tbAreaInfos != null && weight != null)
             {
-                var arr = new double[tbAreaInfos[i].AreaCount];
-                for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                var data = new List<double[]>();
+                var count = 0;
+                for (int i = 0; i < tbAreaInfos.Count; i++)
                 {
-                    arr[j] = weight[count] - baseValue;
-                    count++;
+                    var arr = new double[tbAreaInfos[i].AreaCount];
+                    for (int j = 0; j < tbAreaInfos[i].AreaCount; j++)
+                    {
+                        arr[j] = weight[count] - baseValue;
+                        count++;
+                    }
+                    data.Add(arr);
                 }
-                data.Add(arr);
+                Line2PageViewModel!.FaceBPageViewModel!.FilmData = data;
             }
-            Line2PageViewModel!.FaceBPageViewModel!.FilmData = data;
         }
         #endregion
 
@@ -2629,36 +2644,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
             );
         }
 
-        protected void L2PageWeightAlarmInfoUpdateByOne(List<string> alarmInfos)
+        protected void L2PageWeightAlarmInfoUpdateByOne(List<string>? alarmInfos)
         {
-            foreach (var alarmInfo in alarmInfos)
+            if (alarmInfos != null)
             {
-                _logger.Warn($"L2测重仪报警：{alarmInfo}");
-
-                RunOnUIThread(() =>
+                foreach (var alarmInfo in alarmInfos)
                 {
-                    Line2PageViewModel!.AddAlarmInfo(
-                        new AlarmInfo
-                        {
-                            AlarmTime = DateTime.Now,
-                            AlarmObject = "",
-                            AlarmType = "",
-                            AlarmDetail = $"{alarmInfo}",
-                            AlarmLevel = AlarmLevel.Warning,
-                        }
-                    );
+                    _logger.Warn($"L2测重仪报警：{alarmInfo}");
 
-                    Dialog
-                        .Show(new VM_AlarmInfoDialog().UIElement)
-                        .Initialize<VM_AlarmInfoDialog>(vm =>
-                        {
-                            vm.AlarmLevel = "警告";
-                            vm.AlarmZone = "L2测重仪";
-                            vm.AlarmInfo = $"{alarmInfo}";
-                            vm.MainFontSize = Line2PageViewModel.LineTitleFontSize;
-                        })
-                        .GetResultAsync<bool>();
-                });
+                    RunOnUIThread(() =>
+                    {
+                        Line2PageViewModel!.AddAlarmInfo(
+                            new AlarmInfo
+                            {
+                                AlarmTime = DateTime.Now,
+                                AlarmObject = "",
+                                AlarmType = "",
+                                AlarmDetail = $"{alarmInfo}",
+                                AlarmLevel = AlarmLevel.Warning,
+                            }
+                        );
+
+                        Dialog
+                            .Show(new VM_AlarmInfoDialog().UIElement)
+                            .Initialize<VM_AlarmInfoDialog>(vm =>
+                            {
+                                vm.AlarmLevel = "警告";
+                                vm.AlarmZone = "L2测重仪";
+                                vm.AlarmInfo = $"{alarmInfo}";
+                                vm.MainFontSize = Line2PageViewModel.LineTitleFontSize;
+                            })
+                            .GetResultAsync<bool>();
+                    });
+                }
             }
         }
         #endregion
@@ -3470,12 +3488,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         case "A":
                             L1PageFaceAFilmDataUpateByOne(
                                 weight.TBAREAINFO,
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L1PageFaceASpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3496,12 +3514,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         case "B":
                             L1PageFaceBFilmDataUpateByOne(
                                 weight.TBAREAINFO,
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L1PageFaceBSpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3521,12 +3539,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                             break;
                         case "AMM":
                             L1PageFaceAMMDataUpateByOne(
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L1PageFaceASpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3546,12 +3564,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                             break;
                         case "BMM":
                             L1PageFaceBMMDataUpateByOne(
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L1PageFaceBSpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3613,12 +3631,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         case "A":
                             L2PageFaceAFilmDataUpateByOne(
                                 weight.TBAREAINFO,
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L2PageFaceASpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3639,12 +3657,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                         case "B":
                             L2PageFaceBFilmDataUpateByOne(
                                 weight.TBAREAINFO,
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L2PageFaceBSpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3664,12 +3682,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                             break;
                         case "AMM":
                             L2PageFaceAMMDataUpateByOne(
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L2PageFaceASpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,
@@ -3689,12 +3707,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
                             break;
                         case "BMM":
                             L2PageFaceBMMDataUpateByOne(
-                                weight.WEIGHT.ToList().ConvertAll(double.Parse).ToList(),
-                                weight.TARGET_VALUE.ToDouble(),
+                                weight.WEIGHT!.ToList().ConvertAll(double.Parse).ToList(),
+                                weight.TARGET_VALUE!.ToDouble(),
                                 weight.NET_TARGETWARN_LOWER,
                                 weight.NET_TARGETWARN_UPPER,
-                                weight.SPEC_DW_LIM.ToDouble(),
-                                weight.SPEC_UP_LIM.ToDouble()
+                                weight.SPEC_DW_LIM!.ToDouble(),
+                                weight.SPEC_UP_LIM!.ToDouble()
                             );
                             L2PageFaceBSpecificationInfoUpateByOne(
                                 weight.SPEC_UP_LIM,

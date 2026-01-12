@@ -8,8 +8,24 @@
     <UseWPF>true</UseWPF>
     <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <FileVersion>2.1.0.0</FileVersion>
-    <ApplicationIcon>avatar.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Images\avatar.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\Fonts\iconfont_cctb.ttf" />
+    <None Remove="Assets\Fonts\SourceHanSansCN.otf" />
+    <None Remove="Assets\Fonts\阿里妈妈数黑体.ttf" />
+    <None Remove="Assets\images\logo%402x.png" />
+    <None Remove="Assets\images\logo.png" />
+    <Compile Remove="ViewModels\Pages\CCTB\**" />
+    <Compile Remove="Views\Pages\CCTB\**" />
+    <EmbeddedResource Remove="ViewModels\Pages\CCTB\**" />
+    <EmbeddedResource Remove="Views\Pages\CCTB\**" />
+    <None Remove="ViewModels\Pages\CCTB\**" />
+    <None Remove="Views\Pages\CCTB\**" />
+    <Page Remove="ViewModels\Pages\CCTB\**" />
+    <Page Remove="Views\Pages\CCTB\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Remove="Assets\images\plus.png" />
@@ -27,8 +43,14 @@
 
   <ItemGroup>
     <PackageReference Include="CrissCross.WPF.WebView2" Version="2.6.2" />
+    <PackageReference Include="CustomSelectFileDlg" Version="1.0.0" />
+    <PackageReference Include="Extended.Wpf.Toolkit" Version="5.0.0" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="HandyControl" Version="3.5.1" />
+    <PackageReference Include="itext7" Version="8.0.0" />
+    <PackageReference Include="itext7.bouncy-castle-adapter" Version="8.0.0" />
+    <PackageReference Include="itext7.font-asian" Version="9.3.0" />
+    <PackageReference Include="MahApps.Metro" Version="2.4.11" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.0.0" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.5" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
@@ -37,8 +59,11 @@
     <PackageReference Include="TouchSocket" Version="3.1.16" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.20.1" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.19" />
+    <PackageReference Include="OxyPlot.Wpf" Version="2.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NumSharp" Version="0.30.0" />
+    <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
   </ItemGroup>
 
@@ -56,6 +81,9 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Assets\Images\shanggai.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\model\C06CT\C06CT.mtl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -68,20 +96,36 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="ViewModels\Pages\CCTB\" />
+    <Folder Include="Views\Pages\CCTB\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="C01Infer">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\C01Infer.dll</HintPath>
+    </Reference>
+    <Reference Include="C06Infer">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\C06Infer.dll</HintPath>
+    </Reference>
     <Reference Include="Calibration">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Calibration.dll</HintPath>
     </Reference>
     <Reference Include="halcondotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
+      <Aliases></Aliases>
     </Reference>
     <Reference Include="halcondotnetxl">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnetxl.dll</HintPath>
+      <Aliases>halcondotnetxl</Aliases>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
     </Reference>
     <Reference Include="TrajectoryDiagnosisLib">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\TrajectoryDiagnosisLib.dll</HintPath>
+    </Reference>
+    <Reference Include="UIAutoMonitorCore">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
     <Reference Include="YingYanAlgoCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
@@ -104,6 +148,15 @@
     <Reference Include="ZZC03PDJS">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC03PDJS.dll</HintPath>
     </Reference>
+    <Reference Include="ZZC1OnlineCTModel">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC1OnlineCTModel.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZC6OnlineCTModel">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZPack">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -122,6 +175,12 @@
     <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <Reference Include="OpenNetV8">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\OpenNetV8.dll</HintPath>
+    </Reference>
+    <Reference Include="YoloV8Net">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YoloV8Net.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -202,10 +202,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                 ConnectionStrings = new ConnectionStrings
                 {
                     DefaultConnection = "server=127.0.0.1;database=sunwoda_demo;uid=root;pwd=root;Port=3306;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;"
-                },
-                ProjectSettings = new ProjectSettings
-                {
-                    EnableMES = true
                 }
             };
         }

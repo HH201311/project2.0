@@ -52,11 +52,33 @@ namespace SUNWODA_SEVB.Logging
         {
             try
             {
-                var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-                if (!Directory.Exists(logDir)) return;
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+                var parentDir = Directory.GetParent(baseDir)?.FullName;
+
+                if (string.IsNullOrEmpty(parentDir))
+                {
+                    Logger.Warn("无法获取父目录，跳过日志清理");
+                    return;
+                }
+
+                var logDir = Path.Combine(parentDir, "logs");
+
+                if (!Directory.Exists(logDir))
+                {
+                    Logger.Info($"日志目录不存在: {logDir}");
+                    return;
+                }
 
                 var cutoffDate = DateTime.Now.AddDays(-daysToKeep);
                 var directories = Directory.GetDirectories(logDir);
+
+                Logger.Info($"开始清理{daysToKeep}天前的日志，截止日期: {cutoffDate:yyyy-MM-dd}");
+
+                int deletedCount = 0;
+                int keptCount = 0;
+                DateTime? earliestKeptDate = null;
+                DateTime? latestKeptDate = null;
+
 
                 foreach (var dir in directories)
                 {
@@ -69,15 +91,39 @@ namespace SUNWODA_SEVB.Logging
                             try
                             {
                                 Directory.Delete(dir, true);
-                                Logger.Info($"已删除过期日志目录: {dir}");
+                                deletedCount++;
+                                Logger.Info($"已删除过期日志目录: {dir} (日期: {dirDate:yyyy-MM-dd})");
                             }
                             catch (Exception ex)
                             {
                                 Logger.Warn(ex, $"删除过期日志目录失败: {dir}");
                             }
                         }
+                        else
+                        {
+                            keptCount++;
+
+                            // 更新最早和最晚保留日期
+                            if (earliestKeptDate == null || dirDate < earliestKeptDate)
+                            {
+                                earliestKeptDate = dirDate;
+                            }
+                            if (latestKeptDate == null || dirDate > latestKeptDate)
+                            {
+                                latestKeptDate = dirDate;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Logger.Debug($"跳过非日期格式的目录: {dir}");
                     }
                 }
+                if (keptCount > 0)
+                {
+                    Logger.Info($"保留 {keptCount} 天日志目录 (从 {earliestKeptDate:yyyy-MM-dd} 到 {latestKeptDate:yyyy-MM-dd})");
+                }
+                Logger.Info($"日志清理完成，删除了 {deletedCount} 个过期目录");
             }
             catch (Exception ex)
             {

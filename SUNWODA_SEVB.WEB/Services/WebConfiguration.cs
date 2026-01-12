@@ -37,7 +37,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
-                    return await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
+                    return await globalSettingRepo.GetSettingValueAsync<bool>("IsUseWeb", false);
                 }
             }
             catch (Exception ex)

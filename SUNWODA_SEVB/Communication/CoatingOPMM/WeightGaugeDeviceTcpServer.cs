@@ -99,13 +99,13 @@ namespace SUNWODA_SEVB.Communication.CoatingOPMM
                     {
                         case "CCTBHEARTQUEST":
                             var cCTBHEARTQUEST = JsonConvert.DeserializeObject<CCTBHEARTQUEST>(
-                                tb.DataJson
+                                tb.DataJson!
                             );
                             WeightMessageParseS_CCTBHEARTQUEST(gatherTime, cCTBHEARTQUEST);
                             break;
                         case "CCTBWEIGHTQUEST":
                             var cCTBWEIGHTQUEST = JsonConvert.DeserializeObject<CCTBWEIGHTQUEST>(
-                                tb.DataJson
+                                tb.DataJson!
                             );
                             if (WeightMessageParseSEvent != null)
                                 await WeightMessageParseSEvent.Invoke(gatherTime, cCTBWEIGHTQUEST);

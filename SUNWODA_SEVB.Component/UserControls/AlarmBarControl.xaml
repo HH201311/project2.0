@@ -61,6 +61,7 @@
             CanUserDeleteRows="False"
             CanUserResizeRows="False"
             ColumnWidth="*"
+            Foreground="{Binding RelativeSource={RelativeSource AncestorType=local:AlarmBarControl}, Path=Foreground}"
             GridLinesVisibility="None"
             HeadersVisibility="Column"
             IsReadOnly="True"

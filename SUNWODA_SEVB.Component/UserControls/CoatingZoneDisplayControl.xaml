@@ -23,14 +23,14 @@
                 Canvas.Left="0"
                 Canvas.Top="40"
                 FontSize="8"
-                Foreground="Black" />
+                Foreground="{Binding RelativeSource={RelativeSource AncestorType=local:CoatingZoneDisplayControl}, Path=Foreground}" />
             <!--  下 Label (B 面)  -->
             <TextBlock
                 x:Name="FaceBLabelContainer"
                 Canvas.Left="0"
                 Canvas.Top="80"
                 FontSize="8"
-                Foreground="Black" />
+                Foreground="{Binding RelativeSource={RelativeSource AncestorType=local:CoatingZoneDisplayControl}, Path=Foreground}" />
 
             <!--  Segments  -->
             <ItemsControl x:Name="SegmentContainer">

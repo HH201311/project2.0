@@ -304,10 +304,48 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ICommand ExportCommand { get; set; }
 
         // 异常类型下拉列表
-        public ObservableCollection<string> AbnormalTypeList { get; set; } = new ObservableCollection<string>
+        //public ObservableCollection<string> AbnormalTypeList { get; set; } = new ObservableCollection<string>
+        //{
+        //"全部","无异常", "正极少片", "正极多片",  "OH不良", "负极差不良",  "负极多片", "负极少片", "负极边缘间隙不良","正极边缘间隙不良","正极中间间隙不良","负极压伤","正极Y方向掉片"
+        //};
+        public ObservableCollection<string> AllAbnormalTypes { get; }
+            = new ObservableCollection<string>
         {
         "全部","无异常", "正极少片", "正极多片",  "OH不良", "负极差不良",  "负极多片", "负极少片", "负极边缘间隙不良","正极边缘间隙不良","正极中间间隙不良","负极压伤","正极Y方向掉片"
         };
+        private string _selectedAbnormalTypeText = "全部";
+        public string SelectedAbnormalTypeText
+        {
+            get => _selectedAbnormalTypeText;
+            set
+            {
+                // 拆分成列表
+                var list = value?
+                    .Split(',')
+                    .Select(x => x.Trim())
+                    .Where(x => !string.IsNullOrEmpty(x))
+                    .Distinct()
+                    .ToList()
+                    ?? new List<string>();
+
+                if (list.Count == 0)
+                {
+                    _selectedAbnormalTypeText = "全部";
+                }
+                // 选了“全部”且还有别的 → 只保留“全部”
+                else if (list.Contains("全部") && list.Count > 1)
+                {
+                    _selectedAbnormalTypeText = "全部";
+                }
+                else
+                {
+                    _selectedAbnormalTypeText = string.Join(", ", list);
+                }
+
+                OnPropertyChanged();
+            }
+        }
+
         public DateTime? StartDateTime
         {
             get => _startDateTime;
@@ -4090,7 +4128,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             _imeresultRoot = Path.Combine(SelectedResultImagePath ?? @"E:\", "IMEResult");
             // 指定新目标根路径， "\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C01CT看图（中工序）（A线）（勿删）\CT\IMEResult"
-            _archiveTargetRoot = @"\\10.178.5.10\质量部看图文件夹\La6中工序B线\IMEResult";
+            _archiveTargetRoot = @"\\10.178.5.10\质量部看图文件夹\La6中工序A线\IMEResult";
             // 初始化文件移动服务
             _fileMoverService = new DefectFileMoverService(_imeresultRoot, _archiveTargetRoot);
             _fileMoverService.AddLog = this.AddLog;
@@ -4155,7 +4193,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             StartDateTime = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0);
             EndDateTime = DateTime.Now.Date.AddHours(23).AddMinutes(59).AddSeconds(59);
             PagedAbnormalDataList = new ObservableCollection<Dictionary<string, object>>();
-            SelectedAbnormalType = "全部";
+            SelectedAbnormalTypeText = "全部";
             ImagePathQueueLAB = new ConcurrentQueue<string>();
             ImagePathQueueLCD = new ConcurrentQueue<string>();
             ImagePathQueueRAB = new ConcurrentQueue<string>();
@@ -5454,6 +5492,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         {
                             if (_firstDetectionImageCache.ContainsKey(imgPath))
                             {
+
                                 _firstDetectionImageCache.Remove(imgPath);
                             }
                         }
@@ -5838,6 +5877,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             UpdateRiskRatios();
                         }
+                        //-----------CSV间隙写入 后续可删掉------------
                         if (IsTargetGapDefect(finalHighestPriorityDefect))
                         {
                             // 异步写入CSV，不阻塞主线程
@@ -5850,6 +5890,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 }
                             });
                         }
+                       //------------------------------------------------
                     }
                 }
 
@@ -7034,6 +7075,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
         #endregion
 
+        /// <summary>
+        /// 根据 SelectedAbnormalTypeText 构建异常类型 SQL 条件
+        /// </summary>
+        private string BuildAbnormalTypeWhere(SqliteCommand cmd)
+        {
+            if (string.IsNullOrWhiteSpace(SelectedAbnormalTypeText))
+                throw new InvalidOperationException("异常类型不能为空");
+            if (SelectedAbnormalTypeText.Contains("全部"))
+                return "";
+            var types = SelectedAbnormalTypeText
+                .Split(',')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct()
+                .ToList();
+
+            if (types.Count == 0)
+                throw new InvalidOperationException("异常类型不能为空");
+
+            var paramNames = new List<string>();
+            for (int i = 0; i < types.Count; i++)
+            {
+                string paramName = $"@Ng{i}";
+                paramNames.Add(paramName);
+                cmd.Parameters.AddWithValue(paramName, types[i]);
+            }
+            return $" AND NgDetails IN ({string.Join(",", paramNames)}) ";
+        }
+
         // 单条检测记录的结构（键为字段名，值为对应数据）
         private static Dictionary<string, object> CreateDetectionRecord(
             DateTime detectionTime,
@@ -7196,82 +7266,94 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         // 执行查询
         private async Task<int> GetTotalCountAsync()
         {
-            // 检查并初始化数据库连接
             if (_dbConnection == null)
             {
-                string connectionString = "Data Source=DetectionData.db;";
-                _dbConnection = new SqliteConnection(connectionString);
+                _dbConnection = new SqliteConnection("Data Source=DetectionData.db;");
+                _dbConnection.Open();
             }
+
             using (var cmd = _dbConnection.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT COUNT(*) FROM DetectionRecords
-                    WHERE DetectionTime BETWEEN @Start AND @End
-                    AND (@AbnormalType = '全部' OR NgDetails = @AbnormalType)
-                ";
-                cmd.Parameters.AddWithValue("@Start", StartDateTime ?? DateTime.MinValue);
-                cmd.Parameters.AddWithValue("@End", EndDateTime ?? DateTime.MaxValue);
-                cmd.Parameters.AddWithValue("@AbnormalType", SelectedAbnormalType);
+            SELECT COUNT(*) FROM DetectionRecords
+            WHERE DetectionTime BETWEEN @Start AND @End
+        ";
+
+                cmd.Parameters.AddWithValue("@Start", StartDateTime!.Value);
+                cmd.Parameters.AddWithValue("@End", EndDateTime!.Value);
+
+                cmd.CommandText += BuildAbnormalTypeWhere(cmd);
 
                 return Convert.ToInt32(await cmd.ExecuteScalarAsync());
             }
         }
 
+        //构建CSV名称
+        private string BuildExportFileNameSuffix()
+        {
+            if (SelectedAbnormalTypeText.Contains("全部"))
+                return "全部缺陷";
+            var list = SelectedAbnormalTypeText
+                .Split(',')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct()
+                .ToList();
+            if (list.Count == 1)
+                return list[0];
+            return "多个缺陷";
+        }
+
         // 加载分页数据
         private async Task LoadPageDataAsync(int page)
         {
-            // 检查并初始化数据库连接
             if (_dbConnection == null)
             {
-                string connectionString = "Data Source=DetectionData.db;";
-                _dbConnection = new SqliteConnection(connectionString);
+                _dbConnection = new SqliteConnection("Data Source=DetectionData.db;");
+                _dbConnection.Open();
             }
 
             PagedAbnormalDataList.Clear();
+
             int pageSize = 100;
             int offset = (page - 1) * pageSize;
 
             using (var cmd = _dbConnection.CreateCommand())
             {
                 cmd.CommandText = @"
-                        SELECT DetectionTime, CellBarcode, NgDetails 
-                        FROM DetectionRecords
-                        WHERE DetectionTime BETWEEN @Start AND @End
-                        AND (@AbnormalType = '全部' OR NgDetails = @AbnormalType)
-                        ORDER BY DetectionTime DESC
-                        LIMIT @PageSize OFFSET @Offset
-                    ";
-                cmd.Parameters.AddWithValue("@Start", StartDateTime ?? DateTime.MinValue);
-                cmd.Parameters.AddWithValue("@End", EndDateTime ?? DateTime.MaxValue);
-                cmd.Parameters.AddWithValue("@AbnormalType", SelectedAbnormalType);
+            SELECT DetectionTime, CellBarcode, NgDetails
+            FROM DetectionRecords
+            WHERE DetectionTime BETWEEN @Start AND @End
+        ";
+
+                cmd.Parameters.AddWithValue("@Start", StartDateTime!.Value);
+                cmd.Parameters.AddWithValue("@End", EndDateTime!.Value);
+
+                cmd.CommandText += BuildAbnormalTypeWhere(cmd);
+
+                cmd.CommandText += @"
+            ORDER BY DetectionTime DESC
+            LIMIT @PageSize OFFSET @Offset
+        ";
+
                 cmd.Parameters.AddWithValue("@PageSize", pageSize);
                 cmd.Parameters.AddWithValue("@Offset", offset);
+
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        // 提取字段值并临时变量保存
-                        var timeValue = reader.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss");
-                        var barcodeValue = reader.GetString(1);
-                        var abnormalTypeValue = reader.IsDBNull(2) ? "OK" : reader.GetString(2);
-
-                        // 输出日志，确认值是否有效
-                        //AddLog($"[数据行内容] Time: '{timeValue}', CellBarcode: '{barcodeValue}', AbnormalType: '{abnormalTypeValue}'");
-
-                        // 添加到集合
-                        var record = new Dictionary<string, object>
-                            {
-                                {"Time", timeValue},
-                                {"CellBarcode", barcodeValue},
-                                {"AbnormalType", abnormalTypeValue}
-                            };
-                        PagedAbnormalDataList.Add(record);
+                        PagedAbnormalDataList.Add(new Dictionary<string, object>
+                {
+                    { "Time", reader.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss") },
+                    { "CellBarcode", reader.GetString(1) },
+                    { "AbnormalType", reader.IsDBNull(2) ? "OK" : reader.GetString(2) }
+                });
                     }
                 }
-                //确认数据是否加载
-                AddLog($"[DataGrid加载] 第{page}页，实际加载{this.PagedAbnormalDataList.Count}条数据");
             }
         }
+
 
         private async Task ExecuteExportAsync()
         {
@@ -7281,10 +7363,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 return;
             }
 
+            string suffix = BuildExportFileNameSuffix();
+
             var saveFileDialog = new SaveFileDialog
             {
                 Filter = "CSV文件 (*.csv)|*.csv",
-                FileName = $"{EndDateTime ?? DateTime.MaxValue:yyMMddHH}_{EndDateTime ?? DateTime.MaxValue:yyMMddHH}_{SelectedAbnormalType}.csv"
+                FileName =
+                    $"{StartDateTime:yyMMddHHmm}_{EndDateTime:yyMMddHHmm}_{suffix}.csv"
             };
 
             if (saveFileDialog.ShowDialog() != true)
@@ -7343,21 +7428,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private async Task<List<Dictionary<string, object>>> GetExportBatchDataAsync(int offset, int batchSize)
         {
             var result = new List<Dictionary<string, object>>();
-            using (var cmd = _dbConnection?.CreateCommand())
+
+            using (var cmd = _dbConnection!.CreateCommand())
             {
-                if (cmd == null) return result;
-
                 cmd.CommandText = @"
-                    SELECT DetectionTime, Station, CellBarcode, DetectionResult, NgDetails 
-                    FROM DetectionRecords
-                    WHERE DetectionTime BETWEEN @Start AND @End
-                    AND (@AbnormalType = '全部' OR NgDetails = @AbnormalType)
-                    ORDER BY DetectionTime DESC
-                    LIMIT @BatchSize OFFSET @Offset";
+            SELECT DetectionTime, Station, CellBarcode, DetectionResult, NgDetails
+            FROM DetectionRecords
+            WHERE DetectionTime BETWEEN @Start AND @End
+        ";
 
-                cmd.Parameters.AddWithValue("@Start", StartDateTime ?? DateTime.MinValue);
-                cmd.Parameters.AddWithValue("@End", EndDateTime ?? DateTime.MaxValue);
-                cmd.Parameters.AddWithValue("@AbnormalType", SelectedAbnormalType);
+                cmd.Parameters.AddWithValue("@Start", StartDateTime!.Value);
+                cmd.Parameters.AddWithValue("@End", EndDateTime!.Value);
+
+                cmd.CommandText += BuildAbnormalTypeWhere(cmd);
+
+                cmd.CommandText += @"
+            ORDER BY DetectionTime DESC
+            LIMIT @BatchSize OFFSET @Offset
+        ";
+
                 cmd.Parameters.AddWithValue("@BatchSize", batchSize);
                 cmd.Parameters.AddWithValue("@Offset", offset);
 
@@ -7365,20 +7454,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     while (await reader.ReadAsync())
                     {
-                        var record = new Dictionary<string, object>
+                        result.Add(new Dictionary<string, object>
                 {
-                    {"DetectionTime", reader.GetDateTime(0)},
-                    {"Station", reader.IsDBNull(1) ? "" : reader.GetString(1)},
-                    {"CellBarcode", reader.GetString(2)},
-                    {"DetectionResult", reader.GetString(3)},
-                    {"NgDetails", reader.IsDBNull(4) ? "OK" : reader.GetString(4)}
-                };
-                        result.Add(record);
+                    { "DetectionTime", reader.GetDateTime(0) },
+                    { "Station", reader.IsDBNull(1) ? "" : reader.GetString(1) },
+                    { "CellBarcode", reader.GetString(2) },
+                    { "DetectionResult", reader.GetString(3) },
+                    { "NgDetails", reader.IsDBNull(4) ? "OK" : reader.GetString(4) }
+                });
                     }
                 }
             }
+
             return result;
         }
+
 
         /// <summary>
         /// 处理CSV字段中的特殊字符

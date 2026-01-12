@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿/*using Microsoft.Extensions.DependencyInjection;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Tool.Services.Socket;
@@ -32,3 +32,4 @@ namespace SUNWODA_SEVB.WEB
         }
     }
 }
+*/

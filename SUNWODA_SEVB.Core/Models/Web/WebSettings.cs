@@ -57,5 +57,30 @@ namespace SUNWODA_SEVB.Core.Models.Web
                    !string.IsNullOrEmpty(DeviceName) &&
                    !string.IsNullOrEmpty(UUID);
         }
+
+
+        #region 螺丝拧紧相关配置
+
+        /// <summary>
+        /// 默认拧紧控制器IP
+        /// </summary>
+        public string? DefaultTightenControllerIP { get; set; }
+
+        /// <summary>
+        /// 默认拧紧控制器端口
+        /// </summary>
+        public string? DefaultTightenControllerPort { get; set; } = "4545";
+
+        /// <summary>
+        /// 曲线数据请求超时时间（秒）
+        /// </summary>
+        public int CurveDataTimeoutSeconds { get; set; } = 10;
+
+        /// <summary>
+        /// 是否启用曲线数据获取
+        /// </summary>
+        public bool EnableCurveDataFetch { get; set; } = true;
+
+        #endregion
     }
 }

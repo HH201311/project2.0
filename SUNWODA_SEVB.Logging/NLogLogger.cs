@@ -37,7 +37,7 @@ namespace SUNWODA_SEVB.Logging
 
         #region 基础日志方法（仅消息）
 
-        public void Trace(string message,bool isToDatabase = true,
+        public void Trace(string message,bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
@@ -45,7 +45,7 @@ namespace SUNWODA_SEVB.Logging
             LogWithCallSite(NLog.LogLevel.Trace, message, null, isToDatabase, memberName, filePath, lineNumber);
         }
 
-        public void Debug(string message, bool isToDatabase = true,
+        public void Debug(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
@@ -53,7 +53,7 @@ namespace SUNWODA_SEVB.Logging
             LogWithCallSite(NLog.LogLevel.Debug, message, null, isToDatabase, memberName, filePath, lineNumber);
         }
 
-        public void Info(string message, bool isToDatabase = true,
+        public void Info(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)

@@ -3366,10 +3366,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                         WriteCsvLines(header);
                         AddLog($"[CSV初始化] 已创建CSV文件：{_currentCsvFilePath}");
                     }
-                    else
-                    {
-                        //AddLog($"[CSV初始化] 已存在CSV文件，直接使用：{_currentCsvFilePath}");
-                    }
+
+                    _currentCsvDate = today;
+                    AddLog($"[CSV初始化] 当前CSV日期已更新为：{_currentCsvDate}");
 
                     //启动跨天检查定时器
                     if (!IsOnlineDetectionEnabled)
@@ -3382,6 +3381,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     AddLog($"[CSV初始化失败] {ex.Message}");
                     _currentCsvFilePath = null;
                     _csvCacheTempPath = null;
+                    _currentCsvDate = null;
                     while (_csvCacheQueue.TryDequeue(out _)) { }
                 }
             }

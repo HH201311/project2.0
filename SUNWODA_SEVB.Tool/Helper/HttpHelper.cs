@@ -345,6 +345,126 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+        public async Task<string> PostWithRetryAsync(
+            string url,
+            string jsonData,
+            string contentType = "application/json",
+            Dictionary<string, string>? headers = null,
+            int retryCount = 3,
+            int retryDelayMs = 1000,
+            int timeoutSeconds = 30)
+        {
+            int attempt = 0;
+            Exception? lastException = null;
+
+            while (attempt < retryCount)
+            {
+                try
+                {
+                    var originalTimeout = _httpClient.Timeout;
+                    _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+
+                    try
+                    {
+                        var content = new StringContent(jsonData, Encoding.UTF8, contentType);
+                        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                        request.Content = content;
+
+                        if (headers != null)
+                        {
+                            foreach (var header in headers)
+                            {
+                                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                            }
+                        }
+
+                        var response = await _httpClient.SendAsync(request);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            return await response.Content.ReadAsStringAsync();
+                        }
+                    }
+                    finally
+                    {
+                        _httpClient.Timeout = originalTimeout;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+
+                attempt++;
+                if (attempt < retryCount)
+                {
+                    await Task.Delay(retryDelayMs);
+                }
+            }
+
+            return $"failed: 已重试 {retryCount} 次, 最后错误: {lastException?.Message}";
+        }
+
+        public async Task<string> PostFileWithRetryAsync(
+            string url,
+            string filePath,
+            Dictionary<string, string>? formData = null,
+            int retryCount = 3,
+            int retryDelayMs = 1000,
+            int timeoutSeconds = 30)
+        {
+            int attempt = 0;
+            Exception? lastException = null;
+
+            while (attempt < retryCount)
+            {
+                try
+                {
+                    var originalTimeout = _httpClient.Timeout;
+                    _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+
+                    try
+                    {
+                        using var form = new MultipartFormDataContent();
+                        using var fileStream = File.OpenRead(filePath);
+
+                        var fileContent = new StreamContent(fileStream);
+                        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/pdf");
+                        form.Add(fileContent, "file", Path.GetFileName(filePath));
+
+                        if (formData != null)
+                        {
+                            foreach (var item in formData)
+                            {
+                                form.Add(new StringContent(item.Value ?? string.Empty), item.Key);
+                            }
+                        }
+
+                        var response = await _httpClient.PostAsync(url, form);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            return await response.Content.ReadAsStringAsync();
+                        }
+                    }
+                    finally
+                    {
+                        _httpClient.Timeout = originalTimeout;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+
+                attempt++;
+                if (attempt < retryCount)
+                {
+                    await Task.Delay(retryDelayMs);
+                }
+            }
+
+            return $"failed: 已重试 {retryCount} 次, 最后错误: {lastException?.Message}";
+        }
+
         public void Dispose()
         {
             Dispose(true);

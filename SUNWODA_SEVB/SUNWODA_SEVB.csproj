@@ -140,9 +140,6 @@
     <Reference Include="ZZC6OnlineCTModel">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
     </Reference>
-    <Reference Include="ZZPack">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

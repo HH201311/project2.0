@@ -86,6 +86,7 @@ namespace SUNWODA_SEVB.WEB.Services
 
                     //项目参数配置
                     var vmName = await globalSettingRepo.GetSettingValueAsync<string>("CurrentVMName", "Default");
+                    newSettings.EnableWebPush = await projectSettingRepo.GetSettingValueAsync("EnableWebPush", vmName)?? false;
                     newSettings.PushSystemTypeId = await projectSettingRepo.GetSettingValueAsync("PushSystemTypeId",vmName)??31;
                     newSettings.PushUserId = await projectSettingRepo.GetSettingValueAsync("PushUserId",vmName)?? "oc_713fbc8ebd0af75235e06c93346c4752";
                     newSettings.PushAppId = await projectSettingRepo.GetSettingValueAsync("PushAppId",vmName)?? "cli_a68c3b89643bd00c";

@@ -963,7 +963,7 @@ namespace SUNWODA_SEVB.WEB.Services
             try
             {
                 var settings = _configuration.GetSettings();
-                if (settings == null || string.IsNullOrEmpty(settings.CentralControlWebUrl))
+                if (settings == null || string.IsNullOrEmpty(settings.WebPushApiUrl))
                 {
                     return new WebApiSendResponse
                     {
@@ -979,7 +979,8 @@ namespace SUNWODA_SEVB.WEB.Services
                         Message = "数据库中信息或文件推送功能未启用"
                     };
                 }
-                var baseUrl = settings.CentralControlWebUrl!;
+                var baseUrl = settings.WebPushApiUrl;
+                
                 if (!baseUrl.EndsWith("/")) baseUrl += "/";
 
                 var url = $"{baseUrl}sendTextFs";
@@ -1037,22 +1038,11 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
             }
 
-            // 验证文件扩展名
-            if (Path.GetExtension(filePath).ToLower() != ".pdf")
-            {
-                _logger.Error($"推送文件格式不支持，仅支持PDF: {filePath}");
-                return new WebApiSendResponse
-                {
-                    Code = 0,
-                    Message = $"推送文件格式不支持，仅支持PDF: {filePath}"
-                };
-            }
-
             try
             {
                 var settings = _configuration.GetSettings();
 
-                if (settings == null || string.IsNullOrEmpty(settings.CentralControlWebUrl))
+                if (settings == null || string.IsNullOrEmpty(settings.WebPushApiUrl))
                 {
                     return new WebApiSendResponse
                     {
@@ -1077,7 +1067,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     };
                 }
 
-                var baseUrl = settings.CentralControlWebUrl!;
+                var baseUrl = settings.WebPushApiUrl;
                 if (!baseUrl.EndsWith("/")) baseUrl += "/";
 
                 var url = $"{baseUrl}sendFsTextAndFile";
@@ -1088,7 +1078,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     { "appId", settings.PushAppId ?? string.Empty }
                 };
 
-                var result = await _httpHelper.PostFileWithRetryAsync( url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 10);
+                var result = await _httpHelper.PostFileWithRetryAsync( url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 30);
 
                 if (result.StartsWith("failed"))
                 {

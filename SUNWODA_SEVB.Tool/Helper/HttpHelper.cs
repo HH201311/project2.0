@@ -164,46 +164,42 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
 
                 // 临时设置超时时间
-                var originalTimeout = _httpClient.Timeout;
-                _httpClient.Timeout = TimeSpan.FromSeconds(timeout);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
 
-                try
+                using var form = new MultipartFormDataContent();
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                // 添加文件
+                var fileContent = new ByteArrayContent(File.ReadAllBytes(filePath));
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                form.Add(fileContent, fileParamName, fileName);
+
+                // 添加表单数据
+                if (formData != null)
                 {
-                    using var form = new MultipartFormDataContent();
-                    using var request = new HttpRequestMessage(HttpMethod.Post, url);
-                    // 添加文件
-                    var fileContent = new ByteArrayContent(File.ReadAllBytes(filePath));
-                    fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
-                    form.Add(fileContent, fileParamName, fileName);
-
-                    // 添加表单数据
-                    if (formData != null)
+                    foreach (var item in formData)
                     {
-                        foreach (var item in formData)
-                        {
-                            form.Add(new StringContent(item.Value), item.Key);
-                        }
+                        form.Add(new StringContent(item.Value), item.Key);
                     }
-
-                    request.Content = form;
-
-                    // 添加头部
-                    if (headers != null)
-                    {
-                        foreach (var header in headers)
-                        {
-                            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                        }
-                    }
-
-                    var response = _httpClient.SendAsync(request).Result;
-                    return response.Content.ReadAsStringAsync().Result;
                 }
-                finally
+
+                request.Content = form;
+
+                // 添加头部
+                if (headers != null)
                 {
-                    // 恢复原始超时时间
-                    _httpClient.Timeout = originalTimeout;
+                    foreach (var header in headers)
+                    {
+                        request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    }
                 }
+
+                var response = _httpClient.SendAsync(request).Result;
+                return response.Content.ReadAsStringAsync().Result;
+               
+            }
+            catch (OperationCanceledException)
+            {
+                return $"{{\"code\":\"408\",\"message\":\"请求超时\"}}";
             }
             catch (Exception ex)
             {
@@ -361,33 +357,32 @@ namespace SUNWODA_SEVB.Tool.Helper
             {
                 try
                 {
-                    var originalTimeout = _httpClient.Timeout;
-                    _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                   
+                    var content = new StringContent(jsonData, Encoding.UTF8, contentType);
+                    using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                    request.Content = content;
 
-                    try
+                    if (headers != null)
                     {
-                        var content = new StringContent(jsonData, Encoding.UTF8, contentType);
-                        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-                        request.Content = content;
-
-                        if (headers != null)
+                        foreach (var header in headers)
                         {
-                            foreach (var header in headers)
-                            {
-                                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                            }
-                        }
-
-                        var response = await _httpClient.SendAsync(request);
-                        if (response.IsSuccessStatusCode)
-                        {
-                            return await response.Content.ReadAsStringAsync();
+                            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
                         }
                     }
-                    finally
+
+                    var response = await _httpClient.SendAsync(request);
+                    if (response.IsSuccessStatusCode)
                     {
-                        _httpClient.Timeout = originalTimeout;
+                        return await response.Content.ReadAsStringAsync();
                     }
+
+                    lastException = new HttpRequestException($"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}");
+
+                }
+                catch (OperationCanceledException)
+                {
+                    lastException = new TimeoutException($"请求超时 ({timeoutSeconds}秒)");
                 }
                 catch (Exception ex)
                 {
@@ -418,37 +413,34 @@ namespace SUNWODA_SEVB.Tool.Helper
             while (attempt < retryCount)
             {
                 try
+                {            
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+
+                    using var form = new MultipartFormDataContent();
+                    await using var fileStream = File.OpenRead(filePath);
+                    var fileContent = new StreamContent(fileStream);
+
+                    form.Add(fileContent, "file", Path.GetFileName(filePath));
+
+                    if (formData != null)
+                    {
+                        foreach (var item in formData)
+                        {
+                            form.Add(new StringContent(item.Value ?? string.Empty), item.Key);
+                        }
+                    }
+
+                    var response = await _httpClient.PostAsync(url, form, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return await response.Content.ReadAsStringAsync();
+                    }
+                    lastException = new HttpRequestException($"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}");
+
+                }
+                catch (OperationCanceledException)
                 {
-                    var originalTimeout = _httpClient.Timeout;
-                    _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
-
-                    try
-                    {
-                        using var form = new MultipartFormDataContent();
-                        using var fileStream = File.OpenRead(filePath);
-
-                        var fileContent = new StreamContent(fileStream);
-                        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/pdf");
-                        form.Add(fileContent, "file", Path.GetFileName(filePath));
-
-                        if (formData != null)
-                        {
-                            foreach (var item in formData)
-                            {
-                                form.Add(new StringContent(item.Value ?? string.Empty), item.Key);
-                            }
-                        }
-
-                        var response = await _httpClient.PostAsync(url, form);
-                        if (response.IsSuccessStatusCode)
-                        {
-                            return await response.Content.ReadAsStringAsync();
-                        }
-                    }
-                    finally
-                    {
-                        _httpClient.Timeout = originalTimeout;
-                    }
+                    lastException = new TimeoutException($"请求超时 ({timeoutSeconds}秒)");
                 }
                 catch (Exception ex)
                 {

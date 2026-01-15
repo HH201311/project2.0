@@ -257,11 +257,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             _socketServer.ClientDisconnected += OnClientDisconnected;
             _socketServer.DataReceived += OnDataReceived;
             _socketServer.ErrorOccurred += OnErrorOccurred;
-
         }
 
         #region 初始化
-
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
             if (!_initializedView)

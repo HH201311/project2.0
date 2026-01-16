@@ -56,6 +56,7 @@
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
+    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.11.0.20250507" />
     <PackageReference Include="TouchSocket" Version="3.1.16" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.20.1" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
@@ -137,8 +138,9 @@
     <Reference Include="ZZC1OnlineCTModel">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC1OnlineCTModel.dll</HintPath>
     </Reference>
+
     <Reference Include="ZZC6OnlineCTModel">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
+      <HintPath>bin\Debug\net8.0-windows\ZZC6OnlineCTModel.dll</HintPath>
     </Reference>
     <Reference Include="ZZPack">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>

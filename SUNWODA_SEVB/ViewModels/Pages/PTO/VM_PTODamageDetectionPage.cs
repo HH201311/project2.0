@@ -760,6 +760,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly object _batchLock = new object(); // 批次数据锁
         private int _totalOfflineImageCount;
         private int _completedOfflineImageCount;
+        private readonly IWebApiClient _webApiClient;
         // 进度更新间隔改为批次大小
         private const int _progressUpdateInterval = BatchSize;
 
@@ -1447,7 +1448,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ResetOfflineProgress();
         }
 
-        public VM_PTODamageDetectionPage()
+        public VM_PTODamageDetectionPage(IWebApiClient webApiClient)
         {
             InitParameters();
             LoadConfig();
@@ -1501,7 +1502,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _isReportFunctionInited = false;
             SaveUserIdCommand = new RelayCommand(SaveUserId);
             DeleteUserIdCommand = new RelayCommand(DeleteUserId);
-
+            _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
             // 加载已保存的ID列表
             LoadUserIds();
         }
@@ -6475,7 +6476,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     AddLog($"[报表推送] 开始推送报表：{savePath}");
                     string combinedUserId = GetCombinedUserIdString();
-                    await MessagePushHelper.PushFileAsync(savePath, combinedUserId);
+                    //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
+                    var response = await _webApiClient.PushFileAsync(savePath);
                     AddLog($"[报表推送成功] 报表已推送");
                 }
                 catch (Exception pushEx)

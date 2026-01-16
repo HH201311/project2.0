@@ -33,6 +33,18 @@ namespace SUNWODA_SEVB.Core.Models.Web
     }
 
     /// <summary>
+    /// 上位机预警信息接口
+    /// </summary>
+    public class MachineErrorResponse : BaseResponse
+    {
+    }
+
+
+    public class WebApiSendResponse : BaseResponse
+    {     
+    }
+
+    /// <summary>
     /// PC信息响应
     /// </summary>
     public class PcInfoResponse : BaseResponse

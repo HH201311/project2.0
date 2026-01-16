@@ -260,7 +260,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         }
 
         #region 初始化
-      
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
             if (!_initializedView)
@@ -465,6 +464,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
 
         #endregion
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         #region Socket服务
         private async Task InitializePortAsync()

@@ -568,4 +568,63 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public int StatusFlag { get; set; }
     }
     #endregion
+
+    #region web 信息或文件推送
+    /// <summary>
+    /// 推送文本消息请求
+    /// </summary>
+    public class PushMessageRequest
+    {
+        /// <summary>
+        /// 系统类型ID
+        /// </summary>
+        [JsonPropertyName("systemTypeId")]
+        public int SystemTypeId { get; set; }
+
+        /// <summary>
+        /// 消息内容
+        /// </summary>
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
+
+        /// <summary>
+        /// 用户ID
+        /// </summary>
+        [JsonPropertyName("userId")]
+        public string? UserId { get; set; }
+
+        /// <summary>
+        /// 应用ID
+        /// </summary>
+        [JsonPropertyName("appId")]
+        public string? AppId { get; set; }
+
+        /// <summary>
+        /// 系统类型
+        /// </summary>
+        [JsonPropertyName("systemType")]
+        public string? SystemType { get; set; }
+    }
+
+    /// <summary>
+    /// 推送文件请求
+    /// </summary>
+    public class PushFileRequest
+    {
+        /// <summary>
+        /// 用户ID
+        /// </summary>
+        public string? UserId { get; set; }
+
+        /// <summary>
+        /// 应用ID
+        /// </summary>
+        public string? AppId { get; set; }
+
+        /// <summary>
+        /// 文件路径
+        /// </summary>
+        public string? FilePath { get; set; }
+    }
+    #endregion
 }

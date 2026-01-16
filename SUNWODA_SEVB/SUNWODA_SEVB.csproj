@@ -32,6 +32,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_CCDDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_SummaryPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_TBDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\VM_CCTBMonitoringPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\VM_CCTBRecordingsPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\VM_CCTBSettingsPage.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBMonitoringPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBMonitoring\CCDDataPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBMonitoring\SummaryPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettingsPage.xaml.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Assets\images\logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -97,11 +112,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="ViewModels\Pages\CCTB\" />
-    <Folder Include="Views\Pages\CCTB\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Reference Include="C01Infer">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\C01Infer.dll</HintPath>
     </Reference>
@@ -142,9 +152,6 @@
     <Reference Include="ZZC6OnlineCTModel">
       <HintPath>bin\Debug\net8.0-windows\ZZC6OnlineCTModel.dll</HintPath>
     </Reference>
-    <Reference Include="ZZPack">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZPack.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -184,6 +191,15 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="Views\Pages\CCTB\CCTBMonitoringPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBMonitoring\CCDDataPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBMonitoring\SummaryPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettingsPage.xaml" />
   </ItemGroup>
 
 </Project>

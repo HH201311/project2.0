@@ -558,14 +558,14 @@
                             <!--  启动按钮  -->
                             <Button
                                 Command="{Binding StartServerCommand}"
-                                Content="启动服务"
+                                Content="启 动"
                                 IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
                                 Style="{StaticResource StartButtonStyle}" />
 
                             <!--  停止按钮  -->
                             <Button
                                 Command="{Binding StopServerCommand}"
-                                Content="停止服务"
+                                Content="停 止"
                                 IsEnabled="{Binding IsServerRunning}"
                                 Style="{StaticResource StopButtonStyle}" />
                         </StackPanel>

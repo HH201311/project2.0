@@ -1,4 +1,5 @@
-﻿using HalconDotNet;
+﻿using Azure.Messaging;
+using HalconDotNet;
 using HandyControl.Controls;
 using Microsoft.Win32;
 //using Microsoft.WindowsAPICodePack.Dialogs;
@@ -3366,10 +3367,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                         WriteCsvLines(header);
                         AddLog($"[CSV初始化] 已创建CSV文件：{_currentCsvFilePath}");
                     }
-                    else
-                    {
-                        //AddLog($"[CSV初始化] 已存在CSV文件，直接使用：{_currentCsvFilePath}");
-                    }
+
+                    _currentCsvDate = today;
+                    AddLog($"[CSV初始化] 当前CSV日期已更新为：{_currentCsvDate}");
 
                     //启动跨天检查定时器
                     if (!IsOnlineDetectionEnabled)
@@ -3382,6 +3382,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     AddLog($"[CSV初始化失败] {ex.Message}");
                     _currentCsvFilePath = null;
                     _csvCacheTempPath = null;
+                    _currentCsvDate = null;
                     while (_csvCacheQueue.TryDequeue(out _)) { }
                 }
             }
@@ -4200,7 +4201,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                 }
 
                 string pushContent = $@"{yesterday:yyyy年MM月dd日} 白晚班X-ray测试检测数据如下：\nL0级冗余：白班{l0Day}PCS，夜班{l0Night}PCS\nL1级冗余：白班{l1Day}PCS，夜班{l1Night}PCS\nL2级冗余：白班{l2Day}PCS，夜班{l2Night}PCS\nL3级冗余：白班{l3Day}PCS，夜班{l3Night}PCS\n检测总数：{totalCount}PCS  OK数：{okCount}PCS  NG数：{ngCount}PCS";
-                await MessagePushHelper.PushMessageAsync(pushContent);
+                //await MessagePushHelper.PushMessageAsync(pushContent);
+                var response = await _webApiClient.PushMessageAsync(pushContent);
+
+                if (response.Code != 200)
+                {
+                    _logger.Warn($"消息推送失败：{response.Message}");
+                }
+
+
             }
             catch (Exception ex)
             {

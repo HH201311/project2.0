@@ -11,7 +11,7 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/UniformWrapItemsControlStyle.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
-                
+
                 <ResourceDictionary x:Name="CCTBThemeResourceDictionary">
                     <FontFamily x:Key="CCTB.SourceHanSansCN">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/#sourcehansanscn</FontFamily>
                     <FontFamily x:Key="CCTB.AlimamaShuHeiTi">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/#阿里妈妈数黑体</FontFamily>

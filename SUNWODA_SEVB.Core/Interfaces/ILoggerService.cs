@@ -11,17 +11,17 @@ namespace SUNWODA_SEVB.Core.Interfaces
     {
         #region 基础日志方法
 
-        void Trace(string message, bool isToDatabase = true,
+        void Trace(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0);
 
-        void Debug(string message, bool isToDatabase = true,
+        void Debug(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0);
 
-        void Info(string message, bool isToDatabase = true,
+        void Info(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0);

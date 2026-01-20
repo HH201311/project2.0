@@ -1,13 +1,9 @@
-﻿
-
-using SUNWODA_SEVB.Core.Enumerations.Logging;
+﻿using SUNWODA_SEVB.Core.Enumerations.Logging;
 using System.Text.Json.Serialization;
 
 namespace SUNWODA_SEVB.Core.Models.Project.STC
 {
-    //internal class ScrewTighteningModels
-    //{
-    //}
+
     /// <summary>
     /// 螺丝位置配置
     /// </summary>
@@ -120,7 +116,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.STC
     }
 
     /// <summary>
-    /// 拧紧数据（用于协议解析）
+    /// 拧紧数据（用于和上位机协议解析）
     /// </summary>
     public class TighteningResult
     {
@@ -191,7 +187,17 @@ namespace SUNWODA_SEVB.Core.Models.Project.STC
 
         [JsonPropertyName("paramUnit")]
         public string? ParamUnit { get; set; }
+        /// <summary>
+        /// EOR循环计数
+        /// </summary>
+        [JsonIgnore]
+        public string? EorCycleCount { get; set; }
 
+        /// <summary>
+        /// 工作循环ID
+        /// </summary>
+        [JsonPropertyName("workCycleId")]
+        public string? WorkCycleId { get; set; }
         /// <summary>
         /// 单项结果是否OK
         /// </summary>

@@ -27,7 +27,7 @@
         <Grid Grid.Row="0" Background="LightGray" Margin="0,0,0,0">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10">
                 <!-- logo图片 -->
-                <Image Source="pack://application:,,,/SUNWODA_SEVB;component/Assets/SEVB-logo1.png" MaxWidth="80" MaxHeight="90"/>
+                <Image Source="pack://application:,,,/SUNWODA_SEVB;component/Assets/images/logo.png" MaxWidth="80" MaxHeight="90"/>
                 <!-- 项目名称文本 -->
                 <TextBlock Text="在线CT AI检测系统V2.0" 
                           FontSize="35" FontWeight="Bold" 
@@ -1105,12 +1105,16 @@
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
                                     <TextBlock Text="类型检索：" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                    <ComboBox 
-                                            ItemsSource="{Binding AbnormalTypeList}" 
-                                            SelectedItem="{Binding SelectedAbnormalType}" 
-                                            FontSize="15" 
-                                            Width="160" Height="30" 
-                                            Margin="0,0,20,0"/>
+                                    <xctk:CheckComboBox
+                                        Width="160"
+                                        Height="30"
+                                        ItemsSource="{Binding AllAbnormalTypes}"
+                                        Text="{Binding SelectedAbnormalTypeText, Mode=TwoWay}"
+                                        IsEditable="False"
+                                        FontSize="15"
+                                        Margin="0,0,20,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"/>
                                     <Button 
                                             Content="查询" 
                                             Command="{Binding QueryCommand}" 

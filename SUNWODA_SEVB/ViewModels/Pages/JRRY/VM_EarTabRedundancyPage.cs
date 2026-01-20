@@ -1,4 +1,5 @@
-﻿using HalconDotNet;
+﻿using Azure.Messaging;
+using HalconDotNet;
 using HandyControl.Controls;
 using Microsoft.Win32;
 //using Microsoft.WindowsAPICodePack.Dialogs;
@@ -968,7 +969,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
             string dllPythonCode = "YW_LiXianXray_C05_DLL";
             string dllExecuteType = "PRED";
 
-            // 模型配置（下载标识PTO_JiSunDiePian_model，保存名为Diepian.onnx）
+            // 模型配置
             string modelPythonCode = "YW_LiXianXray_C05_Model";
             string modelExecuteType = "PRED"; // 模型下载通常用TRAIN标识
             string modelFileName = "best1011.onnx"; // 下载后保存的模型文件名
@@ -976,7 +977,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
 
             try
             {
-                //先完成DLL的初始化（原有逻辑不变）
+                //先完成DLL的初始化
                 var DLLPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TabRedundancyCore.dll");
                 Assembly? targetAssembly = null;
                 Type? targetType = null;
@@ -1011,7 +1012,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     }
                     AddLog($"[DLL加载] Web下载成功，大小：{dllReFile.dataStr.Length} 字节");
 
-                    // 验证DLL有效性（MZ头）
+                    // 验证DLL有效性
                     if (dllReFile.dataStr.Length < 2 || dllReFile.dataStr[0] != 0x4D || dllReFile.dataStr[1] != 0x5A)
                     {
                         AddLog("[DLL加载] 下载的不是有效DLL（缺少MZ标识）");
@@ -1045,7 +1046,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                 }
                 AddLog($"[DLL初始化完成] 类实例+方法均就绪");
 
-                // Web下载模型（Diepian.onnx）
+                // Web下载模型
                 AddLog($"\n=== 开始处理模型：{modelFileName} ===");
                 //byte[] modelBytes = null;
                 bool needDownload = false;
@@ -1074,7 +1075,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                 {
                     // 本地无模型/模型无效，从Web下载
                     AddLog($"[模型下载] 本地无有效模型，从Web下载...");
-                    // 生成模型下载的RSA签名（与DLL共用密钥）
+                    // 生成模型下载的RSA签名
                     string modelSignature = RasHelper.RSAEncrypt(RasHelper.ToXmlPublicKey(publicKey), appKey);
                     if (string.IsNullOrEmpty(modelSignature))
                     {
@@ -1093,7 +1094,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                         throw new Exception($"从Web获取模型失败：{errorMsg}\n请手动将 {modelFileName} 放置到 {AppDomain.CurrentDomain.BaseDirectory}");
                     }
 
-                    // 验证模型文件有效性（至少10KB，避免空文件）
+                    // 验证模型文件有效性
                     if (modelReFile.dataStr.Length < 1024 * 10) // 10KB阈值
                     {
                         AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.dataStr.Length} 字节），视为无效");
@@ -3366,10 +3367,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                         WriteCsvLines(header);
                         AddLog($"[CSV初始化] 已创建CSV文件：{_currentCsvFilePath}");
                     }
-                    else
-                    {
-                        //AddLog($"[CSV初始化] 已存在CSV文件，直接使用：{_currentCsvFilePath}");
-                    }
+
+                    _currentCsvDate = today;
+                    AddLog($"[CSV初始化] 当前CSV日期已更新为：{_currentCsvDate}");
 
                     //启动跨天检查定时器
                     if (!IsOnlineDetectionEnabled)
@@ -3382,6 +3382,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     AddLog($"[CSV初始化失败] {ex.Message}");
                     _currentCsvFilePath = null;
                     _csvCacheTempPath = null;
+                    _currentCsvDate = null;
                     while (_csvCacheQueue.TryDequeue(out _)) { }
                 }
             }
@@ -4200,7 +4201,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                 }
 
                 string pushContent = $@"{yesterday:yyyy年MM月dd日} 白晚班X-ray测试检测数据如下：\nL0级冗余：白班{l0Day}PCS，夜班{l0Night}PCS\nL1级冗余：白班{l1Day}PCS，夜班{l1Night}PCS\nL2级冗余：白班{l2Day}PCS，夜班{l2Night}PCS\nL3级冗余：白班{l3Day}PCS，夜班{l3Night}PCS\n检测总数：{totalCount}PCS  OK数：{okCount}PCS  NG数：{ngCount}PCS";
-                await MessagePushHelper.PushMessageAsync(pushContent);
+                //await MessagePushHelper.PushMessageAsync(pushContent);
+                var response = await _webApiClient.PushMessageAsync(pushContent);
+
+                if (response.Code != 200)
+                {
+                    _logger.Warn($"消息推送失败：{response.Message}");
+                }
+
+
             }
             catch (Exception ex)
             {

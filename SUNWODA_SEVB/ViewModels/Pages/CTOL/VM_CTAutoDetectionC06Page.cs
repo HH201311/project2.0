@@ -304,10 +304,48 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ICommand ExportCommand { get; set; }
 
         // 异常类型下拉列表
-        public ObservableCollection<string> AbnormalTypeList { get; set; } = new ObservableCollection<string>
+        //public ObservableCollection<string> AbnormalTypeList { get; set; } = new ObservableCollection<string>
+        //{
+        //"全部","无异常", "正极少片", "正极多片",  "OH不良", "负极差不良",  "负极多片", "负极少片", "负极边缘间隙不良","正极边缘间隙不良","正极中间间隙不良","负极压伤","正极Y方向掉片"
+        //};
+        public ObservableCollection<string> AllAbnormalTypes { get; }
+            = new ObservableCollection<string>
         {
         "全部","无异常", "正极少片", "正极多片",  "OH不良", "负极差不良",  "负极多片", "负极少片", "负极边缘间隙不良","正极边缘间隙不良","正极中间间隙不良","负极压伤","正极Y方向掉片"
         };
+        private string _selectedAbnormalTypeText = "全部";
+        public string SelectedAbnormalTypeText
+        {
+            get => _selectedAbnormalTypeText;
+            set
+            {
+                // 拆分成列表
+                var list = value?
+                    .Split(',')
+                    .Select(x => x.Trim())
+                    .Where(x => !string.IsNullOrEmpty(x))
+                    .Distinct()
+                    .ToList()
+                    ?? new List<string>();
+
+                if (list.Count == 0)
+                {
+                    _selectedAbnormalTypeText = "全部";
+                }
+                // 选了“全部”且还有别的 → 只保留“全部”
+                else if (list.Contains("全部") && list.Count > 1)
+                {
+                    _selectedAbnormalTypeText = "全部";
+                }
+                else
+                {
+                    _selectedAbnormalTypeText = string.Join(", ", list);
+                }
+
+                OnPropertyChanged();
+            }
+        }
+
         public DateTime? StartDateTime
         {
             get => _startDateTime;
@@ -1483,6 +1521,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly object _barcodeTimeLock = new object();
         // 定时清理超时条码的Timer
         private System.Timers.Timer _timeoutCleanupTimer;
+
+        // 缓存每张图的间隙最大值数组（键=图片路径，值=gapMaxArray：[0]负极边缘 [1]正极边缘 [2]正极中间）
+        private readonly ConcurrentDictionary<string, double[]> _imageGapValueCache = new ConcurrentDictionary<string, double[]>();
+        // CSV保存路径（可自定义）
+        private readonly string _gapDefectCsvPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GapDefectDetail.csv");
+        // CSV写入锁
+        private readonly object _gapCsvLock = new object();
 
         #region LAB在线监控参数
         private string? _selectedMonitorFolderPathLAB;
@@ -3972,7 +4017,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     new ProjectSettingModel(
                         "SelectedResultImagePath ",
                         "VM_CTAutoDetectionC06Page",
-                        "0",
+                        "",
                         "string",
                         1
                     )
@@ -4148,7 +4193,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             StartDateTime = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0);
             EndDateTime = DateTime.Now.Date.AddHours(23).AddMinutes(59).AddSeconds(59);
             PagedAbnormalDataList = new ObservableCollection<Dictionary<string, object>>();
-            SelectedAbnormalType = "全部";
+            SelectedAbnormalTypeText = "全部";
             ImagePathQueueLAB = new ConcurrentQueue<string>();
             ImagePathQueueLCD = new ConcurrentQueue<string>();
             ImagePathQueueRAB = new ConcurrentQueue<string>();
@@ -4824,13 +4869,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 newHImage?.Dispose();
             }
         }
-
+        private static readonly object _halconGlobalLock = new object();
 
         // 核心检测逻辑
         public (string? ctCode, HObject? resultImage) GapDetection(string imageFilePath, string station)
         {
             // 检测过程临时变量
-            HObject? recNE = null, recPE = null, recMiddlePE = null, originImg = null;
+            HObject? recNE = null, recPE = null, recMiddlePE = null;
             HTuple? distOHInt = null, distOHOut = null, distSortPEColMiddle = null, distHTPE = null, _gapMax = null;
             HTuple? peRows = null, peCols = null, neRows = null, neCols = null, middlePERows = null, middlePECols = null;
             float hDNe = 0;
@@ -4841,8 +4886,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             double[]? gapMaxArray = null;
             double[]? oHoutarr = null;
             //double[]? distSortPEColMiddlearr = null;
-
             // 绘图相关变量
+            HObject? originImg = new HObject();
             HObject? resultImage = new HObject();
             Stopwatch? drawStopwatch = null;
 
@@ -4850,218 +4895,181 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             Stopwatch processingStopwatch = Stopwatch.StartNew();
             Stopwatch gapDetectionTimer = Stopwatch.StartNew();
 
-            //int maxRetries = 5;  // 最大重试次数
-            //int retryDelayMs = 200;  // 每次重试间隔（毫秒）
-            //bool isFileReady = false;
-
             AddLog($"[检测开始] 文件：{Path.GetFileName(imageFilePath)}");
-
-            ////等待文件就绪
-            //for (int i = 0; i < maxRetries; i++)
-            //{
-            //    FileStream? fs = null;
-            //    try
-            //    {
-            //        // 尝试以「独占读写」模式打开文件
-            //        fs = File.Open(imageFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            //        isFileReady = true;
-            //        break; 
-            //    }
-            //    catch (IOException)
-            //    {
-            //        // 捕获「文件被占用」异常，等待后重试
-            //        AddLog($"[文件等待] 第{i + 1}/{maxRetries}次等待文件就绪... 文件：{Path.GetFileName(imageFilePath)}");
-            //        System.Threading.Thread.Sleep(retryDelayMs);
-            //    }
-            //    finally
-            //    {
-            //        fs?.Close();  //关闭文件流
-            //    }
-            //}
-
-            //// 检查文件是否就绪，未就绪则直接返回失败
-            //if (!isFileReady)
-            //{
-            //    AddLog($"[文件读取失败] 重试{maxRetries}次后仍无法获取文件，可能被占用或写入未完成。文件：{Path.GetFileName(imageFilePath)}");
-            //    return ("文件未就绪", null);
-            //}
-
 
             try
             {
-                //AddLog($"[检测开始] 文件：{Path.GetFileName(imageFilePath)}");
-
-                //读取并预处理图像
-                HOperatorSet.ReadImage(out originImg, imageFilePath);
-                originImg = PreprocessImage(originImg);
-
-                // 检查图像有效性
-                if (originImg == null || !originImg.IsInitialized())
+                lock (_halconGlobalLock)
                 {
-                    AddLog($"[图像无效] 文件：{Path.GetFileName(imageFilePath)}");
-                    return ("图像读取失败", null);
-                }
+                    // 初始化算法输出对象
+                    recNE = new HObject();
+                    recPE = new HObject();
+                    recMiddlePE = new HObject();
+                    distOHInt = new HTuple();
+                    distOHOut = new HTuple();
+                    distSortPEColMiddle = new HTuple();
+                    distHTPE = new HTuple();
+                    _gapMax = new HTuple();
 
-
-                //获取图像尺寸
-                HOperatorSet.GetImageSize(originImg, out HTuple width, out HTuple height);
-                imgWidth = (int)width.I;
-                imgHeight = (int)height.I;
-                AddLog($"[图像尺寸] 宽：{imgWidth}，高：{imgHeight}");
-
-                //执行核心算法
-                Stopwatch algorithmStopwatch = new Stopwatch();
-                algorithmStopwatch.Start();
-
-                // 初始化算法输出对象
-                recNE = new HObject();
-                recPE = new HObject();
-                recMiddlePE = new HObject();
-                distOHInt = new HTuple();
-                distOHOut = new HTuple();
-                distSortPEColMiddle = new HTuple();
-                distHTPE = new HTuple();
-                _gapMax = new HTuple();
-
-                // 调用算法模型
-                //H246modle?.Dispose();
-                switch (station)
-                {
-                    case "LAB":
-                        //H246modle = LABmodel;
-                        ai.Algorithm_Action(imageFilePath, LABmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                    case "LCD":
-                        //H246modle = LCDmodel;
-                        ai.Algorithm_Action(imageFilePath, LCDmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                    case "RAB":
-                        //H246modle = RABmodel;
-                        ai.Algorithm_Action(imageFilePath, RABmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                    case "RCD":
-                        //H246modle = RCDmodel;
-                        ai.Algorithm_Action(imageFilePath, RCDmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                }
-                algorithmStopwatch.Stop();
-                //ai.Algorithm_Action(
-                //    imageFilePath,
-                //    H246modle,
-                //    out recNE,
-                //    out recPE,
-                //    out recMiddlePE,
-                //    out distOHInt,
-                //    out distOHOut,
-                //    out _gapMax,
-                //    out hDNe,
-                //    out neNGflag,
-                //    out errorReport);
-                //algorithmStopwatch.Stop();
-                AddLog($"[算法耗时] {algorithmStopwatch.ElapsedMilliseconds} ms");
-
-                #region 检测结果判断与数据解析
-                if (string.IsNullOrEmpty(errorReport))
-                {
-                    // 获取区域坐标
-                    HOperatorSet.AreaCenter(recPE, out _, out peRows, out peCols);
-                    HOperatorSet.AreaCenter(recNE, out _, out neRows, out neCols);
-                    HOperatorSet.AreaCenter(recMiddlePE, out _, out middlePERows, out middlePECols);
-
-                    // 解析算法数据为double数组
-                    arr1 = ConvertStringArrayToDoubleArray(distOHInt.SArr); // 从distOHInt提取核心数据
-                    gapMaxArray = ConvertStringArrayToDoubleArray(_gapMax.SArr);
-                    oHoutarr = ConvertStringArrayToDoubleArray(distOHOut.SArr); // bbbb参数（负极OH值）
-                    //distSortPEColMiddlearr = ConvertStringArrayToDoubleArray(distSortPEColMiddle.SArr); // numbers参数（正极间隙值）
-                    ohAbnormalPositions1 = GetAbnormalPositions(arr1, imageFilePath); // 异常位置标记
-
-                    // 根据文件名给Y1-Y4赋值
-                    string fileName = Path.GetFileName(imageFilePath);
-                    string namePart = fileName.Split('_')[1];
-                    lock (stationDataLocker)
+                    // 调用算法模型
+                    //H246modle?.Dispose();
+                    switch (station)
                     {
-                        // 确保外层字典包含当前工位
-                        if (!stationYDataDict.ContainsKey(station))
-                        {
-                            stationYDataDict[station] = new Dictionary<string, double[]>();
-                        }
-                        // 获取当前工位的内层字典（存储该工位的Y1-Y4）
-                        Dictionary<string, double[]> currentStationDict = stationYDataDict[station];
-
-                        // 根据图片类型给当前工位的对应Y值赋值
-                        if (namePart.Contains("1-Y"))
-                        {
-                            currentStationDict["Y1"] = arr1;
-                        }
-                        else if (namePart.Contains("2-Y"))
-                        {
-                            currentStationDict["Y2"] = arr1;
-                        }
-                        else if (namePart.Contains("3-Y"))
-                        {
-                            currentStationDict["Y3"] = arr1;
-                        }
-                        else if (namePart.Contains("4-Y"))
-                        {
-                            currentStationDict["Y4"] = arr1;
-                        }
+                        case "LAB":
+                            //H246modle = LABmodel;
+                            ai.Algorithm_Action(imageFilePath, LABmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
+                        case "LCD":
+                            //H246modle = LCDmodel;
+                            ai.Algorithm_Action(imageFilePath, LCDmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
+                        case "RAB":
+                            //H246modle = RABmodel;
+                            ai.Algorithm_Action(imageFilePath, RABmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
+                        case "RCD":
+                            //H246modle = RCDmodel;
+                            ai.Algorithm_Action(imageFilePath, RCDmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
                     }
+                    //algorithmStopwatch.Stop();
+                    //ai.Algorithm_Action(
+                    //    imageFilePath,
+                    //    H246modle,
+                    //    out recNE,
+                    //    out recPE,
+                    //    out recMiddlePE,
+                    //    out distOHInt,
+                    //    out distOHOut,
+                    //    out _gapMax,
+                    //    out hDNe,
+                    //    out neNGflag,
+                    //    out errorReport);
+                    //algorithmStopwatch.Stop();
+                    //AddLog($"[算法耗时] {algorithmStopwatch.ElapsedMilliseconds} ms");
+                    HOperatorSet.GetImageSize(originImg, out HTuple width, out HTuple height);
+                    imgWidth = (int)width.I;
+                    imgHeight = (int)height.I;
+                    AddLog($"[图像尺寸] 宽：{imgWidth}，高：{imgHeight}");
 
-                    // 判断OK/NG
-                    string imgNamePart = namePart;
-                    ctCode = NGOK(
-                        peRows.DArr.Length, neRows.DArr.Length,
-                        arr1, // aaaa参数（正极OH值）
-                        oHoutarr, // bbbb参数（负极OH值）
-                        hDNe, // cc参数（负极差阈值）
-                        imgNamePart,
-                        gapMaxArray,
-                        neNGflag);
-
-                    resultCode = ctCode?.Contains("OK") ?? false ? "OK" : "NG";
-                    AddLog($"[检测结果] {fileName} - {ctCode}");
-
-                    //生成独立结果图片
-                    drawStopwatch = new Stopwatch();
-                    drawStopwatch.Start();
-                    resultImage = GenerateResultImage(
-                        originImg, imgWidth, imgHeight,
-                        recPE, recNE, recMiddlePE,
-                        peRows, peCols, neRows, neCols, middlePERows, middlePECols,
-                        distOHInt, distOHOut, distSortPEColMiddle,
-                        hDNe, ctCode, resultCode,
-                        ohAbnormalPositions1, ohAbnormalPositions2,
-                        arr1, ConvertStringArrayToDoubleArray(distOHOut.SArr), gapMaxArray,
-                        imageFilePath);
-                    drawStopwatch.Stop();
-                    AddLog($"[绘图耗时] {drawStopwatch.ElapsedMilliseconds} ms");
-
-                    // 更新UI实时预览
-                    if (resultImage != null && resultImage.IsInitialized())
+                    #region 检测结果判断与数据解析
+                    if (string.IsNullOrEmpty(errorReport))
                     {
-                        ImageSource wpfImage = ConvertHObjectToImageSourceFast(resultImage);
-                        Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                        // 获取区域坐标
+                        HOperatorSet.AreaCenter(recPE, out _, out peRows, out peCols);
+                        HOperatorSet.AreaCenter(recNE, out _, out neRows, out neCols);
+                        HOperatorSet.AreaCenter(recMiddlePE, out _, out middlePERows, out middlePECols);
+
+                        // 解析算法数据为double数组
+                        arr1 = ConvertStringArrayToDoubleArray(distOHInt.SArr); // 从distOHInt提取核心数据
+                        gapMaxArray = ConvertStringArrayToDoubleArray(_gapMax.SArr);
+                        oHoutarr = ConvertStringArrayToDoubleArray(distOHOut.SArr); // bbbb参数（负极OH值）
+                                                                                    //distSortPEColMiddlearr = ConvertStringArrayToDoubleArray(distSortPEColMiddle.SArr); // numbers参数（正极间隙值）
+                        ohAbnormalPositions1 = GetAbnormalPositions(arr1, imageFilePath); // 异常位置标记
+
+                        // 根据文件名给Y1-Y4赋值
+                        string fileName = Path.GetFileName(imageFilePath);
+                        string namePart = fileName.Split('_')[1];
+                        lock (stationDataLocker)
                         {
-                            UpdateStationImage(station, wpfImage, resultImage);
-                        }), System.Windows.Threading.DispatcherPriority.Normal);
-                        AddLog($"[实时更新] {station}工位 - 直接显示新图：{fileName}");
+                            // 确保外层字典包含当前工位
+                            if (!stationYDataDict.ContainsKey(station))
+                            {
+                                stationYDataDict[station] = new Dictionary<string, double[]>();
+                            }
+                            // 获取当前工位的内层字典（存储该工位的Y1-Y4）
+                            Dictionary<string, double[]> currentStationDict = stationYDataDict[station];
+
+                            // 根据图片类型给当前工位的对应Y值赋值
+                            if (namePart.Contains("1-Y"))
+                            {
+                                currentStationDict["Y1"] = arr1;
+                            }
+                            else if (namePart.Contains("2-Y"))
+                            {
+                                currentStationDict["Y2"] = arr1;
+                            }
+                            else if (namePart.Contains("3-Y"))
+                            {
+                                currentStationDict["Y3"] = arr1;
+                            }
+                            else if (namePart.Contains("4-Y"))
+                            {
+                                currentStationDict["Y4"] = arr1;
+                            }
+                        }
+
+                        // 判断OK/NG
+                        string imgNamePart = namePart;
+                        ctCode = NGOK(
+                            peRows.DArr.Length, neRows.DArr.Length,
+                            arr1, // aaaa参数（正极OH值）
+                            oHoutarr, // bbbb参数（负极OH值）
+                            hDNe, // cc参数（负极差阈值）
+                            imgNamePart,
+                            gapMaxArray,
+                            neNGflag);
+
+                        resultCode = ctCode?.Contains("OK") ?? false ? "OK" : "NG";
+                        AddLog($"[检测结果] {fileName} - {ctCode}");
+
+                        //生成独立结果图片
+                        drawStopwatch = new Stopwatch();
+                        drawStopwatch.Start();
+                        resultImage = GenerateResultImage(
+                            originImg, imgWidth, imgHeight,
+                            recPE, recNE, recMiddlePE,
+                            peRows, peCols, neRows, neCols, middlePERows, middlePECols,
+                            distOHInt, distOHOut, distSortPEColMiddle,
+                            hDNe, ctCode, resultCode,
+                            ohAbnormalPositions1, ohAbnormalPositions2,
+                            arr1, ConvertStringArrayToDoubleArray(distOHOut.SArr), gapMaxArray,
+                            imageFilePath);
+                        drawStopwatch.Stop();
+                        AddLog($"[绘图耗时] {drawStopwatch.ElapsedMilliseconds} ms");
+
+                        //--------------CSV记录阈值（后续可以删掉）------------------------
+                        if (gapMaxArray != null && gapMaxArray.Length >= 3)
+                        {
+                            _imageGapValueCache.TryAdd(imageFilePath, gapMaxArray);
+                            AddLog($"[间隙值缓存] {Path.GetFileName(imageFilePath)} - 负极边缘：{gapMaxArray[0]:F3}，正极边缘：{gapMaxArray[1]:F3}，正极中间：{gapMaxArray[2]:F3}");
+                        }
+                        else
+                        {
+                            AddLog($"[间隙值缓存失败] {Path.GetFileName(imageFilePath)} - gapMaxArray为空或长度不足");
+                            // 兜底：存入空数组避免后续报错
+                            _imageGapValueCache.TryAdd(imageFilePath, new double[] { 0, 0, 0 });
+                        }
+                        //------------------------------------------------------------------
+
+
+                        // 更新UI实时预览
+                        if (resultImage != null && resultImage.IsInitialized())
+                        {
+                            ImageSource wpfImage = ConvertHObjectToImageSourceFast(resultImage);
+                            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                UpdateStationImage(station, wpfImage, resultImage);
+                            }), System.Windows.Threading.DispatcherPriority.Normal);
+                            AddLog($"[实时更新] {station}工位 - 直接显示新图：{fileName}");
+                        }
+                        else
+                        {
+                            AddLog($"[绘图失败] {fileName} 结果图生成无效");
+                            resultImage?.Dispose();
+                            resultImage = null;
+                        }
                     }
                     else
                     {
-                        AddLog($"[绘图失败] {fileName} 结果图生成无效");
+                        // 算法异常：归档原图，返回null结果
+                        AddLog($"[算法异常] {Path.GetFileName(imageFilePath)}，原因：{errorReport}");
+                        ArchiveAbnormalImage(imageFilePath, errorReport);
                         resultImage?.Dispose();
-                        resultImage = null;
+                        return ("Internal_Error", null);
                     }
+                    #endregion
                 }
-                else
-                {
-                    // 算法异常：归档原图，返回null结果
-                    AddLog($"[算法异常] {Path.GetFileName(imageFilePath)}，原因：{errorReport}");
-                    ArchiveAbnormalImage(imageFilePath, errorReport);
-                    resultImage?.Dispose();
-                    return ("Internal_Error", null);
-                }
-                #endregion
 
             }
             catch (Exception ex)
@@ -5432,6 +5440,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         {
                             if (_firstDetectionImageCache.ContainsKey(imgPath))
                             {
+
                                 _firstDetectionImageCache.Remove(imgPath);
                             }
                         }
@@ -5708,8 +5717,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             bool finalIsOK = true;
             string finalHighestPriorityDefect = "无缺陷";
             List<string> confirmedDefects = new List<string>();
-            DateTime processStartTime = DateTime.Now;
-            DateTime endTime = DateTime.Now;
+           // DateTime processStartTime = DateTime.Now;
+            //DateTime endTime = DateTime.Now;
+
+            List<CsvGapDetail> csvGapDetails = new List<CsvGapDetail>();
 
             try
             {
@@ -5753,9 +5764,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                     else
                     {
+
                         individualResultName = "OK";
                     }
-
+                    //--------------------CSV记录阈值(后续可删掉)-------------------
+                    double[] gapValues = _imageGapValueCache.TryGetValue(result.imgPath, out var arr)
+                        ? arr
+                        : new double[] { 0, 0, 0 }; // 兜底空值
+                    csvGapDetails.Add(new CsvGapDetail
+                    {
+                        ImageName = Path.GetFileName(result.imgPath),
+                        DetectionResult = individualResultName,
+                        NegativeEdgeGap = gapValues.Length > 0 ? gapValues[0] : 0,
+                        PositiveEdgeGap = gapValues.Length > 1 ? gapValues[1] : 0,
+                        PositiveMiddleGap = gapValues.Length > 2 ? gapValues[2] : 0
+                    });
+                    //-----------------------------------------------------------------
                     imageFinalResults.Add((result.imgPath, result.resultImage, individualResultName));
                 }
                 if (confirmedDefects.Any())
@@ -5801,6 +5825,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             UpdateRiskRatios();
                         }
+                        //-----------CSV间隙写入 后续可删掉------------
+                        if (IsTargetGapDefect(finalHighestPriorityDefect))
+                        {
+                            // 异步写入CSV，不阻塞主线程
+                            await Task.Run(() =>
+                            {
+                                AppendGapDetailToCsv(csvGapDetails, barcode, station);
+                                foreach (var result in firstDetectionResults)
+                                {
+                                    _imageGapValueCache.TryRemove(result.imgPath, out _);
+                                }
+                            });
+                        }
+                       //------------------------------------------------
                     }
                 }
 
@@ -5866,24 +5904,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                 });
                 // 记录结束时间
-                endTime = DateTime.Now;
+                //endTime = DateTime.Now;
 
-                // 计算各个阶段耗时
-                TimeSpan totalTime = endTime - startTime;
-                TimeSpan queueWaitTime = processStartTime - startTime;
-                TimeSpan processingTime = endTime - processStartTime;
+                //// 计算各个阶段耗时
+                //TimeSpan totalTime = endTime - startTime;
+                //TimeSpan queueWaitTime = processStartTime - startTime;
+                //TimeSpan processingTime = endTime - processStartTime;
 
-                // 记录到CSV文件
-                LogCellDetectionTimeToCSV(
-                    station: station,
-                    barcode: barcode,
-                    startTime: startTime,
-                    endTime: endTime,
-                    result: finalIsOK ? "OK" : "NG",
-                    defectType: finalHighestPriorityDefect,
-                    queueWaitMs: (int)queueWaitTime.TotalMilliseconds,
-                    processingMs: (int)processingTime.TotalMilliseconds
-                );
+                //// 记录到CSV文件
+                //LogCellDetectionTimeToCSV(
+                //    station: station,
+                //    barcode: barcode,
+                //    startTime: startTime,
+                //    endTime: endTime,
+                //    result: finalIsOK ? "OK" : "NG",
+                //    defectType: finalHighestPriorityDefect,
+                //    queueWaitMs: (int)queueWaitTime.TotalMilliseconds,
+                //    processingMs: (int)processingTime.TotalMilliseconds
+                //);
 
                 //更新UI列表
                 await Application.Current.Dispatcher.InvokeAsync(new Action(() =>
@@ -5916,7 +5954,109 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             //    }
             //}
         }
+        #region 记录正负极间隙值到CSV
+        /// <summary>
+        /// CSV明细数据模型（对应表头：图片名、检测结果、负极边缘间隙、正极边缘间隙、正极中间间隙）
+        /// </summary>
+        private class CsvGapDetail
+        {
+            public string ImageName { get; set; } = string.Empty;    // 图片名
+            public string DetectionResult { get; set; } = string.Empty; // 检测结果
+            public double NegativeEdgeGap { get; set; } // 负极边缘间隙
+            public double PositiveEdgeGap { get; set; } // 正极边缘间隙
+            public double PositiveMiddleGap { get; set; } // 正极中间间隙
+        }
 
+        /// <summary>
+        /// 判断是否是目标间隙不良
+        /// </summary>
+        private bool IsTargetGapDefect(string defectType)
+        {
+            return defectType == "负极边缘间隙不良" ||
+                   defectType == "正极边缘间隙不良" ||
+                   defectType == "正极中间间隙不良";
+        }
+
+
+        // CSV根路径
+        private readonly string _gapCsvRootPath = AppDomain.CurrentDomain.BaseDirectory;
+        private readonly string _gapCsvFolderName = "正负极间隙值";
+
+        private string _gapCsvFolderPath => Path.Combine(Environment.CurrentDirectory, "..", _gapCsvFolderName);
+
+        /// <summary>
+        /// 获取当日的间隙值CSV文件路径
+        /// </summary>
+        private string GetDailyGapCsvPath()
+        {
+            if (!Directory.Exists(_gapCsvFolderPath))
+            {
+                Directory.CreateDirectory(_gapCsvFolderPath);
+                AddLog($"[CSV文件夹创建] 已创建专属文件夹：{_gapCsvFolderPath}");
+            }
+            string dateStr = DateTime.Now.ToString("yyyyMMdd");
+            string fileName = $"GapDefectDetail_{dateStr}.csv";
+            string fullPath = Path.Combine(_gapCsvFolderPath, fileName);
+            return fullPath;
+        }
+
+
+        /// <summary>
+        /// 初始化间隙不良CSV文件
+        /// </summary>
+        private void InitGapCsvFile()
+        {
+            // 动态获取当日CSV路径
+            string dailyCsvPath = GetDailyGapCsvPath();
+            if (!File.Exists(dailyCsvPath))
+            {
+                lock (_gapCsvLock)
+                {
+                    if (!File.Exists(dailyCsvPath))
+                    {
+                        // 确保软件同级目录存在
+                        Directory.CreateDirectory(Path.GetDirectoryName(dailyCsvPath)!);
+                        // 写入当日CSV表头
+                        string header = "电芯条码,工位,图片名,检测结果,负极边缘间隙,正极边缘间隙,正极中间间隙";
+                        File.WriteAllText(dailyCsvPath, header + Environment.NewLine, Encoding.UTF8);
+                        AddLog($"[间隙CSV初始化] 已创建当日文件：{dailyCsvPath}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 追加8张图的间隙明细到CSV
+        /// </summary>
+        private void AppendGapDetailToCsv(List<CsvGapDetail> gapDetails, string barcode, string station)
+        {
+            if (gapDetails == null || gapDetails.Count != 8)
+            {
+                AddLog($"[间隙CSV写入失败] 电芯{barcode}数据条数异常：{gapDetails?.Count ?? 0}/8");
+                return;
+            }
+
+            lock (_gapCsvLock)
+            {
+                // 初始化当日CSV
+                InitGapCsvFile();
+                // 获取当日CSV路径
+                string dailyCsvPath = GetDailyGapCsvPath();
+
+                StringBuilder sb = new StringBuilder();
+                foreach (var detail in gapDetails)
+                {
+                    string imageName = EscapeCsvField(detail.ImageName);
+                    string detectResult = EscapeCsvField(detail.DetectionResult);
+                    sb.AppendLine($"{barcode},{station},{imageName},{detectResult}," +
+                                  $"{detail.NegativeEdgeGap:F3},{detail.PositiveEdgeGap:F3},{detail.PositiveMiddleGap:F3}");
+                }
+                // 追加写入当日CSV
+                File.AppendAllText(dailyCsvPath, sb.ToString(), Encoding.UTF8);
+                //AddLog($"[间隙CSV写入成功] 电芯{barcode}（{station}工位）8张图明细已写入：{dailyCsvPath}");
+            }
+        }
+        #endregion
         private async Task<string?> GetUnifiedSaveDirectory(string sampleImagePath, string barcode, string defectType)
         {
             return await Task.Run(() =>
@@ -6144,20 +6284,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             });
         }
 
-
-        //图像预处理
-        private static HObject PreprocessImage(HObject img)
-        {
-            HOperatorSet.CountChannels(img, out HTuple channels);
-            if (channels.TupleEqual(3).TupleOr(channels.TupleEqual(4)))
-            {
-                HOperatorSet.Rgb1ToGray(img, out HObject grayImg);
-                img.Dispose();
-                img = grayImg;
-            }
-            channels.Dispose();
-            return img;
-        }
         //异常位置计算
         private List<int> GetAbnormalPositions(double[] array, string imageFilePath)
         {
@@ -6883,6 +7009,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
         #endregion
 
+        /// <summary>
+        /// 根据 SelectedAbnormalTypeText 构建异常类型 SQL 条件
+        /// </summary>
+        private string BuildAbnormalTypeWhere(SqliteCommand cmd)
+        {
+            if (string.IsNullOrWhiteSpace(SelectedAbnormalTypeText))
+                throw new InvalidOperationException("异常类型不能为空");
+            if (SelectedAbnormalTypeText.Contains("全部"))
+                return "";
+            var types = SelectedAbnormalTypeText
+                .Split(',')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct()
+                .ToList();
+
+            if (types.Count == 0)
+                throw new InvalidOperationException("异常类型不能为空");
+
+            var paramNames = new List<string>();
+            for (int i = 0; i < types.Count; i++)
+            {
+                string paramName = $"@Ng{i}";
+                paramNames.Add(paramName);
+                cmd.Parameters.AddWithValue(paramName, types[i]);
+            }
+            return $" AND NgDetails IN ({string.Join(",", paramNames)}) ";
+        }
+
         // 单条检测记录的结构（键为字段名，值为对应数据）
         private static Dictionary<string, object> CreateDetectionRecord(
             DateTime detectionTime,
@@ -7045,82 +7200,94 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         // 执行查询
         private async Task<int> GetTotalCountAsync()
         {
-            // 检查并初始化数据库连接
             if (_dbConnection == null)
             {
-                string connectionString = "Data Source=DetectionData.db;";
-                _dbConnection = new SqliteConnection(connectionString);
+                _dbConnection = new SqliteConnection("Data Source=DetectionData.db;");
+                _dbConnection.Open();
             }
+
             using (var cmd = _dbConnection.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT COUNT(*) FROM DetectionRecords
-                    WHERE DetectionTime BETWEEN @Start AND @End
-                    AND (@AbnormalType = '全部' OR NgDetails = @AbnormalType)
-                ";
-                cmd.Parameters.AddWithValue("@Start", StartDateTime ?? DateTime.MinValue);
-                cmd.Parameters.AddWithValue("@End", EndDateTime ?? DateTime.MaxValue);
-                cmd.Parameters.AddWithValue("@AbnormalType", SelectedAbnormalType);
+            SELECT COUNT(*) FROM DetectionRecords
+            WHERE DetectionTime BETWEEN @Start AND @End
+        ";
+
+                cmd.Parameters.AddWithValue("@Start", StartDateTime!.Value);
+                cmd.Parameters.AddWithValue("@End", EndDateTime!.Value);
+
+                cmd.CommandText += BuildAbnormalTypeWhere(cmd);
 
                 return Convert.ToInt32(await cmd.ExecuteScalarAsync());
             }
         }
 
+        //构建CSV名称
+        private string BuildExportFileNameSuffix()
+        {
+            if (SelectedAbnormalTypeText.Contains("全部"))
+                return "全部缺陷";
+            var list = SelectedAbnormalTypeText
+                .Split(',')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct()
+                .ToList();
+            if (list.Count == 1)
+                return list[0];
+            return "多个缺陷";
+        }
+
         // 加载分页数据
         private async Task LoadPageDataAsync(int page)
         {
-            // 检查并初始化数据库连接
             if (_dbConnection == null)
             {
-                string connectionString = "Data Source=DetectionData.db;";
-                _dbConnection = new SqliteConnection(connectionString);
+                _dbConnection = new SqliteConnection("Data Source=DetectionData.db;");
+                _dbConnection.Open();
             }
 
             PagedAbnormalDataList.Clear();
+
             int pageSize = 100;
             int offset = (page - 1) * pageSize;
 
             using (var cmd = _dbConnection.CreateCommand())
             {
                 cmd.CommandText = @"
-                        SELECT DetectionTime, CellBarcode, NgDetails 
-                        FROM DetectionRecords
-                        WHERE DetectionTime BETWEEN @Start AND @End
-                        AND (@AbnormalType = '全部' OR NgDetails = @AbnormalType)
-                        ORDER BY DetectionTime DESC
-                        LIMIT @PageSize OFFSET @Offset
-                    ";
-                cmd.Parameters.AddWithValue("@Start", StartDateTime ?? DateTime.MinValue);
-                cmd.Parameters.AddWithValue("@End", EndDateTime ?? DateTime.MaxValue);
-                cmd.Parameters.AddWithValue("@AbnormalType", SelectedAbnormalType);
+            SELECT DetectionTime, CellBarcode, NgDetails
+            FROM DetectionRecords
+            WHERE DetectionTime BETWEEN @Start AND @End
+        ";
+
+                cmd.Parameters.AddWithValue("@Start", StartDateTime!.Value);
+                cmd.Parameters.AddWithValue("@End", EndDateTime!.Value);
+
+                cmd.CommandText += BuildAbnormalTypeWhere(cmd);
+
+                cmd.CommandText += @"
+            ORDER BY DetectionTime DESC
+            LIMIT @PageSize OFFSET @Offset
+        ";
+
                 cmd.Parameters.AddWithValue("@PageSize", pageSize);
                 cmd.Parameters.AddWithValue("@Offset", offset);
+
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        // 提取字段值并临时变量保存
-                        var timeValue = reader.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss");
-                        var barcodeValue = reader.GetString(1);
-                        var abnormalTypeValue = reader.IsDBNull(2) ? "OK" : reader.GetString(2);
-
-                        // 输出日志，确认值是否有效
-                        //AddLog($"[数据行内容] Time: '{timeValue}', CellBarcode: '{barcodeValue}', AbnormalType: '{abnormalTypeValue}'");
-
-                        // 添加到集合
-                        var record = new Dictionary<string, object>
-                            {
-                                {"Time", timeValue},
-                                {"CellBarcode", barcodeValue},
-                                {"AbnormalType", abnormalTypeValue}
-                            };
-                        PagedAbnormalDataList.Add(record);
+                        PagedAbnormalDataList.Add(new Dictionary<string, object>
+                {
+                    { "Time", reader.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss") },
+                    { "CellBarcode", reader.GetString(1) },
+                    { "AbnormalType", reader.IsDBNull(2) ? "OK" : reader.GetString(2) }
+                });
                     }
                 }
-                //确认数据是否加载
-                AddLog($"[DataGrid加载] 第{page}页，实际加载{this.PagedAbnormalDataList.Count}条数据");
             }
         }
+
 
         private async Task ExecuteExportAsync()
         {
@@ -7130,10 +7297,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 return;
             }
 
+            string suffix = BuildExportFileNameSuffix();
+
             var saveFileDialog = new SaveFileDialog
             {
                 Filter = "CSV文件 (*.csv)|*.csv",
-                FileName = $"{EndDateTime ?? DateTime.MaxValue:yyMMddHH}_{EndDateTime ?? DateTime.MaxValue:yyMMddHH}_{SelectedAbnormalType}.csv"
+                FileName =
+                    $"{StartDateTime:yyMMddHHmm}_{EndDateTime:yyMMddHHmm}_{suffix}.csv"
             };
 
             if (saveFileDialog.ShowDialog() != true)
@@ -7192,21 +7362,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private async Task<List<Dictionary<string, object>>> GetExportBatchDataAsync(int offset, int batchSize)
         {
             var result = new List<Dictionary<string, object>>();
-            using (var cmd = _dbConnection?.CreateCommand())
+
+            using (var cmd = _dbConnection!.CreateCommand())
             {
-                if (cmd == null) return result;
-
                 cmd.CommandText = @"
-                    SELECT DetectionTime, Station, CellBarcode, DetectionResult, NgDetails 
-                    FROM DetectionRecords
-                    WHERE DetectionTime BETWEEN @Start AND @End
-                    AND (@AbnormalType = '全部' OR NgDetails = @AbnormalType)
-                    ORDER BY DetectionTime DESC
-                    LIMIT @BatchSize OFFSET @Offset";
+            SELECT DetectionTime, Station, CellBarcode, DetectionResult, NgDetails
+            FROM DetectionRecords
+            WHERE DetectionTime BETWEEN @Start AND @End
+        ";
 
-                cmd.Parameters.AddWithValue("@Start", StartDateTime ?? DateTime.MinValue);
-                cmd.Parameters.AddWithValue("@End", EndDateTime ?? DateTime.MaxValue);
-                cmd.Parameters.AddWithValue("@AbnormalType", SelectedAbnormalType);
+                cmd.Parameters.AddWithValue("@Start", StartDateTime!.Value);
+                cmd.Parameters.AddWithValue("@End", EndDateTime!.Value);
+
+                cmd.CommandText += BuildAbnormalTypeWhere(cmd);
+
+                cmd.CommandText += @"
+            ORDER BY DetectionTime DESC
+            LIMIT @BatchSize OFFSET @Offset
+        ";
+
                 cmd.Parameters.AddWithValue("@BatchSize", batchSize);
                 cmd.Parameters.AddWithValue("@Offset", offset);
 
@@ -7214,20 +7388,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     while (await reader.ReadAsync())
                     {
-                        var record = new Dictionary<string, object>
+                        result.Add(new Dictionary<string, object>
                 {
-                    {"DetectionTime", reader.GetDateTime(0)},
-                    {"Station", reader.IsDBNull(1) ? "" : reader.GetString(1)},
-                    {"CellBarcode", reader.GetString(2)},
-                    {"DetectionResult", reader.GetString(3)},
-                    {"NgDetails", reader.IsDBNull(4) ? "OK" : reader.GetString(4)}
-                };
-                        result.Add(record);
+                    { "DetectionTime", reader.GetDateTime(0) },
+                    { "Station", reader.IsDBNull(1) ? "" : reader.GetString(1) },
+                    { "CellBarcode", reader.GetString(2) },
+                    { "DetectionResult", reader.GetString(3) },
+                    { "NgDetails", reader.IsDBNull(4) ? "OK" : reader.GetString(4) }
+                });
                     }
                 }
             }
+
             return result;
         }
+
 
         /// <summary>
         /// 处理CSV字段中的特殊字符

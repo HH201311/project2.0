@@ -2,7 +2,9 @@
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace SUNWODA_SEVB.Core.Models.Socket
 {
@@ -20,9 +22,7 @@ namespace SUNWODA_SEVB.Core.Models.Socket
             WriteIndented = true
         };
 
-        public SocketOptionsLoader(
-            IServiceProvider serviceProvider,
-            ILoggerService<SocketOptionsLoader> logger)
+        public SocketOptionsLoader(IServiceProvider serviceProvider, ILoggerService<SocketOptionsLoader> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
@@ -50,8 +50,10 @@ namespace SUNWODA_SEVB.Core.Models.Socket
                 options.Protocol = await LoadProtocolOptionsAsync(settingRepo, moduleName);
 
                 _logger.Info($"从数据库加载Socket配置成功 [{moduleName}]: " +
-                    $"Port={options.DefaultPort}, MaxClients={options.MaxClients}, " +
-                    $"FramingMode={options.Protocol.FramingMode}");
+                  $"Port={options.DefaultPort}, MaxClients={options.MaxClients}, " +
+                  $"FramingMode={options.Protocol.FramingMode}, " +
+                  $"StartDelimiter={ByteArrayToString(options.Protocol.StartDelimiter)}, " +
+                  $"EndDelimiter={ByteArrayToString(options.Protocol.EndDelimiter)}", true);
             }
             catch (Exception ex)
             {
@@ -61,13 +63,22 @@ namespace SUNWODA_SEVB.Core.Models.Socket
             return options;
         }
 
+        /// <summary>
+        /// 字节数组转显示字符串
+        /// </summary>
+        private string ByteArrayToString(byte[]? bytes)
+        {
+            if (bytes == null || bytes.Length == 0)
+                return "null";
 
+            var hex = BitConverter.ToString(bytes);
+            var text = Encoding.UTF8.GetString(bytes);
+            return $"HEX=[{hex}] TEXT=[{text}] Length={bytes.Length}";
+        }
         /// <summary>
         /// 加载协议配置
         /// </summary>
-        private async Task<ProtocolOptions> LoadProtocolOptionsAsync(
-            IProjectSettingRepository repo,
-            string moduleName)
+        private async Task<ProtocolOptions> LoadProtocolOptionsAsync(IProjectSettingRepository repo,string moduleName)
         {
             var protocol = new ProtocolOptions();
 
@@ -199,22 +210,82 @@ namespace SUNWODA_SEVB.Core.Models.Socket
                     return new byte[] { 0x09 };
                 case "NULL":
                 case "NONE":
+                case "":
                     return null;
             }
+            // 处理 /uXXXX 或 \uXXXX 格式 (Unicode转义序列)
+            if (value.Contains("/u") || value.Contains("\\u"))
+            {
+                try
+                {
+                    var hasEscapePattern = Regex.IsMatch(value, @"[/\\]u[0-9A-Fa-f]{4}");
 
+                    if (hasEscapePattern)
+                    {
+                        var bytes = Encoding.UTF8.GetBytes(value);
+                        return bytes;
+                    }
+
+                    //// 匹配所有 \uXXXX 模式
+                    //var regex = new System.Text.RegularExpressions.Regex(@"\\u([0-9A-Fa-f]{4})");
+                    //var matches = regex.Matches(pattern);
+
+                    //if (matches.Count > 0)
+                    //{
+                    //    foreach (System.Text.RegularExpressions.Match match in matches)
+                    //    {
+                    //        var hexValue = match.Groups[1].Value;
+                    //        var intValue = Convert.ToInt32(hexValue, 16);
+
+                    //        // 如果是单字节范围 (0-255)，直接添加
+                    //        if (intValue <= 0xFF)
+                    //        {
+                    //            bytes.Add((byte)intValue);
+                    //        }
+                    //        else
+                    //        {
+                    //            // 否则转换为UTF-8字节
+                    //            var charBytes = Encoding.UTF8.GetBytes(new char[] { (char)intValue });
+                    //            bytes.AddRange(charBytes);
+                    //        }
+                    //    }
+
+                    //    if (bytes.Count > 0)
+                    //    {
+                    //        //_logger.Debug($"解析Unicode转义符成功: {value} => [{string.Join(",", bytes.Select(b => $"0x{b:X2}"))}]");
+                    //        return bytes.ToArray();
+                    //    }
+                    
+
+                    // 如果没有匹配到 \uXXXX，尝试解析为普通字符串
+                    _logger.Warn($"Unicode转义格式不正确: {value}，将作为普通字符串处理");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"解析Unicode转义符失败: {value}, 错误: {ex.Message}");
+                }
+            }
             // 尝试解析JSON数组格式 [2, 3]
             if (value.StartsWith("[") && value.EndsWith("]"))
             {
                 try
                 {
                     var array = JsonSerializer.Deserialize<byte[]>(value, JsonOptions);
-                    return array;
+                    if (array != null && array.Length > 0)
+                    {
+                        //_logger.Debug($"解析JSON数组成功: {value}");
+                        return array;
+                    }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"解析JSON数组失败: {value}, {ex.Message}");
+                }
             }
 
             // 尝试解析十六进制格式 "0x02" 或 "02,03"
-            if (value.Contains(",") || value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            if (value.Contains(",") || value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
+                value.All(c => char.IsDigit(c) || "ABCDEFabcdef".Contains(c)))
             {
                 try
                 {
@@ -235,9 +306,15 @@ namespace SUNWODA_SEVB.Core.Models.Socket
                     }
 
                     if (bytes.Count > 0)
+                    {
+                        //_logger.Debug($"解析十六进制成功: {value}");
                         return bytes.ToArray();
+                    }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"解析十六进制失败: {value}, {ex.Message}");
+                }
             }
 
             // 尝试解析单个十六进制数

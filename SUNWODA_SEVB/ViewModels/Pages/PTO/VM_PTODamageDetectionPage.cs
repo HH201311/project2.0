@@ -373,18 +373,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             set
             {
                 InitReportFunction();
-
-                // ⭐ 初始化阶段不触发任何逻辑（关键）
                 if (_isInitializing)
                 {
                     _isOnlineDetectionEnabledB = value;
                     OnPropertyChanged();
                     return;
                 }
-
                 if (_isOnlineDetectionEnabledB == value) return;
                 IsOfflineProgressVisible = Visibility.Collapsed;
-
                 // 在线检测开启逻辑
                 if (value)
                 {
@@ -476,7 +472,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged();
             }
         }
-        //当前在线监控的工位（A/B，默认空）
+        //当前在线监控的工位
         private string? _currentMonitoringStation;
         public string? CurrentMonitoringStation
         {
@@ -764,6 +760,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly object _batchLock = new object(); // 批次数据锁
         private int _totalOfflineImageCount;
         private int _completedOfflineImageCount;
+        private readonly IWebApiClient _webApiClient;
         // 进度更新间隔改为批次大小
         private const int _progressUpdateInterval = BatchSize;
 
@@ -1451,7 +1448,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ResetOfflineProgress();
         }
 
-        public VM_PTODamageDetectionPage()
+        public VM_PTODamageDetectionPage(IWebApiClient webApiClient)
         {
             InitParameters();
             LoadConfig();
@@ -1505,7 +1502,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _isReportFunctionInited = false;
             SaveUserIdCommand = new RelayCommand(SaveUserId);
             DeleteUserIdCommand = new RelayCommand(DeleteUserId);
-
+            _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
             // 加载已保存的ID列表
             LoadUserIds();
         }
@@ -4016,14 +4013,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     // 遍历筛选后的文件列表
                     foreach (var filePath in filteredFiles)
                     {
                         if (token.IsCancellationRequested)
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
                                 double currentProgress = Math.Round(
                                     (double)_completedOfflineImageCount / totalCount * 100, 1);
@@ -4036,9 +4033,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         long startTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
                         if (!File.Exists(filePath))
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                            });
+                            await Application.Current.Dispatcher.InvokeAsync(() => { });
                             UpdateOfflineProgressAfterSingleImage();
                             continue;
                         }
@@ -4073,7 +4068,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             currentBatchCount++;
                             if (currentBatchCount % batchUpdateInterval == 0 || currentBatchCount == totalCount)
                             {
-                                Application.Current.Dispatcher.Invoke(() =>
+                                await Application.Current.Dispatcher.InvokeAsync(() =>
                                 {
                                     _fullDetectionDataList.Add(detectionData);
                                     UpdateDisplayDataList();
@@ -4088,7 +4083,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         }
                         catch (Exception ex)
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
                                 AddLog($"检测失败：{Path.GetFileName(filePath)}，原因：{ex.Message}");
                             });
@@ -4105,7 +4100,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
 
                     // 检测结束或终止后的最终进度更新
-                    Application.Current.Dispatcher.Invoke(() =>
+                    await Application.Current.Dispatcher.InvokeAsync(async () =>
                     {
                         CalculateDetectionStatistics();
                         _isDetecting = false;
@@ -4118,14 +4113,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         if (token.IsCancellationRequested)
                         {
                             OfflineProgressTip = $"检测已终止，已完成 {_completedOfflineImageCount}/{totalCount} 张（{finalProgress}%）"; OnDetectionCompleted(totalCount);
-                            GenerateOfflineFinalReport();
+                            OnDetectionCompleted(totalCount);
+                            await GenerateOfflineFinalReport();
                             AddLog($"检测已终止！已处理 {_completedOfflineImageCount}/{totalCount} 张图片");
                         }
                         else
                         {
                             OfflineProgressTip = "已完成100.0%，检测结束！";
                             OnDetectionCompleted(totalCount);
-                            GenerateOfflineFinalReport();
+                            await GenerateOfflineFinalReport();
                             AddLog($"批量检测完成！共处理 {totalCount} 张符合条件的图片");
                         }
                     });
@@ -4134,7 +4130,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             catch (OperationCanceledException)
             {
                 // 任务被取消时的处理
-                Application.Current.Dispatcher.Invoke(() =>
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     AddLog("检测已被用户取消");
                     _isDetecting = false;
@@ -4142,7 +4138,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
             catch (Exception ex)
             {
-                Application.Current.Dispatcher.Invoke(() =>
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     MessageBox.Show($"批量检测异常：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 });
@@ -5917,26 +5913,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 离线检测全部完成后，主动生成剩余报表
         /// </summary>
-        private void GenerateOfflineFinalReport()
+        private async Task GenerateOfflineFinalReport()
         {
             if (!_isOfflineMode || _isOfflineDetectionCompleted)
                 return;
 
-            lock (_queue1Lock)
+
+            // 停止超时定时器
+            _reportTimer?.Stop();
+
+            //若队列中有剩余电芯编码，逐个生成报表直到队列为空
+            while (_cellCodeQueue.Count > 0)
             {
-                // 停止超时定时器
-                _reportTimer?.Stop();
-
-                //若队列中有剩余电芯编码，逐个生成报表直到队列为空
-                while (_cellCodeQueue.Count > 0)
-                {
-                    GenerateReport().Wait();
-                }
-
-                //标记检测已完成，防止重复调用
-                _isOfflineDetectionCompleted = true;
-                AddLog("[离线报表完成] 所有剩余电芯编码已处理完成");
+                await GenerateReport();
             }
+
+            //标记检测已完成，防止重复调用
+            _isOfflineDetectionCompleted = true;
+            AddLog("[离线报表完成] 所有剩余电芯编码已处理完成");
+
         }
 
 
@@ -6417,7 +6412,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
 
 
-                            // 每个图片都显示电芯编码
+                            // 每个图片都显示电芯编码，确保清晰
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"电芯编码：{imgInfo.CellCode}").SetBold().SetMarginBottom(0));
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"班次：{imgInfo.Shift}").SetMarginBottom(0));
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"正负极：{imgInfo.Polarity}").SetMarginBottom(0));
@@ -6481,7 +6476,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     AddLog($"[报表推送] 开始推送报表：{savePath}");
                     string combinedUserId = GetCombinedUserIdString();
-                    await MessagePushHelper.PushFileAsync(savePath, combinedUserId);
+                    //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
+                    var response = await _webApiClient.PushFileAsync(savePath);
                     AddLog($"[报表推送成功] 报表已推送");
                 }
                 catch (Exception pushEx)
@@ -6500,6 +6496,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+        // 修改后的辅助方法
         private void AddInfoRowToSubTable(iText.Layout.Element.Table table, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor, string label, string value)
         {
             // 标签单元格 - 统一设置所有边框
@@ -6516,7 +6513,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetPadding(5));
         }
 
-        //表头单元格创建
+        // 简化表头单元格创建
         private iText.Layout.Element.Cell CreateHeaderCell(string text, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor)
         {
             return new iText.Layout.Element.Cell()
@@ -6528,7 +6525,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetPadding(5);
         }
 
-        //数据单元格创建
+        // 简化数据单元格创建
         private iText.Layout.Element.Cell CreateDataCell(string text, iText.Layout.Borders.Border border)
         {
             return new iText.Layout.Element.Cell()

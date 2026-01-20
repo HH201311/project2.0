@@ -1,46 +1,50 @@
-﻿<Page x:Class="SUNWODA_SEVB.Views.Pages.STC.P230ConnectorInstallerPage"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-      xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.STC"
-      xmlns:conver="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
-      xmlns:userControl="clr-namespace:SUNWODA_SEVB.Component.UserControls;assembly=SUNWODA_SEVB.Component"
-      mc:Ignorable="d" 
-      d:DesignHeight="800" d:DesignWidth="1200"
-      Title="螺丝拧紧工序监控">
+﻿<Page
+    x:Class="SUNWODA_SEVB.Views.Pages.STC.P230ConnectorInstallerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:conver="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.STC"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:userControl="clr-namespace:SUNWODA_SEVB.Component.UserControls;assembly=SUNWODA_SEVB.Component"
+    Title="螺丝拧紧工序监控"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
+    mc:Ignorable="d">
     <Page.Resources>
-        <!-- 布尔值取反转换器 -->
-        <conver:BooleanInverterConverter x:Key="BooleanInverterConverter"/>
-        <conver:ImagePathToSourceConverter x:Key="ImagePathConverter"/>
-        <!-- 按钮基础样式 -->
+        <!--  布尔值取反转换器  -->
+        <conver:BooleanInverterConverter x:Key="BooleanInverterConverter" />
+        <conver:ImagePathToSourceConverter x:Key="ImagePathConverter" />
+        <conver:ScrewStatusToColorConverter x:Key="ScrewStatusToColorConverter" />
+        <!--  按钮基础样式  -->
         <Style x:Key="ControlButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="MinWidth" Value="80"/>
-            <Setter Property="Margin" Value="5,0"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="80" />
+            <Setter Property="Margin" Value="5,0" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" 
-                                Background="{TemplateBinding Background}" 
-                                CornerRadius="4"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                BorderBrush="{TemplateBinding BorderBrush}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border
+                            x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.9" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.8" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.5" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -48,106 +52,306 @@
             </Setter>
         </Style>
 
-        <!-- 启动按钮样式 -->
-        <Style x:Key="StartButtonStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Background" Value="#4CAF50"/>
-            <Setter Property="Foreground" Value="White"/>
+        <!--  启动按钮样式  -->
+        <Style
+            x:Key="StartButtonStyle"
+            BasedOn="{StaticResource ControlButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#4CAF50" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
 
-        <!-- 停止按钮样式 -->
-        <Style x:Key="StopButtonStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Background" Value="#F44336"/>
-            <Setter Property="Foreground" Value="White"/>
+        <!--  停止按钮样式  -->
+        <Style
+            x:Key="StopButtonStyle"
+            BasedOn="{StaticResource ControlButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#F44336" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
 
-        <!-- 普通按钮样式 -->
-        <Style x:Key="NormalButtonStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Background" Value="#2196F3"/>
-            <Setter Property="Foreground" Value="White"/>
+        <!--  普通按钮样式  -->
+        <Style
+            x:Key="NormalButtonStyle"
+            BasedOn="{StaticResource ControlButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#2196F3" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
+        <!--  螺丝标记样式  -->
+        <Style x:Key="ScrewMarkerStyle" TargetType="Ellipse">
+            <Setter Property="Stroke" Value="White" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect
+                        BlurRadius="3"
+                        Opacity="0.4"
+                        ShadowDepth="1"
+                        Color="Black" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="StrokeThickness" Value="2.5" />
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect
+                                BlurRadius="6"
+                                Opacity="0.6"
+                                ShadowDepth="2"
+                                Color="Black" />
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
     </Page.Resources>
 
 
 
     <Grid Background="#F0F0F0">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*"/>
-            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="3*" />
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧:螺丝位置显示区域 -->
-        <Border Grid.Column="0" Background="White" Margin="10" CornerRadius="8" 
-                BorderBrush="#CCCCCC" BorderThickness="2">
+        <!--  左侧:螺丝位置显示区域  -->
+        <Border
+            Grid.Column="0"
+            Margin="10"
+            Background="White"
+            BorderBrush="#CCCCCC"
+            BorderThickness="2"
+            CornerRadius="8">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="5" ShadowDepth="2" Color="Gray" Opacity="0.5"/>
+                <DropShadowEffect
+                    BlurRadius="5"
+                    Opacity="0.5"
+                    ShadowDepth="2"
+                    Color="Gray" />
             </Border.Effect>
 
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="200"/>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="200" />
                 </Grid.RowDefinitions>
 
-                <!-- 标题 -->
-                <TextBlock Grid.Row="0" Text="螺丝拧紧位置图" FontSize="18" FontWeight="Bold" 
-                          HorizontalAlignment="Center" Margin="0,10,0,10" Foreground="#333"/>
+                <!--  标题  -->
+                <TextBlock
+                    Grid.Row="0"
+                    Margin="0,10,0,10"
+                    HorizontalAlignment="Center"
+                    FontSize="18"
+                    FontWeight="Bold"
+                    Foreground="#333"
+                    Text="螺丝拧紧位置图" />
 
-                <!-- 工序选择 -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                    <TextBlock Text="当前工序:" VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="Bold"/>
-                    <ComboBox Name="ProcessComboBox" Width="200" Height="30"
-                             ItemsSource="{Binding Processes}"
-                             SelectedItem="{Binding SelectedProcess, Mode=TwoWay}"
-                             DisplayMemberPath="ProcessName"/>
+                <!--  工序选择  -->
+                <StackPanel
+                    Grid.Row="1"
+                    Margin="0,0,0,10"
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal">
+                    <TextBlock
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Text="当前工序:" />
+                    <ComboBox
+                        Name="ProcessComboBox"
+                        Width="200"
+                        Height="30"
+                        DisplayMemberPath="ProcessName"
+                        ItemsSource="{Binding Processes}"
+                        SelectedItem="{Binding SelectedProcess, Mode=TwoWay}" />
                 </StackPanel>
 
-                <!-- 螺丝位置图 (使用Grid代替Canvas以支持背景图片) -->
-                <Grid Grid.Row="2" Name="ScrewPositionContainer" Margin="20">
-                    <!-- 背景图片 -->
-                    <Image Name="ProcessBackgroundImage" 
-                           Source="{Binding SelectedProcess.ImagePath, Converter={StaticResource ImagePathConverter}}"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
+                <!--  螺丝位置图 (使用Grid代替Canvas以支持背景图片)  -->
+                <Grid
+                    Name="ScrewPositionContainer"
+                    Grid.Row="2"
+                    Margin="15">
+                    <!--  背景图片  -->
 
-                    <!-- 螺丝位置标记层 -->
-                    <Canvas Name="ScrewPositionCanvas" Background="Transparent">
-                        <!-- 动态生成的螺丝位置标记将通过代码添加 -->
-                    </Canvas>
+                    <Image
+                        Name="ProcessBackgroundImage"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Stretch="Uniform">
+                        <Image.Source>
+                            <Binding
+                                Converter="{StaticResource ImagePathConverter}"
+                                FallbackValue="{x:Null}"
+                                Path="SelectedProcess.ImagePath"
+                                TargetNullValue="{x:Null}" />
+                        </Image.Source>
+                        <Image.Style>
+                            <Style TargetType="Image">
+                                <Style.Triggers>
+                                    <Trigger Property="Source" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Image.Style>
+                    </Image>
+
+                    <!--  添加占位文本，当图片加载失败时显示  -->
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        Foreground="Gray"
+                        Text="图片加载失败">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=ProcessBackgroundImage, Path=Source}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!--  螺丝位置标记层  -->
+                    <ItemsControl
+                        Name="ScrewMarkerControl"
+                        Width="{Binding ActualWidth, ElementName=ProcessBackgroundImage}"
+                        Height="{Binding ActualHeight, ElementName=ProcessBackgroundImage}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        IsHitTestVisible="True"
+                        ItemsSource="{Binding ScrewPositions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas Background="Transparent" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{Binding CanvasLeft}" />
+                                <Setter Property="Canvas.Top" Value="{Binding CanvasTop}" />
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ToolTip="{Binding TooltipText}">
+                                    <!--  使用InputBindings绑定命令  -->
+                                    <Grid.InputBindings>
+                                        <MouseBinding
+                                            Command="{Binding DataContext.SelectScrewCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            MouseAction="LeftClick" />
+                                    </Grid.InputBindings>
+
+                                    <!--  螺丝标记圆形  -->
+                                    <Ellipse
+                                        Width="{Binding DisplayDiameter}"
+                                        Height="{Binding DisplayDiameter}"
+                                        Fill="{Binding Status, Converter={StaticResource ScrewStatusToColorConverter}}"
+                                        Style="{StaticResource ScrewMarkerStyle}" />
+
+                                    <!--  螺丝序号（半径大于8时显示）  -->
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontSize="9"
+                                        FontWeight="Bold"
+                                        Foreground="White"
+                                        IsHitTestVisible="False"
+                                        Text="{Binding Index}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <!--  当显示半径小于8时隐藏序号  -->
+                                                    <DataTrigger Binding="{Binding DisplayRadius}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
                 </Grid>
 
-                <!-- 状态说明 -->
-                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
-                    <Ellipse Width="15" Height="15" Fill="Green" Margin="5,0"/>
-                    <TextBlock Text="拧紧完成" VerticalAlignment="Center" Margin="5,0,20,0"/>
-                    <Ellipse Width="15" Height="15" Fill="Red" Margin="5,0"/>
-                    <TextBlock Text="待拧紧/异常" VerticalAlignment="Center" Margin="5,0,20,0"/>
-                    <Ellipse Width="15" Height="15" Fill="Gray" Margin="5,0"/>
-                    <TextBlock Text="未启用" VerticalAlignment="Center" Margin="5,0"/>
-                </StackPanel>
-                <!-- 日志显示区域 -->
-                <Border Grid.Row="4" Background="Transparent" CornerRadius="5" Margin="0,10,0,0" Padding="8" BorderBrush="#666" BorderThickness="1">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="Transparent">
+                <!--  状态图例  -->
+                <Border
+                    Grid.Row="3"
+                    Margin="10,5"
+                    Padding="10,8"
+                    Background="#F5F5F5"
+                    CornerRadius="5">
+                    <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                        <Ellipse
+                            Width="16"
+                            Height="16"
+                            Margin="0,0,5,0"
+                            Fill="#4CAF50" />
+                        <TextBlock
+                            Margin="0,0,20,0"
+                            VerticalAlignment="Center"
+                            Text="OK(合格)" />
+
+                        <Ellipse
+                            Width="16"
+                            Height="16"
+                            Margin="0,0,5,0"
+                            Fill="#F44336" />
+                        <TextBlock
+                            Margin="0,0,20,0"
+                            VerticalAlignment="Center"
+                            Text="NG(不合格)" />
+
+                        <Ellipse
+                            Width="16"
+                            Height="16"
+                            Margin="0,0,5,0"
+                            Fill="#9E9E9E" />
+                        <TextBlock VerticalAlignment="Center" Text="待拧紧" />
+                    </StackPanel>
+                </Border>
+                <!--  日志显示区域  -->
+                <Border
+                    Grid.Row="4"
+                    Margin="10,5,10,10"
+                    Padding="8"
+                    Background="#FAFAFA"
+                    BorderBrush="#DDD"
+                    BorderThickness="1"
+                    CornerRadius="5">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Logs}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayText}" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap">
+                                    <TextBlock
+                                        FontFamily="Consolas"
+                                        FontSize="11"
+                                        Text="{Binding DisplayText}"
+                                        TextWrapping="Wrap">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="LightGray"/>
+                                                <Setter Property="Foreground" Value="#666" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Level}" Value="Info">
-                                                        <Setter Property="Foreground" Value="Gray"/>
-                                                    </DataTrigger>
                                                     <DataTrigger Binding="{Binding Level}" Value="Warn">
-                                                        <Setter Property="Foreground" Value="Orange"/>
+                                                        <Setter Property="Foreground" Value="#FF9800" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Level}" Value="Error">
-                                                        <Setter Property="Foreground" Value="Red"/>
-                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="Foreground" Value="#F44336" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -161,184 +365,350 @@
             </Grid>
         </Border>
 
-        <!-- 右侧:拧紧曲线显示区域 -->
+        <!--  右侧:拧紧曲线显示区域  -->
         <Grid Grid.Column="1" Margin="5,10,10,10">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Background="White" CornerRadius="5" Margin="0,0,0,5" Padding="10">
+            <Border
+                Grid.Row="0"
+                Margin="0,0,0,5"
+                Padding="10"
+                Background="White"
+                CornerRadius="5">
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="3" ShadowDepth="1" Color="Gray" Opacity="0.3"/>
+                    <DropShadowEffect
+                        BlurRadius="3"
+                        Opacity="0.3"
+                        ShadowDepth="1"
+                        Color="Gray" />
                 </Border.Effect>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- 左侧信息区 -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="拧紧曲线监控" FontSize="18" FontWeight="Bold" 
-                                  VerticalAlignment="Center" Foreground="#333" Margin="0,0,15,0"/>
+                    <!--  左侧信息区  -->
+                    <StackPanel Orientation="Vertical">
+                        <StackPanel
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                            <TextBlock
+                                Margin="0,0,15,0"
+                                VerticalAlignment="Center"
+                                FontSize="18"
+                                FontWeight="Bold"
+                                Foreground="#333"
+                                Text="拧紧曲线监控" />
 
-                        <!-- 服务状态指示器 -->
-                        <Border CornerRadius="10" Padding="8,4" Margin="0,0,20,0" VerticalAlignment="Center">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#E0E0E0"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsServerRunning}" Value="True">
-                                            <Setter Property="Background" Value="#4CAF50"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Width="8" Height="8" Margin="0,0,5,0">
-                                    <Ellipse.Style>
-                                        <Style TargetType="Ellipse">
-                                            <Setter Property="Fill" Value="Gray"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsServerRunning}" Value="True">
-                                                    <Setter Property="Fill" Value="White"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Ellipse.Style>
-                                </Ellipse>
-                                <TextBlock VerticalAlignment="Center" FontSize="12">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="已停止"/>
-                                            <Setter Property="Foreground" Value="#666"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsServerRunning}" Value="True">
-                                                    <Setter Property="Text" Value="运行中"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                            <!--  服务状态指示器  -->
+                            <Border
+                                Margin="0,0,20,0"
+                                Padding="8,4"
+                                VerticalAlignment="Center"
+                                CornerRadius="10">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#E0E0E0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsServerRunning}" Value="True">
+                                                <Setter Property="Background" Value="#4CAF50" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse
+                                        Width="8"
+                                        Height="8"
+                                        Margin="0,0,5,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Gray" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsServerRunning}" Value="True">
+                                                        <Setter Property="Fill" Value="White" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock VerticalAlignment="Center" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="已停止" />
+                                                <Setter Property="Foreground" Value="#666" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsServerRunning}" Value="True">
+                                                        <Setter Property="Text" Value="运行中" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <!--  Pack包信息  -->
+                            <StackPanel Margin="0,0,15,0" Orientation="Horizontal">
+                                <TextBlock
+                                    Margin="0,0,5,0"
+                                    VerticalAlignment="Center"
+                                    Foreground="#666"
+                                    Text="Pack包:" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Foreground="#FF6B00"
+                                    Text="{Binding CurrentPackCode, TargetNullValue='-', FallbackValue='-'}" />
                             </StackPanel>
-                        </Border>
 
-                        <!-- Pack包信息 -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,15,0">
-                            <TextBlock Text="Pack包:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="#666"/>
-                            <TextBlock Text="{Binding CurrentPackCode, TargetNullValue='-', FallbackValue='-'}" 
-                                      FontWeight="Bold" VerticalAlignment="Center" Foreground="#FF6B00"/>
+                            <!--  螺丝标签  -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock
+                                    Margin="0,0,5,0"
+                                    VerticalAlignment="Center"
+                                    Foreground="#666"
+                                    Text="当前螺丝:" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Foreground="#2196F3"
+                                    Text="{Binding SelectedScrewLabel, TargetNullValue='-', FallbackValue='-'}" />
+                            </StackPanel>
+
+                        </StackPanel>
+                        <StackPanel Margin="1,15,1,1" Orientation="Horizontal">
+                            <!--  控制器IP选择（新增）  -->
+                            <StackPanel
+                                Height="30"
+                                Margin="5,0"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                                <TextBlock
+                                    Margin="5,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="11"
+                                    Foreground="#666"
+                                    Text="控制器IP:" />
+                                <ComboBox
+                                    Width="auto"
+                                    Height="26"
+                                    VerticalAlignment="Center"
+                                    IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
+                                    ItemsSource="{Binding ControllerList}"
+                                    SelectedValue="{Binding SelectedControllerIP, Mode=TwoWay}"
+                                    SelectedValuePath="IP"
+                                    ToolTip="选择目标控制器">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock
+                                                    FontWeight="SemiBold"
+                                                    Foreground="#333"
+                                                    Text="{Binding Name}" />
+                                                <TextBlock
+                                                    Margin="8,0,0,0"
+                                                    Foreground="#888"
+                                                    Text="{Binding IP, StringFormat='({0})'}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <!--  分隔线  -->
+                            <Border
+                                Width="1"
+                                Margin="10,5"
+                                Background="#DDD" />
+
+                            <!--  螺丝周期号TraceLogId  -->
+                            <StackPanel
+                                Margin="5,0"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                                <TextBlock
+                                    Margin="5,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="11"
+                                    Foreground="#666"
+                                    Text="TraceLogId:" />
+                                <TextBox
+                                    Width="100"
+                                    Height="26"
+                                    Padding="5,3"
+                                    VerticalContentAlignment="Center"
+                                    Text="{Binding ScrewCode, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" />
+                            </StackPanel>
                         </StackPanel>
 
-                        <!-- 螺丝标签 -->
+                    </StackPanel>
+
+
+                    <!--  右侧按钮区  -->
+                    <StackPanel Grid.Column="1" Orientation="Vertical">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="当前螺丝:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="#666"/>
-                            <TextBlock Text="{Binding SelectedScrewLabel, TargetNullValue='-', FallbackValue='-'}" 
-                                      FontWeight="Bold" VerticalAlignment="Center" Foreground="#2196F3"/>
+                            <!--  启动按钮  -->
+                            <Button
+                                Command="{Binding StartServerCommand}"
+                                Content="启 动"
+                                IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
+                                Style="{StaticResource StartButtonStyle}" />
+
+                            <!--  停止按钮  -->
+                            <Button
+                                Command="{Binding StopServerCommand}"
+                                Content="停 止"
+                                IsEnabled="{Binding IsServerRunning}"
+                                Style="{StaticResource StopButtonStyle}" />
                         </StackPanel>
-                    </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <!--  手动获取  -->
+                            <Button
+                                Margin="1,5"
+                                Command="{Binding FetchCurveDataCommand}"
+                                Content="手动获取曲线"
+                                IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
+                                Style="{StaticResource NormalButtonStyle}"
+                                ToolTip="仅在服务停止时可用" />
 
-                    <!-- 右侧按钮区 -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <!-- 启动按钮 -->
-                        <Button Content="启动服务" 
-                               Style="{StaticResource StartButtonStyle}"
-                               Command="{Binding StartServerCommand}"
-                               IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"/>
 
-                        <!-- 停止按钮 -->
-                        <Button Content="停止服务" 
-                               Style="{StaticResource StopButtonStyle}"
-                               Command="{Binding StopServerCommand}"
-                               IsEnabled="{Binding IsServerRunning}"/>
+                            <!--  清空曲线按钮  -->
 
-                        <!-- 分隔线 -->
-                        <Border Width="1" Background="#DDD" Margin="10,5"/>
+                            <Button
+                                Command="{Binding ClearChartsCommand}"
+                                Content="清空曲线"
+                                IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
+                                Style="{StaticResource NormalButtonStyle}"
+                                ToolTip="仅在服务停止时可用" />
 
-                        <!-- 清空曲线按钮 -->
-                        <Button Content="清空曲线" 
-                               Style="{StaticResource NormalButtonStyle}"
-                               Command="{Binding ClearChartsCommand}"
-                               IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
-                               ToolTip="仅在服务停止时可用"/>
+                        </StackPanel>
 
-                        <!-- 模拟测试按钮 -->
-                        <Button Content="模拟测试" 
-                               Style="{StaticResource NormalButtonStyle}"
-                               Command="{Binding SimulateCommand}"
-                               IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
-                               ToolTip="仅在服务停止时可用"/>
+
+                        <!--  模拟测试按钮  -->
+                        <!--
+                        <Button
+                            Command="{Binding SimulateCommand}"
+                            Content="模拟测试"
+                            IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
+                            Style="{StaticResource NormalButtonStyle}"
+                            ToolTip="仅在服务停止时可用" />-->
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- OK拧紧曲线 -->
-            <Border Grid.Row="1" Background="White" CornerRadius="5" Margin="0,2.5" 
-                   BorderBrush="#4CAF50" BorderThickness="2">
+            <!--  OK拧紧曲线  -->
+            <Border
+                Grid.Row="1"
+                Margin="0,2.5"
+                Background="White"
+                BorderBrush="#4CAF50"
+                BorderThickness="2"
+                CornerRadius="5">
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="3" ShadowDepth="1" Color="Gray" Opacity="0.3"/>
+                    <DropShadowEffect
+                        BlurRadius="3"
+                        Opacity="0.3"
+                        ShadowDepth="1"
+                        Color="Gray" />
                 </Border.Effect>
 
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#4CAF50" CornerRadius="3,3,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="10,5">
-                            <TextBlock Text="合格拧紧曲线 (OK)" FontSize="14" FontWeight="Bold" 
-                                      Foreground="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding OkPlotDataSeries.Count, StringFormat=' - 共 {0} 条曲线'}" 
-                                      FontSize="12" Foreground="#E8F5E9" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <Border
+                        Grid.Row="0"
+                        Background="#4CAF50"
+                        CornerRadius="3,3,0,0">
+                        <StackPanel Margin="10,5" Orientation="Horizontal">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Foreground="White"
+                                Text="合格拧紧曲线 (OK)" />
+                            <TextBlock
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="#E8F5E9"
+                                Text="{Binding OkPlotDataSeries.Count, StringFormat=' - 共 {0} 条曲线'}" />
                         </StackPanel>
                     </Border>
 
-                    <userControl:ScottPlotControl Grid.Row="1" 
-                                                  Margin="5"                                                
-                                                  DataSeriesCollection="{Binding OkPlotDataSeries}"
-                                                  XAxisLabel="数量 (个)"
-                                                  YAxisLabel="扭矩 (N·m)"
-                                                  ShowGrid="True"
-                                                  ShowLegend="True"
-                                                  PlotType="Line"/>
+                    <userControl:ScottPlotControl
+                        Grid.Row="1"
+                        Margin="5"
+                        DataSeriesCollection="{Binding OkPlotDataSeries}"
+                        PlotType="Line"
+                        ShowGrid="True"
+                        ShowLegend="True"
+                        XAxisLabel="数量 (个)"
+                        YAxisLabel="扭矩 (N·m)" />
                 </Grid>
             </Border>
 
-            <!-- NG拧紧曲线 -->
-            <Border Grid.Row="2" Background="White" CornerRadius="5" Margin="0,2.5" 
-                   BorderBrush="#F44336" BorderThickness="2">
+            <!--  NG拧紧曲线  -->
+            <Border
+                Grid.Row="2"
+                Margin="0,2.5"
+                Background="White"
+                BorderBrush="#F44336"
+                BorderThickness="2"
+                CornerRadius="5">
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="3" ShadowDepth="1" Color="Gray" Opacity="0.3"/>
+                    <DropShadowEffect
+                        BlurRadius="3"
+                        Opacity="0.3"
+                        ShadowDepth="1"
+                        Color="Gray" />
                 </Border.Effect>
 
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#F44336" CornerRadius="3,3,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="10,5">
-                            <TextBlock Text="异常拧紧曲线 (NG)" FontSize="14" FontWeight="Bold" 
-                                      Foreground="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding NgPlotDataSeries.Count, StringFormat=' - 共 {0} 条曲线'}" 
-                                      FontSize="12" Foreground="#FFEBEE" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <Border
+                        Grid.Row="0"
+                        Background="#F44336"
+                        CornerRadius="3,3,0,0">
+                        <StackPanel Margin="10,5" Orientation="Horizontal">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Foreground="White"
+                                Text="异常拧紧曲线 (NG)" />
+                            <TextBlock
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="#FFEBEE"
+                                Text="{Binding NgPlotDataSeries.Count, StringFormat=' - 共 {0} 条曲线'}" />
                         </StackPanel>
                     </Border>
 
-                    <userControl:ScottPlotControl Grid.Row="1" 
-                                                  Margin="5"
-                                                  DataSeriesCollection="{Binding NgPlotDataSeries}"
-                                                  XAxisLabel="数量 (个)"
-                                                  YAxisLabel="扭矩 (N·m)"
-                                                  ShowGrid="True"
-                                                  ShowLegend="True"
-                                                  PlotType="Line"/>
+                    <userControl:ScottPlotControl
+                        Grid.Row="1"
+                        Margin="5"
+                        DataSeriesCollection="{Binding NgPlotDataSeries}"
+                        PlotType="Line"
+                        ShowGrid="True"
+                        ShowLegend="True"
+                        XAxisLabel="数量 (个)"
+                        YAxisLabel="扭矩 (N·m)" />
                 </Grid>
             </Border>
         </Grid>

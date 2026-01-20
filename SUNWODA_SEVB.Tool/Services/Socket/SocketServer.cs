@@ -356,13 +356,13 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             }
         }
 
-        private async Task ProcessReceivedData(
-           SocketClientSession session,
-           byte[] buffer,
-           int bytesRead,
-           MemoryStream memoryStream,
-           CancellationToken cancellationToken)
+        private async Task ProcessReceivedData(SocketClientSession session,byte[] buffer,int bytesRead,MemoryStream memoryStream,CancellationToken cancellationToken)
         {
+            //_logger.Info($"接收到 {bytesRead} 字节数据",true);
+            //var receivedHex = BitConverter.ToString(buffer, 0, bytesRead);
+            var receivedText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            _logger.Info($"接收到 {bytesRead} 字节: TEXT=[{receivedText}]", true);
+
             memoryStream.Write(buffer, 0, bytesRead);
 
             var data = memoryStream.ToArray();

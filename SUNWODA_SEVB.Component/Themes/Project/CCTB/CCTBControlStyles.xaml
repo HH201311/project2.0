@@ -1,5 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:hc="https://handyorg.github.io/handycontrol">
 
     <!--标题栏控制按钮-->
     <Style x:Key="ControlButtonStyle" TargetType="Button">
@@ -155,8 +156,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Grid VerticalAlignment="Stretch">
-                        <TextBlock Text="{Binding Path=Content, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}"
-                                           VerticalAlignment="Center" TextAlignment="Center"/>
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         <Border Name="border" DockPanel.Dock="Bottom" Width="30" Height="5" CornerRadius="2" VerticalAlignment="Bottom"/>
                     </Grid>
                     <ControlTemplate.Triggers>

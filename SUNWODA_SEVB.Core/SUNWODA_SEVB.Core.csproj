@@ -13,17 +13,17 @@
     <Compile Remove="Interfaces\Project\**" />
     <Compile Remove="Interfaces\Repositories\**" />
     <Compile Remove="Interfaces\Services\**" />
-    <Compile Remove="Models\Project\CCTB\**" />
     <EmbeddedResource Remove="Interfaces\Project\**" />
     <EmbeddedResource Remove="Interfaces\Repositories\**" />
     <EmbeddedResource Remove="Interfaces\Services\**" />
-    <EmbeddedResource Remove="Models\Project\CCTB\**" />
     <None Remove="Interfaces\Project\**" />
     <None Remove="Interfaces\Repositories\**" />
     <None Remove="Interfaces\Services\**" />
-    <None Remove="Models\Project\CCTB\**" />
     <Page Remove="Interfaces\Project\**" />
-    <Page Remove="Models\Project\CCTB\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -83,7 +83,7 @@ namespace SUNWODA_SEVB
                 await InitPythonEnvironment();
 
                 // 步骤10：创建并显示主窗口
-                ShowMainWindow();
+                ShowMainWindow(appLogger);
             }
             catch (Exception ex)
             {

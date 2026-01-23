@@ -65,47 +65,50 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 内存使用情况（进程独占的私有内存，保留用于兼容）
         /// </summary>
-        public string? memory { get; set; }
-
-        ///// <summary>
-        ///// 私有内存（进程独占的内存）
-        ///// </summary>
-        //public string? PrivateMemory { get; set; }
+        [JsonPropertyName("memory")]
+        public string? Memory { get; set; }
 
         /// <summary>
         /// 物理内存（工作集）
         /// </summary>
-        public string? physicalMemory { get; set; }
+        [JsonPropertyName("physicalMemory")]
+        public string? PhysicalMemory { get; set; }
 
         /// <summary>
         /// 虚拟内存
         /// </summary>
-        public string? virtualMemory { get; set; }
+        [JsonPropertyName("virtualMemory")]
+        public string? VirtualMemory { get; set; }
 
         /// <summary>
         /// GC托管内存（.NET管理的内存）
         /// </summary>
-        public string? managedMemory { get; set; }
+        [JsonPropertyName("managedMemory")]
+        public string? ManagedMemory { get; set; }
 
         /// <summary>
         /// 系统内存使用情况
         /// </summary>
-        public string? systemMemory { get; set; }
+        [JsonPropertyName("systemMemory")]
+        public string? SystemMemory { get; set; }
 
         /// <summary>
         /// 磁盘使用情况
         /// </summary>
-        public string? disk { get; set; }
+        [JsonPropertyName("disk")]
+        public string? Disk { get; set; }
 
         /// <summary>
         /// 设备状态
         /// </summary>
-        public string? equipmentState { get; set; }
+        [JsonPropertyName("equipmentState")]
+        public string? EquipmentState { get; set; }
 
         /// <summary>
         /// 采集时间
         /// </summary>
-        public string? time { get; set; }
+        [JsonPropertyName("time")]
+        public string? Time { get; set; }
     }
 
     /// <summary>

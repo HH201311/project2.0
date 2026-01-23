@@ -313,16 +313,16 @@ namespace SUNWODA_SEVB.WEB.Services
 
             return new PcInfoRequest
             {
-                devId = settings.DeviceSn,
-                cpu = await GetCpuUsageAsync(),
-                memory = memoryInfo.PrivateMemory,  // 软件私有内存作为主要内存显示
-                physicalMemory = memoryInfo.PhysicalMemory,
-                virtualMemory = memoryInfo.VirtualMemory,
-                managedMemory = memoryInfo.ManagedMemory,
-                systemMemory = memoryInfo.SystemMemory,  // 系统内存信息
-                disk = await GetDiskInfoAsync(),
-                equipmentState = await GetPcStatusAsync(),
-                time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.FFF")
+                DevId = settings.DeviceSn,
+                Cpu = await GetCpuUsageAsync(),
+                Memory = memoryInfo.PrivateMemory,  // 软件私有内存作为主要内存显示
+                PhysicalMemory = memoryInfo.PhysicalMemory,
+                VirtualMemory = memoryInfo.VirtualMemory,
+                ManagedMemory = memoryInfo.ManagedMemory,
+                SystemMemory = memoryInfo.SystemMemory,  // 系统内存信息
+                Disk = await GetDiskInfoAsync(),
+                EquipmentState = await GetPcStatusAsync(),
+                Time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.FFF")
             };
         }
 

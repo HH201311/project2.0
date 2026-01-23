@@ -51,8 +51,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
-            IModuleManager moduleManager,
-            ISocketServer server
+            IModuleManager moduleManager           
         )
         {
             _logger = logger;
@@ -60,8 +59,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             _plcConfigRepository = plcConfigRepository;
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
-            _moduleManager = moduleManager;
-            _server = server ?? throw new ArgumentNullException(nameof(server));
+            _moduleManager = moduleManager;            
             Init_Process();
         }
 
@@ -1779,7 +1777,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
             catch (Exception ex)
             {
-                _logger.Error($"[ERROR] Failed to save video to memory: {ex.Message}");
+                _logger.Error($"[ERROR] Failed to save video to Memory: {ex.Message}");
             }
             finally
             {

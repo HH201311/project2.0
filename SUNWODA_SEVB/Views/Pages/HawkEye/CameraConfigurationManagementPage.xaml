@@ -331,7 +331,7 @@
                                         Background="#3355FF"
                                         Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=Page}}"
                                         CommandParameter="{Binding}"
-                                        Content="保存并执行"
+                                        Content="保存配置"
                                         FontSize="14PX"
                                         FontWeight="Black"
                                         Foreground="White" />
@@ -350,7 +350,7 @@
                                         PreviewMouseWheel="OnMouseWheel">
                                         <Image
                                             RenderTransformOrigin="0.5,0.5"
-                                            Source="{Binding ImageSources}"
+                                            Source="{Binding ImageSource}"
                                             Stretch="Uniform">
                                             <Image.RenderTransform>
                                                 <TransformGroup />

@@ -56,20 +56,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             SaveCommand = new RelayCommand(Save);
             DeleteCommand = new RelayCommand(Delete);
             AddCommand = new RelayCommand(Add);
-            LoadCalibrationConfigCommand = new RelayCommand(LoadCalibrationConfig);
+            LoadCalibrationConfigCommand = new RelayCommand(LoadCalibrationConfig);            
 
-            Items = new ObservableCollection<CameraModel>();
             // 更新行列
-            Items.CollectionChanged += ((s, e) =>
+            CameraConfig.CollectionChanged += ((s, e) =>
             {
                 if (s is not ObservableCollection<CameraModel> cms) return;
                 Columns = 3;
-                Rows = (cms.Count + 1) / 3 >= 3 ? (Items.Count / 3 + 1) : 3;
+                Rows = (cms.Count + 1) / 3 >= 3 ? (CameraConfig.Count / 3 + 1) : 3;
             });
             CompositeItems =
             [
                 // 添加数据源集合
-                new CollectionContainer { Collection = Items },
+                new CollectionContainer { Collection = CameraConfig },
                 // 添加“新增功能”的 Button
                 AddCommand,
             ];
@@ -98,7 +97,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <summary>
         /// 相机配置
         /// </summary>
-        private ObservableCollection<CameraModel> Items { get; set; }
+        public static ObservableCollection<CameraModel> CameraConfig { get; set; } = [];
         public CompositeCollection CompositeItems { get; set; }
 
         public void AddCamera(CameraModel? cameraModel)
@@ -106,7 +105,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             if (cameraModel == null) return;
             RunOnUIThread(() =>
             {
-                Items?.Add(cameraModel);
+                CameraConfig?.Add(cameraModel);
             });
         }
 
@@ -211,7 +210,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             );
             if (re != System.Windows.MessageBoxResult.Yes) return;
             VM_MachineDamageMonitoringPage.DeleteCameras(cm.GuidId);
-            Items.Remove(cm);
+            CameraConfig.Remove(cm);
         }
 
         /// <summary>
@@ -224,7 +223,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             {
                 Protocol = "RTSP"
             };
-            Items.Add(cm);
+            CameraConfig.Add(cm);
         }
         #endregion
 
@@ -232,15 +231,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// 导航完成时加载相机配置
         /// </summary>
         /// <param name="parameter"></param>
-        public override void OnNavigatedTo(object? parameter)
-        {
-            Items.Clear();
-            // 初始化加载
-            var cameras = VM_MachineDamageMonitoringPage.GetCameras();
-            cameras.ForEach(o => Items.Add(o));
-            // 导航完成后调用，初始加载一些需要绑定的数据，还有一个异步方法OnNavigatedToAsync
-            base.OnNavigatedTo(parameter);
-        }
+        //public override void OnNavigatedTo(object? parameter)
+        //{
+        //    CameraConfig.Clear();
+        //    // 初始化加载
+        //    var cameras = VM_MachineDamageMonitoringPage.GetCameras();
+        //    cameras.ForEach(o => CameraConfig.Add(o));
+        //    // 导航完成后调用，初始加载一些需要绑定的数据，还有一个异步方法OnNavigatedToAsync
+        //    base.OnNavigatedTo(parameter);
+        //}
 
         /// <summary>
         /// 导航结束时判断相机配置
@@ -251,7 +250,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var cameras = VM_MachineDamageMonitoringPage.GetCameras();
 
             // 新增未保存
-            foreach (var item in Items)
+            foreach (var item in CameraConfig)
             {
                 if (!cameras.Exists(p => p.GuidId == item.GuidId))
                 {
@@ -261,26 +260,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                        MessageBoxButton.YesNo,
                        MessageBoxImage.Question
                     );
-                    return re == System.Windows.MessageBoxResult.Yes;
+                    return re == MessageBoxResult.Yes;
                 }
             }
             // 修改未保存
-            foreach (var item in Items)
+            foreach (var item in CameraConfig)
             {
-                if (!cameras.Exists(p => JsonConvert.SerializeObject(p) == JsonConvert.SerializeObject(item)))
+                //if (!cameras.Exists(p => JsonConvert.SerializeObject(p) == JsonConvert.SerializeObject(item)))
+                //{
+                //    var re = HandyControl.Controls.MessageBox.Show(
+                //       $"[{item.Name}]存在修改未保存，请确认是否退出！",
+                //       "退出确认",
+                //       MessageBoxButton.YesNo,
+                //       MessageBoxImage.Question
+                //    );
+                //    return re == MessageBoxResult.Yes;
+                //}
+                if (!cameras.Any(p => p.BusinessEquals(item)))
                 {
                     var re = HandyControl.Controls.MessageBox.Show(
-                       $"[{item.Name}]存在修改未保存，请确认是否退出！",
-                       "退出确认",
-                       MessageBoxButton.YesNo,
-                       MessageBoxImage.Question
+                        $"[{item.Name}]存在修改未保存，请确认是否退出！",
+                        "退出确认",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question
                     );
-                    return re == System.Windows.MessageBoxResult.Yes;
+
+                    return re == MessageBoxResult.Yes;
                 }
             }
 
             // 可自定义设置当前页面是否可以导航离开，还有一个异步方法CanNavigateFromAsync
             return base.CanNavigateFrom();
         }
+
     }
 }

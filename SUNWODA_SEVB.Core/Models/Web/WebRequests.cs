@@ -228,6 +228,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("detectionResult")]
         public string? DetectionResult { get; set; }
+
+        /// <summary>
+        /// 2表示图片，3表示视频
+        /// </summary>
+        [JsonPropertyName("dataType")]
+        public int DataType { get; set; }
     }
 
     /// <summary>
@@ -606,5 +612,82 @@ namespace SUNWODA_SEVB.Core.Models.Web
         [JsonPropertyName("statusFlag")]
         public int StatusFlag { get; set; }
     }
+    #endregion
+
+    #region 容量预测项目
+
+    public class CapacityPredictionRequest
+    {        
+        /// <summary>
+        /// 拉线
+        /// </summary>
+        [JsonPropertyName("line")]
+        public string? Line { get; set; }
+
+        /// <summary>
+        /// 工序
+        /// </summary>
+        [JsonPropertyName("process")]
+        public string? Process { get; set; }
+
+        /// <summary>
+        /// 设备号
+        /// </summary>
+        [JsonPropertyName("deviceId")]
+        public string? DeviceId { get; set; }
+
+        /// <summary>
+        /// 工序编码
+        /// </summary>
+        [JsonPropertyName("processCode")]
+        public string? ProcessCode { get; set; }
+
+        /// <summary>
+        /// 电芯条码
+        /// </summary>
+        [JsonPropertyName("barCode")]
+        public string? BarCode { get; set; }
+
+        /// <summary>
+        /// 上传时间
+        /// </summary>
+        [JsonPropertyName("uploadTime")]
+        public string? UploadTime { get; set; }
+
+        /// <summary>
+        /// 测试项数组对象
+        /// </summary>
+        [JsonPropertyName("dataList")]
+        public CapacityPredictionData[]? DataList { get; set; }
+    }
+    
+    public class CapacityPredictionData
+    {
+        /// <summary>
+        /// 参数名
+        /// </summary>
+        [JsonPropertyName("paramName")]
+        public string? ParamName { get; set; }
+
+        /// <summary>
+        /// 参数单位
+        /// </summary>
+        [JsonPropertyName("paramUnit")]
+        public string? ParamUnit { get; set; }
+
+        /// <summary>
+        /// 参数ID
+        /// </summary>
+        [JsonPropertyName("paramId")]
+        public string? ParamId { get; set; }
+
+        /// <summary>
+        /// 参数值
+        /// </summary>
+        [JsonPropertyName("paramValue")]
+        public double? ParamValue { get; set; }
+    }
+
+
     #endregion
 }

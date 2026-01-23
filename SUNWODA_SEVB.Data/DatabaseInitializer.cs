@@ -197,6 +197,7 @@ namespace SUNWODA_SEVB.Data
         {
             var settings = new[]
             {
+                new GlobalSetting { Name = "ProcessCode", Value = "", Type = "string", Remark = "工序编码", RoleRank = 2 },
                 new GlobalSetting { Name = "IsCycleReadPLC", Value = "true", Type = "bool", Remark = "是否开启循环读取PLC", RoleRank = 2 },
                 new GlobalSetting { Name = "IsCycleWritePLC", Value = "true", Type = "bool", Remark = "是否开启循环写入PLC", RoleRank = 2 },
                 new GlobalSetting { Name = "DefaultProject", Value = "", Type = "string", Remark = "启动默认显示项目(VM)", RoleRank = 2 },

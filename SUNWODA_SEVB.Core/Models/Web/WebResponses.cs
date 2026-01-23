@@ -112,7 +112,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } // UUID
+        public string? Data { get; set; } 
     }
 
     /// <summary>
@@ -124,20 +124,8 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } // UUID
-    }
-
-    /// <summary>
-    /// 摄像头更新接口响应
-    /// </summary>
-    public class UpdateCameraResponse : BaseResponse
-    {
-        /// <summary>
-        /// 返回信息
-        /// </summary>
-        [JsonPropertyName("data")]
-        public string? Data { get; set; } // UUID
-    }
+        public string? Data { get; set; } 
+    }    
 
     /// <summary>
     /// UE端数据接收接口响应
@@ -149,6 +137,19 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } // UUID
+        public string? Data { get; set; } 
+    }
+
+    /// <summary>
+    /// UE端数据接收接口响应
+    /// 备注：轨迹检测
+    /// </summary>
+    public class CapacityPredictionDataResponse : BaseResponse
+    {
+        /// <summary>
+        /// 返回信息
+        /// </summary>
+        [JsonPropertyName("data")]
+        public string? Data { get; set; } 
     }
 }

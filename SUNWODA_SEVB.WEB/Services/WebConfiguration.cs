@@ -74,6 +74,7 @@ namespace SUNWODA_SEVB.WEB.Services
 
                     newSettings.DeviceSn = await globalSettingRepo.GetSettingValueAsync<string>("DeviceSn");
                     newSettings.DeviceName = await globalSettingRepo.GetSettingValueAsync<string>("DeviceName");
+                    newSettings.ProcessCode = await globalSettingRepo.GetSettingValueAsync<string>("ProcessCode");
                     newSettings.Workship = await globalSettingRepo.GetSettingValueAsync<string>("workship");
                     newSettings.SoftVersion = await globalSettingRepo.GetSettingValueAsync<string>("LabVersion");
                     newSettings.UUID = await globalSettingRepo.GetSettingValueAsync<string>("UUID");

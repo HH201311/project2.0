@@ -295,7 +295,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 var fileContent = new ByteArrayContent(fileBytes);
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
                 // 自动生成文件名（保证 multipart 格式完整）
-                string autoFileName = $"upload_{DateTime.Now:yyyyMMdd_HHmmssfff}.{format}";
+                string autoFileName = $"Exception.{format}";
                 form.Add(fileContent, "file", autoFileName);
             }
 

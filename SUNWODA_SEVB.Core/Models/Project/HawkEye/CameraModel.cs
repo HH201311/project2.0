@@ -183,15 +183,35 @@ namespace SUNWODA_SEVB.Core.Models.Project.HawkEye
             set => SetProperty(ref imageSource, value);
         }
 
-        private string? imageSources = "D:\\单机数字化平台\\sunwoda_Sevb\\SUNWODA_SEVB\\bin\\Debug\\Configs\\PTO叠片取放料数据\\5mm\\0167_Start.jpg";
-        /// <summary>
-        /// 实时显示图片源
-        /// </summary>
-        [XmlIgnore()]
-        public string? ImageSources
+        //private string? imageSources = "D:\\单机数字化平台\\sunwoda_Sevb\\SUNWODA_SEVB\\bin\\Debug\\Configs\\PTO叠片取放料数据\\5mm\\0167_Start.jpg";
+        ///// <summary>
+        ///// 实时显示图片源
+        ///// </summary>
+        //[XmlIgnore()]
+        //public string? ImageSources
+        //{
+        //    get => imageSources;
+        //    set => SetProperty(ref imageSources, value);
+        //}
+
+        public bool BusinessEquals(CameraModel? other)
         {
-            get => imageSources;
-            set => SetProperty(ref imageSources, value);
+            if (other == null) return false;
+
+            return GuidId == other.GuidId
+                && Enable == other.Enable
+                && Name == other.Name
+                && HostIP == other.HostIP
+                && Protocol == other.Protocol
+                && WorkStation == other.WorkStation
+                && Remake == other.Remake
+                && RemoveDistortion == other.RemoveDistortion
+                && CalibrationFilePath == other.CalibrationFilePath
+                && Resolution == other.Resolution
+                && VideoSaving == other.VideoSaving
+                && RealTimeDisplay == other.RealTimeDisplay;
+            // ❗刻意不比较 ImageSource / ImageSources / IsEnable / ProtocolList
         }
+
     }
 }

@@ -11,6 +11,7 @@ namespace SUNWODA_SEVB.Core.Interfaces
         ModuleInfo? GetModule(string moduleName);
         void RegisterModule(ModuleInfo module);
         void AutoRegisterModules();
+        void AutoRegisterModulesByName(params string[] moduleNames);
         object? GetViewModel(ModuleInfo? module);
         object? GetViewModel(string moduleName);
         Page? GetView(ModuleInfo? module);

@@ -1,0 +1,135 @@
+﻿<hc:Window
+    x:Class="SUNWODA_SEVB.Views.Windows.Project.CCTBMainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converter="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Windows.Project"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:hc="https://handyorg.github.io/handycontrol"  
+    xmlns:interactivity="clr-namespace:HandyControl.Interactivity;assembly=HandyControl"
+    xmlns:uccctb="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB;assembly=SUNWODA_SEVB.Component"
+    Title="单机数字化平台" Foreground="White" WindowStyle="None" AllowsTransparency="True"
+    Background="#FF121212"
+    d:DesignHeight="1080" d:DesignWidth="1920"
+    WindowState="Maximized"
+    mc:Ignorable="d">
+    <!--  添加资源和转换器  -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml"/>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBGrowlControlStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="hc:Growl" BasedOn="{StaticResource IndustrialGrowlStyle}"/>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="80"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <!--顶部标题栏-->
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Vertical">
+            <DockPanel Height="20" Background="#0DFFFFFF" LastChildFill="True">
+                <TextBlock DockPanel.Dock="Left" Margin="5,0,0,0" Opacity="0.8"
+                           Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" 
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontFamily="{Binding FontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontStretch="{Binding FontStretch, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontStyle="{Binding FontStyle, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontWeight="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=Window}}" 
+                           TextAlignment="Center" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <StackPanel DockPanel.Dock="Right" Margin="0,0,10,0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Stretch">
+                    <Button Content="&#xe679;" Style="{StaticResource ControlButtonStyle}" Click="Minimize_Click"/>
+                    <Button Content="&#xe6a2;" Style="{StaticResource ControlButtonStyle}" Click="Reduction_Click"/>
+                    <Button Content="&#xe669;" Background="DarkRed" Style="{StaticResource ControlButtonStyle}" Click="Close_Click"/>
+                </StackPanel>
+                <Border Margin="20,0,20,0" DockPanel.Dock="Right" Background="Transparent" MouseLeftButtonUp="TopHeader_MouseDoubleClick" 
+                        MouseLeftButtonDown="TopHeader_MouseLeftButtonDown"/>
+            </DockPanel>
+            <Rectangle Height="1" Stroke="#CCFFFFFF" Opacity="0.2"/>
+        </StackPanel>
+
+        <!--顶部状态栏-->
+        <DockPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" LastChildFill="False" Background="#0DFFFFFF" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Image Source="/Assets/images/logo.png" Height="40" Margin="20,0,0,0" Stretch="Uniform"/>
+            <TextBlock Text="涂布控制系统" Margin="20,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="40" Foreground="#FFFFFFFF" FontFamily="{StaticResource CCTB.AlimamaShuHeiTi}" FontWeight="Bold" Opacity="0.8"/>
+            <UniformGrid Margin="100,0,0,0" Rows="1">
+                <ToggleButton Content="涂布机"  Margin="0,0,10,0" Style="{StaticResource DeviceToggleButtonStyle}" Command="{Binding DeviceSwitchoverCommand}" CommandParameter="{Binding}"/>
+                <ToggleButton Content="测重仪"  Margin="0,0,10,0" Style="{StaticResource DeviceToggleButtonStyle}" Command="{Binding DeviceSwitchoverCommand}" CommandParameter="{Binding}"/>
+                <ToggleButton Content="模头A"  Margin="0,0,10,0" Style="{StaticResource DeviceToggleButtonStyle}" Command="{Binding DeviceSwitchoverCommand}" CommandParameter="{Binding}"/>
+                <ToggleButton Content="模头B" Margin="0,0,10,0" Style="{StaticResource DeviceToggleButtonStyle}" Command="{Binding DeviceSwitchoverCommand}" CommandParameter="{Binding}"/>
+                <ToggleButton Content="CCD"  Margin="0,0,10,0" Style="{StaticResource DeviceToggleButtonStyle}" Command="{Binding DeviceSwitchoverCommand}" CommandParameter="{Binding}"/>
+            </UniformGrid>
+            <Rectangle Width="1" Height="50" Margin="10,0,10,0" Stroke="#CCFFFFFF" Opacity="0.5" VerticalAlignment="Center"/>
+            <UniformGrid Rows="2" Margin="10,10,0,10">
+                <uccctb:ClosedLoopToggleButton Margin="0,0,30,0" Command="{Binding ControlSwitchoverCommand}" Text="A面-TD闭环" />
+                <uccctb:ClosedLoopToggleButton Margin="0,0,30,0" Command="{Binding ControlSwitchoverCommand}" Text="A面-MD闭环" />
+                <uccctb:ClosedLoopToggleButton Margin="0,0,30,0" Command="{Binding ControlSwitchoverCommand}" Text="A面-尺寸闭环"/>
+                <uccctb:ClosedLoopToggleButton Margin="0,0,30,0" Command="{Binding ControlSwitchoverCommand}" Text="B面-TD闭环" />
+                <uccctb:ClosedLoopToggleButton Margin="0,0,30,0" Command="{Binding ControlSwitchoverCommand}" Text="B面-MD闭环" />
+                <uccctb:ClosedLoopToggleButton Margin="0,0,30,0" Command="{Binding ControlSwitchoverCommand}" Text="B面-尺寸闭环"/>
+            </UniformGrid>
+
+            <!--登录用户信息-->
+            <StackPanel Margin="0,0,20,0" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid>
+                    <Ellipse Height="40" Width="40" Fill="#FF29CC7A" Opacity="0.1"/>
+                    <TextBlock Text="小" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource CCTB.SourceHanSansCN}" 
+                               Foreground="#FF29CC7A" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+                </Grid>
+
+                <TextBlock Margin="10,0,0,0" Text="林小小" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource CCTB.SourceHanSansCN}" 
+                           Foreground="#CCFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!--左侧导航栏-->
+        <StackPanel Grid.Row="2" Grid.Column="0" Background="#0DFFFFFF" Orientation="Vertical" HorizontalAlignment="Center">
+            <RadioButton IsChecked="True" Content="生产监控" Tag="&#xe602;" Command="{Binding MonitoringCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
+            <RadioButton IsChecked="False" Content="系统设置" Tag="&#xe603;" Command="{Binding SettingsCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
+            <RadioButton IsChecked="False" Content="系统记录" Tag="&#xe601;" Command="{Binding RecordingsCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
+        </StackPanel>
+
+        <!--内容区-->
+        <Grid Grid.Row="2" Grid.Column="1" Margin="20" Background="Transparent">
+            <Frame x:Name="NavigationFrame" NavigationUIVisibility="Hidden">
+                <Frame.Resources>
+                    <!--  添加淡入淡出动画  -->
+                    <Style TargetType="Frame">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Frame">
+                                    <Border
+                                           Background="{TemplateBinding Background}"
+                                           BorderBrush="{TemplateBinding BorderBrush}"
+                                           BorderThickness="{TemplateBinding BorderThickness}">
+                                        <ContentPresenter x:Name="PART_FrameCP">
+                                            <ContentPresenter.RenderTransform>
+                                                <TranslateTransform />
+                                            </ContentPresenter.RenderTransform>
+                                        </ContentPresenter>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Frame.Resources>
+            </Frame>
+
+            <!-- Growl 专用容器 -->
+            <ScrollViewer Margin="0,0,0,-20" Width="Auto" HorizontalAlignment="Right">
+                <StackPanel hc:Growl.Token="ProductionMonitor" VerticalAlignment="Top" HorizontalAlignment="Right"/>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</hc:Window>

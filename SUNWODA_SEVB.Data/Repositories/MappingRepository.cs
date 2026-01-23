@@ -30,8 +30,11 @@ namespace SUNWODA_SEVB.Data.Repositories
 
         public async Task<TEntity?> GetByIdAsync(object id)
         {
-            var model = await _db.Queryable<TModel>().InSingleAsync(id);
-            return model?.Adapt<TEntity>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var model = await dbCopy.Queryable<TModel>().InSingleAsync(id);
+                return model?.Adapt<TEntity>();
+            }
         }
 
         public TEntity? GetById(object id)
@@ -43,8 +46,12 @@ namespace SUNWODA_SEVB.Data.Repositories
         public async Task<TEntity?> GetAsync(Expression<Func<TEntity, bool>> predicate)
         {
             var modelPredicate = ConvertPredicate(predicate);
-            var model = await _db.Queryable<TModel>().FirstAsync(modelPredicate);
-            return model?.Adapt<TEntity>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var model = await dbCopy.Queryable<TModel>()
+                    .FirstAsync(modelPredicate);
+                return model?.Adapt<TEntity>();
+            }
         }
 
         public TEntity? Get(Expression<Func<TEntity, bool>> predicate)
@@ -56,8 +63,11 @@ namespace SUNWODA_SEVB.Data.Repositories
 
         public async Task<List<TEntity>> GetAllAsync()
         {
-            var models = await _db.Queryable<TModel>().ToListAsync();
-            return models.Adapt<List<TEntity>>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var models = await dbCopy.Queryable<TModel>().ToListAsync();
+                return models.Adapt<List<TEntity>>();
+            }
         }
 
         public List<TEntity> GetAll()
@@ -69,8 +79,13 @@ namespace SUNWODA_SEVB.Data.Repositories
         public async Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate)
         {
             var modelPredicate = ConvertPredicate(predicate);
-            var models = await _db.Queryable<TModel>().Where(modelPredicate).ToListAsync();
-            return models.Adapt<List<TEntity>>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var models = await dbCopy.Queryable<TModel>()
+                    .Where(modelPredicate)
+                    .ToListAsync();
+                return models.Adapt<List<TEntity>>();
+            }
         }
 
         public List<TEntity> GetList(Expression<Func<TEntity, bool>> predicate)

@@ -18,6 +18,7 @@ using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
@@ -50,7 +51,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
-            IModuleManager moduleManager
+            IModuleManager moduleManager,
+            ISocketServer server
         )
         {
             _logger = logger;
@@ -59,7 +61,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
+            _server = server ?? throw new ArgumentNullException(nameof(server));
             Init_Process();
         }
 
@@ -1320,7 +1322,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
         }
 
-        public static void SaveTXTFile(string FilePath, string FileName, string content)
+        public void SaveTXTFile(string FilePath, string FileName, string content)
         {
             try
             {
@@ -1343,6 +1345,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             }
             catch (Exception ex)
             {
+                _logger.Error($"保存TXT文件出错{ex.Message}");
                 throw;
             }
         }

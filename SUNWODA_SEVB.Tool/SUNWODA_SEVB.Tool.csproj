@@ -7,6 +7,7 @@
 	<UseWPF>true</UseWPF>
 	<AssemblyVersion>2.1.0.0</AssemblyVersion>
 	<FileVersion>2.1.0.0</FileVersion>
+	<NoWarn>CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,7 +18,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SUNWODA_SEVB.Core\SUNWODA_SEVB.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="halcondotnet">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

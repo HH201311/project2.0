@@ -1,8 +1,12 @@
-﻿using SUNWODA_SEVB.Core.Interfaces;
+﻿using Google.Protobuf.WellKnownTypes;
+using Org.BouncyCastle.Asn1.Crmf;
+using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.MES;
 using SUNWODA_SEVB.Core.Models.MES;
 using SUNWODA_SEVB.MES.Models;
-
+using System.Net.Http;
+using System.Text;
+using RestSharp;
 
 namespace SUNWODA_SEVB.MES.Services
 {
@@ -10,7 +14,7 @@ namespace SUNWODA_SEVB.MES.Services
     /// 离线数据上传服务接口
     /// </summary>
     public interface IOfflineDataUploadService : IMesService
-    {
+    {     
         Task<OfflineDataUploadResponse> UploadAsync(
             string productSn,
             string testResult,
@@ -18,6 +22,7 @@ namespace SUNWODA_SEVB.MES.Services
             List<EnvironmentData>? environments = null,
             List<StepData>? stepDatas = null,
             CancellationToken cancellationToken = default);
+        Task<string> HttpWebPostAsync(string url,string jsonData);
     }
 
     /// <summary>
@@ -139,7 +144,88 @@ namespace SUNWODA_SEVB.MES.Services
                 };
             }
         }
-      
+
+
+
+        #region 方法测试
+
+        private static readonly HttpClient httpClient = new HttpClient();
+
+
+        /// <summary>
+        /// 测试方法
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="jsonparams"></param>
+        /// <param name="jsonHeader"></param>
+        /// <returns></returns>
+        public async Task<string> HttpWebPostAsync(string url, string jsonData)
+        {
+            try
+            {
+                _logger.Info("开始使用方式一代码进行测试上传...");
+
+                // 完全复制控制台程序的HttpClient配置
+                using var httpClient = new HttpClient();
+
+                // 准备要发送的数据 - 完全与控制台程序相同
+                var jsonDataEncoded = $"jsonData={Uri.EscapeDataString(jsonData)}";
+
+                // 设置请求超时时间
+                httpClient.Timeout = TimeSpan.FromSeconds(20);
+
+                // 创建请求内容 - 完全与控制台程序相同
+                var content = new StringContent(jsonDataEncoded, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+                // 添加与控制台程序相同的headers
+                content.Headers.Clear();
+                httpClient.DefaultRequestHeaders.Clear();
+                httpClient.DefaultRequestHeaders.Add("Accept", "*/*");
+                httpClient.DefaultRequestHeaders.Add("Host", "10.178.5.6:9002");
+                httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Apifox/1.0.0 (https://apifox.com)");
+
+                _logger.Debug($"发送请求到: http://10.178.5.6:9002/mes/OfflineDataUpload");
+                _logger.Debug($"请求体: {jsonDataEncoded}");
+
+                // 发送 POST 请求
+                HttpResponseMessage response = await httpClient.PostAsync("http://10.178.5.6:9002/mes/OfflineDataUpload", content);
+
+                // 读取响应内容
+                var resultContent = await response.Content.ReadAsStringAsync();
+
+                string result;
+                if (response.IsSuccessStatusCode)
+                {
+                    result = $"请求成功! 状态码: {(int)response.StatusCode} {response.StatusCode}, 响应内容: {resultContent}";
+                    _logger.Info($"HttpClient测试上传成功: {resultContent}");
+                }
+                else
+                {
+                    result = $"请求失败! 状态码: {(int)response.StatusCode} {response.StatusCode}, 响应内容: {resultContent}";
+                    _logger.Warn($"HttpClient测试上传失败: {resultContent}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = $"HttpClient请求异常: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $", 内部异常: {ex.InnerException.Message}";
+                }
+                _logger.Error($"HttpClient测试上传异常", ex);
+                return errorMessage;
+            }
+        }
+
+
+
+
+
+        #endregion
+
 
         public async Task ResetAsync()
         {
@@ -147,6 +233,26 @@ namespace SUNWODA_SEVB.MES.Services
             await Task.CompletedTask;
         }
 
-        public string GetVersion() => "1.0.0";
+        public async Task<bool> UpdateEnabledStatusAsync()
+        {
+            try
+            {
+                var config = await _configProvider.GetConfigurationAsync();
+                var newStatus = config != null;
+
+                if (newStatus != IsEnabled)
+                {
+                    IsEnabled = newStatus;
+                    _logger.Info($"{ServiceName} 状态已更新: {IsEnabled}");
+                }
+
+                return IsEnabled;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"{ServiceName} 更新状态失败", ex);
+                return IsEnabled;
+            }
+        }
     }
 }

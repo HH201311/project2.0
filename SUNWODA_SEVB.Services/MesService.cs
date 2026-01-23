@@ -1,5 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.MES;
 using SUNWODA_SEVB.Core.Models.MES;
 using SUNWODA_SEVB.MES.Client;
@@ -45,17 +47,17 @@ namespace SUNWODA_SEVB.MES
             {
                 if (_isInitialized)
                 {
-                    _logger.Debug("MES服务已经初始化");
+                    _logger.Debug("MES服务已经初始化，无需重复初始化");
                     return IsEnabled;
                 }
 
                 _logger.Info("========== 开始初始化MES服务 ==========");
 
-                // 1. 检查配置文件中的MES开关
-                var mesEnabledInConfig = _configuration.GetValue<bool>("ProjectSettings:EnableMES", false);
-                if (!mesEnabledInConfig)
+                // 1. 检查数据库中的MES启用状态
+                var enabledInDatabase = await CheckMesEnabledInDatabase();
+                if (!enabledInDatabase)
                 {
-                    _logger.Info("MES服务在配置文件中已禁用");
+                    _logger.Info("MES服务在数据库配置中已禁用 (EnableMES = false)");
                     _isEnabled = false;
                     _isInitialized = true;
                     return false;
@@ -74,10 +76,11 @@ namespace SUNWODA_SEVB.MES
                 // 3. 初始化HTTP客户端
                 InitializeHttpClient(mesConfig);
 
+                // 4. 标记服务已启用
                 _isEnabled = true;
                 _isInitialized = true;
 
-                _logger.Info($"========== MES服务初始化完成 (启用状态: {IsEnabled}) ==========");
+                _logger.Info($"========== MES服务初始化完成 (启用状态: {IsEnabled}, Profile={mesConfig.ProfileName}) ==========");             
                 return true;
             }
             catch (Exception ex)
@@ -90,6 +93,28 @@ namespace SUNWODA_SEVB.MES
             finally
             {
                 _initLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 检查数据库中的MES启用状态
+        /// </summary>
+        private async Task<bool> CheckMesEnabledInDatabase()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+
+                var isEnabled = await globalSettingRepo.GetSettingValueAsync("IsMESEnabled") ?? false;             
+
+                return isEnabled;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"检查数据库MES启用状态时发生错误: {ex.Message}", ex);
+                // 发生错误时默认启用，避免阻止MES服务
+                return true;
             }
         }
 
@@ -113,7 +138,6 @@ namespace SUNWODA_SEVB.MES
             _logger.Info($"HTTP客户端初始化完成: BaseUrl={config.BaseUrl}");
         }
 
-
         public async Task ResetAsync()
         {
             await _initLock.WaitAsync();
@@ -135,9 +159,41 @@ namespace SUNWODA_SEVB.MES
             }
         }
 
-        public string GetVersion()
+        /// <summary>
+        /// 动态更新MES启用状态
+        /// </summary>
+        public async Task<bool> UpdateEnabledStatusAsync()
         {
-            return "1.0.0";
+            await _initLock.WaitAsync();
+            try
+            {
+                var enabledInDatabase = await CheckMesEnabledInDatabase();
+
+                if (enabledInDatabase && !_isEnabled && _isInitialized)
+                {
+                    // 如果数据库中启用了MES，但当前服务未启用，则重新初始化
+                    _logger.Info("检测到MES已在数据库中启用，正在重新初始化...");
+                    _isInitialized = false;
+                    return await InitializeAsync();
+                }
+                else if (!enabledInDatabase && _isEnabled)
+                {
+                    // 如果数据库中禁用了MES，但当前服务已启用，则禁用服务
+                    _logger.Info("检测到MES已在数据库中禁用，正在停止服务...");
+                    _isEnabled = false;
+                }
+
+                return _isEnabled;
+            }
+            finally
+            {
+                _initLock.Release();
+            }
         }
+
+        //public string GetVersion()
+        //{
+        //    return "1.0.0";
+        //}
     }
 }

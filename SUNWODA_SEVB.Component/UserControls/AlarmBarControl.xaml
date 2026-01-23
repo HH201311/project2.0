@@ -1,0 +1,111 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.AlarmBarControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <!--  等级胶囊样式  -->
+        <DataTemplate x:Key="LevelCellTemplate">
+            <Border Background="{Binding LevelConfig.Background}" CornerRadius="3">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontWeight="Bold"
+                    Foreground="{Binding LevelConfig.Foreground}"
+                    Text="{Binding LevelConfig.DisplayName}" />
+            </Border>
+        </DataTemplate>
+
+        <Style x:Key="CenterTextStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="0,4,0,4" />
+        </Style>
+
+        <!--  详情单元格（省略号 + ToolTip）  -->
+        <DataTemplate x:Key="DetailCellTemplate">
+            <TextBlock
+                VerticalAlignment="Center"
+                Text="{Binding AlarmDetail}"
+                TextTrimming="CharacterEllipsis"
+                ToolTip="{Binding AlarmDetail}" />
+        </DataTemplate>
+
+        <!--  行样式：按等级着色  -->
+        <Style TargetType="DataGridRow">
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+        </Style>
+
+        <!--  表头样式  -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border CornerRadius="5">
+        <DataGrid
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            AutoGenerateColumns="False"
+            Background="Transparent"
+            BorderThickness="0"
+            CanUserAddRows="False"
+            CanUserDeleteRows="False"
+            CanUserResizeRows="False"
+            ColumnWidth="*"
+            Foreground="{Binding RelativeSource={RelativeSource AncestorType=local:AlarmBarControl}, Path=Foreground}"
+            GridLinesVisibility="None"
+            HeadersVisibility="Column"
+            IsReadOnly="True"
+            ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=ItemsSource}"
+            RowHeaderWidth="0"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Disabled"
+            Style="{x:Null}">
+
+            <!--  列定义：混合固定宽度与自适应宽度  -->
+            <DataGrid.Columns>
+                <!--  报警时间（固定宽度）  -->
+                <DataGridTextColumn
+                    Width="2*"
+                    Binding="{Binding AlarmTimeString}"
+                    ElementStyle="{StaticResource CenterTextStyle}"
+                    Header="报警时间" />
+
+                <!--  报警对象（自适应、权重2）  -->
+                <!--<DataGridTextColumn
+                    Width="*"
+                    Binding="{Binding AlarmObject}"
+                    ElementStyle="{StaticResource CenterTextStyle}"
+                    Header="报警对象" />-->
+
+                <!--  报警类型（固定宽度）  -->
+                <!--<DataGridTextColumn
+                    Width="2*"
+                    Binding="{Binding AlarmType}"
+                    ElementStyle="{StaticResource CenterTextStyle}"
+                    Header="报警类型" />-->
+
+                <!--  报警详情（自适应、权重3，带省略号与ToolTip）  -->
+                <DataGridTemplateColumn
+                    Width="2*"
+                    CellTemplate="{StaticResource DetailCellTemplate}"
+                    Header="报警详情" />
+
+                <!--  报警等级（固定宽度，胶囊）  -->
+                <DataGridTemplateColumn
+                    Width="*"
+                    CellTemplate="{StaticResource LevelCellTemplate}"
+                    Header="报警等级" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Border>
+</UserControl>

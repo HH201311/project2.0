@@ -1,17 +1,14 @@
-﻿using System.Diagnostics;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks.Dataflow;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using OpenCvSharp;
-using Org.BouncyCastle.Ocsp;
+﻿using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
-using static SUNWODA_SEVB.Tool.Helper.NetworkHelper;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 
 namespace SUNWODA_SEVB.WEB.Services
 {
@@ -170,6 +167,100 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
             }
         }
+
+        /// <summary>
+        /// 发送机器错误预警信息到上位机接口
+        /// </summary>
+        /// <param name="deviceId">设备ID，必填</param>
+        /// <param name="info">心跳信息，必填</param>
+        /// <param name="state">状态，必填</param>
+        /// <param name="type">消息操作类型，必填，默认"WX"</param>
+        /// <param name="projectName">项目名称，用于选择企微推送名单，必填</param>
+        /// <param name="level">预警等级，必填，1～10，代表不同频率1表示1小时1次，2表示30分钟1次，3表示20分钟1次，4表示15分钟1次，5表示12分钟1次，6表示10分钟1次，10表示每次报警都发送</param>
+        /// <returns>返回预警结果的响应对象</returns>
+        public async Task<MachineErrorResponse> SendMachineErrorAlertAsync(
+            string deviceId,
+            string info,
+            string state,
+            string type = "WX",
+            string projectName = "",
+            string level = "10")
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if(settings==null || string.IsNullOrEmpty(settings.CentralControlWebUrl))
+                {
+                    return new MachineErrorResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中Web端的Url未配置"
+                    };
+                }
+                if (!settings.EnableMachineErrorAlert) { 
+                    return new MachineErrorResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中预警功能未启用"
+                    };
+                }
+                var baseUrl = settings.CentralControlWebUrl!;
+                if (!baseUrl.EndsWith("/")) baseUrl += "/";
+
+                var url = $"{baseUrl}machineHeart/machineErrorLog";
+
+                // 参数容错，避免null
+                var parameters = new Dictionary<string, string>
+                {
+                    { "devId", deviceId ?? string.Empty },
+                    { "info", info ?? string.Empty },
+                    { "state", state ?? string.Empty },
+                    { "type", type ?? "WX" },
+                    { "projectName", projectName ?? string.Empty },
+                    { "level", level ?? "10" }
+                };
+
+                var sw = Stopwatch.StartNew();
+                var result = await Task.Run(() => _httpHelper.IMEWebGet(url, parameters));
+                sw.Stop();
+
+                MachineErrorResponse? response = null;
+                if (!string.IsNullOrWhiteSpace(result))
+                {
+                    try
+                    {
+                        response = JsonHelper.Deserialize<MachineErrorResponse>(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error("上位机预警API反序列化失败", ex);
+                    }
+                }
+
+                if (response != null)
+                {
+                    return response;
+                }
+                else
+                {
+                    return new MachineErrorResponse
+                    {
+                        Code = 0,
+                        Message = "反序列化失败或接口无返回"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("上位机预警API调用失败", ex);
+                return new MachineErrorResponse
+                {
+                    Code = 0,
+                    Message = ex.Message
+                };
+            }
+        }
+
 
         public async Task<PcInfoResponse> UploadPcInfoAsync(PcInfoRequest request, string uuid)
         {
@@ -873,5 +964,160 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
             }
         }
+
+        #region 消息or文件推送
+        /// <summary>
+        /// 推送文本消息
+        /// </summary>
+        /// <param name="messageContent">消息内容</param>
+        /// <returns>是否推送成功</returns>
+        public async Task<WebApiSendResponse> PushMessageAsync(string messageContent)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (settings == null || string.IsNullOrEmpty(settings.WebPushApiUrl))
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中Web端的Url未配置"
+                    };
+                }
+                if (!settings.EnableWebPush)
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中信息或文件推送功能未启用"
+                    };
+                }
+                var baseUrl = settings.WebPushApiUrl;
+                
+                if (!baseUrl.EndsWith("/")) baseUrl += "/";
+
+                var url = $"{baseUrl}sendTextFs";
+
+                var request = new PushMessageRequest
+                {
+                    SystemTypeId = settings.PushSystemTypeId,
+                    Message = messageContent,
+                    UserId = settings.PushUserId,
+                    AppId = settings.PushAppId,
+                    SystemType = settings.PushSystemType
+                };
+
+                string postData = JsonHelper.Serialize(request);
+                var result = await _httpHelper.PostWithRetryAsync(url,postData,retryCount: settings.PushRetryCount,retryDelayMs: settings.PushRetryDelayMs,timeoutSeconds: 5);
+
+                if (result.StartsWith("failed"))
+                {
+                    _logger.Error($"消息推送失败: {result}");
+                    return new WebApiSendResponse { Code = 0, Message = result };
+                }
+
+                if (JsonHelper.TryDeserialize<WebApiSendResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new WebApiSendResponse { Code = 200, Message = "推送成功" };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"推送文本消息失败: {ex.Message}", ex);
+                return new WebApiSendResponse
+                {
+                    Code = 0,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 推送文件到默认用户
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>是否推送成功</returns>
+        public async Task<WebApiSendResponse> PushFileAsync(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.Error($"推送文件不存在: {filePath}");
+                return new WebApiSendResponse
+                {
+                    Code = 0,
+                    Message = $"推送文件不存在: {filePath}"
+                };
+            }
+
+            try
+            {
+                var settings = _configuration.GetSettings();
+
+                if (settings == null || string.IsNullOrEmpty(settings.WebPushApiUrl))
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中Web端的Url未配置"
+                    };
+                }
+                if (!settings.EnableWebPush)
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中信息或文件推送功能未启用"
+                    };
+                }
+                if (string.IsNullOrEmpty(settings.PushUserId))
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中userId信息未配置"
+                    };
+                }
+
+                var baseUrl = settings.WebPushApiUrl;
+                if (!baseUrl.EndsWith("/")) baseUrl += "/";
+
+                var url = $"{baseUrl}sendFsTextAndFile";
+
+                var formData = new Dictionary<string, string>
+                {
+                    { "userId", settings.PushUserId },
+                    { "appId", settings.PushAppId ?? string.Empty }
+                };
+
+                var result = await _httpHelper.PostFileWithRetryAsync( url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 30);
+
+                if (result.StartsWith("failed"))
+                {
+                    _logger.Error($"文件推送失败: {result}");
+                    return new WebApiSendResponse { Code = 0, Message = result };
+                }
+
+                if (JsonHelper.TryDeserialize<WebApiSendResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new WebApiSendResponse { Code = 200, Message = "文件推送成功" };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"推送文件失败: {ex.Message}", ex);
+                return new WebApiSendResponse
+                {
+                    Code = 0,
+                    Message = ex.Message
+                };
+            }
+        }
+     
+        #endregion
+
     }
 }

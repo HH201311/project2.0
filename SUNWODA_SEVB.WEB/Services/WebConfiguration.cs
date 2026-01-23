@@ -37,7 +37,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
-                    return await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
+                    return await globalSettingRepo.GetSettingValueAsync<bool>("IsUseWeb", false);
                 }
             }
             catch (Exception ex)
@@ -56,6 +56,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+                    var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
 
                     var newSettings = new WebSettings();
 
@@ -65,12 +66,14 @@ namespace SUNWODA_SEVB.WEB.Services
                     newSettings.DeviceBindingRetrySeconds =  5;
                     newSettings.PcInfoUploadIntervalMinutes = 10;
                     newSettings.VersionCheckIntervalSeconds = 60;
-                    newSettings.EnableHeartbeat = await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
-                    newSettings.EnableVersionCheck = await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
-                    newSettings.EnablePcInfoUpload = await globalSettingRepo.GetSettingValueAsync<bool>("isUseWEB", false);
+                    newSettings.EnableHeartbeat = await globalSettingRepo.GetSettingValueAsync<bool>("isEnableHeartbeat", false);
+                    newSettings.EnableMachineErrorAlert = await globalSettingRepo.GetSettingValueAsync<bool>("isEnableMachineErrorLog", false);
+                    newSettings.EnableVersionCheck = await globalSettingRepo.GetSettingValueAsync<bool>("isEnableVersionCheck", false);
+                    newSettings.EnablePcInfoUpload = await globalSettingRepo.GetSettingValueAsync<bool>("isEnablePcInfoUpload", false);
 
                     newSettings.WebTestUrlSysCenter = await globalSettingRepo.GetSettingValueAsync<string>("WebTestUrlSysCenter", string.Empty);
                     newSettings.CentralControlWebUrl = await globalSettingRepo.GetSettingValueAsync<string>("CentralControlWEBUrl", string.Empty);
+                    newSettings.WebPushApiUrl = await globalSettingRepo.GetSettingValueAsync<string>("WebPushApiUrl", string.Empty);
 
                     newSettings.DeviceSn = await globalSettingRepo.GetSettingValueAsync<string>("DeviceSn");
                     newSettings.DeviceName = await globalSettingRepo.GetSettingValueAsync<string>("DeviceName");
@@ -81,6 +84,16 @@ namespace SUNWODA_SEVB.WEB.Services
 
                     newSettings.SqlPath = await globalSettingRepo.GetSettingValueAsync<string>("SqlPath");
                     newSettings.IpHeader = await globalSettingRepo.GetSettingValueAsync<string>("IPHeader") ?? "10.";
+
+                    //项目参数配置
+                    var vmName = await globalSettingRepo.GetSettingValueAsync<string>("CurrentVMName", "Default");
+                    newSettings.EnableWebPush = await projectSettingRepo.GetSettingValueAsync("EnableWebPush", vmName)?? false;
+                    newSettings.PushSystemTypeId = await projectSettingRepo.GetSettingValueAsync("PushSystemTypeId",vmName)??31;
+                    newSettings.PushUserId = await projectSettingRepo.GetSettingValueAsync("PushUserId",vmName)?? "oc_713fbc8ebd0af75235e06c93346c4752";
+                    newSettings.PushAppId = await projectSettingRepo.GetSettingValueAsync("PushAppId",vmName)?? "cli_a68c3b89643bd00c";
+                    newSettings.PushSystemType = await projectSettingRepo.GetSettingValueAsync("PushSystemType",vmName)?? "12";
+                    newSettings.PushRetryCount = await projectSettingRepo.GetSettingValueAsync("PushRetryCount",vmName)?? 3;
+                    newSettings.PushRetryDelayMs = await projectSettingRepo.GetSettingValueAsync("PushRetryDelayMs",vmName)?? 1000;
 
                     lock (_lock)
                     {

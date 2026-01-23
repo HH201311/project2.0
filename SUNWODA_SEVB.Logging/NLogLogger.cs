@@ -1,4 +1,5 @@
-﻿using SUNWODA_SEVB.Core.Common;
+﻿using Microsoft.Extensions.DependencyInjection;
+using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Enumerations.Logging;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
@@ -17,7 +18,7 @@ namespace SUNWODA_SEVB.Logging
     {
         // 从 NLog 获取与泛型类型 T 关联的 logger 实例
         private static readonly ILogger Logger = NLog.LogManager.GetLogger(typeof(T).FullName!);
-
+        private readonly IServiceProvider _serviceProvider;
         #region ILoggerService<T> 实现
 
         /// <summary>
@@ -25,9 +26,10 @@ namespace SUNWODA_SEVB.Logging
         /// </summary>
         public Type ContextType => typeof(T);
 
-        // 通过构造函数注入仓储（可选）
-        public NLogLogger(IMesInterfaceLogRepository? mesLogRepository = null)
+        // 通过构造函数注入仓储
+        public NLogLogger(IServiceProvider serviceProvider, IMesInterfaceLogRepository? mesLogRepository = null)
         {
+            _serviceProvider = serviceProvider;
             _mesLogRepository = mesLogRepository;
         }
 
@@ -35,7 +37,7 @@ namespace SUNWODA_SEVB.Logging
 
         #region 基础日志方法（仅消息）
 
-        public void Trace(string message,bool isToDatabase = true,
+        public void Trace(string message,bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
@@ -43,7 +45,7 @@ namespace SUNWODA_SEVB.Logging
             LogWithCallSite(NLog.LogLevel.Trace, message, null, isToDatabase, memberName, filePath, lineNumber);
         }
 
-        public void Debug(string message, bool isToDatabase = true,
+        public void Debug(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
@@ -51,7 +53,7 @@ namespace SUNWODA_SEVB.Logging
             LogWithCallSite(NLog.LogLevel.Debug, message, null, isToDatabase, memberName, filePath, lineNumber);
         }
 
-        public void Info(string message, bool isToDatabase = true,
+        public void Info(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
@@ -383,9 +385,11 @@ namespace SUNWODA_SEVB.Logging
         {
             try
             {
-                // 从配置获取设备编号
-                //return ConfigurationHelper.GetValue("Device:Number", "Unknown");
-                return ConfigurationHelper.GetValue("Device");
+                using var scope = _serviceProvider.CreateScope();
+                var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+
+                var deviceNumber = globalSettingRepo.GetSettingValue("DeviceNumber");
+                return deviceNumber?.ToString();
             }
             catch
             {
@@ -400,10 +404,11 @@ namespace SUNWODA_SEVB.Logging
         {
             try
             {
-                // TODO: 从用户上下文服务获取
-                // 这里需要根据您的实际用户管理系统来实现,后续通过数据库查询获取操作员ID
-                // return UserContext.Current?.OperatorId ?? "System";
-                return "System";
+                using var scope = _serviceProvider.CreateScope();
+                var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+
+                var currentUser = globalSettingRepo.GetSettingValue("CurrentUserAccount");              
+                return currentUser?.ToString();
             }
             catch
             {

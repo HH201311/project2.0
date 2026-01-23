@@ -177,7 +177,7 @@ namespace SUNWODA_SEVB.Data
                 //InitializePLCAddressConfigs();
                 InitializeUsers();
                 InitializeWorkSpaceProjects();
-                //InitializeMESSettings();// 后续启用
+                InitializeMESSettings();// 后续启用
 
                 _db.Ado.CommitTran();
                 _logger.Info("默认数据初始化完成");
@@ -207,8 +207,11 @@ namespace SUNWODA_SEVB.Data
                 new GlobalSetting { Name = "PythonInstallDir", Value = "", Type = "string", Remark = "Python安装目录", RoleRank = 2 },
                 new GlobalSetting { Name = "PythonSearchDir", Value = "", Type = "string", Remark = "Python搜索目录", RoleRank = 2 },
                 new GlobalSetting { Name = "IsInitPythonEnvironment", Value = "false", Type = "bool", Remark = "是否初始化Python环境,true为开启,false为关闭,默认false", RoleRank = 2 },
+                new GlobalSetting { Name = "IsEnableWatchDogService", Value = "false", Type="bool", Remark = "是否启用看门狗服务", RoleRank = 2},
+                new GlobalSetting { Name = "IsUseWeb", Value = "true", Type = "bool", Remark = "是否启用WEB服务", RoleRank = 2 },
+                new GlobalSetting { Name ="isEnableHeartbeat",Value="false",Type ="bool",Remark = "是否启用web心跳",RoleRank =2 },
+                new GlobalSetting { Name ="isEnableMachineErrorLog",Value="false",Type ="bool",Remark = "是否启用上位机预警飞书推送",RoleRank =2 },
             };
-
             foreach (var setting in settings)
             {
                 if (!_db.Queryable<GlobalSetting>().Any(it => it.Name == setting.Name))
@@ -381,6 +384,22 @@ namespace SUNWODA_SEVB.Data
         private void InitializeMESSettings()
         {
             // 如果有MES相关的默认设置，在这里初始化
+            var mesSettings = new[]
+            {
+                new MESSetting {ProfileName ="test",Key = "BaseUrl",Value ="http://10.178.5.6:9002",Type = "string", Remark = "MES服务器地址"},
+                new MESSetting {ProfileName ="test",Key = "TimeoutSeconds",Value ="30",Type = "int", Remark = "超时时间(秒)"},
+                new MESSetting { ProfileName ="test",Key = "EnableRetry",Value ="false",Type = "bool", Remark = "是否启用重试"},
+                new MESSetting { ProfileName ="test",Key = "MaxRetryCount",Value ="3",Type = "int", Remark = "重试次数"},
+        
+            };
+
+            foreach(var setting in mesSettings)
+            {
+                if (!_db.Queryable<MESSetting>().Any(it => it.ProfileName == setting.ProfileName && it.Key == setting.Key))
+                {
+                    _db.Insertable(setting).ExecuteCommand();
+                }
+            }
             _logger.Info("MES设置初始化完成");
         }
     }

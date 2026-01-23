@@ -33,6 +33,18 @@ namespace SUNWODA_SEVB.Core.Models.Web
     }
 
     /// <summary>
+    /// 上位机预警信息接口
+    /// </summary>
+    public class MachineErrorResponse : BaseResponse
+    {
+    }
+
+
+    public class WebApiSendResponse : BaseResponse
+    {     
+    }
+
+    /// <summary>
     /// PC信息响应
     /// </summary>
     public class PcInfoResponse : BaseResponse
@@ -152,4 +164,88 @@ namespace SUNWODA_SEVB.Core.Models.Web
         [JsonPropertyName("data")]
         public string? Data { get; set; } 
     }
+
+    #region 螺丝拧紧曲线相关
+
+    /// <summary>
+    /// 螺丝曲线数据响应
+    /// </summary>
+    public class ScrewCurveResponse : BaseResponse
+    {
+        /// <summary>
+        /// 螺丝标签
+        /// </summary>
+        [JsonPropertyName("screwLabel")]
+        public string? ScrewLabel { get; set; }
+
+        /// <summary>
+        /// 采集时间
+        /// </summary>
+        [JsonPropertyName("collectionTime")]
+        public DateTime CollectionTime { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// 角度数据数组
+        /// </summary>
+        [JsonPropertyName("angles")]
+        public double[]? Angles { get; set; }
+
+        /// <summary>
+        /// 扭矩数据数组
+        /// </summary>
+        [JsonPropertyName("torques")]
+        public double[]? Torques { get; set; }
+
+        /// <summary>
+        /// 电流数据数组（可选）
+        /// </summary>
+        [JsonPropertyName("currents")]
+        public double[]? Currents { get; set; }
+
+        /// <summary>
+        /// 最终扭矩值
+        /// </summary>
+        [JsonPropertyName("finalTorque")]
+        public double FinalTorque { get; set; }
+
+        /// <summary>
+        /// 最终角度值
+        /// </summary>
+        [JsonPropertyName("finalAngle")]
+        public double FinalAngle { get; set; }
+
+        /// <summary>
+        /// 是否合格
+        /// </summary>
+        [JsonPropertyName("isOk")]
+        public bool IsOk { get; set; }
+
+        /// <summary>
+        /// 控制器IP
+        /// </summary>
+        [JsonPropertyName("controllerIP")]
+        public string? ControllerIP { get; set; }
+
+        /// <summary>
+        /// 周期编号
+        /// </summary>
+        [JsonPropertyName("cycleNumber")]
+        public int CycleNumber { get; set; }
+
+        /// <summary>
+        /// 获取曲线数据点数量
+        /// </summary>
+        [JsonIgnore]
+        public int DataPointCount => Angles?.Length ?? 0;
+
+        /// <summary>
+        /// 是否有有效的曲线数据
+        /// </summary>
+        [JsonIgnore]
+        public bool HasCurveData => Angles != null && Torques != null && Angles.Length > 0 && Angles.Length == Torques.Length;
+    }
+
+    #endregion
+
+
 }

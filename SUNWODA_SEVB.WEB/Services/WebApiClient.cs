@@ -172,7 +172,7 @@ namespace SUNWODA_SEVB.WEB.Services
         /// 发送机器错误预警信息到上位机接口
         /// </summary>
         /// <param name="deviceId">设备ID，必填</param>
-        /// <param name="info">心跳信息，必填</param>
+        /// <param name="info">信息，必填</param>
         /// <param name="state">状态，必填</param>
         /// <param name="type">消息操作类型，必填，默认"WX"</param>
         /// <param name="projectName">项目名称，用于选择企微推送名单，必填</param>

@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using OpenCvSharp;
 using SUNWODA_SEVB.Component.UserControls;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -16,8 +15,11 @@ using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Services.Project;
 using System.Collections.ObjectModel;
+using System.Data;
+using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using SUNWODA_SEVB.Tool.Helper;
 using System.Text.Json;
 using System.Windows.Input;
 
@@ -52,6 +54,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         private ScrewPositionConfig? _selectedScrew;
         private string _screwCode = "001";
         private string? _selectedControllerIP;
+
+        private string? _curveDataDirectory;
 
         //容器尺寸
         private double _containerWidth;
@@ -495,6 +499,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     Port = 8080;
                     LogInfo($"数据库中无端口配置，使用默认端口: {Port}");
                 }
+
+                var csvPath = await projectSettingRepo.GetByNameAndVMAsync("CsvPath", "ConConectorInstaller");
+                if(string.IsNullOrEmpty(csvPath?.Value))
+                {
+                    LogWarn("数据库中无CSV路径配置，使用默认路径: ./CsvData");
+                    _curveDataDirectory = Path.Combine(AppContext.BaseDirectory, "CSVData");
+                }
+                else
+                {
+                    _curveDataDirectory = csvPath.Value;
+                    LogInfo($"CSV路径配置: {_curveDataDirectory}");
+                }
             }
             catch (Exception ex)
             {
@@ -587,7 +603,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         private void OnDataReceived(object? sender, DataReceivedEventArgs e)
         {
             var message = e.GetDataAsString();
-            LogInfo($"收到数据 [{e.ClientEndPoint}]: {message}");
+            LogInfo($"收到客户端[{e.ClientEndPoint}]数据 : {message}");
             // 解析数据并更新曲线
             ProcessReceivedData(e.ClientEndPoint, message);
         }
@@ -674,6 +690,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             try
             {
                 IsLoadingCurveData = true;
+                // 清理
+                BeginCollectCurveData();
 
                 // Step 1: 识别所有螺丝枪并按枪分组
                 var tightenGunGroups = IdentifyTightenGuns(data.TestData);
@@ -704,7 +722,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
                 // Step 4: 处理每个螺丝
                 var processTasks = new List<Task>();
-                var semaphore = new SemaphoreSlim(2); // 限制并发数为2
+                var semaphore = new SemaphoreSlim(1); // 限制并发数为1
 
                 foreach (var group in groupedBySort)
                 {
@@ -716,6 +734,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                         try
                         {
                             await ProcessSingleScrewAsync(group, data.ProductSn, trValues);
+                            await Task.Delay(10); // 避免过快处理
                         }
                         finally
                         {
@@ -728,6 +747,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
                 // 等待所有任务完成
                 await Task.WhenAll(processTasks);
+
+                if (!string.IsNullOrEmpty(data.ProductSn))
+                {
+                    await SaveProductCurveDataAsync(data.ProductSn);
+                }
 
                 // 记录整体结果
                 var resultText = data.IsOk ? "OK" : "NG";
@@ -813,6 +837,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     controllerIP = _screwSettings.ControllerIP ??
                                    _screwSettings.ControllerIPs.FirstOrDefault() ??
                                    "unknown";
+                    LogWarn($"螺丝枪 {gun} 未找到IP映射，使用默认IP: {controllerIP}");
+                }
+                else
+                {
+                    LogInfo($"螺丝枪 {gun} → 控制器IP: {controllerIP}");
                 }
 
                 if (!gunsByController.TryGetValue(controllerIP, out var gunList))
@@ -917,6 +946,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 {
                     await FetchAndAddCurveDataAsync(
                         torqueParam,
+                        angleParam,
                         screwLabel,
                         productSn,
                         trValues,
@@ -934,6 +964,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         /// </summary>
         private async Task FetchAndAddCurveDataAsync(
             TighteningParam torqueParam,
+            TighteningParam? angleParam,
             string screwLabel,
             string? productSn,
             Dictionary<string, float> trValues,
@@ -959,18 +990,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 var tightenGun = string.IsNullOrWhiteSpace(torqueParam.TightenGun)? "default": torqueParam.TightenGun;
                 var controllerIP = _screwControllerService.GetControllerIPByTightenGun( _screwSettings, tightenGun);
 
+                // ⬅️ 添加映射结果日志
+                var mappingSource = "配置映射";
                 if (string.IsNullOrEmpty(controllerIP))
                 {
                     controllerIP = _screwSettings.ControllerIP ??
                                    _screwSettings.ControllerIPs.FirstOrDefault();
+                    mappingSource = "默认回退";
                 }
 
                 if (string.IsNullOrEmpty(controllerIP))
                 {
-                    LogWarn($"螺丝 {screwLabel} 无法确定控制器IP");
+                    LogWarn($"螺丝 {screwLabel} 无法确定控制器IP (螺丝枪: {tightenGun})");
                     return;
                 }
 
+                LogInfo($"{screwLabel} - 螺丝枪: {tightenGun}, 控制器IP: {controllerIP} ({mappingSource})");
                 // 获取TR值
                 var trValue = trValues.TryGetValue(tightenGun, out var tr) ? tr : 1.0f;
 
@@ -984,14 +1019,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 // Step 1: 根据workCycleId(eorCycleCount)获取eorProcessCycleNumber
                 var processCycleResult = await _screwControllerService.GetProcessCycleNumberByCycleCountAsync(controllerIP, workCycleId);
 
-                if (!processCycleResult.IsSuccess || processCycleResult.ProcessCycleNumber <= 0)
+                //if (!processCycleResult.IsSuccess || processCycleResult.ProcessCycleNumber <= 0)
+                //{
+                //    LogError($"螺丝 {screwLabel} 获取ProcessCycleNumber失败: {processCycleResult.Message}");
+                //    HandyControl.Controls.Growl.Error($"螺丝 {screwLabel} 获取ProcessCycleNumber失败: {processCycleResult.Message}");
+                //    return;
+                //}
+
+                //var traceLogId = processCycleResult.ProcessCycleNumber;
+                if (!processCycleResult.IsSuccess || processCycleResult.DocId <= 0)
                 {
-                    LogWarn($"螺丝 {screwLabel} 获取ProcessCycleNumber失败: {processCycleResult.Message}");
+                    LogError($"螺丝 {screwLabel} 获取ProcessCycleNumber失败: {processCycleResult.Message}");
+                    HandyControl.Controls.Growl.Error($"螺丝 {screwLabel} 获取ProcessCycleNumber失败: {processCycleResult.Message}");
                     return;
                 }
 
-                var traceLogId = processCycleResult.ProcessCycleNumber;
-                LogInfo($"螺丝 {screwLabel} - workCycleId: {workCycleId} → traceLogId: {traceLogId}");
+                var traceLogId = processCycleResult.DocId;
+
+
+                LogInfo($"{screwLabel} - workCycleId: {workCycleId} → traceLogId: {traceLogId}");
 
                 // Step 2: 使用traceLogId获取曲线数据
                 ScrewCurveDataResult? curveResult = null;
@@ -1007,7 +1053,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
                     if (retry < maxRetries)
                     {
-                        LogInfo($"螺丝 {screwLabel} 曲线获取第{retry + 1}次失败，{retryInterval}ms后重试...");
+                        LogInfo($"{screwLabel} 曲线获取第{retry + 1}次失败，{retryInterval}ms后重试...");
                         await Task.Delay(retryInterval);
                     }
                 }
@@ -1018,19 +1064,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     var series = CreatePlotSeriesFromCurveData(screwLabel, curveResult);
                     AddToPlotCollection(series, isOk);
 
+                    //添加曲线数据到保存集合
+                    var screwIndex = ExtractScrewIndex(screwLabel);
+                    AddScrewCurveData(productSn ?? string.Empty,screwIndex,screwLabel, curveResult, tightenGun, isOk, torqueParam, angleParam);
+
                     var maxTorque = curveResult.DataPoints.Max(p => p.Torque);
                     var finalAngle = curveResult.DataPoints.Last().Angle;
-                    LogInfo($"✓ 螺丝 {screwLabel} 曲线获取成功 - 数据点: {curveResult.DataPoints.Count}, " +
+                    LogInfo($"✓ {screwLabel} 曲线获取成功 - 数据点: {curveResult.DataPoints.Count}, " +
                            $"最大扭矩: {maxTorque:F3} N·m, 最终角度: {finalAngle:F1}°");
                 }
                 else
                 {
-                    LogWarn($"✗ 螺丝 {screwLabel} 曲线获取失败: {curveResult?.Message ?? "未知错误"}");
+                    LogWarn($"✗ {screwLabel} 曲线获取失败: {curveResult?.Message ?? "未知错误"}");
                 }
             }
             catch (Exception ex)
             {
-                LogError($"获取螺丝 {screwLabel} 曲线异常: {ex.Message}");
+                LogError($"获取{screwLabel} 曲线异常: {ex.Message}");
             }
         }
 
@@ -1208,11 +1258,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             var label = screwLabel ?? "未知螺丝";
             var dataPoints = new ObservableCollection<PlotDataPoint>();
 
-            if (curveData?.DataPoints != null)
+            if (curveData?.DataPoints != null && curveData.DataPoints.Count > 0)
             {
+                int index = 1;
                 foreach (var point in curveData.DataPoints)
                 {
-                    dataPoints.Add(new PlotDataPoint(point.Angle, point.Torque));
+                    dataPoints.Add(new PlotDataPoint(index, point.Torque));
+                    index++;
                 }
             }
 
@@ -1532,7 +1584,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 var collection = isOk ? OkPlotDataSeries : NgPlotDataSeries;
                 collection.Add(series);
 
-                while (collection.Count > 20)
+                //var screwCount = SelectedProcess?.ScrewCount ?? 64;
+                //var maxCount = Math.Clamp(screwCount * 2, 20, 200);
+                var maxCount = 150;
+
+                while (collection.Count > maxCount)
                 {
                     collection.RemoveAt(0);
                 }
@@ -2080,7 +2136,380 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             return positions;
         }
 
-       
+
+
+        #endregion
+
+        #region 曲线数据保存
+        
+        // 用于收集当前产品所有螺丝的曲线数据
+        private readonly List<ScrewCurveRecord> _currentProductCurveRecords = new();
+        private readonly object _curveRecordsLock = new();
+
+        /// <summary>
+        /// 开始收集新产品的曲线数据（在处理新产品数据前调用）
+        /// </summary>
+        private void BeginCollectCurveData()
+        {
+            lock (_curveRecordsLock)
+            {
+                _currentProductCurveRecords.Clear();
+            }
+            ClearCharts();
+        }
+
+        /// <summary>
+        /// 添加单个螺丝的曲线数据到集合
+        /// </summary>
+        private void AddScrewCurveData(
+            string productSn,
+            int screwIndex,
+            string screwLabel,
+            ScrewCurveDataResult curveData,
+            string? tightenGun,
+            bool isOk,
+            TighteningParam? torqueParam = null,  // 传入工艺参数
+            TighteningParam? angleParam = null)
+        {
+            if (curveData?.DataPoints == null || curveData.DataPoints.Count == 0)
+                return;
+
+            var recordTime = DateTime.Now;
+            // 解析工艺参数上下限
+            double? torqueLower = ParseDouble(torqueParam?.ParamFirstLower);
+            double? torqueUpper = ParseDouble(torqueParam?.ParamFirstUpper);
+
+            double? angleLower = ParseDouble(angleParam?.ParamFirstLower);
+            double? angleUpper = ParseDouble(angleParam?.ParamFirstUpper);
+
+            lock (_curveRecordsLock)
+            {
+                for (int i = 0; i < curveData.DataPoints.Count; i++)
+                {
+                    var point = curveData.DataPoints[i];
+                    _currentProductCurveRecords.Add(new ScrewCurveRecord
+                    {
+                        PointIndex = i + 1,
+                        RecordTime = recordTime,
+                        ScrewIndex = screwIndex,
+                        ScrewLabel = screwLabel,
+                        TightenGun = tightenGun,
+
+                        // 实测值
+                        Angle = point.Angle,
+                        Torque = point.Torque,
+                        Current = point.Current,
+
+                        // 工艺参数
+                        TorqueLower = torqueLower,
+                        TorqueUpper = torqueUpper,
+                        AngleLower = angleLower,
+                        AngleUpper = angleUpper,
+
+                        IsOk = isOk
+                    });
+                }
+            }
+        }
+
+        private double? ParseDouble(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return double.TryParse(value, out var result) ? result : null;
+        }
+        /// <summary>
+        /// 从数据点获取电流值
+        /// </summary>
+        private double? GetCurrentFromDataPoint(CurveDataPoint point)
+        {
+            // 方式1：如果 CurveDataPoint 有 Current 属性
+            //return point.Current;
+
+            // 方式2：如果电流存储在其他属性中
+            // return point.I;  // 或其他属性名
+
+            // 方式3：如果需要通过反射获取（不推荐，性能差）
+            var currentProp = point.GetType().GetProperty("Current")
+                           ?? point.GetType().GetProperty("I")
+                           ?? point.GetType().GetProperty("current");
+
+            if (currentProp != null)
+            {
+                var value = currentProp.GetValue(point);
+                if (value is double d) return d;
+                if (value is float f) return f;
+                if (value is decimal dec) return (double)dec;
+            }
+
+            return null;
+        }
+        /// <summary>
+        /// 保存当前产品的所有曲线数据到CSV文件
+        /// </summary>
+        private async Task SaveProductCurveDataAsync(string productSn)
+        {
+            List<ScrewCurveRecord> recordsToSave;
+
+            lock (_curveRecordsLock)
+            {
+                if (_currentProductCurveRecords.Count == 0)
+                {
+                    LogWarn($"产品 {productSn} 无曲线数据可保存");
+                    return;
+                }
+                recordsToSave = new List<ScrewCurveRecord>(_currentProductCurveRecords);
+            }
+
+            try
+            {
+
+                // 创建按日期分类的子目录
+                var dateFolder = DateTime.Now.ToString("yyyyMMdd");
+                var saveDirectory = Path.Combine(_curveDataDirectory ?? "./CSVData", dateFolder);
+
+                if (!Directory.Exists(saveDirectory))
+                {
+                    Directory.CreateDirectory(saveDirectory);
+                }
+
+                // 文件名使用 ProductSn
+                var safeProductSn = GetSafeFileName(productSn);
+                var fileName = $"{safeProductSn}.csv";
+                var filePath = Path.Combine(saveDirectory, fileName);
+
+                // 如果文件已存在，添加时间戳避免覆盖
+                if (File.Exists(filePath))
+                {
+                    fileName = $"{safeProductSn}_{DateTime.Now:HHmmss}.csv";
+                    filePath = Path.Combine(saveDirectory, fileName);
+                }
+
+                // 写入CSV文件
+                //await WriteToFileAsync(filePath, recordsToSave);
+                await SaveAsHorizontalFormatAsync(filePath, productSn, recordsToSave);
+
+                var screwCount = recordsToSave.Select(r => r.ScrewIndex).Distinct().Count();
+                LogInfo($"曲线数据已保存: {filePath}");
+                LogInfo($"  螺丝数量: {screwCount}, 数据点总数: {recordsToSave.Count}");
+            }
+            catch (Exception ex)
+            {
+                LogError($"保存曲线数据失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 获取安全的文件名（移除非法字符）
+        /// </summary>
+        private string GetSafeFileName(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+                return $"Unknown_{DateTime.Now:HHmmss}";
+
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var safeName = new string(fileName.Where(c => !invalidChars.Contains(c)).ToArray());
+
+            return string.IsNullOrEmpty(safeName) ? $"Unknown_{DateTime.Now:HHmmss}" : safeName;
+        }
+
+        /// <summary>
+        /// 以横向格式保存CSV
+        /// </summary>
+        /* private async Task SaveAsHorizontalFormatAsync(string filePath, string productSn, List<ScrewCurveRecord> records)
+         {
+             // 按螺丝分组
+             var screwGroups = records
+                 .GroupBy(r => r.ScrewIndex)
+                 .OrderBy(g => g.Key)
+                 .ToList();
+
+             if (screwGroups.Count == 0)
+                 return;
+
+             // 找出最大数据点数量
+             var maxPointCount = screwGroups.Max(g => g.Count());
+
+             var sb = new StringBuilder();
+
+             // ========== 构建表头 ==========
+             var headerParts = new List<string> { "PointIndex", "RecordTime", "ProductSn" };
+
+             foreach (var group in screwGroups)
+             {
+                 var screwIndex = group.Key;
+                 var firstRecord = group.First();
+                 var prefix = $"Screw{screwIndex}";
+
+                 headerParts.Add($"{prefix}_Label");
+                 headerParts.Add($"{prefix}_Angle");
+                 headerParts.Add($"{prefix}_Torque");
+                 headerParts.Add($"{prefix}_Current");
+                 headerParts.Add($"{prefix}_Gun");
+                 headerParts.Add($"{prefix}_IsOk");
+             }
+
+             sb.AppendLine(string.Join(",", headerParts));
+
+             // ========== 构建数据行 ==========
+             // 将每个螺丝的数据转为字典，便于按PointIndex查找
+             var screwDataDict = screwGroups.ToDictionary(
+                 g => g.Key,
+                 g => g.OrderBy(r => r.PointIndex).ToList()
+             );
+
+             var recordTime = records.FirstOrDefault()?.RecordTime ?? DateTime.Now;
+
+             for (int pointIdx = 0; pointIdx < maxPointCount; pointIdx++)
+             {
+                 var rowParts = new List<string>
+                 {
+                     (pointIdx + 1).ToString(),
+                     recordTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                     EscapeCsvField(productSn)
+                 };
+
+                 foreach (var group in screwGroups)
+                 {
+                     var screwIndex = group.Key;
+                     var dataList = screwDataDict[screwIndex];
+
+                     if (pointIdx < dataList.Count)
+                     {
+                         var point = dataList[pointIdx];
+                         rowParts.Add(EscapeCsvField(point.ScrewLabel ?? ""));
+                         rowParts.Add(point.Angle.ToString("F6"));
+                         rowParts.Add(point.Torque.ToString("F6"));
+                         rowParts.Add(point.Current?.ToString("F6") ?? "");
+                         rowParts.Add(EscapeCsvField(point.TightenGun ?? ""));
+                         rowParts.Add(point.IsOk ? "TRUE" : "FALSE");
+                     }
+                     else
+                     {
+                         // 该螺丝在此点位无数据，填充空值
+                         rowParts.AddRange(new[] { "", "", "", "", "", "" });
+                     }
+                 }
+
+                 sb.AppendLine(string.Join(",", rowParts));
+             }
+
+             await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
+         }*/
+
+        /// <summary>
+        /// 以横向格式保存CSV（使用CsvHelper + DataTable）
+        /// </summary>
+        private async Task SaveAsHorizontalFormatAsync(
+            string filePath,
+            string productSn,
+            List<ScrewCurveRecord> records)
+        {
+            // 按螺丝分组
+            var screwGroups = records
+                .GroupBy(r => r.ScrewIndex)
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            if (screwGroups.Count == 0) return;
+
+            var maxPointCount = screwGroups.Max(g => g.Count());
+            var dataTable = new DataTable();
+
+            // ===== 构建表头 =====
+            dataTable.Columns.Add("PointIndex", typeof(int));
+            dataTable.Columns.Add("RecordTime", typeof(DateTime));
+
+            foreach (var group in screwGroups)
+            {
+                var prefix = $"Screw{group.Key}";
+
+                // 基础信息（仅在第一行有值的列）
+                dataTable.Columns.Add($"{prefix}_Label", typeof(string));
+                dataTable.Columns.Add($"{prefix}_Gun", typeof(string));
+
+                // 实测值
+                dataTable.Columns.Add($"{prefix}_Angle", typeof(double));
+                dataTable.Columns.Add($"{prefix}_Torque", typeof(double));
+                dataTable.Columns.Add($"{prefix}_Current", typeof(double));
+
+                // 工艺参数（上下限）
+                dataTable.Columns.Add($"{prefix}_TorqueLower", typeof(double));
+                dataTable.Columns.Add($"{prefix}_TorqueUpper", typeof(double));
+                dataTable.Columns.Add($"{prefix}_AngleLower", typeof(double));
+                dataTable.Columns.Add($"{prefix}_AngleUpper", typeof(double));
+
+                // 结果
+                dataTable.Columns.Add($"{prefix}_IsOk", typeof(bool));
+            }
+
+            // ===== 填充数据 =====
+            var screwDataDict = screwGroups.ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(r => r.PointIndex).ToList()
+            );
+
+            var recordTime = records.FirstOrDefault()?.RecordTime ?? DateTime.Now;
+
+            for (int pointIdx = 0; pointIdx < maxPointCount; pointIdx++)
+            {
+                var row = dataTable.NewRow();
+                row["PointIndex"] = pointIdx + 1;
+                row["RecordTime"] = recordTime;
+
+                foreach (var group in screwGroups)
+                {
+                    var prefix = $"Screw{group.Key}";
+                    var dataList = screwDataDict[group.Key];
+
+                    if (pointIdx < dataList.Count)
+                    {
+                        var point = dataList[pointIdx];
+
+                        row[$"{prefix}_Label"] = point.ScrewLabel ?? "";
+                        row[$"{prefix}_Gun"] = point.TightenGun ?? "";
+                        row[$"{prefix}_Angle"] = point.Angle;
+                        row[$"{prefix}_Torque"] = point.Torque;
+                        row[$"{prefix}_Current"] = ToDbValue(point.Current);
+                        row[$"{prefix}_TorqueLower"] = ToDbValue(point.TorqueLower);
+                        row[$"{prefix}_TorqueUpper"] = ToDbValue(point.TorqueUpper);
+                        row[$"{prefix}_AngleLower"] = ToDbValue(point.AngleLower);
+                        row[$"{prefix}_AngleUpper"] = ToDbValue(point.AngleUpper);
+                        row[$"{prefix}_IsOk"] = point.IsOk;
+                    }
+                }
+
+                dataTable.Rows.Add(row);
+            }
+
+            // 使用 CsvHelper 的 DataTable 方法写入
+            await Task.Run(() => CsvSaveHelper.WriteToFileAsync(filePath, dataTable));
+        }
+
+        /// <summary>
+        /// 将可空值转换为 DataTable 兼容的值
+        /// </summary>
+        private static object ToDbValue(double? value)
+        {
+            return value.HasValue ? (object)value.Value : DBNull.Value;
+        }
+
+        /// <summary>
+        /// 从螺丝标签中提取序号
+        /// </summary>
+        private int ExtractScrewIndex(string screwLabel)
+        {
+            // "螺丝 #1" -> 1
+            if (string.IsNullOrEmpty(screwLabel))
+                return 0;
+
+            var match = System.Text.RegularExpressions.Regex.Match(screwLabel, @"#(\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var index))
+            {
+                return index;
+            }
+
+            return 0;
+        }
 
         #endregion
 

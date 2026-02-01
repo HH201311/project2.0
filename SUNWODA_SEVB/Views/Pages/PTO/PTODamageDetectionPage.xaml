@@ -1392,23 +1392,23 @@
                                     HorizontalAlignment="Left"
                                     FontSize="20"
                                     FontWeight="Bold"
-                                    Text="A工位" />
+                                    Text="正极工位" />
 
-                                <!--  A工位相机列表  -->
+                                <!--  正极工位相机列表  -->
                                 <StackPanel Margin="10,0,0,0">
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
                                             VerticalAlignment="Center"
                                             FontSize="20"
-                                            Text="相机1：" />
+                                            Text="区域：" />
                                         <Button
                                             Width="120"
                                             Height="26"
                                             Margin="20,0,20,0"
                                             Background="#5DADE2"
-                                            Command="{Binding SelectNegativeRoiImageCommand}"
-                                            CommandParameter="A1"
+                                            Command="{Binding SelectPositiveRoiImageCommand}"
+                                            CommandParameter="正极"
                                             Content="选择绘制图片"
                                             Foreground="Black"
                                             IsEnabled="{Binding IsInAnyDetection}" />
@@ -1417,14 +1417,15 @@
                                             Height="26"
                                             Margin="5,0"
                                             Background="#5DADE2"
-                                            Command="{Binding ViewNegativeRoiCommand}"
-                                            CommandParameter="A1"
+                                            Command="{Binding ViewPositiveRoiCommand}"
+                                            CommandParameter="正极"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiA1}" />
+                                            IsEnabled="{Binding HasRoiPositive}" />
                                     </StackPanel>
 
                                     <!--  A工位相机2  -->
+                                    <!--
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
@@ -1453,7 +1454,9 @@
                                             IsEnabled="{Binding HasNegativeRoiA2}" />
                                     </StackPanel>
 
+                                    -->
                                     <!--  A工位相机3  -->
+                                    <!--
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
@@ -1482,7 +1485,9 @@
                                             IsEnabled="{Binding HasNegativeRoiA3}" />
                                     </StackPanel>
 
+                                    -->
                                     <!--  A工位相机4  -->
+                                    <!--
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
@@ -1509,7 +1514,7 @@
                                             Content="查看绘制结果"
                                             Foreground="Black"
                                             IsEnabled="{Binding HasNegativeRoiA4}" />
-                                    </StackPanel>
+                                    </StackPanel>-->
                                 </StackPanel>
                             </StackPanel>
 
@@ -1520,23 +1525,23 @@
                                     HorizontalAlignment="Left"
                                     FontSize="25"
                                     FontWeight="Bold"
-                                    Text="B工位" />
+                                    Text="负极工位" />
 
-                                <!--  B工位相机列表  -->
+                                <!--  负极工位相机列表  -->
                                 <StackPanel Margin="10,0,0,0">
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
                                             VerticalAlignment="Center"
                                             FontSize="20"
-                                            Text="相机1：" />
+                                            Text="区域：" />
                                         <Button
                                             Width="120"
                                             Height="26"
                                             Margin="20,0,20,0"
                                             Background="#5DADE2"
                                             Command="{Binding SelectNegativeRoiImageCommand}"
-                                            CommandParameter="B1"
+                                            CommandParameter="负极"
                                             Content="选择绘制图片"
                                             Foreground="Black"
                                             IsEnabled="{Binding IsInAnyDetection}" />
@@ -1546,13 +1551,14 @@
                                             Margin="5,0"
                                             Background="#5DADE2"
                                             Command="{Binding ViewNegativeRoiCommand}"
-                                            CommandParameter="B1"
+                                            CommandParameter="负极"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiB1}" />
+                                            IsEnabled="{Binding HasRoiNegative}" />
                                     </StackPanel>
 
                                     <!--  B工位相机2  -->
+                                    <!--
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
@@ -1581,7 +1587,9 @@
                                             IsEnabled="{Binding HasNegativeRoiB2}" />
                                     </StackPanel>
 
+                                    -->
                                     <!--  B工位相机3  -->
+                                    <!--
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
@@ -1610,7 +1618,9 @@
                                             IsEnabled="{Binding HasNegativeRoiB3}" />
                                     </StackPanel>
 
+                                    -->
                                     <!--  B工位相机4  -->
+                                    <!--
                                     <StackPanel Margin="0,5,0,3" Orientation="Horizontal">
                                         <TextBlock
                                             Width="80"
@@ -1637,7 +1647,7 @@
                                             Content="查看绘制结果"
                                             Foreground="Black"
                                             IsEnabled="{Binding HasNegativeRoiB4}" />
-                                    </StackPanel>
+                                    </StackPanel>-->
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>

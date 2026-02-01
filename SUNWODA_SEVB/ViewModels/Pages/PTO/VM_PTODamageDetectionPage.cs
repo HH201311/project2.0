@@ -12,6 +12,7 @@ using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations.Logging;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
@@ -86,6 +87,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public ICommand SaveNegativeRoiCommand { get; }
         //查看绘制区域
         public ICommand ViewNegativeRoiCommand { get; }
+        // 选择正极绘制图片
+        public ICommand SelectPositiveRoiImageCommand { get; }
+        // 删除正极绘制区域
+        public ICommand DeletePositiveRoiCommand { get; }
+        // 保存正极绘制区域
+        public ICommand SavePositiveRoiCommand { get; }
+        // 查看正极绘制区域
+        public ICommand ViewPositiveRoiCommand { get; }         
+
         //取消绘制
         public ICommand CancelDrawRoiCommand { get; }
         // 鼠标按下命令（开始拖动）
@@ -491,11 +501,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         // 相机1-4的ROI状态
-        private bool _hasNegativeRoiA1;
-        public bool HasNegativeRoiA1
+        private bool _hasRoiPositive;
+        public bool HasRoiPositive
         {
-            get => _hasNegativeRoiA1;
-            set { _hasNegativeRoiA1 = value; OnPropertyChanged(); }
+            get => _hasRoiPositive;
+            set { _hasRoiPositive = value; OnPropertyChanged(); }
         }
 
         private bool _hasNegativeRoiA2;
@@ -520,11 +530,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         // B工位相机状态
-        private bool _hasNegativeRoiB1;
-        public bool HasNegativeRoiB1
+        private bool _hasRoiNegative;
+        public bool HasRoiNegative
         {
-            get => _hasNegativeRoiB1;
-            set { _hasNegativeRoiB1 = value; OnPropertyChanged(); }
+            get => _hasRoiNegative;
+            set { _hasRoiNegative = value; OnPropertyChanged(); }
         }
 
         private bool _hasNegativeRoiB2;
@@ -818,13 +828,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 SaveConfig();
 
                 // 勾选正极时，自动勾选所有未勾选的相机
-                if (value)
-                {
-                    if (!IsCamera1) IsCamera1 = true;
-                    if (!IsCamera2) IsCamera2 = true;
-                    if (!IsCamera3) IsCamera3 = true;
-                    if (!IsCamera4) IsCamera4 = true;
-                }
+                //if (value)
+                //{
+                //    if (!IsCamera1) IsCamera1 = true;
+                //    if (!IsCamera2) IsCamera2 = true;
+                //    if (!IsCamera3) IsCamera3 = true;
+                //    if (!IsCamera4) IsCamera4 = true;
+                //}
+                CalculateDetectionStatistics();
             }
         }
 
@@ -841,13 +852,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 SaveConfig();
 
                 // 勾选负极时，自动勾选所有未勾选的相机
-                if (value)
-                {
-                    if (!IsCamera1) IsCamera1 = true;
-                    if (!IsCamera2) IsCamera2 = true;
-                    if (!IsCamera3) IsCamera3 = true;
-                    if (!IsCamera4) IsCamera4 = true;
-                }
+                //if (value)
+                //{
+                //    if (!IsCamera1) IsCamera1 = true;
+                //    if (!IsCamera2) IsCamera2 = true;
+                //    if (!IsCamera3) IsCamera3 = true;
+                //    if (!IsCamera4) IsCamera4 = true;
+                //}
+                CalculateDetectionStatistics();
             }
         }
 
@@ -1387,7 +1399,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (filteredFiles.Count == 0)
                 {
                     MessageBox.Show(
-                        $"所选文件夹中未找到符合当前筛选条件（工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}；相机：{(IsCamera1 ? "1 " : "")}{(IsCamera2 ? "2 " : "")}{(IsCamera3 ? "3 " : "")}{(IsCamera4 ? "4 " : "")}）的图片！\n" +
+                        $"所选文件夹中未找到符合当前筛选条件（工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}；的图片！\n" +
                         "请调整勾选条件后重新选择文件夹。",
                         "无符合条件的图片", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
@@ -1408,7 +1420,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (confirm == MessageBoxResult.OK)
                 {
                     _currentCsvFilePath = null;
-                    await GetDataFromFolder(selectedFolder, allImageFiles);
+                    await GetDataFromFolder( filteredFiles);
                 }
             }
             catch (UnauthorizedAccessException ex)
@@ -1545,6 +1557,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             SaveNegativeRoiCommand = new RelayCommand(SaveNegativeRoiAsHalconRegion);//弹窗-保存ROI
             ViewNegativeRoiCommand = new RelayCommand<string>(ViewNegativeRoi);//查看绘制结果
             CancelDrawRoiCommand = new RelayCommand(CancelDrawRoi);//弹窗-取消ROI绘制
+
+            // 正极ROI命令初始化
+            SelectPositiveRoiImageCommand = new RelayCommand<string>(SelectPositiveRoiImage);
+            DeletePositiveRoiCommand = new RelayCommand(DeletePositiveRoi);
+            SavePositiveRoiCommand = new RelayCommand(SavePositiveRoiAsHalconRegion);  // 复用保存逻辑
+            ViewPositiveRoiCommand = new RelayCommand<string>(ViewPositiveRoi);
+
             LoadAllHalconRoiConfigs();
             InitReportFunction();
             _isReportFunctionInited = false;
@@ -1559,7 +1578,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             LoadUserIds();
 
 
-            #region 参数管控            
+            #region 参数管控  
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
             CheckAuthority();
             LoadDefectInitialData();
             AddRow = new RelayCommand<string?>(OnAddRow);
@@ -1708,7 +1728,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 IsParamGridReadOnly = true;
             }
         }
-
+        /// <summary>
+        /// 用户状态变更处理
+        /// </summary>
+        private void OnUserStateChanged(string userAccount)
+        {
+            // 确保在 UI 线程执行
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                CheckAuthority();
+                AddLog($"[权限刷新] 检测到用户变更为 {userAccount}，权限已更新");
+            });
+        }
         /// <summary>
         /// 获取组合后的UserID字符串（格式：Id1,Id2,Id3）
         /// </summary>
@@ -1730,7 +1761,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _inkCanvas = inkCanvas;
         }
 
-
+        #region ROI
         /// <summary>
         /// 选择绘制图片
         /// 选择指定工位+相机的负极ROI参考图片，并初始化绘制画布（核心流程：参数校验→文件选择→图片加载→历史ROI恢复→打开绘制弹窗）
@@ -1740,38 +1771,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private void SelectNegativeRoiImage(string? param)
         {
             // 1. 第一层参数校验：参数为空/长度不足（至少2位，如"A1"），直接返回并记录错误日志
-            if (string.IsNullOrEmpty(param) || param.Length < 2)
+            if (string.IsNullOrEmpty(param))
             {
-                AddLog("[错误] 无效参数（格式应为“A1”“B3”等）");
+                AddLog("ROI绘制无效参数",CoreLogLevel.Warn);
                 return;
             }
             // 解析参数：第一位为工位（A/B），剩余部分为相机号（1-4）
-            string station = param[0].ToString();
-            string cameraNo = param.Substring(1);
+            string station = param;
 
             // 校验工位和相机号合法性
             // 2. 第二层合法性校验：工位仅支持A/B，相机号仅支持1-4
-            if (!new[] { "A", "B" }.Contains(station) || !new[] { "1", "2", "3", "4" }.Contains(cameraNo))
+            if (!new[] { "正极", "负极" }.Contains(station) )
             {
-                AddLog($"[错误] 工位{station}或相机{cameraNo}无效");
+                AddLog($"[错误] 工位{station}无效",CoreLogLevel.Warn);
                 return;
             }
 
             //更新当前相机号
             // 3. 更新全局状态：记录当前操作的相机号，更新绘制标题（通知UI刷新）
             _currentRoiCameraNo = param;// 保存当前ROI操作的工位+相机号
-            DrawTitle = $"绘制负极误判区域 - {station}工位相机{cameraNo}";// 绘制弹窗标题，适配当前操作
+            DrawTitle = $"绘制误判区域 - {station}工位";// 绘制弹窗标题，适配当前操作
             OnPropertyChanged(nameof(DrawTitle));// 触发INotifyPropertyChanged，更新UI上的标题显示
 
-            if (int.TryParse(cameraNo, out int num))
-            {
-                CurrentCameraNumber = num;
-            }
+            //if (int.TryParse(cameraNo, out int num))
+            //{
+            //    CurrentCameraNumber = num;
+            //}
 
             var openFileDialog = new OpenFileDialog
             {
                 Filter = "图片文件|*.bmp;*.jpg;*.jpeg;*.png",
-                Title = $"选择{station}工位相机{cameraNo}的参考图片"
+                Title = $"选择{station}工位的参考图片"
             };
 
             if (openFileDialog.ShowDialog() == true)
@@ -1832,13 +1862,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return;
 
             // 解析参数
-            string station = param[0].ToString();
-            string cameraNo = param.Substring(1);
+            string station = param;
+            //string cameraNo = param.Substring(1);
 
             // 历史ROI文件路径
             var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-            string hobjPath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_ROI.hobj"); // 如Negative_A1_ROI.hobj
-            string sizePath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_Size.txt");
+            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj"); // 如Negative_A1_ROI.hobj
+            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
 
             // 无历史ROI，直接返回
             if (!File.Exists(hobjPath) || !File.Exists(sizePath))
@@ -1949,8 +1979,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
 
             // 解析当前工位和相机号
-            string station = _currentRoiCameraNo[0].ToString();
-            string cameraNo = _currentRoiCameraNo.Substring(1);
+            string station = _currentRoiCameraNo;
+            //string cameraNo = _currentRoiCameraNo.Substring(1);
 
             try
             {
@@ -1964,8 +1994,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
                 Directory.CreateDirectory(roiDir);
                 // 带工位的文件路径
-                string hobjPath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_ROI.hobj");
-                string sizePath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_Size.txt");
+                string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+                string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
 
                 // 清空ROI的情况
                 if (_inkCanvas.Strokes.Count == 0)
@@ -1983,10 +2013,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
                         _detectionRegionCache.Remove(_currentRoiCameraNo);
                     }
-                    UpdateRoiStatus(station, cameraNo, false);
+                    //UpdateRoiStatus(station, cameraNo, false);
 
-                    MessageBox.Show($"{station}工位相机{cameraNo}的ROI已清空并保存！", "成功");
-                    AddLog($"{station}工位相机{cameraNo}的ROI已清空并保存！");
+                    MessageBox.Show($"{station}工位的ROI已清空并保存！", "成功");
+                    AddLog($"{station}工位的ROI已清空并保存！");
                     return;
                 }
 
@@ -2049,10 +2079,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     row?.Dispose();
                     col?.Dispose();
                 }
-                UpdateRoiStatus(station, cameraNo, true);
+                //UpdateRoiStatus(station, cameraNo, true);
 
                 IsDrawFlyoutOpen = false;
-                MessageBox.Show($"{station}工位相机{cameraNo}的ROI已保存！", "成功");
+                MessageBox.Show($"{station}工位相机的ROI已保存！", "成功");
             }
             catch (Exception ex)
             {
@@ -2063,27 +2093,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         ///更新ROI状态属性
         /// </summary>
-        private void UpdateRoiStatus(string station, string cameraNo, bool isEnabled)
+        private void UpdateRoiStatus(string station, bool isEnabled)
         {
             switch (station)
             {
-                case "A":
-                    switch (cameraNo)
-                    {
-                        case "1": HasNegativeRoiA1 = isEnabled; break;
-                        case "2": HasNegativeRoiA2 = isEnabled; break;
-                        case "3": HasNegativeRoiA3 = isEnabled; break;
-                        case "4": HasNegativeRoiA4 = isEnabled; break;
-                    }
+                //case "A":
+                //    switch (cameraNo)
+                //    {
+                //        case "1": HasNegativeRoiA1 = isEnabled; break;
+                //        case "2": HasNegativeRoiA2 = isEnabled; break;
+                //        case "3": HasNegativeRoiA3 = isEnabled; break;
+                //        case "4": HasNegativeRoiA4 = isEnabled; break;
+                //    }
+                //    break;
+                //case "B":
+                //    switch (cameraNo)
+                //    {
+                //        case "1": HasNegativeRoiB1 = isEnabled; break;
+                //        case "2": HasNegativeRoiB2 = isEnabled; break;
+                //        case "3": HasNegativeRoiB3 = isEnabled; break;
+                //        case "4": HasNegativeRoiB4 = isEnabled; break;
+                //    }
+                //    break;
+                case"正极":
+                    HasRoiPositive = isEnabled;
                     break;
-                case "B":
-                    switch (cameraNo)
-                    {
-                        case "1": HasNegativeRoiB1 = isEnabled; break;
-                        case "2": HasNegativeRoiB2 = isEnabled; break;
-                        case "3": HasNegativeRoiB3 = isEnabled; break;
-                        case "4": HasNegativeRoiB4 = isEnabled; break;
-                    }
+                case "负极":
+                    HasRoiNegative = isEnabled;
                     break;
             }
         }
@@ -2236,23 +2272,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
 
                 // 扫描带工位的ROI文件
-                var hobjFiles = Directory.GetFiles(roiDir, "Negative_*_ROI.hobj");
+                var hobjFiles = Directory.GetFiles(roiDir, "*_ROI.hobj");
                 foreach (var file in hobjFiles)
                 {
                     try
                     {
                         // 从文件名提取工位和相机号
                         var fileName = Path.GetFileNameWithoutExtension(file);
-                        var parts = fileName.Split(new[] { "Negative_", "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
+                        var parts = fileName.Split(new[] {  "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
                         if (parts.Length != 1) continue;
                         string stationCamera = parts[0];
                         if (stationCamera.Length < 2) continue;
 
-                        string station = stationCamera[0].ToString();
-                        string cameraNo = stationCamera.Substring(1);
-                        UpdateRoiStatus(station, cameraNo, true);
+                        string station = stationCamera;
+                        //string cameraNo = stationCamera.Substring(1);
+                        UpdateRoiStatus(station,  true);
 
-                        AddLog($"已加载{station}工位相机{cameraNo}的ROI：{file}");
+                        AddLog($"已加载{station}工位的ROI：{file}");
                     }
                     catch (Exception ex)
                     {
@@ -2266,6 +2302,340 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+        /// <summary>
+        /// 选择正极ROI参考图片并初始化绘制画布
+        /// </summary>
+        private void SelectPositiveRoiImage(string? param)
+        {
+            if (string.IsNullOrEmpty(param))
+            {
+                AddLog("正极ROI绘制无效参数", CoreLogLevel.Warn);
+                return;
+            }
+
+            string station = param;  // 如"正极"
+
+            // 校验工位合法性
+            if (!new[] { "正极", "负极" }.Contains(station))
+            {
+                AddLog($"[错误] 工位{station}无效", CoreLogLevel.Warn);
+                return;
+            }
+
+            _currentRoiCameraNo = param;
+            DrawTitle = $"绘制误判区域 - {station}工位";
+            OnPropertyChanged(nameof(DrawTitle));
+
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "图片文件|*.bmp;*.jpg;*.jpeg;*.png",
+                Title = $"选择{station}工位的参考图片"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string imagePath = openFileDialog.FileName;
+                _cameraImagePaths[param] = imagePath;
+
+                // 清空画布
+                if (_inkCanvas != null)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        _inkCanvas.Strokes.Clear();
+                        CurrentRoiImageSource = null;
+                        OnPropertyChanged(nameof(CurrentRoiImageSource));
+                    });
+                }
+
+                // 加载新图片
+                try
+                {
+                    using (var stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read))
+                    {
+                        stream.Position = 0;
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.StreamSource = stream;
+                        bitmap.EndInit();
+                        bitmap.Freeze();
+
+                        CurrentRoiImageSource = bitmap;
+                        OnPropertyChanged(nameof(CurrentRoiImageSource));
+
+                        _drawImageWidth = bitmap.PixelWidth;
+                        _drawImageHeight = bitmap.PixelHeight;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"图片加载失败:{ex.Message}", "错误");
+                    return;
+                }
+
+                // 加载历史ROI
+                LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
+                IsDrawFlyoutOpen = true;
+            }
+        }
+
+        /// <summary>
+        /// 删除正极当前绘制内容(复用负极逻辑)
+        /// </summary>
+        private void DeletePositiveRoi()
+        {
+            // 直接调用已有的删除逻辑
+            DeleteNegativeRoi();
+        }
+
+        /// <summary>
+        /// 查看正极ROI绘制结果
+        /// </summary>
+        private void ViewPositiveRoi(string? param)
+        {
+            if (_inkCanvas == null)
+            {
+                MessageBox.Show("画布正在初始化,请再次点击查看!", "提示");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(param) || param.Length < 2)
+            {
+                AddLog("[查看ROI] 无效参数");
+                return;
+            }
+
+            string station = param;  // 如"正极"
+
+            _currentRoiCameraNo = param;
+            DrawTitle = $"绘制正极误判区域 - {station}工位";
+
+            var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+
+            if (!File.Exists(hobjPath) || !File.Exists(sizePath))
+            {
+                MessageBox.Show("ROI文件或尺寸文件不存在!", "提示");
+                return;
+            }
+
+            try
+            {
+                string[] sizeParts = File.ReadAllText(sizePath).Split(',');
+                if (sizeParts.Length != 3 || !int.TryParse(sizeParts[0], out int drawWidth) || !int.TryParse(sizeParts[1], out int drawHeight))
+                {
+                    MessageBox.Show("尺寸文件格式错误!", "错误");
+                    return;
+                }
+                string imagePath = sizeParts[2];
+
+                // 加载图片
+                if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+                {
+                    using (var stream = new FileStream(imagePath, FileMode.Open))
+                    {
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.StreamSource = stream;
+                        bmp.EndInit();
+                        bmp.Freeze();
+                        CurrentRoiImageSource = bmp;
+                    }
+                }
+
+                // 读取XLD数据并显示
+                HObject? roiXld = null;
+                HTuple xldRow = new HTuple();
+                HTuple xldCol = new HTuple();
+                try
+                {
+                    HOperatorSet.ReadObject(out roiXld, hobjPath);
+                    HOperatorSet.GetContourXld(roiXld, out xldRow, out xldCol);
+
+                    if (xldRow.Length == 0 || xldCol.Length == 0)
+                    {
+                        MessageBox.Show("从XLD提取不到坐标,请重新保存ROI!", "错误");
+                        return;
+                    }
+
+                    double scaleX = _inkCanvas.ActualWidth / drawWidth;
+                    double scaleY = _inkCanvas.ActualHeight / drawHeight;
+                    ClearCanvasOnly();
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var stylusPoints = new StylusPointCollection();
+                        for (int i = 0; i < xldRow.Length; i++)
+                        {
+                            double x = xldCol[i].D * scaleX;
+                            double y = xldRow[i].D * scaleY;
+                            stylusPoints.Add(new StylusPoint(x, y));
+                        }
+
+                        var stroke = new Stroke(stylusPoints)
+                        {
+                            DrawingAttributes = new DrawingAttributes
+                            {
+                                Color = System.Windows.Media.Color.FromArgb(200, 231, 76, 60),
+                                Width = 3,
+                                Height = 3
+                            }
+                        };
+
+                        _inkCanvas.Strokes.Add(stroke);
+                        _inkCanvas.UpdateLayout();
+                    });
+                }
+                finally
+                {
+                    roiXld?.Dispose();
+                    xldRow?.Dispose();
+                    xldCol?.Dispose();
+                }
+
+                IsDrawFlyoutOpen = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"加载ROI失败:{ex.Message}", "错误");
+            }
+        }
+
+        /// <summary>
+        /// 保存正极ROI区域
+        /// </summary>
+        private void SavePositiveRoiAsHalconRegion()
+        {
+            if (_inkCanvas == null)
+            {
+                MessageBox.Show("画布未初始化!", "错误");
+                AddLog("画布未初始化!");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_currentRoiCameraNo))
+            {
+                MessageBox.Show("未选择目标相机,请重新操作!", "错误");
+                return;
+            }
+
+            // 解析当前工位和相机号
+            string station = _currentRoiCameraNo;
+
+            try
+            {
+                if (_drawImageWidth == 0 || _drawImageHeight == 0)
+                {
+                    MessageBox.Show("请选择需要绘制的图片后再修改!", "错误");
+                    AddLog("未选择绘制图片,无法获取原图尺寸!");
+                    return;
+                }
+
+                var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+                Directory.CreateDirectory(roiDir);
+
+                // 正极ROI文件路径(关键差异:文件名前缀为"正极")
+                string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+                string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+
+                // 清空ROI的情况
+                if (_inkCanvas.Strokes.Count == 0)
+                {
+                    if (File.Exists(hobjPath))
+                        File.Delete(hobjPath);
+
+                    // 保存尺寸和图片路径
+                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
+
+                    // 更新缓存
+                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+                    {
+                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+                        _detectionRegionCache.Remove(_currentRoiCameraNo);
+                    }
+
+                    MessageBox.Show($"{station}工位的ROI已清空并保存!", "成功");
+                    AddLog($"{station}工位的ROI已清空并保存!");
+                    return;
+                }
+
+                double canvasWidth = _inkCanvas.ActualWidth;
+                double canvasHeight = _inkCanvas.ActualHeight;
+
+                if (canvasWidth == 0 || canvasHeight == 0)
+                {
+                    MessageBox.Show("画布尺寸无效!", "错误");
+                    return;
+                }
+
+                double scaleX = _drawImageWidth / canvasWidth;
+                double scaleY = _drawImageHeight / canvasHeight;
+
+                HTuple row = new HTuple();
+                HTuple col = new HTuple();
+
+                foreach (var stroke in _inkCanvas.Strokes)
+                {
+                    foreach (var sp in stroke.StylusPoints)
+                    {
+                        double originalX = sp.X * scaleX;
+                        double originalY = sp.Y * scaleY;
+                        row = row.TupleConcat(originalY);
+                        col = col.TupleConcat(originalX);
+                    }
+                }
+
+                if (row.Length > 0 && col.Length > 0)
+                {
+                    row = row.TupleConcat(row[0]);
+                    col = col.TupleConcat(col[0]);
+                }
+
+                HObject? roiXld = null;
+                HObject? delRegion = null;
+                HObject? dummyImage = null;
+                try
+                {
+                    HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
+                    HOperatorSet.GenImageConst(out dummyImage, "byte", 1920, 1200);
+                    HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
+
+                    HOperatorSet.WriteObject(roiXld, hobjPath);
+                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
+
+                    // 更新缓存
+                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+                    {
+                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+                        _detectionRegionCache.Remove(_currentRoiCameraNo);
+                    }
+                    _detectionRegionCache.Add(_currentRoiCameraNo, delRegion);
+                }
+                finally
+                {
+                    roiXld?.Dispose();
+                    row?.Dispose();
+                    col?.Dispose();
+                }
+
+                UpdateRoiStatus(station, true);
+
+                IsDrawFlyoutOpen = false;
+                MessageBox.Show($"{station}工位的ROI已保存!", "成功");
+                AddLog($"{station}工位的ROI已保存!");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"保存ROI失败:{ex.Message}", "错误");
+                AddLog($"保存正极ROI异常:{ex.Message}");
+            }
+        }
+        #endregion
         #region 辅助方法
         /// <summary>
         /// 在视觉树中查找子元素
@@ -2921,7 +3291,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         ParsePathToDynamicObject(detectionData, filePath);
                         detectionData.Station = "A";// 标记工位为A
                         // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
-                        string detectResult = DamageDetection(filePath, "A");
+                        string detectResult = DamageDetection(filePath, "正极");
                         DateTime realDetectionTime = DateTime.Now;
                         bool isNG = detectResult == "NG";// 判断是否为不良品
                         // 6.3 将图片添加到结果队列（用于后续报表/展示）
@@ -3008,7 +3378,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         dynamic detectionData = new ExpandoObject();
                         ParsePathToDynamicObject(detectionData, filePath);
                         detectionData.Station = "B";
-                        string detectResult = DamageDetection(filePath, "B");
+                        string detectResult = DamageDetection(filePath, "负极");
                         DateTime realDetectionTime = DateTime.Now;
                         bool isNG = detectResult == "NG";
                         AddImageToQueue(filePath, isNG, "B", realDetectionTime);
@@ -3251,9 +3621,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                     try
                     {
+                        var station = GetElectrodeType(filePath);
                         dynamic detectionData = new ExpandoObject();
                         ParsePathToDynamicObject(detectionData, filePath);
-                        string detectResult = DamageDetection(filePath, "A");
+                        string detectResult = DamageDetection(filePath, station);
 
                         if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                         {
@@ -3299,6 +3670,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         #endregion
 
+        private string? GetElectrodeType(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
+
+            string fileName = Path.GetFileName(filePath);
+
+            if (fileName.Contains("正极")) return "正极";
+            if (fileName.Contains("负极")) return "负极";
+
+            string directoryPath = Path.GetDirectoryName(filePath) ?? "";
+
+            if (directoryPath.Contains("正极")) return "正极";
+            if (directoryPath.Contains("负极")) return "负极";
+
+            // 记录异常日志
+            AddLog($"[WARN] 无法判定电极类型: {filePath}",CoreLogLevel.Warn);
+            return null;  // 返回null而非抛异常
+        }
+
+
         // 新增日志到第一行
         public void AddLog(string message, CoreLogLevel level = CoreLogLevel.Info, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
@@ -3315,10 +3707,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     _logger?.Info(message, isToDatabase, memberName, filePath, lineNumber);
                     break;
                 case CoreLogLevel.Warn:
-                    _logger?.Warn(message, isToDatabase, memberName, filePath, lineNumber);
+                    _logger?.Warn(message, true, memberName, filePath, lineNumber);
                     break;
                 case CoreLogLevel.Error:
-                    _logger?.Error(message, isToDatabase, memberName, filePath, lineNumber);
+                    _logger?.Error(message, true, memberName, filePath, lineNumber);
                     break;
                 default:
                     _logger?.Log(level, message, isToDatabase, memberName, filePath, lineNumber);
@@ -3616,7 +4008,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         private bool _isPositivePolarity = false;// 全局布尔变量：true 表示正极，false 表示负极
-        private string DamageDetection(string imagePath, string station)
+        private string DamageDetection(string imagePath, string? station)
         {
             #region 参数定义
             // 线宽常量 - 可根据需要调整
@@ -3732,6 +4124,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 else
                 {
                     ai.ModelActionDiePian(H246Fumodle, imageMat, FuGongwei, delRegion, out defectList, out exInfo);
+                }
+                if (!string.IsNullOrEmpty(exInfo))
+                {
+                    AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Info, isToDatabase: true);
                 }
                 #endregion
 
@@ -4270,9 +4666,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"开始检测单张图片：{Path.GetFileName(filePath)}");
                 await Task.Run(() =>
                 {
+                    var station = GetElectrodeType(filePath);
                     dynamic detectionData = new ExpandoObject();
                     ParsePathToDynamicObject(detectionData, filePath);
-                    string detectResult = DamageDetection(filePath, "离线");
+                    string detectResult = DamageDetection(filePath, station);
                     DateTime realDetectionTime = DateTime.Now;
                     if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                     {
@@ -4342,7 +4739,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 文件夹批量检测,带进度条
         /// </summary>
-        private async Task GetDataFromFolder(string folderPath, List<string> imageFiles)
+        private async Task GetDataFromFolder( List<string> imageFiles)
         {
             List<string> filteredFiles = new List<string>();
             IsOfflineProgressVisible = Visibility.Visible;
@@ -4370,24 +4767,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         isPolarityMatch = true;
                     }
                 }
-                bool isCameraMatch = false;
-                if (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4)
-                {
-                    isCameraMatch = true;
-                }
-                else
-                {
-                    if ((IsCamera1 && camera == "1") ||
-                        (IsCamera2 && camera == "2") ||
-                        (IsCamera3 && camera == "3") ||
-                        (IsCamera4 && camera == "4"))
-                    {
-                        isCameraMatch = true;
-                    }
-                }
 
                 //加入筛选列表
-                if (isPolarityMatch && isCameraMatch)
+                if (isPolarityMatch )
                 {
                     filteredFiles.Add(filePath);
                 }
@@ -4437,10 +4819,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                         try
                         {
+                            var station = GetElectrodeType(filePath);
                             dynamic detectionData = new ExpandoObject();
                             ParsePathToDynamicObject(detectionData, filePath);
                             if (token.IsCancellationRequested) break;
-                            string detectResult = DamageDetection(filePath, "离线");
+                            string detectResult = DamageDetection(filePath, station);
                             DateTime realDetectionTime = DateTime.Now;
                             bool isNG = detectResult == "NG";
                             AddImageToQueue(filePath, isNG, "离线", realDetectionTime);
@@ -4649,27 +5032,43 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             lock (_statisticsLock)
             {
                 //计算 _fullDetectionDataList 中“新检测数据”的统计值
-                var newNegativeData = _fullDetectionDataList
+                var filteredData = _fullDetectionDataList
                     .Where(data =>
                     {
+                        // 1. 基础空值检查
                         if (data == null) return false;
                         var dataDict = data as IDictionary<string, object>;
                         if (dataDict == null) return false;
-                        return dataDict.TryGetValue("PartType", out var partTypeObj)
-                               && partTypeObj?.ToString() == "负极"
-                               && dataDict.ContainsKey("DetectionResult");
+
+                        // 2. 必须包含检测结果和极性信息
+                        if (!dataDict.ContainsKey("DetectionResult")) return false;
+                        if (!dataDict.TryGetValue("PartType", out var partTypeObj)) return false;
+                        if (partTypeObj == null) return false;
+
+                        string partType = partTypeObj?.ToString() ?? string.Empty;
+                        if (string.IsNullOrEmpty(partType)) return false;
+
+                        // 3. 核心筛选逻辑
+                        // 如果勾选正极 且 数据类型是正极 -> 保留
+                        bool matchPositive = IsPositive && partType == "正极";
+                        // 如果勾选负极 且 数据类型是负极 -> 保留
+                        bool matchNegative = IsNegative && partType == "负极";
+
+                        // 只要满足其中一个条件即可
+                        return matchPositive || matchNegative;
                     })
                     .ToList();
 
                 //统计新数据中的 OK/NG 数量
-                int newOKCount = newNegativeData.Count(data =>
+                int newTotalCount = filteredData.Count;
+                int newOKCount = filteredData.Count(data =>
                 {
                     var dataDict = (IDictionary<string, object>)data;
                     return dataDict.TryGetValue("DetectionResult", out var resultObj)
-                           && resultObj?.ToString() == "OK";
+                            && resultObj?.ToString() == "OK";
                 });
-                int newNGCount = newNegativeData.Count - newOKCount;
-                int newTotalCount = newNegativeData.Count;
+                int newNGCount = newTotalCount - newOKCount;
+
 
                 //最终统计值 = 历史基础值 + 新数据值
                 TotalNeDetectionCount = _historyTotalCount + newTotalCount;
@@ -7414,5 +7813,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
         #endregion
+
+        /// <summary>
+        /// 资源清理（防止内存泄漏）
+        /// </summary>
+        public void Dispose()
+        {
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+        }
+
     }
 }

@@ -14,12 +14,13 @@ using SUNWODA_SEVB.Core.Models.Project.STC.Results;
 using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Services.Project;
+using SUNWODA_SEVB.Tool.Helper;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using SUNWODA_SEVB.Tool.Helper;
+using System.Text;
 using System.Text.Json;
 using System.Windows.Input;
 
@@ -230,6 +231,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         /// 选择螺丝命令 
         /// </summary>
         public ICommand SelectScrewCommand { get; }
+        /// <summary>
+        /// 加载CSV文件命令
+        /// </summary>
+        public ICommand LoadCsvFileCommand { get; }
+
         #endregion
 
         public VM_P230ConnectorInstallerPage(
@@ -255,6 +261,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             SimulateCommand = new RelayCommand( async _ => await SimulateAsync(), _ => !IsServerRunning);
             ResetScrewStatusCommand = new RelayCommand(_ => ResetAllScrewStatus(), _ => true);
             FetchCurveDataCommand = new RelayCommand(async _ => await FetchCurveDataManuallyAsync(), _ => !IsLoadingCurveData);
+            LoadCsvFileCommand = new RelayCommand(async _ => await LoadCsvFileAsync(), _ => !IsServerRunning);
             SelectScrewCommand = new RelayCommand<ScrewPositionConfig>(OnScrewSelected);
             // 订阅事件
             _socketServer.ClientConnected += OnClientConnected;
@@ -1716,7 +1723,202 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             LogInfo($"模拟测试完成 - OK: {okSeriesList.Count}, NG: {ngSeriesList.Count}");
         }
 
+        /// <summary>
+        /// 加载CSV文件并显示曲线
+        /// </summary>
+        private async Task LoadCsvFileAsync()
+        {
+            try
+            {
+                // 创建文件选择对话框
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "选择CSV曲线数据文件",
+                    Filter = "CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
+                    InitialDirectory = _curveDataDirectory ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    Multiselect = false
+                };
 
+                var result = openFileDialog.ShowDialog();
+                if (result != true)
+                {
+                    return;
+                }
+
+                var filePath = openFileDialog.FileName;
+                LogInfo($"开始加载CSV文件: {filePath}");
+
+                IsLoadingCurveData = true;
+                BeginCollectCurveData(); // 清空现有曲线
+
+                // 读取CSV文件
+                var records = await ReadCsvFileAsync(filePath);
+
+                if (records == null || records.Count == 0)
+                {
+                    LogWarn("CSV文件无有效数据");
+                    return;
+                }
+
+                // 按螺丝分组
+                var screwGroups = records
+                    .GroupBy(r => r.ScrewIndex)
+                    .OrderBy(g => g.Key)
+                    .ToList();
+
+                LogInfo($"成功加载 {screwGroups.Count} 个螺丝的曲线数据");
+
+                // 处理每个螺丝的数据
+                foreach (var group in screwGroups)
+                {
+                    var screwIndex = group.Key;
+                    var screwRecords = group.OrderBy(r => r.PointIndex).ToList();
+
+                    if (screwRecords.Count == 0) continue;
+
+                    var firstRecord = screwRecords.First();
+                    var screwLabel = firstRecord.ScrewLabel ?? $"螺丝 #{screwIndex}";
+                    var isOk = firstRecord.IsOk;
+
+                    // 创建曲线数据
+                    var dataPoints = new ObservableCollection<PlotDataPoint>();
+                    foreach (var record in screwRecords)
+                    {
+                        dataPoints.Add(new PlotDataPoint(record.PointIndex, record.Torque));
+                    }
+
+                    var series = new PlotDataSeries
+                    {
+                        Name = $"{screwLabel} (历史数据)",
+                        DataPoints = dataPoints,
+                        LineWidth = 1.5f
+                    };
+
+                    // 添加到对应的曲线集合
+                    AddToPlotCollection(series, isOk);
+
+                    // 更新螺丝位置状态
+                    UpdateScrewStatus(screwIndex, isOk ? ScrewStatus.OK : ScrewStatus.NG,
+                        firstRecord.Torque, firstRecord.Angle);
+
+                    await Task.Delay(50); // 避免UI卡顿
+                }
+
+                // 更新产品编码(从文件名提取)
+                var fileName = Path.GetFileNameWithoutExtension(filePath);
+                RunOnUIThread(() => CurrentPackCode = fileName);
+
+                LogInfo($"CSV数据加载完成 - 共 {screwGroups.Count} 个螺丝");
+                HandyControl.Controls.Growl.Success($"成功加载 {screwGroups.Count} 个螺丝的曲线数据");
+            }
+            catch (Exception ex)
+            {
+                LogError($"加载CSV文件失败: {ex.Message}");
+                HandyControl.Controls.Growl.Error($"加载失败: {ex.Message}");
+            }
+            finally
+            {
+                IsLoadingCurveData = false;
+            }
+        }
+
+        /// <summary>
+        /// 读取CSV文件
+        /// </summary>
+        private async Task<List<ScrewCurveRecord>> ReadCsvFileAsync(string filePath)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    using var reader = new StreamReader(filePath, Encoding.UTF8);
+                    using var csv = new CsvHelper.CsvReader(reader, new CsvHelper.Configuration.CsvConfiguration(
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    {
+                        HasHeaderRecord = true,
+                        MissingFieldFound = null,
+                        BadDataFound = null
+                    });
+
+                    // 读取表头
+                    csv.Read();
+                    csv.ReadHeader();
+                    var headers = csv.HeaderRecord;
+
+                    if (headers == null || headers.Length == 0)
+                    {
+                        LogWarn("CSV文件表头为空");
+                        return new List<ScrewCurveRecord>();
+                    }
+
+                    var records = new List<ScrewCurveRecord>();
+
+                    // 读取数据行
+                    while (csv.Read())
+                    {
+                        var pointIndex = csv.GetField<int>("PointIndex");
+                        var recordTime = csv.GetField<DateTime>("RecordTime");
+
+                        // 遍历所有螺丝列
+                        foreach (var header in headers)
+                        {
+                            if (!header.StartsWith("Screw")) continue;
+
+                            var parts = header.Split('_');
+                            if (parts.Length < 2) continue;
+
+                            var screwPrefix = parts[0]; // 如 "Screw1"
+                            var field = parts[1];       // 如 "Angle", "Torque"
+
+                            // 提取螺丝索引
+                            var screwIndexStr = screwPrefix.Replace("Screw", "");
+                            if (!int.TryParse(screwIndexStr, out var screwIndex)) continue;
+
+                            // 只在读取到Torque字段时创建记录
+                            if (field == "Torque")
+                            {
+                                var torque = csv.GetField<double>($"{screwPrefix}_Torque");
+                                var angle = csv.GetField<double>($"{screwPrefix}_Angle");
+                                var label = csv.GetField<string>($"{screwPrefix}_Label");
+                                var gun = csv.GetField<string>($"{screwPrefix}_Gun");
+                                var isOk = csv.GetField<bool>($"{screwPrefix}_IsOk");
+
+                                // 可选字段
+                                var current = csv.TryGetField<double?>($"{screwPrefix}_Current", out var curr) ? curr : null;
+                                var torqueLower = csv.TryGetField<double?>($"{screwPrefix}_TorqueLower", out var tl) ? tl : null;
+                                var torqueUpper = csv.TryGetField<double?>($"{screwPrefix}_TorqueUpper", out var tu) ? tu : null;
+                                var angleLower = csv.TryGetField<double?>($"{screwPrefix}_AngleLower", out var al) ? al : null;
+                                var angleUpper = csv.TryGetField<double?>($"{screwPrefix}_AngleUpper", out var au) ? au : null;
+
+                                records.Add(new ScrewCurveRecord
+                                {
+                                    PointIndex = pointIndex,
+                                    RecordTime = recordTime,
+                                    ScrewIndex = screwIndex,
+                                    ScrewLabel = label,
+                                    TightenGun = gun,
+                                    Angle = angle,
+                                    Torque = torque,
+                                    Current = current,
+                                    TorqueLower = torqueLower,
+                                    TorqueUpper = torqueUpper,
+                                    AngleLower = angleLower,
+                                    AngleUpper = angleUpper,
+                                    IsOk = isOk
+                                });
+                            }
+                        }
+                    }
+
+                    return records;
+                }
+                catch (Exception ex)
+                {
+                    LogError($"读取CSV文件异常: {ex.Message}");
+                    return new List<ScrewCurveRecord>();
+                }
+            });
+        }
 
         #endregion
 

@@ -1,74 +1,46 @@
-﻿//extern alias halcondotnetxl;
-using Dm.filter;
-using Dm.util.Atomic;
-using HalconDotNet;
+﻿using HalconDotNet;
 using HelixToolkit.Wpf;
-using iText.IO.Font.Constants;
 using iText.IO.Image;
 using iText.Kernel.Font;
 using iText.Kernel.Pdf;
 using iText.Layout;
-using iText.Layout.Borders;
-using iText.Layout.Element;
 using iText.Layout.Properties;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-//using Microsoft.WindowsAPICodePack.Dialogs;
-using NetTaste;
-using Newtonsoft.Json;
 using OpenCvSharp;
-using OpenCvSharp.WpfExtensions;
-using Org.BouncyCastle.Utilities;
-using OxyPlot;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations.Logging;
 using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
-using SUNWODA_SEVB.Core.Models.Component;
 using SUNWODA_SEVB.Core.Models.Project.PTO;
-using SUNWODA_SEVB.Data.Models;
-using SUNWODA_SEVB.MES.Client;
-using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper;
-using SUNWODA_SEVB.ViewModels.Pages.JRRY;
-using SUNWODA_SEVB.WEB.Services;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Dynamic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Security;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Media.Media3D;
 using Yolo8Core;
 using ZZYingYanAICore;
 using static Yolo8Core.BaseClass;
-//using HObject = halcondotnetxl::HalconDotNet.HObject;
-//using HOperatorSet = halcondotnetxl::HalconDotNet.HOperatorSet;
-//using HTuple = halcondotnetxl::HalconDotNet.HTuple;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 {
@@ -160,8 +132,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         // 报表设置相关属性
         // 配置文件路径
-        private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "PushUserIdConfig.json");
+        //private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "PushUserIdConfig.json");
         private readonly ILoggerService<VM_PTODamageDetectionPage> _logger;
+        private readonly IServiceProvider _serviceProvider;
+
+
+
+
 
         // 输入的新UserID
         private string _newUserId = string.Empty;
@@ -269,6 +246,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isOfflineDetectionCompleted = false; //标记离线检测是否已完成
         public event Action<string, string, DateTime>? OnNgImageDetected;
 
+        // 缺陷配置文件路径
+        private static readonly string ConfigFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+        private static readonly string DefectFilePath = Path.Combine(ConfigFolder, "DefectParameters.json");
+
         // 增减命令
         public ICommand IncrementMaxImagesCommand { get; }
         public ICommand DecrementMaxImagesCommand { get; }
@@ -281,7 +262,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         // A工位监控器
         private FileSystemWatcher? _onlineMonitorWatcherA;
         private readonly ConcurrentQueue<string> _safeDetectQueueA = new ConcurrentQueue<string>();
-        private bool _isQueueRunningA;
+        private bool _isQueueRunningA=false;
         private readonly SemaphoreSlim _semaphoreA; // A工位并发控制
         private const int MaxConcurrentA = 3; // A工位最大并发数
         private readonly AutoResetEvent _queueEventA = new AutoResetEvent(false); // 初始为未触发状态.
@@ -290,7 +271,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         // B工位监控器
         private FileSystemWatcher? _onlineMonitorWatcherB;
         private readonly ConcurrentQueue<string> _safeDetectQueueB = new ConcurrentQueue<string>();
-        private bool _isQueueRunningB;
+        private bool _isQueueRunningB=false;
         private readonly SemaphoreSlim _semaphoreB; // B工位并发控制
         private const int MaxConcurrentB = 3; // B工位最大并发数
         private readonly AutoResetEvent _queueEventB = new AutoResetEvent(false);
@@ -379,6 +360,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged(nameof(IsInAnyDetection));// 相机检测
                 OnPropertyChanged(nameof(IsFileSelectEnabled));// 通知文件选择控件是否可用
                 OnPropertyChanged(nameof(IsFolderSelectEnabled));// 通知文件夹选择控件是否可用
+
+                SaveConfig();
             }
         }
 
@@ -433,6 +416,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged(nameof(IsInAnyDetection));
                 OnPropertyChanged(nameof(IsFileSelectEnabled));
                 OnPropertyChanged(nameof(IsFolderSelectEnabled));
+
+                SaveConfig();
             }
         }
 
@@ -1220,6 +1205,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _detectionResults;
             set { _detectionResults = value; OnPropertyChanged(); }
         }
+
+        #region 权限控制属性
+
+        private bool _isEditAllowed;
+        /// <summary>
+        /// 是否允许编辑（用于绑定按钮的 IsEnabled）
+        /// True = 非Guest用户，允许点击
+        /// </summary>
+        public bool IsEditAllowed
+        {
+            get => _isEditAllowed;
+            set => SetProperty(ref _isEditAllowed, value);
+        }
+
+        private bool _isParamGridReadOnly;
+        /// <summary>
+        /// 表格是否只读（用于绑定 DataGrid 的 IsReadOnly）
+        /// True = Guest用户，只读
+        /// False = 非Guest用户，可编辑
+        /// </summary>
+        public bool IsParamGridReadOnly
+        {
+            get => _isParamGridReadOnly;
+            set => SetProperty(ref _isParamGridReadOnly, value);
+        }
+
+        #endregion
+
         #endregion
 
         #region 单张图片选择
@@ -1483,11 +1496,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ResetOfflineProgress();
         }
 
-        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient)
+        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider)
         {
             _logger = logger;
-            InitParameters();
-            LoadConfig();
+         
+
             File_Button = new RelayCommand<object>(
                         execute: parameter => SelectImageFile(),//文件选择
                         canExecute: parameter => IsFileSelectEnabled && !IsFileDetecting
@@ -1539,14 +1552,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             DeleteUserIdCommand = new RelayCommand(DeleteUserId);
 
             _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             // 加载已保存的ID列表
+            InitParameters();
+            LoadConfig();
             LoadUserIds();
 
+
             #region 参数管控            
+            CheckAuthority();
             LoadDefectInitialData();
-            AddRow = new RelayCommand<string>(OnAddRow);
-            DeleteRow = new RelayCommand<DefectParameter>(OnDeleteRow);
-            SaveData = new RelayCommand<string>(OnSaveData);
+            AddRow = new RelayCommand<string?>(OnAddRow);
+            DeleteRow = new RelayCommand<DefectParameter?>(OnDeleteRow);
+            SaveData = new RelayCommand<string?>(OnSaveData);
             #endregion
 
         }
@@ -1564,12 +1582,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
+                var savedId = NewUserId;
+
                 SavedUserIds.Add(NewUserId);
-                SaveUserIdsToFile();
+                SaveUserIdsToDataBase();
                 // 清空输入框
                 NewUserId = string.Empty;
 
-                MessageBox.Show($"用户ID {NewUserId} 保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"用户ID: {savedId} 保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -1594,7 +1614,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (SavedUserIds.Contains(id))
                 {
                     SavedUserIds.Remove(id);
-                    SaveUserIdsToFile();
+                    SaveUserIdsToDataBase();
                 }
             }
             catch (Exception ex)
@@ -1610,16 +1630,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
-                if (!File.Exists(_configPath))
-                {
-                    // 配置文件不存在则初始化空列表
-                    SavedUserIds = new ObservableCollection<string>();
-                    return;
-                }
-
                 // 读取配置文件
-                var json = File.ReadAllText(_configPath);
-                var savedList = JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+
+                var settingValue = projectSettingRepo.GetSettingValue("UserIDs", "VM_PTODamageDetection") as string;
+                var savedList = settingValue?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                      .Select(id => id.Trim())
+                      .ToList() ?? new List<string>();
+
                 // 转换为ObservableCollection
                 SavedUserIds = new ObservableCollection<string>(savedList);
             }
@@ -1634,23 +1653,59 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 持久化UserID列表到配置文件
         /// </summary>
-        private void SaveUserIdsToFile()
+        private void SaveUserIdsToDataBase()
         {
             try
             {
-                // 序列化列表为JSON
-                var json = JsonConvert.SerializeObject(SavedUserIds.ToList(), Formatting.Indented);
-                // 写入配置文件
-                var configDir = Path.GetDirectoryName(_configPath);
-                if (!string.IsNullOrEmpty(configDir) && !Directory.Exists(configDir))
-                {
-                    Directory.CreateDirectory(configDir);
-                }
-                File.WriteAllText(_configPath, json);
+                var users = SavedUserIds.ToList();
+
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+
+                projectSettingRepo.UpdateSettingValue("UserIDs", "VM_PTODamageDetection",string.Join(",", users));
             }
             catch (Exception ex)
             {
                 throw new Exception($"持久化配置失败：{ex.Message}", ex);
+            }
+        }
+
+        
+        private void CheckAuthority()
+        {
+            try
+            {
+                string currentUserName = "guest";
+                using var scope = _serviceProvider.CreateScope();
+                
+                var repo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();           
+                var user = repo.GetByName("CurrentUserAccount");
+
+                if (user != null) currentUserName = user.Value;
+                
+                bool isAuthorized = !string.Equals(currentUserName, "guest", StringComparison.OrdinalIgnoreCase);
+
+                if (isAuthorized)
+                {
+                    // 授权用户：按钮可用，表格可编辑
+                    IsEditAllowed = true;
+                    IsParamGridReadOnly = false;
+                }
+                else
+                {
+                    // 访客用户：按钮禁用，表格只读
+                    IsEditAllowed = false;
+                    IsParamGridReadOnly = true;
+                }
+
+                AddLog($"[权限检查] 当前用户: {currentUserName}, 权限状态: {(isAuthorized ? "可编辑" : "只读")}");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[权限检查异常] {ex.Message}", CoreLogLevel.Error);
+                // 发生异常时，强制降级为只读模式
+                IsEditAllowed = false;
+                IsParamGridReadOnly = true;
             }
         }
 
@@ -3270,7 +3325,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     break;
             }
 
-            string uiMessage = $"[{level}] {message}";
+            string uiMessage = $"[{level}]{message}";
             // 创建日志项
             var newLog = Tuple.Create(
                 DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -3301,8 +3356,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             string dllExecuteType = "PRED";
 
             // 模型配置（下载标识PTO_JiSunDiePian_model，保存名为Diepian.onnx）
-            string modelPythonCode = "PTO_JiSunDiePian_model";
-            string modelExecuteType = "PRED"; // 模型下载通常用TRAIN标识
+            //string modelPythonCode = "PTO_JiSunDiePian_model";
+            //string modelExecuteType = "PRED"; // 模型下载通常用TRAIN标识
 
             //string modelFileName = "Diepian.onnx"; // 下载后保存的模型文件名
             //string modelSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modelFileName);
@@ -3707,8 +3762,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                         if (thresholdConfig != null)
                         {
-                            // 【关键逻辑】只有当缺陷超过阈值时才判定为NG
-                            // 任一参数超过阈值即为真正的缺陷
+                            // 只有当缺陷超过阈值时才判定为NG
                             bool exceedsThreshold =
                                 testHeight > thresholdConfig.Height ||
                                 testWidth > thresholdConfig.Width ||
@@ -3719,11 +3773,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             {
                                 realDefects.Add(defect);
                             }
-                        }
-                        else
-                        {
-                            // 未配置阈值默认为OK
-                            //realDefects.Add(defect);
                         }
                     }
 
@@ -3752,27 +3801,64 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     AddLog($"检测完成：{imagePath} → 结果：{finalResult}，缺陷数量：{realDefects.Count}");
 
-                    // 绘制所有真正的缺陷框（线宽放大）
+                    using var drawMat = imageMat.Clone();   // 克隆原图用于绘制，防止修改原 imageMat
+
+                    // 绘制缺陷框和标签
                     foreach (var defect in realDefects)
                     {
-                        // 绘制红色矩形框，线宽使用常量
-                        Cv2.Rectangle(imageMat, defect.Rectangle, new Scalar(0, 0, 255), RECTANGLE_THICKNESS);
+                        Cv2.Rectangle(drawMat, defect.Rectangle, new Scalar(0, 0, 255), RECTANGLE_THICKNESS);
 
                         // 可选：在缺陷旁边标注缺陷名称
-                        //var labelPos = new OpenCvSharp.Point(defect.Rectangle.X, defect.Rectangle.Y - 10);
-                        ////Cv2.PutText(imageMat, defect.Name, labelPos, HersheyFonts.HersheySimplex, 1.0, new Scalar(0, 0, 255), 2);
-
-                        //PutTextChinese(imageMat, defect.Name, labelPos, 1.5f, new Scalar(0, 0, 255));
+                        var labelPos = new OpenCvSharp.Point(defect.Rectangle.X, defect.Rectangle.Y - 80);
+                        PutTextChinese(drawMat, defect.Name, labelPos, 1.0f, new Scalar(0, 0, 255));
                     }
 
-                    // 绘制NG标记
-                    Cv2.PutText(imageMat, "NG", new OpenCvSharp.Point(150, 180),
-                                HersheyFonts.HersheySimplex, FONT_SCALE, new Scalar(0, 0, 255), TEXT_THICKNESS);
+                    // 绘制缺陷信息列表（左上角）
+                    if (realDefects.Count > 0)
+                    {
+                        // ------------------ 参数可调 ------------------
+                        int startX = 240;                    // 左上角起始 x（调整为左侧）
+                        int startY = 340;                    // 顶部 y
+                        int lineHeight = 150;                // 每行高度
+                        /*int padding = 15; */                  // 内边距
+                        //int bgWidth = 600;                  // 背景宽度（根据文字长度调整）
 
+                      
+                        // 标题行
+                        PutTextChinese(drawMat,
+                            "缺陷列表        置信度   宽(mm)    高(mm)   面积(mm²)",
+                            new OpenCvSharp.Point(startX, startY),
+                            1.6f, new Scalar(255, 0, 0));
+
+                        // 逐行绘制缺陷信息（统一用 drawMat）
+                        for (int i = 0; i < realDefects.Count; i++)
+                        {
+                            var d = realDefects[i];
+                            int y = startY + (i + 1) * lineHeight;
+
+                            string line = $"{i + 1}. {d.Name,-10} {d.Score,-8:F3} {d.Width,-10:F3} {d.Height,-10:F3} {d.Area,-10:F3}";
+
+                            PutTextChinese(drawMat,
+                                line,
+                                new OpenCvSharp.Point(startX, y),
+                                1.6f, new Scalar(40, 40, 220));   // 深蓝色文字
+                        }
+                    }
+
+                    // 在左上角画大字 NG（调整位置为左侧，避免与列表重叠）
+                    Cv2.PutText(drawMat, "NG",
+                        new OpenCvSharp.Point(150, 180),
+                        HersheyFonts.HersheyComplex, 5.2,
+                        new Scalar(0, 0, 255), 12);
+
+                    // 保存绘制后的图像
                     if (IsSaveResultNG)
                     {
-                        SaveDetectionResult(imagePath, imageMat, finalResult, true);
-                        SaveDetectionResult1(imagePath, imageMat, finalResult, true);
+                        // 在保存前添加日志检查
+                        AddLog($"准备保存 NG 图：drawMat 尺寸 {drawMat.Width}x{drawMat.Height}，是否为空：{drawMat.Empty()}");
+
+                        SaveDetectionResult(imagePath, drawMat, finalResult, true);
+                        SaveDetectionResult1(imagePath, drawMat, finalResult, true);
                     }
                 }
                 #endregion
@@ -3854,58 +3940,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
-                var bitmapSource = mat.ToBitmapSource();
-
-                var drawingVisual = new DrawingVisual();
-                using (var drawingContext = drawingVisual.RenderOpen())
+                // 将 Mat 转为 Bitmap
+                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(mat))
+                using (var g = Graphics.FromImage(bitmap))
                 {
-                    // 绘制原始图像
-                    drawingContext.DrawImage(bitmapSource, new System.Windows.Rect(0, 0, mat.Width, mat.Height));
+                    // 设置高质量绘图模式，防止锯齿
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-                    // 设置文本格式
-                    var brush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                        255,
-                        (byte)color.Val2,  // OpenCV BGR -> WPF RGB
-                        (byte)color.Val1,
-                        (byte)color.Val0
-                    ));
+                    // 将 OpenCV 的 BGR 颜色转换为 System.Drawing 的 RGB 颜色
+                    System.Drawing.Color brushColor = System.Drawing.Color.FromArgb(255, (int)color.Val2, (int)color.Val1, (int)color.Val0);
 
-                    // 创建字体
+                    // 定义中文字体 (例如微软雅黑)，字体大小需根据图片分辨率调整
+                    // 假设 fontSize 1.0 对应 32px 字体
                     float emSize = fontSize * 32;
-                    var typeface = new System.Windows.Media.Typeface(new System.Windows.Media.FontFamily("Microsoft YaHei"),
-                                               System.Windows.FontStyles.Normal,
-                                               System.Windows.FontWeights.Bold,
-                                               System.Windows.FontStretches.Normal);
+                    using (Font font = new Font("Microsoft YaHei", emSize, System.Drawing.FontStyle.Bold))
+                    using (SolidBrush brush = new SolidBrush(brushColor))
+                    {
+                        g.DrawString(text, font, brush, new PointF(pos.X, pos.Y));
+                    }
 
-                    double pixelsPerDip = VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip;
-
-                    var formattedText = new FormattedText(
-                        text,
-                        System.Globalization.CultureInfo.CurrentCulture,
-                        FlowDirection.LeftToRight,
-                        typeface,
-                        emSize,
-                        brush,
-                        null,
-                        TextFormattingMode.Ideal
-                    );
-
-                    // 绘制文本
-                    drawingContext.DrawText(formattedText, new System.Windows.Point(pos.X, pos.Y));
+                    // 将绘制好的 Bitmap 转回 Mat 并覆盖原图
+                    using (var newMat = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap))
+                    {
+                        newMat.CopyTo(mat);
+                    }
                 }
-
-                // 渲染到 RenderTargetBitmap
-                var renderBitmap = new RenderTargetBitmap(
-                    mat.Width,
-                    mat.Height,
-                    96, 96,  // DPI
-                    PixelFormats.Pbgra32);
-                renderBitmap.Render(drawingVisual);
-
-                // 将 RenderTargetBitmap 转换回 Mat
-                var newMat = renderBitmap.ToMat();
-                newMat.CopyTo(mat);
-                newMat.Dispose();
             }
             catch (Exception ex)
             {
@@ -4310,24 +4370,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         isPolarityMatch = true;
                     }
                 }
-                //bool isCameraMatch = false;
-                //if (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4)
-                //{
-                //    isCameraMatch = true;
-                //}
-                //else
-                //{
-                //    if ((IsCamera1 && camera == "1") ||
-                //        (IsCamera2 && camera == "2") ||
-                //        (IsCamera3 && camera == "3") ||
-                //        (IsCamera4 && camera == "4"))
-                //    {
-                //        isCameraMatch = true;
-                //    }
-                //}
+                bool isCameraMatch = false;
+                if (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4)
+                {
+                    isCameraMatch = true;
+                }
+                else
+                {
+                    if ((IsCamera1 && camera == "1") ||
+                        (IsCamera2 && camera == "2") ||
+                        (IsCamera3 && camera == "3") ||
+                        (IsCamera4 && camera == "4"))
+                    {
+                        isCameraMatch = true;
+                    }
+                }
 
                 //加入筛选列表
-                if (isPolarityMatch)//&& isCameraMatch
+                if (isPolarityMatch && isCameraMatch)
                 {
                     filteredFiles.Add(filePath);
                 }
@@ -4350,14 +4410,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     // 遍历筛选后的文件列表
                     foreach (var filePath in filteredFiles)
                     {
                         if (token.IsCancellationRequested)
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
                                 double currentProgress = Math.Round(
                                     (double)_completedOfflineImageCount / totalCount * 100, 1);
@@ -4370,9 +4430,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         long startTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
                         if (!File.Exists(filePath))
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                            });
+                            await Application.Current.Dispatcher.InvokeAsync(() => { });
                             UpdateOfflineProgressAfterSingleImage();
                             continue;
                         }
@@ -4407,7 +4465,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             currentBatchCount++;
                             if (currentBatchCount % batchUpdateInterval == 0 || currentBatchCount == totalCount)
                             {
-                                Application.Current.Dispatcher.Invoke(() =>
+                                await Application.Current.Dispatcher.InvokeAsync(() =>
                                 {
                                     _fullDetectionDataList.Add(detectionData);
                                     UpdateDisplayDataList();
@@ -4422,7 +4480,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         }
                         catch (Exception ex)
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
                                 AddLog($"检测失败：{Path.GetFileName(filePath)}，原因：{ex.Message}");
                             });
@@ -4439,7 +4497,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
 
                     // 检测结束或终止后的最终进度更新
-                    Application.Current.Dispatcher.Invoke(() =>
+                    await Application.Current.Dispatcher.InvokeAsync(async () =>
                     {
                         CalculateDetectionStatistics();
                         _isDetecting = false;
@@ -4452,14 +4510,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         if (token.IsCancellationRequested)
                         {
                             OfflineProgressTip = $"检测已终止，已完成 {_completedOfflineImageCount}/{totalCount} 张（{finalProgress}%）"; OnDetectionCompleted(totalCount);
-                            GenerateOfflineFinalReport();
+                            OnDetectionCompleted(totalCount);
+                            await GenerateOfflineFinalReport();
                             AddLog($"检测已终止！已处理 {_completedOfflineImageCount}/{totalCount} 张图片");
                         }
                         else
                         {
                             OfflineProgressTip = "已完成100.0%，检测结束！";
                             OnDetectionCompleted(totalCount);
-                            GenerateOfflineFinalReport();
+                            await GenerateOfflineFinalReport();
                             AddLog($"批量检测完成！共处理 {totalCount} 张符合条件的图片");
                         }
                     });
@@ -4468,7 +4527,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             catch (OperationCanceledException)
             {
                 // 任务被取消时的处理
-                Application.Current.Dispatcher.Invoke(() =>
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     AddLog("检测已被用户取消");
                     _isDetecting = false;
@@ -4476,7 +4535,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
             catch (Exception ex)
             {
-                Application.Current.Dispatcher.Invoke(() =>
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     MessageBox.Show($"批量检测异常：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 });
@@ -6220,6 +6279,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathB", out var pathB))
                     SelectedMonitorFolderPathB = pathB?.ToString() ?? string.Empty;
 
+                if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledA", out var enableA)
+                    && bool.TryParse(enableA?.ToString(), out bool isEnabledA))
+                {
+                    // 赋值给属性会触发 Setter，自动执行 StartOnlineMonitoringA
+                    IsOnlineDetectionEnabledA = isEnabledA;
+                }
+
+                if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledB", out var enableB)
+                    && bool.TryParse(enableB?.ToString(), out bool isEnabledB))
+                {
+                    IsOnlineDetectionEnabledB = isEnabledB;
+                }
+
                 // 工位选择
                 // 4. 解析布尔类型配置：工位筛选规则（正极/负极）
                 // 双层校验：先取到值→再尝试解析为bool，避免类型不匹配导致的格式异常
@@ -6330,6 +6402,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     SelectedMonitorFolderPathA,
                     SelectedMonitorFolderPathB,
+                    IsOnlineDetectionEnabledA,
+                    IsOnlineDetectionEnabledB,
                     IsPositive,
                     IsNegative,
                     IsCamera1,
@@ -6345,7 +6419,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     TotalNeDetectionCount,
                     OKCount,
                     NGCount,
-                    OKRate,
+                    OKRate
                 };
 
                 // 2. 将匿名对象序列化为格式化的JSON字符串
@@ -7093,11 +7167,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
                 try
                 {
-                    AddLog($"[报表推送] 开始推送报表：{savePath}");
+                    AddLog($"[报表推送] 开始推送报表：{savePath}，当前暂停推送");
                     string combinedUserId = GetCombinedUserIdString();
                     //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
-                    var response = await _webApiClient.PushFileAsync(savePath);
-                    AddLog($"[报表推送成功] 报表已推送");
+
+                    //var response = await _webApiClient.PushFileAsync(savePath);
+                    //AddLog($"[报表推送成功] 报表已推送");
                 }
                 catch (Exception pushEx)
                 {
@@ -7159,19 +7234,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public ICommand DeleteRow { get; }
         public ICommand SaveData { get; }
 
-        // 表格数据源（私有字段+公有属性，避免递归）
-
-        /*ObservableCollection<T>：
-            这是 WPF、UWP、MAUI 等 XAML 框架中最常用的集合类型，继承自Collection<T>并实现了INotifyCollectionChanged和INotifyPropertyChanged接口。
-            核心特点：当集合中的元素发生添加、删除、修改、清空等操作时，会自动触发通知，让绑定的 UI（比如 DataGrid）实时更新显示，这也是它区别于普通List<T>的核心优势。
-          DefectParameter：
-            这是一个自定义的实体类（你项目中定义的），代表 “缺陷参数” 相关的数据模型，比如可能包含缺陷编号、类型、描述、检测时间等字段。*/
         public ObservableCollection<DefectParameter> DefectDataGrid { get; set; } = [];
 
         // 私有字段：存储选中项的实际值
-        private DefectParameter _selectedItem;
+        private DefectParameter? _selectedItem;
         // 公共属性：对外暴露选中项，供UI绑定
-        public DefectParameter SelectedItem
+        public DefectParameter? SelectedItem
         {
             // 取值器：返回私有字段的值
             get => _selectedItem;
@@ -7179,67 +7247,91 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             set => SetProperty(ref _selectedItem, value);
         }
 
-        // 权限控制实例（独立定义，避免同名冲突）
-        //private OverlapAuthority _overlapAuthority;
-        //public OverlapAuthority OverlapAuthority
-        //{
-        //    get => _overlapAuthority ?? (_overlapAuthority = new OverlapAuthority());
-        //    set { _overlapAuthority = value; OnPropertyChanged(); }
-        //}
-
-        private OverlapAuthority _overlapAuthority;
-        /// <summary>
-        /// 叠片检测页面权限控制对象（懒加载+属性变更通知）
-        /// </summary>
-        public OverlapAuthority OverlapAuthority
-        {
-            get => _overlapAuthority ?? (_overlapAuthority = new OverlapAuthority());
-            set => SetProperty(ref _overlapAuthority, value);
-        }
-
         private void LoadDefectInitialData()
         {
             try
             {
+                // 确保配置文件夹存在
+                Directory.CreateDirectory(ConfigFolder);
 
-                DefectDataGrid.Add(new DefectParameter { DefectName = "缺陷", Length = 5, Width = 20, Height = 5, Credibility = 0.3, IsEnable = true });
-                DefectDataGrid.Add(new DefectParameter { DefectName = "凹坑", Length = 6, Width = 15, Height = 6, Credibility = 0.35, IsEnable = true });
+                if (File.Exists(DefectFilePath))
+                {
+                    string json = File.ReadAllText(DefectFilePath);
+                    var list = JsonSerializer.Deserialize<List<DefectParameter>>(json);
+
+                    if (list != null)
+                    {
+                        foreach (var item in list)
+                        {
+                            // 重要：重新触发属性变更，确保 UI 能正确绑定
+                            item.DefectName = item.DefectName;   // 触发 PropertyChanged
+                                                                 // 或者直接使用 Add 并让集合通知
+                            DefectDataGrid.Add(item);
+                        }
+                        AddLog($"从 {DefectFilePath} 成功加载 {DefectDataGrid.Count} 条缺陷参数");
+                        return;
+                    }
+                }
+
+                // 文件不存在 或 解析失败 → 加载默认数据
+                AddLog("未找到缺陷参数配置文件，使用默认数据", CoreLogLevel.Info);
+
+                DefectDataGrid.Add(new DefectParameter
+                {
+                    DefectName = "缺陷",
+                    Credibility = 0.3,
+                    Width = 20,
+                    Height = 5, 
+                    Area = 100,
+                    IsEnable = true
+                });
+
+                DefectDataGrid.Add(new DefectParameter
+                {
+                    DefectName = "凹坑",
+                    Credibility = 0.35,
+                    Width = 15,
+                    Height = 6,
+                    Area = 100,
+                    IsEnable = true
+                });
+
+                // 可选：第一次运行时自动保存一次默认值
+                // OnSaveData("初始默认值");
+            }
+            catch (JsonException jex)
+            {
+                AddLog($"缺陷参数 JSON 格式错误：{jex.Message}", CoreLogLevel.Error);
+                MessageBox.Show("配置文件格式错误，将使用默认数据。", "加载失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+               
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"初始化缺陷数据失败：{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AddLog($"加载缺陷参数失败：{ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"读取配置文件失败：{ex.Message}\n将使用默认数据。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         /// <summary>
         /// 新增行（优化线程逻辑，避免UI干涉+空值校验强化）
         /// </summary>
-        private void OnAddRow(string parameter)
+        private void OnAddRow(string? parameter)
         {
             //强化空值校验：包含全空格的情况也直接返回
             if (string.IsNullOrWhiteSpace(parameter)) return;
+
             try
             {
                 //1.后台线程初始化新行数据（纯数据操作，不占用UI线程）
                 var newDefect = new DefectParameter
                 {
                     DefectName = "缺陷类别",
-                    Length = 0,
                     Width = 0,
                     Height = 0,
+                    Area = 0,
                     Credibility = 0,
                     IsEnable = false
                 };
-
-                ////2.创建5秒超时令牌，避免UI线程卡死导致永久阻塞
-                //using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
-                //{
-                //    //3.异步执行UI更新（替代同步Invoke，不阻塞调用线程）
-                //    await Application.Current.Dispatcher.InvokeAsync(() =>
-                //    {
-                //        DefectDataGrid.Add(newDefect);
-                //    }, System.Windows.Threading.DispatcherPriority.Normal, cts.Token);
-                //}
 
                 RunOnUIThread(() =>
                 {
@@ -7257,36 +7349,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 删除行（防空引用）
         /// </summary>
-        private void OnDeleteRow(DefectParameter item)
+        private void OnDeleteRow(DefectParameter? item)
         {
             // 强化前置校验：覆盖所有无效场景
             if (item == null || DefectDataGrid == null || !DefectDataGrid.Contains(item))
             {
-                // 可选：调试时输出日志，生产环境可注释
-                CurrentLog = $"删除行失败：无效的删除项（{item?.DefectName ?? "空项"}）";
+                AddLog($"删除行失败：无效的删除项（{item?.DefectName ?? "空项"}）",CoreLogLevel.Warn) ;
                 return;
             }
             try
             {
-                //// 1. 创建5秒超时令牌，防止UI线程卡死导致永久阻塞
-                //using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
-                //{
-                //    // 2. 异步执行UI删除操作（替代同步Invoke，不阻塞调用线程）
-                //    await Application.Current.Dispatcher.InvokeAsync(() =>
-                //    {
-                //        // 先移除数据行
-                //        DefectDataGrid.Remove(item);
-
-                //        // 优化：清空选中项（避免UI绑定到已删除的对象导致异常）
-                //        if (SelectedItem == item)
-                //        {
-                //            SelectedItem = null;
-                //        }
-                //    }, System.Windows.Threading.DispatcherPriority.Normal, cts.Token);
-
-                //    // 可选：删除成功日志
-                //    CurrentLog = $"成功删除缺陷项：{item.DefectName}";
-                //}
 
                 RunOnUIThread(() =>
                 {
@@ -7298,6 +7370,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         SelectedItem = null;
                     }
                 });
+                AddLog($"删除行成功：{item.DefectName}");
             }
             catch (Exception ex)
             {
@@ -7310,16 +7383,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 保存数据（适配项目框架）
         /// </summary>
-        private void OnSaveData(string parameter)
+        private void OnSaveData(string? parameter)
         {
             try
             {
-                // 可替换为项目实际保存逻辑（如写入配置文件/数据库）
-                MessageBox.Show($"[{parameter}工位] 参数已保存！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                // 确保文件夹存在
+                Directory.CreateDirectory(ConfigFolder);
+
+                // 序列化时可以选择忽略默认值、Null值等（视需求）
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,                    // 美化格式，便于人工查看
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    // NumberHandling = JsonNumberHandling.AllowReadingFromString,  // 如果前端可能传字符串数字
+                };
+
+                string json = JsonSerializer.Serialize(DefectDataGrid.ToList(), options);
+
+                File.WriteAllText(DefectFilePath, json);
+
+                string msg = $"[{parameter ?? "未知"}] 工位缺陷参数保存成功\n共 {DefectDataGrid.Count} 条记录";
+                AddLog(msg);
+                MessageBox.Show(msg, "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存参数失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                string err = $"保存缺陷参数失败：{ex.Message}";
+                AddLog(err, CoreLogLevel.Error);
+                MessageBox.Show(err, "保存失败", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         #endregion

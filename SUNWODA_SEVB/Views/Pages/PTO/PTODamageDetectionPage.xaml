@@ -932,7 +932,7 @@
                                             CommandParameter="B"
                                             Content="行增加"
                                             FontSize="14"
-                                            IsEnabled="{Binding OverlapAuthority.StandardAuthorityButton}" />
+                                            IsEnabled="{Binding IsEditAllowed}" />
                                         <!--  行删除按钮  -->
                                         <Button
                                             Width="76"
@@ -943,7 +943,7 @@
                                             CommandParameter="{Binding SelectedItem, ElementName=DataGrid}"
                                             Content="行删除"
                                             FontSize="14"
-                                            IsEnabled="{Binding OverlapAuthority.StandardAuthorityButton}" />
+                                            IsEnabled="{Binding IsEditAllowed}" />
                                         <!--  保存按钮  -->
                                         <Button
                                             Width="76"
@@ -954,21 +954,9 @@
                                             CommandParameter="B"
                                             Content="保存"
                                             FontSize="14"
-                                            IsEnabled="{Binding OverlapAuthority.StandardAuthorityButton}" />
+                                            IsEnabled="{Binding IsEditAllowed}" />
                                     </StackPanel>
-                                    <!--  管控参数DataGrid（核心表格）  -->
-                                    <!--
-                                        IsReadOnly="{Binding OverlapAuthority.NoEditableByAdministrator}"：
-                                        当NoEditableByAdministrator=True时，整个 DataGrid 只读（所有单元格无法编辑）；
-                                        当NoEditableByAdministrator=False时，可编辑（但 “启用” 列的复选框因IsEnabled=False仍无法操作）。
-                                    -->
-                                    <!--
-                                        ItemsSource="{Binding DefectDataGrid}"核心含义
-                                        这是 DataGrid 的数据源绑定，作用是将 ViewModel 中的缺陷数据集合绑定到 DataGrid，作为显示的数据源，是 DataGrid 能显示数据的核心配置。
-                                    -->
-                                    <!--  当DefectDataGrid集合中添加 / 删除 / 修改元素时（因为是ObservableCollection），DataGrid 会自动刷新显示  -->
-                                    <!--  DataGrid 的每一列通过Binding="{Binding DefectName}"等语法，映射到DefectParameter的单个属性。  -->
-                                    <!--集合类型选择：必须用ObservableCollection<T>（而非List<T>），因为只有ObservableCollection会触发集合变更通知，DataGrid 才能实时响应数据的增删；-->
+
                                     <DataGrid
                                         x:Name="DataGrid"
                                         VerticalAlignment="Stretch"
@@ -976,7 +964,7 @@
                                         Background="GhostWhite"
                                         CanUserAddRows="False"
                                         HeadersVisibility="All"
-                                        IsReadOnly="{Binding OverlapAuthority.NoEditableByAdministrator}"
+                                        IsReadOnly="{Binding IsParamGridReadOnly}"
                                         ItemsSource="{Binding DefectDataGrid}"
                                         RowHeaderWidth="0"
                                         RowHeight="40"
@@ -1007,22 +995,16 @@
                                                 <Setter Property="VerticalAlignment" Value="Center" />
                                                 <Setter Property="HorizontalAlignment" Value="Center" />
                                             </Style>
+
                                         </DataGrid.Resources>
 
                                         <!--  DataGrid列定义  -->
                                         <DataGrid.Columns>
                                             <!--  1. 缺陷类别列  -->
-                                            <!--
-                                                ElementStyle：单元格非编辑状态下的样式（显示为 TextBlock/CheckBox）；
-                                                EditingElementStyle：单元格进入编辑状态后的样式（显示为 TextBox）；
-                                            -->
-                                            <!--
-                                                CellStyle="{DynamicResource InputElementBaseStyle}"：动态资源（运行时可更新，适合全局样式调整）；
-                                                ElementStyle="{StaticResource TextBlockSubTitle}"：静态资源（编译时加载，性能更高，适合固定样式）。
-                                            -->
+
 
                                             <DataGridTextColumn
-                                                Width="auto"
+                                                Width="2*"
                                                 Binding="{Binding DefectName}"
                                                 CanUserResize="False"
                                                 CellStyle="{DynamicResource InputElementBaseStyle}"
@@ -1038,14 +1020,15 @@
                                                 </DataGridTextColumn.EditingElementStyle>
                                             </DataGridTextColumn>
 
-                                            <!--  2. 长度列（mm）  -->
+
+                                            <!--  2. 置信度列  -->
                                             <DataGridTextColumn
-                                                Width="auto"
-                                                Binding="{Binding Length}"
+                                                Width="1.2*"
+                                                Binding="{Binding Credibility}"
                                                 CanUserResize="False"
                                                 CellStyle="{DynamicResource InputElementBaseStyle}"
                                                 ElementStyle="{StaticResource TextBlockSubTitle}"
-                                                Header="长">
+                                                Header="置信度">
                                                 <DataGridTextColumn.EditingElementStyle>
                                                     <Style TargetType="{x:Type TextBox}">
                                                         <Setter Property="FontSize" Value="14" />
@@ -1058,7 +1041,7 @@
 
                                             <!--  3. 宽度列（mm）  -->
                                             <DataGridTextColumn
-                                                Width="auto"
+                                                Width="*"
                                                 Binding="{Binding Width}"
                                                 CanUserResize="False"
                                                 CellStyle="{DynamicResource InputElementBaseStyle}"
@@ -1076,7 +1059,7 @@
 
                                             <!--  4. 高度列（mm）  -->
                                             <DataGridTextColumn
-                                                Width="auto"
+                                                Width="*"
                                                 Binding="{Binding Height}"
                                                 CanUserResize="False"
                                                 CellStyle="{DynamicResource InputElementBaseStyle}"
@@ -1094,7 +1077,7 @@
 
                                             <!--  5. 面积列（mm²）  -->
                                             <DataGridTextColumn
-                                                Width="auto"
+                                                Width="*"
                                                 Binding="{Binding Area}"
                                                 CanUserResize="False"
                                                 CellStyle="{DynamicResource InputElementBaseStyle}"
@@ -1110,41 +1093,50 @@
                                                 </DataGridTextColumn.EditingElementStyle>
                                             </DataGridTextColumn>
 
-                                            <!--  6. 置信度列  -->
-                                            <DataGridTextColumn
-                                                Width="auto"
-                                                Binding="{Binding Credibility}"
-                                                CanUserResize="False"
-                                                CellStyle="{DynamicResource InputElementBaseStyle}"
-                                                ElementStyle="{StaticResource TextBlockSubTitle}"
-                                                Header="置信度">
-                                                <DataGridTextColumn.EditingElementStyle>
-                                                    <Style TargetType="{x:Type TextBox}">
-                                                        <Setter Property="FontSize" Value="14" />
-                                                        <Setter Property="VerticalContentAlignment" Value="Center" />
-                                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                                        <Setter Property="BorderThickness" Value="0,0,0,2" />
-                                                    </Style>
-                                                </DataGridTextColumn.EditingElementStyle>
-                                            </DataGridTextColumn>
 
-                                            <!--  7. 是否启用（开关）  -->
-                                            <DataGridCheckBoxColumn
-                                                Width="auto"
-                                                Binding="{Binding IsEnable}"
+
+                                            <!--  6. 是否启用（开关）  -->
+                                            <DataGridTemplateColumn
+                                                Width="*"
                                                 CanUserResize="False"
                                                 CellStyle="{DynamicResource InputElementBaseStyle}"
                                                 Header="启用">
-                                                <DataGridCheckBoxColumn.ElementStyle>
-                                                    <Style TargetType="{x:Type CheckBox}">
-                                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                                        <Setter Property="VerticalContentAlignment" Value="Center" />
-                                                        <Setter Property="HorizontalAlignment" Value="Center" />
-                                                        <Setter Property="IsEnabled" Value="False" />
-                                                    </Style>
-                                                </DataGridCheckBoxColumn.ElementStyle>
-                                            </DataGridCheckBoxColumn>
 
+                                                <!--  1. 显示模板 (CellTemplate)：对应文本列的 ElementStyle  -->
+                                                <!--  负责在非编辑状态下显示数据  -->
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Grid>
+                                                            <!--
+                                                                IsHitTestVisible="False": 禁止鼠标直接点击勾选（需要进入编辑模式），
+                                                                这样行为就和文本列一样（单击选中行，双击编辑）。
+                                                                同时保持控件原色（不是灰色），视觉上和黑色文本更协调。
+                                                            -->
+                                                            <CheckBox
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                Focusable="False"
+                                                                IsChecked="{Binding IsEnable, Mode=OneWay}"
+                                                                IsHitTestVisible="False" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+
+                                                <!--  2. 编辑模板 (CellEditingTemplate)：对应文本列的 EditingElementStyle  -->
+                                                <!--  负责在编辑状态下（双击单元格后）修改数据  -->
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <Grid>
+                                                            <!--  编辑模式下启用交互，绑定模式设为 TwoWay  -->
+                                                            <CheckBox
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                IsChecked="{Binding IsEnable, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+
+                                            </DataGridTemplateColumn>
                                         </DataGrid.Columns>
                                     </DataGrid>
 

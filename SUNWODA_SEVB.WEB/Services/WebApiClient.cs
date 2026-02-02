@@ -181,7 +181,7 @@ namespace SUNWODA_SEVB.WEB.Services
         public async Task<MachineErrorResponse> SendMachineErrorAlertAsync(
             string deviceId,
             string info,
-            string state,
+            string state="1",
             string type = "WX",
             string projectName = "",
             string level = "10")

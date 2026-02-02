@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using HandyControl.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using SUNWODA_SEVB.Component.UserControls;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -58,6 +59,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
         private string? _curveDataDirectory;
 
+        private string? DeviceId;
+
+        private bool _autoStartServer = false;
         //容器尺寸
         private double _containerWidth;
         private double _containerHeight;
@@ -277,11 +281,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             {
                 await LoadProcessesAsync();//工序配置
                 await LoadScrewControllerSettingsAsync();//螺丝枪控制器配置
+                await LoadAutoStartSettingAsync();
+
+                if (_autoStartServer)
+                {
+                    await StartServerAsync();
+                }
 
                 _initializedView = true;
             }
 
             await base.OnNavigatedToAsync(parameter);
+        }
+
+        /// <summary>
+        /// 加载自动启动配置
+        /// </summary>
+        private async Task LoadAutoStartSettingAsync()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+                var autoStartSetting = await projectSettingRepo.GetByNameAndVMAsync("AutoStartServer", VM_NAME);
+
+                if (autoStartSetting != null && bool.TryParse(autoStartSetting.Value, out bool autoStart))
+                {
+                    _autoStartServer = autoStart;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWarn($"加载自动启动配置失败,使用默认值: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -293,7 +325,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             {
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
-
+                DeviceId = await projectSettingRepo.GetSettingValueAsync("DeviceId", VM_NAME) as string;
                 // 获取工序配置JSON
                 var processConfigJson = await projectSettingRepo.GetByNameAndVMAsync("ProcessList", "ConConectorInstaller");
 
@@ -704,7 +736,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 var tightenGunGroups = IdentifyTightenGuns(data.TestData);
                 if (tightenGunGroups.Count == 0)
                 {
-                    LogWarn("未识别到有效的螺丝枪数据");
+                    string info = $"Pack包：{data.ProductSn}未识别到有效的螺丝枪数据，按照默认螺丝枪处理";
+                    LogWarn(info);
+                    Growl.Warning(info);
+                    await _webApiClient.SendMachineErrorAlertAsync(DeviceId!, info, "TEST");
                     return;
                 }
                 LogInfo($"识别到 {tightenGunGroups.Count} 把螺丝枪: {string.Join(", ", tightenGunGroups.Keys)}");
@@ -726,9 +761,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     LogWarn("按螺丝分组后无有效数据");
                     return;
                 }
+                else
+                {
+                    LogInfo($"Pack包：{data.ProductSn}获取的螺丝曲线数量为{groupedBySort.Count}");
+                }
 
-                // Step 4: 处理每个螺丝
-                var processTasks = new List<Task>();
+                    // Step 4: 处理每个螺丝
+                    var processTasks = new List<Task>();
                 var semaphore = new SemaphoreSlim(1); // 限制并发数为1
 
                 foreach (var group in groupedBySort)
@@ -1611,6 +1650,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             {
                 OkPlotDataSeries.Clear();
                 NgPlotDataSeries.Clear();
+                CurrentPackCode = string.Empty;
             });
             LogInfo("已清空所有曲线");
         }
@@ -1730,13 +1770,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         {
             try
             {
+                string? filePath = null;
                 // 创建文件选择对话框
                 var openFileDialog = new Microsoft.Win32.OpenFileDialog
                 {
                     Title = "选择CSV曲线数据文件",
                     Filter = "CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
-                    InitialDirectory = _curveDataDirectory ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                    Multiselect = false
+                    Multiselect = false,
+                    RestoreDirectory = true,
                 };
 
                 var result = openFileDialog.ShowDialog();
@@ -1745,7 +1786,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     return;
                 }
 
-                var filePath = openFileDialog.FileName;
+                filePath = openFileDialog.FileName;
+              
+
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    LogWarn("获取文件路径为空，未选择任何文件");
+                    return;
+                }
+
+
                 LogInfo($"开始加载CSV文件: {filePath}");
 
                 IsLoadingCurveData = true;
@@ -1814,7 +1864,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             catch (Exception ex)
             {
                 LogError($"加载CSV文件失败: {ex.Message}");
-                HandyControl.Controls.Growl.Error($"加载失败: {ex.Message}");
+                Growl.Error($"加载失败: {ex.Message}");
             }
             finally
             {
@@ -1829,16 +1879,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         {
             return await Task.Run(() =>
             {
+                var records = new List<ScrewCurveRecord>();
+
                 try
                 {
+                    if (!File.Exists(filePath))
+                    {
+                        LogError($"文件不存在: {filePath}");
+                        return records;
+                    }
+
                     using var reader = new StreamReader(filePath, Encoding.UTF8);
                     using var csv = new CsvHelper.CsvReader(reader, new CsvHelper.Configuration.CsvConfiguration(
                         System.Globalization.CultureInfo.InvariantCulture)
                     {
                         HasHeaderRecord = true,
                         MissingFieldFound = null,
-                        BadDataFound = null
+                        BadDataFound = null,
+                        HeaderValidated = null,
+                        TrimOptions = CsvHelper.Configuration.TrimOptions.Trim
                     });
+
+                    if (csv == null)
+                    {
+                        LogError("CSV Reader 初始化失败");
+                        return records;
+                    }
 
                     // 读取表头
                     csv.Read();
@@ -1848,47 +1914,77 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     if (headers == null || headers.Length == 0)
                     {
                         LogWarn("CSV文件表头为空");
-                        return new List<ScrewCurveRecord>();
+                        return records;
                     }
 
-                    var records = new List<ScrewCurveRecord>();
+                    LogInfo($"CSV表头列数: {headers.Length}");
 
-                    // 读取数据行
-                    while (csv.Read())
+                    // 提取所有螺丝索引
+                    var screwIndices = new HashSet<int>();
+                    foreach (var header in headers)
                     {
-                        var pointIndex = csv.GetField<int>("PointIndex");
-                        var recordTime = csv.GetField<DateTime>("RecordTime");
-
-                        // 遍历所有螺丝列
-                        foreach (var header in headers)
+                        if (header.StartsWith("Screw") && header.Contains("_"))
                         {
-                            if (!header.StartsWith("Screw")) continue;
-
                             var parts = header.Split('_');
-                            if (parts.Length < 2) continue;
-
-                            var screwPrefix = parts[0]; // 如 "Screw1"
-                            var field = parts[1];       // 如 "Angle", "Torque"
-
-                            // 提取螺丝索引
+                            var screwPrefix = parts[0];
                             var screwIndexStr = screwPrefix.Replace("Screw", "");
-                            if (!int.TryParse(screwIndexStr, out var screwIndex)) continue;
 
-                            // 只在读取到Torque字段时创建记录
-                            if (field == "Torque")
+                            if (int.TryParse(screwIndexStr, out var screwIndex))
                             {
-                                var torque = csv.GetField<double>($"{screwPrefix}_Torque");
-                                var angle = csv.GetField<double>($"{screwPrefix}_Angle");
-                                var label = csv.GetField<string>($"{screwPrefix}_Label");
-                                var gun = csv.GetField<string>($"{screwPrefix}_Gun");
-                                var isOk = csv.GetField<bool>($"{screwPrefix}_IsOk");
+                                screwIndices.Add(screwIndex);
+                            }
+                        }
+                    }
 
-                                // 可选字段
-                                var current = csv.TryGetField<double?>($"{screwPrefix}_Current", out var curr) ? curr : null;
-                                var torqueLower = csv.TryGetField<double?>($"{screwPrefix}_TorqueLower", out var tl) ? tl : null;
-                                var torqueUpper = csv.TryGetField<double?>($"{screwPrefix}_TorqueUpper", out var tu) ? tu : null;
-                                var angleLower = csv.TryGetField<double?>($"{screwPrefix}_AngleLower", out var al) ? al : null;
-                                var angleUpper = csv.TryGetField<double?>($"{screwPrefix}_AngleUpper", out var au) ? au : null;
+                    LogInfo($"检测到 {screwIndices.Count} 个螺丝列");
+
+                    int rowIndex = 0;
+                    // 读取数据行
+                    while (csv!.Read())
+                    {
+                        rowIndex++;
+
+                        try
+                        {
+                            if (!TryGetRequiredField(csv, "PointIndex", rowIndex, out int pointIndex))
+                            {
+                                continue;
+                            }
+
+                            if (!TryGetRequiredField(csv, "RecordTime", rowIndex, out DateTime recordTime))
+                            {
+                                continue;
+                            }
+
+                            // 遍历每个螺丝
+                            foreach (var screwIndex in screwIndices)
+                            {
+                                var screwPrefix = $"Screw{screwIndex}";
+
+                                // 检查必要字段是否存在
+                                if (csv?.Context?.Reader?.HeaderRecord == null ||!csv.Context.Reader.HeaderRecord.Contains($"{screwPrefix}_Torque"))
+                                {
+                                    continue;
+                                }
+
+                                if (!TryGetRequiredField(csv, $"{screwPrefix}_Torque", rowIndex, out double torque) ||!TryGetRequiredField(csv, $"{screwPrefix}_Angle", rowIndex, out double angle))
+                                {
+                                    continue;
+                                }
+
+                                // 读取可选字段
+                                var label = TryGetOptionalField<string>(csv, $"{screwPrefix}_Label")?? $"螺丝 #{screwIndex}";
+                                var gun = TryGetOptionalField<string>(csv, $"{screwPrefix}_Gun")?? "未知";
+                                var isOk = TryGetOptionalBoolField(csv, $"{screwPrefix}_IsOk", defaultValue: true);
+
+
+                                // 🔧 修改：使用SafeGetNullableField读取可空字段
+                                var current = TryGetNullableField<double>(csv, $"{screwPrefix}_Current", rowIndex);
+                                var torqueLower = TryGetNullableField<double>(csv, $"{screwPrefix}_TorqueLower", rowIndex);
+                                var torqueUpper = TryGetNullableField<double>(csv, $"{screwPrefix}_TorqueUpper", rowIndex);
+                                var angleLower = TryGetNullableField<double>(csv, $"{screwPrefix}_AngleLower", rowIndex);
+                                var angleUpper = TryGetNullableField<double>(csv, $"{screwPrefix}_AngleUpper", rowIndex);
+
 
                                 records.Add(new ScrewCurveRecord
                                 {
@@ -1908,17 +2004,177 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                                 });
                             }
                         }
+                        catch (Exception rowEx)
+                        {
+                            LogWarn($"第 {rowIndex} 行数据解析失败: {rowEx.Message}");
+                            continue;
+                        }
                     }
 
+                    LogInfo($"成功解析 {records.Count} 条曲线记录");
                     return records;
                 }
                 catch (Exception ex)
                 {
-                    LogError($"读取CSV文件异常: {ex.Message}");
-                    return new List<ScrewCurveRecord>();
+                    LogError($"读取CSV文件异常: {ex.Message}\n{ex.StackTrace}");
+                    return records;
                 }
             });
         }
+
+        /// <summary>
+        /// 🆕 尝试获取必填字段（返回bool表示是否成功）
+        /// </summary>
+        private bool TryGetRequiredField<T>(CsvHelper.CsvReader csv, string fieldName, int rowIndex, out T value)
+        {
+            value = default!;
+
+            try
+            {
+                // 检查表头
+                if (csv?.Context?.Reader?.HeaderRecord == null || !csv.Context.Reader.HeaderRecord.Contains(fieldName))
+                {
+                    LogWarn($"第 {rowIndex} 行缺少字段 '{fieldName}'");
+                    return false;
+                }
+
+                // 获取原始值
+                var rawValue = csv.GetField(fieldName);
+
+                // 空值检查
+                if (string.IsNullOrWhiteSpace(rawValue))
+                {
+                    LogWarn($"第 {rowIndex} 行字段 '{fieldName}' 为空");
+                    return false;
+                }
+
+                // 尝试转换
+                value = csv.GetField<T>(fieldName)!;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogWarn($"第 {rowIndex} 行字段 '{fieldName}' 读取失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 尝试获取可选字段（返回默认值）
+        /// </summary>
+        private T? TryGetOptionalField<T>(CsvHelper.CsvReader csv, string fieldName)
+        {
+            try
+            {
+                // 检查表头
+                if (csv?.Context?.Reader?.HeaderRecord == null || !csv.Context.Reader.HeaderRecord.Contains(fieldName))
+                {
+                    return default;
+                }
+
+                // 获取原始值
+                var rawValue = csv.GetField(fieldName);
+
+                // 空值返回默认值
+                if (string.IsNullOrWhiteSpace(rawValue))
+                {
+                    return default;
+                }
+
+                return csv.GetField<T>(fieldName);
+            }
+            catch
+            {
+                return default;
+            }
+        }
+
+        /// <summary>
+        /// 读取可选的 bool 字段
+        /// </summary>
+        private bool TryGetOptionalBoolField(CsvHelper.CsvReader csv, string fieldName, bool defaultValue = true)
+        {
+            try
+            {
+                // 空引用检查
+                if (csv?.Context?.Reader?.HeaderRecord == null ||
+                    !csv.Context.Reader.HeaderRecord.Contains(fieldName))
+                {
+                    return defaultValue;
+                }
+
+                var rawValue = csv.GetField(fieldName);
+
+                // 空值返回默认值
+                if (string.IsNullOrWhiteSpace(rawValue))
+                {
+                    return defaultValue;
+                }
+
+                // 尝试解析为 bool
+                if (bool.TryParse(rawValue, out var boolValue))
+                {
+                    return boolValue;
+                }
+
+                // 支持 "TRUE"/"FALSE" 字符串
+                if (string.Equals(rawValue, "TRUE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (string.Equals(rawValue, "FALSE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+
+
+        /// <summary>
+        /// 尝试获取可空数值字段
+        /// </summary>
+        private double? TryGetNullableField<T>(CsvHelper.CsvReader csv, string fieldName, int rowIndex) where T : struct
+        {
+            try
+            {
+                // 检查表头
+                if (csv?.Context?.Reader?.HeaderRecord == null || !csv.Context.Reader.HeaderRecord.Contains(fieldName))
+                {
+                    return null;
+                }
+
+                // 获取原始值
+                var rawValue = csv.GetField(fieldName);
+
+                // 空值或空字符串返回null
+                if (string.IsNullOrWhiteSpace(rawValue))
+                {
+                    return null;
+                }
+
+                // 尝试解析为double
+                if (double.TryParse(rawValue, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var doubleValue))
+                {
+                    return doubleValue;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
 
         #endregion
 

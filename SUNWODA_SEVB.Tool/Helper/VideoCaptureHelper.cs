@@ -165,42 +165,40 @@ namespace SUNWODA_SEVB.Tool.Helper
             var t = Task.Factory.StartNew(async (obj) =>
             {
                 var _action = obj as OnReadingFrame;
-                using (var frame = new Mat())
+                using var frame = new Mat();
+                while (!isRelease)
                 {
-                    while (!isRelease)
+                    try
                     {
-                        try
-                        {
-                            // 若取消则退出
-                            if (ct.IsCancellationRequested) break;
+                        // 若取消则退出
+                        if (ct.IsCancellationRequested) break;
 
-                            lock (lockObj)
+                        lock (lockObj)
+                        {
+                            // 摄像头未打开
+                            if ((videoCapture?.IsDisposed ?? true) || !(videoCapture?.IsOpened() ?? false))
                             {
-                                // 摄像头未打开
-                                if ((videoCapture?.IsDisposed ?? true) || !(videoCapture?.IsOpened() ?? false))
-                                {
-                                    _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]打开失败，等待重连！");
-                                    Task.Delay(5000);
-                                    continue;
-                                }
-                                // 读取视频帧
-                                if (!videoCapture.Read(frame) || frame.Empty())
-                                {
-                                    _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]读取视频帧失败！");
-                                    continue;
-                                }
+                                _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]打开失败，等待重连！");
+                                Task.Delay(5000);
+                                continue;
                             }
-                            // 执行委托
-                            _action?.Invoke(frame.Clone());
+                            // 读取视频帧
+                            if (!videoCapture.Read(frame) || frame.Empty())
+                            {
+                                _logger.Error($"相机[{Name} connectStrings:{rtspUrl}]读取视频帧失败！");
+                                continue;
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            _logger.Error(ex.Message);
-                        }
-                        finally
-                        {
-                            await Task.Delay(1);
-                        }
+                        // 执行委托
+                        _action?.Invoke(frame.Clone());
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex.Message);
+                    }
+                    finally
+                    {
+                        await Task.Delay(1);
                     }
                 }
             }, executeFreame, ct);

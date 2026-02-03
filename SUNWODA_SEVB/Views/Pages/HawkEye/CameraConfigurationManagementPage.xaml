@@ -343,6 +343,17 @@
                                     BorderBrush="#3355FF"
                                     BorderThickness="1">
 
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RealTimeDisplay}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+
                                     <ScrollViewer
                                         PreviewMouseLeftButtonDown="OnMouseDown"
                                         PreviewMouseLeftButtonUp="OnMouseUp"

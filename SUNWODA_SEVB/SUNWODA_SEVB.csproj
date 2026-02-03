@@ -132,8 +132,8 @@
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
     </Reference>
-    <Reference Include="TrajectoryDiagnosisLib">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\TrajectoryDiagnosisLib.dll</HintPath>
+    <Reference Include="MyCustomTrajectoryDiagnosisLib">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\MyCustomTrajectoryDiagnosisLib.dll</HintPath>
     </Reference>
     <Reference Include="UIAutoMonitorCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>

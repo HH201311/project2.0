@@ -47,10 +47,4 @@
   <ItemGroup>
     <ProjectReference Include="..\SUNWODA_SEVB.Core\SUNWODA_SEVB.Core.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Animations\" />
-    <Folder Include="Behaviors\" />
-    <Folder Include="Selectors\" />
-  </ItemGroup>
 </Project>

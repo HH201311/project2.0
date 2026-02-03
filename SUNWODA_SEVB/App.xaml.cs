@@ -321,9 +321,7 @@ namespace SUNWODA_SEVB
                     var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
 
                     // 确保当前用户设置
-                    var currentUser = await globalSettingRepo.GetSettingValueAsync(
-                        "CurrentUserAccount"
-                    );
+                    var currentUser = await globalSettingRepo.GetSettingValueAsync( "CurrentUserAccount");
                     if (currentUser != "guest")
                     {
                         await globalSettingRepo.UpdateSettingValueAsync("CurrentUserAccount", "guest");

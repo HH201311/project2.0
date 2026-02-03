@@ -95,6 +95,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.STC
                 if (SetProperty(ref _status, value))
                 {
                     OnPropertyChanged(nameof(StatusColor));
+                    OnPropertyChanged(nameof(TooltipText));
                 }
             }
         }
@@ -104,7 +105,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.STC
         public double? TorqueValue
         {
             get => _torqueValue;
-            set => SetProperty(ref _torqueValue, value);
+            set
+            {
+                if (SetProperty(ref _torqueValue, value))
+                {
+                    // 扭矩变化时通知 TooltipText 更新
+                    OnPropertyChanged(nameof(TooltipText));
+                }
+            }
         }
         /// 角度值
         [JsonIgnore]

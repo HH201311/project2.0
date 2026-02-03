@@ -1,17 +1,18 @@
-﻿using System.Collections.ObjectModel;
-using System.Windows.Input;
-using System.Windows.Media;
-using HandyControl.Controls;
+﻿using HandyControl.Controls;
 using HandyControl.Tools.Extension;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.ViewModels.Dialogs.Common;
+using System.Collections.ObjectModel;
+using System.Windows.Input;
+using System.Windows.Media;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.Common
 {
@@ -207,6 +208,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Common
                     "CurrentUserAccount",
                     user.UserAccount
                 );
+                UserStateChangedEvent.Raise(user.UserAccount);
                 _logger.Info($"{UserAccount} 在 {LastLoginTime:yyyy-MM-dd HH:mm:ss} 登录成功");
                 Growl.SuccessGlobal("登录成功");
             }
@@ -253,6 +255,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Common
             EditUserModel = null;
             UserList.Clear();
             await _globalSettingRepository.UpdateSettingValueAsync("CurrentUserAccount", "guest");
+            UserStateChangedEvent.Raise("guest");
             IsLoggedIn = false;
             Growl.SuccessGlobal("退出登录");
         }

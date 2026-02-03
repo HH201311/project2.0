@@ -1,76 +1,56 @@
-﻿extern alias halcondotnetxl;
-using Dm.filter;
-using Dm.util.Atomic;
+﻿using HalconDotNet;
 using HelixToolkit.Wpf;
-using iText.IO.Font.Constants;
 using iText.IO.Image;
 using iText.Kernel.Font;
 using iText.Kernel.Pdf;
 using iText.Layout;
-using iText.Layout.Borders;
-using iText.Layout.Element;
 using iText.Layout.Properties;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-//using Microsoft.WindowsAPICodePack.Dialogs;
-using NetTaste;
-using Newtonsoft.Json;
 using OpenCvSharp;
-using Org.BouncyCastle.Utilities;
-using OxyPlot;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations.Logging;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
-using SUNWODA_SEVB.Core.Models.Component;
-using SUNWODA_SEVB.Data.Models;
-using SUNWODA_SEVB.Tool.Extension;
+using SUNWODA_SEVB.Core.Models.Project.PTO;
 using SUNWODA_SEVB.Tool.Helper;
-using SUNWODA_SEVB.ViewModels.Pages.JRRY;
-using SUNWODA_SEVB.WEB.Services;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Dynamic;
+using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Security;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Media.Media3D;
 using Yolo8Core;
 using ZZYingYanAICore;
 using static Yolo8Core.BaseClass;
-using HObject = halcondotnetxl::HalconDotNet.HObject;
-using HOperatorSet = halcondotnetxl::HalconDotNet.HOperatorSet;
-using HTuple = halcondotnetxl::HalconDotNet.HTuple;
-
 
 namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 {
     [Module("VM_PTODamageDetectionPage", "PTO叠片 AI检测系统v1.0")]
-    class VM_PTODamageDetectionPage : ViewModelBase
+    public class VM_PTODamageDetectionPage : ViewModelBase
     {
 
-        private IPredictor? H246modle;
+        private IPredictor? H246Zhengmodle;
+        private IPredictor? H246Fumodle;
 
         // 文件选择命令
         public ICommand File_Button { get; private set; }
@@ -107,13 +87,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public ICommand SaveNegativeRoiCommand { get; }
         //查看绘制区域
         public ICommand ViewNegativeRoiCommand { get; }
+        // 选择正极绘制图片
+        public ICommand SelectPositiveRoiImageCommand { get; }
+        // 删除正极绘制区域
+        public ICommand DeletePositiveRoiCommand { get; }
+        // 保存正极绘制区域
+        public ICommand SavePositiveRoiCommand { get; }
+        // 查看正极绘制区域
+        public ICommand ViewPositiveRoiCommand { get; }         
+
         //取消绘制
         public ICommand CancelDrawRoiCommand { get; }
         // 鼠标按下命令（开始拖动）
         public ICommand ImageMouseDownCommand { get; }
         // 鼠标移动命令
         public ICommand ImageMouseMoveCommand { get; }
-        // 鼠标松开命令（
+        // 鼠标松开命令
         public ICommand ImageMouseUpCommand { get; }
 
         // 定义CSV操作的线程锁
@@ -153,7 +142,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         // 报表设置相关属性
         // 配置文件路径
-        private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "PushUserIdConfig.json");
+        //private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "PushUserIdConfig.json");
+        private readonly ILoggerService<VM_PTODamageDetectionPage> _logger;
+        private readonly IServiceProvider _serviceProvider;
+
+
+
+
 
         // 输入的新UserID
         private string _newUserId = string.Empty;
@@ -232,7 +227,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
             }
         }
+
         private int _reportTimeoutMinutes = 30;
+
         // 存储NG图片及参数的实体类
         public class NgImageInfo
         {
@@ -259,6 +256,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isOfflineDetectionCompleted = false; //标记离线检测是否已完成
         public event Action<string, string, DateTime>? OnNgImageDetected;
 
+        // 缺陷配置文件路径
+        private static readonly string ConfigFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+        private static readonly string DefectFilePath = Path.Combine(ConfigFolder, "DefectParameters.json");
+
         // 增减命令
         public ICommand IncrementMaxImagesCommand { get; }
         public ICommand DecrementMaxImagesCommand { get; }
@@ -271,7 +272,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         // A工位监控器
         private FileSystemWatcher? _onlineMonitorWatcherA;
         private readonly ConcurrentQueue<string> _safeDetectQueueA = new ConcurrentQueue<string>();
-        private bool _isQueueRunningA;
+        private bool _isQueueRunningA=false;
         private readonly SemaphoreSlim _semaphoreA; // A工位并发控制
         private const int MaxConcurrentA = 3; // A工位最大并发数
         private readonly AutoResetEvent _queueEventA = new AutoResetEvent(false); // 初始为未触发状态.
@@ -280,7 +281,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         // B工位监控器
         private FileSystemWatcher? _onlineMonitorWatcherB;
         private readonly ConcurrentQueue<string> _safeDetectQueueB = new ConcurrentQueue<string>();
-        private bool _isQueueRunningB;
+        private bool _isQueueRunningB=false;
         private readonly SemaphoreSlim _semaphoreB; // B工位并发控制
         private const int MaxConcurrentB = 3; // B工位最大并发数
         private readonly AutoResetEvent _queueEventB = new AutoResetEvent(false);
@@ -288,7 +289,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isThreadTerminatingB = false;
         private bool _isThreadTerminatingA = false;
 
-        // A工位监听路径
+        // A工位监听文件路径目录
         private string? _selectedMonitorFolderPathA;
         public string? SelectedMonitorFolderPathA
         {
@@ -301,7 +302,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        // B工位监听路径
+        // B工位监听文件路径目录
         private string? _selectedMonitorFolderPathB;
         public string? SelectedMonitorFolderPathB
         {
@@ -317,6 +318,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isInitializing = false;
         private readonly object _stationCountLock = new object();
         private int _runningStationsCount = 0;
+
         //A工位在线检测开关
         private bool _isOnlineDetectionEnabledA;
         public bool IsOnlineDetectionEnabledA
@@ -324,46 +326,54 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _isOnlineDetectionEnabledA;
             set
             {
+                // 1. 初始化报表功能（前置操作：确保报表相关逻辑已就绪）
                 InitReportFunction();
+                // 2. 重复值校验：若新值与旧值一致，直接返回，避免重复执行逻辑（性能优化+防止重复启停）
                 if (_isOnlineDetectionEnabledA == value) return;
+                // 3. 隐藏离线检测进度条：在线检测开启时，离线进度条无需显示
                 IsOfflineProgressVisible = Visibility.Collapsed;
-
-                // 在线检测开启逻辑
+                // 4. 在线检测开启逻辑（value=true：用户勾选开关）
                 if (value)
                 {
+                    // 4.1 校验监控文件夹有效性：必须选择且存在有效文件夹，否则禁止开启
                     if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
                     {
+                        // 提示用户补全配置，重置状态并通知UI（避免属性值不一致）
                         MessageBox.Show("请先选择有效的在线监控文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                         _isOnlineDetectionEnabledA = false;
-                        OnPropertyChanged();
+                        OnPropertyChanged();// 通知UI刷新为未勾选状态
                         return;
                     }
-
+                    // 4.2 启动A工位在线监控（核心业务逻辑：如启动文件夹监控、相机采集等）
                     StartOnlineMonitoringA();
+                    // 4.3 标记当前为非离线模式（区分在线/离线检测）
                     _isOfflineMode = false;
+                    // 4.4 线程安全更新运行工位数量（lock保证多线程下计数准确）
                     lock (_stationCountLock)
                     {
                         _runningStationsCount++;
                     }
                     AddLog("[A工位-在线检测] 开关已开启，文件选择功能已禁用");
                 }
+                // 5. 在线检测关闭逻辑（value=false：用户取消勾选开关）
                 else
                 {
+                    // 5.1 停止A工位在线监控（核心业务逻辑：如停止文件夹监控、释放资源等）
                     StopOnlineMonitoringA();
                     AddLog("[A工位] 已停止监控文件夹");
                 }
-
+                // 6. 更新私有字段（最终确认状态变更）
                 _isOnlineDetectionEnabledA = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(IsInAnyDetectionA));
-                OnPropertyChanged(nameof(IsInAnyDetection));
-                OnPropertyChanged(nameof(IsFileSelectEnabled));
-                OnPropertyChanged(nameof(IsFolderSelectEnabled));
+                // 7. 触发属性变更通知：保证UI同步更新
+                OnPropertyChanged();// 通知自身属性变更（IsOnlineDetectionEnabledA）
+                OnPropertyChanged(nameof(IsInAnyDetectionA));// 通知A工位是否在检测中
+                OnPropertyChanged(nameof(IsInAnyDetection));// 相机检测
+                OnPropertyChanged(nameof(IsFileSelectEnabled));// 通知文件选择控件是否可用
+                OnPropertyChanged(nameof(IsFolderSelectEnabled));// 通知文件夹选择控件是否可用
+
+                SaveConfig();
             }
         }
-
-
-
 
         //B工位在线检测开关
         private bool _isOnlineDetectionEnabledB;
@@ -373,14 +383,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             set
             {
                 InitReportFunction();
+
+                // ⭐ 初始化阶段不触发任何逻辑（关键）
                 if (_isInitializing)
                 {
                     _isOnlineDetectionEnabledB = value;
                     OnPropertyChanged();
                     return;
                 }
+
                 if (_isOnlineDetectionEnabledB == value) return;
                 IsOfflineProgressVisible = Visibility.Collapsed;
+
                 // 在线检测开启逻辑
                 if (value)
                 {
@@ -412,13 +426,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged(nameof(IsInAnyDetection));
                 OnPropertyChanged(nameof(IsFileSelectEnabled));
                 OnPropertyChanged(nameof(IsFolderSelectEnabled));
+
+                SaveConfig();
             }
         }
 
-        // A工位路径选择命令
+        // A工位监听路径选择命令
         public ICommand SelectMonitorFolderCommandA { get; }
 
-        //B工位路径选择命令
+        //B工位监听路径选择命令
         public ICommand SelectMonitorFolderCommandB { get; }
         #endregion
 
@@ -435,6 +451,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly object _queueLock = new object();
 
         #endregion
+
         private Dictionary<string, string> _cameraImagePaths = new Dictionary<string, string>
         {
             { "1", "" }, { "2", "" }, { "3", "" }, { "4", "" }
@@ -443,15 +460,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public string? DrawTitle
         {
             get => _drawTitle;
-            set
-            {
-                _drawTitle = value;
-                OnPropertyChanged(nameof(DrawTitle));
-            }
+            set { _drawTitle = value; OnPropertyChanged(nameof(DrawTitle)); }
         }
         // 绘制ROI时的图片尺寸
         private int _drawImageWidth;
         private int _drawImageHeight;
+
         // 控制Flyout显示/隐藏
         private bool _isDrawFlyoutOpen;
         public bool IsDrawFlyoutOpen
@@ -459,6 +473,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _isDrawFlyoutOpen;
             set { _isDrawFlyoutOpen = value; OnPropertyChanged(); }
         }
+
         private int _currentCameraNumber;
         /// <summary>
         /// 当前选中的相机编号（1-4）
@@ -466,13 +481,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public int CurrentCameraNumber
         {
             get => _currentCameraNumber;
-            set
-            {
-                _currentCameraNumber = value;
-                OnPropertyChanged();
-            }
+            set { _currentCameraNumber = value; OnPropertyChanged(); }
         }
-        //当前在线监控的工位
+
+        //当前在线监控的工位（A/B，默认空）
         private string? _currentMonitoringStation;
         public string? CurrentMonitoringStation
         {
@@ -489,11 +501,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         // 相机1-4的ROI状态
-        private bool _hasNegativeRoiA1;
-        public bool HasNegativeRoiA1
+        private bool _hasRoiPositive;
+        public bool HasRoiPositive
         {
-            get => _hasNegativeRoiA1;
-            set { _hasNegativeRoiA1 = value; OnPropertyChanged(); }
+            get => _hasRoiPositive;
+            set { _hasRoiPositive = value; OnPropertyChanged(); }
         }
 
         private bool _hasNegativeRoiA2;
@@ -518,11 +530,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         // B工位相机状态
-        private bool _hasNegativeRoiB1;
-        public bool HasNegativeRoiB1
+        private bool _hasRoiNegative;
+        public bool HasRoiNegative
         {
-            get => _hasNegativeRoiB1;
-            set { _hasNegativeRoiB1 = value; OnPropertyChanged(); }
+            get => _hasRoiNegative;
+            set { _hasRoiNegative = value; OnPropertyChanged(); }
         }
 
         private bool _hasNegativeRoiB2;
@@ -545,6 +557,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _hasNegativeRoiB4;
             set { _hasNegativeRoiB4 = value; OnPropertyChanged(); }
         }
+
         // 记录已经提示过“未使用过滤”的相机
         private readonly HashSet<string> _warnedNoDelRegionCameras = new HashSet<string>();
         // 记录已经提示过“使用空区域”的相机
@@ -553,7 +566,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly HashSet<string> _warnedGenerateFailCameras = new HashSet<string>();
         private string? _currentRoiCameraNo;  // 当前操作的相机编号
         private InkCanvas? _inkCanvas;        // 绘制控件引用
-
 
         private Dictionary<string, List<System.Windows.Point>> _roiCache = new Dictionary<string, List<System.Windows.Point>>();
 
@@ -566,6 +578,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => !(IsFileDetecting || IsOnlineDetectionEnabledB);
         }
 
+        //通过反向判断 IsFileDetecting 和 IsOnlineDetectionEnabledA 两个状态的组合结果来确定值，核心作用是精准控制 A 工位 “浏览...” 按钮的可用状态
         public bool IsInAnyDetectionA
         {
             get => !(IsFileDetecting || IsOnlineDetectionEnabledA);
@@ -579,7 +592,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => !(IsFileDetecting || IsOnlineDetectionEnabledA || IsOnlineDetectionEnabledB);
         }
 
-        // 在线检测开关是否可用
+        // 在线检测开关A是否可用
         private bool _isOnlineToggleEnabledA = true;
         public bool IsOnlineToggleEnabledA
         {
@@ -590,7 +603,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged();
             }
         }
-        //在线检测开关是否可用
+
+        //在线检测开关B是否可用
         private bool _isOnlineToggleEnabledB = true;
         public bool IsOnlineToggleEnabledB
         {
@@ -601,14 +615,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged();
             }
         }
-        //文件选择命令是否可用
+
+        //文件选择命令
         private bool _isFileSelectEnabled = true;
         public bool IsFileSelectEnabled
         {
             get => _isFileSelectEnabled
-                && !IsFileDetecting
-           && !IsOnlineDetectionEnabledA
-           && !IsOnlineDetectionEnabledB;
+               && !IsFileDetecting
+               && !IsOnlineDetectionEnabledA
+               && !IsOnlineDetectionEnabledB;
             set
             {
                 _isFileSelectEnabled = value;
@@ -617,14 +632,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        //文件夹选择命令是否可用
+        //文件夹选择命令
         private bool _isFolderSelectEnabled = true;
         public bool IsFolderSelectEnabled
         {
             get => _isFolderSelectEnabled
-                && !IsFileDetecting
-           && !IsOnlineDetectionEnabledA
-           && !IsOnlineDetectionEnabledB;
+               && !IsFileDetecting
+               && !IsOnlineDetectionEnabledA
+               && !IsOnlineDetectionEnabledB;
             set
             {
                 _isFolderSelectEnabled = value;
@@ -640,17 +655,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _isFileDetecting;
             set
             {
+                // 第一步：更新私有字段（基础赋值）
                 _isFileDetecting = value;
+                // 第二步：同步更新多个UI控制属性（状态联动）
+                // 文件检测中 → A工位在线检测开关禁用；检测停止 → 启用
                 IsOnlineToggleEnabledA = !value;
+                // 文件检测中 → B工位在线检测开关禁用；检测停止 → 启用
                 IsOnlineToggleEnabledB = !value;
+                // 文件检测中 → 文件选择功能禁用；检测停止 → 启用
                 IsFileSelectEnabled = !value;
+                // 文件检测中 → 文件夹选择功能禁用；检测停止 → 启用
                 IsFolderSelectEnabled = !value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(IsInAnyDetection));
-                OnPropertyChanged(nameof(IsInAnyDetectionA));
-                OnPropertyChanged(nameof(IsInAnyDetectionB));
+                // 第三步：触发属性变更通知（保证UI实时更新）
+                OnPropertyChanged();// 通知自身（IsFileDetecting）变更
+                OnPropertyChanged(nameof(IsInAnyDetection));// 通知全局检测状态变更
+                OnPropertyChanged(nameof(IsInAnyDetectionA));// 通知A工位检测状态变更
+                OnPropertyChanged(nameof(IsInAnyDetectionB));// 通知B工位检测状态变更
             }
         }
+
         #region 在线检测相关属性
         /// <summary>
         /// 在线检测开关
@@ -712,7 +735,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         #endregion
 
-
         // 进度条当前值（0~100）
         private double _offlineProgressValue = 0.0;
         public double OfflineProgressValue
@@ -732,6 +754,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged();
             }
         }
+
         private Visibility _isOfflineProgressVisible = Visibility.Collapsed; // 默认进度条默认隐藏
         /// <summary>
         /// 离线进度条是否可见
@@ -745,6 +768,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged();
             }
         }
+
         //进度提示文本（已完成XX%，预计还需YY）
         private string? _offlineProgressTip;
         public string? OfflineProgressTip
@@ -768,6 +792,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private const double ZoomStep = 0.1;
         private const double MinScale = 0.2;
         private const double MaxScale = 5.0;
+
         // 图片拖动X轴偏移
         private double _realTimeImageTranslateX;
         public double RealTimeImageTranslateX
@@ -790,10 +815,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private double _startTranslateX; // 拖动起始X偏移
         private double _startTranslateY; // 拖动起始Y偏移
 
-
         #region 图像检索筛选属性
+        //图像检索勾选正极
         private bool _isPositive = false;
-
         public bool IsPositive
         {
             get => _isPositive;
@@ -804,13 +828,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 SaveConfig();
 
                 // 勾选正极时，自动勾选所有未勾选的相机
-                if (value)
-                {
-                    if (!IsCamera1) IsCamera1 = true;
-                    if (!IsCamera2) IsCamera2 = true;
-                    if (!IsCamera3) IsCamera3 = true;
-                    if (!IsCamera4) IsCamera4 = true;
-                }
+                //if (value)
+                //{
+                //    if (!IsCamera1) IsCamera1 = true;
+                //    if (!IsCamera2) IsCamera2 = true;
+                //    if (!IsCamera3) IsCamera3 = true;
+                //    if (!IsCamera4) IsCamera4 = true;
+                //}
+                CalculateDetectionStatistics();
             }
         }
 
@@ -827,13 +852,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 SaveConfig();
 
                 // 勾选负极时，自动勾选所有未勾选的相机
-                if (value)
-                {
-                    if (!IsCamera1) IsCamera1 = true;
-                    if (!IsCamera2) IsCamera2 = true;
-                    if (!IsCamera3) IsCamera3 = true;
-                    if (!IsCamera4) IsCamera4 = true;
-                }
+                //if (value)
+                //{
+                //    if (!IsCamera1) IsCamera1 = true;
+                //    if (!IsCamera2) IsCamera2 = true;
+                //    if (!IsCamera3) IsCamera3 = true;
+                //    if (!IsCamera4) IsCamera4 = true;
+                //}
+                CalculateDetectionStatistics();
             }
         }
 
@@ -888,6 +914,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         #region 核心数据存储
         // 完整数据集合：存储所有检测记录
         private List<dynamic> _fullDetectionDataList = new List<dynamic>();
+
         // 检测数据集合
         private ObservableCollection<dynamic> _detectionDataList = new ObservableCollection<dynamic>();
         public ObservableCollection<dynamic> DetectionDataList
@@ -895,7 +922,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _detectionDataList;
             set { _detectionDataList = value; OnPropertyChanged(); }
         }
-
 
         private dynamic? _selectedDetectionData;
         public dynamic? SelectedDetectionData
@@ -922,11 +948,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private int _historyNGCount = 0;       // 历史NG数
         private readonly object _statisticsLock = new object(); //统计锁
 
-
         // 日志集合：用Tuple<string, string>存储（Item1=时间戳，Item2=内容）
-        private ObservableCollection<Tuple<string, string>> _logTable =
-            new ObservableCollection<Tuple<string, string>>();
-
+        private ObservableCollection<Tuple<string, string>> _logTable = new ObservableCollection<Tuple<string, string>>();
         public ObservableCollection<Tuple<string, string>> LogTable
         {
             get => _logTable;
@@ -972,6 +995,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         // 文件就绪重试配置
         private const int FileReadyMaxRetry = 30; // 最多重试30次
         private const int FileReadyRetryDelay = 1000; // 每次重试间隔1秒
+
         /// <summary>
         /// 检测结果图
         /// </summary>
@@ -992,7 +1016,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private int _completedCountForTimeCalc = 0;
         //前20张不参与平均
         private const int WarmupCount = 20;
-        public object?[]? param { get; set; }
+        public object?[]? zhengParam { get; set; }
+        public object?[]? fuParam { get; set; }
         public object[]? acparam { get; set; }
 
         // 选中的图片路径
@@ -1031,7 +1056,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             set { _isSaveResultNG = value; OnPropertyChanged(); SaveConfig(); }
         }
 
-
         // 当前显示的结果图
         private ImageSource? _currentResultImage;
         public ImageSource? CurrentResultImage
@@ -1048,7 +1072,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _currentResultImagePath;
             set { _currentResultImagePath = value; OnPropertyChanged(); }
         }
-
         /// <summary>
         /// 图片名
         /// </summary>
@@ -1057,7 +1080,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _imageName;
             set { _imageName = value; OnPropertyChanged(); }
         }
-
         /// <summary>
         /// 正负极
         /// </summary>
@@ -1066,7 +1088,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _polarity;
             set { _polarity = value; OnPropertyChanged(); }
         }
-
         /// <summary>
         /// 工位信息
         /// </summary>
@@ -1091,7 +1112,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _imagePath;
             set { _imagePath = value; OnPropertyChanged(); }
         }
-
         /// <summary>
         /// 结果图路径
         /// </summary>
@@ -1100,7 +1120,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _resultImagePath;
             set { _resultImagePath = value; OnPropertyChanged(); }
         }
-
         /// <summary>
         /// OKNG数
         /// </summary>
@@ -1191,7 +1210,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-
         // 缺陷检测结果列表
         private List<AIResultModel>? _detectionResults;
         public List<AIResultModel>? DetectionResults
@@ -1200,98 +1218,135 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             set { _detectionResults = value; OnPropertyChanged(); }
         }
 
+        #region 权限控制属性
+
+        private bool _isEditAllowed;
+        /// <summary>
+        /// 是否允许编辑（用于绑定按钮的 IsEnabled）
+        /// True = 非Guest用户，允许点击
+        /// </summary>
+        public bool IsEditAllowed
+        {
+            get => _isEditAllowed;
+            set => SetProperty(ref _isEditAllowed, value);
+        }
+
+        private bool _isParamGridReadOnly;
+        /// <summary>
+        /// 表格是否只读（用于绑定 DataGrid 的 IsReadOnly）
+        /// True = Guest用户，只读
+        /// False = 非Guest用户，可编辑
+        /// </summary>
+        public bool IsParamGridReadOnly
+        {
+            get => _isParamGridReadOnly;
+            set => SetProperty(ref _isParamGridReadOnly, value);
+        }
+
         #endregion
 
-        #region 方法
+        #endregion
+
         #region 单张图片选择
+        /// <summary>
+        /// 异步选择单张检测图片（核心交互逻辑：弹窗选择→格式校验→保存设置确认→触发单文件检测）
+        /// 设计特点：循环选择（容错）、格式白名单校验、保存设置可视化、异步检测不阻塞UI
+        /// </summary>
         private async void SelectImageFile()
         {
+            // 1. 定义支持的图片格式白名单（HashSet保证O(1)高效查找）
             var allowedExtensions = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
+            // 标记是否已选中合法图片并确认检测（控制循环退出）
             bool isSelected = false;
-
+            // 2. 循环选择图片：用户选错格式/取消确认时，重新弹出选择框（容错设计）
             while (!isSelected)
             {
                 var openFileDialog = new OpenFileDialog
                 {
+                    // 文件筛选器：先显示支持的图片格式，再显示所有文件（引导用户选择正确格式）
                     Filter = "图片文件|*.bmp;*.jpg;*.jpeg;*.png;*.gif;*.tiff;*.webp|所有文件|*.*",
-                    FilterIndex = 1,
-                    Title = "选择检测图片（仅支持图片格式）",
-                    Multiselect = false
+                    FilterIndex = 1, // 默认选中第一个筛选器（图片文件）
+                    Title = "选择检测图片（仅支持图片格式）",// 对话框标题，明确用途
+                    Multiselect = false // 禁止多选，仅允许选择单张图片
                 };
-
+                // 4. 显示文件选择对话框，获取用户操作结果
                 bool? dialogResult = openFileDialog.ShowDialog();
+                // 用户点击“取消”/关闭对话框，退出循环
                 if (dialogResult != true) break;
-
+                // 5. 校验选中路径有效性：避免空路径/空白路径
                 string selectedPath = openFileDialog.FileName;
                 if (string.IsNullOrWhiteSpace(selectedPath))
                 {
                     MessageBox.Show("请选择一张图片文件后再点击确定！", "未选择图片", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    continue;
+                    continue;// 重新进入循环，让用户再次选择
                 }
-
+                // 6. 校验文件格式：转换为小写避免大小写敏感（如.PNG和.png）
                 string fileExtension = Path.GetExtension(selectedPath).ToLower();
                 if (!allowedExtensions.Contains(fileExtension))
                 {
-                    MessageBox.Show(
-                        $"所选文件格式不支持！\n请选择以下格式的图片：\n{string.Join("、", allowedExtensions)}",
-                        "格式错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    continue;
+                    // 提示不支持的格式，并列出所有支持的格式，提升用户体验
+                    MessageBox.Show($"所选文件格式不支持！\n请选择以下格式的图片：\n{string.Join("、", allowedExtensions)}",
+                                     "格式错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    continue;// 重新进入循环，让用户选择合法格式
                 }
 
-                // 构造保存设置描述文本
+                // 7. 拼接当前保存设置描述文本（可视化展示用户的保存配置）
                 StringBuilder saveSettings = new StringBuilder();
                 if (IsSaveOriginalOK) saveSettings.Append("保存OK原图；");
                 if (IsSaveOriginalNG) saveSettings.Append("保存NG原图；");
                 if (IsSaveResultOK) saveSettings.Append("保存OK结果图；");
                 if (IsSaveResultNG) saveSettings.Append("保存NG结果图；");
-
+                // 处理无保存设置的情况，避免空文本
                 string saveInfo = saveSettings.Length > 0
                     ? $"保存设置：{saveSettings.ToString().TrimEnd('；')}"
                     : "保存设置：不保存任何图片";
 
-                // 显示确认框并判断结果
-                var confirm = MessageBox.Show(
-                    saveInfo,
-                    "确认检测", MessageBoxButton.OKCancel, MessageBoxImage.Question);
-
+                // 8. 弹出确认框：让用户确认检测及当前保存设置，防止误操作
+                var confirm = MessageBox.Show(saveInfo, "确认检测", MessageBoxButton.OKCancel, MessageBoxImage.Question);
                 if (confirm != MessageBoxResult.OK)
                 {
                     continue;
                 }
 
-                // 用户确认后，执行检测逻辑
-                isSelected = true;
-                _currentCsvFilePath = null;
-                SelectedImagePath = selectedPath;
-                await GetDataFromSingleFile(selectedPath);
+                // 9. 用户确认后，执行核心逻辑：标记选中状态+重置CSV路径+更新选中图片路径+触发单文件检测
+                isSelected = true;// 退出循环的关键标记
+                _currentCsvFilePath = null; // 重置当前CSV文件路径（单文件检测无需CSV）
+                SelectedImagePath = selectedPath;// 更新选中图片路径（绑定UI/供检测逻辑使用）
+                await GetDataFromSingleFile(selectedPath);// 异步执行单文件检测，不阻塞UI
             }
         }
         #endregion
-        #endregion
+
 
         #region 文件夹选择逻辑
         /// <summary>
         /// 文件夹选择
+        /// 异步选择图片文件夹执行批量检测（核心流程：文件夹选择→多层校验→图片筛选→用户确认→批量检测）
+        /// 设计特点：WPF原生文件夹对话框适配、多层有效性校验、筛选条件可视化、分类异常处理、状态一致性保障
         /// </summary>
         private async void SelectImageFolder()
         {
+            // 定义支持的图片格式白名单（HashSet保证O(1)高效查找）
             var allowedExtensions = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
 
             try
             {
                 // 核心修改：移除 using 语句，直接创建 WPF 原生 OpenFolderDialog
+                // 1. 创建WPF原生文件夹选择对话框（替代第三方组件，适配WPF生态）
                 var folderDialog = new OpenFolderDialog();
 
                 // 映射原对话框属性（WPF 原生属性适配）
-                folderDialog.Title = "选择包含图片的文件夹（支持子目录）";
+                // 2. 配置对话框交互属性（提升用户体验）
+                folderDialog.Title = "选择包含图片的文件夹（支持子目录）";// 明确用途，提示支持子目录
+                // 默认打开“我的图片”文件夹
                 folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-                folderDialog.ValidateNames = true;
-                folderDialog.Multiselect = false;
+                folderDialog.ValidateNames = true;// 校验文件夹名称合法性（避免非法字符）
+                folderDialog.Multiselect = false;// 禁止多选，仅支持单文件夹批量检测
 
-                // 显示对话框
+                // 3. 显示对话框（绑定主窗口，保证模态层级正确）
                 bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
 
-                // 取消选择后重置状态
+                // 4. 用户取消选择：重置状态并退出
                 if (result != true)
                 {
                     ResetFolderSelectionStatus();
@@ -1299,6 +1354,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 // 构造保存设置描述文本
+                // 5. 拼接当前保存设置描述文本（可视化展示，提升操作透明度）
                 StringBuilder saveSettings = new StringBuilder();
                 if (IsSaveOriginalOK) saveSettings.Append("保存OK原图；");
                 if (IsSaveOriginalNG) saveSettings.Append("保存NG原图；");
@@ -1310,7 +1366,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     : "保存设置：不保存任何图片";
                 string selectedFolder = folderDialog.FolderName;
 
-                // 文件夹有效性检查
+                // 6. 第一层校验：文件夹路径有效性（非空+实际存在）
                 if (string.IsNullOrWhiteSpace(selectedFolder) || !Directory.Exists(selectedFolder))
                 {
                     MessageBox.Show("选择的文件夹无效或不存在，请重新选择！", "无效文件夹", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -1318,11 +1374,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                // 获取文件夹中所有支持的图片
+                // 7. 获取文件夹中所有支持格式的图片（包含子目录）
                 List<string> allImageFiles = GetImageFilesInFolder(selectedFolder, allowedExtensions);
                 UpdateFolderSelectionStatus(selectedFolder, allImageFiles.Count);
 
-                // 无图片文件提示
+                // 8. 第二层校验：文件夹内是否有图片文件
                 if (allImageFiles.Count == 0)
                 {
                     var retryResponse = MessageBox.Show(
@@ -1338,28 +1394,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                // 筛选图片
+                // 9. 第三层校验：按筛选条件过滤图片（工位/相机规则）
                 List<string> filteredFiles = FilterImageFiles(allImageFiles);
                 if (filteredFiles.Count == 0)
                 {
                     MessageBox.Show(
-                        $"所选文件夹中未找到符合当前筛选条件（工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}；相机：{(IsCamera1 ? "1 " : "")}{(IsCamera2 ? "2 " : "")}{(IsCamera3 ? "3 " : "")}{(IsCamera4 ? "4 " : "")}）的图片！\n" +
+                        $"所选文件夹中未找到符合当前筛选条件（工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}；的图片！\n" +
                         "请调整勾选条件后重新选择文件夹。",
                         "无符合条件的图片", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
-                // 显示筛选后的数量确认框
+                // 10. 最终确认：展示检测数量、筛选条件、保存设置，让用户确认
+                //var confirm = MessageBox.Show(
+                //    $"将对文件夹「{Path.GetFileName(selectedFolder)}」中符合筛选条件的 {filteredFiles.Count} 张图片进行批量检测，是否继续？\n" +
+                //    $"筛选条件：工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}；相机：{(IsCamera1 ? "1 " : "")}{(IsCamera2 ? "2 " : "")}{(IsCamera3 ? "3 " : "")}{(IsCamera4 ? "4 " : "")} \n" +
+                //    saveInfo,
+                //    "确认批量检测", MessageBoxButton.OKCancel, MessageBoxImage.Question);
                 var confirm = MessageBox.Show(
-                    $"将对文件夹「{Path.GetFileName(selectedFolder)}」中符合筛选条件的 {filteredFiles.Count} 张图片进行批量检测，是否继续？\n" +
-                    $"筛选条件：工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}；相机：{(IsCamera1 ? "1 " : "")}{(IsCamera2 ? "2 " : "")}{(IsCamera3 ? "3 " : "")}{(IsCamera4 ? "4 " : "")} \n" +
-                    saveInfo,
-                    "确认批量检测", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                   $"将对文件夹「{Path.GetFileName(selectedFolder)}」中符合筛选条件的 {filteredFiles.Count} 张图片进行批量检测，是否继续？\n" +
+                   $"筛选条件：工位：{(IsPositive ? "正极 " : "")}{(IsNegative ? "负极 " : "")}\n" +
+                   saveInfo,
+                   "确认批量检测", MessageBoxButton.OKCancel, MessageBoxImage.Question);
 
                 if (confirm == MessageBoxResult.OK)
                 {
                     _currentCsvFilePath = null;
-                    await GetDataFromFolder(selectedFolder, allImageFiles);
+                    await GetDataFromFolder( filteredFiles);
                 }
             }
             catch (UnauthorizedAccessException ex)
@@ -1379,7 +1440,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-
         /// <summary>
         /// 并行筛选+缓存，大幅提升大量文件处理速度
         /// </summary>
@@ -1395,24 +1455,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             Parallel.ForEach(allImageFiles, filePath =>
             {
                 string polarity = GetPolarityFromPath(filePath);
-                string camera = GetCameraNumberFromPath(filePath);
+                //string camera = GetCameraNumberFromPath(filePath);
 
                 bool isPolarityMatch = (!IsPositive && !IsNegative) ||
-                                      (IsPositive && polarity == "正极") ||
-                                      (IsNegative && polarity == "负极");
+                                       (IsPositive && polarity == "正极") ||
+                                       (IsNegative && polarity == "负极");
 
-                bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) ||
-                                     (IsCamera1 && camera == "1") ||
-                                     (IsCamera2 && camera == "2") ||
-                                     (IsCamera3 && camera == "3") ||
-                                     (IsCamera4 && camera == "4");
+                //bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) ||
+                //                     (IsCamera1 && camera == "1") ||
+                //                     (IsCamera2 && camera == "2") ||
+                //                     (IsCamera3 && camera == "3") ||
+                //                     (IsCamera4 && camera == "4");
 
-                if (isPolarityMatch && isCameraMatch)
+                if (isPolarityMatch)//&& isCameraMatch
                 {
                     filtered.Add(filePath);
                 }
             });
-
             return filtered.ToList();
         }
 
@@ -1437,27 +1496,29 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             AddLog("系统启动，日志功能就绪"); // 初始日志
             string aabbb = string.Empty;
             string[] labels = new string[0];
-            //param = new object[6] { $".\\best.onnx", labels, "PTO叠片工位", H246modle, aabbb, true };
-            //ModelInitMethod?.Invoke(obj2, param);
-            ////LogInDB.Info("开始加载模型" + param[4].ToString());
-            ai.ModelInit(@"C:\Windows\DiePianV2.onnx", labels, "PTO叠片工位", out H246modle, out string errorInfo);
-            if (!string.IsNullOrEmpty(errorInfo))
+            #region 本地加载
+            //取消下面注释
+            ai.ModelInit(@"C:\Windows\正极.onnx", labels, "PTO与行大面正极", out H246Zhengmodle, out string errorInfo1);
+            ai.ModelInit(@"C:\Windows\负极.onnx", labels, "PTO与行大面负极", out H246Fumodle, out string errorInfo2);
+            if (!string.IsNullOrEmpty(errorInfo1) || !string.IsNullOrEmpty(errorInfo2))
             {
-                AddLog($"模型初始化异常：{errorInfo}");
+                AddLog($"模型初始化异常：{errorInfo1}、{errorInfo2}");
             }
+            #endregion
             ResetOfflineProgress();
         }
 
-        public VM_PTODamageDetectionPage(IWebApiClient webApiClient)
+        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider)
         {
-            InitParameters();
-            LoadConfig();
+            _logger = logger;
+         
+
             File_Button = new RelayCommand<object>(
-                        execute: parameter => SelectImageFile(),
+                        execute: parameter => SelectImageFile(),//文件选择
                         canExecute: parameter => IsFileSelectEnabled && !IsFileDetecting
              );
             Folder_Button = new RelayCommand<object>(
-                        execute: parameter => SelectImageFolder(),
+                        execute: parameter => SelectImageFolder(),//文件夹选择
                         canExecute: parameter => IsFolderSelectEnabled && !IsFileDetecting
             );
             IncrementMaxImagesCommand = new RelayCommand(() => MaxImagesPerReport++);
@@ -1472,39 +1533,60 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (ReportTimeoutMinutes > 1) ReportTimeoutMinutes--;
             });
 
-
             SaveMaxImagesCommand = new RelayCommand(SaveMaxImagesSettings);
             SaveTimeoutCommand = new RelayCommand(SaveTimeoutSettings);
-            ViewResultCommand = new RelayCommand<dynamic>(ExecuteViewResult);
-            JumpToStorageCommand = new RelayCommand(ExecuteJumpToStorage);
-            ClearListCommand = new RelayCommand(ExecuteClearList);
-            ClearStatisticsCommand = new RelayCommand(ExecuteClearStatistics);
-            StopDetectionCommand = new RelayCommand(ExecuteStopDetection);
-            //InitDll1();
-            ZoomRealTimeImageCommand = new RelayCommand<MouseWheelEventArgs>(OnZoomRealTimeImage);
-            ZoomInRealTimeCommand = new RelayCommand(OnZoomInRealTime);
-            ZoomOutRealTimeCommand = new RelayCommand(OnZoomOutRealTime);
-            ResetRealTimeImageZoomCommand = new RelayCommand(OnResetRealTimeZoom);
-            ImageMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(OnImageMouseDown);
-            ImageMouseMoveCommand = new RelayCommand<MouseEventArgs>(OnImageMouseMove);
-            ImageMouseUpCommand = new RelayCommand<MouseEventArgs>(OnImageMouseUp);
+            ViewResultCommand = new RelayCommand<dynamic>(ExecuteViewResult);//查看NG图片结果
+            JumpToStorageCommand = new RelayCommand(ExecuteJumpToStorage);//跳转存储
+            ClearListCommand = new RelayCommand(ExecuteClearList);//清空列表
+            ClearStatisticsCommand = new RelayCommand(ExecuteClearStatistics);//统计清零
+            StopDetectionCommand = new RelayCommand(ExecuteStopDetection);//停止检测命令
+            //InitDll1();//初始化云端 本地加载注释掉这一行
+            ZoomRealTimeImageCommand = new RelayCommand<MouseWheelEventArgs>(OnZoomRealTimeImage);//鼠标滚轮缩放命令
+            ZoomInRealTimeCommand = new RelayCommand(OnZoomInRealTime);//图片放大
+            ZoomOutRealTimeCommand = new RelayCommand(OnZoomOutRealTime);//图片缩小
+            ResetRealTimeImageZoomCommand = new RelayCommand(OnResetRealTimeZoom);//图片双击还原
+            ImageMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(OnImageMouseDown);//鼠标左键按下命令
+            ImageMouseMoveCommand = new RelayCommand<MouseEventArgs>(OnImageMouseMove);//鼠标移动命令
+            ImageMouseUpCommand = new RelayCommand<MouseEventArgs>(OnImageMouseUp);//鼠标左键松开
             _semaphoreA = new SemaphoreSlim(MaxConcurrentA, MaxConcurrentA);
             _semaphoreB = new SemaphoreSlim(MaxConcurrentB, MaxConcurrentB);
-            SelectMonitorFolderCommandA = new RelayCommand(SelectMonitorFolderA);
-            SelectMonitorFolderCommandB = new RelayCommand(SelectMonitorFolderB);
-            SelectNegativeRoiImageCommand = new RelayCommand<string>(SelectNegativeRoiImage);
-            DeleteNegativeRoiCommand = new RelayCommand(DeleteNegativeRoi);
-            SaveNegativeRoiCommand = new RelayCommand(SaveNegativeRoiAsHalconRegion);
-            ViewNegativeRoiCommand = new RelayCommand<string>(ViewNegativeRoi);
-            CancelDrawRoiCommand = new RelayCommand(CancelDrawRoi);
+            SelectMonitorFolderCommandA = new RelayCommand(SelectMonitorFolderA);//A工位监听路径
+            SelectMonitorFolderCommandB = new RelayCommand(SelectMonitorFolderB);//B工位监听路径
+            SelectNegativeRoiImageCommand = new RelayCommand<string>(SelectNegativeRoiImage);//选择绘制图片
+            DeleteNegativeRoiCommand = new RelayCommand(DeleteNegativeRoi);//弹窗-删除当前绘制内容
+            SaveNegativeRoiCommand = new RelayCommand(SaveNegativeRoiAsHalconRegion);//弹窗-保存ROI
+            ViewNegativeRoiCommand = new RelayCommand<string>(ViewNegativeRoi);//查看绘制结果
+            CancelDrawRoiCommand = new RelayCommand(CancelDrawRoi);//弹窗-取消ROI绘制
+
+            // 正极ROI命令初始化
+            SelectPositiveRoiImageCommand = new RelayCommand<string>(SelectPositiveRoiImage);
+            DeletePositiveRoiCommand = new RelayCommand(DeletePositiveRoi);
+            SavePositiveRoiCommand = new RelayCommand(SavePositiveRoiAsHalconRegion);  // 复用保存逻辑
+            ViewPositiveRoiCommand = new RelayCommand<string>(ViewPositiveRoi);
+
             LoadAllHalconRoiConfigs();
             InitReportFunction();
             _isReportFunctionInited = false;
             SaveUserIdCommand = new RelayCommand(SaveUserId);
             DeleteUserIdCommand = new RelayCommand(DeleteUserId);
+
             _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             // 加载已保存的ID列表
+            InitParameters();
+            LoadConfig();
             LoadUserIds();
+
+
+            #region 参数管控  
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
+            CheckAuthority();
+            LoadDefectInitialData();
+            AddRow = new RelayCommand<string?>(OnAddRow);
+            DeleteRow = new RelayCommand<DefectParameter?>(OnDeleteRow);
+            SaveData = new RelayCommand<string?>(OnSaveData);
+            #endregion
+
         }
         /// <summary>
         /// 保存新UserID（验证+去重+持久化）
@@ -1520,12 +1602,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
+                var savedId = NewUserId;
+
                 SavedUserIds.Add(NewUserId);
-                SaveUserIdsToFile();
+                SaveUserIdsToDataBase();
                 // 清空输入框
                 NewUserId = string.Empty;
 
-                MessageBox.Show($"用户ID {NewUserId} 保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"用户ID: {savedId} 保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -1550,7 +1634,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (SavedUserIds.Contains(id))
                 {
                     SavedUserIds.Remove(id);
-                    SaveUserIdsToFile();
+                    SaveUserIdsToDataBase();
                 }
             }
             catch (Exception ex)
@@ -1566,16 +1650,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
-                if (!File.Exists(_configPath))
-                {
-                    // 配置文件不存在则初始化空列表
-                    SavedUserIds = new ObservableCollection<string>();
-                    return;
-                }
-
                 // 读取配置文件
-                var json = File.ReadAllText(_configPath);
-                var savedList = JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+
+                var settingValue = projectSettingRepo.GetSettingValue("UserIDs", "VM_PTODamageDetection") as string;
+                var savedList = settingValue?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                      .Select(id => id.Trim())
+                      .ToList() ?? new List<string>();
+
                 // 转换为ObservableCollection
                 SavedUserIds = new ObservableCollection<string>(savedList);
             }
@@ -1590,19 +1673,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 持久化UserID列表到配置文件
         /// </summary>
-        private void SaveUserIdsToFile()
+        private void SaveUserIdsToDataBase()
         {
             try
             {
-                // 序列化列表为JSON
-                var json = JsonConvert.SerializeObject(SavedUserIds.ToList(), Formatting.Indented);
-                // 写入配置文件
-                var configDir = Path.GetDirectoryName(_configPath);
-                if (!string.IsNullOrEmpty(configDir) && !Directory.Exists(configDir))
-                {
-                    Directory.CreateDirectory(configDir);
-                }
-                File.WriteAllText(_configPath, json);
+                var users = SavedUserIds.ToList();
+
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+
+                projectSettingRepo.UpdateSettingValue("UserIDs", "VM_PTODamageDetection",string.Join(",", users));
             }
             catch (Exception ex)
             {
@@ -1610,6 +1690,56 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+        
+        private void CheckAuthority()
+        {
+            try
+            {
+                string currentUserName = "guest";
+                using var scope = _serviceProvider.CreateScope();
+                
+                var repo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();           
+                var user = repo.GetByName("CurrentUserAccount");
+
+                if (user != null) currentUserName = user.Value;
+                
+                bool isAuthorized = !string.Equals(currentUserName, "guest", StringComparison.OrdinalIgnoreCase);
+
+                if (isAuthorized)
+                {
+                    // 授权用户：按钮可用，表格可编辑
+                    IsEditAllowed = true;
+                    IsParamGridReadOnly = false;
+                }
+                else
+                {
+                    // 访客用户：按钮禁用，表格只读
+                    IsEditAllowed = false;
+                    IsParamGridReadOnly = true;
+                }
+
+                AddLog($"[权限检查] 当前用户: {currentUserName}, 权限状态: {(isAuthorized ? "可编辑" : "只读")}");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[权限检查异常] {ex.Message}", CoreLogLevel.Error);
+                // 发生异常时，强制降级为只读模式
+                IsEditAllowed = false;
+                IsParamGridReadOnly = true;
+            }
+        }
+        /// <summary>
+        /// 用户状态变更处理
+        /// </summary>
+        private void OnUserStateChanged(string userAccount)
+        {
+            // 确保在 UI 线程执行
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                CheckAuthority();
+                AddLog($"[权限刷新] 检测到用户变更为 {userAccount}，权限已更新");
+            });
+        }
         /// <summary>
         /// 获取组合后的UserID字符串（格式：Id1,Id2,Id3）
         /// </summary>
@@ -1631,42 +1761,47 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _inkCanvas = inkCanvas;
         }
 
-
+        #region ROI
         /// <summary>
         /// 选择绘制图片
+        /// 选择指定工位+相机的负极ROI参考图片，并初始化绘制画布（核心流程：参数校验→文件选择→图片加载→历史ROI恢复→打开绘制弹窗）
+        /// 设计要点：严格的参数校验、UI线程安全操作、WPF图片加载规范、历史ROI复用、异常容错
         /// </summary>
+        /// <param name="param">参数格式：工位+相机号（如"A1"、"B3"），为空/格式错误时直接返回</param>
         private void SelectNegativeRoiImage(string? param)
         {
-
-            if (string.IsNullOrEmpty(param) || param.Length < 2)
+            // 1. 第一层参数校验：参数为空/长度不足（至少2位，如"A1"），直接返回并记录错误日志
+            if (string.IsNullOrEmpty(param))
             {
-                AddLog("[错误] 无效参数（格式应为“A1”“B3”等）");
+                AddLog("ROI绘制无效参数",CoreLogLevel.Warn);
                 return;
             }
-            string station = param[0].ToString();
-            string cameraNo = param.Substring(1);
+            // 解析参数：第一位为工位（A/B），剩余部分为相机号（1-4）
+            string station = param;
 
             // 校验工位和相机号合法性
-            if (!new[] { "A", "B" }.Contains(station) || !new[] { "1", "2", "3", "4" }.Contains(cameraNo))
+            // 2. 第二层合法性校验：工位仅支持A/B，相机号仅支持1-4
+            if (!new[] { "正极", "负极" }.Contains(station) )
             {
-                AddLog($"[错误] 工位{station}或相机{cameraNo}无效");
+                AddLog($"[错误] 工位{station}无效",CoreLogLevel.Warn);
                 return;
             }
 
             //更新当前相机号
-            _currentRoiCameraNo = param;
-            DrawTitle = $"绘制负极误判区域 - {station}工位相机{cameraNo}";
-            OnPropertyChanged(nameof(DrawTitle));
+            // 3. 更新全局状态：记录当前操作的相机号，更新绘制标题（通知UI刷新）
+            _currentRoiCameraNo = param;// 保存当前ROI操作的工位+相机号
+            DrawTitle = $"绘制误判区域 - {station}工位";// 绘制弹窗标题，适配当前操作
+            OnPropertyChanged(nameof(DrawTitle));// 触发INotifyPropertyChanged，更新UI上的标题显示
 
-            if (int.TryParse(cameraNo, out int num))
-            {
-                CurrentCameraNumber = num;
-            }
+            //if (int.TryParse(cameraNo, out int num))
+            //{
+            //    CurrentCameraNumber = num;
+            //}
 
             var openFileDialog = new OpenFileDialog
             {
                 Filter = "图片文件|*.bmp;*.jpg;*.jpeg;*.png",
-                Title = $"选择{station}工位相机{cameraNo}的参考图片"
+                Title = $"选择{station}工位的参考图片"
             };
 
             if (openFileDialog.ShowDialog() == true)
@@ -1727,13 +1862,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return;
 
             // 解析参数
-            string station = param[0].ToString();
-            string cameraNo = param.Substring(1);
+            string station = param;
+            //string cameraNo = param.Substring(1);
 
             // 历史ROI文件路径
             var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-            string hobjPath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_ROI.hobj"); // 如Negative_A1_ROI.hobj
-            string sizePath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_Size.txt");
+            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj"); // 如Negative_A1_ROI.hobj
+            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
 
             // 无历史ROI，直接返回
             if (!File.Exists(hobjPath) || !File.Exists(sizePath))
@@ -1799,7 +1934,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         /// <summary>
-        /// 删除当前绘制内容
+        /// 弹窗-删除当前绘制内容
         /// </summary>
         private void DeleteNegativeRoi()
         {
@@ -1822,10 +1957,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                 }
             }
-
             SaveNegativeRoiAsHalconRegion();
         }
-
 
         /// <summary>
         /// 保存ROI
@@ -1846,8 +1979,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
 
             // 解析当前工位和相机号
-            string station = _currentRoiCameraNo[0].ToString();
-            string cameraNo = _currentRoiCameraNo.Substring(1);
+            string station = _currentRoiCameraNo;
+            //string cameraNo = _currentRoiCameraNo.Substring(1);
 
             try
             {
@@ -1861,8 +1994,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
                 Directory.CreateDirectory(roiDir);
                 // 带工位的文件路径
-                string hobjPath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_ROI.hobj");
-                string sizePath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_Size.txt");
+                string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+                string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
 
                 // 清空ROI的情况
                 if (_inkCanvas.Strokes.Count == 0)
@@ -1880,10 +2013,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
                         _detectionRegionCache.Remove(_currentRoiCameraNo);
                     }
-                    UpdateRoiStatus(station, cameraNo, false);
+                    //UpdateRoiStatus(station, cameraNo, false);
 
-                    MessageBox.Show($"{station}工位相机{cameraNo}的ROI已清空并保存！", "成功");
-                    AddLog($"{station}工位相机{cameraNo}的ROI已清空并保存！");
+                    MessageBox.Show($"{station}工位的ROI已清空并保存！", "成功");
+                    AddLog($"{station}工位的ROI已清空并保存！");
                     return;
                 }
 
@@ -1946,10 +2079,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     row?.Dispose();
                     col?.Dispose();
                 }
-                UpdateRoiStatus(station, cameraNo, true);
+                //UpdateRoiStatus(station, cameraNo, true);
 
                 IsDrawFlyoutOpen = false;
-                MessageBox.Show($"{station}工位相机{cameraNo}的ROI已保存！", "成功");
+                MessageBox.Show($"{station}工位相机的ROI已保存！", "成功");
             }
             catch (Exception ex)
             {
@@ -1960,34 +2093,40 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         ///更新ROI状态属性
         /// </summary>
-        private void UpdateRoiStatus(string station, string cameraNo, bool isEnabled)
+        private void UpdateRoiStatus(string station, bool isEnabled)
         {
             switch (station)
             {
-                case "A":
-                    switch (cameraNo)
-                    {
-                        case "1": HasNegativeRoiA1 = isEnabled; break;
-                        case "2": HasNegativeRoiA2 = isEnabled; break;
-                        case "3": HasNegativeRoiA3 = isEnabled; break;
-                        case "4": HasNegativeRoiA4 = isEnabled; break;
-                    }
+                //case "A":
+                //    switch (cameraNo)
+                //    {
+                //        case "1": HasNegativeRoiA1 = isEnabled; break;
+                //        case "2": HasNegativeRoiA2 = isEnabled; break;
+                //        case "3": HasNegativeRoiA3 = isEnabled; break;
+                //        case "4": HasNegativeRoiA4 = isEnabled; break;
+                //    }
+                //    break;
+                //case "B":
+                //    switch (cameraNo)
+                //    {
+                //        case "1": HasNegativeRoiB1 = isEnabled; break;
+                //        case "2": HasNegativeRoiB2 = isEnabled; break;
+                //        case "3": HasNegativeRoiB3 = isEnabled; break;
+                //        case "4": HasNegativeRoiB4 = isEnabled; break;
+                //    }
+                //    break;
+                case"正极":
+                    HasRoiPositive = isEnabled;
                     break;
-                case "B":
-                    switch (cameraNo)
-                    {
-                        case "1": HasNegativeRoiB1 = isEnabled; break;
-                        case "2": HasNegativeRoiB2 = isEnabled; break;
-                        case "3": HasNegativeRoiB3 = isEnabled; break;
-                        case "4": HasNegativeRoiB4 = isEnabled; break;
-                    }
+                case "负极":
+                    HasRoiNegative = isEnabled;
                     break;
             }
         }
 
 
         /// <summary>
-        /// 查看ROI
+        /// 查看ROI绘制结果
         /// </summary>
         private void ViewNegativeRoi(string? param)
         {
@@ -2103,6 +2242,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 MessageBox.Show($"加载ROI失败：{ex.Message}", "错误");
             }
         }
+
         private void ClearCanvasOnly()
         {
             if (_inkCanvas == null) return;
@@ -2132,23 +2272,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
 
                 // 扫描带工位的ROI文件
-                var hobjFiles = Directory.GetFiles(roiDir, "Negative_*_ROI.hobj");
+                var hobjFiles = Directory.GetFiles(roiDir, "*_ROI.hobj");
                 foreach (var file in hobjFiles)
                 {
                     try
                     {
                         // 从文件名提取工位和相机号
                         var fileName = Path.GetFileNameWithoutExtension(file);
-                        var parts = fileName.Split(new[] { "Negative_", "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
+                        var parts = fileName.Split(new[] {  "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
                         if (parts.Length != 1) continue;
                         string stationCamera = parts[0];
                         if (stationCamera.Length < 2) continue;
 
-                        string station = stationCamera[0].ToString();
-                        string cameraNo = stationCamera.Substring(1);
-                        UpdateRoiStatus(station, cameraNo, true);
+                        string station = stationCamera;
+                        //string cameraNo = stationCamera.Substring(1);
+                        UpdateRoiStatus(station,  true);
 
-                        AddLog($"已加载{station}工位相机{cameraNo}的ROI：{file}");
+                        AddLog($"已加载{station}工位的ROI：{file}");
                     }
                     catch (Exception ex)
                     {
@@ -2162,8 +2302,341 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        #region 辅助方法
+        /// <summary>
+        /// 选择正极ROI参考图片并初始化绘制画布
+        /// </summary>
+        private void SelectPositiveRoiImage(string? param)
+        {
+            if (string.IsNullOrEmpty(param))
+            {
+                AddLog("正极ROI绘制无效参数", CoreLogLevel.Warn);
+                return;
+            }
 
+            string station = param;  // 如"正极"
+
+            // 校验工位合法性
+            if (!new[] { "正极", "负极" }.Contains(station))
+            {
+                AddLog($"[错误] 工位{station}无效", CoreLogLevel.Warn);
+                return;
+            }
+
+            _currentRoiCameraNo = param;
+            DrawTitle = $"绘制误判区域 - {station}工位";
+            OnPropertyChanged(nameof(DrawTitle));
+
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "图片文件|*.bmp;*.jpg;*.jpeg;*.png",
+                Title = $"选择{station}工位的参考图片"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string imagePath = openFileDialog.FileName;
+                _cameraImagePaths[param] = imagePath;
+
+                // 清空画布
+                if (_inkCanvas != null)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        _inkCanvas.Strokes.Clear();
+                        CurrentRoiImageSource = null;
+                        OnPropertyChanged(nameof(CurrentRoiImageSource));
+                    });
+                }
+
+                // 加载新图片
+                try
+                {
+                    using (var stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read))
+                    {
+                        stream.Position = 0;
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.StreamSource = stream;
+                        bitmap.EndInit();
+                        bitmap.Freeze();
+
+                        CurrentRoiImageSource = bitmap;
+                        OnPropertyChanged(nameof(CurrentRoiImageSource));
+
+                        _drawImageWidth = bitmap.PixelWidth;
+                        _drawImageHeight = bitmap.PixelHeight;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"图片加载失败:{ex.Message}", "错误");
+                    return;
+                }
+
+                // 加载历史ROI
+                LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
+                IsDrawFlyoutOpen = true;
+            }
+        }
+
+        /// <summary>
+        /// 删除正极当前绘制内容(复用负极逻辑)
+        /// </summary>
+        private void DeletePositiveRoi()
+        {
+            // 直接调用已有的删除逻辑
+            DeleteNegativeRoi();
+        }
+
+        /// <summary>
+        /// 查看正极ROI绘制结果
+        /// </summary>
+        private void ViewPositiveRoi(string? param)
+        {
+            if (_inkCanvas == null)
+            {
+                MessageBox.Show("画布正在初始化,请再次点击查看!", "提示");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(param) || param.Length < 2)
+            {
+                AddLog("[查看ROI] 无效参数");
+                return;
+            }
+
+            string station = param;  // 如"正极"
+
+            _currentRoiCameraNo = param;
+            DrawTitle = $"绘制正极误判区域 - {station}工位";
+
+            var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+
+            if (!File.Exists(hobjPath) || !File.Exists(sizePath))
+            {
+                MessageBox.Show("ROI文件或尺寸文件不存在!", "提示");
+                return;
+            }
+
+            try
+            {
+                string[] sizeParts = File.ReadAllText(sizePath).Split(',');
+                if (sizeParts.Length != 3 || !int.TryParse(sizeParts[0], out int drawWidth) || !int.TryParse(sizeParts[1], out int drawHeight))
+                {
+                    MessageBox.Show("尺寸文件格式错误!", "错误");
+                    return;
+                }
+                string imagePath = sizeParts[2];
+
+                // 加载图片
+                if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+                {
+                    using (var stream = new FileStream(imagePath, FileMode.Open))
+                    {
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.StreamSource = stream;
+                        bmp.EndInit();
+                        bmp.Freeze();
+                        CurrentRoiImageSource = bmp;
+                    }
+                }
+
+                // 读取XLD数据并显示
+                HObject? roiXld = null;
+                HTuple xldRow = new HTuple();
+                HTuple xldCol = new HTuple();
+                try
+                {
+                    HOperatorSet.ReadObject(out roiXld, hobjPath);
+                    HOperatorSet.GetContourXld(roiXld, out xldRow, out xldCol);
+
+                    if (xldRow.Length == 0 || xldCol.Length == 0)
+                    {
+                        MessageBox.Show("从XLD提取不到坐标,请重新保存ROI!", "错误");
+                        return;
+                    }
+
+                    double scaleX = _inkCanvas.ActualWidth / drawWidth;
+                    double scaleY = _inkCanvas.ActualHeight / drawHeight;
+                    ClearCanvasOnly();
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var stylusPoints = new StylusPointCollection();
+                        for (int i = 0; i < xldRow.Length; i++)
+                        {
+                            double x = xldCol[i].D * scaleX;
+                            double y = xldRow[i].D * scaleY;
+                            stylusPoints.Add(new StylusPoint(x, y));
+                        }
+
+                        var stroke = new Stroke(stylusPoints)
+                        {
+                            DrawingAttributes = new DrawingAttributes
+                            {
+                                Color = System.Windows.Media.Color.FromArgb(200, 231, 76, 60),
+                                Width = 3,
+                                Height = 3
+                            }
+                        };
+
+                        _inkCanvas.Strokes.Add(stroke);
+                        _inkCanvas.UpdateLayout();
+                    });
+                }
+                finally
+                {
+                    roiXld?.Dispose();
+                    xldRow?.Dispose();
+                    xldCol?.Dispose();
+                }
+
+                IsDrawFlyoutOpen = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"加载ROI失败:{ex.Message}", "错误");
+            }
+        }
+
+        /// <summary>
+        /// 保存正极ROI区域
+        /// </summary>
+        private void SavePositiveRoiAsHalconRegion()
+        {
+            if (_inkCanvas == null)
+            {
+                MessageBox.Show("画布未初始化!", "错误");
+                AddLog("画布未初始化!");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_currentRoiCameraNo))
+            {
+                MessageBox.Show("未选择目标相机,请重新操作!", "错误");
+                return;
+            }
+
+            // 解析当前工位和相机号
+            string station = _currentRoiCameraNo;
+
+            try
+            {
+                if (_drawImageWidth == 0 || _drawImageHeight == 0)
+                {
+                    MessageBox.Show("请选择需要绘制的图片后再修改!", "错误");
+                    AddLog("未选择绘制图片,无法获取原图尺寸!");
+                    return;
+                }
+
+                var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+                Directory.CreateDirectory(roiDir);
+
+                // 正极ROI文件路径(关键差异:文件名前缀为"正极")
+                string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+                string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+
+                // 清空ROI的情况
+                if (_inkCanvas.Strokes.Count == 0)
+                {
+                    if (File.Exists(hobjPath))
+                        File.Delete(hobjPath);
+
+                    // 保存尺寸和图片路径
+                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
+
+                    // 更新缓存
+                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+                    {
+                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+                        _detectionRegionCache.Remove(_currentRoiCameraNo);
+                    }
+
+                    MessageBox.Show($"{station}工位的ROI已清空并保存!", "成功");
+                    AddLog($"{station}工位的ROI已清空并保存!");
+                    return;
+                }
+
+                double canvasWidth = _inkCanvas.ActualWidth;
+                double canvasHeight = _inkCanvas.ActualHeight;
+
+                if (canvasWidth == 0 || canvasHeight == 0)
+                {
+                    MessageBox.Show("画布尺寸无效!", "错误");
+                    return;
+                }
+
+                double scaleX = _drawImageWidth / canvasWidth;
+                double scaleY = _drawImageHeight / canvasHeight;
+
+                HTuple row = new HTuple();
+                HTuple col = new HTuple();
+
+                foreach (var stroke in _inkCanvas.Strokes)
+                {
+                    foreach (var sp in stroke.StylusPoints)
+                    {
+                        double originalX = sp.X * scaleX;
+                        double originalY = sp.Y * scaleY;
+                        row = row.TupleConcat(originalY);
+                        col = col.TupleConcat(originalX);
+                    }
+                }
+
+                if (row.Length > 0 && col.Length > 0)
+                {
+                    row = row.TupleConcat(row[0]);
+                    col = col.TupleConcat(col[0]);
+                }
+
+                HObject? roiXld = null;
+                HObject? delRegion = null;
+                HObject? dummyImage = null;
+                try
+                {
+                    HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
+                    HOperatorSet.GenImageConst(out dummyImage, "byte", 1920, 1200);
+                    HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
+
+                    HOperatorSet.WriteObject(roiXld, hobjPath);
+                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
+
+                    // 更新缓存
+                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+                    {
+                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+                        _detectionRegionCache.Remove(_currentRoiCameraNo);
+                    }
+                    _detectionRegionCache.Add(_currentRoiCameraNo, delRegion);
+                }
+                finally
+                {
+                    roiXld?.Dispose();
+                    row?.Dispose();
+                    col?.Dispose();
+                }
+
+                UpdateRoiStatus(station, true);
+
+                IsDrawFlyoutOpen = false;
+                MessageBox.Show($"{station}工位的ROI已保存!", "成功");
+                AddLog($"{station}工位的ROI已保存!");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"保存ROI失败:{ex.Message}", "错误");
+                AddLog($"保存正极ROI异常:{ex.Message}");
+            }
+        }
+        #endregion
+        #region 辅助方法
         /// <summary>
         /// 在视觉树中查找子元素
         /// </summary>
@@ -2228,27 +2701,36 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
         #endregion
+
         #region 在线检测 - 选择监控文件夹
 
         #region 双工位路径选择方法
-        // A工位选择文件夹
+        // A工位监听路径选择文件夹
         private void SelectMonitorFolderA()
         {
+            // 1. 创建WPF内置的文件夹选择对话框实例（需引用Microsoft.Win32命名空间）
             var folderDialog = new OpenFolderDialog();
+            // 2. 设置对话框标题，明确告知用户选择用途
             folderDialog.Title = "选择A工位在线检测监控文件夹";
+            // 3. 设置初始打开目录为系统“我的图片”文件夹，提升用户体验
             folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            // 4. 验证文件夹名称的合法性（避免无效路径）
             folderDialog.ValidateNames = true;
+            // 5. 禁止多选文件夹（符合“选择单个监控文件夹”的业务需求）
             folderDialog.Multiselect = false;
+            // 6. 显示对话框，指定父窗口为应用主窗口（保证对话框模态且居中）
             bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
+            // 7. 判断用户是否确认选择（点击“确定”按钮）
             if (result == true)
             {
-                // 替换 FileName 为 FolderName 获取选中路径
+                // 8. 关键：获取选中的文件夹路径（注意是FolderName而非FileName，FileName用于文件选择）
                 SelectedMonitorFolderPathA = folderDialog.FolderName;
+                // 9. 记录操作日志，便于追溯用户操作
                 AddLog($"[A工位] 已选择在线监控文件夹：{SelectedMonitorFolderPathA}");
             }
         }
 
-        // B工位选择文件夹
+        // B工位监听路径选择文件夹
         private void SelectMonitorFolderB()
         {
             var folderDialog = new OpenFolderDialog();
@@ -2256,7 +2738,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
             folderDialog.ValidateNames = true;
             folderDialog.Multiselect = false;
-
             // 调整返回值判断
             bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
             if (result == true)
@@ -2266,42 +2747,51 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
         #endregion
+
         #region 双工位启动监控
         // 监控运行状态标记
         private bool _isAMonitorRunning = false;
         private bool _isBMonitorRunning = false;
+
         // A工位启动监控
         private void StartOnlineMonitoringA()
         {
+            // 第一层防护：线程运行状态校验，防止重复启动（快速返回，避免进入锁逻辑）
             if (_isThreadRunningA)
-                return; // 防止重复启动
-
+                return; // 若线程已在运行，直接返回，避免重复执行后续逻辑
+            // 标记线程开始运行（第一层状态锁）
             _isThreadRunningA = true;
+            // 加锁保护：保证多线程下A工位监控状态的原子操作（防止并发启动导致的资源冲突）
             lock (_stationCountLock)
             {
+                // 第二层防护：A工位监控运行状态校验，进一步防止重复启动
                 if (_isAMonitorRunning)
                 {
                     AddLog("[A工位] 在线监控已启动，无需重复执行");
                     return;
                 }
-
+                // 标记当前正在监控的工位为A（全局状态，便于日志/业务逻辑区分工位）
                 CurrentMonitoringStation = "A";
-
+                // 校验监控文件夹有效性：路径为空或不存在时，终止启动并提示
                 if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
                 {
                     AddLog("[A工位] 监控文件夹不存在，请先选择有效文件夹");
-                    _isAMonitorRunning = false;
+                    _isAMonitorRunning = false;// 重置监控状态
                     MessageBox.Show("A工位监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
-
+                // 重置线程终止标记（确保监控线程不会被误终止）
                 _isThreadTerminatingA = false;
+                // 销毁旧的文件监控器（FileSystemWatcher）：避免资源泄漏，保证每次启动都是全新实例
                 if (_onlineMonitorWatcherA != null)
                 {
                     try
                     {
+                        // 1. 禁用事件触发：停止监听文件创建事件
                         _onlineMonitorWatcherA.EnableRaisingEvents = false;
+                        // 2. 解绑事件：防止旧实例仍绑定事件导致重复处理
                         _onlineMonitorWatcherA.Created -= OnOnlineFileCreatedA;
+                        // 3. 释放资源：销毁旧实例
                         _onlineMonitorWatcherA.Dispose();
                     }
                     catch (Exception ex)
@@ -2310,25 +2800,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                     finally
                     {
+                        // 无论是否异常，都重置为null，避免引用旧实例
                         _onlineMonitorWatcherA = null;
                     }
                 }
+                // 创建新的文件监控器（FileSystemWatcher），配置监控规则
                 _onlineMonitorWatcherA = new FileSystemWatcher(SelectedMonitorFolderPathA)
                 {
+                    // 监控所有类型文件（可按需修改，如"*.png"仅监控图片）
                     Filter = "*.*",
-                    IncludeSubdirectories = true,
+                    IncludeSubdirectories = true,// 监控目标文件夹的子目录
+                    // 仅监听文件名/创建时间变更（精准触发）
                     NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
-                    EnableRaisingEvents = true
+                    EnableRaisingEvents = true// 启用事件触发（核心：开启监控）
                 };
+                // 绑定文件创建事件：当监控文件夹下有新文件创建时，触发OnOnlineFileCreatedA处理逻辑
                 _onlineMonitorWatcherA.Created += OnOnlineFileCreatedA;
+                // 标记A工位监控已启动（第二层状态锁）
                 _isAMonitorRunning = true;
                 AddLog($"[A工位] 已启动监控，路径：{SelectedMonitorFolderPathA}");
-                AddLog($"[A工位] 筛选条件：极性（正极：{IsPositive}，负极：{IsNegative}），相机（1：{IsCamera1}，2：{IsCamera2}，3：{IsCamera3}，4：{IsCamera4}）");
-                //启动队列处理
+                AddLog($"[A工位] 筛选条件：极性（正极：{IsPositive}，负极：{IsNegative}）");//，相机（1：{IsCamera1}，2：{IsCamera2}，3：{IsCamera3}，4：{IsCamera4}）");
+                // 启动A工位的并发队列处理：新文件创建后，放入队列异步处理（避免阻塞监控线程）
                 StartConcurrentProcessingA();
             }
         }
-
 
         // B工位启动监控
         private void StartOnlineMonitoringB()
@@ -2383,7 +2878,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 _onlineMonitorWatcherB.Created += OnOnlineFileCreatedB;
                 _isBMonitorRunning = true;
                 AddLog($"[B工位] 已启动监控，路径：{SelectedMonitorFolderPathB}");
-                AddLog($"[B工位] 筛选条件：极性（正极：{IsPositive}，负极：{IsNegative}），相机（1：{IsCamera1}，2：{IsCamera2}，3：{IsCamera3}，4：{IsCamera4}）");
+                AddLog($"[B工位] 筛选条件：极性（正极：{IsPositive}，负极：{IsNegative}）");//，相机（1：{IsCamera1}，2：{IsCamera2}，3：{IsCamera3}，4：{IsCamera4}）");
                 //队列处理
                 StartConcurrentProcessingB();
             }
@@ -2526,6 +3021,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
         #endregion
+
         #region 双工位新文件处理
         // A工位新文件事件
         private void OnOnlineFileCreatedA(object sender, FileSystemEventArgs e)
@@ -2565,12 +3061,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
 
                     //筛选条件
-                    string polarity = GetPolarityFromPath(e.FullPath);
+                    string polarity = GetPolarityFromPath(e.FullPath, true);
                     string camera = GetCameraNumberFromPath(e.FullPath);
                     bool isPolarityMatch = (!IsPositive && !IsNegative) || (IsPositive && polarity == "正极") || (IsNegative && polarity == "负极");
-                    bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) || (IsCamera1 && camera == "1") || (IsCamera2 && camera == "2") || (IsCamera3 && camera == "3") || (IsCamera4 && camera == "4");
+                    //bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) || (IsCamera1 && camera == "1") || (IsCamera2 && camera == "2") || (IsCamera3 && camera == "3") || (IsCamera4 && camera == "4");
 
-                    if (!isPolarityMatch || !isCameraMatch)
+                    if (!isPolarityMatch)//|| !isCameraMatch
                     {
                         return;
                     }
@@ -2622,12 +3118,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
 
                     //筛选条件
-                    string polarity = GetPolarityFromPath(e.FullPath);
+                    string polarity = GetPolarityFromPath(e.FullPath, true);
                     string camera = GetCameraNumberFromPath(e.FullPath);
                     bool isPolarityMatch = (!IsPositive && !IsNegative) || (IsPositive && polarity == "正极") || (IsNegative && polarity == "负极");
-                    bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) || (IsCamera1 && camera == "1") || (IsCamera2 && camera == "2") || (IsCamera3 && camera == "3") || (IsCamera4 && camera == "4");
+                    //bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) || (IsCamera1 && camera == "1") || (IsCamera2 && camera == "2") || (IsCamera3 && camera == "3") || (IsCamera4 && camera == "4");
 
-                    if (!isPolarityMatch || !isCameraMatch)
+                    if (!isPolarityMatch)//|| !isCameraMatch
                     {
                         return;
                     }
@@ -2649,26 +3145,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private CancellationTokenSource? _ctsB = null;
         private readonly object _processingLockA = new object();
         private readonly object _processingLockB = new object();
+
         // A工位启动并发处理
         private void StartConcurrentProcessingA()
         {
-
+            // 加锁保护：保证队列处理任务的原子操作（防止多线程同时启动重复的处理任务）
             lock (_processingLockA)
             {
+                // 任务状态校验：若已有处理任务在运行（未完成），直接返回，避免重复启动
+                // _processingTaskA != null：存在未释放的任务实例；!_processingTaskA.IsCompleted：任务仍在运行
                 if (_processingTaskA != null && !_processingTaskA.IsCompleted)
                 {
                     AddLog("[A队列] 处理线程已在运行，跳过重复启动");
                     return;
                 }
-
+                // 1.创建新的取消令牌源：用于后续主动终止队列处理任务（如停止检测时取消）
                 _ctsA = new CancellationTokenSource();
+                // 提取取消令牌，传递给异步任务
                 CancellationToken token = _ctsA.Token;
+                // 2. 启动异步任务：在后台线程执行队列处理逻辑（避免阻塞UI线程）
                 _processingTaskA = Task.Run(async () =>
                 {
+                    // 标记A队列处理线程已启动（供外部判断队列状态）
                     _isQueueRunningA = true;
                     AddLog("A队列线程启动");
                     try
                     {
+                        // 核心逻辑：异步执行A队列的并发处理（传入取消令牌，支持中途取消）
+                        // ConfigureAwait(false)：不捕获当前同步上下文（UI上下文），提升异步性能，避免UI线程阻塞
                         await ProcessQueueConcurrentA(token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
@@ -2684,7 +3188,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         _isQueueRunningA = false;
                         AddLog("A队列线程已终止");
                     }
-                }, token);
+                }, token);// 将取消令牌传递给Task.Run，支持任务级别的取消（如任务未启动时直接取消）
             }
         }
 
@@ -2728,70 +3232,88 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         #endregion
 
         #region 双工位队列处理
-        // A工位队列并发处理
+        /// <summary>
+        ///  A工位队列并发处理：A工位异步并发处理检测队列核心方法（消费队列中的文件路径，执行图片损伤检测）
+        /// 核心设计：优雅退出（取消令牌+线程终止标记）+ 低CPU占用（WaitHandle等待）+ 并发控制（信号量）+ 线程安全（锁）+ UI线程安全更新
+        /// </summary>
+        /// <param name="token">取消令牌：用于接收“停止检测”的取消信号，实现优雅退出</param>
+        /// <returns>异步任务</returns>
         private async Task ProcessQueueConcurrentA(CancellationToken token)
         {
+            // 循环处理队列：直到收到取消信号 或 线程终止标记触发（双重保障，确保能优雅退出）
             while (!token.IsCancellationRequested && !_isThreadTerminatingA)
             {
                 string? filePath = null;
-
+                // 1. 线程安全从队列取待检测文件路径（lock保证多生产者/消费者下的队列安全）
                 lock (_queueLockA)
                 {
+                    // TryDequeue：尝试出队，无数据时返回false，filePath为null
                     _safeDetectQueueA.TryDequeue(out filePath);
                 }
-
+                // 2. 队列无数据时：进入等待状态（避免空循环占用100%CPU）
                 if (filePath == null)
                 {
-                    // ⚡ 使用 WaitHandle.WaitAny，监听 token + queueEvent
+                    // ⚡ 核心优化：WaitHandle.WaitAny 监听两个信号，实现“有任务就唤醒，有取消就退出，超时就重试”
                     int signaledIndex = WaitHandle.WaitAny(new WaitHandle[]
                     {
-                _queueEventA,
-                token.WaitHandle
+                        // 监听的信号集合：
+                        // _queueEventA：队列有新文件时触发的唤醒信号（生产者入队时Set）
+                        // token.WaitHandle：取消令牌的等待句柄（取消时触发）
+                        _queueEventA,
+                        token.WaitHandle
                     }, TimeSpan.FromSeconds(30));
 
                     if (signaledIndex == WaitHandle.WaitTimeout)
-                        continue; // 超时，重新循环
+                        continue; // 超时：重新进入循环，再次尝试取队列数据
                     if (token.IsCancellationRequested || _isThreadTerminatingA)
-                        break; // 收到取消信号，退出循环
-                    continue; // 队列唤醒信号，继续循环尝试取任务
+                        break; // 收到取消信号/线程终止标记：退出循环，结束处理
+                    continue; // 收到队列唤醒信号（_queueEventA）：重新进入循环，取新入队的文件
                 }
-
+                // 3. 检测取消信号：若已取消，直接抛出取消异常（触发外层catch处理）
                 token.ThrowIfCancellationRequested();
-
+                // 4. 校验文件存在性：文件已被删除则跳过，避免后续检测异常
                 if (!File.Exists(filePath))
                 {
                     AddLog($"[A工位-队列] {Path.GetFileName(filePath)} 已删除，跳过");
                     continue;
                 }
-
+                // 5. 信号量等待：控制并发处理数量（避免同时处理过多文件导致CPU/内存耗尽）
+                // ConfigureAwait(false)：不捕获UI上下文，提升异步性能
                 await _semaphoreA.WaitAsync(token).ConfigureAwait(false);
                 try
                 {
-                    // 图片处理逻辑保持原样
+                    // 6. 核心：图片检测与结果处理逻辑
                     try
                     {
+                        // 6.1 动态对象存储检测数据（灵活扩展字段）
                         dynamic detectionData = new ExpandoObject();
+                        // 解析文件路径到动态对象（提取如文件名、路径、时间等信息）
                         ParsePathToDynamicObject(detectionData, filePath);
-                        detectionData.Station = "A";
-                        string detectResult = DamageDetection(filePath, "A");
+                        detectionData.Station = "A";// 标记工位为A
+                        // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
+                        string detectResult = DamageDetection(filePath, "正极");
                         DateTime realDetectionTime = DateTime.Now;
-                        bool isNG = detectResult == "NG";
+                        bool isNG = detectResult == "NG";// 判断是否为不良品
+                        // 6.3 将图片添加到结果队列（用于后续报表/展示）
                         AddImageToQueue(filePath, isNG, "A", realDetectionTime);
+                        // 6.4 空图片异常处理：不统计，直接跳过后续逻辑
                         if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                         {
                             AddLog($"[A工位-结果] {Path.GetFileName(filePath)}：空图片，不统计");
                             continue;
                         }
-
+                        // 6.5 判断是否保存结果图片（根据配置：OK保存/NG保存）
                         bool isResultSaved = (detectResult == "OK" && IsSaveResultOK) || (detectResult == "NG" && IsSaveResultNG);
+                        // 获取结果图片保存路径（若需要保存）
                         detectionData.ResultImagePath = isResultSaved ? GetResultImagePath(filePath, detectResult, true) : null;
                         detectionData.DetectionResult = detectResult;
-
+                        // 6.6 跨线程更新UI：后台线程不能直接操作UI，需通过Dispatcher切回UI线程
+                        // InvokeAsync：异步执行，避免阻塞检测线程
                         await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
-                            _fullDetectionDataList.Add(detectionData);
-                            UpdateDisplayDataList();
-                            CalculateDetectionStatistics();
+                            _fullDetectionDataList.Add(detectionData);// 添加到完整检测数据列表
+                            UpdateDisplayDataList();// 更新展示用的数据列表
+                            CalculateDetectionStatistics();// 重新计算检测统计（OK数、NG数、OK率等）
                         });
                     }
                     catch (Exception ex)
@@ -2801,11 +3323,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
                 finally
                 {
+                    // 7. 释放信号量：无论检测成功/失败/异常，必须释放，避免信号量耗尽导致死锁
                     _semaphoreA.Release();
                 }
             }
         }
-
 
         // B工位队列并发处理
         private async Task ProcessQueueConcurrentB(CancellationToken token)
@@ -2856,7 +3378,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         dynamic detectionData = new ExpandoObject();
                         ParsePathToDynamicObject(detectionData, filePath);
                         detectionData.Station = "B";
-                        string detectResult = DamageDetection(filePath, "B");
+                        string detectResult = DamageDetection(filePath, "负极");
                         DateTime realDetectionTime = DateTime.Now;
                         bool isNG = detectResult == "NG";
                         AddImageToQueue(filePath, isNG, "B", realDetectionTime);
@@ -2926,6 +3448,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         #endregion
         #endregion
+
         #region 在线检测 - 启动监控
         /// <summary>
         /// 启动在线文件夹监控
@@ -2955,9 +3478,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             AddLog($"[在线检测] 已启动监控，路径：{SelectedMonitorFolderPath}");
             AddLog($"[在线检测] 当前筛选条件：极性（正极：{IsPositive}，负极：{IsNegative}），相机（1：{IsCamera1}，2：{IsCamera2}，3：{IsCamera3}，4：{IsCamera4}）");
         }
-
-
         #endregion
+
         #region 在线检测 - 停止监控
         /// <summary>
         /// 停止在线文件夹监控
@@ -2977,6 +3499,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             AddLog($"[在线检测] 已清空队列（剩余任务数：0）");
         }
         #endregion
+
         #region 在线检测 - 新文件处理
         /// <summary>
         /// 监控到新文件时触发
@@ -3020,7 +3543,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         return;
                     }
 
-                    string polarity = GetPolarityFromPath(e.FullPath);
+                    string polarity = GetPolarityFromPath(e.FullPath, true);
                     string camera = GetCameraNumberFromPath(e.FullPath);
                     bool isPolarityMatch = (!IsPositive && !IsNegative) || (IsPositive && polarity == "正极") || (IsNegative && polarity == "负极");
                     bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) || (IsCamera1 && camera == "1") || (IsCamera2 && camera == "2") || (IsCamera3 && camera == "3") || (IsCamera4 && camera == "4");
@@ -3076,6 +3599,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
         #endregion
+
         #region 在线检测 - 队列处理
 
         /// <summary>
@@ -3097,9 +3621,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                     try
                     {
+                        var station = GetElectrodeType(filePath);
                         dynamic detectionData = new ExpandoObject();
                         ParsePathToDynamicObject(detectionData, filePath);
-                        string detectResult = DamageDetection(filePath, "A");
+                        string detectResult = DamageDetection(filePath, station);
 
                         if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                         {
@@ -3145,37 +3670,72 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         #endregion
 
+        private string? GetElectrodeType(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
+
+            string fileName = Path.GetFileName(filePath);
+
+            if (fileName.Contains("正极")) return "正极";
+            if (fileName.Contains("负极")) return "负极";
+
+            string directoryPath = Path.GetDirectoryName(filePath) ?? "";
+
+            if (directoryPath.Contains("正极")) return "正极";
+            if (directoryPath.Contains("负极")) return "负极";
+
+            // 记录异常日志
+            AddLog($"[WARN] 无法判定电极类型: {filePath}",CoreLogLevel.Warn);
+            return null;  // 返回null而非抛异常
+        }
+
 
         // 新增日志到第一行
-        public void AddLog(string logContent)
+        public void AddLog(string message, CoreLogLevel level = CoreLogLevel.Info, bool isToDatabase = false,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
         {
             // 校验日志内容
-            string validLogContent = string.IsNullOrWhiteSpace(logContent)
-                ? "【空日志内容（可能是异常信息为空导致）】"
-                : logContent.Trim();
+            if (string.IsNullOrWhiteSpace(message))
+                return;
 
+            switch (level)
+            {
+                case CoreLogLevel.Info:
+                    _logger?.Info(message, isToDatabase, memberName, filePath, lineNumber);
+                    break;
+                case CoreLogLevel.Warn:
+                    _logger?.Warn(message, true, memberName, filePath, lineNumber);
+                    break;
+                case CoreLogLevel.Error:
+                    _logger?.Error(message, true, memberName, filePath, lineNumber);
+                    break;
+                default:
+                    _logger?.Log(level, message, isToDatabase, memberName, filePath, lineNumber);
+                    break;
+            }
+
+            string uiMessage = $"[{level}]{message}";
             // 创建日志项
             var newLog = Tuple.Create(
                 DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                validLogContent
+                uiMessage
             );
 
             // 仅当内容有效时添加到日志集合
-            if (!string.IsNullOrWhiteSpace(validLogContent))
+
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
+                LogTable.Insert(0, newLog);
+                if (LogTable.Count > 300)
+                {
+                    LogTable.RemoveAt(LogTable.Count - 1);
+                }
+            })
+            );
 
-                Application.Current.Dispatcher.BeginInvoke(
-                    new Action(() =>
-                    {
-                        LogTable.Insert(0, newLog);
-                        if (LogTable.Count > 300)
-                        {
-                            LogTable.RemoveAt(LogTable.Count - 1);
-                        }
-                    })
-
-                );
-            }
         }
         private void InitDll1()
         {
@@ -3188,10 +3748,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             string dllExecuteType = "PRED";
 
             // 模型配置（下载标识PTO_JiSunDiePian_model，保存名为Diepian.onnx）
-            string modelPythonCode = "PTO_JiSunDiePian_model";
-            string modelExecuteType = "PRED"; // 模型下载通常用TRAIN标识
-            string modelFileName = "Diepian.onnx"; // 下载后保存的模型文件名
-            string modelSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modelFileName);
+            //string modelPythonCode = "PTO_JiSunDiePian_model";
+            //string modelExecuteType = "PRED"; // 模型下载通常用TRAIN标识
+
+            //string modelFileName = "Diepian.onnx"; // 下载后保存的模型文件名
+            //string modelSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modelFileName);
+            // 正极模型文件
+            string zhengModelFileName = "正极.onnx";
+            var zhengModelSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, zhengModelFileName);
+
+            // 负极模型文件
+            string fuModelFileName = "负极.onnx";
+            var fuModelSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fuModelFileName);
 
             try
             {
@@ -3265,72 +3833,58 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"[DLL初始化完成] 类实例+方法均就绪");
 
                 // Web下载模型（Diepian.onnx）
-                AddLog($"\n=== 开始处理模型：{modelFileName} ===");
-                bool needDownload = false;
+                AddLog($"\n=== 开始处理模型：{zhengModelFileName}、{fuModelFileName} ===");
+                //bool needDownload = false;
                 // 先检查本地是否已有模型
-                if (File.Exists(modelSavePath))
-                {
-                    // 验证本地模型文件有效性
-                    FileInfo modelFileInfo = new FileInfo(modelSavePath);
-                    if (modelFileInfo.Length < 1024) // 小于1KB视为无效
-                    {
-                        AddLog($"[模型加载] 本地模型文件过小（{modelFileInfo.Length} 字节），视为无效，重新下载...");
-                        File.Delete(modelSavePath); // 删除无效文件
-                    }
-                    else
-                    {
-                        AddLog($"[模型加载] 发现有效本地模型：{modelSavePath}（大小：{modelFileInfo.Length} 字节），无需下载");
-                        //return; // 本地模型有效，直接结束初始化
-                    }
-                }
-                else
-                {
-                    AddLog($"[模型加载] 本地模型不存在，标记为需要下载");
-                    needDownload = true;
-                }
-                if (needDownload)
-                {
-                    // 本地无模型/模型无效，从Web下载
-                    AddLog($"[模型下载] 本地无有效模型，从Web下载（标识：{modelPythonCode}）...");
-                    // 生成模型下载的RSA签名（与DLL共用密钥）
-                    string modelSignature = RasHelper.RSAEncrypt(RasHelper.ToXmlPublicKey(publicKey), appKey);
-                    if (string.IsNullOrEmpty(modelSignature))
-                    {
-                        AddLog("[模型下载] RSA签名生成失败！");
-                        throw new Exception("RSA签名生成失败，无法下载模型");
-                    }
+                IsFileExist(zhengModelSavePath, out bool needZhengDownload);
+                IsFileExist(fuModelSavePath, out bool needFuDownload);
+                //if (needDownload)
+                //{
+                //    // 本地无模型/模型无效，从Web下载
+                //    AddLog($"[模型下载] 本地无有效模型，从Web下载（标识：{modelPythonCode}）...");
+                //    // 生成模型下载的RSA签名（与DLL共用密钥）
+                //    string modelSignature = RasHelper.RSAEncrypt(RasHelper.ToXmlPublicKey(publicKey), appKey);
+                //    if (string.IsNullOrEmpty(modelSignature))
+                //    {
+                //        AddLog("[模型下载] RSA签名生成失败！");
+                //        throw new Exception("RSA签名生成失败，无法下载模型");
+                //    }
 
-                    // 调用WebHelper1下载模型
-                    var modelReFile = WebHelper1.downloadFile1(appKey, modelSignature, modelPythonCode, modelExecuteType);
-                    if (modelReFile == null || !modelReFile.success || modelReFile.dataStr == null || modelReFile.dataStr.Length == 0)
-                    {
-                        string errorMsg = modelReFile?.message ?? "下载响应为空";
-                        AddLog($"[模型下载] Web下载失败：{errorMsg}");
-                        // 弹出程序目录，方便用户手动放置模型
-                        Process.Start("explorer.exe", AppDomain.CurrentDomain.BaseDirectory);
-                        throw new Exception($"从Web获取模型失败：{errorMsg}\n请手动将 {modelFileName} 放置到 {AppDomain.CurrentDomain.BaseDirectory}");
-                    }
+                //    // 调用WebHelper1下载模型
+                //    var modelReFile = WebHelper1.downloadFile1(appKey, modelSignature, modelPythonCode, modelExecuteType);
+                //    if (modelReFile == null || !modelReFile.success || modelReFile.dataStr == null || modelReFile.dataStr.Length == 0)
+                //    {
+                //        string errorMsg = modelReFile?.message ?? "下载响应为空";
+                //        AddLog($"[模型下载] Web下载失败：{errorMsg}");
+                //        // 弹出程序目录，方便用户手动放置模型
+                //        Process.Start("explorer.exe", AppDomain.CurrentDomain.BaseDirectory);
+                //        throw new Exception($"从Web获取模型失败：{errorMsg}\n请手动将 {modelFileName} 放置到 {AppDomain.CurrentDomain.BaseDirectory}");
+                //    }
 
-                    // 验证模型文件有效性（至少10KB，避免空文件）
-                    if (modelReFile.dataStr.Length < 1024 * 10) // 10KB阈值
-                    {
-                        AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.dataStr.Length} 字节），视为无效");
-                        throw new Exception("下载的模型文件无效（体积过小）");
-                    }
+                //    // 验证模型文件有效性（至少10KB，避免空文件）
+                //    if (modelReFile.dataStr.Length < 1024 * 10) // 10KB阈值
+                //    {
+                //        AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.dataStr.Length} 字节），视为无效");
+                //        throw new Exception("下载的模型文件无效（体积过小）");
+                //    }
 
-                    // 保存模型到本地目录
-                    File.WriteAllBytes(modelSavePath, modelReFile.dataStr);
-                    AddLog($"[模型下载成功] 已保存到：{modelSavePath}（大小：{modelReFile.dataStr.Length} 字节）");
-                }
+                //    // 保存模型到本地目录
+                //    File.WriteAllBytes(modelSavePath, modelReFile.dataStr);
+                //    AddLog($"[模型下载成功] 已保存到：{modelSavePath}（大小：{modelReFile.dataStr.Length} 字节）");
+                //}
                 // 准备ModelInit参数
-                string Gongwei = "PTO叠片工位";
+                string ZhengGongwei = "PTO与行大面正极";
+                string FuGongwei = "PTO与行大面负极";
                 string? exInfo = string.Empty;
                 string aabbb = string.Empty;
                 string[] labels = new string[0];
-                string modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Diepian.onnx");
-                AddLog($"[模型路径] {modelPath}（是否存在：{File.Exists(modelPath)}）");
+                string zhengModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "正极.onnx");
+                AddLog($"[模型路径] {zhengModelPath}（是否存在：{File.Exists(zhengModelPath)}）");
+                string fuModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "负极.onnx");
+                AddLog($"[模型路径] {fuModelPath}（是否存在：{File.Exists(fuModelPath)}）");
 
-                param = new object?[6] { modelPath, labels, Gongwei, null, aabbb, true };
+                zhengParam = new object?[6] { zhengModelPath, labels, ZhengGongwei, null, aabbb, true };
+                fuParam = new object?[6] { fuModelPath, labels, FuGongwei, null, aabbb, true };
 
                 // 调用ModelInit
                 if (ModelInitMethod == null || obj2 == null)
@@ -3338,20 +3892,75 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     AddLog("[检测异常] DLL未初始化（ModelInit方法或实例为空）");
                     throw new Exception("DLL未初始化，ModelInit方法或实例为空");
                 }
-                ModelInitMethod.Invoke(obj2, param);
-                H246modle = param[3] as IPredictor;
-                exInfo = param[4] as string;
+                ModelInitMethod.Invoke(obj2, zhengParam);
+                H246Zhengmodle = zhengParam[3] as IPredictor;
+                exInfo = zhengParam[4] as string;
 
-                if (H246modle == null)
+                if (zhengParam != null)
                 {
+                    if (File.Exists(zhengModelSavePath))
+                    {
+                        try
+                        {
+                            File.Delete(zhengModelSavePath);
+                            AddLog($"[模型清理] 加载成功，已删除本地模型文件");
+                        }
+                        catch (Exception ex)
+                        {
+                            // 捕获文件占用异常（如DLL未释放句柄），仅警告不中断程序
+                            AddLog($"[模型清理警告] 加载成功，但无法删除本地文件，错误：{ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    // 加载失败，保留本地文件
                     string error = string.IsNullOrEmpty(exInfo) ? "未知错误" : exInfo;
-                    AddLog($"[模型初始化失败] {error}");
+                    AddLog($"[正极模型初始化失败] {error}，保留本地模型文件供排查：{zhengModelSavePath}");
                     throw new Exception($"模型初始化失败：{error}");
                 }
                 if (!string.IsNullOrEmpty(exInfo))
                 {
-                    AddLog($"[模型初始化警告] {exInfo}");
+                    AddLog($"[正极模型初始化警告] {exInfo}");
                 }
+
+                ModelInitMethod.Invoke(obj2, fuParam);
+                H246Fumodle = fuParam[3] as IPredictor;
+                exInfo = fuParam[4] as string;
+
+                if (fuParam != null)
+                {
+                    if (File.Exists(fuModelSavePath))
+                    {
+                        try
+                        {
+                            File.Delete(fuModelSavePath);
+                            AddLog($"[模型清理] 加载成功，已删除本地模型文件");
+                        }
+                        catch (Exception ex)
+                        {
+                            // 捕获文件占用异常（如DLL未释放句柄），仅警告不中断程序
+                            AddLog($"[模型清理警告] 加载成功，但无法删除本地文件，错误：{ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    // 加载失败，保留本地文件
+                    string error = string.IsNullOrEmpty(exInfo) ? "未知错误" : exInfo;
+                    AddLog($"[负极模型初始化失败] {error}，保留本地模型文件供排查：{fuModelSavePath}");
+                    throw new Exception($"模型初始化失败：{error}");
+                }
+                if (!string.IsNullOrEmpty(exInfo))
+                {
+                    AddLog($"[负极模型初始化警告] {exInfo}");
+                }
+
+
+
+
+
+
                 AddLog("[模型初始化] 成功，获取IPredictor实例");
                 AddLog("\n=== DLL + 模型 初始化全部完成，可执行检测 ===");
             }
@@ -3371,214 +3980,399 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"[初始化异常] 未知错误：{ex.Message}\n堆栈：{ex.StackTrace}");
                 throw new Exception($"初始化失败：{ex.Message}", ex);
             }
-
-
         }
 
-
-        private string DamageDetection(string imagePath, string station)
+        private void IsFileExist(string modelSavePath, out bool needDownload)
         {
-            //// 关键：检测前校验H246modle是否为空
-            //if (H246modle == null)
-            //{
-            //    string errorMsg = "H246modle未初始化（模型/DLL加载失败）";
-            //    Debug.WriteLine($"[检测异常] {errorMsg}");
-            //    MessageBox.Show(errorMsg, "检测失败", MessageBoxButton.OK, MessageBoxImage.Error);
-            //    return "异常";
-            //}
-            //List<AIResultModel> defectList = null;
-            //Mat imageMat = null;
-            //string finalResult = "异常";
-            //Debug.WriteLine($"\n=== 开始检测图像：{imagePath} ===");
+            if (File.Exists(modelSavePath))
+            {
+                // 验证本地模型文件有效性
+                FileInfo modelFileInfo = new FileInfo(modelSavePath);
+                if (modelFileInfo.Length < 1024) // 小于1KB视为无效
+                {
+                    AddLog($"[模型加载] 本地模型文件过小（{modelFileInfo.Length} 字节），视为无效，重新下载...");
+                    File.Delete(modelSavePath); // 删除无效文件
+                }
+                else
+                {
+                    AddLog($"[模型加载] 发现有效本地模型：{modelSavePath}（大小：{modelFileInfo.Length} 字节），无需下载");
+                    //return; // 本地模型有效，直接结束初始化
+                }
+                needDownload = false;
+            }
+            else
+            {
+                AddLog($"[模型加载] 本地模型不存在，标记为需要下载");
+                needDownload = true;
+            }
+        }
 
-            //// 1. 读取图像
-            //imageMat = Cv2.ImRead(imagePath, ImreadModes.Color);
-            //if (imageMat.Empty())
-            //{
-            //    string emptyLog = $"[检测异常] 图片为空（无法读取），绝对路径：{imagePath}";
-            //    CopyEmptyImageToTarget(imagePath);
-            //    AddLog(emptyLog);
-            //    return "异常（空图片）";
-            //}
-            ////Debug.WriteLine($"[图像读取] 成功，分辨率：{imageMat.Width}×{imageMat.Height}");
+        private bool _isPositivePolarity = false;// 全局布尔变量：true 表示正极，false 表示负极
+        private string DamageDetection(string imagePath, string? station)
+        {
+            #region 参数定义
+            // 线宽常量 - 可根据需要调整
+            const int RECTANGLE_THICKNESS = 5;  // 框线宽度
+            const int TEXT_THICKNESS = 4;       // 文字粗细
+            const double FONT_SCALE = 5;      // 字体大小
 
-            //string Gongwei = "PTO叠片工位";
-            //string exInfo = string.Empty;
+            float testScore;    // 置信度
+            string testName;    // 缺陷类别
+            float testWidth;    // 宽度
+            float testHeight;   // 长度
+            float testArea;     // 面积
+            #endregion
 
-            //// 4. 调用ModelActionDiePian检测
-            //acparam = new object[5] { H246modle, imageMat, Gongwei, null, exInfo };
-            //ActionGetPointMethod.Invoke(obj2, acparam);
-            //defectList = acparam[3] as List<AIResultModel>;
-            //exInfo = acparam[4] as string;
-            //if(exInfo != null)
-            //{
-            //    //AddLog(exInfo);
-            //}
+            #region 极性判定
+            _isPositivePolarity = imagePath.Contains("正极");
+            #endregion
 
-            //结果列表
-            List<AIResultModel>? defectList;
-            Mat imageMat = Cv2.ImRead(imagePath, ImreadModes.Color);
-            string Gongwei = "PTO叠片工位";
+            #region 初始化变量
+            List<AIResultModel>? defectList = null;
+            Mat? imageMat = null;
+            string ZhengGongwei = "PTO与行大面正极";
+            string FuGongwei = "PTO与行大面负极";
             string exInfo;
-            string finalResult;
-            HObject? delRegion;
-            string camerano = GetCameraNumberFromPath(imagePath);
+            string finalResult = "异常";
+            HObject? delRegion = null;
             string polarity = GetPolarityFromPath(imagePath);
-            if (camerano == null || polarity == null ||
-            !polarity.Equals("负极", StringComparison.OrdinalIgnoreCase))
+
+            if (polarity == null)
             {
                 AddLog($"[检测异常] 图片路径解析失败或非Negative极性：{imagePath}");
                 return "异常（路径解析失败/非Negative极性）";
             }
-            //生成带工位的唯一标识
-            string stationCamerano = $"{station}{camerano}";
-            //优先使用带工位的缓存ROI
-            if (_detectionRegionCache.TryGetValue(stationCamerano, out delRegion))
+            #endregion
+            try
             {
-                // AddLog($"[检测使用缓存] {station}工位相机{camerano}的DelRegion（复用缓存）");
-            }
-            else
-            {
-                // 缓存为空，从带工位的XLD文件加载
-                delRegion = GenerateDelRegionFromXldFile(stationCamerano);
-
-                // 仅缓存有效ROI
-                if (delRegion != null)
+                #region ROI区域加载
+                string stationCamerano = $"{station}";
+                if (!_detectionRegionCache.TryGetValue(stationCamerano, out delRegion))
                 {
-                    _detectionRegionCache[stationCamerano] = delRegion;
-                    AddLog($"[检测文件兜底] {station}工位相机{camerano}，从XLD生成DelRegion并缓存");
-                }
-                else
-                {
-                    if (!_warnedNoDelRegionCameras.Contains(stationCamerano))
+                    delRegion = GenerateDelRegionFromXldFile(stationCamerano);
+                    if (delRegion != null)
                     {
-                        AddLog($"[检测文件兜底] {station}工位相机{camerano}，未使用负极误判区域过滤（无ROI）");
+                        _detectionRegionCache[stationCamerano] = delRegion;
+                        AddLog($"[检测文件兜底] {station}，从XLD生成DelRegion并缓存");
+                    }
+                    else if (!_warnedNoDelRegionCameras.Contains(stationCamerano))
+                    {
+                        AddLog($"[检测文件兜底] {station}，未使用负极误判区域过滤（无ROI）");
                         _warnedNoDelRegionCameras.Add(stationCamerano);
                     }
                 }
-            }
-            if (delRegion == null || !delRegion.IsInitialized())
-            {
-                HOperatorSet.GenEmptyRegion(out delRegion);
-                if (!_warnedEmptyRegionCameras.Contains(camerano))
-                {
-                    AddLog($"[检测提示] 相机{camerano}未加载到ROI，将使用空区域");
-                    _warnedEmptyRegionCameras.Add(camerano);
-                }
-            }
-            // 图片读取重试机制
-            int maxRetry = 5; // 最大重试次数
-            int retryCount = 0;
-            int delayMs = 3; // 每次重试延迟3ms
-            bool isImageValid = false;
-            while (retryCount < maxRetry)
-            {
-                // 读取图像
-                imageMat = Cv2.ImRead(imagePath, ImreadModes.Color);
-                if (!imageMat.Empty())
-                {
-                    isImageValid = true;
-                    break;
-                }
-                imageMat.Release(); // 释放空Mat，避免内存泄漏
-                retryCount++;
-                //AddLog($"[图片读取重试] 第{retryCount}/{maxRetry}次：图片尚未写入完成，等待{delayMs}ms... 路径：{imagePath}");
-                Task.Delay(delayMs).Wait();
-            }
 
-            if (!isImageValid)
-            {
-                string emptyLog = $"[检测异常] 图片为空（经{maxRetry}次重试仍无法读取），绝对路径：{imagePath}";
-                imageMat.Release();
-                AddLog(emptyLog);
-                return "异常（空图片）";
-            }
+                if (delRegion == null || !delRegion.IsInitialized())
+                {
+                    HOperatorSet.GenEmptyRegion(out delRegion);
+                }
+                #endregion
 
-            if (H246modle == null)
-            {
-                AddLog("[错误] H246modle 为 null，无法调用 ModelActionDiePian");
-                return "异常 H246modle 为 null";
-            }
-            //调用时直接传引用
-            ai.ModelActionDiePian(H246modle, imageMat, Gongwei, delRegion, out defectList, out exInfo);
-            if (defectList == null || defectList.Count == 0)
-            {
-                // 无缺陷 → OK
+                #region 图片读取（重试机制）
+                int maxRetry = 5;
+                int retryCount = 0;
+                int delayMs = 3;
+                bool isImageValid = false;
+
+                while (retryCount < maxRetry)
+                {
+                    Mat tempMat = Cv2.ImRead(imagePath, ImreadModes.Color);
+                    if (!tempMat.Empty())
+                    {
+                        imageMat = tempMat;
+                        isImageValid = true;
+                        break;
+                    }
+                    else
+                    {
+                        tempMat.Dispose();
+                    }
+
+                    retryCount++;
+                    Task.Delay(delayMs).Wait();
+                }
+
+                if (!isImageValid || imageMat == null)
+                {
+                    string emptyLog = $"[检测异常] 图片为空（经{maxRetry}次重试仍无法读取），绝对路径：{imagePath}";
+                    imageMat?.Dispose();
+                    AddLog(emptyLog);
+                    return "异常（空图片）";
+                }
+                #endregion
+
+                #region 模型校验
+                if (H246Zhengmodle == null)
+                {
+                    AddLog("[错误] 正极模型为 null，无法调用 ModelActionDiePian");
+                    imageMat?.Release();
+                    return "异常 H246Zhengmodle 为 null";
+                }
+                if (H246Fumodle == null)
+                {
+                    AddLog("[错误] 负极模型为 null，无法调用 ModelActionDiePian");
+                    imageMat?.Release();
+                    return "异常 H246Fumodle 为 null";
+                }
+                #endregion
+
+                #region AI检测
+                if (_isPositivePolarity)
+                {
+                    ai.ModelActionDiePian(H246Zhengmodle, imageMat, ZhengGongwei, delRegion, out defectList, out exInfo);
+                }
+                else
+                {
+                    ai.ModelActionDiePian(H246Fumodle, imageMat, FuGongwei, delRegion, out defectList, out exInfo);
+                }
+                if (!string.IsNullOrEmpty(exInfo))
+                {
+                    AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Info, isToDatabase: true);
+                }
+                #endregion
+
+                #region 核心判定逻辑（优化重点）
+                // 默认结果为OK
                 finalResult = "OK";
-                if (IsSaveResultOK)
-                {
-                    // 在左上角添加红色"检测结果：OK"文字
-                    Cv2.PutText(imageMat, "OK", new OpenCvSharp.Point(50, 50),
-                               HersheyFonts.HersheySimplex, 2, new Scalar(0, 255, 0), 2);
-                    SaveDetectionResult(imagePath, imageMat, finalResult, true);
-                }
-            }
 
-            else
-            {
-                // 有缺陷 → NG
-                finalResult = "NG";
-                AddLog($"检测完成：{imagePath} → 结果：{finalResult}");
-                //OnNgImageDetected?.Invoke(imagePath);
-                if (IsSaveResultNG)
+                // 用于存储真正超过阈值的缺陷
+                List<AIResultModel> realDefects = new List<AIResultModel>();
+
+                if (defectList != null && defectList.Count > 0)
                 {
-                    // 遍历缺陷列表，绘制红色方框标记缺陷
                     foreach (var defect in defectList)
                     {
-                        Cv2.Rectangle(imageMat, defect.Rectangle, new Scalar(0, 0, 255), 2);
-                    }
-                    // 添加"检测结果：NG"文字
-                    Cv2.PutText(imageMat, "NG", new OpenCvSharp.Point(50, 50),
-                               HersheyFonts.HersheySimplex, 2, new Scalar(0, 0, 255), 2);
-                    SaveDetectionResult(imagePath, imageMat, finalResult, true);
-                }
-                // 根据最终结果绘制并保存
-                if (finalResult == "NG")
-                {
-                    if (IsSaveResultNG)
-                    {
-                        foreach (var defect in defectList)
+                        testName = defect.Name;
+                        testScore = defect.Score;
+                        testHeight = defect.Height;
+                        testWidth = defect.Width;
+                        testArea = defect.Area;
+
+                        //日志记录
+                        string detailMsg = $"文件名：{imagePath} | 极性：{polarity} | [检测缺陷信息] 类型:{testName} | " + $"置信度:{testScore:F3} | " + $"宽:{testWidth:F6} | " + $"高:{testHeight:F6} | " + $"面积:{testArea:F6} | ";
+                        AddLog(detailMsg);
+
+                        // 查找对应的阈值配置
+                        var thresholdConfig = DefectDataGrid.FirstOrDefault(
+                            item => item.DefectName == testName && item.IsEnable);
+
+                        if (thresholdConfig != null)
                         {
-                            Cv2.Rectangle(imageMat, defect.Rectangle, new Scalar(0, 0, 255), 2);
+                            // 只有当缺陷超过阈值时才判定为NG
+                            bool exceedsThreshold =
+                                testHeight > thresholdConfig.Height ||
+                                testWidth > thresholdConfig.Width ||
+                                testArea > (thresholdConfig.Area) ||
+                                testScore > thresholdConfig.Credibility;
+
+                            if (exceedsThreshold)
+                            {
+                                realDefects.Add(defect);
+                            }
                         }
-                        Cv2.PutText(imageMat, "NG", new OpenCvSharp.Point(50, 50),
-                                   HersheyFonts.HersheySimplex, 2, new Scalar(0, 0, 255), 2);
-                        SaveDetectionResult(imagePath, imageMat, finalResult, true);
+                    }
+
+                    // 只有存在真正超过阈值的缺陷时，才判定为NG
+                    if (realDefects.Count > 0)
+                    {
+                        finalResult = "NG";
                     }
                 }
-                else // 误判为OK的情况
+                #endregion
+
+                #region 结果绘制与保存
+                if (finalResult == "OK")
                 {
+                    // 绘制OK标记
+                    Cv2.PutText(imageMat, "OK", new OpenCvSharp.Point(150, 180),
+                                HersheyFonts.HersheySimplex, FONT_SCALE, new Scalar(0, 255, 0), TEXT_THICKNESS);
+
                     if (IsSaveResultOK)
                     {
-                        Cv2.PutText(imageMat, "OK", new OpenCvSharp.Point(50, 50),
-                                   HersheyFonts.HersheySimplex, 2, new Scalar(0, 255, 0), 2);
                         SaveDetectionResult(imagePath, imageMat, finalResult, true);
+                        SaveDetectionResult1(imagePath, imageMat, finalResult, true);
+                    }
+                }
+                else // finalResult == "NG"
+                {
+                    AddLog($"检测完成：{imagePath} → 结果：{finalResult}，缺陷数量：{realDefects.Count}");
+
+                    using var drawMat = imageMat.Clone();   // 克隆原图用于绘制，防止修改原 imageMat
+
+                    // 绘制缺陷框和标签
+                    foreach (var defect in realDefects)
+                    {
+                        Cv2.Rectangle(drawMat, defect.Rectangle, new Scalar(0, 0, 255), RECTANGLE_THICKNESS);
+
+                        // 可选：在缺陷旁边标注缺陷名称
+                        var labelPos = new OpenCvSharp.Point(defect.Rectangle.X, defect.Rectangle.Y - 80);
+                        PutTextChinese(drawMat, defect.Name, labelPos, 1.0f, new Scalar(0, 0, 255));
+                    }
+
+                    // 绘制缺陷信息列表（左上角）
+                    if (realDefects.Count > 0)
+                    {
+                        // ------------------ 参数可调 ------------------
+                        int startX = 240;                    // 左上角起始 x（调整为左侧）
+                        int startY = 340;                    // 顶部 y
+                        int lineHeight = 150;                // 每行高度
+                        /*int padding = 15; */                  // 内边距
+                        //int bgWidth = 600;                  // 背景宽度（根据文字长度调整）
+
+                      
+                        // 标题行
+                        PutTextChinese(drawMat,
+                            "缺陷列表        置信度   宽(mm)    高(mm)   面积(mm²)",
+                            new OpenCvSharp.Point(startX, startY),
+                            1.6f, new Scalar(255, 0, 0));
+
+                        // 逐行绘制缺陷信息（统一用 drawMat）
+                        for (int i = 0; i < realDefects.Count; i++)
+                        {
+                            var d = realDefects[i];
+                            int y = startY + (i + 1) * lineHeight;
+
+                            string line = $"{i + 1}. {d.Name,-10} {d.Score,-8:F3} {d.Width,-10:F3} {d.Height,-10:F3} {d.Area,-10:F3}";
+
+                            PutTextChinese(drawMat,
+                                line,
+                                new OpenCvSharp.Point(startX, y),
+                                1.6f, new Scalar(40, 40, 220));   // 深蓝色文字
+                        }
+                    }
+
+                    // 在左上角画大字 NG（调整位置为左侧，避免与列表重叠）
+                    Cv2.PutText(drawMat, "NG",
+                        new OpenCvSharp.Point(150, 180),
+                        HersheyFonts.HersheyComplex, 5.2,
+                        new Scalar(0, 0, 255), 12);
+
+                    // 保存绘制后的图像
+                    if (IsSaveResultNG)
+                    {
+                        // 在保存前添加日志检查
+                        AddLog($"准备保存 NG 图：drawMat 尺寸 {drawMat.Width}x{drawMat.Height}，是否为空：{drawMat.Empty()}");
+
+                        SaveDetectionResult(imagePath, drawMat, finalResult, true);
+                        SaveDetectionResult1(imagePath, drawMat, finalResult, true);
+                    }
+                }
+                #endregion
+
+                // 原图保存
+                if (IsSaveOriginalOK && finalResult == "OK")
+                {
+                    using (Mat originalMat = Cv2.ImRead(imagePath, ImreadModes.Color))
+                    {
+                        SaveDetectionResult(imagePath, originalMat, finalResult, false);
+                    }
+                }
+                if (IsSaveOriginalNG && finalResult == "NG")
+                {
+                    using (Mat originalMat = Cv2.ImRead(imagePath, ImreadModes.Color))
+                    {
+                        SaveDetectionResult(imagePath, originalMat, finalResult, false);
+                    }
+                }
+
+                return finalResult;
+            }
+            finally
+            {
+                #region 资源释放（确保始终执行）
+
+                // 1. 释放 defectList 中所有 AIResultModel 的 HObject 资源
+                ReleaseDefectList(defectList);
+
+                // 2. 释放 imageMat
+                imageMat?.Dispose();
+
+                // 3. 释放 delRegion（仅当不在缓存中时）
+                if (delRegion != null && !_detectionRegionCache.ContainsValue(delRegion))
+                {
+                    delRegion.Dispose();
+                }
+
+                #endregion
+            }
+
+
+        }
+
+        private void ReleaseDefectList(List<AIResultModel>? defectList)
+        {
+            if (defectList == null || defectList.Count == 0)
+                return;
+
+            foreach (var defect in defectList)
+            {
+                try
+                {
+                    // 释放 Region
+                    if (defect.Region != null && defect.Region.IsInitialized())
+                    {
+                        defect.Region.Dispose();
+                    }
+
+                    // 释放 Img
+                    if (defect.Img != null && defect.Img.IsInitialized())
+                    {
+                        defect.Img.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 记录释放异常但不中断流程
+                    Debug.WriteLine($"[资源释放警告] AIResultModel释放异常: {ex.Message}");
+                }
+            }
+
+            // 清空列表
+            defectList.Clear();
+        }
+
+
+        private void PutTextChinese(Mat mat, string text, OpenCvSharp.Point pos, float fontSize, Scalar color)
+        {
+            try
+            {
+                // 将 Mat 转为 Bitmap
+                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(mat))
+                using (var g = Graphics.FromImage(bitmap))
+                {
+                    // 设置高质量绘图模式，防止锯齿
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+
+                    // 将 OpenCV 的 BGR 颜色转换为 System.Drawing 的 RGB 颜色
+                    System.Drawing.Color brushColor = System.Drawing.Color.FromArgb(255, (int)color.Val2, (int)color.Val1, (int)color.Val0);
+
+                    // 定义中文字体 (例如微软雅黑)，字体大小需根据图片分辨率调整
+                    // 假设 fontSize 1.0 对应 32px 字体
+                    float emSize = fontSize * 32;
+                    using (Font font = new Font("Microsoft YaHei", emSize, System.Drawing.FontStyle.Bold))
+                    using (SolidBrush brush = new SolidBrush(brushColor))
+                    {
+                        g.DrawString(text, font, brush, new PointF(pos.X, pos.Y));
+                    }
+
+                    // 将绘制好的 Bitmap 转回 Mat 并覆盖原图
+                    using (var newMat = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap))
+                    {
+                        newMat.CopyTo(mat);
                     }
                 }
             }
-            if (IsSaveOriginalOK && finalResult == "OK")
+            catch (Exception ex)
             {
-                using (Mat originalMat = Cv2.ImRead(imagePath, ImreadModes.Color))
-                {
-                    SaveDetectionResult(imagePath, originalMat, finalResult, false);
-                }
+                // 兜底：如果 GDI+ 绘制失败，回退到 OpenCV 英文绘制，避免程序崩溃
+                AddLog($"[中文绘制异常] {ex.Message}");
+                Cv2.PutText(mat, "Text_Error", pos, HersheyFonts.HersheySimplex, fontSize, color, 2);
             }
-            if (IsSaveOriginalNG && finalResult == "NG")
-            {
-                using (Mat originalMat = Cv2.ImRead(imagePath, ImreadModes.Color))
-                {
-                    SaveDetectionResult(imagePath, originalMat, finalResult, false);
-                }
-            }
-            imageMat.Release();
-            imageMat.Dispose();
-            if (!_detectionRegionCache.ContainsValue(delRegion))
-            {
-                delRegion?.Dispose();
-            }
-            return finalResult;
-
         }
+
+
+
         /// <summary>
         /// 复制空图片到指定目录
         /// </summary>
@@ -3684,7 +4478,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     IsOnlineDetectionEnabledB = false;
                     _isDetecting = false;
                     IsFileDetecting = false;
-
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -3873,9 +4666,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"开始检测单张图片：{Path.GetFileName(filePath)}");
                 await Task.Run(() =>
                 {
+                    var station = GetElectrodeType(filePath);
                     dynamic detectionData = new ExpandoObject();
                     ParsePathToDynamicObject(detectionData, filePath);
-                    string detectResult = DamageDetection(filePath, "离线");
+                    string detectResult = DamageDetection(filePath, station);
                     DateTime realDetectionTime = DateTime.Now;
                     if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                     {
@@ -3945,7 +4739,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 文件夹批量检测,带进度条
         /// </summary>
-        private async Task GetDataFromFolder(string folderPath, List<string> imageFiles)
+        private async Task GetDataFromFolder( List<string> imageFiles)
         {
             List<string> filteredFiles = new List<string>();
             IsOfflineProgressVisible = Visibility.Visible;
@@ -3973,24 +4767,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         isPolarityMatch = true;
                     }
                 }
-                bool isCameraMatch = false;
-                if (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4)
-                {
-                    isCameraMatch = true;
-                }
-                else
-                {
-                    if ((IsCamera1 && camera == "1") ||
-                        (IsCamera2 && camera == "2") ||
-                        (IsCamera3 && camera == "3") ||
-                        (IsCamera4 && camera == "4"))
-                    {
-                        isCameraMatch = true;
-                    }
-                }
 
                 //加入筛选列表
-                if (isPolarityMatch && isCameraMatch)
+                if (isPolarityMatch )
                 {
                     filteredFiles.Add(filePath);
                 }
@@ -4040,10 +4819,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                         try
                         {
+                            var station = GetElectrodeType(filePath);
                             dynamic detectionData = new ExpandoObject();
                             ParsePathToDynamicObject(detectionData, filePath);
                             if (token.IsCancellationRequested) break;
-                            string detectResult = DamageDetection(filePath, "离线");
+                            string detectResult = DamageDetection(filePath, station);
                             DateTime realDetectionTime = DateTime.Now;
                             bool isNG = detectResult == "NG";
                             AddImageToQueue(filePath, isNG, "离线", realDetectionTime);
@@ -4166,7 +4946,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .Take(50)
                 .ToList();
 
-
             Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 var toRemove = DetectionDataList
@@ -4230,7 +5009,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-
         private List<string> GetImageFilesInFolder(string folderPath, HashSet<string> allowedExtensions)
         {
             // 实现图片文件筛选逻辑
@@ -4248,36 +5026,49 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             CalculateDetectionStatistics();
         }
 
-
-
         //计算检测统计数据
         private void CalculateDetectionStatistics()
         {
-
             lock (_statisticsLock)
             {
                 //计算 _fullDetectionDataList 中“新检测数据”的统计值
-                var newNegativeData = _fullDetectionDataList
+                var filteredData = _fullDetectionDataList
                     .Where(data =>
                     {
+                        // 1. 基础空值检查
                         if (data == null) return false;
                         var dataDict = data as IDictionary<string, object>;
                         if (dataDict == null) return false;
-                        return dataDict.TryGetValue("PartType", out var partTypeObj)
-                               && partTypeObj?.ToString() == "负极"
-                               && dataDict.ContainsKey("DetectionResult");
+
+                        // 2. 必须包含检测结果和极性信息
+                        if (!dataDict.ContainsKey("DetectionResult")) return false;
+                        if (!dataDict.TryGetValue("PartType", out var partTypeObj)) return false;
+                        if (partTypeObj == null) return false;
+
+                        string partType = partTypeObj?.ToString() ?? string.Empty;
+                        if (string.IsNullOrEmpty(partType)) return false;
+
+                        // 3. 核心筛选逻辑
+                        // 如果勾选正极 且 数据类型是正极 -> 保留
+                        bool matchPositive = IsPositive && partType == "正极";
+                        // 如果勾选负极 且 数据类型是负极 -> 保留
+                        bool matchNegative = IsNegative && partType == "负极";
+
+                        // 只要满足其中一个条件即可
+                        return matchPositive || matchNegative;
                     })
                     .ToList();
 
                 //统计新数据中的 OK/NG 数量
-                int newOKCount = newNegativeData.Count(data =>
+                int newTotalCount = filteredData.Count;
+                int newOKCount = filteredData.Count(data =>
                 {
                     var dataDict = (IDictionary<string, object>)data;
                     return dataDict.TryGetValue("DetectionResult", out var resultObj)
-                           && resultObj?.ToString() == "OK";
+                            && resultObj?.ToString() == "OK";
                 });
-                int newNGCount = newNegativeData.Count - newOKCount;
-                int newTotalCount = newNegativeData.Count;
+                int newNGCount = newTotalCount - newOKCount;
+
 
                 //最终统计值 = 历史基础值 + 新数据值
                 TotalNeDetectionCount = _historyTotalCount + newTotalCount;
@@ -4356,7 +5147,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        //滚轮缩放
+        /// <summary>
+        /// 处理实时图片的鼠标滚轮缩放事件
+        /// </summary>
+        /// <param name="e">鼠标滚轮事件参数，包含滚轮滚动方向/增量等信息</param>
         private void OnZoomRealTimeImage(MouseWheelEventArgs? e)
         {
             if (e == null) return;
@@ -4364,58 +5158,85 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // e.Delta：滚轮增量（正值=向前滚动=放大，负值=向后滚动=缩小）
             if (e.Delta > 0)
             {
-                // 放大：不超过最大比例
+                // 放大逻辑：
+                // 1. 缩放比例 += 缩放步长（ZoomStep）
+                // 2. Math.Min 限制：放大后的比例不超过最大缩放比例（MaxScale），避免无限放大
+                // 3. ScaleX/ScaleY 同步赋值，保证图片等比例缩放（不变形）
                 RealTimeImageScaleX = Math.Min(RealTimeImageScaleX + ZoomStep, MaxScale);
                 RealTimeImageScaleY = RealTimeImageScaleX;
             }
             else
             {
-                // 缩小：不低于最小比例
+                // 缩小逻辑：
+                // 1. 缩放比例 -= 缩放步长（ZoomStep）
+                // 2. Math.Max 限制：缩小后的比例不低于最小缩放比例（MinScale），避免无限缩小
+                // 3. ScaleX/ScaleY 同步赋值，保证图片等比例缩放（不变形）
                 RealTimeImageScaleX = Math.Max(RealTimeImageScaleX - ZoomStep, MinScale);
                 RealTimeImageScaleY = RealTimeImageScaleX;
             }
-
             //阻止事件冒泡
             e.Handled = true;
         }
 
-
+        /// <summary>
+        /// 手动放大实时图片（按钮/快捷键触发）
+        /// 核心逻辑：等比例放大，且不超过最大缩放比例
+        /// </summary>
         private void OnZoomInRealTime()
         {
+            // 1. 放大X轴缩放比例：当前比例 + 缩放步长，且不超过最大缩放比例（MaxScale）
+            // Math.Min 防止放大比例超出上限（比如最大5倍，就不会超过5）
             RealTimeImageScaleX = Math.Min(RealTimeImageScaleX + ZoomStep, MaxScale);
+            // 2. Y轴同步X轴比例，保证图片等比例缩放（避免拉伸变形）
             RealTimeImageScaleY = RealTimeImageScaleX;
         }
 
+        /// <summary>
+        /// 手动缩小实时图片（按钮/快捷键触发）
+        /// 核心逻辑：等比例缩小，且不低于最小缩放比例
+        /// </summary>
         private void OnZoomOutRealTime()
         {
             RealTimeImageScaleX = Math.Max(RealTimeImageScaleX - ZoomStep, MinScale);
             RealTimeImageScaleY = RealTimeImageScaleX;
         }
 
+        /// <summary>
+        /// 重置实时图片的缩放和平移（恢复初始状态）
+        /// 核心逻辑：缩放比例归1（原始大小），平移位置归0（初始位置）
+        /// </summary>
         private void OnResetRealTimeZoom()
         {
+            // 1. 缩放比例重置为1.0（图片原始大小）
             RealTimeImageScaleX = 1.0;
             RealTimeImageScaleY = 1.0;
+            // 2. 平移位置重置为0（X/Y轴都回到初始位置，消除所有拖拽平移的偏移）
             RealTimeImageTranslateX = 0; // 回到X轴初始位置
             RealTimeImageTranslateY = 0; // 回到Y轴初始位置
-
         }
 
         /// <summary>
-        /// 鼠标按下：记录拖动起始状态
+        /// 处理图片鼠标左键按下事件：初始化拖拽状态，记录起始信息，为后续拖拽平移做准备
         /// </summary>
+        /// <param name="e">鼠标按钮事件参数，包含事件源、鼠标位置等关键信息</param>
         private void OnImageMouseDown(MouseButtonEventArgs? e)
         {
             if (e == null) return;
             if (e.Source is System.Windows.Controls.Image image)
             {
+                // 标记图片进入拖拽状态（供MouseMove事件判断是否执行拖拽逻辑）
                 _isImageDragging = true;
                 // 记录起始鼠标位置
+                // 记录鼠标按下时，相对于Image控件的初始坐标（以控件左上角为原点）
+                // 作用：后续移动时计算鼠标偏移量的基准点
                 _startMousePoint = e.GetPosition(image);
                 // 记录起始偏移量
+                // 记录拖拽开始前，图片已有的平移偏移量（RealTimeImageTranslateX/Y）
+                // 作用：基于已有偏移量叠加新的拖拽距离，避免拖拽时图片跳回原点
                 _startTranslateX = RealTimeImageTranslateX;
                 _startTranslateY = RealTimeImageTranslateY;
-                // 捕获鼠标
+                // 捕获鼠标：将鼠标事件锁定到当前Image控件
+                // 效果：即使鼠标移出Image控件，后续的MouseMove/MouseUp事件仍会触发，保证拖拽连续性
                 image.CaptureMouse();
             }
             e.Handled = true; // 防止事件冒泡
@@ -4646,8 +5467,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
-                // 获取保存路径
+                // 1. 调用路径生成方法，获取图像的最终保存路径
                 string? savePath = GetResultImagePath(originalImagePath, result, isResultImage);
+                // 校验保存路径是否有效，无效则记录日志并退出方法
+                if (string.IsNullOrEmpty(savePath))
+                {
+                    AddLog("[保存失败] 无法生成保存路径");
+                    return;
+                }
+                // 2. 提取保存路径中的目录部分，确保目录存在
+                string? directory = Path.GetDirectoryName(savePath);
+                // 目录路径非空且不存在时，创建对应的目录（避免保存时因目录不存在报错）
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                // 3. 使用OpenCV的ImWrite方法保存图像到指定路径
+                bool saveSuccess = Cv2.ImWrite(savePath, imageMat);
+                if (saveSuccess)
+                {
+                    // Debug.WriteLine($"[保存成功] 图像已保存至: {savePath}");
+                }
+                else
+                {
+                    AddLog($"[保存失败] 无法保存图像至: {savePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[保存异常] {ex.Message}");
+            }
+        }
+
+
+        #region 参数管控 
+        private void SaveDetectionResult1(string originalImagePath, Mat imageMat, string result, bool isResultImage)
+        {
+            try
+            {
+                // 获取保存路径
+                string? savePath = GetResultImagePath1(originalImagePath, result, isResultImage);
                 if (string.IsNullOrEmpty(savePath))
                 {
                     AddLog("[保存失败] 无法生成保存路径");
@@ -4678,6 +5537,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+        #endregion
+
         // 生成保存路径
         private string? _offlineCurrentDate;
 
@@ -4689,6 +5550,152 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <param name="isResultImage">是否为结果图（true=结果图，false=原图）</param>
         /// <returns>构造后的完整路径，失败返回null</returns>
         private string? GetResultImagePath(string imagePath, string result, bool isResultImage)
+        {
+            try
+            {
+                // ===================== 第一步：判断离线/在线模式 =====================
+                // 初始默认使用全局离线模式标识
+                bool isOffline = _isOfflineMode;
+                // 标准化原始图像路径（统一路径格式，避免因相对路径/大小写导致的判断错误）
+                string normalizedImagePath = Path.GetFullPath(imagePath);
+
+                // A工位在线判断：如果原始图像路径属于A工位监控目录，则强制切换为在线模式
+                if (!string.IsNullOrEmpty(SelectedMonitorFolderPathA))
+                {
+                    string normalizedMonitorA = Path.GetFullPath(SelectedMonitorFolderPathA);
+                    // 拼接空字符串确保路径以目录分隔符结尾（如"D:\监控A\"），避免前缀匹配错误
+                    normalizedMonitorA = Path.Combine(normalizedMonitorA, "");
+                    // 不区分大小写判断路径前缀，兼容不同系统的路径格式
+                    if (normalizedImagePath.StartsWith(normalizedMonitorA, StringComparison.OrdinalIgnoreCase))
+                    {
+                        isOffline = false;
+                    }
+                }
+
+                // B工位在线判断：逻辑同A工位，只要属于任一工位监控目录则为在线模式
+                if (!string.IsNullOrEmpty(SelectedMonitorFolderPathB))
+                {
+                    string normalizedMonitorB = Path.GetFullPath(SelectedMonitorFolderPathB);
+                    normalizedMonitorB = Path.Combine(normalizedMonitorB, "");
+                    if (normalizedImagePath.StartsWith(normalizedMonitorB, StringComparison.OrdinalIgnoreCase))
+                    {
+                        isOffline = false;
+                    }
+                }
+
+                // 离线模式特殊处理：固定日期（避免离线时系统时间变动导致路径混乱）
+                if (isOffline)
+                {
+                    if (string.IsNullOrEmpty(_offlineCurrentDate))
+                    {
+                        try
+                        {
+                            // 初始化离线模式的固定日期（格式：yyyyMMdd）
+                            _offlineCurrentDate = DateTime.Now.ToString("yyyyMMdd");
+                            _offlineStartTime = DateTime.Now;
+                            AddLog($"[离线启动] 启动当天日期（currentDate）固定为：{_offlineCurrentDate}");
+                        }
+                        catch (Exception ex)
+                        {
+                            // 系统时间异常时使用默认日期兜底，避免路径构造失败
+                            _offlineCurrentDate = "20251028";
+                            AddLog($"[离线初始化失败] 系统时间异常：{ex.Message}，强制使用默认日期：{_offlineCurrentDate}");
+                        }
+                    }
+                }
+
+                // ===================== 第二步：确定根目录（容错适配） =====================
+                // 默认优先使用D盘作为根目录
+                string? rootDirectory = "D:";
+                // 容错1：D盘不存在则切换到系统文档目录
+                if (!Directory.Exists(rootDirectory))
+                {
+                    rootDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    AddLog($"[根目录适配] D盘不存在，切换为文档目录：{rootDirectory}");
+                }
+                // 容错2：文档目录无效则切换到程序运行目录
+                if (string.IsNullOrEmpty(rootDirectory) || !Directory.Exists(rootDirectory))
+                {
+                    rootDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    AddLog($"[根目录适配] 文档目录无效，切换为程序目录：{rootDirectory}");
+                }
+                // 最终容错：根目录仍无效则返回null
+                if (string.IsNullOrEmpty(rootDirectory))
+                {
+                    AddLog("[错误] 无法获取有效盘符");
+                    return null;
+                }
+
+                // ===================== 第三步：构造路径核心参数 =====================
+                // 日期参数：在线模式用当前时间，离线模式用初始化的固定日期
+                string currentDate = isOffline ? _offlineCurrentDate! : DateTime.Now.ToString("yyyyMMdd");
+                // 从原始路径提取日期文件夹（失败则用当前日期兜底）
+                string dateFolder = GetDateFromPath(imagePath);
+                if (string.IsNullOrEmpty(dateFolder)) dateFolder = DateTime.Now.ToString("yyyyMMdd");
+
+                // 从原始路径提取业务属性参数（均做兜底处理，避免空值导致路径拼接失败）
+                string polarity = GetPolarityFromPath(imagePath);// 极性（如正极/负极）
+                if (string.IsNullOrEmpty(polarity)) polarity = "未知极性";
+                string cellName = GetCellNameFromPath(imagePath);// 电芯名称
+                if (string.IsNullOrEmpty(cellName)) cellName = "未知电芯";
+                //string cameraInfo = GetCameraInfoFromPath(imagePath); // 相机信息
+                //if (string.IsNullOrEmpty(cameraInfo)) cameraInfo = "未知相机";
+
+                // 提取原始文件的名称和扩展名（兜底处理）
+                string fileName = Path.GetFileNameWithoutExtension(imagePath);// 无扩展名的文件名
+                if (string.IsNullOrEmpty(fileName)) fileName = "未知文件";
+                string fileExt = Path.GetExtension(imagePath);// 文件扩展名（如.jpg）
+                if (string.IsNullOrEmpty(fileExt)) fileExt = ".jpg";
+
+                // 区分图像类型（原图/结果图）
+                string imageType = isResultImage ? "结果图" : "原图";
+                // 构造新文件名：结果图追加检测结果，原图保持原名
+                string newFileName = isResultImage
+                    ? $"{cellName}_{fileName}_{result}{fileExt}"
+                    : $"{cellName}_{fileName}{fileExt}";
+
+
+                string station = string.Empty; ;
+                // 在线模式：在路径中插入工位信息（位置：日期文件夹前）
+                if (!isOffline)
+                {
+                    station = GetStationFromPath(imagePath);
+                    if (string.IsNullOrEmpty(station)) station = "未知工位";
+                    //pathParts.Insert(3, station); // 插入位置：索引3（currentDate之后，dateFolder之前）
+                }
+
+                // ===================== 第四步：拼接完整路径 =====================
+                // 初始化路径片段列表（基础结构：根目录\IME复判\日期\日期文件夹\图像类型\检测结果\极性\文件名）
+                List<string> pathParts = new List<string>
+                {
+                    rootDirectory, "IME复判", currentDate,station, dateFolder,
+                    imageType, result, polarity, newFileName
+                };
+
+
+
+                // 过滤空路径片段（避免拼接出无效路径如"\\空值\\文件.jpg"）
+                pathParts = pathParts.Where(part => !string.IsNullOrEmpty(part)).ToList();
+                if (pathParts.Count == 0)
+                {
+                    AddLog("[错误] 路径片段为空，无法拼接");
+                    return null;
+                }
+
+                // 拼接所有路径片段并标准化（解决路径分隔符、重复目录等问题）
+                string savePath = Path.GetFullPath(Path.Combine(pathParts.ToArray()));
+                AddLog($"[路径构造成功] {imageType}路径：{savePath}");
+                return savePath;
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[路径构造失败] {ex.Message}");
+                return null;
+            }
+        }
+
+        #region 参数管控-保存路径
+        private string? GetResultImagePath1(string imagePath, string result, bool isResultImage)
         {
             try
             {
@@ -4718,7 +5725,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                 }
 
-
                 // 离线模式
                 if (isOffline)
                 {
@@ -4738,7 +5744,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                 }
 
-
                 //根目录构造
                 string? rootDirectory = "D:";
                 if (!Directory.Exists(rootDirectory))
@@ -4756,7 +5761,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     AddLog("[错误] 无法获取有效盘符");
                     return null;
                 }
-
 
                 // 核心路径参数构造
                 string currentDate = isOffline ? _offlineCurrentDate! : DateTime.Now.ToString("yyyyMMdd");
@@ -4780,11 +5784,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     ? $"{cellName}_{fileName}_{result}{fileExt}"
                     : $"{cellName}_{fileName}{fileExt}";
 
-
                 //路径拼接
                 List<string> pathParts = new List<string>
                 {
-                    rootDirectory, "IME复判", currentDate, dateFolder,
+                    rootDirectory, "IME参数管控", currentDate, dateFolder,
                     imageType, result, polarity, cameraInfo, newFileName
                 };
 
@@ -4814,10 +5817,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return null;
             }
         }
+        #endregion
+
+
+
         /// <summary>
         /// 从路径提取正负极
         /// </summary>
-        private string GetPolarityFromPath(string imagePath)
+        private string GetPolarityFromPath(string imagePath, bool isOnline = false)
         {
             // 先查缓存
             if (_polarityCache.TryGetValue(imagePath, out string? cached))
@@ -4825,25 +5832,58 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
-                // 拆分路径为数组（如 ["E:", "PTO叠片数据检测", "A工位", ..., "相机1"]）
-                string[] pathParts = imagePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                // 从后往前找（从相机目录向上找）
-                for (int i = pathParts.Length - 2; i >= 0; i--) // 跳过文件名，从目录开始
+                //// 拆分路径为数组（如 ["E:", "PTO叠片数据检测", "A工位", ..., "相机1"]）
+                //string[] pathParts = imagePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                //// 从后往前找（从相机目录向上找）
+                //for (int i = pathParts.Length - 2; i >= 0; i--) // 跳过文件名，从目录开始
+                //{
+                //    string part = pathParts[i];
+                //    if (part.Contains("正极", StringComparison.OrdinalIgnoreCase))
+                //    {
+                //        _polarityCache[imagePath] = "正极";
+                //        return "正极";
+                //    }
+                //    if (part.Contains("负极", StringComparison.OrdinalIgnoreCase))
+                //    {
+                //        _polarityCache[imagePath] = "负极";
+                //        return "负极";
+                //    }
+                //}
+
+
+
+
+
+                //    _polarityCache[imagePath] = "未知极性";
+                //return "未知极性";
+
+                if (isOnline)
                 {
-                    string part = pathParts[i];
-                    if (part.Contains("正极", StringComparison.OrdinalIgnoreCase))
+                    if (imagePath.Contains("大面检测"))
                     {
-                        _polarityCache[imagePath] = "正极";
-                        return "正极";
+                        if (imagePath.Contains("正极"))
+                        {
+                            return "正极";
+                        }
+                        else
+                        {
+                            return "负极";
+                        }
                     }
-                    if (part.Contains("负极", StringComparison.OrdinalIgnoreCase))
+                    else
                     {
-                        _polarityCache[imagePath] = "负极";
-                        return "负极";
+                        return "未知极性";
                     }
                 }
-                _polarityCache[imagePath] = "未知极性";
-                return "未知极性";
+
+                if (imagePath.Contains("正极"))
+                {
+                    return "正极";
+                }
+                else
+                {
+                    return "负极";
+                }
             }
             catch (Exception ex)
             {
@@ -4947,6 +5987,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return "电芯号解析失败";
             }
         }
+
         #region CSV检测结果表格相关
         /// <summary>
         /// 初始化CSV文件
@@ -5008,9 +6049,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     if (!File.Exists(_currentCsvFilePath))
                     {
                         var header = new List<string[]>
-                {
-                    new[] {"日期", "工位","班次", "电芯码", "正负极", "相机","图片名称", "检测结果" }
-                };
+                        {
+                            new[] {"日期", "工位","班次", "电芯码", "正负极", "相机","图片名称", "检测结果" }
+                        };
                         WriteCsvLines(header, isOnline);
                         AddLog($"[CSV初始化] 已创建文件：{_currentCsvFilePath}");
                     }
@@ -5309,6 +6350,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
             }
         }
+
         /// <summary>
         /// 检测完成后统一处理
         /// </summary>
@@ -5328,6 +6370,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 检查Excel是否仍占用CSV，需要则弹出提示
             CheckCsvFileInUseAndPrompt();
         }
+
         /// <summary>
         /// 检查CSV是否被占用，若是则弹出提示
         /// </summary>
@@ -5456,48 +6499,57 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
         #endregion
+
         /// <summary>
-        /// 从路径提取日期（日期文件夹是班次文件夹的上一层）
-        /// 路径层级：日期 → 白班/晚班 → 电芯号 → 正负极 → 相机XXX → 图片
+        /// 从图像文件路径中解析提取日期文件夹名称
+        /// 目录层级约定：日期文件夹 → 班次文件夹 → 电芯号文件夹 → 正负极文件夹 → 相机文件夹 → 图片文件
         /// </summary>
+        /// <param name="imagePath">原始图像的完整文件路径</param>
+        /// <returns>提取到的日期文件夹名称（含异常兜底值）</returns>
         private string GetDateFromPath(string imagePath)
         {
+            string defaultDate = DateTime.Today.ToString("yyyyMMdd");
+
+            if (string.IsNullOrEmpty(imagePath))
+            {
+                AddLog("[日期提取警告] 传入路径为空");
+                return defaultDate;
+            }
+
             try
             {
-                string? dirPath = Path.GetDirectoryName(imagePath);
-                if (dirPath == null)
+                string fullPath = Path.GetFullPath(imagePath);
+                string[] pathParts = fullPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                Regex dateRegex = new Regex(@"^(20\d{2})[-_]?(0[1-9]|1[0-2])[-_]?(0[1-9]|[12]\d|3[01])$");
+                for (int i = pathParts.Length - 1; i >= 0; i--)
                 {
-                    AddLog($"[错误] 无法获取图片目录: {imagePath}");
-                    return "异常（无法获取图片目录）";
-                }
+                    string part = pathParts[i];
 
-                DirectoryInfo currentDir = new DirectoryInfo(dirPath);
-
-                // 逐级向上获取父目录（相机 → 正负极 → 电芯号 → 班次 → 日期）
-                DirectoryInfo cameraDir = currentDir;                      // 相机文件夹（图片的上一层）
-                DirectoryInfo? polarityDir = cameraDir?.Parent;             // 正负极文件夹（相机的上一层）
-                DirectoryInfo? cellDir = polarityDir?.Parent;               // 电芯号文件夹（正负极的上一层）
-                DirectoryInfo? shiftDir = cellDir?.Parent;                  // 班次文件夹（电芯号的上一层）
-                DirectoryInfo? dateDir = shiftDir?.Parent;                  // 日期文件夹（班次的上一层）
-
-                // 验证日期文件夹是否存在
-                if (dateDir != null && !string.IsNullOrEmpty(dateDir.Name))
-                {
-                    if (DateTime.TryParse(dateDir.Name, out _))
+                    // 初步筛选：正则匹配形状
+                    if (dateRegex.IsMatch(part))
                     {
-                        return dateDir.Name;
+                        // 二次校验：确保是真实存在的日期（排除 20260230 这种非法日期）
+                        // 尝试解析多种常见格式
+                        string[] formats = { "yyyyMMdd", "yyyy-MM-dd", "yyyy_MM_dd" };
+                        if (DateTime.TryParseExact(part, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime validDate))
+                        {
+                            // 找到有效日期，将其统一格式化为 yyyyMMdd 返回
+                            return validDate.ToString("yyyyMMdd");
+                        }
                     }
-                    return $"{dateDir.Name}（格式不标准）";
                 }
-
-                return "未知日期";
+                AddLog($"[日期提取提示] 路径中未发现标准日期格式，使用默认日期：{defaultDate}，路径：{imagePath}");
+                return defaultDate;
             }
             catch (Exception ex)
             {
+                // 捕获所有异常（如路径权限不足、目录不存在等），记录日志并返回兜底值
                 AddLog($"[日期提取失败] {ex.Message}，路径：{imagePath}");
                 return "日期解析失败";
             }
         }
+
         /// <summary>
         /// 从路径提取班次
         /// </summary>
@@ -5529,7 +6581,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                     return $"{shiftName}（非标准班次名）";
                 }
-
                 return "未知班次";
             }
             catch (Exception ex)
@@ -5553,43 +6604,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
-                // 统一路径格式
-                string normalizedCurrent = Path.GetFullPath(currentPath);
-                string normalizedA = string.IsNullOrEmpty(SelectedMonitorFolderPathA)
-                    ? ""
-                    : Path.GetFullPath(SelectedMonitorFolderPathA);
-                string normalizedB = string.IsNullOrEmpty(SelectedMonitorFolderPathB)
-                    ? ""
-                    : Path.GetFullPath(SelectedMonitorFolderPathB);
+                string normalizedPath = currentPath.Replace("：", ":").Replace("/", "\\");
+                normalizedPath = Path.GetFullPath(normalizedPath);
 
-                //判断是否为在线模式
-                bool isOnlineA = !string.IsNullOrEmpty(normalizedA) && normalizedCurrent.StartsWith(normalizedA, StringComparison.OrdinalIgnoreCase);
-                bool isOnlineB = !string.IsNullOrEmpty(normalizedB) && normalizedCurrent.StartsWith(normalizedB, StringComparison.OrdinalIgnoreCase);
-                bool isOnlineMode = isOnlineA || isOnlineB; // 只要属于A或B的监控文件夹，就是在线模式
+                // 结构：.../虚拟码/工位/极性/文件名.jpg
+                try
+                {
+                    FileInfo fileInfo = new FileInfo(normalizedPath);
+                    DirectoryInfo? polarityDir = fileInfo.Directory; // 获取“负极”文件夹
 
-                // 在线模式：必须匹配A/B
-                if (isOnlineA)
-                {
-                    return "A";
-                }
-                else if (isOnlineB)
-                {
-                    return "B";
-                }
-                else
-                {
-                    // 仅在“在线模式”下输出警告
-                    if (isOnlineMode == false)
+                    if (polarityDir != null)
                     {
-                        return "未知";
-                    }
-                    else
-                    {
-                        // 在线模式但未匹配
-                        AddLog($"[工位识别警告] 路径属于监控文件夹但未匹配A/B工位：{currentPath}（标记为“未知”）");
-                        return "未知";
+                        // 校验上一级是否是极性文件夹（包含"正极"或"负极"），以此定位
+                        if (polarityDir.Name.Contains("极"))
+                        {
+                            DirectoryInfo? stationDir = polarityDir.Parent; // 获取“大面检测”文件夹
+                            if (stationDir != null)
+                            {
+                                string extractedStation = stationDir.Name;
+                                return extractedStation; // 直接返回 "大面检测"
+                            }
+                        }
+
                     }
                 }
+                catch
+                {
+                    AddLog($"[工位识别错误] 路径解析失败，采用兜底策略");
+                }
+
+                string normalizedA = string.IsNullOrEmpty(SelectedMonitorFolderPathA) ? "" : Path.GetFullPath(SelectedMonitorFolderPathA);
+                string normalizedB = string.IsNullOrEmpty(SelectedMonitorFolderPathB) ? "" : Path.GetFullPath(SelectedMonitorFolderPathB);
+
+                bool isOnlineA = !string.IsNullOrEmpty(normalizedA) && normalizedPath.StartsWith(normalizedA, StringComparison.OrdinalIgnoreCase);
+                bool isOnlineB = !string.IsNullOrEmpty(normalizedB) && normalizedPath.StartsWith(normalizedB, StringComparison.OrdinalIgnoreCase);
+
+                if (isOnlineA) return "A"; // 或者根据业务需求，将 A 映射为 "大面检测"
+                if (isOnlineB) return "B";
+
+                AddLog($"[工位识别警告] 路径不符合目录结构且未匹配监控文件夹：{currentPath}");
+                return "未知";
             }
             catch (Exception ex)
             {
@@ -5597,33 +6651,56 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return "未知";
             }
         }
+
         private bool _isThreadRunningA = false;
+
         /// <summary>
-        /// 加载配置
+        /// 从JSON配置文件加载程序所有配置项（监控路径、筛选规则、统计数据等）
+        /// 核心设计：文件存在性校验→JSON反序列化→类型安全解析→数值范围限制→线程安全更新统计→异常容错
         /// </summary>
         private void LoadConfig()
         {
+            // 前置校验：配置文件不存在时直接返回，避免读取不存在文件的异常
             if (!File.Exists(_configFilePath)) return;
 
             try
             {
+                // 1. 读取配置文件的JSON字符串（同步读取，适合小体积配置文件）
                 string json = File.ReadAllText(_configFilePath);
+                // 2. 反序列化为字典（灵活适配配置项，无需定义强类型类；key=配置项名称，value=配置值）
                 var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
 
                 // 监控路径
+                // 3. 解析字符串类型配置：监控文件夹路径（A/B工位）
+                // TryGetValue：避免键不存在导致的KeyNotFoundException；?.ToString()：避免值为null的空引用
                 if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathA", out var pathA))
                     SelectedMonitorFolderPathA = pathA?.ToString() ?? string.Empty;
                 if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathB", out var pathB))
                     SelectedMonitorFolderPathB = pathB?.ToString() ?? string.Empty;
 
+                if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledA", out var enableA)
+                    && bool.TryParse(enableA?.ToString(), out bool isEnabledA))
+                {
+                    // 赋值给属性会触发 Setter，自动执行 StartOnlineMonitoringA
+                    IsOnlineDetectionEnabledA = isEnabledA;
+                }
+
+                if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledB", out var enableB)
+                    && bool.TryParse(enableB?.ToString(), out bool isEnabledB))
+                {
+                    IsOnlineDetectionEnabledB = isEnabledB;
+                }
+
                 // 工位选择
+                // 4. 解析布尔类型配置：工位筛选规则（正极/负极）
+                // 双层校验：先取到值→再尝试解析为bool，避免类型不匹配导致的格式异常
                 if (dict != null && dict.TryGetValue("IsPositive", out var positive) && bool.TryParse(positive?.ToString(), out bool isPositiveValue))
                     IsPositive = isPositiveValue;
                 if (dict != null && dict.TryGetValue("IsNegative", out var negative) && bool.TryParse(negative?.ToString(), out bool isNegativeValue))
                     IsNegative = isNegativeValue;
 
-
                 // 相机选择
+                // 5. 解析布尔类型配置：相机选择（1-4号相机）
                 if (dict != null && dict.TryGetValue("IsCamera1", out var cam1) && bool.TryParse(cam1?.ToString(), out bool isCamera1Value))
                     IsCamera1 = isCamera1Value;
                 if (dict != null && dict.TryGetValue("IsCamera2", out var cam2) && bool.TryParse(cam2?.ToString(), out bool isCamera2Value))
@@ -5633,6 +6710,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (dict != null && dict.TryGetValue("IsCamera4", out var cam4) && bool.TryParse(cam4?.ToString(), out bool isCamera4Value))
                     IsCamera4 = isCamera4Value;
 
+                // 6. 解析布尔类型配置：结果图片保存规则（OK/NG结果/原始图片）
                 if (dict != null && dict.TryGetValue("IsSaveResultOK", out var saveresultOk) && bool.TryParse(saveresultOk?.ToString(), out bool isSaveResultOKValue))
                     IsSaveResultOK = isSaveResultOKValue;
                 if (dict != null && dict.TryGetValue("IsSaveResultNG", out var saveresultNg) && bool.TryParse(saveresultNg?.ToString(), out bool isSaveResultNGValue))
@@ -5641,6 +6719,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     IsSaveOriginalOK = isSaveOriginalOKValue;
                 if (dict != null && dict.TryGetValue("IsSaveOriginalNG", out var saveoriginalNg) && bool.TryParse(saveoriginalNg?.ToString(), out bool isSaveOriginalNGValue))
                     IsSaveOriginalNG = isSaveOriginalNGValue;
+
+                // 7. 解析整数类型配置：每份报告最大图片数（添加范围限制，防止非法数值）
+                // Math.Max(1, Math.Min(50, ...))：限制值在1-50之间，避免0/负数/超大值导致业务异常
                 if (dict != null && dict.TryGetValue("MaxImagesPerReport", out var maxImages))
                 {
                     if (int.TryParse(maxImages.ToString(), out int maxImagesValue))
@@ -5648,7 +6729,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         MaxImagesPerReport = Math.Max(1, Math.Min(50, maxImagesValue));
                     }
                 }
-
+                // 8. 解析整数类型配置：报告超时时间（分钟），范围限制1-1440（1天）
                 if (dict != null && dict.TryGetValue("ReportTimeoutMinutes", out var timeout))
                 {
                     if (int.TryParse(timeout.ToString(), out int timeoutValue))
@@ -5656,6 +6737,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         ReportTimeoutMinutes = Math.Max(1, Math.Min(1440, timeoutValue));
                     }
                 }
+                // 9. 解析历史统计数据：总检测数/OK数/NG数（先存入历史变量，后续统一更新）
                 if (dict != null && dict.TryGetValue("TotalNeDetectionCount", out var totalCount))
                 {
                     if (int.TryParse(totalCount.ToString(), out int totalCountValue))
@@ -5687,14 +6769,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 // 加载完成后，先用历史值更新UI
+                // 11. 线程安全更新统计数据到UI绑定属性
+                // lock保证多线程下统计数据的原子更新（避免读取配置时其他线程修改统计值）
                 lock (_statisticsLock)
                 {
                     TotalNeDetectionCount = _historyTotalCount;
                     OKCount = _historyOKCount;
                     NGCount = _historyNGCount;
                 }
+                // 12. 记录加载日志：便于追溯配置加载结果，排查数据异常
                 AddLog($"[统计加载] 历史统计数据：总检测数={_historyTotalCount}，OK数={_historyOKCount}，NG数={_historyNGCount}");
-
             }
             catch (Exception ex)
             {
@@ -5710,10 +6794,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             try
             {
                 // 构建匿名对象，仅包含需要保存的属性
+                // 1. 构建匿名对象封装需要持久化的配置属性
+                // 优势：快速聚合需保存的属性，无需定义额外的配置实体类；属性名与原变量名一致，序列化后JSON字段名直观
+                // 注意：仅包含业务需要保存的核心配置，避免冗余数据
                 var configData = new
                 {
                     SelectedMonitorFolderPathA,
                     SelectedMonitorFolderPathB,
+                    IsOnlineDetectionEnabledA,
+                    IsOnlineDetectionEnabledB,
                     IsPositive,
                     IsNegative,
                     IsCamera1,
@@ -5729,11 +6818,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     TotalNeDetectionCount,
                     OKCount,
                     NGCount,
-                    OKRate,
+                    OKRate
                 };
 
-                // 序列化为JSON
+                // 2. 将匿名对象序列化为格式化的JSON字符串
+                // JsonSerializerOptions { WriteIndented = true }：启用缩进格式化，生成的JSON易读（调试/人工修改友好）
+                // 若不设置此参数，JSON会压缩为一行，节省空间但可读性差
                 string json = System.Text.Json.JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
+                // 3. 将JSON字符串写入配置文件
+                // File.WriteAllText：自动处理文件创建/覆盖逻辑（文件不存在则创建，存在则覆盖）
+                // 注意：该方法会一次性写入所有内容，适合小体积配置文件（配置文件通常几KB，无性能问题）
                 File.WriteAllText(_configFilePath, json);
             }
             catch (Exception ex)
@@ -5741,6 +6835,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"保存配置失败：{ex.Message}");
             }
         }
+
         private void SaveMaxImagesSettings()
         {
             try
@@ -5816,6 +6911,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"保存报表超时时间设置失败：{ex.Message}");
             }
         }
+
         private void CheckAndGenerateReport()
         {
             if (_isOfflineMode)
@@ -5872,7 +6968,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-
         /// <summary>
         /// 核心方法：进行最终清理工作
         /// </summary>
@@ -5910,6 +7005,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
             }
         }
+
         /// <summary>
         /// 离线检测全部完成后，主动生成剩余报表
         /// </summary>
@@ -5917,7 +7013,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             if (!_isOfflineMode || _isOfflineDetectionCompleted)
                 return;
-
 
             // 停止超时定时器
             _reportTimer?.Stop();
@@ -5931,10 +7026,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             //标记检测已完成，防止重复调用
             _isOfflineDetectionCompleted = true;
             AddLog("[离线报表完成] 所有剩余电芯编码已处理完成");
-
         }
-
-
 
         // 新增私有字段：标记报表功能是否已初始化
         private bool _isReportFunctionInited = false;
@@ -5959,6 +7051,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _isReportFunctionInited = true;
             AddLog("[报表功能] 初始化完成（仅执行一次）");
         }
+
         /// <summary>
         /// 添加NG图片到队列
         /// </summary>
@@ -6010,7 +7103,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             //AddLog($"[定时器重启] 重新开始 {ReportTimeoutMinutes} 分钟计时");
                         }
                     }
-
                 }
 
                 // 如果是NG图片，添加到NG字典中
@@ -6412,7 +7504,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
 
 
-                            // 每个图片都显示电芯编码，确保清晰
+                            // 每个图片都显示电芯编码
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"电芯编码：{imgInfo.CellCode}").SetBold().SetMarginBottom(0));
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"班次：{imgInfo.Shift}").SetMarginBottom(0));
                             paramContainer.Add(new iText.Layout.Element.Paragraph($"正负极：{imgInfo.Polarity}").SetMarginBottom(0));
@@ -6474,11 +7566,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
                 try
                 {
-                    AddLog($"[报表推送] 开始推送报表：{savePath}");
+                    AddLog($"[报表推送] 开始推送报表：{savePath}，当前暂停推送");
                     string combinedUserId = GetCombinedUserIdString();
                     //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
-                    var response = await _webApiClient.PushFileAsync(savePath);
-                    AddLog($"[报表推送成功] 报表已推送");
+
+                    //var response = await _webApiClient.PushFileAsync(savePath);
+                    //AddLog($"[报表推送成功] 报表已推送");
                 }
                 catch (Exception pushEx)
                 {
@@ -6496,7 +7589,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        // 修改后的辅助方法
         private void AddInfoRowToSubTable(iText.Layout.Element.Table table, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor, string label, string value)
         {
             // 标签单元格 - 统一设置所有边框
@@ -6513,7 +7605,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetPadding(5));
         }
 
-        // 简化表头单元格创建
+        //表头单元格创建
         private iText.Layout.Element.Cell CreateHeaderCell(string text, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor)
         {
             return new iText.Layout.Element.Cell()
@@ -6525,7 +7617,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetPadding(5);
         }
 
-        // 简化数据单元格创建
+        //数据单元格创建
         private iText.Layout.Element.Cell CreateDataCell(string text, iText.Layout.Borders.Border border)
         {
             return new iText.Layout.Element.Cell()
@@ -6534,6 +7626,201 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 .SetBorder(border)
                 .SetPadding(5);
         }
-    }
 
+        #region 参数管控
+        // 参数管控新增命令
+        public ICommand AddRow { get; }
+        public ICommand DeleteRow { get; }
+        public ICommand SaveData { get; }
+
+        public ObservableCollection<DefectParameter> DefectDataGrid { get; set; } = [];
+
+        // 私有字段：存储选中项的实际值
+        private DefectParameter? _selectedItem;
+        // 公共属性：对外暴露选中项，供UI绑定
+        public DefectParameter? SelectedItem
+        {
+            // 取值器：返回私有字段的值
+            get => _selectedItem;
+            // 赋值器：调用SetProperty方法更新值并触发通知
+            set => SetProperty(ref _selectedItem, value);
+        }
+
+        private void LoadDefectInitialData()
+        {
+            try
+            {
+                // 确保配置文件夹存在
+                Directory.CreateDirectory(ConfigFolder);
+
+                if (File.Exists(DefectFilePath))
+                {
+                    string json = File.ReadAllText(DefectFilePath);
+                    var list = JsonSerializer.Deserialize<List<DefectParameter>>(json);
+
+                    if (list != null)
+                    {
+                        foreach (var item in list)
+                        {
+                            // 重要：重新触发属性变更，确保 UI 能正确绑定
+                            item.DefectName = item.DefectName;   // 触发 PropertyChanged
+                                                                 // 或者直接使用 Add 并让集合通知
+                            DefectDataGrid.Add(item);
+                        }
+                        AddLog($"从 {DefectFilePath} 成功加载 {DefectDataGrid.Count} 条缺陷参数");
+                        return;
+                    }
+                }
+
+                // 文件不存在 或 解析失败 → 加载默认数据
+                AddLog("未找到缺陷参数配置文件，使用默认数据", CoreLogLevel.Info);
+
+                DefectDataGrid.Add(new DefectParameter
+                {
+                    DefectName = "缺陷",
+                    Credibility = 0.3,
+                    Width = 20,
+                    Height = 5, 
+                    Area = 100,
+                    IsEnable = true
+                });
+
+                DefectDataGrid.Add(new DefectParameter
+                {
+                    DefectName = "凹坑",
+                    Credibility = 0.35,
+                    Width = 15,
+                    Height = 6,
+                    Area = 100,
+                    IsEnable = true
+                });
+
+                // 可选：第一次运行时自动保存一次默认值
+                // OnSaveData("初始默认值");
+            }
+            catch (JsonException jex)
+            {
+                AddLog($"缺陷参数 JSON 格式错误：{jex.Message}", CoreLogLevel.Error);
+                MessageBox.Show("配置文件格式错误，将使用默认数据。", "加载失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+               
+            }
+            catch (Exception ex)
+            {
+                AddLog($"加载缺陷参数失败：{ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"读取配置文件失败：{ex.Message}\n将使用默认数据。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 新增行（优化线程逻辑，避免UI干涉+空值校验强化）
+        /// </summary>
+        private void OnAddRow(string? parameter)
+        {
+            //强化空值校验：包含全空格的情况也直接返回
+            if (string.IsNullOrWhiteSpace(parameter)) return;
+
+            try
+            {
+                //1.后台线程初始化新行数据（纯数据操作，不占用UI线程）
+                var newDefect = new DefectParameter
+                {
+                    DefectName = "缺陷类别",
+                    Width = 0,
+                    Height = 0,
+                    Area = 0,
+                    Credibility = 0,
+                    IsEnable = false
+                };
+
+                RunOnUIThread(() =>
+                {
+                    DefectDataGrid.Insert(0, newDefect);
+
+                });
+            }
+            catch (Exception ex)
+            {
+                //通用异常处理：捕获并提示，避免程序崩溃
+                MessageBox.Show($"新增行失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 删除行（防空引用）
+        /// </summary>
+        private void OnDeleteRow(DefectParameter? item)
+        {
+            // 强化前置校验：覆盖所有无效场景
+            if (item == null || DefectDataGrid == null || !DefectDataGrid.Contains(item))
+            {
+                AddLog($"删除行失败：无效的删除项（{item?.DefectName ?? "空项"}）",CoreLogLevel.Warn) ;
+                return;
+            }
+            try
+            {
+
+                RunOnUIThread(() =>
+                {
+                    DefectDataGrid.Remove(item);
+
+                    // 优化：清空选中项（避免UI绑定到已删除的对象导致异常）
+                    if (SelectedItem == item)
+                    {
+                        SelectedItem = null;
+                    }
+                });
+                AddLog($"删除行成功：{item.DefectName}");
+            }
+            catch (Exception ex)
+            {
+                // 通用异常处理：捕获并提示具体原因
+                MessageBox.Show($"删除行失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                CurrentLog = $"删除行失败：{item.DefectName}，原因：{ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// 保存数据（适配项目框架）
+        /// </summary>
+        private void OnSaveData(string? parameter)
+        {
+            try
+            {
+                // 确保文件夹存在
+                Directory.CreateDirectory(ConfigFolder);
+
+                // 序列化时可以选择忽略默认值、Null值等（视需求）
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,                    // 美化格式，便于人工查看
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    // NumberHandling = JsonNumberHandling.AllowReadingFromString,  // 如果前端可能传字符串数字
+                };
+
+                string json = JsonSerializer.Serialize(DefectDataGrid.ToList(), options);
+
+                File.WriteAllText(DefectFilePath, json);
+
+                string msg = $"[{parameter ?? "未知"}] 工位缺陷参数保存成功\n共 {DefectDataGrid.Count} 条记录";
+                AddLog(msg);
+                MessageBox.Show(msg, "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                string err = $"保存缺陷参数失败：{ex.Message}";
+                AddLog(err, CoreLogLevel.Error);
+                MessageBox.Show(err, "保存失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        #endregion
+
+        /// <summary>
+        /// 资源清理（防止内存泄漏）
+        /// </summary>
+        public void Dispose()
+        {
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+        }
+
+    }
 }

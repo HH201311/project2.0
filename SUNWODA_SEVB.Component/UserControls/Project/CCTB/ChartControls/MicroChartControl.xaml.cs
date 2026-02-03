@@ -101,8 +101,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             DrawChart();
         }
 
-        private static readonly int xLabelsCount = 10;
-        private static readonly int yLabelsCount = 7;
+        //private static readonly int xLabelsCount = 10;
+        //private static readonly int yLabelsCount = 7;
         //private void DrawChart()
         //{
         //    // 基础校验

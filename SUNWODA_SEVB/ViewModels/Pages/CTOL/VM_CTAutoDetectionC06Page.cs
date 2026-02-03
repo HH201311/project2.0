@@ -4128,7 +4128,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             _imeresultRoot = Path.Combine(SelectedResultImagePath ?? @"E:\", "IMEResult");
             // 指定新目标根路径， "\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C01CT看图（中工序）（A线）（勿删）\CT\IMEResult"
-            _archiveTargetRoot = @"\\10.178.5.10\质量部看图文件夹\La6中工序A线\IMEResult";
+            _archiveTargetRoot = @"\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C06CT看图（中工序）（A线）勿删\IMEResult";
             // 初始化文件移动服务
             _fileMoverService = new DefectFileMoverService(_imeresultRoot, _archiveTargetRoot);
             _fileMoverService.AddLog = this.AddLog;
@@ -4869,13 +4869,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 newHImage?.Dispose();
             }
         }
-
+        private static readonly object _halconGlobalLock = new object();
 
         // 核心检测逻辑
         public (string? ctCode, HObject? resultImage) GapDetection(string imageFilePath, string station)
         {
             // 检测过程临时变量
-            HObject? recNE = null, recPE = null, recMiddlePE = null, originImg = null;
+            HObject? recNE = null, recPE = null, recMiddlePE = null;
             HTuple? distOHInt = null, distOHOut = null, distSortPEColMiddle = null, distHTPE = null, _gapMax = null;
             HTuple? peRows = null, peCols = null, neRows = null, neCols = null, middlePERows = null, middlePECols = null;
             float hDNe = 0;
@@ -4886,8 +4886,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             double[]? gapMaxArray = null;
             double[]? oHoutarr = null;
             //double[]? distSortPEColMiddlearr = null;
-
             // 绘图相关变量
+            HObject? originImg = new HObject();
             HObject? resultImage = new HObject();
             Stopwatch? drawStopwatch = null;
 
@@ -4895,233 +4895,181 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             Stopwatch processingStopwatch = Stopwatch.StartNew();
             Stopwatch gapDetectionTimer = Stopwatch.StartNew();
 
-            //int maxRetries = 5;  // 最大重试次数
-            //int retryDelayMs = 200;  // 每次重试间隔（毫秒）
-            //bool isFileReady = false;
-
             AddLog($"[检测开始] 文件：{Path.GetFileName(imageFilePath)}");
-
-            ////等待文件就绪
-            //for (int i = 0; i < maxRetries; i++)
-            //{
-            //    FileStream? fs = null;
-            //    try
-            //    {
-            //        // 尝试以「独占读写」模式打开文件
-            //        fs = File.Open(imageFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            //        isFileReady = true;
-            //        break; 
-            //    }
-            //    catch (IOException)
-            //    {
-            //        // 捕获「文件被占用」异常，等待后重试
-            //        AddLog($"[文件等待] 第{i + 1}/{maxRetries}次等待文件就绪... 文件：{Path.GetFileName(imageFilePath)}");
-            //        System.Threading.Thread.Sleep(retryDelayMs);
-            //    }
-            //    finally
-            //    {
-            //        fs?.Close();  //关闭文件流
-            //    }
-            //}
-
-            //// 检查文件是否就绪，未就绪则直接返回失败
-            //if (!isFileReady)
-            //{
-            //    AddLog($"[文件读取失败] 重试{maxRetries}次后仍无法获取文件，可能被占用或写入未完成。文件：{Path.GetFileName(imageFilePath)}");
-            //    return ("文件未就绪", null);
-            //}
-
 
             try
             {
-                //AddLog($"[检测开始] 文件：{Path.GetFileName(imageFilePath)}");
-
-                //读取并预处理图像
-                HOperatorSet.ReadImage(out originImg, imageFilePath);
-                originImg = PreprocessImage(originImg);
-
-                // 检查图像有效性
-                if (originImg == null || !originImg.IsInitialized())
+                lock (_halconGlobalLock)
                 {
-                    AddLog($"[图像无效] 文件：{Path.GetFileName(imageFilePath)}");
-                    return ("图像读取失败", null);
-                }
+                    // 初始化算法输出对象
+                    recNE = new HObject();
+                    recPE = new HObject();
+                    recMiddlePE = new HObject();
+                    distOHInt = new HTuple();
+                    distOHOut = new HTuple();
+                    distSortPEColMiddle = new HTuple();
+                    distHTPE = new HTuple();
+                    _gapMax = new HTuple();
 
-
-                //获取图像尺寸
-                HOperatorSet.GetImageSize(originImg, out HTuple width, out HTuple height);
-                imgWidth = (int)width.I;
-                imgHeight = (int)height.I;
-                AddLog($"[图像尺寸] 宽：{imgWidth}，高：{imgHeight}");
-
-                //执行核心算法
-                Stopwatch algorithmStopwatch = new Stopwatch();
-                algorithmStopwatch.Start();
-
-                // 初始化算法输出对象
-                recNE = new HObject();
-                recPE = new HObject();
-                recMiddlePE = new HObject();
-                distOHInt = new HTuple();
-                distOHOut = new HTuple();
-                distSortPEColMiddle = new HTuple();
-                distHTPE = new HTuple();
-                _gapMax = new HTuple();
-
-                // 调用算法模型
-                //H246modle?.Dispose();
-                switch (station)
-                {
-                    case "LAB":
-                        //H246modle = LABmodel;
-                        ai.Algorithm_Action(imageFilePath, LABmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                    case "LCD":
-                        //H246modle = LCDmodel;
-                        ai.Algorithm_Action(imageFilePath, LCDmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                    case "RAB":
-                        //H246modle = RABmodel;
-                        ai.Algorithm_Action(imageFilePath, RABmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                    case "RCD":
-                        //H246modle = RCDmodel;
-                        ai.Algorithm_Action(imageFilePath, RCDmodel!, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
-                        break;
-                }
-                algorithmStopwatch.Stop();
-                //ai.Algorithm_Action(
-                //    imageFilePath,
-                //    H246modle,
-                //    out recNE,
-                //    out recPE,
-                //    out recMiddlePE,
-                //    out distOHInt,
-                //    out distOHOut,
-                //    out _gapMax,
-                //    out hDNe,
-                //    out neNGflag,
-                //    out errorReport);
-                //algorithmStopwatch.Stop();
-                AddLog($"[算法耗时] {algorithmStopwatch.ElapsedMilliseconds} ms");
-
-                #region 检测结果判断与数据解析
-                if (string.IsNullOrEmpty(errorReport))
-                {
-                    // 获取区域坐标
-                    HOperatorSet.AreaCenter(recPE, out _, out peRows, out peCols);
-                    HOperatorSet.AreaCenter(recNE, out _, out neRows, out neCols);
-                    HOperatorSet.AreaCenter(recMiddlePE, out _, out middlePERows, out middlePECols);
-
-                    // 解析算法数据为double数组
-                    arr1 = ConvertStringArrayToDoubleArray(distOHInt.SArr); // 从distOHInt提取核心数据
-                    gapMaxArray = ConvertStringArrayToDoubleArray(_gapMax.SArr);
-                    oHoutarr = ConvertStringArrayToDoubleArray(distOHOut.SArr); // bbbb参数（负极OH值）
-                    //distSortPEColMiddlearr = ConvertStringArrayToDoubleArray(distSortPEColMiddle.SArr); // numbers参数（正极间隙值）
-                    ohAbnormalPositions1 = GetAbnormalPositions(arr1, imageFilePath); // 异常位置标记
-
-                    // 根据文件名给Y1-Y4赋值
-                    string fileName = Path.GetFileName(imageFilePath);
-                    string namePart = fileName.Split('_')[1];
-                    lock (stationDataLocker)
+                    // 调用算法模型
+                    //H246modle?.Dispose();
+                    switch (station)
                     {
-                        // 确保外层字典包含当前工位
-                        if (!stationYDataDict.ContainsKey(station))
-                        {
-                            stationYDataDict[station] = new Dictionary<string, double[]>();
-                        }
-                        // 获取当前工位的内层字典（存储该工位的Y1-Y4）
-                        Dictionary<string, double[]> currentStationDict = stationYDataDict[station];
-
-                        // 根据图片类型给当前工位的对应Y值赋值
-                        if (namePart.Contains("1-Y"))
-                        {
-                            currentStationDict["Y1"] = arr1;
-                        }
-                        else if (namePart.Contains("2-Y"))
-                        {
-                            currentStationDict["Y2"] = arr1;
-                        }
-                        else if (namePart.Contains("3-Y"))
-                        {
-                            currentStationDict["Y3"] = arr1;
-                        }
-                        else if (namePart.Contains("4-Y"))
-                        {
-                            currentStationDict["Y4"] = arr1;
-                        }
+                        case "LAB":
+                            //H246modle = LABmodel;
+                            ai.Algorithm_Action(imageFilePath, LABmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
+                        case "LCD":
+                            //H246modle = LCDmodel;
+                            ai.Algorithm_Action(imageFilePath, LCDmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
+                        case "RAB":
+                            //H246modle = RABmodel;
+                            ai.Algorithm_Action(imageFilePath, RABmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
+                        case "RCD":
+                            //H246modle = RCDmodel;
+                            ai.Algorithm_Action(imageFilePath, RCDmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            break;
                     }
+                    //algorithmStopwatch.Stop();
+                    //ai.Algorithm_Action(
+                    //    imageFilePath,
+                    //    H246modle,
+                    //    out recNE,
+                    //    out recPE,
+                    //    out recMiddlePE,
+                    //    out distOHInt,
+                    //    out distOHOut,
+                    //    out _gapMax,
+                    //    out hDNe,
+                    //    out neNGflag,
+                    //    out errorReport);
+                    //algorithmStopwatch.Stop();
+                    //AddLog($"[算法耗时] {algorithmStopwatch.ElapsedMilliseconds} ms");
+                    HOperatorSet.GetImageSize(originImg, out HTuple width, out HTuple height);
+                    imgWidth = (int)width.I;
+                    imgHeight = (int)height.I;
+                    AddLog($"[图像尺寸] 宽：{imgWidth}，高：{imgHeight}");
 
-                    // 判断OK/NG
-                    string imgNamePart = namePart;
-                    ctCode = NGOK(
-                        peRows.DArr.Length, neRows.DArr.Length,
-                        arr1, // aaaa参数（正极OH值）
-                        oHoutarr, // bbbb参数（负极OH值）
-                        hDNe, // cc参数（负极差阈值）
-                        imgNamePart,
-                        gapMaxArray,
-                        neNGflag);
-
-                    resultCode = ctCode?.Contains("OK") ?? false ? "OK" : "NG";
-                    AddLog($"[检测结果] {fileName} - {ctCode}");
-
-                    //生成独立结果图片
-                    drawStopwatch = new Stopwatch();
-                    drawStopwatch.Start();
-                    resultImage = GenerateResultImage(
-                        originImg, imgWidth, imgHeight,
-                        recPE, recNE, recMiddlePE,
-                        peRows, peCols, neRows, neCols, middlePERows, middlePECols,
-                        distOHInt, distOHOut, distSortPEColMiddle,
-                        hDNe, ctCode, resultCode,
-                        ohAbnormalPositions1, ohAbnormalPositions2,
-                        arr1, ConvertStringArrayToDoubleArray(distOHOut.SArr), gapMaxArray,
-                        imageFilePath);
-                    drawStopwatch.Stop();
-                    AddLog($"[绘图耗时] {drawStopwatch.ElapsedMilliseconds} ms");
-
-                    //--------------CSV记录阈值（后续可以删掉）------------------------
-                    if (gapMaxArray != null && gapMaxArray.Length >= 3)
+                    #region 检测结果判断与数据解析
+                    if (string.IsNullOrEmpty(errorReport))
                     {
-                        _imageGapValueCache.TryAdd(imageFilePath, gapMaxArray);
-                        AddLog($"[间隙值缓存] {Path.GetFileName(imageFilePath)} - 负极边缘：{gapMaxArray[0]:F3}，正极边缘：{gapMaxArray[1]:F3}，正极中间：{gapMaxArray[2]:F3}");
+                        // 获取区域坐标
+                        HOperatorSet.AreaCenter(recPE, out _, out peRows, out peCols);
+                        HOperatorSet.AreaCenter(recNE, out _, out neRows, out neCols);
+                        HOperatorSet.AreaCenter(recMiddlePE, out _, out middlePERows, out middlePECols);
+
+                        // 解析算法数据为double数组
+                        arr1 = ConvertStringArrayToDoubleArray(distOHInt.SArr); // 从distOHInt提取核心数据
+                        gapMaxArray = ConvertStringArrayToDoubleArray(_gapMax.SArr);
+                        oHoutarr = ConvertStringArrayToDoubleArray(distOHOut.SArr); // bbbb参数（负极OH值）
+                                                                                    //distSortPEColMiddlearr = ConvertStringArrayToDoubleArray(distSortPEColMiddle.SArr); // numbers参数（正极间隙值）
+                        ohAbnormalPositions1 = GetAbnormalPositions(arr1, imageFilePath); // 异常位置标记
+
+                        // 根据文件名给Y1-Y4赋值
+                        string fileName = Path.GetFileName(imageFilePath);
+                        string namePart = fileName.Split('_')[1];
+                        lock (stationDataLocker)
+                        {
+                            // 确保外层字典包含当前工位
+                            if (!stationYDataDict.ContainsKey(station))
+                            {
+                                stationYDataDict[station] = new Dictionary<string, double[]>();
+                            }
+                            // 获取当前工位的内层字典（存储该工位的Y1-Y4）
+                            Dictionary<string, double[]> currentStationDict = stationYDataDict[station];
+
+                            // 根据图片类型给当前工位的对应Y值赋值
+                            if (namePart.Contains("1-Y"))
+                            {
+                                currentStationDict["Y1"] = arr1;
+                            }
+                            else if (namePart.Contains("2-Y"))
+                            {
+                                currentStationDict["Y2"] = arr1;
+                            }
+                            else if (namePart.Contains("3-Y"))
+                            {
+                                currentStationDict["Y3"] = arr1;
+                            }
+                            else if (namePart.Contains("4-Y"))
+                            {
+                                currentStationDict["Y4"] = arr1;
+                            }
+                        }
+
+                        // 判断OK/NG
+                        string imgNamePart = namePart;
+                        ctCode = NGOK(
+                            peRows.DArr.Length, neRows.DArr.Length,
+                            arr1, // aaaa参数（正极OH值）
+                            oHoutarr, // bbbb参数（负极OH值）
+                            hDNe, // cc参数（负极差阈值）
+                            imgNamePart,
+                            gapMaxArray,
+                            neNGflag);
+
+                        resultCode = ctCode?.Contains("OK") ?? false ? "OK" : "NG";
+                        AddLog($"[检测结果] {fileName} - {ctCode}");
+
+                        //生成独立结果图片
+                        drawStopwatch = new Stopwatch();
+                        drawStopwatch.Start();
+                        resultImage = GenerateResultImage(
+                            originImg, imgWidth, imgHeight,
+                            recPE, recNE, recMiddlePE,
+                            peRows, peCols, neRows, neCols, middlePERows, middlePECols,
+                            distOHInt, distOHOut, distSortPEColMiddle,
+                            hDNe, ctCode, resultCode,
+                            ohAbnormalPositions1, ohAbnormalPositions2,
+                            arr1, ConvertStringArrayToDoubleArray(distOHOut.SArr), gapMaxArray,
+                            imageFilePath);
+                        drawStopwatch.Stop();
+                        AddLog($"[绘图耗时] {drawStopwatch.ElapsedMilliseconds} ms");
+
+                        //--------------CSV记录阈值（后续可以删掉）------------------------
+                        if (gapMaxArray != null && gapMaxArray.Length >= 3)
+                        {
+                            _imageGapValueCache.TryAdd(imageFilePath, gapMaxArray);
+                            AddLog($"[间隙值缓存] {Path.GetFileName(imageFilePath)} - 负极边缘：{gapMaxArray[0]:F3}，正极边缘：{gapMaxArray[1]:F3}，正极中间：{gapMaxArray[2]:F3}");
+                        }
+                        else
+                        {
+                            AddLog($"[间隙值缓存失败] {Path.GetFileName(imageFilePath)} - gapMaxArray为空或长度不足");
+                            // 兜底：存入空数组避免后续报错
+                            _imageGapValueCache.TryAdd(imageFilePath, new double[] { 0, 0, 0 });
+                        }
+                        //------------------------------------------------------------------
+
+
+                        // 更新UI实时预览
+                        if (resultImage != null && resultImage.IsInitialized())
+                        {
+                            ImageSource wpfImage = ConvertHObjectToImageSourceFast(resultImage);
+                            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                UpdateStationImage(station, wpfImage, resultImage);
+                            }), System.Windows.Threading.DispatcherPriority.Normal);
+                            AddLog($"[实时更新] {station}工位 - 直接显示新图：{fileName}");
+                        }
+                        else
+                        {
+                            AddLog($"[绘图失败] {fileName} 结果图生成无效");
+                            resultImage?.Dispose();
+                            resultImage = null;
+                        }
                     }
                     else
                     {
-                        AddLog($"[间隙值缓存失败] {Path.GetFileName(imageFilePath)} - gapMaxArray为空或长度不足");
-                        // 兜底：存入空数组避免后续报错
-                        _imageGapValueCache.TryAdd(imageFilePath, new double[] { 0, 0, 0 });
-                    }
-                    //------------------------------------------------------------------
-
-
-                    // 更新UI实时预览
-                    if (resultImage != null && resultImage.IsInitialized())
-                    {
-                        ImageSource wpfImage = ConvertHObjectToImageSourceFast(resultImage);
-                        Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            UpdateStationImage(station, wpfImage, resultImage);
-                        }), System.Windows.Threading.DispatcherPriority.Normal);
-                        AddLog($"[实时更新] {station}工位 - 直接显示新图：{fileName}");
-                    }
-                    else
-                    {
-                        AddLog($"[绘图失败] {fileName} 结果图生成无效");
+                        // 算法异常：归档原图，返回null结果
+                        AddLog($"[算法异常] {Path.GetFileName(imageFilePath)}，原因：{errorReport}");
+                        ArchiveAbnormalImage(imageFilePath, errorReport);
                         resultImage?.Dispose();
-                        resultImage = null;
+                        return ("Internal_Error", null);
                     }
+                    #endregion
                 }
-                else
-                {
-                    // 算法异常：归档原图，返回null结果
-                    AddLog($"[算法异常] {Path.GetFileName(imageFilePath)}，原因：{errorReport}");
-                    ArchiveAbnormalImage(imageFilePath, errorReport);
-                    resultImage?.Dispose();
-                    return ("Internal_Error", null);
-                }
-                #endregion
 
             }
             catch (Exception ex)
@@ -6336,20 +6284,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             });
         }
 
-
-        //图像预处理
-        private static HObject PreprocessImage(HObject img)
-        {
-            HOperatorSet.CountChannels(img, out HTuple channels);
-            if (channels.TupleEqual(3).TupleOr(channels.TupleEqual(4)))
-            {
-                HOperatorSet.Rgb1ToGray(img, out HObject grayImg);
-                img.Dispose();
-                img = grayImg;
-            }
-            channels.Dispose();
-            return img;
-        }
         //异常位置计算
         private List<int> GetAbnormalPositions(double[] array, string imageFilePath)
         {

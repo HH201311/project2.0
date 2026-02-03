@@ -11,16 +11,35 @@ namespace SUNWODA_SEVB.Core.Models.Web
     /// </summary>
     public class DeviceBindingRequest
     {
-        public string? park { get; set; }
-        public string? stage { get; set; }
-        public string? line { get; set; }
-        public string? workship { get; set; }
-        public string? proceduce { get; set; }
-        public string? devId { get; set; }
-        public string? softName { get; set; }
-        public string? softVersion { get; set; }
-        public string? macId { get; set; }
-        public string? ip { get; set; }
+        [JsonPropertyName("park")]
+        public string? Park { get; set; }
+
+        [JsonPropertyName("stage")]
+        public string? Stage { get; set; }
+
+        [JsonPropertyName("line")]
+        public string? Line { get; set; }
+
+        [JsonPropertyName("workship")]
+        public string? Workship { get; set; }
+
+        [JsonPropertyName("procedure")]
+        public string? Procedure { get; set; }
+
+        [JsonPropertyName("devId")]
+        public string? DevId { get; set; }
+
+        [JsonPropertyName("softName")]
+        public string? SoftName { get; set; }
+
+        [JsonPropertyName("softVersion")]
+        public string? SoftVersion { get; set; }
+
+        [JsonPropertyName("macId")]
+        public string? MacId { get; set; }
+
+        [JsonPropertyName("ip")]
+        public string? Ip { get; set; }
     }
 
     /// <summary>
@@ -34,57 +53,62 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 设备ID
         /// </summary>
-        public string? devId { get; set; }
+        [JsonPropertyName("devId")]
+        public string? DevId { get; set; }
 
         /// <summary>
         /// CPU使用率
         /// </summary>
-        public string? cpu { get; set; }
+        [JsonPropertyName("cpu")]
+        public string? Cpu { get; set; }
 
         /// <summary>
         /// 内存使用情况（进程独占的私有内存，保留用于兼容）
         /// </summary>
-        public string? memory { get; set; }
-
-        ///// <summary>
-        ///// 私有内存（进程独占的内存）
-        ///// </summary>
-        //public string? PrivateMemory { get; set; }
+        [JsonPropertyName("memory")]
+        public string? Memory { get; set; }
 
         /// <summary>
         /// 物理内存（工作集）
         /// </summary>
-        public string? physicalMemory { get; set; }
+        [JsonPropertyName("physicalMemory")]
+        public string? PhysicalMemory { get; set; }
 
         /// <summary>
         /// 虚拟内存
         /// </summary>
-        public string? virtualMemory { get; set; }
+        [JsonPropertyName("virtualMemory")]
+        public string? VirtualMemory { get; set; }
 
         /// <summary>
         /// GC托管内存（.NET管理的内存）
         /// </summary>
-        public string? managedMemory { get; set; }
+        [JsonPropertyName("managedMemory")]
+        public string? ManagedMemory { get; set; }
 
         /// <summary>
         /// 系统内存使用情况
         /// </summary>
-        public string? systemMemory { get; set; }
+        [JsonPropertyName("systemMemory")]
+        public string? SystemMemory { get; set; }
 
         /// <summary>
         /// 磁盘使用情况
         /// </summary>
-        public string? disk { get; set; }
+        [JsonPropertyName("disk")]
+        public string? Disk { get; set; }
 
         /// <summary>
         /// 设备状态
         /// </summary>
-        public string? equipmentState { get; set; }
+        [JsonPropertyName("equipmentState")]
+        public string? EquipmentState { get; set; }
 
         /// <summary>
         /// 采集时间
         /// </summary>
-        public string? time { get; set; }
+        [JsonPropertyName("time")]
+        public string? Time { get; set; }
     }
 
     /// <summary>
@@ -207,6 +231,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("detectionResult")]
         public string? DetectionResult { get; set; }
+
+        /// <summary>
+        /// 2表示图片，3表示视频
+        /// </summary>
+        [JsonPropertyName("dataType")]
+        public int DataType { get; set; }
     }
 
     /// <summary>
@@ -260,7 +290,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 1表示是正常启用，0表示禁用
         /// </summary>
         [JsonPropertyName("enable")]
-        public bool Enable { get; set; }
+        public int Enable { get; set; }
     }
 
     /// <summary>
@@ -488,6 +518,24 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("averageSlope")]
         public float AverageSlope { get; set; }
+
+        /// <summary>
+        /// 像素x轴坐标
+        /// </summary>
+        [JsonPropertyName("pixelCoordinateX")]
+        public float PixelCoordinateX { get; set; }
+
+        /// <summary>
+        /// 像素y轴坐标
+        /// </summary>
+        [JsonPropertyName("pixelCoordinateY")]
+        public float PixelCoordinateY { get; set; }
+
+        /// <summary>
+        /// 像素z轴坐标
+        /// </summary>
+        [JsonPropertyName("pixelCoordinateZ")]
+        public float PixelCoordinateZ { get; set; }
     }
 
     /// <summary>
@@ -567,6 +615,83 @@ namespace SUNWODA_SEVB.Core.Models.Web
         [JsonPropertyName("statusFlag")]
         public int StatusFlag { get; set; }
     }
+    #endregion
+
+    #region 容量预测项目
+
+    public class CapacityPredictionRequest
+    {        
+        /// <summary>
+        /// 拉线
+        /// </summary>
+        [JsonPropertyName("line")]
+        public string? Line { get; set; }
+
+        /// <summary>
+        /// 工序
+        /// </summary>
+        [JsonPropertyName("process")]
+        public string? Process { get; set; }
+
+        /// <summary>
+        /// 设备号
+        /// </summary>
+        [JsonPropertyName("deviceId")]
+        public string? DeviceId { get; set; }
+
+        /// <summary>
+        /// 工序编码
+        /// </summary>
+        [JsonPropertyName("processCode")]
+        public string? ProcessCode { get; set; }
+
+        /// <summary>
+        /// 电芯条码
+        /// </summary>
+        [JsonPropertyName("barCode")]
+        public string? BarCode { get; set; }
+
+        /// <summary>
+        /// 上传时间
+        /// </summary>
+        [JsonPropertyName("uploadTime")]
+        public string? UploadTime { get; set; }
+
+        /// <summary>
+        /// 测试项数组对象
+        /// </summary>
+        [JsonPropertyName("dataList")]
+        public CapacityPredictionData[]? DataList { get; set; }
+    }
+    
+    public class CapacityPredictionData
+    {
+        /// <summary>
+        /// 参数名
+        /// </summary>
+        [JsonPropertyName("paramName")]
+        public string? ParamName { get; set; }
+
+        /// <summary>
+        /// 参数单位
+        /// </summary>
+        [JsonPropertyName("paramUnit")]
+        public string? ParamUnit { get; set; }
+
+        /// <summary>
+        /// 参数ID
+        /// </summary>
+        [JsonPropertyName("paramId")]
+        public string? ParamId { get; set; }
+
+        /// <summary>
+        /// 参数值
+        /// </summary>
+        [JsonPropertyName("paramValue")]
+        public double? ParamValue { get; set; }
+    }
+
+
     #endregion
 
     #region web 信息或文件推送

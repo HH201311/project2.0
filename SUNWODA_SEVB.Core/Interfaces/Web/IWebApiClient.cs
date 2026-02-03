@@ -38,10 +38,12 @@ namespace SUNWODA_SEVB.Core.Interfaces.Web
         Task<FileVersionResponse> GetFileVersionAsync(string pythonCode);
 
         // 鹰眼项目接口
-        Task<AiDetectionDataResponse> AiDetectionDataAsync(string position, string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile);
+        Task<AiDetectionDataResponse> AiDetectionDataAsync(string position, string barCode, long abnormalTimeStamp, string detectionResult, byte[]? pictureFile, string contentType = "image/png", string fileExt = "png", int dataType = 2);
         Task<AddCameraResponse> AddCameraAsync(List<CameraModel> cameras);
-        Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, long abnormalTimeStamp, long abnormalTimeStampEnd, byte[] file, List<FrameDtoList> frameDtoList, string abnormaVideoStatus);
         Task<TrajectoryDataResponse> TrajectoryDataAsync(string position, string barCode, long abnormalTimeStamp, long abnormalTimeStampEnd, List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, List<FrameDtoList> frameDtoList, string abnormaVideoStatus);
+
+        // 容量预测接口
+        Task<CapacityPredictionDataResponse> CapacityPredictionAsync(string barCode, CapacityPredictionData[] capacityPredictionDataLis);
 
         // web文件or信息推送
         Task<WebApiSendResponse> PushMessageAsync(string messageContent);

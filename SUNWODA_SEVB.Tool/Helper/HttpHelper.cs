@@ -267,6 +267,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+
         public async Task<byte[]> HttpWebPostBytesAsync(string jsonString, byte[]? fileBytes, string url, string fileType, string format)
         {
             using var form = new MultipartFormDataContent();
@@ -290,7 +291,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 var fileContent = new ByteArrayContent(fileBytes);
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
                 // 自动生成文件名（保证 multipart 格式完整）
-                string autoFileName = $"upload_{DateTime.Now:yyyyMMdd_HHmmssfff}.{format}";
+                string autoFileName = $"Exception.{format}";
                 form.Add(fileContent, "file", autoFileName);
             }
 
@@ -335,7 +336,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     form.Add(fileContent, $"{FileExt}", FileName);
                 }
             }
-
+            
             var response = await _httpClient.PostAsync(url, form);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();

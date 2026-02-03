@@ -14,6 +14,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
 
         // 设备信息
         public string? DeviceSn { get; set; }
+        public string? ProcessCode { get; set; }
         public string? DeviceName { get; set; }
         public string? Workship { get; set; }
         public string? SoftVersion { get; set; }

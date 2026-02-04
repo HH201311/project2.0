@@ -1,4 +1,5 @@
 ﻿using HalconDotNet;
+using HandyControl.Controls;
 using HelixToolkit.Wpf;
 using iText.IO.Image;
 using iText.Kernel.Font;
@@ -42,6 +43,7 @@ using System.Windows.Media.Imaging;
 using Yolo8Core;
 using ZZYingYanAICore;
 using static Yolo8Core.BaseClass;
+using MessageBox = HandyControl.Controls.MessageBox;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 {
@@ -254,7 +256,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private const double TimeoutSeconds = 60; // 超时时间（秒）
         private bool _isOfflineMode; // 标记当前是在线还是离线模式
         private bool _isOfflineDetectionCompleted = false; //标记离线检测是否已完成
-        public event Action<string, string, DateTime>? OnNgImageDetected;
+        //public event Action<string, string, DateTime>? OnNgImageDetected;
 
         // 缺陷配置文件路径
         private static readonly string ConfigFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
@@ -589,7 +591,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         public bool IsInAnyDetection
         {
-            get => !(IsFileDetecting || IsOnlineDetectionEnabledA || IsOnlineDetectionEnabledB);
+            get => !(IsFileDetecting || IsOnlineDetectionEnabledA);
         }
 
         // 在线检测开关A是否可用
@@ -1210,6 +1212,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+        private DetectionMode _selectedMode = DetectionMode.全检;
+        public DetectionMode SelectedMode
+        {
+            get => _selectedMode;
+            set
+            {
+                if (SetProperty(ref _selectedMode, value))
+                {
+                    SaveConfig(); 
+                }
+            }
+        }
+
+
+
         // 缺陷检测结果列表
         private List<AIResultModel>? _detectionResults;
         public List<AIResultModel>? DetectionResults
@@ -1586,7 +1603,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             DeleteRow = new RelayCommand<DefectParameter?>(OnDeleteRow);
             SaveData = new RelayCommand<string?>(OnSaveData);
             #endregion
-
         }
         /// <summary>
         /// 保存新UserID（验证+去重+持久化）
@@ -3062,12 +3078,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                     //筛选条件
                     string polarity = GetPolarityFromPath(e.FullPath, true);
-                    string camera = GetCameraNumberFromPath(e.FullPath);
-                    bool isPolarityMatch = (!IsPositive && !IsNegative) || (IsPositive && polarity == "正极") || (IsNegative && polarity == "负极");
-                    //bool isCameraMatch = (!IsCamera1 && !IsCamera2 && !IsCamera3 && !IsCamera4) || (IsCamera1 && camera == "1") || (IsCamera2 && camera == "2") || (IsCamera3 && camera == "3") || (IsCamera4 && camera == "4");
 
-                    if (!isPolarityMatch)//|| !isCameraMatch
+                    //检查极性选择
+                    if (!IsPositive && !IsNegative)
                     {
+                        AddLog($"未选择正极或者负极，跳过文件：{Path.GetFileName(e.FullPath)}",CoreLogLevel.Warn);
+                        Growl.Warning("未选择正极或者负极，跳过文件处理！");
+                    }
+                    bool isPolarityMatch = (IsPositive && polarity == "正极") || (IsNegative && polarity == "负极");                  
+                    if (!isPolarityMatch)
+                    {
+                        return;
+                    }
+
+                    if (!IsDetectionModeMatch(e.FullPath))
+                    {
+                        
+                        AddLog($"[工位-跳过] 当前检测模式不匹配 ({SelectedMode})：{Path.GetFileName(e.FullPath)}", CoreLogLevel.Warn);
                         return;
                     }
 
@@ -3152,6 +3179,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 加锁保护：保证队列处理任务的原子操作（防止多线程同时启动重复的处理任务）
             lock (_processingLockA)
             {
+                if (_isQueueRunningA)
+                {
+                    AddLog("[A队列] 队列处理已在运行，跳过重复启动");
+                    return;
+                }
+
                 // 任务状态校验：若已有处理任务在运行（未完成），直接返回，避免重复启动
                 // _processingTaskA != null：存在未释放的任务实例；!_processingTaskA.IsCompleted：任务仍在运行
                 if (_processingTaskA != null && !_processingTaskA.IsCompleted)
@@ -3197,6 +3230,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             lock (_processingLockB)
             {
+                if (_isQueueRunningB)
+                {
+                    AddLog("[B队列] 队列处理已在运行，跳过重复启动");
+                    return;
+                }
                 if (_processingTaskB != null && !_processingTaskB.IsCompleted)
                 {
                     AddLog("[B队列] 处理线程已在运行，跳过重复启动");
@@ -3729,7 +3767,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 LogTable.Insert(0, newLog);
-                if (LogTable.Count > 300)
+                if (LogTable.Count > 100)
                 {
                     LogTable.RemoveAt(LogTable.Count - 1);
                 }
@@ -5819,7 +5857,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         #endregion
 
+        /// <summary>
+        /// 检查文件路径是否符合当前的检测模式 (全检/OK/NG)
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>如果不符合模式则返回 false</returns>
+        private bool IsDetectionModeMatch(string filePath)
+        {
+            // 这里建议转为大写进行判断，防止文件名大小写不一致 (例如 Ok, ok, OK)
+            // 如果你的系统严格区分大小写，可以去掉 .ToUpper()
+            string pathUpper = filePath.ToUpper();
 
+            switch (SelectedMode)
+            {
+                case DetectionMode.OK:
+                    // 如果选了OK模式，路径必须包含 "OK"
+                    return pathUpper.Contains("OK");
+
+                case DetectionMode.NG:
+                    // 如果选了NG模式，路径必须包含 "NG"
+                    return pathUpper.Contains("NG");
+
+                case DetectionMode.全检:
+                    return true;
+                default:
+                    // 默认拦截，防止未知模式
+                    return false;
+            }
+        }
 
         /// <summary>
         /// 从路径提取正负极
@@ -5831,32 +5896,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return cached;
 
             try
-            {
-                //// 拆分路径为数组（如 ["E:", "PTO叠片数据检测", "A工位", ..., "相机1"]）
-                //string[] pathParts = imagePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                //// 从后往前找（从相机目录向上找）
-                //for (int i = pathParts.Length - 2; i >= 0; i--) // 跳过文件名，从目录开始
-                //{
-                //    string part = pathParts[i];
-                //    if (part.Contains("正极", StringComparison.OrdinalIgnoreCase))
-                //    {
-                //        _polarityCache[imagePath] = "正极";
-                //        return "正极";
-                //    }
-                //    if (part.Contains("负极", StringComparison.OrdinalIgnoreCase))
-                //    {
-                //        _polarityCache[imagePath] = "负极";
-                //        return "负极";
-                //    }
-                //}
-
-
-
-
-
-                //    _polarityCache[imagePath] = "未知极性";
-                //return "未知极性";
-
+            {              
                 if (isOnline)
                 {
                     if (imagePath.Contains("大面检测"))
@@ -6699,16 +6739,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (dict != null && dict.TryGetValue("IsNegative", out var negative) && bool.TryParse(negative?.ToString(), out bool isNegativeValue))
                     IsNegative = isNegativeValue;
 
-                // 相机选择
-                // 5. 解析布尔类型配置：相机选择（1-4号相机）
-                if (dict != null && dict.TryGetValue("IsCamera1", out var cam1) && bool.TryParse(cam1?.ToString(), out bool isCamera1Value))
-                    IsCamera1 = isCamera1Value;
-                if (dict != null && dict.TryGetValue("IsCamera2", out var cam2) && bool.TryParse(cam2?.ToString(), out bool isCamera2Value))
-                    IsCamera2 = isCamera2Value;
-                if (dict != null && dict.TryGetValue("IsCamera3", out var cam3) && bool.TryParse(cam3?.ToString(), out bool isCamera3Value))
-                    IsCamera3 = isCamera3Value;
-                if (dict != null && dict.TryGetValue("IsCamera4", out var cam4) && bool.TryParse(cam4?.ToString(), out bool isCamera4Value))
-                    IsCamera4 = isCamera4Value;
+                // 5. 解析加载解析模式
+                if (dict != null && dict.TryGetValue("SelectedMode", out var modeValue))
+                {
+                    // 将字符串解析为枚举
+                    if (Enum.TryParse<DetectionMode>(modeValue?.ToString(), out var parsedMode))
+                    {
+                        _selectedMode = parsedMode; // 直接赋值给私有字段，避免触发 SaveConfig
+                        OnPropertyChanged(nameof(SelectedMode)); // 手动通知 UI 更新
+                    }
+                    else
+                    {
+                        AddLog($"[配置加载警告] 检测模式值无效：{modeValue}，使用默认值");
+                    }
+                }
 
                 // 6. 解析布尔类型配置：结果图片保存规则（OK/NG结果/原始图片）
                 if (dict != null && dict.TryGetValue("IsSaveResultOK", out var saveresultOk) && bool.TryParse(saveresultOk?.ToString(), out bool isSaveResultOKValue))
@@ -6818,7 +6862,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     TotalNeDetectionCount,
                     OKCount,
                     NGCount,
-                    OKRate
+                    OKRate,
+                    SelectedMode = _selectedMode.ToString()
                 };
 
                 // 2. 将匿名对象序列化为格式化的JSON字符串
@@ -7042,14 +7087,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _reportTimer.AutoReset = false;
 
             //先取消订阅
-            OnNgImageDetected -= AddNgImageToQueue;
+            //OnNgImageDetected -= AddNgImageToQueue;
             //OnNgImageDetected += AddNgImageToQueue;
 
             _isOfflineDetectionCompleted = false;
 
             // 标记初始化完成
             _isReportFunctionInited = true;
-            AddLog("[报表功能] 初始化完成（仅执行一次）");
+            AddLog("[报表功能] 初始化完成");
         }
 
         /// <summary>
@@ -7566,12 +7611,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
                 try
                 {
-                    AddLog($"[报表推送] 开始推送报表：{savePath}，当前暂停推送");
+                    AddLog($"[报表推送] 开始推送报表：{savePath}");
                     string combinedUserId = GetCombinedUserIdString();
                     //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
 
-                    //var response = await _webApiClient.PushFileAsync(savePath);
-                    //AddLog($"[报表推送成功] 报表已推送");
+                    var response = await _webApiClient.PushFileAsync(savePath);
+                    AddLog($"[报表推送成功] 报表已推送");
                 }
                 catch (Exception pushEx)
                 {

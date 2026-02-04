@@ -51,4 +51,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.PTO
         }
 
     }
+
+    /// <summary>
+    /// 检测模式
+    /// </summary>
+    public enum DetectionMode
+    {
+        全检,
+        OK,
+        NG
+    }
+
 }

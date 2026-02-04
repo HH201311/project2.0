@@ -124,7 +124,6 @@
     </Reference>
     <Reference Include="halcondotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
-      <Aliases></Aliases>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>

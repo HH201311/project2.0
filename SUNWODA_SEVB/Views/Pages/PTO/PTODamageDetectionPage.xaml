@@ -3,20 +3,22 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:cov="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.PTO"
     xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="clr-namespace:SUNWODA_SEVB.Core.Models.Project.PTO;assembly=SUNWODA_SEVB.Core"
     xmlns:vm="clr-namespace:SUNWODA_SEVB.ViewModels.Pages.PTO"
     Title="PTODamageDetectionPage"
     d:DesignHeight="1080"
     d:DesignWidth="1920"
     FontSize="15"
     mc:Ignorable="d">
-    <!--<Page.Resources>
-        <vm:VM_PTODamageDetectionPage x:Key="DamageDetectionVM" />
-    </Page.Resources>-->
-    <!--  Grid DataContext="{StaticResource DamageDetectionVM}"  -->
+
+    <Page.Resources>
+        <cov:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+    </Page.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -623,7 +625,7 @@
                                     Width="Auto"
                                     VerticalAlignment="Center"
                                     FontWeight="Bold"
-                                    Text="正极工位监听路径：" />
+                                    Text="供应商文件监听路径：" />
                                 <TextBox
                                     Width="200"
                                     Height="30"
@@ -647,6 +649,7 @@
                             </StackPanel>
 
                             <!--  B工位监听路径  -->
+                            <!--
                             <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
                                 <TextBlock
                                     Width="Auto"
@@ -672,7 +675,7 @@
                                     Content="浏览..."
                                     Foreground="White"
                                     IsEnabled="{Binding IsInAnyDetectionB}" />
-                            </StackPanel>
+                            </StackPanel>-->
 
                             <!--  在线检测  -->
                             <StackPanel
@@ -696,22 +699,22 @@
                                     IsEnabled="{Binding IsOnlineToggleEnabledA}">
                                     <ToggleButton.Style>
                                         <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                            <Setter Property="Content" Value="正极工位已关闭" />
+                                            <Setter Property="Content" Value="在线检测已关闭" />
                                             <Style.Triggers>
                                                 <!--  触发器1：按钮自身IsChecked=True（选中）→ 显示“A工位已打开”  -->
                                                 <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="Content" Value="正极工位已打开" />
+                                                    <Setter Property="Content" Value="在线检测已打开" />
                                                 </DataTrigger>
                                                 <!--  触发器2：按钮自身IsChecked=False（未选中）→ 显示“A工位已关闭”  -->
                                                 <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                    <Setter Property="Content" Value="正极工位已关闭" />
+                                                    <Setter Property="Content" Value="在线检测已关闭" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </ToggleButton.Style>
                                 </ToggleButton>
                                 <!--  B工位开关  -->
-                                <ToggleButton
+                                <!--<ToggleButton
                                     Height="30"
                                     Margin="0,0,0,0"
                                     FontSize="15"
@@ -730,7 +733,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </ToggleButton.Style>
-                                </ToggleButton>
+                                </ToggleButton>-->
                             </StackPanel>
 
                             <!--  图像检索、图像存储  -->
@@ -774,39 +777,37 @@
                                                 IsChecked="{Binding IsNegative, Mode=TwoWay}"
                                                 IsEnabled="{Binding IsInAnyDetection}" />
                                         </StackPanel>
-                                        <!--<TextBlock
+                                        <TextBlock
                                             Grid.Row="1"
                                             Grid.Column="0"
                                             VerticalAlignment="Center"
                                             FontSize="25"
-                                            Text="相机：" />
+                                            Text="模式：" />
                                         <StackPanel
                                             Grid.Row="1"
                                             Grid.Column="1"
+                                            Margin="0,5"
                                             Orientation="Vertical">
-                                            <CheckBox
-                                                Content="相机1"
-                                                IsChecked="{Binding IsCamera1, Mode=TwoWay}"
+                                            <RadioButton
+                                                HorizontalAlignment="Left"
+                                                Content="全检"
+                                                GroupName="DetectionMode"
+                                                IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.全检}}"
                                                 IsEnabled="{Binding IsInAnyDetection}" />
-                                            <CheckBox
-                                                Content="相机2"
-                                                IsChecked="{Binding IsCamera2, Mode=TwoWay}"
+                                            <RadioButton
+                                                HorizontalAlignment="Left"
+                                                Content="OK"
+                                                GroupName="DetectionMode"
+                                                IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.OK}}"
+                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                            <RadioButton
+                                                HorizontalAlignment="Left"
+                                                Content="NG"
+                                                GroupName="DetectionMode"
+                                                IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.NG}}"
                                                 IsEnabled="{Binding IsInAnyDetection}" />
                                         </StackPanel>
-                                        <StackPanel
-                                            Grid.Row="1"
-                                            Grid.Column="2"
-                                            Margin="20,0,0,0"
-                                            Orientation="Vertical">
-                                            <CheckBox
-                                                Content="相机3"
-                                                IsChecked="{Binding IsCamera3, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
-                                            <CheckBox
-                                                Content="相机4"
-                                                IsChecked="{Binding IsCamera4, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
-                                        </StackPanel>-->
+
                                     </Grid>
                                 </StackPanel>
                                 <!--  图像存储  -->
@@ -850,14 +851,14 @@
                                         <TextBlock
                                             Grid.Row="1"
                                             Grid.Column="0"
-                                            Margin="0,0,0,0"
+                                            Margin="0,5"
                                             VerticalAlignment="Top"
                                             FontSize="25"
                                             Text="结果图：" />
                                         <StackPanel
                                             Grid.Row="1"
                                             Grid.Column="1"
-                                            Margin="0,0,0,0"
+                                            Margin="0,5"
                                             Orientation="Vertical">
                                             <CheckBox
                                                 Content="OK"

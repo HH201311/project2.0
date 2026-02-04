@@ -300,7 +300,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// 初始化cpk文件监控配置字段
         /// </summary>
         /// <returns></returns>
-        private Task InitializeCPKWatcherConfigAsync()
+        private async Task InitializeCPKWatcherConfigAsync()
         {
             var productionDataPath = _projectSettingRepository.GetByNameAndVM("ProductionDataPath", "VM_CCTBMainWindow")?.Value ?? "";
             var dataSourceTypeStr = _projectSettingRepository.GetByNameAndVM("DataSourceType", "VM_CCTBMainWindow")?.Value ?? "";
@@ -308,20 +308,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             if (!success)
             {
                 _logger.Error($"CPK计算引用的数据源类型[{dataSourceTypeStr}]配置异常！");
-                return Task.CompletedTask;
+                return ;
             }
             var weightDataTypeStr = _projectSettingRepository.GetByNameAndVM("WeightDataType", "VM_CCTBMainWindow")?.Value ?? "";
             success = Enum.TryParse(weightDataTypeStr, out EWeightDataType weightDataType);
             if (!success)
             {
                 _logger.Error($"CPK计算引用的数据类型[{weightDataTypeStr}]配置异常！");
-                return Task.CompletedTask;
+                return ;
             }
 
             // -TODO  配置界面注册OnCPKWatcherConfigChanged
 
-            OnCPKWatcherConfigChanged((productionDataPath, dataSourceType, weightDataType));
-            return Task.CompletedTask;
+            await OnCPKWatcherConfigChanged((productionDataPath, dataSourceType, weightDataType));
+            
         }
 
         /// <summary>

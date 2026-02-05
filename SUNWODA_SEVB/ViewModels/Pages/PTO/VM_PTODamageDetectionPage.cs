@@ -1,14 +1,14 @@
-﻿using HalconDotNet;
+﻿using DocumentFormat.OpenXml.EMMA;
+using HalconDotNet;
 using HandyControl.Controls;
 using HelixToolkit.Wpf;
-using iText.IO.Image;
-using iText.Kernel.Font;
-using iText.Kernel.Pdf;
-using iText.Layout;
-using iText.Layout.Properties;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using OpenCvSharp;
+using QuestPDF;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
@@ -44,6 +44,7 @@ using Yolo8Core;
 using ZZYingYanAICore;
 using static Yolo8Core.BaseClass;
 using MessageBox = HandyControl.Controls.MessageBox;
+using QImage = QuestPDF.Infrastructure.Image;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 {
@@ -1528,8 +1529,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider)
         {
             _logger = logger;
-         
 
+            Settings.License = LicenseType.Community;
             File_Button = new RelayCommand<object>(
                         execute: parameter => SelectImageFile(),//文件选择
                         canExecute: parameter => IsFileSelectEnabled && !IsFileDetecting
@@ -4188,7 +4189,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                         //日志记录
                         string detailMsg = $"文件名：{imagePath} | 极性：{polarity} | [检测缺陷信息] 类型:{testName} | " + $"置信度:{testScore:F3} | " + $"宽:{testWidth:F6} | " + $"高:{testHeight:F6} | " + $"面积:{testArea:F6} | ";
-                        AddLog(detailMsg);
+                        AddLog(detailMsg,isToDatabase:true);
 
                         // 查找对应的阈值配置
                         var thresholdConfig = DefectDataGrid.FirstOrDefault(
@@ -6597,31 +6598,42 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
-                string? dirPath = Path.GetDirectoryName(imagePath);
-                if (dirPath == null)
+                if (string.IsNullOrEmpty(imagePath))
                 {
-                    AddLog($"[错误] 无法获取图片目录: {imagePath}");
-                    return "异常（无法获取图片目录）";
+                    return "未知班次";
                 }
 
-                DirectoryInfo currentDir = new DirectoryInfo(dirPath);
+                string fileName = Path.GetFileName(imagePath);
 
-                // 层级：相机 → 正负极 → 电芯号 → 班次
-                DirectoryInfo cameraDir = currentDir;
-                DirectoryInfo? polarityDir = cameraDir?.Parent;
-                DirectoryInfo? cellDir = polarityDir?.Parent;
-                DirectoryInfo? shiftDir = cellDir?.Parent;
-
-                if (shiftDir != null)
+                var match = Regex.Match(fileName, @"20\d{12}");
+                if (match.Success)
                 {
-                    string shiftName = shiftDir.Name;
-                    if (shiftName == "白班" || shiftName == "晚班")
+                    string timeStr = match.Value;
+
+                    // 索引 0-3是年, 4-5是月, 6-7是日, 8-9是时
+                    if (timeStr.Length >= 10)
                     {
-                        return shiftName;
+                        string hourStr = timeStr.Substring(8, 2);
+
+                        if (int.TryParse(hourStr, out int hour))
+                        {
+                            // 4. 判定班次
+                            // 白班：08:00 - 19:59 (即 hour >= 8 且 hour < 20)
+                            // 晚班：20:00 - 07:59 (即 hour >= 20 或 hour < 8)
+                            if (hour >= 8 && hour < 20)
+                            {
+                                return "白班";
+                            }
+                            else
+                            {
+                                return "晚班";
+                            }
+                        }
                     }
-                    return $"{shiftName}（非标准班次名）";
                 }
+                AddLog($"[班次识别警告] 文件名中未找到标准时间格式：{fileName}");
                 return "未知班次";
+
             }
             catch (Exception ex)
             {
@@ -7356,247 +7368,160 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             try
             {
-                // 生成PDF
-                using (var writer = new PdfWriter(savePath))
-                using (var pdfDoc = new PdfDocument(writer))
-                using (var document = new Document(pdfDoc, iText.Kernel.Geom.PageSize.A4))
+                AddLog($"[报表生成] 开始生成 PDF: {savePath}");
+
+                // --- QuestPDF 核心生成逻辑开始 ---
+                Document.Create(container =>
                 {
-                    // 中文字体设置
-                    PdfFont chineseFont = PdfFontFactory.CreateFont(
-                        "STSong-Light", "UniGB-UCS2-H", PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
-                    document.SetFont(chineseFont);
-                    document.SetMargins(30, 30, 30, 30);
-
-                    // 全局样式
-                    var gridBorder = new iText.Layout.Borders.SolidBorder(0.5f);
-                    var headerBg = iText.Kernel.Colors.ColorConstants.LIGHT_GRAY;
-
-                    // 主表格
-                    var mainTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
-                    mainTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                    // 标题区块
-                    var titleSubTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
-                    titleSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                    titleSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph("PTO叠片缺陷检测报告")
-                            .SetFontSize(15)
-                            .SetBold()
-                            .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
-                        .SetBorderTop(gridBorder)
-                        .SetBorderRight(gridBorder)
-                        .SetBorderLeft(gridBorder)
-                        .SetBorderBottom(gridBorder));
-
-                    titleSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph($"报表编号：{reportNo}")
-                            .SetFontSize(12)
-                            .SetTextAlignment(iText.Layout.Properties.TextAlignment.RIGHT))
-                        .SetBorderTop(gridBorder)
-                        .SetBorderRight(gridBorder)
-                        .SetBorderLeft(gridBorder)
-                        .SetBorderBottom(gridBorder));
-
-                    mainTable.AddCell(new iText.Layout.Element.Cell().Add(titleSubTable)
-                        .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-
-                    // 基本信息区块
-                    var infoSubTable = new iText.Layout.Element.Table(UnitValue.CreatePercentArray(new float[] { 1, 3 })).UseAllAvailableWidth();
-                    infoSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                    // 手动添加第一行
-                    infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph("检测设备：").SetBold())
-                        .SetBackgroundColor(headerBg)
-                        .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
-                        .SetBorderRight(gridBorder)
-                        .SetBorderLeft(gridBorder)
-                        .SetBorderBottom(gridBorder)
-                        .SetPadding(5));
-                    infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph("格林晟叠片"))
-                        .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
-                        .SetBorderRight(gridBorder)
-                        .SetBorderLeft(gridBorder)
-                        .SetBorderBottom(gridBorder)
-                        .SetPadding(5));
-
-                    AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "生产日期：", productionDate);
-                    AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "报表生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH: mm: ss"));
-                    AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "模式：", _isOfflineMode ? "离线检测" : "在线检测");
-
-                    // 显示组信息和NG电芯信息
-                    string groupInfo = $"本组共 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片";
-                    var groupInfoCell = new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph("当前报表内容：").SetBold())
-                        .SetBackgroundColor(headerBg)
-                        .SetBorder(gridBorder)
-                        .SetBorderBottom(gridBorder)
-                        .SetPadding(5);
-                    infoSubTable.AddCell(groupInfoCell);
-                    infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph(groupInfo))
-                        .SetBorder(gridBorder)
-                        .SetBorderBottom(gridBorder)
-                        .SetPadding(5));
-
-                    //NG电芯编码行
-                    string cellCodesString = string.Join("、", ngCellCodesInGroup);
-                    var ngCellCodesCell = new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph("NG电芯编码：").SetBold())
-                        .SetBackgroundColor(headerBg)
-                        .SetBorder(gridBorder)
-                        .SetBorderBottom(gridBorder)
-                        .SetPadding(5);
-                    infoSubTable.AddCell(ngCellCodesCell);
-                    infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph(cellCodesString))
-                        .SetBorder(gridBorder)
-                        .SetBorderBottom(gridBorder)
-                        .SetPadding(5));
-
-                    mainTable.AddCell(new iText.Layout.Element.Cell().Add(infoSubTable)
-                        .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-
-                    // NG缺陷详情区块
-                    var detailSubTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
-                    detailSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                    detailSubTable.AddCell(new iText.Layout.Element.Cell()
-                        .Add(new iText.Layout.Element.Paragraph("NG缺陷图片详情")
-                            .SetFontSize(14)
-                            .SetBold()
-                            .SetTextAlignment(iText.Layout.Properties.TextAlignment.LEFT))
-                        .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
-                        .SetBorderRight(gridBorder)
-                        .SetBorderLeft(gridBorder)
-                        .SetBorderBottom(iText.Layout.Borders.Border.NO_BORDER)
-                        .SetPadding(5));
-
-                    // 详情数据表格
-                    var detailDataTable = new iText.Layout.Element.Table(UnitValue.CreatePercentArray(new float[] { 1, 3, 6 })).UseAllAvailableWidth();
-                    detailDataTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                    // 详情表头
-                    detailDataTable.AddCell(CreateHeaderCell("序号", gridBorder, headerBg));
-                    detailDataTable.AddCell(CreateHeaderCell("缺陷结果图", gridBorder, headerBg));
-                    detailDataTable.AddCell(CreateHeaderCell("参数信息", gridBorder, headerBg));
-
-                    // 按电芯编码分组显示图片，序号按电芯编码计数
-                    int cellIndex = 1;
-                    foreach (string cellCode in ngCellCodesInGroup)
+                    container.Page(page =>
                     {
-                        if (!_ngImageDict.ContainsKey(cellCode))
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.DefaultTextStyle(ReportStyle.Content);
+
+                        // 1. 页眉 (标题 + 编号)
+                        page.Header().Element(header =>
                         {
-                            AddLog($"[报表生成警告] 电芯编码 {cellCode} 在字典中不存在");
-                            continue;
-                        }
+                            header.Column(col =>
+                            {
+                                col.Item().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Row(row =>
+                                {
+                                    row.RelativeItem().AlignCenter().Text("PTO叠片缺陷检测报告").Style(ReportStyle.Title);
+                                });
+                                col.Item().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).BorderTop(0).Padding(5).AlignRight().Text($"报表编号：{reportNo}");
+                            });
+                        });
 
-                        var cellImages = _ngImageDict[cellCode].Take(5).ToList(); // 仅取前5张
-                        bool isFirstImageForCell = true;
-
-                        foreach (var imgInfo in cellImages)
+                        // 2. 内容区域
+                        string groupInfo = $"本组共 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片";
+                        page.Content().PaddingVertical(10).Column(col =>
                         {
-                            // 序号 - 每个电芯编码的第一个图片显示序号，后续图片不显示
-                            if (isFirstImageForCell)
+                            // 2.1 基础信息表格
+                            col.Item().Table(table =>
                             {
-                                detailDataTable.AddCell(CreateDataCell($"{cellIndex}", gridBorder)
-                                    .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
-                                    .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE));
-                                isFirstImageForCell = false;
-                            }
-                            else
-                            {
-                                detailDataTable.AddCell(CreateDataCell("", gridBorder)
-                                    .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
-                                    .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE));
-                            }
-
-                            // 缺陷结果图
-                            iText.Layout.Element.Cell imageCell = new iText.Layout.Element.Cell()
-                                .SetBorder(gridBorder)
-                                .SetPadding(5)
-                                .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
-                                .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE);
-
-                            try
-                            {
-                                string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
-                                if (File.Exists(resultImagePath))
+                                table.ColumnsDefinition(columns =>
                                 {
-                                    ImageData imageData = ImageDataFactory.Create(resultImagePath);
-                                    iText.Layout.Element.Image image = new iText.Layout.Element.Image(imageData)
-                                        .ScaleToFit(150, 120)
-                                        .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER);
-                                    imageCell.Add(image);
-                                }
-                                else
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(3);
+                                });
+
+                                // 封装单元格样式的本地函数
+                                void AddRow(string label, string value)
                                 {
-                                    imageCell.Add(new iText.Layout.Element.Paragraph("结果图不存在").SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER));
-                                    AddLog($"[报表图片警告] 结果图不存在：{resultImagePath}");
+                                    table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).Text(label).SemiBold();
+                                    table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Text(value);
                                 }
-                            }
-                            catch (Exception ex)
+
+                                AddRow("检测设备：", "格林晟叠片");
+                                AddRow("生产日期：", productionDate);
+                                AddRow("报表生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                                AddRow("模式：", _isOfflineMode ? "离线检测" : "在线检测");
+                                AddRow("当前报表内容：", groupInfo);
+                                AddRow("NG电芯编码：", string.Join("、", ngCellCodesInGroup));
+                            });
+
+                            col.Item().Height(20); // 间隔
+
+                            // 2.2 缺陷详情标题
+                            col.Item().Text("NG缺陷图片详情").FontSize(14).Bold();
+                            col.Item().Height(5);
+
+                            // 2.3 详情表格
+                            col.Item().Table(table =>
                             {
-                                imageCell.Add(new iText.Layout.Element.Paragraph($"加载失败：{ex.Message}").SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER));
-                                AddLog($"[报表图片错误] 加载图片失败：{ex.Message}");
-                            }
-                            detailDataTable.AddCell(imageCell);
+                                // 定义列宽比例：序号(1) : 图片(3) : 参数(6) -> 对应您原代码的 UnitValue.CreatePercentArray
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(3);
+                                    columns.RelativeColumn(6);
+                                });
 
-                            // 参数信息 - 每个图片都显示完整的电芯编码和其他信息
-                            var paramContainer = new iText.Layout.Element.Div().SetWidth(UnitValue.CreatePercentValue(80));
-                            string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
+                                // 表头
+                                void AddHeader(string text)
+                                {
+                                    table.Cell().RowSpan(1).Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).AlignCenter().Text(text).SemiBold();
+                                }
+                                AddHeader("序号");
+                                AddHeader("缺陷结果图");
+                                AddHeader("参数信息");
 
+                                // 填充数据
+                                int cellIndex = 1;
+                                foreach (string cellCode in ngCellCodesInGroup)
+                                {
+                                    if (!_ngImageDict.ContainsKey(cellCode)) continue;
 
-                            // 每个图片都显示电芯编码
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"电芯编码：{imgInfo.CellCode}").SetBold().SetMarginBottom(0));
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"班次：{imgInfo.Shift}").SetMarginBottom(0));
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"正负极：{imgInfo.Polarity}").SetMarginBottom(0));
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"相机：{imgInfo.Camera}").SetMarginBottom(0));
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"工位：{stationText}").SetMarginBottom(0));
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"检测时间：{imgInfo.DetectionTime:yyyy-MM-dd HH: mm: ss}").SetMarginBottom(0));
+                                    var cellImages = _ngImageDict[cellCode].Take(5).ToList();
+                                    bool isFirstImageForCell = true;
 
-                            string? fullImageName = imgInfo.ImageName;
-                            if (fullImageName == null)
-                            {
-                                throw new ArgumentNullException(nameof(fullImageName), "图片文件名不能为空");
-                            }
-                            int extIndex = fullImageName.LastIndexOf('.');
-                            string fileNamePart = extIndex > 0 ? fullImageName.Substring(0, extIndex) : fullImageName;
-                            string extWithDot = extIndex > 0 ? fullImageName.Substring(extIndex) : "";
+                                    foreach (var imgInfo in cellImages)
+                                    {
+                                        // 序号列
+                                        var seqCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignCenter().AlignMiddle();
+                                        if (isFirstImageForCell)
+                                        {
+                                            seqCell.Text($"{cellIndex}");
+                                            isFirstImageForCell = false;
+                                        }
+                                        else
+                                        {
+                                            seqCell.Text(""); // 空文本
+                                        }
 
-                            string processedExt = extWithDot;
-                            if (extWithDot.Length >= 3)
-                            {
-                                processedExt = $"{extWithDot[0]}{extWithDot[1]} {extWithDot.Substring(2)}";
-                            }
+                                        // 图片列
+                                        var imgCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignCenter().AlignMiddle();
+                                        string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
 
-                            paramContainer.Add(new iText.Layout.Element.Paragraph($"图片名：{fileNamePart}{processedExt}")
-                                .SetFontSize(10));
-                            paramContainer.SetFontSize(10);
+                                        if (File.Exists(resultImagePath))
+                                        {
+                                            try
+                                            {
+                                                // QuestPDF 直接加载文件路径
+                                                imgCell.Height(145).Image(resultImagePath).FitArea();
+                                            }
+                                            catch
+                                            {
+                                                imgCell.Text("图片加载失败");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            imgCell.Text("结果图不存在");
+                                        }
 
-                            var paramCell = new iText.Layout.Element.Cell()
-                                .Add(paramContainer)
-                                .SetBorder(gridBorder)
-                                .SetPadding(5)
-                                .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.TOP)
-                                .SetTextAlignment(iText.Layout.Properties.TextAlignment.LEFT);
-                            detailDataTable.AddCell(paramCell);
-                        }
+                                        // 参数信息列
+                                        string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
+                                        string imageNameStr = imgInfo.ImageName ?? "未知";
 
-                        // 处理完一个电芯编码的所有图片后，序号递增
-                        cellIndex++;
-                    }
+                                        table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten3).Padding(5).Column(infoCol =>
+                                        {
+                                            infoCol.Spacing(5);
+                                            infoCol.Item().Text($"电芯编码：{imgInfo.CellCode}").Bold();
+                                            infoCol.Item().Text($"班次：{imgInfo.Shift}");
+                                            infoCol.Item().Text($"正负极：{imgInfo.Polarity}");
+                                            //infoCol.Item().Text($"工位：{stationText}");
+                                            infoCol.Item().Text($"检测时间：{imgInfo.DetectionTime:yyyy-MM-dd HH:mm:ss}");
+                                            infoCol.Item().PaddingBottom(6).Text($"图片名：{imageNameStr}");
+                                        });
+                                    }
+                                    cellIndex++;
+                                }
+                            });
+                        });
 
-                    detailSubTable.AddCell(new iText.Layout.Element.Cell().Add(detailDataTable)
-                        .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-                    mainTable.AddCell(new iText.Layout.Element.Cell().Add(detailSubTable)
-                        .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-
-                    // 将主表格添加到文档
-                    document.Add(mainTable);
-                }
+                        // 3. 页脚
+                        page.Footer().AlignCenter().Text(x =>
+                        {
+                            x.Span("第 ");
+                            x.CurrentPageNumber();
+                            x.Span(" 页 / 共 ");
+                            x.TotalPages();
+                            x.Span(" 页");
+                        });
+                    });
+                })
+                .GeneratePdf(savePath); 
 
                 // 报表生成完成后，从字典中移除已处理的NG电芯编码
                 lock (_queue1Lock)
@@ -7626,51 +7551,367 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 AddLog($"[报表生成成功] 本组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片，保存路径：{savePath}");
+
+
+
+                lock (_queue1Lock)
+                {
+                    // 清理 _ngImageDict 逻辑保持不变...
+                }
+
+                // 推送逻辑保持不变...
+
+                AddLog($"[报表生成成功] ... 保存路径：{savePath}");
             }
             catch (Exception ex)
             {
-                AddLog($"[报表生成错误] 生成报表失败：{ex.Message}");
-                AddLog($"[报表生成错误] 堆栈跟踪：{ex.StackTrace}");
+                AddLog($"[报表生成错误] {ex.Message}");
             }
+
+
+
+
+
+
+            /* try
+             {
+                 // 生成PDF
+                 using (var writer = new PdfWriter(savePath))
+                 using (var pdfDoc = new PdfDocument(writer))
+                 using (var document = new Document(pdfDoc, iText.Kernel.Geom.PageSize.A4))
+                 {
+                     // 中文字体设置
+                     PdfFont chineseFont = PdfFontFactory.CreateFont(
+                         "STSong-Light", "UniGB-UCS2-H", PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
+                     document.SetFont(chineseFont);
+                     document.SetMargins(30, 30, 30, 30);
+
+                     // 全局样式
+                     var gridBorder = new iText.Layout.Borders.SolidBorder(0.5f);
+                     var headerBg = iText.Kernel.Colors.ColorConstants.LIGHT_GRAY;
+
+                     // 主表格
+                     var mainTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
+                     mainTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+
+                     // 标题区块
+                     var titleSubTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
+                     titleSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+
+                     titleSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph("PTO叠片缺陷检测报告")
+                             .SetFontSize(15)
+                             .SetBold()
+                             .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
+                         .SetBorderTop(gridBorder)
+                         .SetBorderRight(gridBorder)
+                         .SetBorderLeft(gridBorder)
+                         .SetBorderBottom(gridBorder));
+
+                     titleSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph($"报表编号：{reportNo}")
+                             .SetFontSize(12)
+                             .SetTextAlignment(iText.Layout.Properties.TextAlignment.RIGHT))
+                         .SetBorderTop(gridBorder)
+                         .SetBorderRight(gridBorder)
+                         .SetBorderLeft(gridBorder)
+                         .SetBorderBottom(gridBorder));
+
+                     mainTable.AddCell(new iText.Layout.Element.Cell().Add(titleSubTable)
+                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
+
+                     // 基本信息区块
+                     var infoSubTable = new iText.Layout.Element.Table(UnitValue.CreatePercentArray(new float[] { 1, 3 })).UseAllAvailableWidth();
+                     infoSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+
+                     // 手动添加第一行
+                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph("检测设备：").SetBold())
+                         .SetBackgroundColor(headerBg)
+                         .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
+                         .SetBorderRight(gridBorder)
+                         .SetBorderLeft(gridBorder)
+                         .SetBorderBottom(gridBorder)
+                         .SetPadding(5));
+                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph("格林晟叠片"))
+                         .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
+                         .SetBorderRight(gridBorder)
+                         .SetBorderLeft(gridBorder)
+                         .SetBorderBottom(gridBorder)
+                         .SetPadding(5));
+
+                     AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "生产日期：", productionDate);
+                     AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "报表生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH: mm: ss"));
+                     AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "模式：", _isOfflineMode ? "离线检测" : "在线检测");
+
+                     // 显示组信息和NG电芯信息
+                     string groupInfo = $"本组共 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片";
+                     var groupInfoCell = new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph("当前报表内容：").SetBold())
+                         .SetBackgroundColor(headerBg)
+                         .SetBorder(gridBorder)
+                         .SetBorderBottom(gridBorder)
+                         .SetPadding(5);
+                     infoSubTable.AddCell(groupInfoCell);
+                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph(groupInfo))
+                         .SetBorder(gridBorder)
+                         .SetBorderBottom(gridBorder)
+                         .SetPadding(5));
+
+                     //NG电芯编码行
+                     string cellCodesString = string.Join("、", ngCellCodesInGroup);
+                     var ngCellCodesCell = new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph("NG电芯编码：").SetBold())
+                         .SetBackgroundColor(headerBg)
+                         .SetBorder(gridBorder)
+                         .SetBorderBottom(gridBorder)
+                         .SetPadding(5);
+                     infoSubTable.AddCell(ngCellCodesCell);
+                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph(cellCodesString))
+                         .SetBorder(gridBorder)
+                         .SetBorderBottom(gridBorder)
+                         .SetPadding(5));
+
+                     mainTable.AddCell(new iText.Layout.Element.Cell().Add(infoSubTable)
+                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
+
+                     // NG缺陷详情区块
+                     var detailSubTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
+                     detailSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+
+                     detailSubTable.AddCell(new iText.Layout.Element.Cell()
+                         .Add(new iText.Layout.Element.Paragraph("NG缺陷图片详情")
+                             .SetFontSize(14)
+                             .SetBold()
+                             .SetTextAlignment(iText.Layout.Properties.TextAlignment.LEFT))
+                         .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
+                         .SetBorderRight(gridBorder)
+                         .SetBorderLeft(gridBorder)
+                         .SetBorderBottom(iText.Layout.Borders.Border.NO_BORDER)
+                         .SetPadding(5));
+
+                     // 详情数据表格
+                     var detailDataTable = new iText.Layout.Element.Table(UnitValue.CreatePercentArray(new float[] { 1, 3, 6 })).UseAllAvailableWidth();
+                     detailDataTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+
+                     // 详情表头
+                     detailDataTable.AddCell(CreateHeaderCell("序号", gridBorder, headerBg));
+                     detailDataTable.AddCell(CreateHeaderCell("缺陷结果图", gridBorder, headerBg));
+                     detailDataTable.AddCell(CreateHeaderCell("参数信息", gridBorder, headerBg));
+
+                     // 按电芯编码分组显示图片，序号按电芯编码计数
+                     int cellIndex = 1;
+                     foreach (string cellCode in ngCellCodesInGroup)
+                     {
+                         if (!_ngImageDict.ContainsKey(cellCode))
+                         {
+                             AddLog($"[报表生成警告] 电芯编码 {cellCode} 在字典中不存在");
+                             continue;
+                         }
+
+                         var cellImages = _ngImageDict[cellCode].Take(5).ToList(); // 仅取前5张
+                         bool isFirstImageForCell = true;
+
+                         foreach (var imgInfo in cellImages)
+                         {
+                             // 序号 - 每个电芯编码的第一个图片显示序号，后续图片不显示
+                             if (isFirstImageForCell)
+                             {
+                                 detailDataTable.AddCell(CreateDataCell($"{cellIndex}", gridBorder)
+                                     .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
+                                     .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE));
+                                 isFirstImageForCell = false;
+                             }
+                             else
+                             {
+                                 detailDataTable.AddCell(CreateDataCell("", gridBorder)
+                                     .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
+                                     .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE));
+                             }
+
+                             // 缺陷结果图
+                             iText.Layout.Element.Cell imageCell = new iText.Layout.Element.Cell()
+                                 .SetBorder(gridBorder)
+                                 .SetPadding(5)
+                                 .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
+                                 .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE);
+
+                             try
+                             {
+                                 string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
+                                 if (File.Exists(resultImagePath))
+                                 {
+                                     ImageData imageData = ImageDataFactory.Create(resultImagePath);
+                                     iText.Layout.Element.Image image = new iText.Layout.Element.Image(imageData)
+                                         .ScaleToFit(150, 120)
+                                         .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER);
+                                     imageCell.Add(image);
+                                 }
+                                 else
+                                 {
+                                     imageCell.Add(new iText.Layout.Element.Paragraph("结果图不存在").SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER));
+                                     AddLog($"[报表图片警告] 结果图不存在：{resultImagePath}");
+                                 }
+                             }
+                             catch (Exception ex)
+                             {
+                                 imageCell.Add(new iText.Layout.Element.Paragraph($"加载失败：{ex.Message}").SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER));
+                                 AddLog($"[报表图片错误] 加载图片失败：{ex.Message}");
+                             }
+                             detailDataTable.AddCell(imageCell);
+
+                             // 参数信息 - 每个图片都显示完整的电芯编码和其他信息
+                             var paramContainer = new iText.Layout.Element.Div().SetWidth(UnitValue.CreatePercentValue(80));
+                             string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
+
+
+                             // 每个图片都显示电芯编码
+                             paramContainer.Add(new iText.Layout.Element.Paragraph($"电芯编码：{imgInfo.CellCode}").SetBold().SetMarginBottom(0));
+                             paramContainer.Add(new iText.Layout.Element.Paragraph($"班次：{imgInfo.Shift}").SetMarginBottom(0));
+                             paramContainer.Add(new iText.Layout.Element.Paragraph($"正负极：{imgInfo.Polarity}").SetMarginBottom(0));
+                             //paramContainer.Add(new iText.Layout.Element.Paragraph($"相机：{imgInfo.Camera}").SetMarginBottom(0));
+                             paramContainer.Add(new iText.Layout.Element.Paragraph($"工位：{stationText}").SetMarginBottom(0));
+                             paramContainer.Add(new iText.Layout.Element.Paragraph($"检测时间：{imgInfo.DetectionTime:yyyy-MM-dd HH: mm: ss}").SetMarginBottom(0));
+
+                             string? fullImageName = imgInfo.ImageName;
+                             if (fullImageName == null)
+                             {
+                                 throw new ArgumentNullException(nameof(fullImageName), "图片文件名不能为空");
+                             }
+                             int extIndex = fullImageName.LastIndexOf('.');
+                             string fileNamePart = extIndex > 0 ? fullImageName.Substring(0, extIndex) : fullImageName;
+                             string extWithDot = extIndex > 0 ? fullImageName.Substring(extIndex) : "";
+
+                             string processedExt = extWithDot;
+                             if (extWithDot.Length >= 3)
+                             {
+                                 processedExt = $"{extWithDot[0]}{extWithDot[1]} {extWithDot.Substring(2)}";
+                             }
+
+                             paramContainer.Add(new iText.Layout.Element.Paragraph($"图片名：{fileNamePart}{processedExt}")
+                                 .SetFontSize(10));
+                             paramContainer.SetFontSize(10);
+
+                             var paramCell = new iText.Layout.Element.Cell()
+                                 .Add(paramContainer)
+                                 .SetBorder(gridBorder)
+                                 .SetPadding(5)
+                                 .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.TOP)
+                                 .SetTextAlignment(iText.Layout.Properties.TextAlignment.LEFT);
+                             detailDataTable.AddCell(paramCell);
+                         }
+
+                         // 处理完一个电芯编码的所有图片后，序号递增
+                         cellIndex++;
+                     }
+
+                     detailSubTable.AddCell(new iText.Layout.Element.Cell().Add(detailDataTable)
+                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
+                     mainTable.AddCell(new iText.Layout.Element.Cell().Add(detailSubTable)
+                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
+
+                     // 将主表格添加到文档
+                     document.Add(mainTable);
+                 }
+
+                 // 报表生成完成后，从字典中移除已处理的NG电芯编码
+                 lock (_queue1Lock)
+                 {
+                     foreach (string cellCode in ngCellCodesInGroup)
+                     {
+                         if (_ngImageDict.ContainsKey(cellCode))
+                         {
+                             _ngImageDict.Remove(cellCode);
+                         }
+                     }
+                 }
+                 try
+                 {
+                     AddLog($"[报表推送] 开始推送报表：{savePath}");
+                     string combinedUserId = GetCombinedUserIdString();
+                     //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
+
+                     var response = await _webApiClient.PushFileAsync(savePath);
+                     AddLog($"[报表推送成功] 报表已推送");
+                 }
+                 catch (Exception pushEx)
+                 {
+                     // 推送失败不影响报表生成，仅记录日志
+                     AddLog($"[报表推送失败] 推送报表 {savePath} 失败：{pushEx.Message}");
+                     AddLog($"[报表推送失败] 堆栈跟踪：{pushEx.StackTrace}");
+                 }
+
+                 AddLog($"[报表生成成功] 本组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片，保存路径：{savePath}");
+             }
+             catch (Exception ex)
+             {
+                 AddLog($"[报表生成错误] 生成报表失败：{ex.Message}");
+                 AddLog($"[报表生成错误] 堆栈跟踪：{ex.StackTrace}");
+             }*/
+
+
+
         }
 
-        private void AddInfoRowToSubTable(iText.Layout.Element.Table table, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor, string label, string value)
+        /*  private void AddInfoRowToSubTable(iText.Layout.Element.Table table, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor, string label, string value)
+          {
+              // 标签单元格 - 统一设置所有边框
+              table.AddCell(new iText.Layout.Element.Cell()
+                  .Add(new iText.Layout.Element.Paragraph(label).SetBold())
+                  .SetBackgroundColor(bgColor)
+                  .SetBorder(border)
+                  .SetPadding(5));
+
+              // 值单元格 - 统一设置所有边框
+              table.AddCell(new iText.Layout.Element.Cell()
+                  .Add(new iText.Layout.Element.Paragraph(value))
+                  .SetBorder(border)
+                  .SetPadding(5));
+          }
+
+          //表头单元格创建
+          private iText.Layout.Element.Cell CreateHeaderCell(string text, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor)
+          {
+              return new iText.Layout.Element.Cell()
+                  .Add(new iText.Layout.Element.Paragraph(text)
+                      .SetBold()
+                      .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
+                  .SetBackgroundColor(bgColor)
+                  .SetBorder(border)
+                  .SetPadding(5);
+          }
+
+          //数据单元格创建
+          private iText.Layout.Element.Cell CreateDataCell(string text, iText.Layout.Borders.Border border)
+          {
+              return new iText.Layout.Element.Cell()
+                  .Add(new iText.Layout.Element.Paragraph(text)
+                      .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
+                  .SetBorder(border)
+                  .SetPadding(5);
+          }*/
+
+
+
+
+
+
+
+
+
+
+        static class ReportStyle
         {
-            // 标签单元格 - 统一设置所有边框
-            table.AddCell(new iText.Layout.Element.Cell()
-                .Add(new iText.Layout.Element.Paragraph(label).SetBold())
-                .SetBackgroundColor(bgColor)
-                .SetBorder(border)
-                .SetPadding(5));
-
-            // 值单元格 - 统一设置所有边框
-            table.AddCell(new iText.Layout.Element.Cell()
-                .Add(new iText.Layout.Element.Paragraph(value))
-                .SetBorder(border)
-                .SetPadding(5));
+            public static TextStyle Title => TextStyle.Default.FontSize(20).SemiBold().FontFamily("SimHei"); // 黑体
+            public static TextStyle Header => TextStyle.Default.FontSize(10).SemiBold().FontFamily("SimSun"); // 宋体
+            public static TextStyle Content => TextStyle.Default.FontSize(10).FontFamily("SimSun");
         }
 
-        //表头单元格创建
-        private iText.Layout.Element.Cell CreateHeaderCell(string text, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor)
-        {
-            return new iText.Layout.Element.Cell()
-                .Add(new iText.Layout.Element.Paragraph(text)
-                    .SetBold()
-                    .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
-                .SetBackgroundColor(bgColor)
-                .SetBorder(border)
-                .SetPadding(5);
-        }
 
-        //数据单元格创建
-        private iText.Layout.Element.Cell CreateDataCell(string text, iText.Layout.Borders.Border border)
-        {
-            return new iText.Layout.Element.Cell()
-                .Add(new iText.Layout.Element.Paragraph(text)
-                    .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
-                .SetBorder(border)
-                .SetPadding(5);
-        }
+
 
         #region 参数管控
         // 参数管控新增命令

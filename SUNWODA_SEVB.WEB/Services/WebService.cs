@@ -148,7 +148,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     Stage = workshipParts.ElementAtOrDefault(1) ?? "",
                     Line = workshipParts.ElementAtOrDefault(2) ?? "",
                     Workship = workshipParts.ElementAtOrDefault(3) ?? "",
-                    Procedure = settings.DeviceName ?? "",
+                    Proceduce = settings.DeviceName ?? "",
                     DevId = settings.DeviceSn ?? "",
                     SoftName = settings.ZipFileName ?? "",
                     SoftVersion = settings.SoftVersion ?? "",

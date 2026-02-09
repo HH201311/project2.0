@@ -1093,7 +1093,7 @@ namespace SUNWODA_SEVB.WEB.Services
 
                 var result = await _httpHelper.PostFileWithRetryAsync( url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 30);
 
-                if (result.StartsWith("failed"))
+                if (result.Contains("failed"))
                 {
                     _logger.Error($"文件推送失败: {result}");
                     return new WebApiSendResponse { Code = 0, Message = result };

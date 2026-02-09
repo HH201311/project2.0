@@ -23,8 +23,8 @@ namespace SUNWODA_SEVB.Core.Models.Web
         [JsonPropertyName("workship")]
         public string? Workship { get; set; }
 
-        [JsonPropertyName("procedure")]
-        public string? Procedure { get; set; }
+        [JsonPropertyName("proceduce")]
+        public string? Proceduce { get; set; }
 
         [JsonPropertyName("devId")]
         public string? DevId { get; set; }

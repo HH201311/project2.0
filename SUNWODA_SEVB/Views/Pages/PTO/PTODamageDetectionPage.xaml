@@ -207,7 +207,7 @@
                             Height="20"
                             Margin="0,0,15,0"
                             Background="#E0E0E0"
-                            Foreground="Red"
+                            Foreground="Green"
                             Maximum="100"
                             Minimum="0"
                             Value="{Binding OfflineProgressValue, FallbackValue=0}" />
@@ -459,7 +459,7 @@
                                         FontSize="20"
                                         FontWeight="Bold"
                                         Foreground="DarkBlue"
-                                        Text="负极缺陷检测信息" />
+                                        Text="缺陷检测信息" />
 
                                     <Border
                                         HorizontalAlignment="Stretch"
@@ -633,7 +633,7 @@
                                     BorderBrush="#CCCCCC"
                                     BorderThickness="1"
                                     FontSize="18"
-                                    IsEnabled="{Binding IsInAnyDetectionA}"
+                                    IsEnabled="{Binding CanOperate}"
                                     Text="{Binding SelectedMonitorFolderPathA, Mode=TwoWay}" />
                                 <!--  IsEnabled为True时触发Command，为False时不触发  -->
                                 <Button
@@ -645,37 +645,10 @@
                                     Command="{Binding SelectMonitorFolderCommandA}"
                                     Content="浏览..."
                                     Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionA}" />
+                                    IsEnabled="{Binding CanOperate}" />
                             </StackPanel>
 
-                            <!--  B工位监听路径  -->
-                            <!--
-                            <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                                <TextBlock
-                                    Width="Auto"
-                                    VerticalAlignment="Center"
-                                    FontWeight="Bold"
-                                    Text="负极工位监听路径：" />
-                                <TextBox
-                                    Width="200"
-                                    Height="30"
-                                    Margin="5,0"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    FontSize="18"
-                                    IsEnabled="{Binding IsInAnyDetectionB}"
-                                    Text="{Binding SelectedMonitorFolderPathB, Mode=TwoWay}" />
-                                <Button
-                                    Width="60"
-                                    Height="30"
-                                    Margin="5,0"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectMonitorFolderCommandB}"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionB}" />
-                            </StackPanel>-->
+
 
                             <!--  在线检测  -->
                             <StackPanel
@@ -771,11 +744,11 @@
                                             <CheckBox
                                                 Content="正极"
                                                 IsChecked="{Binding IsPositive, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
                                                 Content="负极"
                                                 IsChecked="{Binding IsNegative, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
                                         <TextBlock
                                             Grid.Row="1"
@@ -793,19 +766,19 @@
                                                 Content="全检"
                                                 GroupName="DetectionMode"
                                                 IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.全检}}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <RadioButton
                                                 HorizontalAlignment="Left"
                                                 Content="OK"
                                                 GroupName="DetectionMode"
                                                 IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.OK}}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <RadioButton
                                                 HorizontalAlignment="Left"
                                                 Content="NG"
                                                 GroupName="DetectionMode"
                                                 IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.NG}}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
 
                                     </Grid>
@@ -841,11 +814,11 @@
                                             <CheckBox
                                                 Content="OK"
                                                 IsChecked="{Binding IsSaveOriginalOK}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
                                                 Content="NG"
                                                 IsChecked="{Binding IsSaveOriginalNG}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
 
                                         <TextBlock
@@ -863,11 +836,11 @@
                                             <CheckBox
                                                 Content="OK"
                                                 IsChecked="{Binding IsSaveResultOK}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
                                                 Content="NG"
                                                 IsChecked="{Binding IsSaveResultNG}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
                                     </Grid>
                                 </StackPanel>
@@ -1191,7 +1164,7 @@
                                         Margin="0,0,0,0"
                                         VerticalAlignment="Center"
                                         FontSize="20"
-                                        IsEnabled="{Binding IsInAnyDetection}"
+                                        IsEnabled="{Binding CanOperate}"
                                         Text="{Binding MaxImagesPerReport, Mode=TwoWay}"
                                         TextAlignment="Center" />
 
@@ -1208,7 +1181,7 @@
                                             Command="{Binding IncrementMaxImagesCommand}"
                                             Content="▲"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
 
                                         <!--  下箭头按钮  -->
                                         <Button
@@ -1219,7 +1192,7 @@
                                             Command="{Binding DecrementMaxImagesCommand}"
                                             Content="▼"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                     </StackPanel>
                                 </Grid>
 
@@ -1231,7 +1204,7 @@
                                     Background="#5DADE2"
                                     Command="{Binding SaveMaxImagesCommand}"
                                     Content="保存"
-                                    IsEnabled="{Binding IsInAnyDetection}" />
+                                    IsEnabled="{Binding CanOperate}" />
 
                                 <TextBlock
                                     Grid.Row="1"
@@ -1258,7 +1231,7 @@
                                         Margin="0,0,0,0"
                                         VerticalAlignment="Center"
                                         FontSize="20"
-                                        IsEnabled="{Binding IsInAnyDetection}"
+                                        IsEnabled="{Binding CanOperate}"
                                         Text="{Binding ReportTimeoutMinutes, Mode=TwoWay}"
                                         TextAlignment="Center" />
 
@@ -1275,7 +1248,7 @@
                                             Command="{Binding IncrementTimeoutCommand}"
                                             Content="▲"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
 
                                         <!--  下箭头按钮  -->
                                         <Button
@@ -1286,7 +1259,7 @@
                                             Command="{Binding DecrementTimeoutCommand}"
                                             Content="▼"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                     </StackPanel>
                                 </Grid>
 
@@ -1298,7 +1271,7 @@
                                     Background="#5DADE2"
                                     Command="{Binding SaveTimeoutCommand}"
                                     Content="保存"
-                                    IsEnabled="{Binding IsInAnyDetection}" />
+                                    IsEnabled="{Binding CanOperate}" />
                             </Grid>
 
                             <!--  添加推送用户ID  -->
@@ -1412,7 +1385,7 @@
                                             CommandParameter="正极"
                                             Content="选择绘制图片"
                                             Foreground="Black"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                         <Button
                                             Width="120"
                                             Height="26"
@@ -1545,7 +1518,7 @@
                                             CommandParameter="负极"
                                             Content="选择绘制图片"
                                             Foreground="Black"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                         <Button
                                             Width="120"
                                             Height="26"
@@ -1881,7 +1854,7 @@
                                 Background="OrangeRed"
                                 Command="{Binding DeleteNegativeRoiCommand}"
                                 Content="删除绘制"
-                                IsEnabled="{Binding IsInAnyDetection}" />
+                                IsEnabled="{Binding CanOperate}" />
 
                             <Button
                                 Width="130"
@@ -1890,7 +1863,7 @@
                                 Background="GreenYellow"
                                 Command="{Binding SaveNegativeRoiCommand}"
                                 Content="保存区域"
-                                IsEnabled="{Binding IsInAnyDetection}" />
+                                IsEnabled="{Binding CanOperate}" />
 
                             <Button
                                 Width="130"

@@ -85,19 +85,30 @@ namespace SUNWODA_SEVB.WEB.Services
                     return;
                 }
 
+                // 先设置 Running，再启动后台任务，避免竞态
+                _stateService.UpdateRunningStatus(true);
+
                 if (!string.IsNullOrEmpty(settings.UUID))
                 {
                     _apiClient.SetUuid(settings.UUID);
                     _stateService.UpdateDeviceBindingStatus(true);
+                    _logger.Info($"已加载已绑定设备，UUID: {settings.UUID}");
+
+                    await TryInitialHeartbeatAsync(settings);
+                }
+                else
+                {
+                    _logger.Info("UUID为空，等待设备绑定后再建立连接");
+                    // IsDeviceBound 保持 false，由 WebWorkTask 中的绑定逻辑处理
                 }
 
                 await _backgroundTaskService.StartAsync();
 
-                _stateService.UpdateRunningStatus(true);
                 _logger.Info("WEB服务启动成功");
             }
             catch (Exception ex)
             {
+                _stateService.UpdateRunningStatus(false); // 失败时回滚状态
                 _logger.Error("WEB服务启动失败", ex);
                 throw;
             }
@@ -125,6 +136,44 @@ namespace SUNWODA_SEVB.WEB.Services
             {
                 _logger.Error("WEB服务停止失败", ex);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// 服务启动时主动发起一次心跳，尽快确认连接状态
+        /// 避免等待 HeartbeatTask 定时器到期
+        /// </summary>
+        private async Task TryInitialHeartbeatAsync(WebSettings settings)
+        {
+            try
+            {
+                if (!settings.IsHeartbeatConfigValid())
+                {
+                    _logger.Warn("心跳配置不完整，跳过启动时心跳验证");
+                    return;
+                }
+
+                _logger.Info("发起启动时心跳验证...");
+                var response = await _apiClient.SendHeartbeatAsync(
+                    settings.DeviceSn!,
+                    "正常",
+                    settings.SoftVersion ?? "Unknown",
+                    settings.UUID!);
+
+                if (response.IsSuccess)
+                {
+                    _stateService.UpdateConnectionStatus(true);
+                    _logger.Info("启动时心跳验证成功，WEB连接已就绪");
+                }
+                else
+                {
+                    _logger.Warn($"启动时心跳验证失败: {response.Message}，将由后台心跳任务继续重试");
+                    // 不将 IsConnected 设为 false，保持初始 false 即可，后续心跳会更新
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"启动时心跳验证异常: {ex.Message}，将由后台心跳任务继续重试");
             }
         }
 

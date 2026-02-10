@@ -40,6 +40,7 @@ using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Yolo8Core;
 using ZZYingYanAICore;
 using static Yolo8Core.BaseClass;
@@ -356,12 +357,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 // 6. 更新私有字段（最终确认状态变更）
                 _isOnlineDetectionEnabledA = value;
                 // 7. 触发属性变更通知：保证UI同步更新
-                OnPropertyChanged();// 通知自身属性变更（IsOnlineDetectionEnabledA）
-                //OnPropertyChanged(nameof(IsInAnyDetectionA));// 通知A工位是否在检测中
-                OnPropertyChanged(nameof(CanOperate));
-                IsFileSelectEnabled=!value && !IsFileDetecting;
-                IsFolderSelectEnabled = !value && !IsFileDetecting;
+                OnPropertyChanged();                                   
 
+                // ✅ 统一更新按钮状态
+                UpdateButtonStates();
+                OnPropertyChanged(nameof(CanOperate));
                 SaveConfig();
             }
         }
@@ -497,8 +497,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isFileSelectEnabled = true;
         public bool IsFileSelectEnabled
         {
-            get => _isFileSelectEnabled && !IsFileDetecting && !IsOnlineDetectionEnabledA;
-            set
+            get => _isFileSelectEnabled;
+            private set  // ✅ 改为 private,仅内部更新
             {
                 _isFileSelectEnabled = value;
                 OnPropertyChanged();
@@ -510,10 +510,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isFolderSelectEnabled = true;
         public bool IsFolderSelectEnabled
         {
-            get => _isFolderSelectEnabled
-               && !IsFileDetecting
-               && !IsOnlineDetectionEnabledA;
-            set
+            get => _isFolderSelectEnabled;
+            private set
             {
                 _isFolderSelectEnabled = value;
                 OnPropertyChanged();
@@ -528,17 +526,53 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _isFileDetecting;
             set
             {
-                if (_isFileDetecting != value)
+                lock (_stateLock)
                 {
-                    _isFileDetecting = value;
-                    // 第二步：同步更新多个UI控制属性（状态联动）              
-                    IsOnlineToggleEnabledA = !value;                
-                    IsFileSelectEnabled = !value;
-                    IsFolderSelectEnabled = !value;
-                    // 第三步：触发属性变更通知（保证UI实时更新）
-                    OnPropertyChanged(nameof(CanOperate));
-                }                              
+                    if (_isFileDetecting != value)
+                    {
+                        if (value && IsOnlineDetectionEnabledA)
+                        {
+                            AddLog("[状态保护] 文件检测启动,自动关闭在线检测", CoreLogLevel.Warn);
+                            Growl.Warning("检测到在线检测与文件检测冲突，已自动关闭在线检测");
+                            IsOnlineDetectionEnabledA = false;
+                        }
+
+                        _isFileDetecting = value;
+                        UpdateButtonStates();
+                    }
+                }
             }
+        }
+
+
+        /// <summary>
+        /// 统一的按钮状态更新方法
+        /// </summary>
+        private void UpdateButtonStates()
+        {
+            // 文件/文件夹按钮: 仅当"未检测中"且"在线检测未开启"时可用
+            bool canOperateFiles = !IsFileDetecting && !IsOnlineDetectionEnabledA;
+            IsFileSelectEnabled = canOperateFiles;
+            IsFolderSelectEnabled = canOperateFiles;
+
+            // 在线检测开关: 仅当"未进行文件检测"时可用
+            IsOnlineToggleEnabledA = !IsFileDetecting;
+
+            AddLog($"[状态检查] IsFileDetecting={IsFileDetecting}, " +
+             $"IsOnlineDetectionEnabledA={IsOnlineDetectionEnabledA}, " +
+             $"文件按钮={canOperateFiles}, 在线开关={IsOnlineToggleEnabledA}",
+             CoreLogLevel.Debug);
+
+            // 异常状态预警
+            if (IsFileDetecting && IsOnlineDetectionEnabledA)
+            {
+                AddLog("[状态冲突] 检测到文件检测与在线检测同时开启!", CoreLogLevel.Error);
+                // 可选: 弹出提示框
+                MessageBox.Show("检测到系统状态异常:文件检测与在线检测不能同时进行\n请联系管理员", "状态冲突", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            string stateDesc = IsFileDetecting ? "离线检测中" :
+                     IsOnlineDetectionEnabledA ? "在线检测中" : "空闲";
+            AddLog($"[系统状态] {stateDesc}", CoreLogLevel.Info, isToDatabase:true);
         }
 
         #region 在线检测相关属性
@@ -779,6 +813,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp"
         };
+        private bool _isLoadingResultImage = false;
+        private readonly object _stateLock = new object();
+
 
         // 日志集合：用Tuple<string, string>存储（Item1=时间戳，Item2=内容）
         private ObservableCollection<Tuple<string, string>> _logTable = new ObservableCollection<Tuple<string, string>>();
@@ -2651,8 +2688,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     _dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
                     _dateCheckTimer.Start();
 
-                    _fileScanTimer.Elapsed += OnFileScanTimerElapsed;
-                    _fileScanTimer.Start();
+                    //_fileScanTimer.Elapsed += OnFileScanTimerElapsed;
+                    //_fileScanTimer.Start();
 
 
                     _isAMonitorRunning = true;
@@ -3049,7 +3086,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return;
             }
 
-            ScanExistingFilesForToday(_currentMonitoringDate);
+            //ScanExistingFilesForToday(_currentMonitoringDate);
         }
 
 
@@ -3269,11 +3306,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         #region 双工位并发处理启动
         private Task? _processingTaskA = null;
-        private Task? _processingTaskB = null;
+        //private Task? _processingTaskB = null;
         private CancellationTokenSource? _ctsA = null;
-        private CancellationTokenSource? _ctsB = null;
+        //private CancellationTokenSource? _ctsB = null;
         private readonly object _processingLockA = new object();
-        private readonly object _processingLockB = new object();
+        //private readonly object _processingLockB = new object();
 
         // A工位启动并发处理
         private void StartConcurrentProcessingA()
@@ -3339,37 +3376,72 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <returns>异步任务</returns>
         private async Task ProcessQueueConcurrentA(CancellationToken token)
         {
-            // 循环处理队列：直到收到取消信号 或 线程终止标记触发（双重保障，确保能优雅退出）
+            // 队列报警阈值配置
+            const int QueueWarningThreshold = 100;      
+            const int QueueCriticalThreshold = 500;     
+            int lastAlertCount = 0;
+
+
             while (!token.IsCancellationRequested && !_isThreadTerminatingA)
             {
                 string? filePath = null;
+                int currentQueueCount = 0;  // 当前队列数量
                 // 1. 线程安全从队列取待检测文件路径（lock保证多生产者/消费者下的队列安全）
                 lock (_queueLockA)
                 {
-                    // TryDequeue：尝试出队，无数据时返回false，filePath为null
                     _safeDetectQueueA.TryDequeue(out filePath);
+                    currentQueueCount = _safeDetectQueueA.Count;
                 }
-                // 2. 队列无数据时：进入等待状态（避免空循环占用100%CPU）
+
+                // 2. 队列过载报警检测
+                if (currentQueueCount > 0)
+                {
+                    // 仅当队列数量变化超过阈值的10%时才重新报警（避免频繁报警）
+                    bool shouldAlert = Math.Abs(currentQueueCount - lastAlertCount) > Math.Max(10, QueueWarningThreshold * 0.1);
+
+                    if (shouldAlert)
+                    {
+                        if (currentQueueCount >= QueueCriticalThreshold)
+                        {                   
+                            AddLog($"🔴 [队列严重告警] 队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
+                            Growl.Warning($"检测队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
+
+                            lastAlertCount = currentQueueCount;
+                        }
+                        else if (currentQueueCount >= QueueWarningThreshold)
+                        {
+                            AddLog($"⚠️ [队列警告] 队列积压 {currentQueueCount} 个文件，超过警告值 {QueueWarningThreshold}");
+                            lastAlertCount = currentQueueCount;
+                        }
+                        else if (lastAlertCount >= QueueWarningThreshold && currentQueueCount < QueueWarningThreshold)
+                        {
+                            AddLog($"✅ [队列恢复] 队列已降至 {currentQueueCount} 个文件，恢复正常");
+                            lastAlertCount = 0;
+                        }
+                    }
+                }
+
+                // 3. 队列无数据时：进入等待状态（避免空循环占用100%CPU）
                 if (filePath == null)
                 {
                     // ⚡ 核心优化：WaitHandle.WaitAny 监听两个信号，实现“有任务就唤醒，有取消就退出，超时就重试”
                     int signaledIndex = WaitHandle.WaitAny(new WaitHandle[]
                     {
                         // 监听的信号集合：
-                        // _queueEventA：队列有新文件时触发的唤醒信号（生产者入队时Set）
-                        // token.WaitHandle：取消令牌的等待句柄（取消时触发）
                         _queueEventA,
                         token.WaitHandle
                     }, TimeSpan.FromSeconds(30));
 
                     if (signaledIndex == WaitHandle.WaitTimeout)
-                        continue; // 超时：重新进入循环，再次尝试取队列数据
+                        continue; 
                     if (token.IsCancellationRequested || _isThreadTerminatingA)
-                        break; // 收到取消信号/线程终止标记：退出循环，结束处理
-                    continue; // 收到队列唤醒信号（_queueEventA）：重新进入循环，取新入队的文件
+                        break; 
+                    continue; 
                 }
+
                 // 3. 检测取消信号：若已取消，直接抛出取消异常（触发外层catch处理）
                 token.ThrowIfCancellationRequested();
+
                 // 4. 校验文件存在性：文件已被删除则跳过，避免后续检测异常
                 if (!File.Exists(filePath))
                 {
@@ -3377,8 +3449,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     continue;
                 }
                 // 5. 信号量等待：控制并发处理数量（避免同时处理过多文件导致CPU/内存耗尽）
-                // ConfigureAwait(false)：不捕获UI上下文，提升异步性能
                 await _semaphoreA.WaitAsync(token).ConfigureAwait(false);
+
                 try
                 {
                     // 6. 核心：图片检测与结果处理逻辑
@@ -3433,7 +3505,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             if (string.IsNullOrEmpty(filePath))
             {
-                //AddLog("[A工位-入队] 无效路径，跳过入队");
+                AddLog("[A工位-入队] 无效路径，跳过入队");
                 return;
             }
 
@@ -4016,11 +4088,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             const int TEXT_THICKNESS = 4;       // 文字粗细
             const double FONT_SCALE = 5;      // 字体大小
 
-            float testScore;    // 置信度
-            string testName;    // 缺陷类别
-            float testWidth;    // 宽度
-            float testHeight;   // 长度
-            float testArea;     // 面积
+            float testScore;    
+            string testName;    
+            float testWidth;    
+            float testHeight;   
+            float testArea;   
             #endregion
 
             #region 极性判定
@@ -4156,20 +4228,51 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         // 查找对应的阈值配置
                         var thresholdConfig = DefectDataGrid.FirstOrDefault(
                             item => item.DefectName == testName && item.IsEnable);
-
-                        if (thresholdConfig != null)
+                        if (thresholdConfig == null)
                         {
-                            // 只有当缺陷超过阈值时才判定为NG
-                            bool exceedsThreshold =
-                                testHeight > thresholdConfig.Height ||
-                                testWidth > thresholdConfig.Width ||
-                                testArea > (thresholdConfig.Area) ||
-                                testScore > thresholdConfig.Credibility;
+                            AddLog($"[判定跳过] 缺陷类型 [{testName}] 未找到匹配的启用配置，不参与判定。");
+                            continue;
+                        }
+                        //置信度判定
+                        bool scoreExceeds = testScore >= thresholdConfig.Credibility;
+                        if (!scoreExceeds)
+                        {
+                            AddLog($"[判定跳过] 缺陷类型 [{testName}] 置信度 {testScore:F3} " +
+                                   $"< 阈值 {thresholdConfig.Credibility:F3}，不满足置信度要求。");
+                            continue;
+                        }
+                        // 长宽面积判定
+                        bool heightExceeds =  Math.Abs(testHeight) > Math.Abs(thresholdConfig.Height);
+                        bool widthExceeds = Math.Abs(testWidth) > Math.Abs(thresholdConfig.Width);
+                        bool areaExceeds = Math.Abs(testArea) > Math.Abs(thresholdConfig.Area);
 
-                            if (exceedsThreshold)
-                            {
-                                realDefects.Add(defect);
-                            }
+                        bool dimensionExceeds = heightExceeds || widthExceeds || areaExceeds;
+
+                        if (dimensionExceeds)
+                        {
+                            // ---------- 构建NG原因明细 ----------
+                            List<string> reasons = new List<string>();
+                            if (heightExceeds)
+                                reasons.Add($"高:{testHeight:F6} > {thresholdConfig.Height:F6}");
+                            if (widthExceeds)
+                                reasons.Add($"宽:{testWidth:F6} > {thresholdConfig.Width:F6}");
+                            if (areaExceeds)
+                                reasons.Add($"面积:{testArea:F6} > {thresholdConfig.Area:F6}");
+
+                            string ngMsg = $"[判定NG] 缺陷类型 [{testName}] | " +
+                                           $"置信度:{testScore:F3} >= {thresholdConfig.Credibility:F3} | " +
+                                           $"超标项：{string.Join("；", reasons)}";
+                            AddLog(ngMsg, isToDatabase: true);
+
+                            realDefects.Add(defect);
+                        }
+                        else
+                        {
+                            // 置信度满足但尺寸均未超标
+                            AddLog($"[判定OK] 缺陷类型 [{testName}] 置信度满足，" +
+                                   $"但长({testHeight:F6}/{thresholdConfig.Height:F6})、" +
+                                   $"宽({testWidth:F6}/{thresholdConfig.Width:F6})、" +
+                                   $"面积({testArea:F6}/{thresholdConfig.Area:F6}) 均未超过阈值。");
                         }
                     }
 
@@ -4497,98 +4600,173 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         // 执行查看结果命令
-        private void ExecuteViewResult(dynamic? data)
+        private async void ExecuteViewResult(dynamic? data)
         {
             if (data == null)
             {
                 MessageBox.Show("未选中任何检测数据，请先在表格中选择一条记录", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+            // ✅ 添加标志位,防止重复触发
+            if (_isLoadingResultImage)
+            {
+                AddLog("[查看结果] 正在加载其他图片,请稍后");
+                return;
+            }
+
+            _isLoadingResultImage = true;
             CurrentResultImage = null;
-            string? resultImagePath = null;
+
+            //string? resultImagePath = null;
+
+
+            try
+            {
+                string? resultImagePath = GetResultImagePathFromData(data);
+                if (string.IsNullOrEmpty(resultImagePath) || !File.Exists(resultImagePath))
+                {
+                    MessageBox.Show("结果图不存在", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                BitmapImage? bitmap = await Task.Run(() => LoadBitmapImage(resultImagePath));
+                await Application.Current.Dispatcher.InvokeAsync(() => {
+                    CurrentResultImage = bitmap;
+                }, DispatcherPriority.Normal);
+
+                //if (data is ExpandoObject expandoData)
+                //{
+                //    var dataDict = (IDictionary<string, object?>)expandoData;
+                //    // 判断键存在 + 类型转换
+                //    if (dataDict.TryGetValue("ResultImagePath", out object? pathObj)
+                //        && pathObj is string pathStr
+                //        && !string.IsNullOrWhiteSpace(pathStr))
+                //    {
+                //        resultImagePath = Path.GetFullPath(pathStr);
+                //    }
+                //}
+                //// 兼容其他可能的参数类型
+                //else if (data is string strPath && !string.IsNullOrWhiteSpace(strPath))
+                //{
+                //    resultImagePath = Path.GetFullPath(strPath);
+                //}
+
+                //// 路径有效性二次校验
+                //if (string.IsNullOrEmpty(resultImagePath))
+                //{
+                //    AddLog($"[查看失败] 结果图路径为空（动态对象中未找到有效 ResultImagePath）");
+                //    MessageBox.Show("结果图路径未生成，请先完成检测", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                //    return;
+                //}
+                //if (!File.Exists(resultImagePath))
+                //{
+                //    AddLog($"[查看失败] 结果图文件不存在，路径：{resultImagePath}");
+                //    string tips = $"文件可能已被移动/删除，默认存储路径为：\n{Path.GetDirectoryName(resultImagePath)}";
+                //    MessageBox.Show($"结果图不存在或路径无效！\n{tips}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                //    return;
+                //}
+
+            
+                //// 在后台线程加载图片,避免阻塞UI
+                //BitmapImage? bitmap = await Task.Run(() =>
+                //{
+                //    using (var fileStream = new FileStream(resultImagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                //    {
+                //        if (fileStream.Length == 0)
+                //        {
+                //            throw new IOException("结果图文件为空（可能是检测时保存失败）");
+                //        }
+
+                //        var bmp = new BitmapImage();
+                //        bmp.BeginInit();
+                //        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                //        bmp.StreamSource = fileStream;
+                //        bmp.EndInit();
+
+                //        if (!bmp.IsFrozen)
+                //        {
+                //            bmp.Freeze(); // 冻结后可跨线程访问
+                //        }
+
+                //        return bmp;
+                //    }
+                //});
+                //// 🟢 使用BeginInvoke异步更新UI,不阻塞后台线程
+                //await Application.Current.Dispatcher.InvokeAsync(() =>
+                //{
+                //    CurrentResultImage = bitmap;
+                //}, System.Windows.Threading.DispatcherPriority.Background); // 降低优先级,让进度条先更新
+                //AddLog($"[查看成功] 已加载结果图：{resultImagePath}（分辨率：{bitmap.PixelWidth}×{bitmap.PixelHeight}）");
+            }
+            //catch (UnauthorizedAccessException ex)
+            //{
+            //    AddLog($"[加载失败] 无权限访问结果图：{ex.Message}，路径：{resultImagePath}");
+            //    MessageBox.Show($"无权限访问图片文件，请检查文件夹权限！\n路径：{resultImagePath}", "权限错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            //}
+            //catch (FileFormatException ex)
+            //{
+            //    AddLog($"[加载失败] 图片格式不支持：{ex.Message}，路径：{resultImagePath}");
+            //    MessageBox.Show($"图片格式无效（仅支持 BMP/JPG/PNG/TIFF 等常见格式）！\n路径：{resultImagePath}", "格式错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            //}
+            //catch (IOException ex)
+            //{
+            //    AddLog($"[加载失败] 文件读写异常：{ex.Message}，路径：{resultImagePath}");
+            //    MessageBox.Show($"图片文件被占用或损坏！\n建议：关闭其他可能打开该文件的程序后重试。", "文件异常", MessageBoxButton.OK, MessageBoxImage.Error);
+            //}
+            catch (Exception ex)
+            {
+                AddLog($"[查看结果失败] {ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"加载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isLoadingResultImage = false;
+            }
+        }
+
+        // ✅ 提取路径解析逻辑
+        private string? GetResultImagePathFromData(dynamic data)
+        {
             if (data is ExpandoObject expandoData)
             {
                 var dataDict = (IDictionary<string, object?>)expandoData;
-                // 判断键存在 + 类型转换
                 if (dataDict.TryGetValue("ResultImagePath", out object? pathObj)
                     && pathObj is string pathStr
                     && !string.IsNullOrWhiteSpace(pathStr))
                 {
-                    resultImagePath = Path.GetFullPath(pathStr);
+                    return Path.GetFullPath(pathStr);
                 }
             }
-            // 兼容其他可能的参数类型
             else if (data is string strPath && !string.IsNullOrWhiteSpace(strPath))
             {
-                resultImagePath = Path.GetFullPath(strPath);
+                return Path.GetFullPath(strPath);
             }
+            return null;
+        }
 
-            // 路径有效性二次校验
-            if (string.IsNullOrEmpty(resultImagePath))
+        // ✅ 提取图片加载逻辑
+        private BitmapImage LoadBitmapImage(string filePath)
+        {
+            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                AddLog($"[查看失败] 结果图路径为空（动态对象中未找到有效 ResultImagePath）");
-                MessageBox.Show("结果图路径未生成，请先完成检测", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            if (!File.Exists(resultImagePath))
-            {
-                AddLog($"[查看失败] 结果图文件不存在，路径：{resultImagePath}");
-                string tips = $"文件可能已被移动/删除，默认存储路径为：\n{Path.GetDirectoryName(resultImagePath)}";
-                MessageBox.Show($"结果图不存在或路径无效！\n{tips}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+                if (fileStream.Length == 0)
+                    throw new IOException("文件为空");
 
-            try
-            {
-                // 图片加载
-                using (var fileStream = new FileStream(resultImagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                {
-                    if (fileStream.Length == 0)
-                    {
-                        throw new IOException("结果图文件为空（可能是检测时保存失败）");
-                    }
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = fileStream;
+                bitmap.EndInit();
 
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.StreamSource = fileStream;
-                    bitmap.EndInit();
+                if (!bitmap.IsFrozen)
+                    bitmap.Freeze();
 
-                    // 冻结图片,允许跨线程访问
-                    if (!bitmap.IsFrozen)
-                    {
-                        bitmap.Freeze();
-                    }
-
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        CurrentResultImage = bitmap;
-                    });
-
-                    AddLog($"[查看成功] 已加载结果图：{resultImagePath}（分辨率：{bitmap.PixelWidth}×{bitmap.PixelHeight}）");
-                }
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                AddLog($"[加载失败] 无权限访问结果图：{ex.Message}，路径：{resultImagePath}");
-                MessageBox.Show($"无权限访问图片文件，请检查文件夹权限！\n路径：{resultImagePath}", "权限错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            catch (FileFormatException ex)
-            {
-                AddLog($"[加载失败] 图片格式不支持：{ex.Message}，路径：{resultImagePath}");
-                MessageBox.Show($"图片格式无效（仅支持 BMP/JPG/PNG/TIFF 等常见格式）！\n路径：{resultImagePath}", "格式错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            catch (IOException ex)
-            {
-                AddLog($"[加载失败] 文件读写异常：{ex.Message}，路径：{resultImagePath}");
-                MessageBox.Show($"图片文件被占用或损坏！\n建议：关闭其他可能打开该文件的程序后重试。", "文件异常", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            catch (Exception ex)
-            {
-                AddLog($"[加载失败] 未知错误：{ex.Message}，堆栈：{ex.StackTrace}，路径：{resultImagePath}");
-                MessageBox.Show($"图片加载失败：{ex.Message}\n路径：{resultImagePath}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return bitmap;
             }
         }
+
+
+
 
         // 执行跳转存储命令
         private void ExecuteJumpToStorage(object? parameter)
@@ -5829,8 +6007,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             switch (SelectedMode)
             {
                 case DetectionMode.OK:
-                    // 如果选了OK模式，路径必须包含 "OK"
-                    return pathUpper.Contains("OK");
+                    // 如果选了OK模式，路径必须不包含 "NG"
+                    return !pathUpper.Contains("NG");
 
                 case DetectionMode.NG:
                     // 如果选了NG模式，路径必须包含 "NG"
@@ -6634,6 +6812,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     // 赋值给属性会触发 Setter，自动执行 StartOnlineMonitoringA
                     IsOnlineDetectionEnabledA = isEnabledA;
+                    OnPropertyChanged(nameof(IsOnlineDetectionEnabledA));
                 }
 
                 //if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledB", out var enableB)
@@ -7049,7 +7228,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     if (_cellCodeQueue.Count >= MaxImagesPerReport)
                     {
                         AddLog($"[条件触发] 电芯编码数量达到阈值 {MaxImagesPerReport}，处理当前电芯组");
-                        GenerateReport().Wait();
+                        //GenerateReport().Wait();
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await GenerateReport();
+                            }
+                            catch (Exception ex)
+                            {
+                                AddLog($"[报表生成异常] {ex.Message}", CoreLogLevel.Error);
+                            }
+                        });
+
                         _reportTimer?.Stop(); // 重新开始计时
                         if (_reportTimer != null && _cellCodeQueue.Count > 0)
                         {
@@ -7329,8 +7520,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                 table.ColumnsDefinition(columns =>
                                 {
                                     columns.RelativeColumn(1);
-                                    columns.RelativeColumn(3);
-                                    columns.RelativeColumn(6);
+                                    columns.RelativeColumn(5);
+                                    columns.RelativeColumn(4);
                                 });
 
                                 // 表头
@@ -7373,12 +7564,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                         {
                                             try
                                             {
-                                                // QuestPDF 直接加载文件路径
-                                                imgCell.Height(185).Image(resultImagePath).FitArea();
+                                                // ✅ 新增:压缩图片
+                                                byte[]? compressedImage = CompressImage(resultImagePath, quality: 75, maxWidth: 600);
+
+                                                if (compressedImage != null && compressedImage.Length > 0)
+                                                {
+                                                    // 使用压缩后的字节数组加载图片
+                                                    imgCell.Height(219).Image(compressedImage).UseOriginalImage().FitArea();
+
+                                                    // 可选:记录压缩效果
+                                                    long originalSize = new FileInfo(resultImagePath).Length;
+                                                    double compressionRatio = (1 - (double)compressedImage.Length / originalSize) * 100;
+                                                    AddLog($"[图片压缩] {Path.GetFileName(resultImagePath)} " +
+                                                           $"原大小:{originalSize / 1024}KB,压缩后:{compressedImage.Length / 1024}KB " +
+                                                           $"(压缩率:{compressionRatio:F1}%)", CoreLogLevel.Debug);
+                                                }
+                                                else
+                                                {
+                                                    // 压缩失败时回退到原图
+                                                    imgCell.Height(219).Image(resultImagePath).UseOriginalImage().FitArea();
+                                                    AddLog($"[图片压缩] 压缩失败,使用原图:{resultImagePath}", CoreLogLevel.Warn);
+                                                }
                                             }
-                                            catch
+                                            catch (Exception ex)
                                             {
-                                                imgCell.Text("图片加载失败");
+                                                imgCell.Text($"图片加载失败:{ex.Message}");
+                                                AddLog($"[报表图片错误] {resultImagePath}:{ex.Message}", CoreLogLevel.Error);
                                             }
                                         }
                                         else
@@ -7796,7 +8007,70 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
 
 
+        // 新增:图片压缩辅助方法
+        /// <summary>
+        /// 压缩图片并返回字节数组
+        /// </summary>
+        /// <param name="imagePath">原图路径</param>
+        /// <param name="quality">质量(1-100,推荐60-80)</param>
+        /// <param name="maxWidth">最大宽度(像素)</param>
+        /// <returns>压缩后的图片字节数组</returns>
+        private byte[]? CompressImage(string imagePath, int quality = 70, int maxWidth = 800)
+        {
+            try
+            {
+                if (!File.Exists(imagePath))
+                {
+                    AddLog($"[图片压缩] 文件不存在:{imagePath}", CoreLogLevel.Warn);
+                    return null;
+                }
 
+                using (var originalImage = System.Drawing.Image.FromFile(imagePath))
+                {
+                    // 计算缩放比例
+                    int newWidth = originalImage.Width > maxWidth ? maxWidth : originalImage.Width;
+                    int newHeight = (int)(originalImage.Height * ((double)newWidth / originalImage.Width));
+
+                    using (var resizedImage = new Bitmap(newWidth, newHeight))
+                    using (var graphics = Graphics.FromImage(resizedImage))
+                    {
+                        // 高质量缩放
+                        graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+                        graphics.DrawImage(originalImage, 0, 0, newWidth, newHeight);
+
+                        // 转换为JPEG并压缩
+                        using (var ms = new MemoryStream())
+                        {
+                            var jpegEncoder = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders()
+                                .FirstOrDefault(e => e.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+
+                            if (jpegEncoder != null)
+                            {
+                                var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
+                                encoderParams.Param[0] = new System.Drawing.Imaging.EncoderParameter(
+                                    System.Drawing.Imaging.Encoder.Quality, (long)quality);
+
+                                resizedImage.Save(ms, jpegEncoder, encoderParams);
+                            }
+                            else
+                            {
+                                resizedImage.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+                            }
+
+                            return ms.ToArray();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[图片压缩异常] {imagePath}:{ex.Message}", CoreLogLevel.Error);
+                return null;
+            }
+        }
 
 
 
@@ -7810,7 +8084,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             public static TextStyle Content => TextStyle.Default.FontSize(10).FontFamily("SimSun");
         }
 
+        #region UI线程优化辅助方法
 
+        /// <summary>
+        /// 统一的UI更新方法，减少Dispatcher调用开销
+        /// </summary>
+        private void UpdateUIState(Action uiAction)
+        {
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                uiAction();
+            }
+            else
+            {
+                Application.Current.Dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+            }
+        }
+
+        /// <summary>
+        /// 异步执行UI更新
+        /// </summary>
+        private Task UpdateUIStateAsync(Action uiAction)
+        {
+            return Application.Current.Dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+        }
+
+        #endregion
 
 
         #region 参数管控
@@ -8008,5 +8307,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
         }
 
+
+
+       
     }
 }

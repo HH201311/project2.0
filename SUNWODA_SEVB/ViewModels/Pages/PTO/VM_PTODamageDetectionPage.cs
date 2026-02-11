@@ -55,59 +55,83 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private IPredictor? H246Zhengmodle;
         private IPredictor? H246Fumodle;
 
+        #region 命令属性定义
+
         // 文件选择命令
-        public ICommand File_Button { get; private set; }
+        public ICommand File_Button { get; private set; } = null!;
 
         // 文件夹选择命令
-        public ICommand Folder_Button { get; private set; }
+        public ICommand Folder_Button { get; private set; } = null!;
 
         //查看结果命令
-        public ICommand ViewResultCommand { get; private set; }
+        public ICommand ViewResultCommand { get; private set; } = null!;
 
         //跳转存储命令
-        public ICommand JumpToStorageCommand { get; private set; }
+        public ICommand JumpToStorageCommand { get; private set; } = null!;
 
         // 清空列表命令
-        public ICommand ClearListCommand { get; private set; }
+        public ICommand ClearListCommand { get; private set; } = null!;
         // 统计清零命令
-        public ICommand ClearStatisticsCommand { get; private set; }
+        public ICommand ClearStatisticsCommand { get; private set; } = null!;
 
         // 鼠标滚轮缩放
-        public ICommand ZoomRealTimeImageCommand { get; }
+        public ICommand ZoomRealTimeImageCommand { get; set; } = null!;
         // 放大按钮
-        public ICommand ZoomInRealTimeCommand { get; }
+        public ICommand ZoomInRealTimeCommand { get; set; } = null!;
         // 缩小按钮
-        public ICommand ZoomOutRealTimeCommand { get; }
+        public ICommand ZoomOutRealTimeCommand { get; set; } = null!;
         // 重置缩放
-        public ICommand ResetRealTimeImageZoomCommand { get; }
+        public ICommand ResetRealTimeImageZoomCommand { get; set; } = null!;
         //添加停止检测命令
-        public ICommand StopDetectionCommand { get; private set; }
+        public ICommand StopDetectionCommand { get; private set; } = null!;
         //选择绘制图片
-        public ICommand SelectNegativeRoiImageCommand { get; }
+        public ICommand SelectNegativeRoiImageCommand { get; set; } = null!;
         //删除绘制区域
-        public ICommand DeleteNegativeRoiCommand { get; }
+        public ICommand DeleteNegativeRoiCommand { get; set; } = null!;
         //保存绘制区域
-        public ICommand SaveNegativeRoiCommand { get; }
+        public ICommand SaveNegativeRoiCommand { get; set; } = null!;
         //查看绘制区域
-        public ICommand ViewNegativeRoiCommand { get; }
+        public ICommand ViewNegativeRoiCommand { get; set; } = null!;
         // 选择正极绘制图片
-        public ICommand SelectPositiveRoiImageCommand { get; }
+        public ICommand SelectPositiveRoiImageCommand { get; set; } = null!;
         // 删除正极绘制区域
-        public ICommand DeletePositiveRoiCommand { get; }
+        public ICommand DeletePositiveRoiCommand { get; set; } = null!;
         // 保存正极绘制区域
-        public ICommand SavePositiveRoiCommand { get; }
+        public ICommand SavePositiveRoiCommand { get; set; } = null!;
         // 查看正极绘制区域
-        public ICommand ViewPositiveRoiCommand { get; }         
+        public ICommand ViewPositiveRoiCommand { get; set; } = null!;
         //取消绘制
-        public ICommand CancelDrawRoiCommand { get; }
+        public ICommand CancelDrawRoiCommand { get; set; } = null!;
 
         // 图像交互命令
         // 鼠标按下命令（开始拖动）
-        public ICommand ImageMouseDownCommand { get; }
+        public ICommand ImageMouseDownCommand { get; set; } = null!;
         // 鼠标移动命令
-        public ICommand ImageMouseMoveCommand { get; }
+        public ICommand ImageMouseMoveCommand { get; set; } = null!;
         // 鼠标松开命令
-        public ICommand ImageMouseUpCommand { get; }
+        public ICommand ImageMouseUpCommand { get; set; } = null!;
+
+
+        public ICommand SaveUserIdCommand { get; set; } = null!;
+        public ICommand DeleteUserIdCommand { get; set; } = null!;
+
+        // 增减命令
+        public ICommand IncrementMaxImagesCommand { get; set; } = null!;
+        public ICommand DecrementMaxImagesCommand { get; set; } = null!;
+        public ICommand IncrementTimeoutCommand { get; set; } = null!;
+        public ICommand DecrementTimeoutCommand { get; set; } = null!;
+        public ICommand SaveMaxImagesCommand { get; set; } = null!;
+        public ICommand SaveTimeoutCommand { get; set; } = null!;
+
+        // 监听路径选择命令
+        public ICommand SelectMonitorFolderCommandA { get; set; } = null!;
+
+        // 参数管控新增命令
+        public ICommand AddRow { get; set; } = null!;
+        public ICommand DeleteRow { get; set; } = null!;
+        public ICommand SaveData { get; set; } = null!;
+        #endregion
+
 
         // 定义CSV操作的线程锁
         private readonly object _csvLock = new object();
@@ -188,10 +212,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                    && !SavedUserIds.Contains(NewUserId);
         }
 
-        #region 命令
-        public ICommand SaveUserIdCommand { get; }
-        public ICommand DeleteUserIdCommand { get; }
-        #endregion
+    
+
+   
         public int MaxImagesPerReport
         {
             get { return _maxImagesPerReport; }
@@ -264,13 +287,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private static readonly string ConfigFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
         private static readonly string DefectFilePath = Path.Combine(ConfigFolder, "DefectParameters.json");
 
-        // 增减命令
-        public ICommand IncrementMaxImagesCommand { get; }
-        public ICommand DecrementMaxImagesCommand { get; }
-        public ICommand IncrementTimeoutCommand { get; }
-        public ICommand DecrementTimeoutCommand { get; }
-        public ICommand SaveMaxImagesCommand { get; }
-        public ICommand SaveTimeoutCommand { get; }
+
 
         #region 双工位
         // A工位监控器
@@ -318,58 +335,144 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             get => _isOnlineDetectionEnabledA;
             set
             {
-                // 1. 初始化报表功能
-                InitReportFunction();
-                // 2. 重复值校验：若新值与旧值一致，直接返回，避免重复执行逻辑（性能优化+防止重复启停）
-                if (_isOnlineDetectionEnabledA == value) return;
-                // 3. 隐藏离线检测进度条：在线检测开启时，离线进度条无需显示
-                IsOfflineProgressVisible = Visibility.Collapsed;
-                // 4. 在线检测开启逻辑（value=true：用户勾选开关）
-                if (value)
-                {
-                    // 4.1 校验监控文件夹有效性：必须选择且存在有效文件夹，否则禁止开启
-                    if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
-                    {
-                        // 提示用户补全配置，重置状态并通知UI（避免属性值不一致）
-                        MessageBox.Show("请先选择有效的在线监控文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        _isOnlineDetectionEnabledA = false;
-                        OnPropertyChanged();// 通知UI刷新为未勾选状态
-                        return;
-                    }
-                    // 4.2 启动A工位在线监控（核心业务逻辑：如启动文件夹监控、相机采集等）
-                    StartOnlineMonitoringA();
-                    // 4.3 标记当前为非离线模式（区分在线/离线检测）
-                    _isOfflineMode = false;
-                    // 4.4 线程安全更新运行工位数量（lock保证多线程下计数准确）
-                    lock (_stationCountLock)
-                    {
-                        _runningStationsCount++;
-                    }
-                    AddLog("[在线检测] 开关已开启，文件选择功能已禁用");
-                }
-                // 5. 在线检测关闭逻辑（value=false：用户取消勾选开关）
-                else
-                {
-                    // 5.1 停止A工位在线监控（核心业务逻辑：如停止文件夹监控、释放资源等）
-                    StopOnlineMonitoringA();
-                    AddLog("[A工位] 已停止监控文件夹");
-                }
-                // 6. 更新私有字段（最终确认状态变更）
-                _isOnlineDetectionEnabledA = value;
-                // 7. 触发属性变更通知：保证UI同步更新
-                OnPropertyChanged();                                   
+                //// 1. 初始化报表功能
+                //InitReportFunction();
 
-                // ✅ 统一更新按钮状态
-                UpdateButtonStates();
+                if (_isOnlineDetectionEnabledA == value) return;
+
+                //关闭逻辑
+                if (!value)
+                {
+                    StopOnlineMonitoringA();
+                    _isOnlineDetectionEnabledA = false;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CanOperate));
+                    UpdateButtonStates();
+                    SaveConfig();
+                    AddLog("[在线检测] 已关闭");
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
+                {
+                    MessageBox.Show("请先选择有效的在线监控文件夹！", "路径无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _isOnlineDetectionEnabledA = false;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CanOperate));
+                    return;
+                }
+
+                // 更新UI状态
+                _isOnlineDetectionEnabledA = true;
+                OnPropertyChanged();
                 OnPropertyChanged(nameof(CanOperate));
-                SaveConfig();
+                IsOfflineProgressVisible = Visibility.Collapsed;
+                _isOfflineMode = false;
+
+                //异步启动
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await StartOnlineMonitoringAsyncA();
+
+                        // 启动成功后更新状态
+                        await UpdateUIStateAsync(() =>
+                        {
+                            lock (_stationCountLock)
+                            {
+                                _runningStationsCount++;
+                            }
+                            UpdateButtonStates();
+                            SaveConfig();
+                            AddLog("[在线检测-A] ✅ 启动成功");
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        // 启动失败回滚状态
+                        await UpdateUIStateAsync(() =>
+                        {
+                            _isOnlineDetectionEnabledA = false;
+                            OnPropertyChanged(nameof(IsOnlineDetectionEnabledA));
+                            OnPropertyChanged(nameof(CanOperate));
+                            UpdateButtonStates();
+
+                            AddLog($"[在线检测] ❌ 启动失败: {ex.Message}", CoreLogLevel.Error);
+                            MessageBox.Show(
+                                $"启动监控失败：\n{ex.Message}",
+                                "启动异常",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                        });
+                    }
+                });
+
+                
+               
             }
         }
 
-       
+        /// <summary>
+        /// 异步启动A工位在线监控
+        /// </summary>
+        private async Task StartOnlineMonitoringAsyncA()
+        {
+            await Task.Run(() =>
+            {
+                lock (_stationCountLock)
+                {
+                    // 防重入检查
+                    if (_isAMonitorRunning)
+                    {
+                        AddLog("[在线检测-A] 监控已在运行，忽略重复启动");
+                        return;
+                    }
 
-        // A工位监听路径选择命令
-        public ICommand SelectMonitorFolderCommandA { get; }
+                    CurrentMonitoringStation = "A";
+                    _isThreadTerminatingA = false;
+
+                    try
+                    {
+                        // 1. 启动文件系统监控器（轻量级操作）
+                        StartRootWatcher();
+
+                        string todayDate = DateTime.Now.ToString("yyyyMMdd");
+                        StartDateWatcher(todayDate);
+
+                        // 2. 异步扫描已存在文件（避免阻塞）
+                        ScanExistingFilesForTodayAsync(todayDate);
+
+                        // 3. 启动定时任务
+                        _dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
+                        _dateCheckTimer.Start();
+
+                        // 4. 标记运行状态
+                        _isAMonitorRunning = true;
+
+                        UpdateUIState(() =>
+                            AddLog($"[在线检测-A] 监控已启动\n路径: {SelectedMonitorFolderPathA}\n日期: {todayDate}"));
+
+                        // 5. 启动并发处理
+                        StartConcurrentProcessingA();
+                    }
+                    catch (Exception ex)
+                    {
+                        // 启动失败时清理资源
+                        UpdateUIState(() =>
+                            AddLog($"[在线检测-A] 启动异常: {ex.Message}", CoreLogLevel.Error));
+
+                        StopAllWatchers();
+                        _isThreadRunningA = false;
+                        _isAMonitorRunning = false;
+
+                        throw; // 向外层传递异常
+                    }
+                }
+            });
+        }
+
+
 
 
         #endregion
@@ -538,6 +641,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         }
 
                         _isFileDetecting = value;
+                        OnPropertyChanged();  
+                        OnPropertyChanged(nameof(CanOperate));
                         UpdateButtonStates();
                     }
                 }
@@ -557,6 +662,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             // 在线检测开关: 仅当"未进行文件检测"时可用
             IsOnlineToggleEnabledA = !IsFileDetecting;
+
+            // 强制刷新 CanOperate（防止属性变更未传播）
+            OnPropertyChanged(nameof(CanOperate));
 
             AddLog($"[状态检查] IsFileDetecting={IsFileDetecting}, " +
              $"IsOnlineDetectionEnabledA={IsOnlineDetectionEnabledA}, " +
@@ -1379,34 +1487,71 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             LogTable = new ObservableCollection<Tuple<string, string>>();
             // 初始化动态数据集合
             DetectionDataList = new ObservableCollection<dynamic>();
+        
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
+            CheckAuthority();
             AddLog("系统启动，日志功能就绪"); // 初始日志
-            string aabbb = string.Empty;
-            string[] labels = new string[0];
-            #region 本地加载
-            //取消下面注释
-            ai.ModelInit(@"C:\Windows\正极.onnx", labels, "PTO与行大面正极", out H246Zhengmodle, out string errorInfo1);
-            ai.ModelInit(@"C:\Windows\负极.onnx", labels, "PTO与行大面负极", out H246Fumodle, out string errorInfo2);
-            if (!string.IsNullOrEmpty(errorInfo1) || !string.IsNullOrEmpty(errorInfo2))
-            {
-                AddLog($"模型初始化异常：{errorInfo1}、{errorInfo2}");
-            }
-            #endregion
-            ResetOfflineProgress();
+
+            ResetOfflineProgress();//重置离线检测进度状态
         }
 
         public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider)
         {
             _logger = logger;
-
+            _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            
+            //同步初始化
             Settings.License = LicenseType.Community;
+
+            InitializeCommands();
+            InitReportFunction();
+            LoadConfig();
+            LoadUserIds();
+            InitParameters();
+
+            // 异步加载
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // 1. 异步加载模型
+                    await InitializeModelsAsync();
+
+                    // 2. 异步加载ROI配置
+                    await LoadRoiConfigsAsync();
+
+                    // 3. 在UI线程完成最后初始化
+                    await UpdateUIStateAsync(() =>
+                    {
+                        LoadDefectInitialData();
+                        AddLog("✅ 所有资源加载完成，软件已就绪");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    await UpdateUIStateAsync(() =>
+                    {
+                        AddLog($"❌ 资源加载失败：{ex.Message}", CoreLogLevel.Error);
+                        MessageBox.Show($"初始化失败：{ex.Message}\n\n请检查模型文件和配置",
+                            "启动异常", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+            });
+            _semaphoreA = new SemaphoreSlim(MaxConcurrentA, MaxConcurrentA);
+        }
+
+        /// <summary>
+        /// 初始化所有命令（从构造函数中抽取）
+        /// </summary>
+        private void InitializeCommands()
+        {
             File_Button = new RelayCommand<object>(
                         execute: parameter => SelectImageFile(),//文件选择
-                        canExecute: parameter => IsFileSelectEnabled 
-             );
+                        canExecute: parameter => IsFileSelectEnabled);
             Folder_Button = new RelayCommand<object>(
                         execute: parameter => SelectImageFolder(),//文件夹选择
-                        canExecute: parameter => IsFolderSelectEnabled 
-            );
+                        canExecute: parameter => IsFolderSelectEnabled);
             IncrementMaxImagesCommand = new RelayCommand(() => MaxImagesPerReport++);
             DecrementMaxImagesCommand = new RelayCommand(() =>
             {
@@ -1434,8 +1579,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ImageMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(OnImageMouseDown);//鼠标左键按下命令
             ImageMouseMoveCommand = new RelayCommand<MouseEventArgs>(OnImageMouseMove);//鼠标移动命令
             ImageMouseUpCommand = new RelayCommand<MouseEventArgs>(OnImageMouseUp);//鼠标左键松开
-            _semaphoreA = new SemaphoreSlim(MaxConcurrentA, MaxConcurrentA);
-            //_semaphoreB = new SemaphoreSlim(MaxConcurrentB, MaxConcurrentB);
+
             SelectMonitorFolderCommandA = new RelayCommand(SelectMonitorFolderA);//A工位监听路径
             //SelectMonitorFolderCommandB = new RelayCommand(SelectMonitorFolderB);//B工位监听路径
             SelectNegativeRoiImageCommand = new RelayCommand<string>(SelectNegativeRoiImage);//选择绘制图片
@@ -1450,29 +1594,162 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             SavePositiveRoiCommand = new RelayCommand(SavePositiveRoiAsHalconRegion);  // 复用保存逻辑
             ViewPositiveRoiCommand = new RelayCommand<string>(ViewPositiveRoi);
 
-            LoadAllHalconRoiConfigs();
-            InitReportFunction();
-            _isReportFunctionInited = false;
             SaveUserIdCommand = new RelayCommand(SaveUserId);
             DeleteUserIdCommand = new RelayCommand(DeleteUserId);
 
-            _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
-            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-            // 加载已保存的ID列表
-            InitParameters();
-            LoadConfig();
-            LoadUserIds();
-
-
-            #region 参数管控  
-            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
-            CheckAuthority();
-            LoadDefectInitialData();
             AddRow = new RelayCommand<string?>(OnAddRow);
             DeleteRow = new RelayCommand<DefectParameter?>(OnDeleteRow);
             SaveData = new RelayCommand<string?>(OnSaveData);
-            #endregion
         }
+
+
+        /// <summary>
+        /// 异步加载onnx模型（正极/负极）
+        /// </summary>
+        private async Task InitializeModelsAsync()
+        {
+            await Task.Run(() =>
+            {
+                string[] labels = new string[0];
+                StringBuilder errorMessages = new StringBuilder();
+
+                try
+                {
+                    // 加载正极模型
+                    string positiveModelPath = @"C:\Windows\正极.onnx";
+                    if (File.Exists(positiveModelPath))
+                    {
+                        ai.ModelInit(positiveModelPath, labels, "PTO与行大面正极",
+                            out H246Zhengmodle, out string error1);
+
+                        if (!string.IsNullOrEmpty(error1))
+                            errorMessages.AppendLine($"正极模型: {error1}");
+                        else
+                            UpdateUIState(() => AddLog("✓ 正极模型加载成功"));
+                    }
+                    else
+                    {
+                        errorMessages.AppendLine($"正极模型文件不存在: {positiveModelPath}");
+                    }
+
+                    // 加载负极模型
+                    string negativeModelPath = @"C:\Windows\负极.onnx";
+                    if (File.Exists(negativeModelPath))
+                    {
+                        ai.ModelInit(negativeModelPath, labels, "PTO与行大面负极",
+                            out H246Fumodle, out string error2);
+
+                        if (!string.IsNullOrEmpty(error2))
+                            errorMessages.AppendLine($"负极模型: {error2}");
+                        else
+                            UpdateUIState(() => AddLog("✓ 负极模型加载成功"));
+                    }
+                    else
+                    {
+                        errorMessages.AppendLine($"负极模型文件不存在: {negativeModelPath}");
+                    }
+
+                    // 统一处理错误
+                    if (errorMessages.Length > 0)
+                    {
+                        UpdateUIState(() =>
+                            AddLog($"⚠ 模型初始化警告:\n{errorMessages}", CoreLogLevel.Warn));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    UpdateUIState(() =>
+                        AddLog($"❌ 模型加载异常: {ex.Message}", CoreLogLevel.Error));
+                }
+            });
+        }
+
+        /// <summary>
+        /// 异步加载所有ROI配置
+        /// </summary>
+        private async Task LoadRoiConfigsAsync()
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    string roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+
+                    if (!Directory.Exists(roiDir))
+                    {
+                        UpdateUIState(() => AddLog("ROI配置目录不存在，跳过加载"));
+                        return;
+                    }
+
+                    var hobjFiles = Directory.GetFiles(roiDir, "*_ROI.hobj");
+
+                    if (hobjFiles.Length == 0)
+                    {
+                        UpdateUIState(() => AddLog("未找到ROI配置文件"));
+                        return;
+                    }
+
+                    int successCount = 0;
+                    int failCount = 0;
+
+                    foreach (var file in hobjFiles)
+                    {
+                        try
+                        {
+                            string fileName = Path.GetFileNameWithoutExtension(file);
+                            var parts = fileName.Split(new[] { "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
+
+                            if (parts.Length != 1)
+                            {
+                                failCount++;
+                                continue;
+                            }
+
+                            string station = parts[0];
+
+                            UpdateUIState(() =>
+                            {
+                                UpdateRoiStatus(station, true);
+                                AddLog($"已加载 {station} 工位ROI");
+                            });
+
+                            successCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            failCount++;
+                            UpdateUIState(() =>
+                                AddLog($"ROI加载失败 ({Path.GetFileName(file)}): {ex.Message}"));
+                        }
+                    }
+
+                    UpdateUIState(() =>
+                        AddLog($"ROI配置加载完成: 成功 {successCount} 个, 失败 {failCount} 个"));
+                }
+                catch (Exception ex)
+                {
+                    UpdateUIState(() =>
+                        AddLog($"ROI配置目录扫描失败: {ex.Message}", CoreLogLevel.Error));
+                }
+            });
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         /// <summary>
         /// 保存新UserID（验证+去重+持久化）
         /// </summary>
@@ -3051,6 +3328,80 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         /// <summary>
+        /// 异步扫描当天已存在的文件
+        /// </summary>
+        private void ScanExistingFilesForTodayAsync(string dateFolder)
+        {
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    string datePath = Path.Combine(SelectedMonitorFolderPathA!, dateFolder);
+
+                    if (!Directory.Exists(datePath))
+                    {
+                        UpdateUIState(() =>
+                            AddLog($"[启动扫描] 今日文件夹不存在: {dateFolder}"));
+                        return;
+                    }
+
+                    // 定义支持的图像格式
+                    var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp"
+                    };
+
+                    // 异步枚举文件（避免阻塞）
+                    var imageFiles = Directory.EnumerateFiles(datePath, "*.*", SearchOption.AllDirectories)
+                        .Where(file => allowedExtensions.Contains(Path.GetExtension(file)))
+                        .ToList();
+
+                    // 文件数量检查
+                    if (imageFiles.Count == 0)
+                    {
+                        UpdateUIState(() =>
+                            AddLog("[启动扫描] 今日文件夹为空"));
+                        return;
+                    }
+
+                    if (imageFiles.Count > 100)
+                    {
+                        UpdateUIState(() =>
+                            AddLog($"[启动扫描] ⚠ 检测到 {imageFiles.Count} 个文件（>100），跳过历史文件"));
+                        return;
+                    }
+
+                    // 批量入队处理
+                    int newFileCount = 0;
+                    foreach (var file in imageFiles)
+                    {
+                        if (_processedFiles.TryAdd(file, 0))
+                        {
+                            EnqueueTaskA(file);
+                            newFileCount++;
+                        }
+                    }
+
+                    if (newFileCount > 0)
+                    {
+                        UpdateUIState(() =>
+                            AddLog($"[启动扫描] ✅ 发现 {newFileCount} 个待处理文件"));
+                    }
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    UpdateUIState(() =>
+                        AddLog($"[启动扫描] ❌ 权限不足: {ex.Message}", CoreLogLevel.Error));
+                }
+                catch (Exception ex)
+                {
+                    UpdateUIState(() =>
+                        AddLog($"[启动扫描] ❌ 扫描异常: {ex.Message}", CoreLogLevel.Error));
+                }
+            });
+        }
+
+        /// <summary>
         /// 定时检查日期切换
         /// </summary>
         private void OnDateCheckTimerElapsed(object? sender, ElapsedEventArgs e)
@@ -3165,7 +3516,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 _dateCheckTimer?.Stop();
                 _fileScanTimer?.Stop();
-                _processedFiles.Clear();
+
+                //_processedFiles.Clear();
 
                 //StopConcurrentProcessingA();
                 _isAMonitorRunning = false;
@@ -3381,123 +3733,148 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             const int QueueCriticalThreshold = 500;     
             int lastAlertCount = 0;
 
+            _isQueueRunningA = true; // 确保标记为运行状态
+            AddLog("A队列线程启动");
 
-            while (!token.IsCancellationRequested && !_isThreadTerminatingA)
+            try
             {
-                string? filePath = null;
-                int currentQueueCount = 0;  // 当前队列数量
-                // 1. 线程安全从队列取待检测文件路径（lock保证多生产者/消费者下的队列安全）
-                lock (_queueLockA)
+                while (!token.IsCancellationRequested && !_isThreadTerminatingA)
                 {
-                    _safeDetectQueueA.TryDequeue(out filePath);
-                    currentQueueCount = _safeDetectQueueA.Count;
-                }
-
-                // 2. 队列过载报警检测
-                if (currentQueueCount > 0)
-                {
-                    // 仅当队列数量变化超过阈值的10%时才重新报警（避免频繁报警）
-                    bool shouldAlert = Math.Abs(currentQueueCount - lastAlertCount) > Math.Max(10, QueueWarningThreshold * 0.1);
-
-                    if (shouldAlert)
+                    try
                     {
-                        if (currentQueueCount >= QueueCriticalThreshold)
-                        {                   
-                            AddLog($"🔴 [队列严重告警] 队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
-                            Growl.Warning($"检测队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
-
-                            lastAlertCount = currentQueueCount;
-                        }
-                        else if (currentQueueCount >= QueueWarningThreshold)
+                        string? filePath = null;
+                        int currentQueueCount = 0;  // 当前队列数量
+                                                    // 1. 线程安全从队列取待检测文件路径（lock保证多生产者/消费者下的队列安全）
+                        lock (_queueLockA)
                         {
-                            AddLog($"⚠️ [队列警告] 队列积压 {currentQueueCount} 个文件，超过警告值 {QueueWarningThreshold}");
-                            lastAlertCount = currentQueueCount;
+                            _safeDetectQueueA.TryDequeue(out filePath);
+                            currentQueueCount = _safeDetectQueueA.Count;
                         }
-                        else if (lastAlertCount >= QueueWarningThreshold && currentQueueCount < QueueWarningThreshold)
-                        {
-                            AddLog($"✅ [队列恢复] 队列已降至 {currentQueueCount} 个文件，恢复正常");
-                            lastAlertCount = 0;
-                        }
-                    }
-                }
 
-                // 3. 队列无数据时：进入等待状态（避免空循环占用100%CPU）
-                if (filePath == null)
-                {
-                    // ⚡ 核心优化：WaitHandle.WaitAny 监听两个信号，实现“有任务就唤醒，有取消就退出，超时就重试”
-                    int signaledIndex = WaitHandle.WaitAny(new WaitHandle[]
-                    {
+                        // 2. 队列过载报警检测
+                        if (currentQueueCount > 0)
+                        {
+                            // 仅当队列数量变化超过阈值的10%时才重新报警（避免频繁报警）
+                            bool shouldAlert = Math.Abs(currentQueueCount - lastAlertCount) > Math.Max(10, QueueWarningThreshold * 0.1);
+
+                            if (shouldAlert)
+                            {
+                                if (currentQueueCount >= QueueCriticalThreshold)
+                                {
+                                    AddLog($"🔴 [队列严重告警] 队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
+                                    Growl.Warning($"检测队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
+
+                                    lastAlertCount = currentQueueCount;
+                                }
+                                else if (currentQueueCount >= QueueWarningThreshold)
+                                {
+                                    AddLog($"⚠️ [队列警告] 队列积压 {currentQueueCount} 个文件，超过警告值 {QueueWarningThreshold}");
+                                    lastAlertCount = currentQueueCount;
+                                }
+                                else if (lastAlertCount >= QueueWarningThreshold && currentQueueCount < QueueWarningThreshold)
+                                {
+                                    AddLog($"✅ [队列恢复] 队列已降至 {currentQueueCount} 个文件，恢复正常");
+                                    lastAlertCount = 0;
+                                }
+                            }
+                        }
+
+                        // 3. 队列无数据时：进入等待状态（避免空循环占用100%CPU）
+                        if (filePath == null)
+                        {
+                            // ⚡ 核心优化：WaitHandle.WaitAny 监听两个信号，实现“有任务就唤醒，有取消就退出，超时就重试”
+                            int signaledIndex = WaitHandle.WaitAny(new WaitHandle[]
+                            {
                         // 监听的信号集合：
                         _queueEventA,
                         token.WaitHandle
-                    }, TimeSpan.FromSeconds(30));
+                            }, TimeSpan.FromSeconds(30));
 
-                    if (signaledIndex == WaitHandle.WaitTimeout)
-                        continue; 
-                    if (token.IsCancellationRequested || _isThreadTerminatingA)
-                        break; 
-                    continue; 
-                }
-
-                // 3. 检测取消信号：若已取消，直接抛出取消异常（触发外层catch处理）
-                token.ThrowIfCancellationRequested();
-
-                // 4. 校验文件存在性：文件已被删除则跳过，避免后续检测异常
-                if (!File.Exists(filePath))
-                {
-                    AddLog($"[A工位-队列] {Path.GetFileName(filePath)} 已删除，跳过");
-                    continue;
-                }
-                // 5. 信号量等待：控制并发处理数量（避免同时处理过多文件导致CPU/内存耗尽）
-                await _semaphoreA.WaitAsync(token).ConfigureAwait(false);
-
-                try
-                {
-                    // 6. 核心：图片检测与结果处理逻辑
-                    try
-                    {
-                        // 6.1 动态对象存储检测数据（灵活扩展字段）
-                        dynamic detectionData = new ExpandoObject();
-                        // 解析文件路径到动态对象（提取如文件名、路径、时间等信息）
-                        ParsePathToDynamicObject(detectionData, filePath);
-                        detectionData.Station = "A";// 标记工位为A
-                        // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
-                        string detectResult = DamageDetection(filePath, "正极");
-                        DateTime realDetectionTime = DateTime.Now;
-                        bool isNG = detectResult == "NG";// 判断是否为不良品
-                        // 6.3 将图片添加到结果队列（用于后续报表/展示）
-                        AddImageToQueue(filePath, isNG, "A", realDetectionTime);
-                        // 6.4 空图片异常处理：不统计，直接跳过后续逻辑
-                        if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
-                        {
-                            AddLog($"[A工位-结果] {Path.GetFileName(filePath)}：空图片，不统计");
+                            if (signaledIndex == WaitHandle.WaitTimeout)
+                                continue;
+                            if (token.IsCancellationRequested || _isThreadTerminatingA)
+                                break;
                             continue;
                         }
-                        // 6.5 判断是否保存结果图片（根据配置：OK保存/NG保存）
-                        bool isResultSaved = (detectResult == "OK" && IsSaveResultOK) || (detectResult == "NG" && IsSaveResultNG);
-                        // 获取结果图片保存路径（若需要保存）
-                        detectionData.ResultImagePath = isResultSaved ? GetResultImagePath(filePath, detectResult, true) : null;
-                        detectionData.DetectionResult = detectResult;
-                        // 6.6 跨线程更新UI：后台线程不能直接操作UI，需通过Dispatcher切回UI线程
-                        // InvokeAsync：异步执行，避免阻塞检测线程
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
+
+                        // 3. 检测取消信号：若已取消，直接抛出取消异常（触发外层catch处理）
+                        token.ThrowIfCancellationRequested();
+
+                        // 4. 校验文件存在性：文件已被删除则跳过，避免后续检测异常
+                        if (!File.Exists(filePath))
                         {
-                            _fullDetectionDataList.Add(detectionData);// 添加到完整检测数据列表
-                            UpdateDisplayDataList();// 更新展示用的数据列表
-                            CalculateDetectionStatistics();// 重新计算检测统计（OK数、NG数、OK率等）
-                        });
+                            AddLog($"[A工位-队列] {Path.GetFileName(filePath)} 已删除，跳过");
+                            continue;
+                        }
+                        // 5. 信号量等待：控制并发处理数量（避免同时处理过多文件导致CPU/内存耗尽）
+                        await _semaphoreA.WaitAsync(token).ConfigureAwait(false);
+
+
+                        // 6. 核心：图片检测与结果处理逻辑
+                        try
+                        {
+                            // 6.1 动态对象存储检测数据（灵活扩展字段）
+                            dynamic detectionData = new ExpandoObject();
+                            // 解析文件路径到动态对象（提取如文件名、路径、时间等信息）
+                            ParsePathToDynamicObject(detectionData, filePath);
+                            detectionData.Station = "A";// 标记工位为A
+                                                        // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
+                            string detectResult = DamageDetection(filePath, "正极");
+                            DateTime realDetectionTime = DateTime.Now;
+                            bool isNG = detectResult == "NG";// 判断是否为不良品
+                                                             // 6.3 将图片添加到结果队列（用于后续报表/展示）
+                            AddImageToQueue(filePath, isNG, "A", realDetectionTime);
+                            // 6.4 空图片异常处理：不统计，直接跳过后续逻辑
+                            if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
+                            {
+                                AddLog($"[A工位-结果] {Path.GetFileName(filePath)}：空图片，不统计");
+                                continue;
+                            }
+                            // 6.5 判断是否保存结果图片（根据配置：OK保存/NG保存）
+                            bool isResultSaved = (detectResult == "OK" && IsSaveResultOK) || (detectResult == "NG" && IsSaveResultNG);
+                            // 获取结果图片保存路径（若需要保存）
+                            detectionData.ResultImagePath = isResultSaved ? GetResultImagePath(filePath, detectResult, true) : null;
+                            detectionData.DetectionResult = detectResult;
+                            // 6.6 跨线程更新UI：后台线程不能直接操作UI，需通过Dispatcher切回UI线程
+                            // InvokeAsync：异步执行，避免阻塞检测线程
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
+                            {
+                                _fullDetectionDataList.Add(detectionData);// 添加到完整检测数据列表
+                                UpdateDisplayDataList();// 更新展示用的数据列表
+                                CalculateDetectionStatistics();// 重新计算检测统计（OK数、NG数、OK率等）
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            AddLog($"[A工位-检测异常] {Path.GetFileName(filePath)}：{ex.Message}");
+                        }
+                        finally
+                        {
+                            // 7. 释放信号量：无论检测成功/失败/异常，必须释放，避免信号量耗尽导致死锁
+                            _semaphoreA.Release();
+                        }
+
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        AddLog("A队列线程收到取消请求并退出");
+                        break;
                     }
                     catch (Exception ex)
                     {
-                        AddLog($"[A工位-检测异常] {Path.GetFileName(filePath)}：{ex.Message}");
+                        AddLog($"A队列线程处理过程中出现异常：{ex.Message}");
+                        // 不退出线程，继续处理下一个文件
+                        await Task.Delay(1000); // 等待1秒后继续
                     }
-                }
-                finally
-                {
-                    // 7. 释放信号量：无论检测成功/失败/异常，必须释放，避免信号量耗尽导致死锁
-                    _semaphoreA.Release();
+                   
                 }
             }
+            finally
+            {
+                _isQueueRunningA = false;
+                AddLog("A队列线程已终止");
+            }
+
         }
 
         
@@ -3516,6 +3893,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             _queueEventA.Set(); // 唤醒等待线程（线程由 StartOnlineMonitoringA 启动并保持）
                                 // AddLog($"[A工位-入队] 新任务入队：{Path.GetFileName(filePath)} (队列大小未知)");
+            if (!_isQueueRunningA)
+            {
+                AddLog("[A工位-入队] 检测到处理线程未运行，尝试重新启动");
+                StartConcurrentProcessingA();
+            }
         }
 
         
@@ -6003,23 +6385,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 这里建议转为大写进行判断，防止文件名大小写不一致 (例如 Ok, ok, OK)
             // 如果你的系统严格区分大小写，可以去掉 .ToUpper()
             string pathUpper = filePath.ToUpper();
+            bool isMatch = false;
 
             switch (SelectedMode)
             {
                 case DetectionMode.OK:
                     // 如果选了OK模式，路径必须不包含 "NG"
-                    return !pathUpper.Contains("NG");
+                    isMatch = !pathUpper.Contains("NG");
+                    break;
 
                 case DetectionMode.NG:
                     // 如果选了NG模式，路径必须包含 "NG"
-                    return pathUpper.Contains("NG");
+                    isMatch = pathUpper.Contains("NG");
+                    break;
 
                 case DetectionMode.全检:
-                    return true;
+                    isMatch = true;
+                    break;
                 default:
                     // 默认拦截，防止未知模式
-                    return false;
+                    isMatch = false;
+                    break;
             }
+            if (!isMatch)
+            {
+                AddLog($"[模式不匹配] 文件:{Path.GetFileName(filePath)}, 当前模式:{SelectedMode}, 路径特征:NG={pathUpper.Contains("NG")}", CoreLogLevel.Info);
+            }
+
+            return isMatch;
         }
 
         /// <summary>
@@ -7279,32 +7672,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private void OnReportTimeout(object? sender, ElapsedEventArgs e)
         {
+            bool shouldGenerate = false;
             lock (_queue1Lock)
             {
-                // 若离线检测已完成，跳过超时生成
-                if (_isOfflineMode && _isOfflineDetectionCompleted)
-                {
-                    AddLog("[离线检测已完成] 跳过超时报表生成");
-                    return;
-                }
-
+                // 检查是否在生成中，防止重复触发（建议增加一个标志位 _isGeneratingReport）
                 if (_cellCodeQueue.Count > 0)
                 {
-                    AddLog($"[超时触发] 达到 {ReportTimeoutMinutes} 分钟超时时间，处理当前电芯组");
-                    GenerateReport().Wait();
-
-                    // 重新启动定时器
-                    if (_cellCodeQueue.Count > 0 && _reportTimer != null)
-                    {
-                        _reportTimer.Start();
-                        AddLog($"[定时器重启] 重新开始 {ReportTimeoutMinutes} 分钟计时");
-                    }
-                }
-                else
-                {
-                    AddLog($"[超时检查] 达到 {ReportTimeoutMinutes} 分钟超时时间，但队列为空，无需生成报表");
+                    shouldGenerate = true;
                 }
             }
+            if (shouldGenerate)
+            {
+                AddLog($"[超时触发] 达到 {ReportTimeoutMinutes} 分钟超时时间，开始异步处理");
+
+                // 使用 Task.Run 触发，不阻塞定时器线程
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await GenerateReport();
+
+                        // 报表生成完后，如果需要，在此处重启定时器（需注意线程安全）
+                        // 建议在 GenerateReport 内部或通过回调处理定时器重置
+                        lock (_queue1Lock)
+                        {
+                            if (_reportTimer != null && !_isOfflineMode)
+                            {
+                                _reportTimer.Stop();
+                                _reportTimer.Start();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AddLog($"[超时任务异常] {ex.Message}", CoreLogLevel.Error);
+                    }
+                });
+            }
+        
         }
 
         private int GetMaxReportIndex(string targetDir)
@@ -7343,121 +7748,111 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 获取当前组的电芯编码
             List<string> groupCellCodes = new List<string>();
             List<string> ngCellCodesInGroup = new List<string>();
+            List<NgImageInfo> imagesToReport = new List<NgImageInfo>();
 
             lock (_queue1Lock)
             {
+                if (_cellCodeQueue.Count == 0) return;
                 // 获取当前组的所有电芯编码
                 int count = Math.Min(MaxImagesPerReport, _cellCodeQueue.Count);
                 for (int i = 0; i < count; i++)
                 {
-                    string cellCode = _cellCodeQueue.Dequeue();
+                    if (!_cellCodeQueue.TryDequeue(out string? cellCode)) break;
                     groupCellCodes.Add(cellCode);
                     _cellCodeSet.Remove(cellCode);
 
-                    // 检查该电芯是否有NG图片
+                    // 1.3 提取NG数据并立即清理字典 (Thread-Safe)
                     if (_ngImageDict.ContainsKey(cellCode))
                     {
                         ngCellCodesInGroup.Add(cellCode);
+                        var allNgImages = _ngImageDict[cellCode];
+
+                        // 提取前5张用于报表
+                        var takeImages = allNgImages.Take(5).ToList();
+                        imagesToReport.AddRange(takeImages);
+
+                        // 记录日志：如果图片被截断
+                        if (allNgImages.Count > 5)
+                        {
+                            AddLog($"[报表图片截断] 电芯 {cellCode} 共有 {allNgImages.Count} 张NG图，仅保留前5张");
+                        }
+
+                        // 立即移除字典数据，防止内存泄漏，并避免后续需要再次加锁
+                        _ngImageDict.Remove(cellCode);
+                        AddLog($"[数据清理] 已归档并清理电芯 {cellCode} 的缓存数据");
                     }
-                }
-
-                if (groupCellCodes.Count == 0)
-                {
-                    AddLog("[报表生成] 没有电芯编码需要生成报表");
-                    return;
-                }
-
-                AddLog($"[电芯组处理] 处理 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个有NG图片");
-
-                // 如果组内没有NG电芯，直接返回，不生成报表
-                if (ngCellCodesInGroup.Count == 0)
-                {
-                    AddLog($"[报表生成] 当前电芯组没有NG电芯，跳过报表生成");
-                    return;
-                }
+                }          
             }
 
-            // 收集所有要生成报表的NG图片
-            List<NgImageInfo> imagesToReport = new List<NgImageInfo>();
-            foreach (string cellCode in ngCellCodesInGroup)
-            {
-                if (_ngImageDict.ContainsKey(cellCode))
-                {
-                    //仅取每个电芯的前5张NG图
-                    var allNgImages = _ngImageDict[cellCode];
-                    var takeImages = allNgImages.Take(5).ToList(); // 限制前5张
-                    imagesToReport.AddRange(takeImages);
+            // ===================== 阶段 2：校验与前置判断 (无锁) =====================
 
-                    // 日志提示：超过5张的部分被截断
-                    if (allNgImages.Count > 5)
-                    {
-                        AddLog($"[报表图片截断] 电芯 {cellCode} 共有 {allNgImages.Count} 张NG图，仅保留前5张到报表");
-                    }
-                }
-            }
-
-            if (imagesToReport.Count == 0)
+            if (groupCellCodes.Count == 0)
             {
-                AddLog("[报表生成] 没有NG图片需要生成报表");
+                AddLog("[报表生成] 队列提取为空，无需生成");
                 return;
             }
 
-            AddLog($"[报表生成] 开始生成报表，组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片");
+            AddLog($"[电芯组处理] 处理 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG，共 {imagesToReport.Count} 张图片");
 
-            // 报表路径与日期
-            string baseReportDir = Path.Combine("D:", "IME复判", "检测报表");
-            string modeSubDir = _isOfflineMode ? "离线检测报表" : "在线检测报表";
-            string dateFolderName;
-            string finalReportDir;
-
-            if (_isOfflineMode)
+            // 如果没有NG图片，任务结束（数据已在阶段1从队列和字典中移除，属于正常处理完毕）
+            if (imagesToReport.Count == 0)
             {
-                DateTime offlineRunDate = _offlineStartTime.HasValue
-                    ? _offlineStartTime.Value.Date
-                    : DateTime.Now.Date;
-                dateFolderName = offlineRunDate.ToString("yyyy-MM-dd");
-
-            }
-            else
-            {
-                dateFolderName = DateTime.Now.ToString("yyyy-MM-dd");
+                AddLog("[报表生成] 本组无NG图片，跳过PDF报表生成");
+                return;
             }
 
-            finalReportDir = Path.Combine(baseReportDir, modeSubDir, dateFolderName);
-            Directory.CreateDirectory(finalReportDir);
-
-            int maxIndex = GetMaxReportIndex(finalReportDir); // 获取文件夹内最大序号
-            int startIndex = maxIndex + 1; // 新报表序号 = 最大序号 + 1
-            // 报表文件名与保存路径
-            string reportNo = DateTime.Now.ToString("yyyyMMddHHmmss");
-            string baseFileName = $"PTO与行大面缺陷检测报告_{reportNo}.pdf";
-            string fileName = $"{startIndex}.{baseFileName}";
-            string savePath = Path.Combine(finalReportDir, fileName);
-
-
-            string productionDate = _isOfflineMode
-                 ? GetDateFromPath(imagesToReport[0].ImagePath!)
-                 : DateTime.Now.ToString("yyyy-MM-dd");
-
-            // 处理文件名冲突
-            if (File.Exists(savePath))
-            {
-                AddLog($"[文件名冲突] 文件已存在：{fileName}，尝试递增序号");
-                int counter = startIndex + 1;
-                do
-                {
-                    fileName = $"{counter}.{baseFileName}";
-                    savePath = Path.Combine(finalReportDir, fileName);
-                    counter++;
-                } while (File.Exists(savePath) && counter <= 999);
-                AddLog($"[文件名解决] 使用新文件名：{Path.GetFileName(savePath)}");
-            }
+            // ===================== 阶段 3：IO 密集型操作 (无锁，异步) =====================
+            string savePath = string.Empty;
 
             try
             {
-                AddLog($"[报表生成] 开始生成 PDF: {savePath}");
+                // 3.1 构造路径
+                string baseReportDir = Path.Combine("D:", "IME复判", "检测报表");
+                string modeSubDir = _isOfflineMode ? "离线检测报表" : "在线检测报表";
 
-                // --- QuestPDF 核心生成逻辑开始 ---
+                // 确定日期文件夹：离线模式使用第一张图片的日期，在线模式使用当前日期
+                string dateFolderName = DateTime.Now.ToString("yyyy-MM-dd");
+                if (_isOfflineMode && imagesToReport.Count > 0 && !string.IsNullOrEmpty(imagesToReport[0].ImagePath))
+                {
+                    // 尝试获取离线任务的日期，如果获取失败则兜底使用当前日期
+                    string imgDate = GetDateFromPath(imagesToReport[0].ImagePath!);
+                    if (!string.IsNullOrEmpty(imgDate) && imgDate.Length == 8)
+                    {
+                        dateFolderName = DateTime.ParseExact(imgDate, "yyyyMMdd", null).ToString("yyyy-MM-dd");
+                    }
+                }
+
+                string finalReportDir = Path.Combine(baseReportDir, modeSubDir, dateFolderName);
+                if (!Directory.Exists(finalReportDir))
+                {
+                    Directory.CreateDirectory(finalReportDir);
+                }
+
+                // 3.2 计算文件名
+                int maxIndex = GetMaxReportIndex(finalReportDir);
+                int startIndex = maxIndex + 1;
+                string reportNo = DateTime.Now.ToString("yyyyMMddHHmmss");
+                string baseFileName = $"PTO与行大面缺陷检测报告_{reportNo}.pdf";
+                string fileName = $"{startIndex}.{baseFileName}";
+                savePath = Path.Combine(finalReportDir, fileName);
+
+                // 文件名防冲突重试
+                int retryCounter = 1;
+                while (File.Exists(savePath) && retryCounter < 100)
+                {
+                    fileName = $"{startIndex + retryCounter}.{baseFileName}";
+                    savePath = Path.Combine(finalReportDir, fileName);
+                    retryCounter++;
+                }
+
+                // 3.3 生成 PDF
+                string productionDate = _isOfflineMode && imagesToReport.Count > 0
+                    ? GetDateFromPath(imagesToReport[0].ImagePath!)
+                    : DateTime.Now.ToString("yyyy-MM-dd");
+
+                AddLog($"[报表生成] 开始绘制PDF: {savePath}");
+
+                // QuestPDF 生成逻辑
                 Document.Create(container =>
                 {
                     container.Page(page =>
@@ -7466,7 +7861,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         page.Size(PageSizes.A4);
                         page.DefaultTextStyle(ReportStyle.Content);
 
-                        // 1. 页眉 (标题 + 编号)
+                        // 页眉
                         page.Header().Element(header =>
                         {
                             header.Column(col =>
@@ -7479,11 +7874,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             });
                         });
 
-                        // 2. 内容区域
+                        // 内容
                         string groupInfo = $"本组共 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片";
                         page.Content().PaddingVertical(10).Column(col =>
                         {
-                            // 2.1 基础信息表格
+                            // 基础表格
                             col.Item().Table(table =>
                             {
                                 table.ColumnsDefinition(columns =>
@@ -7492,7 +7887,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                     columns.RelativeColumn(3);
                                 });
 
-                                // 封装单元格样式的本地函数
                                 void AddRow(string label, string value)
                                 {
                                     table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).Text(label).SemiBold();
@@ -7501,123 +7895,78 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                                 AddRow("检测设备：", "与行——大面检测工位");
                                 AddRow("生产日期：", productionDate);
-                                AddRow("报表生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                                AddRow("模式：", _isOfflineMode ? "离线检测" : "在线检测");
-                                AddRow("当前报表内容：", groupInfo);
-                                AddRow("NG电芯编码：", string.Join("、", ngCellCodesInGroup));
+                                AddRow("生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                                AddRow("检测模式：", _isOfflineMode ? "离线检测" : "在线检测");
+                                AddRow("统计概览：", groupInfo);
+                                AddRow("NG电芯码：", string.Join("、", ngCellCodesInGroup));
                             });
 
-                            col.Item().Height(20); // 间隔
-
-                            // 2.2 缺陷详情标题
-                            col.Item().Text("NG缺陷图片详情").FontSize(14).Bold();
+                            col.Item().Height(20);
+                            col.Item().Text("NG缺陷详情").FontSize(14).Bold();
                             col.Item().Height(5);
 
-                            // 2.3 详情表格
+                            // 图片详情表格
                             col.Item().Table(table =>
                             {
-                                // 定义列宽比例：序号(1) : 图片(3) : 参数(6) -> 对应您原代码的 UnitValue.CreatePercentArray
                                 table.ColumnsDefinition(columns =>
                                 {
-                                    columns.RelativeColumn(1);
-                                    columns.RelativeColumn(5);
-                                    columns.RelativeColumn(4);
+                                    columns.RelativeColumn(1); // 序号
+                                    columns.RelativeColumn(5); // 图片
+                                    columns.RelativeColumn(4); // 信息
                                 });
 
                                 // 表头
                                 void AddHeader(string text)
                                 {
-                                    table.Cell().RowSpan(1).Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).AlignCenter().Text(text).SemiBold();
+                                    table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).AlignCenter().Text(text).SemiBold();
                                 }
                                 AddHeader("序号");
                                 AddHeader("缺陷结果图");
                                 AddHeader("参数信息");
 
-                                // 填充数据
                                 int cellIndex = 1;
-                                foreach (string cellCode in ngCellCodesInGroup)
+                                foreach (var imgInfo in imagesToReport)
                                 {
-                                    if (!_ngImageDict.ContainsKey(cellCode)) continue;
+                                    // 序号
+                                    table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).AlignMiddle().AlignCenter().Text($"{cellIndex}");
 
-                                    var cellImages = _ngImageDict[cellCode].Take(5).ToList();
-                                    bool isFirstImageForCell = true;
+                                    // 图片
+                                    var imgCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignMiddle().AlignCenter();
+                                    string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
 
-                                    foreach (var imgInfo in cellImages)
+                                    if (!string.IsNullOrEmpty(resultImagePath) && File.Exists(resultImagePath))
                                     {
-                                        // 序号列
-                                        var seqCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignCenter().AlignMiddle();
-                                        if (isFirstImageForCell)
+                                        try
                                         {
-                                            seqCell.Text($"{cellIndex}");
-                                            isFirstImageForCell = false;
+                                            imgCell.Height(150).Image(resultImagePath).UseOriginalImage().FitArea();
                                         }
-                                        else
+                                        catch (Exception)
                                         {
-                                            seqCell.Text(""); // 空文本
+                                            imgCell.Text("图片加载失败");
                                         }
-
-                                        // 图片列
-                                        var imgCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignCenter().AlignMiddle();
-                                        string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
-
-                                        if (File.Exists(resultImagePath))
-                                        {
-                                            try
-                                            {
-                                                // ✅ 新增:压缩图片
-                                                byte[]? compressedImage = CompressImage(resultImagePath, quality: 75, maxWidth: 600);
-
-                                                if (compressedImage != null && compressedImage.Length > 0)
-                                                {
-                                                    // 使用压缩后的字节数组加载图片
-                                                    imgCell.Height(219).Image(compressedImage).UseOriginalImage().FitArea();
-
-                                                    // 可选:记录压缩效果
-                                                    long originalSize = new FileInfo(resultImagePath).Length;
-                                                    double compressionRatio = (1 - (double)compressedImage.Length / originalSize) * 100;
-                                                    AddLog($"[图片压缩] {Path.GetFileName(resultImagePath)} " +
-                                                           $"原大小:{originalSize / 1024}KB,压缩后:{compressedImage.Length / 1024}KB " +
-                                                           $"(压缩率:{compressionRatio:F1}%)", CoreLogLevel.Debug);
-                                                }
-                                                else
-                                                {
-                                                    // 压缩失败时回退到原图
-                                                    imgCell.Height(219).Image(resultImagePath).UseOriginalImage().FitArea();
-                                                    AddLog($"[图片压缩] 压缩失败,使用原图:{resultImagePath}", CoreLogLevel.Warn);
-                                                }
-                                            }
-                                            catch (Exception ex)
-                                            {
-                                                imgCell.Text($"图片加载失败:{ex.Message}");
-                                                AddLog($"[报表图片错误] {resultImagePath}:{ex.Message}", CoreLogLevel.Error);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            imgCell.Text("结果图不存在");
-                                        }
-
-                                        // 参数信息列
-                                        string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
-                                        string imageNameStr = imgInfo.ImageName ?? "未知";
-
-                                        table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten3).Padding(5).Column(infoCol =>
-                                        {
-                                            infoCol.Spacing(5);
-                                            infoCol.Item().Text($"电芯编码：{imgInfo.CellCode}").Bold();
-                                            infoCol.Item().Text($"班次：{imgInfo.Shift}");
-                                            infoCol.Item().Text($"正负极：{imgInfo.Polarity}");
-                                            //infoCol.Item().Text($"工位：{stationText}");
-                                            infoCol.Item().Text($"检测时间：{imgInfo.DetectionTime:yyyy-MM-dd HH:mm:ss}");
-                                            infoCol.Item().PaddingBottom(6).Text($"图片名：{imageNameStr}");
-                                        });
                                     }
+                                    else
+                                    {
+                                        imgCell.Text("文件缺失");
+                                    }
+
+                                    // 信息
+                                    table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Column(infoCol =>
+                                    {
+                                        infoCol.Spacing(2);
+                                        infoCol.Item().Text($"编码：{imgInfo.CellCode}").Bold();
+                                        infoCol.Item().Text($"班次：{imgInfo.Shift}");
+                                        infoCol.Item().Text($"极性：{imgInfo.Polarity}");
+                                        infoCol.Item().Text($"时间：{imgInfo.DetectionTime:HH:mm:ss}");
+                                        infoCol.Item().Text($"文件：{imgInfo.ImageName}").FontSize(8).FontColor(QuestPDF.Helpers.Colors.Grey.Darken2);
+                                    });
+
                                     cellIndex++;
                                 }
                             });
                         });
 
-                        // 3. 页脚
+                        // 页脚
                         page.Footer().AlignCenter().Text(x =>
                         {
                             x.Span("第 ");
@@ -7627,383 +7976,292 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             x.Span(" 页");
                         });
                     });
-                })
-                .GeneratePdf(savePath); 
+                }).GeneratePdf(savePath);
 
-                // 报表生成完成后，从字典中移除已处理的NG电芯编码
-                lock (_queue1Lock)
-                {
-                    foreach (string cellCode in ngCellCodesInGroup)
-                    {
-                        if (_ngImageDict.ContainsKey(cellCode))
-                        {
-                            _ngImageDict.Remove(cellCode);
-                        }
-                    }
-                }
-                try
-                {
-                    AddLog($"[报表推送] 开始推送报表：{savePath}");
-                    string combinedUserId = GetCombinedUserIdString();
-                    //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
-
-                    var response = await _webApiClient.PushFileAsync(savePath);
-                    if (response.Code != 200)
-                    {
-                        AddLog($"报表推送异常：{response.Message}", CoreLogLevel.Warn);
-                    }
-                    AddLog($"[报表推送成功] 报表已推送");
-                }
-                catch (Exception pushEx)
-                {
-                    // 推送失败不影响报表生成，仅记录日志
-                    AddLog($"[报表推送失败] 推送报表 {savePath} 失败：{pushEx.Message}");
-                    AddLog($"[报表推送失败] 堆栈跟踪：{pushEx.StackTrace}");
-                }
-
-                AddLog($"[报表生成成功] 本组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片，保存路径：{savePath}");
-
-
-
-                lock (_queue1Lock)
-                {
-                    // 清理 _ngImageDict 逻辑保持不变...
-                }
-
-                // 推送逻辑保持不变...
-
-                AddLog($"[报表生成成功] ... 保存路径：{savePath}");
+                AddLog($"[报表生成完毕] 路径：{savePath}");
             }
             catch (Exception ex)
             {
-                AddLog($"[报表生成错误] {ex.Message}");
+                AddLog($"[报表生成失败] {ex.Message}", CoreLogLevel.Error);
+                // 注意：即使失败，数据也已经在阶段1被清理，不会导致死循环或内存泄漏。
+                // 这种"Fail-Fast"策略在工业场景比重试更安全。
+                return;
             }
 
 
 
 
 
+            //AddLog($"[报表生成] 开始生成报表，组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片");
 
-            /* try
-             {
-                 // 生成PDF
-                 using (var writer = new PdfWriter(savePath))
-                 using (var pdfDoc = new PdfDocument(writer))
-                 using (var document = new Document(pdfDoc, iText.Kernel.Geom.PageSize.A4))
-                 {
-                     // 中文字体设置
-                     PdfFont chineseFont = PdfFontFactory.CreateFont(
-                         "STSong-Light", "UniGB-UCS2-H", PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
-                     document.SetFont(chineseFont);
-                     document.SetMargins(30, 30, 30, 30);
+            //// 报表路径与日期
+            //string baseReportDir = Path.Combine("D:", "IME复判", "检测报表");
+            //string modeSubDir = _isOfflineMode ? "离线检测报表" : "在线检测报表";
+            //string dateFolderName;
+            //string finalReportDir;
 
-                     // 全局样式
-                     var gridBorder = new iText.Layout.Borders.SolidBorder(0.5f);
-                     var headerBg = iText.Kernel.Colors.ColorConstants.LIGHT_GRAY;
+            //if (_isOfflineMode)
+            //{
+            //    DateTime offlineRunDate = _offlineStartTime.HasValue
+            //        ? _offlineStartTime.Value.Date
+            //        : DateTime.Now.Date;
+            //    dateFolderName = offlineRunDate.ToString("yyyy-MM-dd");
 
-                     // 主表格
-                     var mainTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
-                     mainTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+            //}
+            //else
+            //{
+            //    dateFolderName = DateTime.Now.ToString("yyyy-MM-dd");
+            //}
 
-                     // 标题区块
-                     var titleSubTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
-                     titleSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+            //finalReportDir = Path.Combine(baseReportDir, modeSubDir, dateFolderName);
+            //Directory.CreateDirectory(finalReportDir);
 
-                     titleSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph("PTO叠片缺陷检测报告")
-                             .SetFontSize(15)
-                             .SetBold()
-                             .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
-                         .SetBorderTop(gridBorder)
-                         .SetBorderRight(gridBorder)
-                         .SetBorderLeft(gridBorder)
-                         .SetBorderBottom(gridBorder));
-
-                     titleSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph($"报表编号：{reportNo}")
-                             .SetFontSize(12)
-                             .SetTextAlignment(iText.Layout.Properties.TextAlignment.RIGHT))
-                         .SetBorderTop(gridBorder)
-                         .SetBorderRight(gridBorder)
-                         .SetBorderLeft(gridBorder)
-                         .SetBorderBottom(gridBorder));
-
-                     mainTable.AddCell(new iText.Layout.Element.Cell().Add(titleSubTable)
-                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-
-                     // 基本信息区块
-                     var infoSubTable = new iText.Layout.Element.Table(UnitValue.CreatePercentArray(new float[] { 1, 3 })).UseAllAvailableWidth();
-                     infoSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                     // 手动添加第一行
-                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph("检测设备：").SetBold())
-                         .SetBackgroundColor(headerBg)
-                         .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
-                         .SetBorderRight(gridBorder)
-                         .SetBorderLeft(gridBorder)
-                         .SetBorderBottom(gridBorder)
-                         .SetPadding(5));
-                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph("格林晟叠片"))
-                         .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
-                         .SetBorderRight(gridBorder)
-                         .SetBorderLeft(gridBorder)
-                         .SetBorderBottom(gridBorder)
-                         .SetPadding(5));
-
-                     AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "生产日期：", productionDate);
-                     AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "报表生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH: mm: ss"));
-                     AddInfoRowToSubTable(infoSubTable, gridBorder, headerBg, "模式：", _isOfflineMode ? "离线检测" : "在线检测");
-
-                     // 显示组信息和NG电芯信息
-                     string groupInfo = $"本组共 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片";
-                     var groupInfoCell = new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph("当前报表内容：").SetBold())
-                         .SetBackgroundColor(headerBg)
-                         .SetBorder(gridBorder)
-                         .SetBorderBottom(gridBorder)
-                         .SetPadding(5);
-                     infoSubTable.AddCell(groupInfoCell);
-                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph(groupInfo))
-                         .SetBorder(gridBorder)
-                         .SetBorderBottom(gridBorder)
-                         .SetPadding(5));
-
-                     //NG电芯编码行
-                     string cellCodesString = string.Join("、", ngCellCodesInGroup);
-                     var ngCellCodesCell = new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph("NG电芯编码：").SetBold())
-                         .SetBackgroundColor(headerBg)
-                         .SetBorder(gridBorder)
-                         .SetBorderBottom(gridBorder)
-                         .SetPadding(5);
-                     infoSubTable.AddCell(ngCellCodesCell);
-                     infoSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph(cellCodesString))
-                         .SetBorder(gridBorder)
-                         .SetBorderBottom(gridBorder)
-                         .SetPadding(5));
-
-                     mainTable.AddCell(new iText.Layout.Element.Cell().Add(infoSubTable)
-                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-
-                     // NG缺陷详情区块
-                     var detailSubTable = new iText.Layout.Element.Table(1).UseAllAvailableWidth();
-                     detailSubTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                     detailSubTable.AddCell(new iText.Layout.Element.Cell()
-                         .Add(new iText.Layout.Element.Paragraph("NG缺陷图片详情")
-                             .SetFontSize(14)
-                             .SetBold()
-                             .SetTextAlignment(iText.Layout.Properties.TextAlignment.LEFT))
-                         .SetBorderTop(iText.Layout.Borders.Border.NO_BORDER)
-                         .SetBorderRight(gridBorder)
-                         .SetBorderLeft(gridBorder)
-                         .SetBorderBottom(iText.Layout.Borders.Border.NO_BORDER)
-                         .SetPadding(5));
-
-                     // 详情数据表格
-                     var detailDataTable = new iText.Layout.Element.Table(UnitValue.CreatePercentArray(new float[] { 1, 3, 6 })).UseAllAvailableWidth();
-                     detailDataTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-                     // 详情表头
-                     detailDataTable.AddCell(CreateHeaderCell("序号", gridBorder, headerBg));
-                     detailDataTable.AddCell(CreateHeaderCell("缺陷结果图", gridBorder, headerBg));
-                     detailDataTable.AddCell(CreateHeaderCell("参数信息", gridBorder, headerBg));
-
-                     // 按电芯编码分组显示图片，序号按电芯编码计数
-                     int cellIndex = 1;
-                     foreach (string cellCode in ngCellCodesInGroup)
-                     {
-                         if (!_ngImageDict.ContainsKey(cellCode))
-                         {
-                             AddLog($"[报表生成警告] 电芯编码 {cellCode} 在字典中不存在");
-                             continue;
-                         }
-
-                         var cellImages = _ngImageDict[cellCode].Take(5).ToList(); // 仅取前5张
-                         bool isFirstImageForCell = true;
-
-                         foreach (var imgInfo in cellImages)
-                         {
-                             // 序号 - 每个电芯编码的第一个图片显示序号，后续图片不显示
-                             if (isFirstImageForCell)
-                             {
-                                 detailDataTable.AddCell(CreateDataCell($"{cellIndex}", gridBorder)
-                                     .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
-                                     .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE));
-                                 isFirstImageForCell = false;
-                             }
-                             else
-                             {
-                                 detailDataTable.AddCell(CreateDataCell("", gridBorder)
-                                     .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
-                                     .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE));
-                             }
-
-                             // 缺陷结果图
-                             iText.Layout.Element.Cell imageCell = new iText.Layout.Element.Cell()
-                                 .SetBorder(gridBorder)
-                                 .SetPadding(5)
-                                 .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER)
-                                 .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.MIDDLE);
-
-                             try
-                             {
-                                 string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
-                                 if (File.Exists(resultImagePath))
-                                 {
-                                     ImageData imageData = ImageDataFactory.Create(resultImagePath);
-                                     iText.Layout.Element.Image image = new iText.Layout.Element.Image(imageData)
-                                         .ScaleToFit(150, 120)
-                                         .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER);
-                                     imageCell.Add(image);
-                                 }
-                                 else
-                                 {
-                                     imageCell.Add(new iText.Layout.Element.Paragraph("结果图不存在").SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER));
-                                     AddLog($"[报表图片警告] 结果图不存在：{resultImagePath}");
-                                 }
-                             }
-                             catch (Exception ex)
-                             {
-                                 imageCell.Add(new iText.Layout.Element.Paragraph($"加载失败：{ex.Message}").SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER));
-                                 AddLog($"[报表图片错误] 加载图片失败：{ex.Message}");
-                             }
-                             detailDataTable.AddCell(imageCell);
-
-                             // 参数信息 - 每个图片都显示完整的电芯编码和其他信息
-                             var paramContainer = new iText.Layout.Element.Div().SetWidth(UnitValue.CreatePercentValue(80));
-                             string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
+            //int maxIndex = GetMaxReportIndex(finalReportDir); // 获取文件夹内最大序号
+            //int startIndex = maxIndex + 1; // 新报表序号 = 最大序号 + 1
+            //// 报表文件名与保存路径
+            //string reportNo = DateTime.Now.ToString("yyyyMMddHHmmss");
+            //string baseFileName = $"PTO与行大面缺陷检测报告_{reportNo}.pdf";
+            //string fileName = $"{startIndex}.{baseFileName}";
+            //savePath = Path.Combine(finalReportDir, fileName);
 
 
-                             // 每个图片都显示电芯编码
-                             paramContainer.Add(new iText.Layout.Element.Paragraph($"电芯编码：{imgInfo.CellCode}").SetBold().SetMarginBottom(0));
-                             paramContainer.Add(new iText.Layout.Element.Paragraph($"班次：{imgInfo.Shift}").SetMarginBottom(0));
-                             paramContainer.Add(new iText.Layout.Element.Paragraph($"正负极：{imgInfo.Polarity}").SetMarginBottom(0));
-                             //paramContainer.Add(new iText.Layout.Element.Paragraph($"相机：{imgInfo.Camera}").SetMarginBottom(0));
-                             paramContainer.Add(new iText.Layout.Element.Paragraph($"工位：{stationText}").SetMarginBottom(0));
-                             paramContainer.Add(new iText.Layout.Element.Paragraph($"检测时间：{imgInfo.DetectionTime:yyyy-MM-dd HH: mm: ss}").SetMarginBottom(0));
+            //string productionDate = _isOfflineMode
+            //     ? GetDateFromPath(imagesToReport[0].ImagePath!)
+            //     : DateTime.Now.ToString("yyyy-MM-dd");
 
-                             string? fullImageName = imgInfo.ImageName;
-                             if (fullImageName == null)
-                             {
-                                 throw new ArgumentNullException(nameof(fullImageName), "图片文件名不能为空");
-                             }
-                             int extIndex = fullImageName.LastIndexOf('.');
-                             string fileNamePart = extIndex > 0 ? fullImageName.Substring(0, extIndex) : fullImageName;
-                             string extWithDot = extIndex > 0 ? fullImageName.Substring(extIndex) : "";
+            //// 处理文件名冲突
+            //if (File.Exists(savePath))
+            //{
+            //    AddLog($"[文件名冲突] 文件已存在：{fileName}，尝试递增序号");
+            //    int counter = startIndex + 1;
+            //    do
+            //    {
+            //        fileName = $"{counter}.{baseFileName}";
+            //        savePath = Path.Combine(finalReportDir, fileName);
+            //        counter++;
+            //    } while (File.Exists(savePath) && counter <= 999);
+            //    AddLog($"[文件名解决] 使用新文件名：{Path.GetFileName(savePath)}");
+            //}
 
-                             string processedExt = extWithDot;
-                             if (extWithDot.Length >= 3)
-                             {
-                                 processedExt = $"{extWithDot[0]}{extWithDot[1]} {extWithDot.Substring(2)}";
-                             }
+            //try
+            //{
+            //    AddLog($"[报表生成] 开始生成 PDF: {savePath}");
 
-                             paramContainer.Add(new iText.Layout.Element.Paragraph($"图片名：{fileNamePart}{processedExt}")
-                                 .SetFontSize(10));
-                             paramContainer.SetFontSize(10);
+            //    // --- QuestPDF 核心生成逻辑开始 ---
+            //    Document.Create(container =>
+            //    {
+            //        container.Page(page =>
+            //        {
+            //            page.Margin(30);
+            //            page.Size(PageSizes.A4);
+            //            page.DefaultTextStyle(ReportStyle.Content);
 
-                             var paramCell = new iText.Layout.Element.Cell()
-                                 .Add(paramContainer)
-                                 .SetBorder(gridBorder)
-                                 .SetPadding(5)
-                                 .SetVerticalAlignment(iText.Layout.Properties.VerticalAlignment.TOP)
-                                 .SetTextAlignment(iText.Layout.Properties.TextAlignment.LEFT);
-                             detailDataTable.AddCell(paramCell);
-                         }
+            //            // 1. 页眉 (标题 + 编号)
+            //            page.Header().Element(header =>
+            //            {
+            //                header.Column(col =>
+            //                {
+            //                    col.Item().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Row(row =>
+            //                    {
+            //                        row.RelativeItem().AlignCenter().Text("PTO与行大面缺陷检测报告").Style(ReportStyle.Title);
+            //                    });
+            //                    col.Item().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).BorderTop(0).Padding(5).AlignRight().Text($"报表编号：{reportNo}");
+            //                });
+            //            });
 
-                         // 处理完一个电芯编码的所有图片后，序号递增
-                         cellIndex++;
-                     }
+            //            // 2. 内容区域
+            //            string groupInfo = $"本组共 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片";
+            //            page.Content().PaddingVertical(10).Column(col =>
+            //            {
+            //                // 2.1 基础信息表格
+            //                col.Item().Table(table =>
+            //                {
+            //                    table.ColumnsDefinition(columns =>
+            //                    {
+            //                        columns.RelativeColumn(1);
+            //                        columns.RelativeColumn(3);
+            //                    });
 
-                     detailSubTable.AddCell(new iText.Layout.Element.Cell().Add(detailDataTable)
-                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
-                     mainTable.AddCell(new iText.Layout.Element.Cell().Add(detailSubTable)
-                         .SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(0));
+            //                    // 封装单元格样式的本地函数
+            //                    void AddRow(string label, string value)
+            //                    {
+            //                        table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).Text(label).SemiBold();
+            //                        table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Text(value);
+            //                    }
 
-                     // 将主表格添加到文档
-                     document.Add(mainTable);
-                 }
+            //                    AddRow("检测设备：", "与行——大面检测工位");
+            //                    AddRow("生产日期：", productionDate);
+            //                    AddRow("报表生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            //                    AddRow("模式：", _isOfflineMode ? "离线检测" : "在线检测");
+            //                    AddRow("当前报表内容：", groupInfo);
+            //                    AddRow("NG电芯编码：", string.Join("、", ngCellCodesInGroup));
+            //                });
 
-                 // 报表生成完成后，从字典中移除已处理的NG电芯编码
-                 lock (_queue1Lock)
-                 {
-                     foreach (string cellCode in ngCellCodesInGroup)
-                     {
-                         if (_ngImageDict.ContainsKey(cellCode))
-                         {
-                             _ngImageDict.Remove(cellCode);
-                         }
-                     }
-                 }
-                 try
-                 {
-                     AddLog($"[报表推送] 开始推送报表：{savePath}");
-                     string combinedUserId = GetCombinedUserIdString();
-                     //await MessagePushHelper.PushFileAsync(savePath, combinedUserId);// 后续需确认上传的id信息有哪些，可以配置到数据库中
+            //                col.Item().Height(20); // 间隔
 
-                     var response = await _webApiClient.PushFileAsync(savePath);
-                     AddLog($"[报表推送成功] 报表已推送");
-                 }
-                 catch (Exception pushEx)
-                 {
-                     // 推送失败不影响报表生成，仅记录日志
-                     AddLog($"[报表推送失败] 推送报表 {savePath} 失败：{pushEx.Message}");
-                     AddLog($"[报表推送失败] 堆栈跟踪：{pushEx.StackTrace}");
-                 }
+            //                // 2.2 缺陷详情标题
+            //                col.Item().Text("NG缺陷图片详情").FontSize(14).Bold();
+            //                col.Item().Height(5);
 
-                 AddLog($"[报表生成成功] 本组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片，保存路径：{savePath}");
-             }
-             catch (Exception ex)
-             {
-                 AddLog($"[报表生成错误] 生成报表失败：{ex.Message}");
-                 AddLog($"[报表生成错误] 堆栈跟踪：{ex.StackTrace}");
-             }*/
+            //                // 2.3 详情表格
+            //                col.Item().Table(table =>
+            //                {
+            //                    // 定义列宽比例：序号(1) : 图片(3) : 参数(6) -> 对应您原代码的 UnitValue.CreatePercentArray
+            //                    table.ColumnsDefinition(columns =>
+            //                    {
+            //                        columns.RelativeColumn(1);
+            //                        columns.RelativeColumn(5);
+            //                        columns.RelativeColumn(4);
+            //                    });
+
+            //                    // 表头
+            //                    void AddHeader(string text)
+            //                    {
+            //                        table.Cell().RowSpan(1).Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(5).AlignCenter().Text(text).SemiBold();
+            //                    }
+            //                    AddHeader("序号");
+            //                    AddHeader("缺陷结果图");
+            //                    AddHeader("参数信息");
+
+            //                    // 填充数据
+            //                    int cellIndex = 1;
+            //                    foreach (string cellCode in ngCellCodesInGroup)
+            //                    {
+            //                        if (!_ngImageDict.ContainsKey(cellCode)) continue;
+
+            //                        var cellImages = _ngImageDict[cellCode].Take(5).ToList();
+            //                        bool isFirstImageForCell = true;
+
+            //                        foreach (var imgInfo in cellImages)
+            //                        {
+            //                            // 序号列
+            //                            var seqCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignCenter().AlignMiddle();
+            //                            if (isFirstImageForCell)
+            //                            {
+            //                                seqCell.Text($"{cellIndex}");
+            //                                isFirstImageForCell = false;
+            //                            }
+            //                            else
+            //                            {
+            //                                seqCell.Text(""); // 空文本
+            //                            }
+
+            //                            // 图片列
+            //                            var imgCell = table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).AlignCenter().AlignMiddle();
+            //                            string? resultImagePath = GetResultImagePath(imgInfo.ImagePath!, "NG", true);
+
+            //                            if (File.Exists(resultImagePath))
+            //                            {
+            //                                try
+            //                                {
+            //                                    imgCell.Height(219).Image(resultImagePath).UseOriginalImage().FitArea();
+            //                                    //// 压缩图片
+            //                                    //byte[]? compressedImage = CompressImage(resultImagePath, quality: 80, maxWidth: 800);
+
+            //                                    //if (compressedImage != null && compressedImage.Length > 0)
+            //                                    //{
+            //                                    //    // 使用压缩后的字节数组加载图片
+            //                                    //    imgCell.Height(219).Image(compressedImage).UseOriginalImage().FitArea();
+
+            //                                    //    // 可选:记录压缩效果
+            //                                    //    long originalSize = new FileInfo(resultImagePath).Length;
+            //                                    //    double compressionRatio = (1 - (double)compressedImage.Length / originalSize) * 100;
+            //                                    //    AddLog($"[图片压缩] {Path.GetFileName(resultImagePath)} " +
+            //                                    //           $"原大小:{originalSize / 1024}KB,压缩后:{compressedImage.Length / 1024}KB " +
+            //                                    //           $"(压缩率:{compressionRatio:F1}%)", CoreLogLevel.Debug);
+            //                                    //}
+            //                                    //else
+            //                                    //{
+            //                                    //    // 压缩失败时回退到原图
+            //                                    //    imgCell.Height(219).Image(resultImagePath).UseOriginalImage().FitArea();
+            //                                    //    AddLog($"[图片压缩] 压缩失败,使用原图:{resultImagePath}", CoreLogLevel.Warn);
+            //                                    //}
+            //                                }
+            //                                catch (Exception ex)
+            //                                {
+            //                                    imgCell.Text($"图片加载失败:{ex.Message}");
+            //                                    AddLog($"[报表图片错误] {resultImagePath}:{ex.Message}", CoreLogLevel.Error);
+            //                                }
+            //                            }
+            //                            else
+            //                            {
+            //                                imgCell.Text("结果图不存在");
+            //                            }
+
+            //                            // 参数信息列
+            //                            string stationText = string.IsNullOrEmpty(imgInfo.Station) ? "未知" : imgInfo.Station;
+            //                            string imageNameStr = imgInfo.ImageName ?? "未知";
+
+            //                            table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten3).Padding(5).Column(infoCol =>
+            //                            {
+            //                                infoCol.Spacing(5);
+            //                                infoCol.Item().Text($"电芯编码：{imgInfo.CellCode}").Bold();
+            //                                infoCol.Item().Text($"班次：{imgInfo.Shift}");
+            //                                infoCol.Item().Text($"正负极：{imgInfo.Polarity}");
+            //                                //infoCol.Item().Text($"工位：{stationText}");
+            //                                infoCol.Item().Text($"检测时间：{imgInfo.DetectionTime:yyyy-MM-dd HH:mm:ss}");
+            //                                infoCol.Item().PaddingBottom(6).Text($"图片名：{imageNameStr}");
+            //                            });
+            //                        }
+            //                        cellIndex++;
+            //                    }
+            //                });
+            //            });
+
+            //            // 3. 页脚
+            //            page.Footer().AlignCenter().Text(x =>
+            //            {
+            //                x.Span("第 ");
+            //                x.CurrentPageNumber();
+            //                x.Span(" 页 / 共 ");
+            //                x.TotalPages();
+            //                x.Span(" 页");
+            //            });
+            //        });
+            //    })
+            //    .GeneratePdf(savePath); 
+
+
+
+            //AddLog($"[报表生成成功] 本组包含 {groupCellCodes.Count} 个电芯，其中 {ngCellCodesInGroup.Count} 个NG电芯，共 {imagesToReport.Count} 张NG图片，保存路径：{savePath}");
+
+            //    AddLog($"[报表生成成功] ... 保存路径：{savePath}");
+            //}
+            //catch (Exception ex)
+            //{
+            //    AddLog($"[报表生成错误] {ex.Message}");
+            //}
+
+
+            // ===================== 阶段 4：网络推送 (无锁，异步) =====================
+
+            if (!string.IsNullOrEmpty(savePath) && File.Exists(savePath))
+            {
+                try
+                {
+                    AddLog($"[报表推送] 开始推送：{Path.GetFileName(savePath)}");
+                    var response = await _webApiClient.PushFileAsync(savePath);
+
+                    if (response.Code != 200)
+                    {
+                        AddLog($"[推送失败] Code:{response.Code}, Msg:{response.Message}", CoreLogLevel.Warn);
+                    }
+                    else
+                    {
+                        AddLog($"[推送成功] 报表已上传");
+                    }
+                }
+                catch (Exception pushEx)
+                {
+                    AddLog($"[推送异常] {pushEx.Message}", CoreLogLevel.Warn);
+                }
+            }
+
+
 
 
 
         }
-
-        /*  private void AddInfoRowToSubTable(iText.Layout.Element.Table table, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor, string label, string value)
-          {
-              // 标签单元格 - 统一设置所有边框
-              table.AddCell(new iText.Layout.Element.Cell()
-                  .Add(new iText.Layout.Element.Paragraph(label).SetBold())
-                  .SetBackgroundColor(bgColor)
-                  .SetBorder(border)
-                  .SetPadding(5));
-
-              // 值单元格 - 统一设置所有边框
-              table.AddCell(new iText.Layout.Element.Cell()
-                  .Add(new iText.Layout.Element.Paragraph(value))
-                  .SetBorder(border)
-                  .SetPadding(5));
-          }
-
-          //表头单元格创建
-          private iText.Layout.Element.Cell CreateHeaderCell(string text, iText.Layout.Borders.Border border, iText.Kernel.Colors.Color bgColor)
-          {
-              return new iText.Layout.Element.Cell()
-                  .Add(new iText.Layout.Element.Paragraph(text)
-                      .SetBold()
-                      .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
-                  .SetBackgroundColor(bgColor)
-                  .SetBorder(border)
-                  .SetPadding(5);
-          }
-
-          //数据单元格创建
-          private iText.Layout.Element.Cell CreateDataCell(string text, iText.Layout.Borders.Border border)
-          {
-              return new iText.Layout.Element.Cell()
-                  .Add(new iText.Layout.Element.Paragraph(text)
-                      .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
-                  .SetBorder(border)
-                  .SetPadding(5);
-          }*/
 
 
 
@@ -8113,10 +8371,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
 
         #region 参数管控
-        // 参数管控新增命令
-        public ICommand AddRow { get; }
-        public ICommand DeleteRow { get; }
-        public ICommand SaveData { get; }
+
 
         public ObservableCollection<DefectParameter> DefectDataGrid { get; set; } = [];
 

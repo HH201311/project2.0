@@ -6132,9 +6132,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             try
             {
                 // ===================== 第一步：判断离线/在线模式 =====================
-                // 初始默认使用全局离线模式标识
                 bool isOffline = _isOfflineMode;
-                // 标准化原始图像路径（统一路径格式，避免因相对路径/大小写导致的判断错误）
+                // 标准化原始图像路径
                 string normalizedImagePath = Path.GetFullPath(imagePath);
 
                 // A工位在线判断：如果原始图像路径属于A工位监控目录，则强制切换为在线模式
@@ -6166,30 +6165,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         {
                             // 系统时间异常时使用默认日期兜底，避免路径构造失败
                             _offlineCurrentDate = "20251028";
-                            AddLog($"[离线初始化失败] 系统时间异常：{ex.Message}，强制使用默认日期：{_offlineCurrentDate}");
+                            AddLog($"[离线初始化失败] 系统时间异常：{ex.Message}，强制使用默认日期：{_offlineCurrentDate}",CoreLogLevel.Error);
                         }
                     }
                 }
 
                 // ===================== 第二步：确定根目录（容错适配） =====================
-                // 默认优先使用D盘作为根目录
-                string? rootDirectory = "D:";
-                // 容错1：D盘不存在则切换到系统文档目录
-                if (!Directory.Exists(rootDirectory))
-                {
-                    rootDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                    AddLog($"[根目录适配] D盘不存在，切换为文档目录：{rootDirectory}");
-                }
-                // 容错2：文档目录无效则切换到程序运行目录
-                if (string.IsNullOrEmpty(rootDirectory) || !Directory.Exists(rootDirectory))
-                {
-                    rootDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                    AddLog($"[根目录适配] 文档目录无效，切换为程序目录：{rootDirectory}");
-                }
-                // 最终容错：根目录仍无效则返回null
+                string? rootDirectory = GetValidRootDirectory();
+
                 if (string.IsNullOrEmpty(rootDirectory))
                 {
-                    AddLog("[错误] 无法获取有效盘符");
+                    AddLog("[严重错误] 无法获取任何有效的存储盘符（D/E盘已满或不存在，且备用路径无效）", CoreLogLevel.Error);
                     return null;
                 }
 
@@ -6251,7 +6237,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 // 拼接所有路径片段并标准化（解决路径分隔符、重复目录等问题）
                 string savePath = Path.GetFullPath(Path.Combine(pathParts.ToArray()));
-                AddLog($"[路径构造成功] {imageType}路径：{savePath}");
+                //AddLog($"[路径构造成功] {imageType}路径：{savePath}");
                 return savePath;
             }
             catch (Exception ex)
@@ -6260,6 +6246,76 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return null;
             }
         }
+
+        /// <summary>
+        /// 获取有效的根目录（优先D盘，空间不足转E盘，最后回退到文档）
+        /// </summary>
+        private string? GetValidRootDirectory()
+        {
+            // 定义最小剩余空间阈值 (例如：1GB)，防止写满导致系统崩溃
+            const long MIN_FREE_SPACE_BYTES = 1024L * 1024 * 1024; // 1GB
+
+            // 1. 优先检查列表
+            string[] preferredDrives = { "D:\\", "E:\\" };
+
+            foreach (var driveName in preferredDrives)
+            {
+                try
+                {
+                    // 检查驱动器是否存在且就绪
+                    DriveInfo drive = new DriveInfo(driveName);
+                    if (drive.IsReady)
+                    {
+                        // 检查剩余空间是否充足
+                        if (drive.AvailableFreeSpace > MIN_FREE_SPACE_BYTES)
+                        {
+                            // 空间充足，直接返回
+                            return driveName;
+                        }
+                        else
+                        {
+                            // 空间不足，记录日志并尝试下一个
+                            AddLog($"[存储警告] {driveName} 剩余空间不足 ({(drive.AvailableFreeSpace / 1024 / 1024)} MB)，尝试切换至备用盘...",CoreLogLevel.Warn);
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // 驱动器不存在或无法访问，忽略异常，继续检查下一个
+                }
+            }
+
+            // 2. 兜底方案A：系统文档目录
+            try
+            {
+                string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                if (Directory.Exists(docPath))
+                {
+                    AddLog($"[存储降级] 首选盘符(D/E)均不可用，切换至文档目录：{docPath}");
+                    return docPath;
+                }
+            }
+            catch { }
+
+            // 3. 兜底方案B：程序运行目录
+            try
+            {
+                string appPath = AppDomain.CurrentDomain.BaseDirectory;
+                // 获取程序所在盘符的剩余空间
+                string rootPath = Path.GetPathRoot(appPath) ?? appPath;
+                DriveInfo appDrive = new DriveInfo(rootPath);
+
+                if (appDrive.IsReady && appDrive.AvailableFreeSpace > 500L * 1024 * 1024) // 程序盘至少留500MB
+                {
+                    AddLog($"[存储降级] 切换至程序运行目录：{appPath}");
+                    return appPath;
+                }
+            }
+            catch { }
+
+            return null; // 无可用路径
+        }
+
 
         #region 参数管控-保存路径
         private string? GetResultImagePath1(string imagePath, string result, bool isResultImage)
@@ -7938,7 +7994,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                     {
                                         try
                                         {
-                                            imgCell.Height(150).Image(resultImagePath).UseOriginalImage().FitArea();
+                                            //imgCell.Height(150).Image(resultImagePath).UseOriginalImage().FitArea();
+                                            // 压缩图片
+                                            byte[]? compressedImage = CompressImage(resultImagePath, quality: 95, maxWidth: 1000);
+
+                                            if (compressedImage != null && compressedImage.Length > 0)
+                                            {
+                                                // 使用压缩后的字节数组加载图片
+                                                imgCell.Height(219).Image(compressedImage).UseOriginalImage().FitArea();
+
+                                                // 可选:记录压缩效果
+                                                long originalSize = new FileInfo(resultImagePath).Length;
+                                                double compressionRatio = (1 - (double)compressedImage.Length / originalSize) * 100;
+                                                AddLog($"[图片压缩] {Path.GetFileName(resultImagePath)} " +
+                                                       $"原大小:{originalSize / 1024}KB,压缩后:{compressedImage.Length / 1024}KB " +
+                                                       $"(压缩率:{compressionRatio:F1}%)", CoreLogLevel.Info, isToDatabase:true);
+                                            }
+                                            else
+                                            {
+                                                // 压缩失败时回退到原图
+                                                imgCell.Height(219).Image(resultImagePath).UseOriginalImage().FitArea();
+                                                AddLog($"[图片压缩] 压缩失败,使用原图:{resultImagePath}", CoreLogLevel.Warn);
+                                            }
                                         }
                                         catch (Exception)
                                         {
@@ -7954,11 +8031,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                     table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Column(infoCol =>
                                     {
                                         infoCol.Spacing(2);
-                                        infoCol.Item().Text($"编码：{imgInfo.CellCode}").Bold();
+                                        infoCol.Item().Text($"电芯编码：{imgInfo.CellCode}").Bold();
                                         infoCol.Item().Text($"班次：{imgInfo.Shift}");
                                         infoCol.Item().Text($"极性：{imgInfo.Polarity}");
-                                        infoCol.Item().Text($"时间：{imgInfo.DetectionTime:HH:mm:ss}");
-                                        infoCol.Item().Text($"文件：{imgInfo.ImageName}").FontSize(8).FontColor(QuestPDF.Helpers.Colors.Grey.Darken2);
+                                        infoCol.Item().Text($"时间：{imgInfo.DetectionTime:yyyy-MM-dd HH:mm:ss}");
+                                        infoCol.Item().Text($"图片文件：{imgInfo.ImageName}");
                                     });
 
                                     cellIndex++;

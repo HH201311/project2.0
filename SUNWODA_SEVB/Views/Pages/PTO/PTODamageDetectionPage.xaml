@@ -712,7 +712,8 @@
                             <!--  图像检索、图像存储  -->
                             <Grid Margin="0,20,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="0.6*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
@@ -843,6 +844,27 @@
                                                 IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
                                     </Grid>
+                                </StackPanel>
+                                <!--  存储缓存刷新  -->
+                                <StackPanel
+                                    Grid.Column="2"
+                                    Margin="0,20,0,0"
+                                    Orientation="Horizontal">
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontWeight="Bold"
+                                        Text="存储管理:" />
+                                    <Button
+                                        Width="100"
+                                        Height="30"
+                                        Margin="10,0,0,0"
+                                        Background="#E74C3C"
+                                        BorderThickness="0"
+                                        Command="{Binding InvalidateStorageCacheCommand}"
+                                        Content="刷新存储"
+                                        Foreground="White"
+                                        IsEnabled="{Binding CanOperate}"
+                                        ToolTip="清理磁盘后点击，立即重新检测可用盘符并重置告警状态" />
                                 </StackPanel>
                             </Grid>
 

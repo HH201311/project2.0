@@ -4,6 +4,7 @@ using HelixToolkit.Wpf;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using OpenCvSharp;
+using OpenTK.Compute.OpenCL;
 using QuestPDF;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -130,6 +131,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public ICommand AddRow { get; set; } = null!;
         public ICommand DeleteRow { get; set; } = null!;
         public ICommand SaveData { get; set; } = null!;
+
+        public ICommand InvalidateStorageCacheCommand { get; set; } = null!;
         #endregion
 
 
@@ -306,7 +309,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly object _queueLockA = new object();
         private bool _isThreadTerminatingA = false;
 
-       
+        //图片文件保存缓存字段
+        private string? _cachedRootDirectory = null;
+        private DateTime _rootDirLastChecked = DateTime.MinValue;
+        private const int ROOT_DIR_CACHE_MINUTES = 5; // 每5分钟重新检测一次
+        private const long MIN_FREE_SPACE_BYTES = 1L * 1024 * 1024 * 1024;
+        private bool _hasNotifiedStorageDegraded = false; //避免重复弹窗的标志位
+        private readonly object _storageDegradedLock = new object();
+        private string? _lastUsedRootDirectory = null; // 记录上次使用的根目录，用于检测切换（仅切换时才打日志）
+        private readonly HashSet<string> _warnedDrives = new HashSet<string>(StringComparer.OrdinalIgnoreCase); //已推送过警告的盘符集合
 
 
         // A工位监听文件路径目录
@@ -1587,6 +1598,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             SaveNegativeRoiCommand = new RelayCommand(SaveNegativeRoiAsHalconRegion);//弹窗-保存ROI
             ViewNegativeRoiCommand = new RelayCommand<string>(ViewNegativeRoi);//查看绘制结果
             CancelDrawRoiCommand = new RelayCommand(CancelDrawRoi);//弹窗-取消ROI绘制
+
+            InvalidateStorageCacheCommand = new RelayCommand(InvalidateRootDirectoryCache);
 
             // 正极ROI命令初始化
             SelectPositiveRoiImageCommand = new RelayCommand<string>(SelectPositiveRoiImage);
@@ -2962,6 +2975,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     ScanExistingFilesForToday(todayDate);
 
                     //启动定时任务 
+                    _dateCheckTimer.Elapsed -= OnDateCheckTimerElapsed;
                     _dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
                     _dateCheckTimer.Start();
 
@@ -3424,6 +3438,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 AddLog($"[日期切换] 已清理 {oldFiles.Count} 条旧记录");
+                // 跨天时清空极性缓存，防止内存无限膨胀
+                _polarityCache.Clear();
             }
         }
 
@@ -3684,7 +3700,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
                 // 1.创建新的取消令牌源：用于后续主动终止队列处理任务（如停止检测时取消）
+                if (_ctsA != null)
+                {
+                    _ctsA.Cancel();
+                    _ctsA.Dispose();
+                }
                 _ctsA = new CancellationTokenSource();
+
                 // 提取取消令牌，传递给异步任务
                 CancellationToken token = _ctsA.Token;
                 // 2. 启动异步任务：在后台线程执行队列处理逻辑（避免阻塞UI线程）
@@ -3840,6 +3862,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
                                 _fullDetectionDataList.Add(detectionData);// 添加到完整检测数据列表
+                                // 限制最大记录数（例如保留最近的 10000 条即可，足够统计使用）
+                                if (_fullDetectionDataList.Count > 2000)
+                                {
+                                    // 移除最旧的 2000 条，避免频繁触发 Remove 降低性能
+                                    _fullDetectionDataList.RemoveRange(0, 200);
+                                }
                                 UpdateDisplayDataList();// 更新展示用的数据列表
                                 CalculateDetectionStatistics();// 重新计算检测统计（OK数、NG数、OK率等）
                             });
@@ -4582,7 +4610,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (!string.IsNullOrEmpty(exInfo))
                 {
                     AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Info, isToDatabase: true);
-                    SaveDetectionResult(imagePath, imageMat, "检测异常", false);
+                    SaveToReviewFolder(imagePath, imageMat, "检测异常", false);
                 }
                 #endregion
 
@@ -4675,8 +4703,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                     if (IsSaveResultOK)
                     {
-                        SaveDetectionResult(imagePath, imageMat, finalResult, true);
-                        SaveDetectionResult1(imagePath, imageMat, finalResult, true);
+                        SaveToReviewFolder(imagePath, imageMat, finalResult, true);
+                        SaveToParamControlFolder(imagePath, imageMat, finalResult, true);
                     }
                 }
                 else // finalResult == "NG"
@@ -4739,8 +4767,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         // 在保存前添加日志检查
                         AddLog($"准备保存 NG 图：drawMat 尺寸 {drawMat.Width}x{drawMat.Height}，是否为空：{drawMat.Empty()}");
 
-                        SaveDetectionResult(imagePath, drawMat, finalResult, true);
-                        SaveDetectionResult1(imagePath, drawMat, finalResult, true);
+                        SaveToReviewFolder(imagePath, drawMat, finalResult, true);
+                        SaveToParamControlFolder(imagePath, drawMat, finalResult, true);
                     }
                 }
                 #endregion
@@ -4750,14 +4778,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     using (Mat originalMat = Cv2.ImRead(imagePath, ImreadModes.Color))
                     {
-                        SaveDetectionResult(imagePath, originalMat, finalResult, false);
+                        SaveToReviewFolder(imagePath, originalMat, finalResult, false);
                     }
                 }
                 if (IsSaveOriginalNG && finalResult == "NG")
                 {
                     using (Mat originalMat = Cv2.ImRead(imagePath, ImreadModes.Color))
                     {
-                        SaveDetectionResult(imagePath, originalMat, finalResult, false);
+                        SaveToReviewFolder(imagePath, originalMat, finalResult, false);
                     }
                 }
 
@@ -6040,8 +6068,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"路径解析异常：{ex.Message}，路径：{filePath}");
             }
         }
-        // 保存检测结果图像的方法
-        private void SaveDetectionResult(string originalImagePath, Mat imageMat, string result, bool isResultImage)
+        // 保存检测结果图像的方法（IME复判目录）
+        /*private void SaveToReviewFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage)
         {
             try
             {
@@ -6075,11 +6103,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 AddLog($"[保存异常] {ex.Message}");
             }
-        }
-
+        }*/
+       
 
         #region 参数管控 
-        private void SaveDetectionResult1(string originalImagePath, Mat imageMat, string result, bool isResultImage)
+        /// <summary>
+        /// 保存到参数管控目录（参数管控目录结构与复盘目录类似，但根目录不同）
+        /// </summary>
+        /// <param name="originalImagePath"></param>
+        /// <param name="imageMat"></param>
+        /// <param name="result"></param>
+        /// <param name="isResultImage"></param>
+        /*private void SaveToParamControlFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage)
         {
             try
             {
@@ -6113,8 +6148,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 AddLog($"[保存异常] {ex.Message}");
             }
-        }
+        }*/
 
+        private void SaveToParamControlFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage) => SaveDetectionResultToPath(originalImagePath, imageMat, result, isResultImage, SaveTarget.ParamControl);
+
+        private void SaveToReviewFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage) => SaveDetectionResultToPath(originalImagePath, imageMat, result, isResultImage, SaveTarget.Review);
         #endregion
 
         // 生成保存路径
@@ -6252,72 +6290,242 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private string? GetValidRootDirectory()
         {
-            // 定义最小剩余空间阈值 (例如：1GB)，防止写满导致系统崩溃
-            const long MIN_FREE_SPACE_BYTES = 1024L * 1024 * 1024; // 1GB
+            // 缓存有效则直接返回，无需每次都扫描盘符
+            if (_cachedRootDirectory != null && (DateTime.Now - _rootDirLastChecked).TotalMinutes < ROOT_DIR_CACHE_MINUTES)
+            {
+                return _cachedRootDirectory;
+            }
 
             // 1. 优先检查列表
-            string[] preferredDrives = { "D:\\", "E:\\" };
+            string[] preferredDrives = { "D:", "E:", "F:" };
+            string? selectedDir = null;
 
             foreach (var driveName in preferredDrives)
             {
                 try
                 {
                     // 检查驱动器是否存在且就绪
-                    DriveInfo drive = new DriveInfo(driveName);
-                    if (drive.IsReady)
+                    DriveInfo drive = new DriveInfo(driveName + "\\");
+                    if (!drive.IsReady)
                     {
-                        // 检查剩余空间是否充足
-                        if (drive.AvailableFreeSpace > MIN_FREE_SPACE_BYTES)
+                        continue;
+                    }
+
+                    if (drive.AvailableFreeSpace > MIN_FREE_SPACE_BYTES)
+                    {
+                        selectedDir = driveName;
+                        _warnedDrives.Remove(driveName);
+                        break; // 找到满足条件的盘符，停止扫描
+                    }
+                    else
+                    {
+                        // 空间不足时记录警告（实际业务问题，必须记录）
+                        if (_warnedDrives.Add(driveName)) // Add返回true表示是新增的
                         {
-                            // 空间充足，直接返回
-                            return driveName;
-                        }
-                        else
-                        {
-                            // 空间不足，记录日志并尝试下一个
-                            AddLog($"[存储警告] {driveName} 剩余空间不足 ({(drive.AvailableFreeSpace / 1024 / 1024)} MB)，尝试切换至备用盘...",CoreLogLevel.Warn);
+                            double freeSpaceGB = drive.AvailableFreeSpace / 1024.0 / 1024.0 / 1024.0;
+                            string pushContent = $"[存储警告] {driveName} 剩余可用空间：{freeSpaceGB:F2} GB，" +
+                                                 $"不满足最低要求 {MIN_FREE_SPACE_BYTES / 1024 / 1024 / 1024} GB";
+                            Growl.Warning(pushContent);
+                            AddLog($"[存储警告] {driveName} 剩余空间不足，尝试切换至备用盘...",
+                                   CoreLogLevel.Warn);
+
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var response = await _webApiClient.PushMessageAsync(pushContent);
+                                    if (response.Code != 200)
+                                        _logger.Warn($"消息推送失败：{response.Message}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Warn($"消息推送异常：{ex.Message}");
+                                }
+                            });
                         }
                     }
                 }
-                catch (Exception)
+                catch (DriveNotFoundException)
                 {
-                    // 驱动器不存在或无法访问，忽略异常，继续检查下一个
+                    AddLog($"[存储检查] {driveName} 驱动器不存在，跳过", CoreLogLevel.Debug);
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"[存储检查] {driveName} 检查异常：{ex.Message}，跳过", CoreLogLevel.Warn);
                 }
             }
 
-            // 2. 兜底方案A：系统文档目录
-            try
+            // ── 首选盘符均不可用，进入兜底逻辑 ──────────────────────────────
+            if (selectedDir == null)
             {
-                string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                if (Directory.Exists(docPath))
+                // 兜底方案A：系统文档目录
+                try
                 {
-                    AddLog($"[存储降级] 首选盘符(D/E)均不可用，切换至文档目录：{docPath}");
-                    return docPath;
+                    string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    if (Directory.Exists(docPath))
+                    {
+                        string? docRoot = Path.GetPathRoot(docPath);
+                        if (!string.IsNullOrEmpty(docRoot))
+                        {
+                            DriveInfo docDrive = new DriveInfo(docRoot);
+                            if (docDrive.IsReady && docDrive.AvailableFreeSpace > 500L * 1024 * 1024)
+                            {
+                                selectedDir = docPath;
+                                AddLog($"[存储降级] 首选盘符（D/E/F/G）均不可用，已切换至文档目录：{docPath}", CoreLogLevel.Warn);
+                            }
+                        }
+                    }
                 }
-            }
-            catch { }
+                catch (Exception ex)
+                {
+                    AddLog($"[存储降级] 文档目录检查失败：{ex.Message}", CoreLogLevel.Warn);
+                }
 
-            // 3. 兜底方案B：程序运行目录
-            try
+                // 兜底方案B：程序运行目录
+                if (selectedDir == null)
+                {
+                    try
+                    {
+                        string appPath = AppDomain.CurrentDomain.BaseDirectory;
+                        string? rootPath = Path.GetPathRoot(appPath);
+                        if (!string.IsNullOrEmpty(rootPath))
+                        {
+                            DriveInfo appDrive = new DriveInfo(rootPath);
+                            if (appDrive.IsReady && appDrive.AvailableFreeSpace > 500L * 1024 * 1024)
+                            {
+                                selectedDir = appPath;
+                                AddLog($"[存储降级] 文档目录也不可用，已切换至程序运行目录：{appPath}", CoreLogLevel.Warn);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AddLog($"[存储降级] 程序目录检查失败：{ex.Message}", CoreLogLevel.Warn);
+                    }
+                }
+
+                // 所有方案均失败
+                if (selectedDir == null)
+                {
+                    AddLog("[严重错误] 无法获取任何有效的存储路径，所有盘符均不可用！", CoreLogLevel.Error);
+                    // 清空缓存，下次调用时强制重新检测
+                    _cachedRootDirectory = null;
+                    return null;
+                }
+
+                // 进入降级路径时通知用户（仅弹一次）
+                NotifyStorageDegraded(selectedDir);
+            }
+            // ── 仅在根目录发生切换时才记录日志 ──────────────────────────────
+            if (selectedDir != _lastUsedRootDirectory)
             {
-                string appPath = AppDomain.CurrentDomain.BaseDirectory;
-                // 获取程序所在盘符的剩余空间
-                string rootPath = Path.GetPathRoot(appPath) ?? appPath;
-                DriveInfo appDrive = new DriveInfo(rootPath);
-
-                if (appDrive.IsReady && appDrive.AvailableFreeSpace > 500L * 1024 * 1024) // 程序盘至少留500MB
+                if (_lastUsedRootDirectory == null)
                 {
-                    AddLog($"[存储降级] 切换至程序运行目录：{appPath}");
-                    return appPath;
+                    // 首次初始化
+                    AddLog($"[存储初始化] 当前存储根目录：{selectedDir}");
                 }
+                else
+                {
+                    // 发生了切换（如从 D 盘切换到 E 盘）
+                    AddLog($"[存储切换] 根目录由 {_lastUsedRootDirectory} 切换为 {selectedDir}", CoreLogLevel.Warn);
+                }
+                _lastUsedRootDirectory = selectedDir;
             }
-            catch { }
 
-            return null; // 无可用路径
+            // ── 更新缓存 ──────────────────────────────────────────────────────
+            _cachedRootDirectory = selectedDir;
+            _rootDirLastChecked = DateTime.Now;
+
+            return _cachedRootDirectory;
+        }
+        /// <summary>
+        /// 存储路径降级时通知用户（仅弹窗一次，避免频繁打扰）
+        /// </summary>
+        private void NotifyStorageDegraded(string fallbackPath)
+        {
+            lock (_storageDegradedLock)
+            {
+                if (_hasNotifiedStorageDegraded) return;
+                _hasNotifiedStorageDegraded = true;
+            }
+
+            Application.Current.Dispatcher.BeginInvoke(() =>
+            {
+                Growl.Warning($"D/E盘存储空间不足！\n图片已切换保存至：\n{fallbackPath}\n请及时清理磁盘空间！");
+            });
+        }
+
+        /// <summary>
+        /// 主动使根目录缓存失效（如手动清理磁盘后，强制重新检测）
+        /// </summary>
+        public void InvalidateRootDirectoryCache()
+        {
+            _cachedRootDirectory = null;
+            _hasNotifiedStorageDegraded = false; // 同时重置弹窗标志，允许再次通知
+            _warnedDrives.Clear();
+            AddLog("[存储缓存] 已手动使根目录缓存失效，下次保存时将重新检测盘符",CoreLogLevel.Warn);
         }
 
 
+
         #region 参数管控-保存路径
+        /// <summary>
+        /// 保存目标目录枚举
+        /// </summary>
+        public enum SaveTarget
+        {
+            /// <summary>复判目录：IME复判</summary>
+            Review,
+            /// <summary>参数管控目录：IME参数管控</summary>
+            ParamControl
+        }
+
+        /// <summary>
+        /// 保存检测结果图像到指定目标目录（重构后的统一入口）
+        /// 原 SaveDetectionResult  → target = SaveTarget.Review
+        /// 原 SaveDetectionResult1 → target = SaveTarget.ParamControl
+        /// </summary>
+        /// <param name="originalImagePath">原始图片路径（用于生成保存路径）</param>
+        /// <param name="imageMat">待保存的图像 Mat 对象</param>
+        /// <param name="result">检测结果（OK / NG）</param>
+        /// <param name="isResultImage">true = 结果图，false = 原图</param>
+        /// <param name="target">保存目标目录</param>
+        private void SaveDetectionResultToPath(string originalImagePath, Mat imageMat,
+                                               string result, bool isResultImage,
+                                               SaveTarget target)
+        {
+            try
+            {
+                // 根据目标选择对应的路径生成方法
+                string? savePath = target == SaveTarget.Review
+                    ? GetResultImagePath(originalImagePath, result, isResultImage)
+                    : GetResultImagePath1(originalImagePath, result, isResultImage);
+
+                if (string.IsNullOrEmpty(savePath))
+                {
+                    AddLog($"[保存失败] 无法生成保存路径，目标：{target}，原始路径：{originalImagePath}");
+                    return;
+                }
+
+                string? directory = Path.GetDirectoryName(savePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                bool saveSuccess = Cv2.ImWrite(savePath, imageMat);
+                if (!saveSuccess)
+                {
+                    AddLog($"[保存失败] OpenCV 无法写入图像，路径：{savePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[保存异常] 目标：{target}，原因：{ex.Message}");
+            }
+        }
+
+
         private string? GetResultImagePath1(string imagePath, string result, bool isResultImage)
         {
             try
@@ -6358,20 +6566,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 //根目录构造
-                string? rootDirectory = "D:";
-                if (!Directory.Exists(rootDirectory))
-                {
-                    rootDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                    AddLog($"[根目录适配] D盘不存在，切换为文档目录：{rootDirectory}");
-                }
-                if (string.IsNullOrEmpty(rootDirectory) || !Directory.Exists(rootDirectory))
-                {
-                    rootDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                    AddLog($"[根目录适配] 文档目录无效，切换为程序目录：{rootDirectory}");
-                }
+                string? rootDirectory = GetValidRootDirectory();
                 if (string.IsNullOrEmpty(rootDirectory))
                 {
-                    AddLog("[错误] 无法获取有效盘符");
+                    AddLog($"[参数管控路径] {rootDirectory}无法获取有效存储根目录", CoreLogLevel.Error);
                     return null;
                 }
 
@@ -7996,7 +8194,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                         {
                                             //imgCell.Height(150).Image(resultImagePath).UseOriginalImage().FitArea();
                                             // 压缩图片
-                                            byte[]? compressedImage = CompressImage(resultImagePath, quality: 95, maxWidth: 1000);
+                                            byte[]? compressedImage = CompressImage(resultImagePath, quality: 95, maxWidth: 2000);
 
                                             if (compressedImage != null && compressedImage.Length > 0)
                                             {
@@ -8360,7 +8558,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return null;
                 }
 
-                using (var originalImage = System.Drawing.Image.FromFile(imagePath))
+                using (var fs = new FileStream(imagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var originalImage = System.Drawing.Image.FromStream(fs))
                 {
                     // 计算缩放比例
                     int newWidth = originalImage.Width > maxWidth ? maxWidth : originalImage.Width;

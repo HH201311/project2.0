@@ -2155,7 +2155,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 如果是查看模式，_drawImageWidth 可能为 0，需要先读取
             if (_drawImageWidth == 0 || _drawImageHeight == 0)
             {
-                var sizePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig", $"Negative_Camera{_currentRoiCameraNo}_Size.txt");
+                var sizePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig", $"{_currentRoiCameraNo}_Size.txt");
                 if (File.Exists(sizePath))
                 {
                     var parts = File.ReadAllText(sizePath).Split(',');
@@ -2267,7 +2267,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 try
                 {
                     HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
-                    HOperatorSet.GenImageConst(out dummyImage, "byte", 1920, 1200);
+                    HOperatorSet.GenImageConst(out dummyImage, "byte", _drawImageWidth, _drawImageHeight);
                     HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
 
                     HOperatorSet.WriteObject(roiXld, hobjPath);
@@ -2275,20 +2275,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
 
                     // 更新缓存
-                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+                    if (_detectionRegionCache.TryGetValue(_currentRoiCameraNo, out var old))
                     {
-                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+                        old?.Dispose();
                         _detectionRegionCache.Remove(_currentRoiCameraNo);
                     }
-                    _detectionRegionCache.Add(_currentRoiCameraNo, delRegion);
+                    _detectionRegionCache[_currentRoiCameraNo] = delRegion;
+                    delRegion = null; // 所有权已转移，防止 finally 中误释放
                 }
                 finally
                 {
+                    delRegion?.Dispose();
                     roiXld?.Dispose();
+                    dummyImage?.Dispose();
                     row?.Dispose();
                     col?.Dispose();
                 }
                 //UpdateRoiStatus(station, cameraNo, true);
+                UpdateRoiStatus(station, _inkCanvas.Strokes.Count > 0);
 
                 IsDrawFlyoutOpen = false;
                 MessageBox.Show($"{station}工位相机的ROI已保存！", "成功");
@@ -2305,25 +2309,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private void UpdateRoiStatus(string station, bool isEnabled)
         {
             switch (station)
-            {
-                //case "A":
-                //    switch (cameraNo)
-                //    {
-                //        case "1": HasNegativeRoiA1 = isEnabled; break;
-                //        case "2": HasNegativeRoiA2 = isEnabled; break;
-                //        case "3": HasNegativeRoiA3 = isEnabled; break;
-                //        case "4": HasNegativeRoiA4 = isEnabled; break;
-                //    }
-                //    break;
-                //case "B":
-                //    switch (cameraNo)
-                //    {
-                //        case "1": HasNegativeRoiB1 = isEnabled; break;
-                //        case "2": HasNegativeRoiB2 = isEnabled; break;
-                //        case "3": HasNegativeRoiB3 = isEnabled; break;
-                //        case "4": HasNegativeRoiB4 = isEnabled; break;
-                //    }
-                //    break;
+            {             
                 case"正极":
                     HasRoiPositive = isEnabled;
                     break;
@@ -2358,8 +2344,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             DrawTitle = $"绘制负极误判区域 - {station}工位相机{cameraNo}";
 
             var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-            string hobjPath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_ROI.hobj");
-            string sizePath = Path.Combine(roiDir, $"Negative_{station}{cameraNo}_Size.txt");
+            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
 
             if (!File.Exists(hobjPath) || !File.Exists(sizePath))
             {
@@ -4528,26 +4514,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             try
             {
                 #region ROI区域加载
-                //string stationCamerano = $"{station}";
-                //if (!_detectionRegionCache.TryGetValue(stationCamerano, out delRegion))
-                //{
-                //    delRegion = GenerateDelRegionFromXldFile(stationCamerano);
-                //    if (delRegion != null)
-                //    {
-                //        _detectionRegionCache[stationCamerano] = delRegion;
-                //        AddLog($"[检测文件兜底] {station}，从XLD生成DelRegion并缓存");
-                //    }
-                //    else if (!_warnedNoDelRegionCameras.Contains(stationCamerano))
-                //    {
-                //        AddLog($"[检测文件兜底] {station}，未使用负极误判区域过滤（无ROI）");
-                //        _warnedNoDelRegionCameras.Add(stationCamerano);
-                //    }
-                //}
+                string stationCamerano = $"{station}";
+                if (!_detectionRegionCache.TryGetValue(stationCamerano, out delRegion))
+                {
+                    delRegion = GenerateDelRegionFromXldFile(stationCamerano);
+                    if (delRegion != null)
+                    {
+                        _detectionRegionCache[stationCamerano] = delRegion;
+                        AddLog($"[检测文件兜底] {station}，从XLD生成DelRegion并缓存");
+                    }
+                    else if (!_warnedNoDelRegionCameras.Contains(stationCamerano))
+                    {
+                        AddLog($"[检测文件兜底] {station}，未使用负极误判区域过滤（无ROI）");
+                        _warnedNoDelRegionCameras.Add(stationCamerano);
+                    }
+                }
 
-                //if (delRegion == null || !delRegion.IsInitialized())
-                //{
-                //    HOperatorSet.GenEmptyRegion(out delRegion);
-                //}
+                if (delRegion == null || !delRegion.IsInitialized())
+                {
+                    HOperatorSet.GenEmptyRegion(out delRegion);
+                }
                 #endregion
 
                 #region 图片读取（重试机制）
@@ -4601,11 +4587,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 #region AI检测
                 if (_isPositivePolarity)
                 {
-                    ai.ModelActionDiePian(H246Zhengmodle, imageMat, ZhengGongwei, delRegion!, out defectList, out exInfo);
+                    ai.ModelActionDiePian(H246Zhengmodle, imageMat, ZhengGongwei, delRegion, out defectList, out exInfo);
                 }
                 else
                 {
-                    ai.ModelActionDiePian(H246Fumodle, imageMat, FuGongwei, delRegion!, out defectList, out exInfo);
+                    ai.ModelActionDiePian(H246Fumodle, imageMat, FuGongwei, delRegion, out defectList, out exInfo);
                 }
                 if (!string.IsNullOrEmpty(exInfo))
                 {

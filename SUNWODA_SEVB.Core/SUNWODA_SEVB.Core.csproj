@@ -10,12 +10,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Interfaces\Project\**" />
     <Compile Remove="Interfaces\Repositories\**" />
     <Compile Remove="Interfaces\Services\**" />
+    <EmbeddedResource Remove="Interfaces\Project\**" />
     <EmbeddedResource Remove="Interfaces\Repositories\**" />
     <EmbeddedResource Remove="Interfaces\Services\**" />
+    <None Remove="Interfaces\Project\**" />
     <None Remove="Interfaces\Repositories\**" />
     <None Remove="Interfaces\Services\**" />
+    <Page Remove="Interfaces\Project\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -86,22 +94,7 @@
     <None Update="Dlls\Yolo8Core.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Dlls\YOLOClsFW48_sevb.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Dlls\YOLODetFW48_sevb.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Dlls\YOLOPoseFW48_sevb.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Dlls\YOLOSegFW48_sevb.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="Dlls\YoloV8Net.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Dlls\ZZC03PDJS.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

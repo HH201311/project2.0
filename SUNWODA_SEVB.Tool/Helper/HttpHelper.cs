@@ -164,46 +164,42 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
 
                 // 临时设置超时时间
-                var originalTimeout = _httpClient.Timeout;
-                _httpClient.Timeout = TimeSpan.FromSeconds(timeout);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
 
-                try
+                using var form = new MultipartFormDataContent();
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                // 添加文件
+                var fileContent = new ByteArrayContent(File.ReadAllBytes(filePath));
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                form.Add(fileContent, fileParamName, fileName);
+
+                // 添加表单数据
+                if (formData != null)
                 {
-                    using var form = new MultipartFormDataContent();
-                    using var request = new HttpRequestMessage(HttpMethod.Post, url);
-                    // 添加文件
-                    var fileContent = new ByteArrayContent(File.ReadAllBytes(filePath));
-                    fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
-                    form.Add(fileContent, fileParamName, fileName);
-
-                    // 添加表单数据
-                    if (formData != null)
+                    foreach (var item in formData)
                     {
-                        foreach (var item in formData)
-                        {
-                            form.Add(new StringContent(item.Value), item.Key);
-                        }
+                        form.Add(new StringContent(item.Value), item.Key);
                     }
-
-                    request.Content = form;
-
-                    // 添加头部
-                    if (headers != null)
-                    {
-                        foreach (var header in headers)
-                        {
-                            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                        }
-                    }
-
-                    var response = _httpClient.SendAsync(request).Result;
-                    return response.Content.ReadAsStringAsync().Result;
                 }
-                finally
+
+                request.Content = form;
+
+                // 添加头部
+                if (headers != null)
                 {
-                    // 恢复原始超时时间
-                    _httpClient.Timeout = originalTimeout;
+                    foreach (var header in headers)
+                    {
+                        request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    }
                 }
+
+                var response = _httpClient.SendAsync(request).Result;
+                return response.Content.ReadAsStringAsync().Result;
+               
+            }
+            catch (OperationCanceledException)
+            {
+                return $"{{\"code\":\"408\",\"message\":\"请求超时\"}}";
             }
             catch (Exception ex)
             {
@@ -271,6 +267,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+
         public async Task<byte[]> HttpWebPostBytesAsync(string jsonString, byte[]? fileBytes, string url, string fileType, string format)
         {
             using var form = new MultipartFormDataContent();
@@ -294,7 +291,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 var fileContent = new ByteArrayContent(fileBytes);
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
                 // 自动生成文件名（保证 multipart 格式完整）
-                string autoFileName = $"upload_{DateTime.Now:yyyyMMdd_HHmmssfff}.{format}";
+                string autoFileName = $"Exception.{format}";
                 form.Add(fileContent, "file", autoFileName);
             }
 
@@ -339,10 +336,126 @@ namespace SUNWODA_SEVB.Tool.Helper
                     form.Add(fileContent, $"{FileExt}", FileName);
                 }
             }
-
+            
             var response = await _httpClient.PostAsync(url, form);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
+        }
+
+        public async Task<string> PostWithRetryAsync(
+            string url,
+            string jsonData,
+            string contentType = "application/json",
+            Dictionary<string, string>? headers = null,
+            int retryCount = 3,
+            int retryDelayMs = 1000,
+            int timeoutSeconds = 30)
+        {
+            int attempt = 0;
+            Exception? lastException = null;
+
+            while (attempt < retryCount)
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                   
+                    var content = new StringContent(jsonData, Encoding.UTF8, contentType);
+                    using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                    request.Content = content;
+
+                    if (headers != null)
+                    {
+                        foreach (var header in headers)
+                        {
+                            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                        }
+                    }
+
+                    var response = await _httpClient.SendAsync(request);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return await response.Content.ReadAsStringAsync();
+                    }
+
+                    lastException = new HttpRequestException($"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}");
+
+                }
+                catch (OperationCanceledException)
+                {
+                    lastException = new TimeoutException($"请求超时 ({timeoutSeconds}秒)");
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+
+                attempt++;
+                if (attempt < retryCount)
+                {
+                    await Task.Delay(retryDelayMs);
+                }
+            }
+
+            return $"failed: 已重试 {retryCount} 次, 最后错误: {lastException?.Message}";
+        }
+
+        public async Task<string> PostFileWithRetryAsync(
+            string url,
+            string filePath,
+            Dictionary<string, string>? formData = null,
+            int retryCount = 3,
+            int retryDelayMs = 1000,
+            int timeoutSeconds = 30)
+        {
+            int attempt = 0;
+            Exception? lastException = null;
+
+            while (attempt < retryCount)
+            {
+                try
+                {            
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+
+                    using var form = new MultipartFormDataContent();
+                    await using var fileStream = File.OpenRead(filePath);
+                    var fileContent = new StreamContent(fileStream);
+
+                    form.Add(fileContent, "file", Path.GetFileName(filePath));
+
+                    if (formData != null)
+                    {
+                        foreach (var item in formData)
+                        {
+                            form.Add(new StringContent(item.Value ?? string.Empty), item.Key);
+                        }
+                    }
+
+                    var response = await _httpClient.PostAsync(url, form, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return await response.Content.ReadAsStringAsync();
+                    }
+                    lastException = new HttpRequestException($"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}");
+
+                }
+                catch (OperationCanceledException)
+                {
+                    lastException = new TimeoutException($"请求超时 ({timeoutSeconds}秒)");
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+
+                attempt++;
+                if (attempt < retryCount)
+                {
+                    await Task.Delay(retryDelayMs);
+                }
+            }
+
+            return $"failed: 已重试 {retryCount} 次, 最后错误: {lastException?.Message}";
         }
 
         public void Dispose()

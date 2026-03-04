@@ -1,11 +1,14 @@
-﻿using System.Diagnostics;
-using System.IO;
-using System.Text;
+﻿using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 
 namespace SUNWODA_SEVB.WEB.Services
 {
@@ -111,7 +114,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 // 参数容错处理，避免 null
                 var parameters = new Dictionary<string, string>
                 {
-                    { "devId", deviceSn ?? string.Empty },
+                    { "DevId", deviceSn ?? string.Empty },
                     { "state", state ?? string.Empty },
                     { "info",  info  ?? string.Empty },
                     { "UUID",  uuid  ?? string.Empty }
@@ -126,11 +129,6 @@ namespace SUNWODA_SEVB.WEB.Services
                 {
                     try
                     {
-                        //var jsonOptions = new System.Text.Json.JsonSerializerOptions
-                        //{
-                        //    PropertyNameCaseInsensitive = true,
-                        //    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
-                        //};
                         response = JsonHelper.Deserialize<HeartbeatResponse>(result);
                     }
                     catch (Exception ex)
@@ -139,7 +137,6 @@ namespace SUNWODA_SEVB.WEB.Services
                     }
                 }
                 var statusCode = response?.Code ?? 0;
-                //_logger.LogWebInterface(url, "GET", string.Join("&", parameters.Select(kv => $"{kv.Key}={kv.Value}")), result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
 
                 var hasFailedKeyword = !string.IsNullOrEmpty(result) && result.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0;
 
@@ -170,6 +167,100 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
             }
         }
+
+        /// <summary>
+        /// 发送机器错误预警信息到上位机接口
+        /// </summary>
+        /// <param name="deviceId">设备ID，必填</param>
+        /// <param name="info">信息，必填</param>
+        /// <param name="state">状态，必填</param>
+        /// <param name="type">消息操作类型，必填，默认"WX"</param>
+        /// <param name="projectName">项目名称，用于选择企微推送名单，必填</param>
+        /// <param name="level">预警等级，必填，1～10，代表不同频率1表示1小时1次，2表示30分钟1次，3表示20分钟1次，4表示15分钟1次，5表示12分钟1次，6表示10分钟1次，10表示每次报警都发送</param>
+        /// <returns>返回预警结果的响应对象</returns>
+        public async Task<MachineErrorResponse> SendMachineErrorAlertAsync(
+            string deviceId,
+            string info,
+            string state="1",
+            string type = "WX",
+            string projectName = "",
+            string level = "10")
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if(settings==null || string.IsNullOrEmpty(settings.CentralControlWebUrl))
+                {
+                    return new MachineErrorResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中Web端的Url未配置"
+                    };
+                }
+                if (!settings.EnableMachineErrorAlert) { 
+                    return new MachineErrorResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中预警功能未启用"
+                    };
+                }
+                var baseUrl = settings.CentralControlWebUrl!;
+                if (!baseUrl.EndsWith("/")) baseUrl += "/";
+
+                var url = $"{baseUrl}machineHeart/machineErrorLog";
+
+                // 参数容错，避免null
+                var parameters = new Dictionary<string, string>
+                {
+                    { "devId", deviceId ?? string.Empty },
+                    { "info", info ?? string.Empty },
+                    { "state", state ?? string.Empty },
+                    { "type", type ?? "WX" },
+                    { "projectName", projectName ?? string.Empty },
+                    { "level", level ?? "10" }
+                };
+
+                var sw = Stopwatch.StartNew();
+                var result = await Task.Run(() => _httpHelper.IMEWebGet(url, parameters));
+                sw.Stop();
+
+                MachineErrorResponse? response = null;
+                if (!string.IsNullOrWhiteSpace(result))
+                {
+                    try
+                    {
+                        response = JsonHelper.Deserialize<MachineErrorResponse>(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error("上位机预警API反序列化失败", ex);
+                    }
+                }
+
+                if (response != null)
+                {
+                    return response;
+                }
+                else
+                {
+                    return new MachineErrorResponse
+                    {
+                        Code = 0,
+                        Message = "反序列化失败或接口无返回"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("上位机预警API调用失败", ex);
+                return new MachineErrorResponse
+                {
+                    Code = 0,
+                    Message = ex.Message
+                };
+            }
+        }
+
 
         public async Task<PcInfoResponse> UploadPcInfoAsync(PcInfoRequest request, string uuid)
         {
@@ -217,8 +308,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 var statusCode = response?.Code ?? 0;
                 _logger.LogWebInterface(url, "pcinfo", json ?? string.Empty, result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
 
-                var hasFailedKeyword = !string.IsNullOrEmpty(result) &&
-                               result.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0;
+                var hasFailedKeyword = !string.IsNullOrEmpty(result) && result.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0;
 
                 if (!hasFailedKeyword)
                 {
@@ -263,9 +353,9 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}machineHeart/checkVerInfo";
                 var headers = new Dictionary<string, string>
                 {
-                    {"softName", softName},
-                    {"softVersion", softVersion},
-                    {"devId", deviceSn}
+                    {"SoftName", softName},
+                    {"SoftVersion", softVersion},
+                    {"DevId", deviceSn}
                 };
 
                 var result = await Task.Run(() => _httpHelper.IMEWebGet(url, headers));
@@ -314,8 +404,8 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}MachineSoftUpdateController/downloadFile";
                 var headers = new Dictionary<string, string>
                 {
-                    {"softName", softName},
-                    {"softVersion", softVersion},
+                    {"SoftName", softName},
+                    {"SoftVersion", softVersion},
                     {"UUID", uuid}
                 };
 
@@ -374,8 +464,8 @@ namespace SUNWODA_SEVB.WEB.Services
                 var url = $"{settings.CentralControlWebUrl}MachineSoftUpdateController/uploadFile";
                 var body = new Dictionary<string, string>
                 {
-                    {"softVersion", version},
-                    {"softName", name}
+                    {"SoftVersion", version},
+                    {"SoftName", name}
                 };
 
                 var result = await Task.Run(() =>
@@ -567,7 +657,7 @@ namespace SUNWODA_SEVB.WEB.Services
         }
 
         /// <summary>
-        /// UE端数据接收接口-视觉机损检测
+        /// 鹰眼系统视觉机损检测
         /// </summary>
         /// <param name="position"></param>
         /// <param name="barCode"></param>
@@ -577,9 +667,14 @@ namespace SUNWODA_SEVB.WEB.Services
         /// <param name="defectHeight"></param>
         /// <param name="defectArea"></param>
         /// <param name="detectionResult"></param>
-        /// <param name="pictureFile"></param>
+        /// <param name="file"></param>
         /// <returns></returns>
-        public async Task<AiDetectionDataResponse> AiDetectionDataAsync(string position, string barCode, long abnormalTimeStamp, float score, float defectWidth, float defectHeight, float defectArea, string detectionResult, byte[]? pictureFile)
+        public async Task<AiDetectionDataResponse> AiDetectionDataAsync
+        (
+            string position, string barCode, long abnormalTimeStamp,
+            string detectionResult, byte[]? file,string contentType = "image/png", 
+            string fileExt = "png",int dataType = 2
+        )
         {
             try
             {
@@ -603,17 +698,17 @@ namespace SUNWODA_SEVB.WEB.Services
                     DeviceId = settings.DeviceSn ?? "",
                     Position = position,
                     BarCode = barCode,
-                    AbnormalTimeStamp = abnormalTimeStamp,
-                    Score = score,
-                    DefectWidth = defectWidth,
-                    DefectHeight = defectHeight,
-                    DefectArea = defectArea,
-                    DetectionResult = detectionResult
+                    AbnormalTimeStamp = abnormalTimeStamp,                    
+                    DetectionResult = detectionResult,
+                    DataType = dataType
                 };
 
                 var json = JsonHelper.Serialize(request);
 
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, pictureFile, url, "image/png", "png")));
+                Stopwatch sw = Stopwatch.StartNew();
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, contentType, fileExt)));
+                sw.Stop();
+
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))
                 {
@@ -627,6 +722,8 @@ namespace SUNWODA_SEVB.WEB.Services
                 // 尝试反序列化，如果失败则将结果作为 DataStr 返回
                 if (JsonHelper.TryDeserialize<AiDetectionDataResponse>(result, out var response) && response != null)
                 {
+                    var statusCode = response.Code ?? 0;
+                    _logger.LogWebInterface(url, "aiDetectionData", json ?? string.Empty, result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
                     return response;
                 }
 
@@ -648,7 +745,7 @@ namespace SUNWODA_SEVB.WEB.Services
         }
 
         /// <summary>
-        /// 摄像头新增/更新接口
+        /// 鹰眼系统-摄像头新增/更新接口
         /// </summary>
         /// <param name="cameras"></param>
         /// <returns></returns>
@@ -677,14 +774,17 @@ namespace SUNWODA_SEVB.WEB.Services
                         ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
                         Process = workshipParts.ElementAtOrDefault(3) ?? "",
                         DeviceId = settings.DeviceSn ?? "",
-                        Position = item.WorkStaion,
+                        Position = item.WorkStation,
                         IpAddress = item.Remake,
                         CameraSn = item.GuidId,
-                        Enable = item.Enable,
+                        Enable = item.Enable ? 1 : 0,
                     });
                 }
                 var json = JsonHelper.Serialize(request);
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json")));
+
+                Stopwatch sw = Stopwatch.StartNew();
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPostAsync(url, json, "application/json", null)));
+                sw.Stop();
 
                 // 接口报错返回字符串包含failed
                 if (result.Contains("failed"))
@@ -699,6 +799,8 @@ namespace SUNWODA_SEVB.WEB.Services
                 // 尝试反序列化，如果失败则将结果作为 DataStr 返回
                 if (JsonHelper.TryDeserialize<AddCameraResponse>(result, out var response) && response != null)
                 {
+                    var statusCode = response.Code ?? 0;
+                    _logger.LogWebInterface(url, "addCamera", json ?? string.Empty, result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
                     return response;
                 }
 
@@ -720,117 +822,39 @@ namespace SUNWODA_SEVB.WEB.Services
         }
 
         /// <summary>
-        /// UE端数据接收-轨迹检测
+        /// 鹰眼系统异常视频数据上传-轨迹检测-多文件上传
         /// </summary>
         /// <param name="position"></param>
         /// <param name="barCode"></param>
         /// <param name="abnormalTimeStamp"></param>
         /// <param name="abnormalTimeStampEnd"></param>
-        /// <param name="detectionResult"></param>
-        /// <param name="file"></param>
-        /// <param name="aiPointListDtoList"></param>
+        /// <param name="videoFiles"></param>
+        /// <param name="frameDtoList"></param>
+        /// <param name="abnormaVideoStatus"></param>
         /// <returns></returns>
         public async Task<TrajectoryDataResponse> TrajectoryDataAsync
         (
-            string position, string barCode, long abnormalTimeStamp,
-            long abnormalTimeStampEnd, byte[] file,
-            List<FrameDtoList> frameDtoList, string abnormaVideoStatus
+            string position,
+            string barCode,
+            long abnormalTimeStamp,
+            long abnormalTimeStampEnd,
+            List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles,
+            List<FrameDtoList> frameDtoList,
+            string abnormaVideoStatus
         )
         {
             try
             {
                 var settings = _configuration.GetSettings();
-                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
-                {
-                    return new TrajectoryDataResponse
-                    {
-                        IsSuccess = false,
-                        Message = "WebTestUrlSysCenter未配置"
-                    };
-                }
-
                 var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new TtrajectoryDataRequest
                 {
+                    ProductionBase = workshipParts.ElementAtOrDefault(0) ?? "",
+                    ProductionLine = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
                     Position = position,
-                    Process = "叠片工序",
-                    ProductionLine = "PTO",
-                    ProductionBase = "惠州",
-                    //ProductionBase = "枣庄",
-                    //ProductionLine = "C01A线",
-                    //Process = "CT工序",                    
-                    //Position = "上料工位",
-                    DeviceId = "CT01",
-                    BarCode = barCode,
-                    AbnormalTimeStamp = abnormalTimeStamp,
-                    AbnormalTimeStampEnd = abnormalTimeStampEnd,
-                    DetectionResult = abnormaVideoStatus,
-                    AlertLevel = 1,
-                    StatusFlag = 1,
-                    FrameDtoList = frameDtoList
-                };
-
-                var json = JsonHelper.Serialize(request);
-                frameDtoList.Clear();
-                abnormaVideoStatus = string.Empty;
-                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, "video/mp4", "mp4")));
-
-                // 接口报错返回字符串包含failed
-                if (result.Contains("failed"))
-                {
-                    return new TrajectoryDataResponse
-                    {
-                        IsSuccess = false,
-                        Message = result
-                    };
-                }
-
-                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
-                if (JsonHelper.TryDeserialize<TrajectoryDataResponse>(result, out var response) && response != null)
-                {
-                    return response;
-                }
-
-                return new TrajectoryDataResponse
-                {
-                    IsSuccess = false,
-                    Message = result
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("UE端数据接收API调用失败", ex);
-                return new TrajectoryDataResponse
-                {
-                    IsSuccess = false,
-                    Message = ex.Message
-                };
-            }
-        }
-
-
-        public async Task<TrajectoryDataResponse> TrajectoryDataAsync(
-            string position,
-            string barCode,
-            long abnormalTimeStamp,
-            long abnormalTimeStampEnd,
-            List<(byte[] FileBytes, string ContentType, string FileName, string FileExt)> videoFiles, // <= 1 或 2 或 0 都支持
-            List<FrameDtoList> frameDtoList,
-            string abnormaVideoStatus)
-        {
-            try
-            {
-                var settings = _configuration.GetSettings();
-                var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
-
-                var request = new TtrajectoryDataRequest
-                {
-                    Position = position,
-                    Process = "叠片工序",
-                    ProductionLine = "PTO",
-                    ProductionBase = "惠州",
-                    DeviceId = "CT01",
                     BarCode = barCode,
                     AbnormalTimeStamp = abnormalTimeStamp,
                     AbnormalTimeStampEnd = abnormalTimeStampEnd,
@@ -844,13 +868,19 @@ namespace SUNWODA_SEVB.WEB.Services
                 frameDtoList.Clear();
 
                 // 上传
+                Stopwatch sw = Stopwatch.StartNew();
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostMultiFilesAsync(json, videoFiles, url)));
+                sw.Stop();
 
                 if (result.Contains("failed"))
                     return new TrajectoryDataResponse { IsSuccess = false, Message = result };
 
                 if (JsonHelper.TryDeserialize<TrajectoryDataResponse>(result, out var response) && response != null)
+                {
+                    var statusCode = response.Code ?? 0;
+                    _logger.LogWebInterface(url, "trajectoryData", json ?? string.Empty, result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
                     return response;
+                }
 
                 return new TrajectoryDataResponse { IsSuccess = false, Message = result };
             }
@@ -860,6 +890,234 @@ namespace SUNWODA_SEVB.WEB.Services
                 return new TrajectoryDataResponse { IsSuccess = false, Message = ex.Message };
             }
         }
+
+
+        /// <summary>
+        /// 容量预测数据上传
+        /// </summary>
+        /// <param name="cameras"></param>
+        /// <returns></returns>
+        public async Task<CapacityPredictionDataResponse> CapacityPredictionAsync(string barCode, CapacityPredictionData[] capacityPredictionDataAry)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new CapacityPredictionDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{settings.WebTestUrlSysCenter}cclsService/capacityPrediction/uploadDataC03684AH";
+                var workshipParts = settings.Workship?.Split(':') ?? new string[4];
+                CapacityPredictionRequest request = new()
+                {
+                    Line = workshipParts.ElementAtOrDefault(2) ?? "",
+                    Process = workshipParts.ElementAtOrDefault(3) ?? "",
+                    DeviceId = settings.DeviceSn ?? "",
+                    ProcessCode = settings.ProcessCode ?? "",
+                    BarCode = barCode ?? "",
+                    UploadTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    DataList = capacityPredictionDataAry
+                };
+
+                var json = JsonHelper.Serialize(request);
+
+                Stopwatch sw = Stopwatch.StartNew();
+                var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.IMEWebPostAsync(url, json, "application/json", null)));
+                sw.Stop();
+
+                // 接口报错返回字符串包含failed
+                if (result.Contains("failed"))
+                {
+                    return new CapacityPredictionDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = result
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<CapacityPredictionDataResponse>(result, out var response) && response != null)
+                {
+                    var statusCode = response.Code ?? 0;
+                    _logger.LogWebInterface(url, "capacityPrediction", json ?? string.Empty, result ?? string.Empty, statusCode, sw.ElapsedMilliseconds);
+                    return response;
+                }
+
+                return new CapacityPredictionDataResponse
+                {
+                    IsSuccess = false,
+                    Message = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("容量预测API调用失败", ex);
+                return new CapacityPredictionDataResponse
+                {
+                    IsSuccess = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        #region 消息or文件推送
+        /// <summary>
+        /// 推送文本消息
+        /// </summary>
+        /// <param name="messageContent">消息内容</param>
+        /// <returns>是否推送成功</returns>
+        public async Task<WebApiSendResponse> PushMessageAsync(string messageContent)
+        {
+            try
+            {
+                var settings = _configuration.GetSettings();
+                if (settings == null || string.IsNullOrEmpty(settings.WebPushApiUrl))
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中Web端的Url未配置"
+                    };
+                }
+                if (!settings.EnableWebPush)
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中信息或文件推送功能未启用"
+                    };
+                }
+                var baseUrl = settings.WebPushApiUrl;
+                
+                if (!baseUrl.EndsWith("/")) baseUrl += "/";
+
+                var url = $"{baseUrl}sendTextFs";
+
+                var request = new PushMessageRequest
+                {
+                    SystemTypeId = settings.PushSystemTypeId,
+                    Message = messageContent,
+                    UserId = settings.PushUserId,
+                    AppId = settings.PushAppId,
+                    SystemType = settings.PushSystemType
+                };
+
+                string postData = JsonHelper.Serialize(request);
+                var result = await _httpHelper.PostWithRetryAsync(url,postData,retryCount: settings.PushRetryCount,retryDelayMs: settings.PushRetryDelayMs,timeoutSeconds: 5);
+
+                if (result.StartsWith("failed"))
+                {
+                    _logger.Error($"消息推送失败: {result}");
+                    return new WebApiSendResponse { Code = 0, Message = result };
+                }
+
+                if (JsonHelper.TryDeserialize<WebApiSendResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new WebApiSendResponse { Code = 200, Message = "推送成功" };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"推送文本消息失败: {ex.Message}", ex);
+                return new WebApiSendResponse
+                {
+                    Code = 0,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 推送文件到默认用户
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>是否推送成功</returns>
+        public async Task<WebApiSendResponse> PushFileAsync(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.Error($"推送文件不存在: {filePath}");
+                return new WebApiSendResponse
+                {
+                    Code = 0,
+                    Message = $"推送文件不存在: {filePath}"
+                };
+            }
+
+            try
+            {
+                var settings = _configuration.GetSettings();
+
+                if (settings == null || string.IsNullOrEmpty(settings.WebPushApiUrl))
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中Web端的Url未配置"
+                    };
+                }
+                if (!settings.EnableWebPush)
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中信息或文件推送功能未启用"
+                    };
+                }
+                if (string.IsNullOrEmpty(settings.PushUserId))
+                {
+                    return new WebApiSendResponse
+                    {
+                        Code = 0,
+                        Message = "数据库中userId信息未配置"
+                    };
+                }
+
+                var baseUrl = settings.WebPushApiUrl;
+                if (!baseUrl.EndsWith("/")) baseUrl += "/";
+
+                var url = $"{baseUrl}sendFsTextAndFile";
+
+                var formData = new Dictionary<string, string>
+                {
+                    { "userId", settings.PushUserId },
+                    { "appId", settings.PushAppId ?? string.Empty }
+                };
+
+                var result = await _httpHelper.PostFileWithRetryAsync( url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 30);
+
+                if (result.Contains("failed"))
+                {
+                    _logger.Error($"文件推送失败: {result}");
+                    return new WebApiSendResponse { Code = 0, Message = result };
+                }
+
+                if (JsonHelper.TryDeserialize<WebApiSendResponse>(result, out var response) && response != null)
+                {
+                    return response;
+                }
+
+                return new WebApiSendResponse { Code = 200, Message = "文件推送成功" };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"推送文件失败: {ex.Message}", ex);
+                return new WebApiSendResponse
+                {
+                    Code = 0,
+                    Message = ex.Message
+                };
+            }
+        }
+     
+        #endregion
 
     }
 }

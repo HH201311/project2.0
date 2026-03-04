@@ -184,8 +184,16 @@ namespace SUNWODA_SEVB.Component.UserControls
             if (PlotControl?.Plot != null)
             {
                 PlotControl.Plot.Grid.IsVisible = ShowGrid;
+                InitializeMouseHover();
             }
         }
+
+
+
+        #region 属性
+        private ScottPlot.Plottables.Crosshair? _crosshair;
+        private ToolTip? _plotToolTip;
+        #endregion
 
         #region 依赖属性
 
@@ -451,6 +459,7 @@ namespace SUNWODA_SEVB.Component.UserControls
             ApplyPlotConfiguration();
 
             // 设置坐标轴范围
+            PlotControl.Plot.Axes.AutoScale();
             SetAxisLimits();
 
             PlotControl.Refresh();
@@ -570,7 +579,8 @@ namespace SUNWODA_SEVB.Component.UserControls
         {
             if (PlotControl?.Plot == null) return;
 
-            if (ShowLegend && DataSeriesCollection != null && DataSeriesCollection.Count > 0)
+            if (ShowLegend && DataSeriesCollection != null && DataSeriesCollection.Count > 0
+                && DataSeriesCollection.Count < 4)
             {
                 var legend = PlotControl.Plot.ShowLegend();
                 legend.Alignment = ScottPlot.Alignment.LowerRight;
@@ -601,12 +611,149 @@ namespace SUNWODA_SEVB.Component.UserControls
             var limits = PlotControl.Plot.Axes.GetLimits();
 
             // X轴从0开始
-            if (limits.Left < 0)
+            double xMax = Math.Max(limits.Right, 1); // 确保至少有一个有效范围
+            PlotControl.Plot.Axes.SetLimitsX(left: 0, right: xMax);
+
+            // y轴自适应
+            if (limits.Bottom < limits.Top)
             {
-                PlotControl.Plot.Axes.SetLimitsX(left: 0,right:0);
+                double yRange = limits.Top - limits.Bottom;
+                double yPadding = yRange * 0.05; // 5%边距
+                double yMin = Math.Min(limits.Bottom - yPadding, 0); // 可选：Y轴也从0开始
+                double yMax = limits.Top + yPadding;
+                PlotControl.Plot.Axes.SetLimitsY(bottom: limits.Bottom - yPadding, top: yMax);
             }
         }
 
+        #endregion
+
+        #region 提示
+        /// <summary>
+        /// 初始化鼠标悬停提示功能
+        /// </summary>
+        private void InitializeMouseHover()
+        {
+            if (PlotControl == null) return;
+
+            // 创建ToolTip
+            _plotToolTip = new ToolTip
+            {
+                Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse,
+                HasDropShadow = true
+            };
+
+            // 订阅鼠标移动事件
+            PlotControl.MouseMove += OnPlotMouseMove;
+            PlotControl.MouseLeave += OnPlotMouseLeave;
+        }
+
+        /// <summary>
+        /// 鼠标移动事件处理
+        /// </summary>
+        private void OnPlotMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (PlotControl?.Plot == null || _plotToolTip == null) return;
+
+            try
+            {
+                // 获取鼠标位置对应的数据坐标
+                var position = e.GetPosition(PlotControl);
+                var pixel = new ScottPlot.Pixel((float)position.X, (float)position.Y);
+                var coordinates = PlotControl.Plot.GetCoordinates(pixel);
+
+                // 查找最近的数据点
+                var nearestInfo = FindNearestDataPoint(coordinates.X, coordinates.Y);
+
+                if (nearestInfo != null)
+                {
+                    _plotToolTip.Content = nearestInfo;
+                    _plotToolTip.IsOpen = true;
+                    PlotControl.ToolTip = _plotToolTip;
+                }
+                else
+                {
+                    _plotToolTip.IsOpen = false;
+                }
+            }
+            catch
+            {
+                _plotToolTip.IsOpen = false;
+            }
+        }
+
+        /// <summary>
+        /// 鼠标离开事件处理
+        /// </summary>
+        private void OnPlotMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_plotToolTip != null)
+            {
+                _plotToolTip.IsOpen = false;
+            }
+        }
+
+        /// <summary>
+        /// 查找最近的数据点信息
+        /// </summary>
+        private string? FindNearestDataPoint(double mouseX, double mouseY)
+        {
+            if (DataSeriesCollection == null || DataSeriesCollection.Count == 0)
+                return null;
+
+            double minDistance = double.MaxValue;
+            string? nearestInfo = null;
+            double threshold = GetDistanceThreshold(); // 动态阈值
+
+            foreach (var series in DataSeriesCollection)
+            {
+                if (series.DataPoints == null || series.DataPoints.Count == 0)
+                    continue;
+
+                foreach (var point in series.DataPoints)
+                {
+                    // 计算欧氏距离（需要考虑X和Y的比例）
+                    double dx = (point.X - mouseX) / GetXRange();
+                    double dy = (point.Y - mouseY) / GetYRange();
+                    double distance = Math.Sqrt(dx * dx + dy * dy);
+
+                    if (distance < minDistance && distance < threshold)
+                    {
+                        minDistance = distance;
+                        nearestInfo = $"{series.Name}\nX: {point.X:F2}\nY: {point.Y:F3}";
+                    }
+                }
+            }
+
+            return nearestInfo;
+        }
+
+        /// <summary>
+        /// 获取距离阈值
+        /// </summary>
+        private double GetDistanceThreshold()
+        {
+            return 0.05; // 5%的范围内视为接近
+        }
+
+        /// <summary>
+        /// 获取X轴范围
+        /// </summary>
+        private double GetXRange()
+        {
+            if (PlotControl?.Plot == null) return 1;
+            var limits = PlotControl.Plot.Axes.GetLimits();
+            return Math.Max(limits.Right - limits.Left, 1);
+        }
+
+        /// <summary>
+        /// 获取Y轴范围
+        /// </summary>
+        private double GetYRange()
+        {
+            if (PlotControl?.Plot == null) return 1;
+            var limits = PlotControl.Plot.Axes.GetLimits();
+            return Math.Max(limits.Top - limits.Bottom, 1);
+        }
         #endregion
 
         #region 公共方法

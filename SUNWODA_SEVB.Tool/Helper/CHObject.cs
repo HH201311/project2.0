@@ -12,7 +12,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     {
 
         public int LineWidth { get; set; }
-        public string LineStyle { get; set; }
+        public string? LineStyle { get; set; }
 
         /// <summary>
         /// Halcon对象
@@ -22,7 +22,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 对象颜色
         /// </summary>
-        public string Color { get; set; }
+        public string? Color { get; set; }
 
         private bool disposed = false;
         public CHObject(HObject hObject)
@@ -67,11 +67,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 if (disposing)
                 {
                     // 释放托管资源
-                    if (HObj != null)
-                    {
-                        HObj.Dispose();
-                        HObj = null;
-                    }
+                    HObj?.Dispose();                
                     Color = null;
                 }
 

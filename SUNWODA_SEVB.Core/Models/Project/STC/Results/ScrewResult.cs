@@ -93,7 +93,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.STC.Results
         /// 作业周期编号（eorProcessCycleNumber）
         /// </summary>
         public int ProcessCycleNumber { get; set; }
-
+        public int eorCycleCountNumber {  get; set; }//有线枪新
         /// <summary>
         /// 扭矩结果
         /// </summary>

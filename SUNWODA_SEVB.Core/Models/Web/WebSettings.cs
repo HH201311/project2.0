@@ -10,9 +10,11 @@ namespace SUNWODA_SEVB.Core.Models.Web
         public string? CentralControlWebUrl { get; set; }
         public string? WebTestUrlSysCenter { get; set; }
         public string? WebTestUrlScrewTighten { get; set; }
+        public string ? WebPushApiUrl { get; set; }
 
         // 设备信息
         public string? DeviceSn { get; set; }
+        public string? ProcessCode { get; set; }
         public string? DeviceName { get; set; }
         public string? Workship { get; set; }
         public string? SoftVersion { get; set; }
@@ -35,9 +37,19 @@ namespace SUNWODA_SEVB.Core.Models.Web
 
         // 功能开关
         public bool IsWebEnabled { get; set; }
-        public bool EnableHeartbeat { get; set; } = true;
+        public bool EnableHeartbeat { get; set; } 
+        public bool EnableMachineErrorAlert { get; set; } = false;
         public bool EnableVersionCheck { get; set; } = false;// 是否启用版本检查,默认为关闭
         public bool EnablePcInfoUpload { get; set; } = true;
+        public bool EnableWebPush { get; set; } = false;
+
+        // 飞书消息推送配置
+        public int PushSystemTypeId { get; set; } 
+        public string? PushUserId { get; set; } 
+        public string? PushAppId { get; set; } 
+        public string? PushSystemType { get; set; }
+        public int PushRetryCount { get; set; } 
+        public int PushRetryDelayMs { get; set; } 
 
         /// <summary>
         /// 验证心跳所需的配置是否完整
@@ -69,7 +81,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// <summary>
         /// 默认拧紧控制器端口
         /// </summary>
-        public string? DefaultTightenControllerPort { get; set; } = "4545";
+        public string? DefaultTightenControllerPort { get; set; } = "9090";
 
         /// <summary>
         /// 曲线数据请求超时时间（秒）

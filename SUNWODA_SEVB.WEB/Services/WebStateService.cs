@@ -12,6 +12,10 @@ namespace SUNWODA_SEVB.WEB.Services
         private bool _isDeviceBound;
         private bool _isRunning;
 
+        public event Action<bool>? ConnectionStatusChanged;
+        public event Action<bool>? DeviceBindingStatusChanged;
+        public event Action<bool>? RunningStatusChanged;
+
         public bool IsConnected
         {
             get
@@ -47,26 +51,36 @@ namespace SUNWODA_SEVB.WEB.Services
 
         public void UpdateConnectionStatus(bool isConnected)
         {
+            bool changed;
             lock (_lockObject)
             {
+                changed = _isConnected != isConnected;
                 _isConnected = isConnected;
             }
+            // 锁外触发事件，避免死锁
+            if (changed) ConnectionStatusChanged?.Invoke(isConnected);
         }
 
         public void UpdateDeviceBindingStatus(bool isBound)
         {
+            bool changed;
             lock (_lockObject)
             {
+                changed = _isDeviceBound != isBound;
                 _isDeviceBound = isBound;
             }
+            if (changed) DeviceBindingStatusChanged?.Invoke(isBound);
         }
 
         public void UpdateRunningStatus(bool isRunning)
         {
+            bool changed;
             lock (_lockObject)
             {
+                changed = _isRunning != isRunning;
                 _isRunning = isRunning;
             }
+            if (changed) RunningStatusChanged?.Invoke(isRunning);
         }
     }
 }

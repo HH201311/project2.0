@@ -197,14 +197,20 @@ namespace SUNWODA_SEVB.Data
         {
             var settings = new[]
             {
+                new GlobalSetting { Name = "ProcessCode", Value = "", Type = "string", Remark = "工序编码", RoleRank = 2 },
                 new GlobalSetting { Name = "IsCycleReadPLC", Value = "true", Type = "bool", Remark = "是否开启循环读取PLC", RoleRank = 2 },
                 new GlobalSetting { Name = "IsCycleWritePLC", Value = "true", Type = "bool", Remark = "是否开启循环写入PLC", RoleRank = 2 },
                 new GlobalSetting { Name = "DefaultProject", Value = "", Type = "string", Remark = "启动默认显示项目(VM)", RoleRank = 2 },
                 new GlobalSetting { Name = "CurrentUserAccount", Value = "guest", Type = "string", Remark = "当前用户", RoleRank = 0b1000 },//000访客 001工程师  010管理员 100超级管理员 
                 new GlobalSetting { Name = "IsMESEnabled", Value = "false", Type = "bool", Remark = "是否启用MES功能", RoleRank = 2 },
                 new GlobalSetting { Name = "PLCConnectTime", Value = "5000", Type = "int", Unit = "ms", Remark = "PLC重连时间", RoleRank = 2 },
+                new GlobalSetting { Name = "PythonInstallDir", Value = "", Type = "string", Remark = "Python安装目录", RoleRank = 2 },
+                new GlobalSetting { Name = "PythonSearchDir", Value = "", Type = "string", Remark = "Python搜索目录", RoleRank = 2 },
+                new GlobalSetting { Name = "IsInitPythonEnvironment", Value = "false", Type = "bool", Remark = "是否初始化Python环境,true为开启,false为关闭,默认false", RoleRank = 2 },
                 new GlobalSetting { Name = "IsEnableWatchDogService", Value = "false", Type="bool", Remark = "是否启用看门狗服务", RoleRank = 2},
-                new GlobalSetting { Name = "IsUseWeb", Value = "false", Type = "bool", Remark = "是否启用WEB服务", RoleRank = 2 },
+                new GlobalSetting { Name = "IsUseWeb", Value = "true", Type = "bool", Remark = "是否启用WEB服务", RoleRank = 2 },
+                new GlobalSetting { Name ="isEnableHeartbeat",Value="false",Type ="bool",Remark = "是否启用web心跳",RoleRank =2 },
+                new GlobalSetting { Name ="isEnableMachineErrorLog",Value="false",Type ="bool",Remark = "是否启用上位机预警飞书推送",RoleRank =2 },
             };
             foreach (var setting in settings)
             {

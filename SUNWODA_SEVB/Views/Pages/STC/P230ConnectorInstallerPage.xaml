@@ -530,6 +530,7 @@
                                 Background="#DDD" />
 
                             <!--  螺丝周期号TraceLogId  -->
+                            <!--
                             <StackPanel
                                 Margin="5,0"
                                 VerticalAlignment="Center"
@@ -546,7 +547,7 @@
                                     Padding="5,3"
                                     VerticalContentAlignment="Center"
                                     Text="{Binding ScrewCode, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" />
-                            </StackPanel>
+                            </StackPanel>-->
                         </StackPanel>
 
                     </StackPanel>
@@ -558,27 +559,35 @@
                             <!--  启动按钮  -->
                             <Button
                                 Command="{Binding StartServerCommand}"
-                                Content="启动服务"
+                                Content="启 动"
                                 IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
                                 Style="{StaticResource StartButtonStyle}" />
 
                             <!--  停止按钮  -->
                             <Button
                                 Command="{Binding StopServerCommand}"
-                                Content="停止服务"
+                                Content="停 止"
                                 IsEnabled="{Binding IsServerRunning}"
                                 Style="{StaticResource StopButtonStyle}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <!--  手动获取  -->
+                            <!--
                             <Button
                                 Margin="1,5"
                                 Command="{Binding FetchCurveDataCommand}"
                                 Content="手动获取曲线"
                                 IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
                                 Style="{StaticResource NormalButtonStyle}"
-                                ToolTip="仅在服务停止时可用" />
+                                ToolTip="仅在服务停止时可用" />-->
 
+                            <Button
+                                Margin="1,5"
+                                Command="{Binding LoadCsvFileCommand}"
+                                Content="离线读取"
+                                IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
+                                Style="{StaticResource NormalButtonStyle}"
+                                ToolTip="从CSV文件加载历史曲线数据" />
 
                             <!--  清空曲线按钮  -->
 

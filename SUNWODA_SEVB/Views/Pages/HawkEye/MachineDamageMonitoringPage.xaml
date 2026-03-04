@@ -14,9 +14,14 @@
     mc:Ignorable="d">
 
     <Grid Margin="5">
+        <uc:WebBrowserControl Grid.Column="1" Source="{Binding WebBrowserControlSource}" />
         <!--  本地测试环境  -->
-        <uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.153/hsfdev/" />
+        <!--<uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.153/hsfdev/" />-->
         <!--  PTO现场环境  -->
         <!--<uc:WebBrowserControl Grid.Column="1" Source="http://192.168.248.128/hsfdev/" />-->
+        <!--  枣庄叠片现场环境  -->
+        <!--<uc:WebBrowserControl Grid.Column="1" Source="http://10.178.52.229/hsfdev/" />-->
+        <!--  枣庄连接片现场环境  -->
+        <!--<uc:WebBrowserControl Grid.Column="1" Source="http://10.178.34.148/hsfdev/" />-->
     </Grid>
 </Page>

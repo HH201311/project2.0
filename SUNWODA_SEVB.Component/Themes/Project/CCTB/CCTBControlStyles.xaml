@@ -221,6 +221,7 @@
         </Setter>
     </Style>
 
+    <!--#region GroupBox容器-->
     <!--GroupBox容器的简单样式-->
     <Style x:Key="SimpleGroupBoxStyle" TargetType="GroupBox">
         <Setter Property="Background" Value="#0DFFFFFF"/>
@@ -252,4 +253,37 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!--GroupBox容器的简单样式-->
+    <Style x:Key="SimpleGroupBoxStyle1" TargetType="GroupBox">
+        <Setter Property="Background" Value="#0DFFFFFF"/>
+        <Setter Property="Foreground" Value="#CCFFFFFF"/>
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GroupBox">
+                    <Border CornerRadius="10" Background="{TemplateBinding Background}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <!--Header-->
+                            <StackPanel Grid.Row="0" Margin="20,20,20,0" Orientation="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+                                <TextBlock Margin="0,0,0,20" Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" HorizontalAlignment="Left" VerticalAlignment="Top" TextAlignment="Left"
+                                                   FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}"/>
+                                <Rectangle Height="1" Stroke="#61FFFFFF" HorizontalAlignment="Stretch" VerticalAlignment="Bottom"/>
+                            </StackPanel>
+
+                            <!--内容-->
+                            <ContentPresenter Grid.Row="1"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!--#endregion-->
 </ResourceDictionary>

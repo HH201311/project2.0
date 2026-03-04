@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
-    public class CCTBParametersModel<T> : ModelBase
+    public class ParametersModel<T> : ModelBase
     {
         private string? pName;
         private T? pValue;
@@ -30,7 +30,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 
         public ObservableCollection<T?>? PValues { get; set; } = [];
 
-        public CCTBParametersModel(string pName, T? pValue)
+        public ParametersModel(string pName, T? pValue)
         {
             PName = pName;
             PValue = pValue;

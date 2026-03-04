@@ -5,7 +5,7 @@ using System.Windows.Media.Media3D;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
-    public class CCTBProductionInfoModel : ModelBase
+    public class ProductionInfoModel : ModelBase
     {
         private string? cellModel;
         private string? filmRollNumber;

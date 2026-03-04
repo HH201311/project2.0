@@ -53,15 +53,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         #endregion
 
         #region ParameterSource
-        public IEnumerable<CCTBParametersModel<double>> ParameterSource
+        public IEnumerable<ParametersModel<double>> ParameterSource
         {
-            get { return (IEnumerable<CCTBParametersModel<double>>)GetValue(ParameterSourceProperty); }
+            get { return (IEnumerable<ParametersModel<double>>)GetValue(ParameterSourceProperty); }
             set { SetValue(ParameterSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ParameterSourceProperty = DependencyProperty.Register(
             "ParameterSource",
-            typeof(IEnumerable<CCTBParametersModel<double>>),
+            typeof(IEnumerable<ParametersModel<double>>),
             typeof(ParametersScrollControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnParameterSourceChanged))
         );

@@ -4,7 +4,7 @@ using System.ComponentModel;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
-    public class CCTBLineInfoModel : ModelBase
+    public class LineInfoModel : ModelBase
     {
         private string? lineBase;
         private string? electrode;

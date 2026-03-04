@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -6,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using static SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls.AxisRenderer;
 
 namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
 {
@@ -16,11 +18,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// </summary>
         public EAxisType AxisType { get; set; } = EAxisType.X;
         public double RotationAngle { get; set; } = 0;
+        public bool IsReverse { get; set; } = false;
         public bool AvoidAxisLabel { get; set; } = true;
-        public string? AxisLabel { get; set; }
+        public string AxisLabel { get; set; } = string.Empty;
 
         // 内部数据 --- 坐标轴用的标签集合
-        private List<string>? _labels;
+        private List<string> _axisLabels = [];
+        private List<double> _axisValues = [];
+        private double _min, _max;
+        private EAxisDrawType _axisDrawType = EAxisDrawType.Label;
 
         // 绘图资源缓存
         private Typeface _typeface;
@@ -39,9 +45,22 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// </summary>
         public void Update(params string[] labels)
         {
-            if (_labels == null) _labels = new List<string>();
-            _labels.Clear();
-            _labels.AddRange(labels);
+            _axisLabels.Clear();
+            _axisLabels.AddRange(labels);
+            _axisDrawType = EAxisDrawType.Label;
+            InvalidateVisual(); // 触发 OnRender
+        }
+
+        /// <summary>
+        /// 更新坐标轴轴数据
+        /// </summary>
+        public void Update(double min, double max, params double[] values)
+        {
+            _axisValues.Clear();
+            _axisValues.AddRange(values);
+            _min = min;
+            _max = max;
+            _axisDrawType = EAxisDrawType.Value;
             InvalidateVisual(); // 触发 OnRender
         }
 
@@ -50,10 +69,10 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// </summary>
         public void Update(params double[] labels)
         {
-            if (_labels == null) _labels = new List<string>();
-            _labels.Clear();
-            var l = labels.Select(o => o.ToString()).ToList();
-            _labels.AddRange(l);
+            _axisLabels.Clear();
+            var ls = labels.Select(o => o.ToString()).ToList();
+            _axisLabels.AddRange(ls);
+            _axisDrawType = EAxisDrawType.Label;
             InvalidateVisual(); // 触发 OnRender
         }
 
@@ -63,8 +82,10 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         public void Update(double min, double max, double step = 0.1, byte digital = 2)
         {
             if (step <= 0) step = 0.1;
-            _labels = new List<string>();
-            for (double i = min; i <= max; i += step) _labels.Add(i.ToString($"F{digital}"));
+            _axisLabels = new List<string>();
+            for (double i = min; i <= max; i += step)
+                _axisLabels.Add(i.ToString($"F{digital}"));
+            _axisDrawType = EAxisDrawType.Label;
             InvalidateVisual();
         }
 
@@ -74,13 +95,28 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
 
             if (ActualWidth == 0 || ActualHeight == 0) return;
 
-            if (AxisType == EAxisType.X)
+            switch (AxisType, _axisDrawType)
             {
-                DrawXAxis(drawingContext);
-            }
-            else
-            {
-                DrawYAxis(drawingContext);
+                case (EAxisType.X, EAxisDrawType.Label):
+                    {
+                        DrawXAxis(drawingContext, _axisLabels);
+                        break;
+                    }
+                case (EAxisType.X, EAxisDrawType.Value):
+                    {
+                        DrawXAxis(drawingContext, _min, _max, _axisValues);
+                        break;
+                    }
+                case (EAxisType.Y, EAxisDrawType.Label):
+                    {
+                        DrawYAxis(drawingContext, _axisLabels);
+                        break;
+                    }
+                case (EAxisType.Y, EAxisDrawType.Value):
+                    {
+                        DrawYAxis(drawingContext, _min, _max, _axisValues);
+                        break;
+                    }
             }
         }
 
@@ -88,9 +124,9 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// 绘制 X 轴标签
         /// </summary>
         /// <param name="ctx"></param>
-        private void DrawXAxis(DrawingContext ctx)
+        private void DrawXAxis(DrawingContext ctx, List<string> axisLabels)
         {
-            if (_labels == null || _labels.Count == 0) return;
+            if (axisLabels == null || axisLabels.Count == 0) return;
 
             var w = ActualWidth;
 
@@ -106,15 +142,63 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             #endregion
 
             #region 回执X轴刻度标签
-            var count = _labels.Count;
+            var count = axisLabels.Count;
             var step = w / (count - 1);
             for (int i = 0; i < count; i++)
             {
-                var ft = CreateText(_labels[i]);
+                var ft = CreateText(axisLabels[i]);
                 var x = i * step;
-                var drawX = x - (ft.Width / 2);
-                //if (drawX < 0) drawX = 0;
-                //if (drawX + ft.Width > w) drawX = w - ft.Width;
+                var drawX = x;
+                if (IsReverse) drawX = w - drawX;
+                drawX = drawX - (ft.Width / 2);
+
+                if (!string.IsNullOrEmpty(AxisLabel) && AvoidAxisLabel)
+                {
+                    // 如果会重叠就取消
+                    if ((drawX + ft.Width) > axisLabeldrawX)
+                        continue;
+                }
+
+                // 应用旋转转换
+                ctx.PushTransform(new RotateTransform(RotationAngle, drawX, 0));
+                ctx.DrawText(ft, new Point(drawX, 0));
+                ctx.Pop();
+            }
+            #endregion
+        }
+
+        /// <summary>
+        /// 绘制 X 轴标签
+        /// </summary>
+        /// <param name="ctx"></param>
+        private void DrawXAxis(DrawingContext ctx, double min, double max, List<double> axisValues)
+        {
+            if (axisValues == null || axisValues.Count == 0) return;
+
+            var w = ActualWidth;
+
+            #region 绘制X轴标签
+            var axisLabeldrawX = 0d;
+            if (!string.IsNullOrEmpty(AxisLabel))
+            {
+                var ft = CreateText(AxisLabel);
+                var drawX = w - ft.Width;
+                ctx.DrawText(ft, new Point(drawX, 0));
+                axisLabeldrawX = drawX;
+            }
+            #endregion
+
+            #region 回执X轴刻度标签
+            if (min >= max) throw new ArgumentException("最大最小值异常！");
+            var range = max - min;
+            foreach (var axisValue in axisValues)
+            {
+                if (axisValue < min || axisValue > max) continue;
+
+                var ft = CreateText(axisValue.ToString());
+                var drawX = GraphicHelper.Normalize(axisValue, min, range, w, true);
+                if (IsReverse) drawX = w - drawX;
+                drawX = drawX - (ft.Width / 2);
 
                 if (!string.IsNullOrEmpty(AxisLabel) && AvoidAxisLabel)
                 {
@@ -135,9 +219,9 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// 绘制 Y 轴标签
         /// </summary>
         /// <param name="ctx"></param>
-        private void DrawYAxis(DrawingContext ctx)
+        private void DrawYAxis(DrawingContext ctx, List<string> axisLabels)
         {
-            if (_labels == null || _labels.Count == 0) return;
+            if (axisLabels == null || axisLabels.Count == 0) return;
 
             var h = ActualHeight;
 
@@ -154,16 +238,64 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             #endregion
 
             #region 绘制Y轴刻度标签
-            var count = _labels.Count;
+            var count = axisLabels.Count;
             var step = h / (count - 1);
             for (int i = 0; i < count; i++)
             {
-                var ft = CreateText(_labels[count - i - 1]);
+                var ft = CreateText(axisLabels[count - i - 1]);
                 var drawX = ActualWidth - ft.Width;
                 var y = i * step;
-                var drawY = y - (ft.Height / 2);
-                //if (drawY < 0) drawY = 0;
-                //if (drawY + ft.Height > h) drawY = h - ft.Height;
+                var drawY = y;
+                if (IsReverse) drawY = h - drawY;
+                drawY = drawY - (ft.Height / 2);
+
+                if (!string.IsNullOrEmpty(AxisLabel) && AvoidAxisLabel)
+                {
+                    if (drawY < axisLabeldrawY_End)
+                        continue;
+                }
+                // 应用旋转转换
+                ctx.PushTransform(new RotateTransform(RotationAngle, drawX, 0));
+                ctx.DrawText(ft, new Point(drawX, drawY));
+                ctx.Pop();
+            }
+            #endregion
+        }
+
+        /// <summary>
+        /// 绘制 Y 轴标签
+        /// </summary>
+        /// <param name="ctx"></param>
+        private void DrawYAxis(DrawingContext ctx, double min, double max, List<double> axisValues)
+        {
+            if (axisValues == null || axisValues.Count == 0) return;
+
+            var h = ActualHeight;
+
+            #region 绘制Y轴标签
+            var axisLabeldrawY_End = 0d;
+            if (!string.IsNullOrEmpty(AxisLabel))
+            {
+                var ft = CreateText(AxisLabel);
+                var drawX = ActualWidth - ft.Width;
+                var drawY = 0 - ft.Height / 2;
+                ctx.DrawText(ft, new Point(drawX, drawY));
+                axisLabeldrawY_End = drawY + ft.Height;
+            }
+            #endregion
+
+            #region 绘制Y轴刻度标签
+            if (min >= max) throw new ArgumentException("最大最小值异常！");
+            var range = max - min;
+            foreach (var axisValue in axisValues)
+            {
+                if (axisValue < min || axisValue > max) continue;
+
+                var ft = CreateText(axisValue.ToString());
+                var drawX = ActualWidth - ft.Width;
+                var drawY = GraphicHelper.Normalize(axisValue, min, range, h, false);
+                if (IsReverse) drawY = h - drawY;
+                drawY = drawY - (ft.Height / 2);
 
                 if (!string.IsNullOrEmpty(AxisLabel) && AvoidAxisLabel)
                 {
@@ -194,5 +326,17 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
                 _textBrush,
                 VisualTreeHelper.GetDpi(this).PixelsPerDip);
         }
+
+        #region 内部类
+        public enum EAxisType
+        {
+            X, Y
+        }
+
+        private enum EAxisDrawType
+        {
+            Label, Value
+        }
+        #endregion
     }
 }

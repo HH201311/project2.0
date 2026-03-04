@@ -47,7 +47,7 @@
             <!--标题-->
             <TextBlock x:Name="TitleTextBlock" Style="{StaticResource TitleTextBlockStyle}"/>
             <!-- 虚线路径 -->
-            <Path x:Name="DashPath" Stroke="#FF29CC7A" StrokeDashArray="5,5" StrokeThickness="1" Opacity="0.7" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+            <Path x:Name="SubPath" Stroke="#FF29CC7A" StrokeDashArray="5,5" StrokeThickness="1" Opacity="0.7" VerticalAlignment="Top" HorizontalAlignment="Left"/>
             <!-- 曲线路径 -->
             <Path x:Name="ChartPath" Stroke="#FF29CC7A" StrokeThickness="1" Opacity="0.7" VerticalAlignment="Top" HorizontalAlignment="Left"/>
 

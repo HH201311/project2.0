@@ -53,15 +53,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         #endregion
 
         #region ParameterSource
-        public CCTBProductionInfoModel ParameterSource
+        public ProductionInfoModel ParameterSource
         {
-            get { return (CCTBProductionInfoModel)GetValue(ParameterSourceProperty); }
+            get { return (ProductionInfoModel)GetValue(ParameterSourceProperty); }
             set { SetValue(ParameterSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ParameterSourceProperty = DependencyProperty.Register(
             "ParameterSource",
-            typeof(CCTBProductionInfoModel),
+            typeof(ProductionInfoModel),
             typeof(ProductionInfoControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnParameterSourceChanged))
         );

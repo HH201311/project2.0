@@ -4,11 +4,59 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBMonitoring"
+      xmlns:uccharts="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls;assembly=SUNWODA_SEVB.Component" 
+      xmlns:ucdatagrids="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls;assembly=SUNWODA_SEVB.Component" 
+      xmlns:hc="https://handyorg.github.io/handycontrol"
       mc:Ignorable="d" 
-      d:DesignHeight="450" d:DesignWidth="800"
+      d:DesignHeight="860" d:DesignWidth="1780"
       Title="TBDataPage">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
 
-    <Grid Background="WhiteSmoke">
-        
+    <Grid Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="280*"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="260*"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="280*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="20"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!--机头A-面密度实时数据-->
+        <GroupBox Grid.Row="0" Grid.Column="0" Header="机头A-面密度实时数据" Style="{StaticResource SimpleGroupBoxStyle}">
+            <uccharts:TBDataChartControl Margin="20,10,10,20" ParamOptions="{Binding ParamOptionsA}" ParamOptionSelectedCommand="{Binding ParamOptionSelectedACommand}"
+                                         DataLimitParam="{Binding TBDataLimitParamA}" YMax="{Binding TBDataAMax}" YMin="{Binding TBDataAMin}" ItemSource="{Binding TBDatasA}"/>
+        </GroupBox>
+        <!--机头B-面密度实时数据-->
+        <GroupBox Grid.Row="0" Grid.Column="2" Header="机头B-面密度实时数据" Style="{StaticResource SimpleGroupBoxStyle}">
+            <uccharts:TBDataChartControl Margin="20,10,10,20" ParamOptions="{Binding ParamOptionsB}" ParamOptionSelectedCommand="{Binding ParamOptionSelectedBCommand}"
+                                         DataLimitParam="{Binding TBDataLimitParamB}" YMax="{Binding TBDataBMax}" YMin="{Binding TBDataBMin}" ItemSource="{Binding TBDatasB}"/>
+        </GroupBox>
+        <!--机头A-面密度实时数据列表-->
+        <GroupBox Grid.Row="2" Grid.Column="0" Header="机头A-面密度实时数据列表" Style="{StaticResource SimpleGroupBoxStyle}">
+            <ucdatagrids:TBDataGridControl Margin="20,10,10,20" DataLimitParam="{Binding TBDataLimitParamA1}" ItemsSource="{Binding TBDataHistoryA}"/>
+        </GroupBox>
+        <!--机头B-面密度实时数据列表-->
+        <GroupBox Grid.Row="2" Grid.Column="2" Header="机头B-面密度实时数据列表" Style="{StaticResource SimpleGroupBoxStyle}">
+            <ucdatagrids:TBDataGridControl Margin="20,10,10,20" DataLimitParam="{Binding TBDataLimitParamB1}" ItemsSource="{Binding TBDataHistoryB}"/>
+        </GroupBox>
+        <!--机头A-T块实时位置-->
+        <GroupBox Grid.Row="4" Grid.Column="0" Header="机头A-T块实时位置" Style="{StaticResource SimpleGroupBoxStyle}">
+            <uccharts:TBlockChartControl Margin="20,10,10,20" YMax="{Binding TBlockAMax}" YMin="{Binding TBlockAMin}" ItemSource="{Binding TBlockDatasA}"/>
+        </GroupBox>
+        <!--机头B-T块实时位置-->
+        <GroupBox Grid.Row="4" Grid.Column="2" Header="机头B-T块实时位置" Style="{StaticResource SimpleGroupBoxStyle}">
+            <uccharts:TBlockChartControl Margin="20,10,10,20" YMax="{Binding TBlockBMax}" YMin="{Binding TBlockBMin}" ItemSource="{Binding TBlockDatasB}"/>
+        </GroupBox>
     </Grid>
 </Page>

@@ -1,0 +1,257 @@
+﻿<UserControl x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls.TBDataGridControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls"
+             xmlns:system="clr-namespace:System;assembly=mscorlib"
+             xmlns:ucdgconvers="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls.TBDataGridConverters"
+             xmlns:hc="https://handyorg.github.io/handycontrol"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml"/>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBChartControlStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--转换器-->
+            <ucdgconvers:ContentToTextConverter x:Key="ContentToTextConverter"/>
+
+            <!--自定义TBDataGrid的单元格文本样式，实现条件变色-->
+            <Style x:Key="TBDataGridCellTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="TextWrapping" Value="NoWrap"/>
+                <Setter Property="TextTrimming" Value="None"/>
+                <Setter Property="Margin" Value="2,1"/>
+                <Setter Property="FontFamily" Value="Arial"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="Regular"/>
+            </Style>
+
+            <!--自定义表头Cell样式-->
+            <Style x:Key="CustomDataGridColumnHeaderCellStyle" TargetType="ContentControl">
+                <Setter Property="Background" Value="#0DFFFFFF"/>
+                <Setter Property="FontFamily" Value="Arial"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Foreground" Value="#CCFFFFFF"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="BorderThickness" Value="0.5"/>
+                <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <Grid>
+                                <Border BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}"
+                                        Background="{TemplateBinding Background}" Opacity="{TemplateBinding Opacity}"/>
+                                <TextBlock Text="{Binding Converter={StaticResource ContentToTextConverter}}"
+                                           Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}"
+                                           FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}"
+                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                           Background="Transparent" Padding="2,1" TextAlignment="Center"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--自定义数据行Cell样式-->
+            <Style x:Key="CustomDataGridRowCellStyle" TargetType="ContentControl">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0.5"/>
+                <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <Grid>
+                                <!--背景&边框-->
+                                <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" 
+                                        Background="{Binding Background}" Opacity="{Binding BackOpacity}" SnapsToDevicePixels="True">
+                                    <!--遮罩-->
+                                    <Border x:Name="HoverLayer" Background="Transparent" Opacity="0"/>
+                                </Border>
+                                <!--单元格内容-->
+                                <TextBlock x:Name="Tb" Text="{Binding Content,Converter={StaticResource ContentToTextConverter}}" 
+                                           Foreground="{Binding Foreground}" Opacity="{Binding ForeOpacity}"
+                                           Style="{StaticResource TBDataGridCellTextBlockStyle}"
+                                           HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                    <TextBlock.ToolTip>
+                                        <ToolTip Content="{Binding Content}" Style="{StaticResource ChartToolTipStyle}" />
+                                    </TextBlock.ToolTip>
+                                </TextBlock>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="HoverLayer" Property="Background" Value="#99FFFFFF"/>
+                                    <Setter TargetName="HoverLayer" Property="Opacity" Value="0.2"/>
+                                    <Setter TargetName="Tb" Property="Opacity" Value="1"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--自定义表头行样式-->
+            <Style x:Key="CustomDataGridColumnHeaderStyle" TargetType="ItemsControl">
+                <Setter Property="Background" Value="#0DFFFFFF"/>
+                <Setter Property="Height" Value="40"/>
+                <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+                <Setter Property="BorderThickness" Value="0.5"/>
+                <Setter Property="Height" Value="40"/>
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1"/>
+                        </ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding}" Style="{StaticResource CustomDataGridColumnHeaderCellStyle}"/>
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--自定义数据行样式-->
+            <Style x:Key="CustomDataGridRowStyle" TargetType="ItemsControl">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Height" Value="35"/>
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1"/>
+                        </ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding}" Style="{StaticResource CustomDataGridRowCellStyle}"/>
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--ScrollViewer垂直滚动条滑块样式-->
+            <Style x:Key="CustomVerticalThumbStyle" TargetType="{x:Type Thumb}">
+                <Setter Property="Background" Value="#61FFFFFF"/>
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="Auto"/>
+                <Setter Property="MaxWidth" Value="5"/>
+                <Setter Property="MaxHeight" Value="30"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Thumb}">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--ScrollViewer垂直滚动条样式-->
+            <Style x:Key="CustomVerticalScrollBarStyle" TargetType="{x:Type ScrollBar}">
+                <Setter Property="Stylus.IsFlicksEnabled" Value="false"/>
+                <Setter Property="Width" Value="6"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ScrollBar}">
+                            <Grid x:Name="GridRoot" Width="{TemplateBinding Width}" Background="Transparent">
+                                <Track x:Name="PART_Track" IsDirectionReversed="true" Focusable="false">
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource CustomVerticalThumbStyle}"/>
+                                    </Track.Thumb>
+                                    <!-- 隐藏上下箭头按钮 (Increase/DecreaseRepeatButton) -->
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="false"/>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="false"/>
+                                    </Track.DecreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ScrollViewer样式 -->
+            <Style x:Key="CustomDataGridScrollViewerStyle" TargetType="{x:Type ScrollViewer}" BasedOn="{x:Null}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                            <Grid x:Name="Grid" Background="{TemplateBinding Background}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" 
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}" 
+                                                    Grid.Column="0" Grid.Row="0" Margin="{TemplateBinding Padding}" 
+                                                    Grid.RowSpan="2" Grid.ColumnSpan="2"/>
+                                <!-- 垂直滚动条 -->
+                                <ScrollBar x:Name="PART_VerticalScrollBar" 
+                                       Style="{StaticResource CustomVerticalScrollBarStyle}" 
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" 
+                                       Grid.Column="1" Grid.Row="0" 
+                                       ViewportSize="{TemplateBinding ViewportHeight}" 
+                                       Maximum="{TemplateBinding ScrollableHeight}" 
+                                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border BorderThickness="0.5" BorderBrush="#1AFFFFFF">
+        <Grid Background="Transparent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <!--表头-->
+            <ItemsControl x:Name="DC" Grid.Row="0" Style="{StaticResource CustomDataGridColumnHeaderStyle}"/>
+            <!--内容-->
+            <ScrollViewer x:Name="Sv" Grid.Row="1" VerticalScrollBarVisibility="Auto" Style="{StaticResource CustomDataGridScrollViewerStyle}">
+                <ItemsControl x:Name="DR" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="500,500">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel Orientation="Vertical"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ItemsControl ItemsSource="{Binding}" Style="{StaticResource CustomDataGridRowStyle}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

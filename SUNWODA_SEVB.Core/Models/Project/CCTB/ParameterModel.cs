@@ -3,7 +3,7 @@ using SUNWODA_SEVB.Core.Common;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
-    public class CCTBParameterModel<T> : ModelBase
+    public class ParameterModel<T> : ModelBase
     {
         private string? pName;
         private T? pValue;
@@ -20,7 +20,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
             set => SetProperty(ref pValue, value);
         }
 
-        public CCTBParameterModel(string pName, T? pValue)
+        public ParameterModel() { }
+        public ParameterModel(string pName, T? pValue)
         {
             PName = pName;
             PValue = pValue;

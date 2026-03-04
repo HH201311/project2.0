@@ -1,14 +1,31 @@
-﻿using SUNWODA_SEVB.Core.Attributes;
+﻿using HandyControl.Controls;
+using HandyControl.Tools.Extension;
+using Mapster.Models;
+using OpenCvSharp;
+using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Tool.Extension;
+using SUNWODA_SEVB.Tool.Helper;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using SUNWODA_SEVB.ViewModels.Pages.HawkEye;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 {
@@ -41,5 +58,297 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
         }
+
+        protected override async Task OnInitializeAsync()
+        {
+            // 初始化面密度实时数据控件
+            await InitializeTBDatasChartAsync();
+
+            CCTBCore.CoatingMessageNotificationEvent -= OnCoatingMessageNotificationAsync;
+            CCTBCore.CoatingMessageNotificationEvent += OnCoatingMessageNotificationAsync;
+
+            CCTBCore.TBlockMessageNotificationEvent -= OnTBlockMessageNotificationAsync;
+            CCTBCore.TBlockMessageNotificationEvent += OnTBlockMessageNotificationAsync;
+
+            await base.OnInitializeAsync();
+        }
+
+        /// <summary>
+        /// 涂布数据更新
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void OnCoatingMessageNotificationAsync(object? sender, MessageEventArgs<CoatingMessage> e)
+        {
+            if (e.Message == null) return;
+            if (e.Message.Datas == null || e.Message.Datas.Count == 0) return;
+
+            // 更新面密度数据柱状图
+            await RefreshTBDatasAsync(e.Message.SideType, e.Message.Datas);
+            // 更新面密度参数显示
+            await RefreshParamOptionAsync(e.Message.SideType);
+            // 更新面密度数据表格
+            await RefreshTBDataHistoryAsync(e.Message.SideType, e.Message.Datas);
+        }
+
+        /// <summary>
+        /// T块数据更新
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void OnTBlockMessageNotificationAsync(object? sender, MessageEventArgs<TBlockMessage> e)
+        {
+            if (e.Message == null) return;
+            if (e.Message.Datas == null || e.Message.Datas.Count == 0) return;
+
+            // 更新T块数据
+            await RefreshTBlockDatasAsync(e.Message.SideType, e.Message.Datas);
+        }
+
+        #region 面密度实时数据
+        private List<EParamOption> tbParamOptionsACache = [], tbParamOptionsBCache = [];
+
+        private ObservableCollection<ParameterModel<string>> paramOptionsA = [], paramOptionsB = [];
+        public ObservableCollection<ParameterModel<string>> ParamOptionsA { get => paramOptionsA; set => SetProperty(ref paramOptionsA, value); }
+        public ObservableCollection<ParameterModel<string>> ParamOptionsB { get => paramOptionsB; set => SetProperty(ref paramOptionsB, value); }
+
+        private double tbDataAMin = 370, tbDataAMax = 382, tbDataBMin = 746, tbDataBMax = 758;
+        public double TBDataAMin { get => tbDataAMin; set => SetProperty(ref tbDataAMin, value); }
+        public double TBDataAMax { get => tbDataAMax; set => SetProperty(ref tbDataAMax, value); }
+        public double TBDataBMin { get => tbDataBMin; set => SetProperty(ref tbDataBMin, value); }
+        public double TBDataBMax { get => tbDataBMax; set => SetProperty(ref tbDataBMax, value); }
+
+        private DataLimitParamModel tbDataLimitParamA = new(372, 374, 376, 378, 380), tbDataLimitParamB = new(748, 750, 752, 754, 756);
+        public DataLimitParamModel TBDataLimitParamA { get => tbDataLimitParamA; set => SetProperty(ref tbDataLimitParamA, value); }
+        public DataLimitParamModel TBDataLimitParamB { get => tbDataLimitParamB; set => SetProperty(ref tbDataLimitParamB, value); }
+
+        private ObservableCollection<double> tbDatasA = [], tbDatasB = [];
+        public ObservableCollection<double> TBDatasA { get => tbDatasA; set => SetProperty(ref tbDatasA, value); }
+        public ObservableCollection<double> TBDatasB { get => tbDatasB; set => SetProperty(ref tbDatasB, value); }
+
+        public ICommand ParamOptionSelectedACommand => new RelayCommand(() => OnParamOptionSelected(ESideType.A));
+        public ICommand ParamOptionSelectedBCommand => new RelayCommand(() => OnParamOptionSelected(ESideType.B));
+
+        /// <summary>
+        /// 面密度参数修改时触发
+        /// </summary>
+        /// <param name="sideType"></param>
+        private async void OnParamOptionSelected(ESideType sideType)
+        {
+            var paramOptionsCache = new List<EParamOption>();
+            var result = await Dialog
+                .Show(new VM_TBDataConfigDialog(sideType, _projectSettingRepository).UIElement)
+                .Initialize<VM_TBDataConfigDialog>(o =>
+                {
+                    paramOptionsCache = o.ParamOptions;
+                })
+                .GetResultAsync<bool>();
+
+            if (!result) return;
+
+            if (sideType == ESideType.A)
+            {
+                tbParamOptionsACache.Clear();
+                tbParamOptionsACache.AddRange(paramOptionsCache);
+            }
+            if (sideType == ESideType.B)
+            {
+                tbParamOptionsBCache.Clear();
+                tbParamOptionsBCache.AddRange(paramOptionsCache);
+            }
+            await RefreshParamOptionAsync(sideType);
+        }
+
+        /// <summary>
+        /// 更新面密度参数显示
+        /// </summary>
+        /// <param name="sideType"></param>
+        /// <param name="datas"></param>
+        /// <param name="paramOptions"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        private async Task RefreshParamOptionAsync(ESideType sideType)
+        {
+            var paramPairs = sideType switch
+            {
+                ESideType.A => ParamOptionsA,
+                ESideType.B => ParamOptionsB,
+                _ => throw new Exception($"未实现[{sideType}]!")
+            };
+            var datas = sideType switch
+            {
+                ESideType.A => TBDatasA,
+                ESideType.B => TBDatasB,
+                _ => throw new Exception($"未实现[{sideType}]!")
+            };
+            var paramOptionsCache = sideType switch
+            {
+                ESideType.A => tbParamOptionsACache,
+                ESideType.B => tbParamOptionsBCache,
+                _ => throw new Exception($"未实现[{sideType}]!")
+            };
+            await RunOnUIThreadAsync(async () => { paramPairs.Clear(); });
+
+            // 数据清洗：不为0
+            var cleanedDatas = datas == null ? new List<double>(0) : datas.Where(o => o != 0).ToList();
+            if (paramOptionsCache == null || paramOptionsCache.Count == 0) return;
+
+            foreach (var paramOption in paramOptionsCache)
+            {
+                var paramPair = new ParameterModel<string>();
+                paramPair.PName = paramOption.ToString();
+                var pValue = paramOption switch
+                {
+                    EParamOption.Cov => $"{(cleanedDatas.Count > 0 ? cleanedDatas.COV() * 100 : 0):F2}%",
+                    EParamOption.Mean => $"{(cleanedDatas.Count > 0 ? cleanedDatas.Average() : 0):F2}",
+                    EParamOption.Sigma => $"{(cleanedDatas.Count > 0 ? cleanedDatas.Sigma() : 0):F2}",
+                    EParamOption.Min => $"{(cleanedDatas.Count > 0 ? cleanedDatas.Min() : 0):F2}",
+                    EParamOption.Max => $"{(cleanedDatas.Count > 0 ? cleanedDatas.Max() : 0):F2}",
+                    EParamOption.Range => $"{(cleanedDatas.Count > 0 ? (cleanedDatas.Max() - cleanedDatas.Min()) : 0):F2}",
+                    _ => "--",
+                };
+                paramPair.PValue = pValue;
+                await RunOnUIThreadAsync(async () => { paramPairs.Add(paramPair); });
+            }
+        }
+
+        /// <summary>
+        /// 更新面密度参数
+        /// </summary>
+        /// <param name="sideType"></param>
+        /// <param name="datas"></param>
+        /// <returns></returns>
+        private async Task RefreshTBDatasAsync(ESideType sideType, List<double> datas)
+        {
+            if (datas == null || datas.Count == 0) return;
+            var tbDatas = sideType switch
+            {
+                ESideType.A => TBDatasA,
+                ESideType.B => TBDatasB,
+                _ => throw new Exception($"未实现[{sideType}]!")
+            };
+
+            if (tbDatas == null) return;
+            await RunOnUIThreadAsync(() =>
+            {
+                tbDatas.Clear();
+                datas.ForEach(o => tbDatas.Add(o));
+            });
+        }
+
+        private async Task InitializeTBDatasChartAsync()
+        {
+            var sideTypes = Enum.GetValues(typeof(ESideType));
+            foreach (ESideType sideType in sideTypes)
+            {
+                // 初始化参数配置
+                var paramName = $"TBDataParamOptions{sideType}";
+                if (!_projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+                {
+                    _projectSettingRepository.Add(
+                        new ProjectSettingModel(paramName, CCTBCore.BelongToVM, "", DataTypeConverter.TypeToString(typeof(EParamOption[])), 2)
+                        {
+                            Remark = "涂布闭环面密度实时参数显示配置"
+                        }
+                    );
+                }
+
+                // 初始化面密度实时数据柱状图
+                await InializeParamOptionsLoadAsync(sideType);
+            }
+        }
+
+        /// <summary>
+        /// 初始化面密度参数加载
+        /// </summary>
+        /// <param name="sideType"></param>
+        /// <returns></returns>
+        private async Task InializeParamOptionsLoadAsync(ESideType sideType)
+        {
+            var paramName = $"TBDataParamOptions{sideType}";
+            var tbDataParamOptions = _projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM)?.Value?.Split(',')?.ToList();
+            if (tbDataParamOptions == null) return;
+            var tbpPramPairs = new List<EParamOption>();
+            foreach (var tbDataParamOption in tbDataParamOptions)
+            {
+                if (!Enum.TryParse(tbDataParamOption, out EParamOption paramOption)) continue;
+                tbpPramPairs.Add(paramOption);
+            }
+
+            if (sideType == ESideType.A) tbParamOptionsACache = tbpPramPairs;
+            if (sideType == ESideType.B) tbParamOptionsBCache = tbpPramPairs;
+            await RefreshParamOptionAsync(sideType);
+        }
+        #endregion
+
+        #region 面密度实时数据列表
+
+        private DataLimitParamModel tbDataLimitParamA1 = new(372, 374, 376, 378, 380), tbDataLimitParamB1 = new(748, 750, 752, 754, 756);
+        public DataLimitParamModel TBDataLimitParamA1 { get => tbDataLimitParamA1; set => SetProperty(ref tbDataLimitParamA1, value); }
+        public DataLimitParamModel TBDataLimitParamB1 { get => tbDataLimitParamB1; set => SetProperty(ref tbDataLimitParamB1, value); }
+
+        private ObservableCollection<double[]> tbDataHistoryA = new(), tbDataHistoryB = new();
+        public ObservableCollection<double[]> TBDataHistoryA { get => tbDataHistoryA; set => SetProperty(ref tbDataHistoryA, value); }
+        public ObservableCollection<double[]> TBDataHistoryB { get => tbDataHistoryB; set => SetProperty(ref tbDataHistoryB, value); }
+
+        /// <summary>
+        /// 更新面密度历史数据表格
+        /// </summary>
+        /// <param name="sideType"></param>
+        /// <param name="datas"></param>
+        /// <returns></returns>
+        private async Task RefreshTBDataHistoryAsync(ESideType sideType, List<double> datas)
+        {
+            var tbDataHistory = sideType switch
+            {
+                ESideType.A => TBDataHistoryA,
+                ESideType.B => TBDataHistoryB,
+                _ => throw new Exception($"未实现[{sideType}]!")
+            };
+
+            if (tbDataHistory == null) return;
+            await RunOnUIThreadAsync(() => tbDataHistory.Add(datas.ToArray()));
+
+            // 删除一行
+            if (tbDataHistory.Count <= 20) return;
+            await RunOnUIThreadAsync(() => tbDataHistory.RemoveAt(0));
+        }
+        #endregion
+
+        #region T块实时位置        
+        private double tBlockAMin = -300, tBlockAMax = 1100, tBlockBMin = -300, tBlockBMax = 1100;
+        public double TBlockAMin { get => tBlockAMin; set => SetProperty(ref tBlockAMin, value); }
+        public double TBlockAMax { get => tBlockAMax; set => SetProperty(ref tBlockAMax, value); }
+        public double TBlockBMin { get => tBlockBMin; set => SetProperty(ref tBlockBMin, value); }
+        public double TBlockBMax { get => tBlockBMax; set => SetProperty(ref tBlockBMax, value); }
+        private ObservableCollection<TBlockModel> tBlockDatasA = [], tBlockDatasB = [];
+        public ObservableCollection<TBlockModel> TBlockDatasA { get => tBlockDatasA; set => SetProperty(ref tBlockDatasA, value); }
+        public ObservableCollection<TBlockModel> TBlockDatasB { get => tBlockDatasB; set => SetProperty(ref tBlockDatasB, value); }
+
+        /// <summary>
+        /// 更新T块数据
+        /// </summary>
+        /// <param name="sideType"></param>
+        /// <param name="datas"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        private async Task RefreshTBlockDatasAsync(ESideType sideType, List<TBlockModel> datas)
+        {
+            if (datas == null || datas.Count == 0) return;
+            var tbDatas = sideType switch
+            {
+                ESideType.A => TBlockDatasA,
+                ESideType.B => TBlockDatasB,
+                _ => throw new Exception($"未实现[{sideType}]!")
+            };
+
+            if (tbDatas == null) return;
+            await RunOnUIThreadAsync(() =>
+            {
+                tbDatas.Clear();
+                datas.ForEach(o => tbDatas.Add(o));
+            });
+        }
+        #endregion
     }
 }

@@ -35,6 +35,11 @@
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_CCDDataPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_SummaryPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_TBDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_AlarmSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_CommunicationSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_PermissionSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_FunctionSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_ClosedLoopSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\VM_CCTBMonitoringPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\VM_CCTBRecordingsPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\VM_CCTBSettingsPage.cs" />
@@ -44,6 +49,11 @@
     <Compile Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettingsPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -201,6 +211,11 @@
     <Page Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettingsPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml" />
   </ItemGroup>
 
 </Project>

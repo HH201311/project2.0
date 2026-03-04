@@ -10,9 +10,9 @@ using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
-    public class CCTBWeightDataModelMap : ClassMap<CCTBWeightDataModel>
+    public class WeightDataModelMap : ClassMap<WeightDataModel>
     {
-        public CCTBWeightDataModelMap()
+        public WeightDataModelMap()
         {
             // 自动应用特性映射
             AutoMap(CultureInfo.InvariantCulture);

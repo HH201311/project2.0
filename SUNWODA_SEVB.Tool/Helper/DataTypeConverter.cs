@@ -1,4 +1,5 @@
-﻿using SUNWODA_SEVB.Tool.Extension;
+﻿using Newtonsoft.Json.Linq;
+using SUNWODA_SEVB.Tool.Extension;
 using System.Globalization;
 using System.Windows;
 
@@ -9,6 +10,37 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// </summary>
     public static class DataTypeConverter
     {
+        public static string TypeToString(Type type)
+        {
+            return type.Name;
+        }
+
+        public static Type StringToType(string type)
+        {
+            type = type.ToUpper();
+            return type switch
+            {
+                "STRING" => typeof(string),
+                "FLOAT" => typeof(float),
+                "DOUBLE" => typeof(double),
+                "DECIMAL" => typeof(decimal),
+                "SBYTE" => typeof(sbyte),
+                "BYTE" => typeof(byte),
+                "SHORT" => typeof(short),
+                "USHORT" => typeof(ushort),
+                "INT" or "INTEGER" => typeof(int),
+                "UINT" => typeof(uint),
+                "LONG" => typeof(long),
+                "ULONG" => typeof(ulong),
+                "BOOL" or "BOOLEAN" => typeof(bool),
+                "DATETIME" => typeof(DateTime),
+                "WINDOWSTATE" => typeof(WindowState),
+                "HORIZONTALALIGNMENT" => typeof(HorizontalAlignment),
+                "VERTICALALIGNMENT" => typeof(VerticalAlignment),
+                _ => throw new FormatException($"不支持的数据类型: {type}"),
+            };
+        }
+
         /// <summary>
         /// 将字符串转换为指定类型的值
         /// </summary>

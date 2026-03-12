@@ -1,29 +1,4 @@
-﻿using Dm.filter;
-using HalconDotNet;
-using HandyControl.Controls;
-using iText.IO.Image;
-using Microsoft.Data.Sqlite;
-using Microsoft.Win32;
-using MySqlX.XDevAPI.Common;
-using NetTaste;
-using OpenCvSharp;
-using OpenCvSharp.Text;
-using OxyPlot;
-using OxyPlot.Legends;
-using OxyPlot.Series;
-using SUNWODA_SEVB.Component.UserControls;
-using SUNWODA_SEVB.Core.Attributes;
-using SUNWODA_SEVB.Core.Common;
-using SUNWODA_SEVB.Core.Common.Commands;
-using SUNWODA_SEVB.Core.Enumerations;
-using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Core.Interfaces.Data;
-using SUNWODA_SEVB.Core.Models.Data;
-using SUNWODA_SEVB.Data.Repositories;
-using SUNWODA_SEVB.Tool;
-using SUNWODA_SEVB.Tool.Helper;
-using SUNWODA_SEVB.ViewModels.Pages.Common;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -47,10 +22,36 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
+using Dm.filter;
+using HalconDotNet;
+using HandyControl.Controls;
+using iText.IO.Image;
+using Microsoft.Data.Sqlite;
+using Microsoft.Win32;
+using MySqlX.XDevAPI.Common;
+using NetTaste;
+using OpenCvSharp;
+using OpenCvSharp.Text;
+using OxyPlot;
+using OxyPlot.Legends;
+using OxyPlot.Series;
+using SUNWODA_SEVB.Component.UserControls;
+using SUNWODA_SEVB.Core.Attributes;
+using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Web;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Data.Repositories;
+using SUNWODA_SEVB.Tool;
+using SUNWODA_SEVB.Tool.Helper;
+using SUNWODA_SEVB.ViewModels.Pages.Common;
+using SUNWODA_SEVB.WEB.Services;
 using Yolo11seg_CT06;
 using ZZC1OnlineCTModel;
 using ZZC6OnlineCTModel;
-
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 {
@@ -67,18 +68,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         #region LAB
         // 鼠标按下命令（开始拖动）
         public ICommand ImageMouseDownCommandLAB { get; }
+
         // 鼠标移动命令（拖动中）
         public ICommand ImageMouseMoveCommandLAB { get; }
+
         // 鼠标松开命令（结束拖动）
         public ICommand ImageMouseUpCommandLAB { get; }
+
         // 鼠标滚轮缩放
         public ICommand ZoomRealTimeImageCommandLAB { get; }
+
         // 放大按钮
         public ICommand ZoomInRealTimeCommandLAB { get; }
+
         // 缩小按钮
         public ICommand ZoomOutRealTimeCommandLAB { get; }
+
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandLAB { get; }
+
         // 选择结果路径的命令
         public ICommand SelectResultImagePath { get; }
         private const double ZoomStepLAB = 0.1;
@@ -89,7 +97,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageScaleYLAB
         {
             get => _realTimeImageScaleYLAB;
-            set { _realTimeImageScaleYLAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleYLAB = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动X轴偏移
@@ -97,7 +109,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateXLAB
         {
             get => _realTimeImageTranslateXLAB;
-            set { _realTimeImageTranslateXLAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateXLAB = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动Y轴偏移
@@ -105,13 +121,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateYLAB
         {
             get => _realTimeImageTranslateYLAB;
-            set { _realTimeImageTranslateYLAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateYLAB = value;
+                OnPropertyChanged();
+            }
         }
         public double RealTimeImageScaleXLAB
         {
             get => _realTimeImageScaleXLAB;
-            set { _realTimeImageScaleXLAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleXLAB = value;
+                OnPropertyChanged();
+            }
         }
+
         // 是否正在拖动
         private bool _isImageDraggingLAB;
         private System.Windows.Point _startMousePointLAB; // 拖动起始鼠标位置
@@ -121,18 +146,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         #region LCD
         // 鼠标按下命令（开始拖动）
         public ICommand ImageMouseDownCommandLCD { get; }
+
         // 鼠标移动命令（拖动中）
         public ICommand ImageMouseMoveCommandLCD { get; }
+
         // 鼠标松开命令（结束拖动）
         public ICommand ImageMouseUpCommandLCD { get; }
+
         // 鼠标滚轮缩放
         public ICommand ZoomRealTimeImageCommandLCD { get; }
+
         // 放大按钮
         public ICommand ZoomInRealTimeCommandLCD { get; }
+
         // 缩小按钮
         public ICommand ZoomOutRealTimeCommandLCD { get; }
+
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandLCD { get; }
+
         // 选择结果路径的命令
         //public ICommand SelectResultImagePath { get; }
         private const double ZoomStepLCD = 0.1;
@@ -143,7 +175,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageScaleYLCD
         {
             get => _realTimeImageScaleYLCD;
-            set { _realTimeImageScaleYLCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleYLCD = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动X轴偏移
@@ -151,7 +187,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateXLCD
         {
             get => _realTimeImageTranslateXLCD;
-            set { _realTimeImageTranslateXLCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateXLCD = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动Y轴偏移
@@ -159,13 +199,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateYLCD
         {
             get => _realTimeImageTranslateYLCD;
-            set { _realTimeImageTranslateYLCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateYLCD = value;
+                OnPropertyChanged();
+            }
         }
         public double RealTimeImageScaleXLCD
         {
             get => _realTimeImageScaleXLCD;
-            set { _realTimeImageScaleXLCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleXLCD = value;
+                OnPropertyChanged();
+            }
         }
+
         // 是否正在拖动
         private bool _isImageDraggingLCD;
         private System.Windows.Point _startMousePointLCD; // 拖动起始鼠标位置
@@ -175,18 +224,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         #region RAB
         // 鼠标按下命令（开始拖动）
         public ICommand ImageMouseDownCommandRAB { get; }
+
         // 鼠标移动命令（拖动中）
         public ICommand ImageMouseMoveCommandRAB { get; }
+
         // 鼠标松开命令（结束拖动）
         public ICommand ImageMouseUpCommandRAB { get; }
+
         // 鼠标滚轮缩放
         public ICommand ZoomRealTimeImageCommandRAB { get; }
+
         // 放大按钮
         public ICommand ZoomInRealTimeCommandRAB { get; }
+
         // 缩小按钮
         public ICommand ZoomOutRealTimeCommandRAB { get; }
+
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandRAB { get; }
+
         // 选择结果路径的命令
         //public ICommand SelectResultImagePath { get; }
         private const double ZoomStepRAB = 0.1;
@@ -197,7 +253,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageScaleYRAB
         {
             get => _realTimeImageScaleYRAB;
-            set { _realTimeImageScaleYRAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleYRAB = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动X轴偏移
@@ -205,7 +265,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateXRAB
         {
             get => _realTimeImageTranslateXRAB;
-            set { _realTimeImageTranslateXRAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateXRAB = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动Y轴偏移
@@ -213,13 +277,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateYRAB
         {
             get => _realTimeImageTranslateYRAB;
-            set { _realTimeImageTranslateYRAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateYRAB = value;
+                OnPropertyChanged();
+            }
         }
         public double RealTimeImageScaleXRAB
         {
             get => _realTimeImageScaleXRAB;
-            set { _realTimeImageScaleXRAB = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleXRAB = value;
+                OnPropertyChanged();
+            }
         }
+
         // 是否正在拖动
         private bool _isImageDraggingRAB;
         private System.Windows.Point _startMousePointRAB; // 拖动起始鼠标位置
@@ -229,18 +302,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         #region RCD
         // 鼠标按下命令（开始拖动）
         public ICommand ImageMouseDownCommandRCD { get; }
+
         // 鼠标移动命令（拖动中）
         public ICommand ImageMouseMoveCommandRCD { get; }
+
         // 鼠标松开命令（结束拖动）
         public ICommand ImageMouseUpCommandRCD { get; }
+
         // 鼠标滚轮缩放
         public ICommand ZoomRealTimeImageCommandRCD { get; }
+
         // 放大按钮
         public ICommand ZoomInRealTimeCommandRCD { get; }
+
         // 缩小按钮
         public ICommand ZoomOutRealTimeCommandRCD { get; }
+
         // 重置缩放
         public ICommand ResetRealTimeImageZoomCommandRCD { get; }
+
         // 选择结果路径的命令
         //public ICommand SelectResultImagePath { get; }
         private const double ZoomStepRCD = 0.1;
@@ -251,7 +331,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageScaleYRCD
         {
             get => _realTimeImageScaleYRCD;
-            set { _realTimeImageScaleYRCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleYRCD = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动X轴偏移
@@ -259,7 +343,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateXRCD
         {
             get => _realTimeImageTranslateXRCD;
-            set { _realTimeImageTranslateXRCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateXRCD = value;
+                OnPropertyChanged();
+            }
         }
 
         // 图片拖动Y轴偏移
@@ -267,13 +355,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public double RealTimeImageTranslateYRCD
         {
             get => _realTimeImageTranslateYRCD;
-            set { _realTimeImageTranslateYRCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageTranslateYRCD = value;
+                OnPropertyChanged();
+            }
         }
         public double RealTimeImageScaleXRCD
         {
             get => _realTimeImageScaleXRCD;
-            set { _realTimeImageScaleXRCD = value; OnPropertyChanged(); }
+            set
+            {
+                _realTimeImageScaleXRCD = value;
+                OnPropertyChanged();
+            }
         }
+
         // 是否正在拖动
         private bool _isImageDraggingRCD;
         private System.Windows.Point _startMousePointRCD; // 拖动起始鼠标位置
@@ -291,9 +388,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private string? _selectedAbnormalType;
         private int _totalCount;
         private CancellationTokenSource? _autoLogoutCancellationTokenSource;
-        public ObservableCollection<Dictionary<string, object>> PagedAbnormalDataList { get; set; } = new();
+        public ObservableCollection<
+            Dictionary<string, object>
+        > PagedAbnormalDataList { get; set; } = new();
+
         // 分页信息文本
         public string PageInfoText => $"第 {CurrentPage} 页 / 共 {TotalPages} 页";
+
         // 总页数
         public int TotalPages => (TotalCount + PageSize - 1) / PageSize;
         public bool CanPreviousPage => CurrentPage > 1;
@@ -308,11 +409,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         //{
         //"全部","无异常", "正极少片", "正极多片",  "OH不良", "负极差不良",  "负极多片", "负极少片", "负极边缘间隙不良","正极边缘间隙不良","正极中间间隙不良","负极压伤","正极Y方向掉片"
         //};
-        public ObservableCollection<string> AllAbnormalTypes { get; }
-            = new ObservableCollection<string>
-        {
-        "全部","无异常", "正极少片", "正极多片",  "OH不良", "负极差不良",  "负极多片", "负极少片", "负极边缘间隙不良","正极边缘间隙不良","正极中间间隙不良","负极压伤","正极Y方向掉片"
-        };
+        public ObservableCollection<string> AllAbnormalTypes { get; } =
+            new ObservableCollection<string>
+            {
+                "全部",
+                "无异常",
+                "正极少片",
+                "正极多片",
+                "OH不良",
+                "负极差不良",
+                "负极多片",
+                "负极少片",
+                "负极边缘间隙不良",
+                "正极边缘间隙不良",
+                "正极中间间隙不良",
+                "负极压伤",
+                "正极Y方向掉片",
+            };
         private string _selectedAbnormalTypeText = "全部";
         public string SelectedAbnormalTypeText
         {
@@ -320,13 +433,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             set
             {
                 // 拆分成列表
-                var list = value?
-                    .Split(',')
-                    .Select(x => x.Trim())
-                    .Where(x => !string.IsNullOrEmpty(x))
-                    .Distinct()
-                    .ToList()
-                    ?? new List<string>();
+                var list =
+                    value
+                        ?.Split(',')
+                        .Select(x => x.Trim())
+                        .Where(x => !string.IsNullOrEmpty(x))
+                        .Distinct()
+                        .ToList() ?? new List<string>();
 
                 if (list.Count == 0)
                 {
@@ -349,23 +462,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public DateTime? StartDateTime
         {
             get => _startDateTime;
-            set { _startDateTime = value; OnPropertyChanged(); }
+            set
+            {
+                _startDateTime = value;
+                OnPropertyChanged();
+            }
         }
         public DateTime? EndDateTime
         {
             get => _endDateTime;
-            set { _endDateTime = value; OnPropertyChanged(); }
+            set
+            {
+                _endDateTime = value;
+                OnPropertyChanged();
+            }
         }
 
         public bool IsQuerying
         {
             get => _isQuerying;
-            set { _isQuerying = value; OnPropertyChanged(); }
+            set
+            {
+                _isQuerying = value;
+                OnPropertyChanged();
+            }
         }
         public string? SelectedAbnormalType
         {
             get => _selectedAbnormalType;
-            set { _selectedAbnormalType = value; OnPropertyChanged(); }
+            set
+            {
+                _selectedAbnormalType = value;
+                OnPropertyChanged();
+            }
         }
         public int TotalCount
         {
@@ -422,6 +551,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 await LoadPageDataAsync(CurrentPage);
             }
         }
+
         //下一页
         private async void ExecuteNextPage()
         {
@@ -460,7 +590,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private string? ratio_ZJBYJXBL;
         private string? ratio_FJYS;
         private string? ratio_ZJZJJXBL;
-        private string _configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "set_config_CTOL.json");
+        private string _configFilePath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "set_config_CTOL.json"
+        );
         private int _historyTotalCount = 0;
         private int _historyOKCount = 0;
         private int _historyNGCount = 0;
@@ -484,6 +617,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly IProjectSettingRepository _projectsetting;
         private readonly VM_UserCenter _userCenterViewModel;
         private readonly INavigationService _navigationService;
+        private readonly IWebApiClient _webApiClient;
+        private readonly IGlobalSettingRepository _globalSettingRepository;
 
         // 结果存储路径属性
         private string? _selectedResultImagePath;
@@ -499,123 +634,241 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public int Count_ZJZJJXBL
         {
             get => ZJZJJXBL;
-            set { ZJZJJXBL = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                ZJZJJXBL = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_FJYS
         {
             get => FJYS;
-            set { FJYS = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                FJYS = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_ZJBYJXBL
         {
             get => ZJBYJXBL;
-            set { ZJBYJXBL = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                ZJBYJXBL = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_FJBYJXBL
         {
             get => FJBYJXBL;
-            set { FJBYJXBL = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                FJBYJXBL = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_ZJDP
         {
             get => ZJDP;
-            set { ZJDP = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                ZJDP = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_ZJSP
         {
             get => ZJSP;
-            set { ZJSP = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                ZJSP = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_FJDP
         {
             get => FJDP;
-            set { FJDP = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                FJDP = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_FJSP
         {
             get => FJSP;
-            set { FJSP = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                FJSP = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_OHBL
         {
             get => OHBL;
-            set { OHBL = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                OHBL = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_CPBL
         {
             get => CPBL;
-            set { CPBL = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                CPBL = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
         public int Count_ZJYDP
         {
             get => ZJYDP;
-            set { ZJYDP = value; OnPropertyChanged(); UpdateRiskRatios(); SaveConfig(); }
+            set
+            {
+                ZJYDP = value;
+                OnPropertyChanged();
+                UpdateRiskRatios();
+                SaveConfig();
+            }
         }
 
         public string? Ratio_ZJDP
         {
             get => ratio_ZJDP;
-            set { ratio_ZJDP = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_ZJDP = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_ZJSP
         {
             get => ratio_ZJSP;
-            set { ratio_ZJSP = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_ZJSP = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_FJDP
         {
             get => ratio_FJDP;
-            set { ratio_FJDP = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_FJDP = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_FJSP
         {
             get => ratio_FJSP;
-            set { ratio_FJSP = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_FJSP = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_JXBL
         {
             get => ratio_JXBL;
-            set { ratio_JXBL = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_JXBL = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_OHBL
         {
             get => ratio_OHBL;
-            set { ratio_OHBL = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_OHBL = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_CPBL
         {
             get => ratio_CPBL;
-            set { ratio_CPBL = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_CPBL = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_ZJYDP
         {
             get => ratio_ZJYDP;
-            set { ratio_ZJYDP = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_ZJYDP = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_ZFJXNG
         {
             get => ratio_ZFJXNG;
-            set { ratio_ZFJXNG = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_ZFJXNG = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_FJBYJXBL
         {
             get => ratio_FJBYJXBL;
-            set { ratio_FJBYJXBL = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_FJBYJXBL = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_ZJBYJXBL
         {
             get => ratio_ZJBYJXBL;
-            set { ratio_ZJBYJXBL = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_ZJBYJXBL = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_ZJZJJXBL
         {
             get => ratio_ZJZJJXBL;
-            set { ratio_ZJZJJXBL = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_ZJZJJXBL = value;
+                OnPropertyChanged();
+            }
         }
         public string? Ratio_FJYS
         {
             get => ratio_FJYS;
-            set { ratio_FJYS = value; OnPropertyChanged(); }
+            set
+            {
+                ratio_FJYS = value;
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
@@ -635,6 +888,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 SaveConfig();
             }
         }
+
         /// <summary>
         /// NG数
         /// </summary>
@@ -650,11 +904,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 OnPropertyChanged(nameof(NGRate));
                 UpdatePieChartData();
                 SaveConfig();
-
             }
         }
+
         // 总检测数
         public int TotalDetectionNum => OKDetectionNum + NGDetectionNum;
+
         /// <summary>
         /// 一次优率
         /// </summary>
@@ -1327,71 +1582,314 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
         }
 
-        private double _tempGap1Limit; public double TempGap1Limit { get => _tempGap1Limit; set => SetProperty(ref _tempGap1Limit, value); }
-        private double _tempGap2Limit; public double TempGap2Limit { get => _tempGap2Limit; set => SetProperty(ref _tempGap2Limit, value); }
-        private double _tempGap3Limit; public double TempGap3Limit { get => _tempGap3Limit; set => SetProperty(ref _tempGap3Limit, value); }
-        private double _tempGap4Limit; public double TempGap4Limit { get => _tempGap4Limit; set => SetProperty(ref _tempGap4Limit, value); }
-        private double _tempGap5Limit; public double TempGap5Limit { get => _tempGap5Limit; set => SetProperty(ref _tempGap5Limit, value); }
-        private double _tempGap6Limit; public double TempGap6Limit { get => _tempGap6Limit; set => SetProperty(ref _tempGap6Limit, value); }
-        private double _tempGap7Limit; public double TempGap7Limit { get => _tempGap7Limit; set => SetProperty(ref _tempGap7Limit, value); }
-        private double _tempGap8Limit; public double TempGap8Limit { get => _tempGap8Limit; set => SetProperty(ref _tempGap8Limit, value); }
-        private double _tempGap9Limit; public double TempGap9Limit { get => _tempGap9Limit; set => SetProperty(ref _tempGap9Limit, value); }
-        private double _tempGap10Limit; public double TempGap10Limit { get => _tempGap10Limit; set => SetProperty(ref _tempGap10Limit, value); }
-        private double _tempGap11Limit; public double TempGap11Limit { get => _tempGap11Limit; set => SetProperty(ref _tempGap11Limit, value); }
-        private double _tempGap12Limit; public double TempGap12Limit { get => _tempGap12Limit; set => SetProperty(ref _tempGap12Limit, value); }
-        private double _tempGap13Limit; public double TempGap13Limit { get => _tempGap13Limit; set => SetProperty(ref _tempGap13Limit, value); }
-        private double _tempGap14Limit; public double TempGap14Limit { get => _tempGap14Limit; set => SetProperty(ref _tempGap14Limit, value); }
-        private double _tempGap15Limit; public double TempGap15Limit { get => _tempGap15Limit; set => SetProperty(ref _tempGap15Limit, value); }
-        private double _tempGap16Limit; public double TempGap16Limit { get => _tempGap16Limit; set => SetProperty(ref _tempGap16Limit, value); }
-        private double _tempGap17Limit; public double TempGap17Limit { get => _tempGap17Limit; set => SetProperty(ref _tempGap17Limit, value); }
-        private double _tempGap18Limit; public double TempGap18Limit { get => _tempGap18Limit; set => SetProperty(ref _tempGap18Limit, value); }
-        private double _tempGap19Limit; public double TempGap19Limit { get => _tempGap19Limit; set => SetProperty(ref _tempGap19Limit, value); }
-        private double _tempGap20Limit; public double TempGap20Limit { get => _tempGap20Limit; set => SetProperty(ref _tempGap20Limit, value); }
-        private double _tempGap21Limit; public double TempGap21Limit { get => _tempGap21Limit; set => SetProperty(ref _tempGap21Limit, value); }
-        private double _tempGap22Limit; public double TempGap22Limit { get => _tempGap22Limit; set => SetProperty(ref _tempGap22Limit, value); }
-        private double _tempGap23Limit; public double TempGap23Limit { get => _tempGap23Limit; set => SetProperty(ref _tempGap23Limit, value); }
-        private double _tempGap24Limit; public double TempGap24Limit { get => _tempGap24Limit; set => SetProperty(ref _tempGap24Limit, value); }
-        private double _tempGap25Limit; public double TempGap25Limit { get => _tempGap25Limit; set => SetProperty(ref _tempGap25Limit, value); }
-        private double _tempGap26Limit; public double TempGap26Limit { get => _tempGap26Limit; set => SetProperty(ref _tempGap26Limit, value); }
-        private double _tempGap27Limit; public double TempGap27Limit { get => _tempGap27Limit; set => SetProperty(ref _tempGap27Limit, value); }
-        private double _tempGap28Limit; public double TempGap28Limit { get => _tempGap28Limit; set => SetProperty(ref _tempGap28Limit, value); }
-        private double _tempGap29Limit; public double TempGap29Limit { get => _tempGap29Limit; set => SetProperty(ref _tempGap29Limit, value); }
-        private double _tempGap30Limit; public double TempGap30Limit { get => _tempGap30Limit; set => SetProperty(ref _tempGap30Limit, value); }
-        private double _tempGap31Limit; public double TempGap31Limit { get => _tempGap31Limit; set => SetProperty(ref _tempGap31Limit, value); }
-        private double _tempGap32Limit; public double TempGap32Limit { get => _tempGap32Limit; set => SetProperty(ref _tempGap32Limit, value); }
-        private double _tempGap33Limit; public double TempGap33Limit { get => _tempGap33Limit; set => SetProperty(ref _tempGap33Limit, value); }
-        private double _tempGap34Limit; public double TempGap34Limit { get => _tempGap34Limit; set => SetProperty(ref _tempGap34Limit, value); }
-        private double _tempGap35Limit; public double TempGap35Limit { get => _tempGap35Limit; set => SetProperty(ref _tempGap35Limit, value); }
-        private double _tempGap36Limit; public double TempGap36Limit { get => _tempGap36Limit; set => SetProperty(ref _tempGap36Limit, value); }
-        private double _tempGap37Limit; public double TempGap37Limit { get => _tempGap37Limit; set => SetProperty(ref _tempGap37Limit, value); }
-        private double _tempGap38Limit; public double TempGap38Limit { get => _tempGap38Limit; set => SetProperty(ref _tempGap38Limit, value); }
-        private double _tempGap39Limit; public double TempGap39Limit { get => _tempGap39Limit; set => SetProperty(ref _tempGap39Limit, value); }
-        private double _tempGap40Limit; public double TempGap40Limit { get => _tempGap40Limit; set => SetProperty(ref _tempGap40Limit, value); }
-        private double _tempGap41Limit; public double TempGap41Limit { get => _tempGap41Limit; set => SetProperty(ref _tempGap41Limit, value); }
-        private double _tempGap42Limit; public double TempGap42Limit { get => _tempGap42Limit; set => SetProperty(ref _tempGap42Limit, value); }
-        private double _tempGap43Limit; public double TempGap43Limit { get => _tempGap43Limit; set => SetProperty(ref _tempGap43Limit, value); }
-        private double _tempGap44Limit; public double TempGap44Limit { get => _tempGap44Limit; set => SetProperty(ref _tempGap44Limit, value); }
-        private double _tempGap45Limit; public double TempGap45Limit { get => _tempGap45Limit; set => SetProperty(ref _tempGap45Limit, value); }
-        private double _tempGap46Limit; public double TempGap46Limit { get => _tempGap46Limit; set => SetProperty(ref _tempGap46Limit, value); }
-        private double _tempGap47Limit; public double TempGap47Limit { get => _tempGap47Limit; set => SetProperty(ref _tempGap47Limit, value); }
+        private double _tempGap1Limit;
+        public double TempGap1Limit
+        {
+            get => _tempGap1Limit;
+            set => SetProperty(ref _tempGap1Limit, value);
+        }
+        private double _tempGap2Limit;
+        public double TempGap2Limit
+        {
+            get => _tempGap2Limit;
+            set => SetProperty(ref _tempGap2Limit, value);
+        }
+        private double _tempGap3Limit;
+        public double TempGap3Limit
+        {
+            get => _tempGap3Limit;
+            set => SetProperty(ref _tempGap3Limit, value);
+        }
+        private double _tempGap4Limit;
+        public double TempGap4Limit
+        {
+            get => _tempGap4Limit;
+            set => SetProperty(ref _tempGap4Limit, value);
+        }
+        private double _tempGap5Limit;
+        public double TempGap5Limit
+        {
+            get => _tempGap5Limit;
+            set => SetProperty(ref _tempGap5Limit, value);
+        }
+        private double _tempGap6Limit;
+        public double TempGap6Limit
+        {
+            get => _tempGap6Limit;
+            set => SetProperty(ref _tempGap6Limit, value);
+        }
+        private double _tempGap7Limit;
+        public double TempGap7Limit
+        {
+            get => _tempGap7Limit;
+            set => SetProperty(ref _tempGap7Limit, value);
+        }
+        private double _tempGap8Limit;
+        public double TempGap8Limit
+        {
+            get => _tempGap8Limit;
+            set => SetProperty(ref _tempGap8Limit, value);
+        }
+        private double _tempGap9Limit;
+        public double TempGap9Limit
+        {
+            get => _tempGap9Limit;
+            set => SetProperty(ref _tempGap9Limit, value);
+        }
+        private double _tempGap10Limit;
+        public double TempGap10Limit
+        {
+            get => _tempGap10Limit;
+            set => SetProperty(ref _tempGap10Limit, value);
+        }
+        private double _tempGap11Limit;
+        public double TempGap11Limit
+        {
+            get => _tempGap11Limit;
+            set => SetProperty(ref _tempGap11Limit, value);
+        }
+        private double _tempGap12Limit;
+        public double TempGap12Limit
+        {
+            get => _tempGap12Limit;
+            set => SetProperty(ref _tempGap12Limit, value);
+        }
+        private double _tempGap13Limit;
+        public double TempGap13Limit
+        {
+            get => _tempGap13Limit;
+            set => SetProperty(ref _tempGap13Limit, value);
+        }
+        private double _tempGap14Limit;
+        public double TempGap14Limit
+        {
+            get => _tempGap14Limit;
+            set => SetProperty(ref _tempGap14Limit, value);
+        }
+        private double _tempGap15Limit;
+        public double TempGap15Limit
+        {
+            get => _tempGap15Limit;
+            set => SetProperty(ref _tempGap15Limit, value);
+        }
+        private double _tempGap16Limit;
+        public double TempGap16Limit
+        {
+            get => _tempGap16Limit;
+            set => SetProperty(ref _tempGap16Limit, value);
+        }
+        private double _tempGap17Limit;
+        public double TempGap17Limit
+        {
+            get => _tempGap17Limit;
+            set => SetProperty(ref _tempGap17Limit, value);
+        }
+        private double _tempGap18Limit;
+        public double TempGap18Limit
+        {
+            get => _tempGap18Limit;
+            set => SetProperty(ref _tempGap18Limit, value);
+        }
+        private double _tempGap19Limit;
+        public double TempGap19Limit
+        {
+            get => _tempGap19Limit;
+            set => SetProperty(ref _tempGap19Limit, value);
+        }
+        private double _tempGap20Limit;
+        public double TempGap20Limit
+        {
+            get => _tempGap20Limit;
+            set => SetProperty(ref _tempGap20Limit, value);
+        }
+        private double _tempGap21Limit;
+        public double TempGap21Limit
+        {
+            get => _tempGap21Limit;
+            set => SetProperty(ref _tempGap21Limit, value);
+        }
+        private double _tempGap22Limit;
+        public double TempGap22Limit
+        {
+            get => _tempGap22Limit;
+            set => SetProperty(ref _tempGap22Limit, value);
+        }
+        private double _tempGap23Limit;
+        public double TempGap23Limit
+        {
+            get => _tempGap23Limit;
+            set => SetProperty(ref _tempGap23Limit, value);
+        }
+        private double _tempGap24Limit;
+        public double TempGap24Limit
+        {
+            get => _tempGap24Limit;
+            set => SetProperty(ref _tempGap24Limit, value);
+        }
+        private double _tempGap25Limit;
+        public double TempGap25Limit
+        {
+            get => _tempGap25Limit;
+            set => SetProperty(ref _tempGap25Limit, value);
+        }
+        private double _tempGap26Limit;
+        public double TempGap26Limit
+        {
+            get => _tempGap26Limit;
+            set => SetProperty(ref _tempGap26Limit, value);
+        }
+        private double _tempGap27Limit;
+        public double TempGap27Limit
+        {
+            get => _tempGap27Limit;
+            set => SetProperty(ref _tempGap27Limit, value);
+        }
+        private double _tempGap28Limit;
+        public double TempGap28Limit
+        {
+            get => _tempGap28Limit;
+            set => SetProperty(ref _tempGap28Limit, value);
+        }
+        private double _tempGap29Limit;
+        public double TempGap29Limit
+        {
+            get => _tempGap29Limit;
+            set => SetProperty(ref _tempGap29Limit, value);
+        }
+        private double _tempGap30Limit;
+        public double TempGap30Limit
+        {
+            get => _tempGap30Limit;
+            set => SetProperty(ref _tempGap30Limit, value);
+        }
+        private double _tempGap31Limit;
+        public double TempGap31Limit
+        {
+            get => _tempGap31Limit;
+            set => SetProperty(ref _tempGap31Limit, value);
+        }
+        private double _tempGap32Limit;
+        public double TempGap32Limit
+        {
+            get => _tempGap32Limit;
+            set => SetProperty(ref _tempGap32Limit, value);
+        }
+        private double _tempGap33Limit;
+        public double TempGap33Limit
+        {
+            get => _tempGap33Limit;
+            set => SetProperty(ref _tempGap33Limit, value);
+        }
+        private double _tempGap34Limit;
+        public double TempGap34Limit
+        {
+            get => _tempGap34Limit;
+            set => SetProperty(ref _tempGap34Limit, value);
+        }
+        private double _tempGap35Limit;
+        public double TempGap35Limit
+        {
+            get => _tempGap35Limit;
+            set => SetProperty(ref _tempGap35Limit, value);
+        }
+        private double _tempGap36Limit;
+        public double TempGap36Limit
+        {
+            get => _tempGap36Limit;
+            set => SetProperty(ref _tempGap36Limit, value);
+        }
+        private double _tempGap37Limit;
+        public double TempGap37Limit
+        {
+            get => _tempGap37Limit;
+            set => SetProperty(ref _tempGap37Limit, value);
+        }
+        private double _tempGap38Limit;
+        public double TempGap38Limit
+        {
+            get => _tempGap38Limit;
+            set => SetProperty(ref _tempGap38Limit, value);
+        }
+        private double _tempGap39Limit;
+        public double TempGap39Limit
+        {
+            get => _tempGap39Limit;
+            set => SetProperty(ref _tempGap39Limit, value);
+        }
+        private double _tempGap40Limit;
+        public double TempGap40Limit
+        {
+            get => _tempGap40Limit;
+            set => SetProperty(ref _tempGap40Limit, value);
+        }
+        private double _tempGap41Limit;
+        public double TempGap41Limit
+        {
+            get => _tempGap41Limit;
+            set => SetProperty(ref _tempGap41Limit, value);
+        }
+        private double _tempGap42Limit;
+        public double TempGap42Limit
+        {
+            get => _tempGap42Limit;
+            set => SetProperty(ref _tempGap42Limit, value);
+        }
+        private double _tempGap43Limit;
+        public double TempGap43Limit
+        {
+            get => _tempGap43Limit;
+            set => SetProperty(ref _tempGap43Limit, value);
+        }
+        private double _tempGap44Limit;
+        public double TempGap44Limit
+        {
+            get => _tempGap44Limit;
+            set => SetProperty(ref _tempGap44Limit, value);
+        }
+        private double _tempGap45Limit;
+        public double TempGap45Limit
+        {
+            get => _tempGap45Limit;
+            set => SetProperty(ref _tempGap45Limit, value);
+        }
+        private double _tempGap46Limit;
+        public double TempGap46Limit
+        {
+            get => _tempGap46Limit;
+            set => SetProperty(ref _tempGap46Limit, value);
+        }
+        private double _tempGap47Limit;
+        public double TempGap47Limit
+        {
+            get => _tempGap47Limit;
+            set => SetProperty(ref _tempGap47Limit, value);
+        }
         #endregion
 
         /// OKNG统计饼图
         public PlotModel? PieModel { get; set; }
+
         // 清空列表命令
         public ICommand ClearListCommand { get; private set; }
+
         // 统计清零命令
         public ICommand ClearStatisticsCommand { get; private set; }
         public ICommand SaveSettingsCommand { get; private set; }
+
         // 重置按钮命令
         public ICommand ResetSettingsCommand { get; private set; }
         private List<dynamic> _fullDetectionDataList = new List<dynamic>();
+
         // 检测数据集合/动态对象集合
         private ObservableCollection<dynamic> _detectionDataList;
         public ObservableCollection<dynamic> DetectionDataList
         {
             get => _detectionDataList;
-            set { _detectionDataList = value; OnPropertyChanged(); }
+            set
+            {
+                _detectionDataList = value;
+                OnPropertyChanged();
+            }
         }
 
         // 线程安全锁对象
@@ -1408,21 +1906,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private readonly object _queueLockRCD = new object();
 
         // 用于缓存每个路径的文件列表
-        private readonly Dictionary<string, List<string>> pathFileBuffers = new Dictionary<string, List<string>>();
+        private readonly Dictionary<string, List<string>> pathFileBuffers =
+            new Dictionary<string, List<string>>();
         private readonly Dictionary<string, object> pathLocks = new Dictionary<string, object>();
+
         // 定义线程安全的队列字典：key为"station_条码"，value为该条码的队列
-        private ConcurrentDictionary<string, ConcurrentQueue<string>> _barcodeQueues = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
-        private ConcurrentDictionary<string, object> _barcodeQueueLocks = new ConcurrentDictionary<string, object>();
+        private ConcurrentDictionary<string, ConcurrentQueue<string>> _barcodeQueues =
+            new ConcurrentDictionary<string, ConcurrentQueue<string>>();
+        private ConcurrentDictionary<string, object> _barcodeQueueLocks =
+            new ConcurrentDictionary<string, object>();
+
         /// 外层键：工位名称，内层键："Y1"/"Y2"/"Y3"/"Y4"，值：对应的数据数组
-        private Dictionary<string, Dictionary<string, double[]>> stationYDataDict = new Dictionary<string, Dictionary<string, double[]>>();
+        private Dictionary<string, Dictionary<string, double[]>> stationYDataDict =
+            new Dictionary<string, Dictionary<string, double[]>>();
+
         //线程锁，多工位并行时
         private object stationDataLocker = new object();
+
         /// <summary>
         /// 是否处于任何检测状态
         /// </summary>
         public bool IsInAnyDetection
         {
-            get => !(IsOnlineDetectionEnabledLAB || IsOnlineDetectionEnabledLCD || IsOnlineDetectionEnabledRAB || IsOnlineDetectionEnabledRCD);
+            get =>
+                !(
+                    IsOnlineDetectionEnabledLAB
+                    || IsOnlineDetectionEnabledLCD
+                    || IsOnlineDetectionEnabledRAB
+                    || IsOnlineDetectionEnabledRCD
+                );
         }
 
         private bool _isThreadTerminatingLAB = false;
@@ -1437,28 +1949,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public ImageSource? CurrentResultImageLAB
         {
             get => _currentResultImageLAB;
-            set { _currentResultImageLAB = value; OnPropertyChanged(); }
+            set
+            {
+                _currentResultImageLAB = value;
+                OnPropertyChanged();
+            }
         }
 
         private ImageSource? _currentResultImageLCD;
         public ImageSource? CurrentResultImageLCD
         {
             get => _currentResultImageLCD;
-            set { _currentResultImageLCD = value; OnPropertyChanged(); }
+            set
+            {
+                _currentResultImageLCD = value;
+                OnPropertyChanged();
+            }
         }
 
         private ImageSource? _currentResultImageRAB;
         public ImageSource? CurrentResultImageRAB
         {
             get => _currentResultImageRAB;
-            set { _currentResultImageRAB = value; OnPropertyChanged(); }
+            set
+            {
+                _currentResultImageRAB = value;
+                OnPropertyChanged();
+            }
         }
 
         private ImageSource? _currentResultImageRCD;
         public ImageSource? CurrentResultImageRCD
         {
             get => _currentResultImageRCD;
-            set { _currentResultImageRCD = value; OnPropertyChanged(); }
+            set
+            {
+                _currentResultImageRCD = value;
+                OnPropertyChanged();
+            }
         }
 
         //原始HObject图像
@@ -1472,27 +2000,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         public string? CurrentMonitoringStation
         {
             get => _currentMonitoringStation;
-            set { _currentMonitoringStation = value; OnPropertyChanged(); }
+            set
+            {
+                _currentMonitoringStation = value;
+                OnPropertyChanged();
+            }
         }
 
         // 文件就绪重试配置
         private const int FileReadyMaxRetry = 30; // 最多重试30次
         private const int FileReadyRetryDelay = 1000; // 每次重试间隔1秒
-        private Dictionary<string, HObject> _firstDetectionImageCache = new Dictionary<string, HObject>();
+        private Dictionary<string, HObject> _firstDetectionImageCache =
+            new Dictionary<string, HObject>();
         private object _cacheLock = new object();
 
         //LAB
         private FileSystemWatcher? _onlineMonitorWatcherLAB;
-        private readonly ConcurrentQueue<string> _safeDetectQueueLAB = new ConcurrentQueue<string>();
+        private readonly ConcurrentQueue<string> _safeDetectQueueLAB =
+            new ConcurrentQueue<string>();
         private bool _isQueueRunningLAB;
         private readonly SemaphoreSlim _semaphoreLAB = new SemaphoreSlim(MaxConcurrentLAB); // LAB并发控制
         private const int MaxConcurrentLAB = 1; //LAB最大并发数
+
         // 等待句柄,唤醒线程
-        private readonly AutoResetEvent _queueEventLAB = new AutoResetEvent(false);  // 初始为未触发状态
+        private readonly AutoResetEvent _queueEventLAB = new AutoResetEvent(false); // 初始为未触发状态
 
         //LCD
         private FileSystemWatcher? _onlineMonitorWatcherLCD;
-        private readonly ConcurrentQueue<string> _safeDetectQueueLCD = new ConcurrentQueue<string>();
+        private readonly ConcurrentQueue<string> _safeDetectQueueLCD =
+            new ConcurrentQueue<string>();
         private bool _isQueueRunningLCD;
         private readonly SemaphoreSlim _semaphoreLCD = new SemaphoreSlim(MaxConcurrentLCD);
         private const int MaxConcurrentLCD = 1;
@@ -1500,7 +2036,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
         //RAB
         private FileSystemWatcher? _onlineMonitorWatcherRAB;
-        private readonly ConcurrentQueue<string> _safeDetectQueueRAB = new ConcurrentQueue<string>();
+        private readonly ConcurrentQueue<string> _safeDetectQueueRAB =
+            new ConcurrentQueue<string>();
         private bool _isQueueRunningRAB;
         private readonly SemaphoreSlim _semaphoreRAB = new SemaphoreSlim(MaxConcurrentRAB);
         private const int MaxConcurrentRAB = 1;
@@ -1508,26 +2045,185 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
         //RCD
         private FileSystemWatcher? _onlineMonitorWatcherRCD;
-        private readonly ConcurrentQueue<string> _safeDetectQueueRCD = new ConcurrentQueue<string>();
+        private readonly ConcurrentQueue<string> _safeDetectQueueRCD =
+            new ConcurrentQueue<string>();
         private bool _isQueueRunningRCD;
         private readonly SemaphoreSlim _semaphoreRCD = new SemaphoreSlim(MaxConcurrentRCD);
         private const int MaxConcurrentRCD = 1;
         private readonly AutoResetEvent _queueEventRCD = new AutoResetEvent(false);
         private readonly object _stationCountLock = new object();
         private int _runningStationsCount = 0;
+
         // 记录每个条码的最后活动时间
-        private readonly Dictionary<string, DateTime> _barcodeLastActivityTime = new Dictionary<string, DateTime>();
+        private readonly Dictionary<string, DateTime> _barcodeLastActivityTime =
+            new Dictionary<string, DateTime>();
+
         // 保护条码时间字典的锁
         private readonly object _barcodeTimeLock = new object();
+
         // 定时清理超时条码的Timer
         private System.Timers.Timer _timeoutCleanupTimer;
 
         // 缓存每张图的间隙最大值数组（键=图片路径，值=gapMaxArray：[0]负极边缘 [1]正极边缘 [2]正极中间）
-        private readonly ConcurrentDictionary<string, double[]> _imageGapValueCache = new ConcurrentDictionary<string, double[]>();
+        private readonly ConcurrentDictionary<string, double[]> _imageGapValueCache =
+            new ConcurrentDictionary<string, double[]>();
+
         // CSV保存路径（可自定义）
-        private readonly string _gapDefectCsvPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GapDefectDetail.csv");
+        private readonly string _gapDefectCsvPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "GapDefectDetail.csv"
+        );
+
         // CSV写入锁
         private readonly object _gapCsvLock = new object();
+
+        #region 在线监控状态监控
+        private System.Timers.Timer? _onlineMonitorWatcherStatusMonitor;
+
+        private void StartOnlineMonitorWatcherStatusMonitor()
+        {
+            if (_onlineMonitorWatcherStatusMonitor != null)
+            {
+                _onlineMonitorWatcherStatusMonitor.Stop();
+                _onlineMonitorWatcherStatusMonitor.Close();
+            }
+
+            _onlineMonitorWatcherStatusMonitor = new System.Timers.Timer(5000);
+            _onlineMonitorWatcherStatusMonitor.Elapsed += WatcherStatus;
+            _onlineMonitorWatcherStatusMonitor.Start();
+        }
+
+        private void WatcherStatus(object? sender, ElapsedEventArgs e)
+        {
+            try
+            {
+                bool needsRestartLAB = false;
+                bool needsRestartLCD = false;
+                bool needsRestartRAB = false;
+                bool needsRestartRCD = false;
+
+                // LAB
+                // 情况1：Watcher实例不存在
+                if (_onlineMonitorWatcherLAB == null)
+                {
+                    needsRestartLAB = true;
+                    AddLog("[LAB-Watcher监控] 发现Watcher实例为空，需要重启");
+                }
+                // 情况2：事件监听被意外关闭
+                else if (!_onlineMonitorWatcherLAB.EnableRaisingEvents)
+                {
+                    needsRestartLAB = true;
+                    AddLog("[LAB-Watcher监控] 检测到EnableRaisingEvents=false");
+                }
+                // 情况3：目标目录被删除或不可访问
+                else if (!Directory.Exists(SelectedMonitorFolderPathLAB))
+                {
+                    needsRestartLAB = false;
+                    AddLog($"[LAB-Watcher监控] 目标目录不存在：{SelectedMonitorFolderPathLAB}");
+                }
+
+                if (needsRestartLAB && IsOnlineDetectionEnabledLAB)
+                {
+                    _ = RestartFileSystemWatcherLABAsync();
+                }
+                else
+                {
+                    AddLog("[LAB-Watcher监控] 状态正常");
+                }
+
+                // LCD
+                // 情况1：Watcher实例不存在
+                if (_onlineMonitorWatcherLCD == null)
+                {
+                    needsRestartLCD = true;
+                    AddLog("[LCD-Watcher监控] 发现Watcher实例为空，需要重启");
+                }
+                // 情况2：事件监听被意外关闭
+                else if (!_onlineMonitorWatcherLCD.EnableRaisingEvents)
+                {
+                    needsRestartLCD = true;
+                    AddLog("[LCD-Watcher监控] 检测到EnableRaisingEvents=false");
+                }
+                // 情况3：目标目录被删除或不可访问
+                else if (!Directory.Exists(SelectedMonitorFolderPathLCD))
+                {
+                    needsRestartLCD = false;
+                    AddLog($"[LCD-Watcher监控] 目标目录不存在：{SelectedMonitorFolderPathLCD}");
+                }
+
+                if (needsRestartLCD && IsOnlineDetectionEnabledLCD)
+                {
+                    _ = RestartFileSystemWatcherLCDAsync();
+                }
+                else
+                {
+                    AddLog("[LCD-Watcher监控] 状态正常");
+                }
+
+                // RAB
+                // 情况1：Watcher实例不存在
+                if (_onlineMonitorWatcherRAB == null)
+                {
+                    needsRestartRAB = true;
+                    AddLog("[RAB-Watcher监控] 发现Watcher实例为空，需要重启");
+                }
+                // 情况2：事件监听被意外关闭
+                else if (!_onlineMonitorWatcherRAB.EnableRaisingEvents)
+                {
+                    needsRestartRAB = true;
+                    AddLog("[RAB-Watcher监控] 检测到EnableRaisingEvents=false");
+                }
+                // 情况3：目标目录被删除或不可访问
+                else if (!Directory.Exists(SelectedMonitorFolderPathRAB))
+                {
+                    needsRestartRAB = false;
+                    AddLog($"[RAB-Watcher监控] 目标目录不存在：{SelectedMonitorFolderPathRAB}");
+                }
+
+                if (needsRestartRAB && IsOnlineDetectionEnabledRAB)
+                {
+                    _ = RestartFileSystemWatcherRABAsync();
+                }
+                else
+                {
+                    AddLog("[RAB-Watcher监控] 状态正常");
+                }
+
+                // RCD
+                // 情况1：Watcher实例不存在
+                if (_onlineMonitorWatcherRCD == null)
+                {
+                    needsRestartRCD = true;
+                    AddLog("[RCD-Watcher监控] 发现Watcher实例为空，需要重启");
+                }
+                // 情况2：事件监听被意外关闭
+                else if (!_onlineMonitorWatcherRCD.EnableRaisingEvents)
+                {
+                    needsRestartRCD = true;
+                    AddLog("[RCD-Watcher监控] 检测到EnableRaisingEvents=false");
+                }
+                // 情况3：目标目录被删除或不可访问
+                else if (!Directory.Exists(SelectedMonitorFolderPathRCD))
+                {
+                    needsRestartRCD = false;
+                    AddLog($"[RCD-Watcher监控] 目标目录不存在：{SelectedMonitorFolderPathRCD}");
+                }
+
+                if (needsRestartRCD && IsOnlineDetectionEnabledRCD)
+                {
+                    _ = RestartFileSystemWatcherRCDAsync();
+                }
+                else
+                {
+                    AddLog("[RCD-Watcher监控] 状态正常");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[Watcher监控] 监控线程异常：{ex.Message}");
+            }
+        }
+        #endregion
 
         #region LAB在线监控参数
         private string? _selectedMonitorFolderPathLAB;
@@ -1551,15 +2247,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             get => _isOnlineDetectionEnabledLAB;
             set
             {
-
-                if (_isOnlineDetectionEnabledLAB == value) return;
+                if (_isOnlineDetectionEnabledLAB == value)
+                    return;
 
                 //在线检测开启
                 if (value)
                 {
-                    if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLAB) || !Directory.Exists(SelectedMonitorFolderPathLAB))
+                    if (
+                        string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLAB)
+                        || !Directory.Exists(SelectedMonitorFolderPathLAB)
+                    )
                     {
-                        System.Windows.MessageBox.Show("请先选择有效的在线监控文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        System.Windows.MessageBox.Show(
+                            "请先选择有效的在线监控文件夹！",
+                            "提示",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
                         _isOnlineDetectionEnabledLAB = false;
                         OnPropertyChanged();
                         return;
@@ -1586,21 +2290,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 OnPropertyChanged(nameof(IsInAnyDetectionLAB));
             }
         }
+
         private void StartOnlineMonitoringLAB()
         {
             CurrentMonitoringStation = "LAB";
 
-            if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLAB) || !Directory.Exists(SelectedMonitorFolderPathLAB))
+            if (
+                string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLAB)
+                || !Directory.Exists(SelectedMonitorFolderPathLAB)
+            )
             {
                 AddLog("[LAB] 监控文件夹不存在，请先选择有效文件夹");
                 IsOnlineDetectionEnabledLAB = false;
-                System.Windows.MessageBox.Show("LAB监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    "LAB监控文件夹不存在，请先选择有效文件夹",
+                    "在线检测错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
             _isThreadTerminatingLAB = false;
             if (_onlineMonitorWatcherLAB != null)
             {
                 _onlineMonitorWatcherLAB.Created -= OnOnlineFileCreatedLAB; // 先取消旧绑定
+                _onlineMonitorWatcherLAB.Error -= OnlineMonitorWatcherErrorLAB;
                 _onlineMonitorWatcherLAB.Dispose();
                 _onlineMonitorWatcherLAB = null;
             }
@@ -1610,96 +2324,149 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
                 EnableRaisingEvents = true,
-                InternalBufferSize = 65536
+                InternalBufferSize = 64 * 1024,
             };
             _onlineMonitorWatcherLAB.Created += OnOnlineFileCreatedLAB; // 绑定LAB文件事件
+            _onlineMonitorWatcherLAB.Error += OnlineMonitorWatcherErrorLAB;
             AddLog($"[LAB] 已启动监控，路径：{SelectedMonitorFolderPathLAB}");
         }
+
+        private void OnlineMonitorWatcherErrorLAB(object sender, System.IO.ErrorEventArgs e)
+        {
+            try
+            {
+                _logger.Error($"[LAB-文件监测错误]：{e.GetException().ToString()}");
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+                _webApiClient.SendMachineErrorAlertAsync(
+                    deviceId,
+                    $"[LAB-文件监测错误-请检查网络连接情况]：{e.GetException().ToString().Replace("\\", "\\\\")}",
+                    "1",
+                    projectName: "CTOL"
+                );
+                if (IsOnlineDetectionEnabledLAB)
+                {
+                    _ = RestartFileSystemWatcherLABAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[LAB-文件监测错误]：{ex.ToString()}");
+            }
+        }
+
         private void OnOnlineFileCreatedLAB(object sender, FileSystemEventArgs e)
         {
-            string fileName = Path.GetFileName(e.FullPath);
-            //检查文件所在目录是否在名为 "OK" 的文件夹之下 
-            string? currentDirectory = Path.GetDirectoryName(e.FullPath);
-            if (!string.IsNullOrEmpty(currentDirectory))
+            try
             {
-                bool isUnderOKFolder = false;
-                DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
-                while (dirInfo.Parent != null)
+                string fileName = Path.GetFileName(e.FullPath);
+                AddLog($"[LAB-文件创建监测]：{fileName}");
+                //检查文件所在目录是否在名为 "OK" 的文件夹之下
+                string? currentDirectory = Path.GetDirectoryName(e.FullPath);
+                if (!string.IsNullOrEmpty(currentDirectory))
                 {
-                    if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
+                    bool isUnderOKFolder = false;
+                    DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
+                    while (dirInfo.Parent != null)
                     {
-                        isUnderOKFolder = true;
-                        break;
-                    }
-                    dirInfo = dirInfo.Parent;
-                }
-                if (!isUnderOKFolder)
-                {
-                    return;
-                }
-            }
-            //排除系统缩略图缓存文件Thumbs.db
-            if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
-            {
-                AddLog($"[LAB-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
-                return;
-            }
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var allowedExts = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
-                    var ext = Path.GetExtension(e.FullPath).ToLower();
-                    if (!allowedExts.Contains(ext))
-                    {
-                        AddLog($"[LAB-跳过] 非图片格式：{fileName}");
-                        return;
-                    }
-                    //仅处理文件名包含"_origin"的图片
-                    if (!fileName.Contains("_origin"))
-                    {
-                        // AddLog($"[LAB-跳过] 非origin图片：{fileName}");
-                        return;
-                    }
-                    bool isFileReady = false;
-                    int retryCount = 0;
-                    while (retryCount < FileReadyMaxRetry)
-                    {
-                        if (IsFileAccessible(e.FullPath))
+                        if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
                         {
-                            isFileReady = true;
+                            isUnderOKFolder = true;
                             break;
                         }
-                        retryCount++;
-                        await Task.Delay(FileReadyRetryDelay);
-                        if (!File.Exists(e.FullPath))
+                        dirInfo = dirInfo.Parent;
+                    }
+                    if (!isUnderOKFolder)
+                    {
+                        return;
+                    }
+                }
+                //排除系统缩略图缓存文件Thumbs.db
+                if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddLog($"[LAB-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
+                    return;
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var allowedExts = new HashSet<string>
                         {
-                            AddLog($"[LAB-丢弃] {fileName} 在重试期间被删除");
+                            ".bmp",
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".gif",
+                            ".tiff",
+                            ".webp",
+                        };
+                        var ext = Path.GetExtension(e.FullPath).ToLower();
+                        if (!allowedExts.Contains(ext))
+                        {
+                            AddLog($"[LAB-跳过] 非图片格式：{fileName}");
                             return;
                         }
-                    }
-                    if (!isFileReady)
-                    {
-                        AddLog($"[LAB-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪");
-                        return;
-                    }
+                        //仅处理文件名包含"_origin"的图片
+                        if (!fileName.Contains("_origin"))
+                        {
+                            // AddLog($"[LAB-跳过] 非origin图片：{fileName}");
+                            return;
+                        }
+                        bool isFileReady = false;
+                        int retryCount = 0;
+                        while (retryCount < FileReadyMaxRetry)
+                        {
+                            if (IsFileAccessible(e.FullPath))
+                            {
+                                isFileReady = true;
+                                break;
+                            }
+                            retryCount++;
+                            await Task.Delay(FileReadyRetryDelay);
+                            if (!File.Exists(e.FullPath))
+                            {
+                                AddLog($"[LAB-丢弃] {fileName} 在重试期间被删除");
+                                return;
+                            }
+                        }
+                        if (!isFileReady)
+                        {
+                            AddLog(
+                                $"[LAB-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪"
+                            );
+                            return;
+                        }
 
-                    if (!File.Exists(e.FullPath))
-                    {
-                        AddLog($"[LAB-丢弃] {fileName} 已被删除");
-                        return;
-                    }
+                        if (!File.Exists(e.FullPath))
+                        {
+                            AddLog($"[LAB-丢弃] {fileName} 已被删除");
+                            return;
+                        }
 
-                    // 入队处理
-                    EnqueueTaskLAB(e.FullPath);
-                }
-                catch (Exception ex)
-                {
-                    AddLog($"[LAB-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}");
-                    // ResetTaskQueueIfNeeded();
-                }
-            });
+                        // 入队处理
+                        EnqueueTaskLAB(e.FullPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        AddLog(
+                            $"[LAB-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                        );
+                        // ResetTaskQueueIfNeeded();
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    $"[LAB-文件创建监测异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                );
+            }
         }
+
         public void EnqueueTaskLAB(string filePath)
         {
             if (string.IsNullOrEmpty(filePath))
@@ -1707,7 +2474,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog("[LAB-入队] 无效路径，跳过入队");
                 return;
             }
-
 
             _safeDetectQueueLAB.Enqueue(filePath);
 
@@ -1719,6 +2485,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             _queueEventLAB.Set(); // 唤醒A工位等待线程
             //AddLog($"[A工位-入队] 新任务入队，发送唤醒信号：{Path.GetFileName(filePath)}");
         }
+
         private void StartConcurrentProcessingLAB()
         {
             if (!_isQueueRunningLAB)
@@ -1727,6 +2494,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _ = ProcessQueueConcurrentLAB();
             }
         }
+
         private async Task ProcessQueueConcurrentLAB()
         {
             await _semaphoreLAB.WaitAsync();
@@ -1748,7 +2516,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             break; // 队列空，退出内层循环
                         }
 
-                        if (filePath == null) break;
+                        if (filePath == null)
+                            break;
 
                         if (!File.Exists(filePath))
                         {
@@ -1758,14 +2527,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         HObject? resultImage = null;
                         try
                         {
-
                             //AddLog($"[LAB-开始检测] 文件：{Path.GetFileName(filePath)}");
                             var (ctCode, tempResultImage) = GapDetection(filePath, "LAB");
                             resultImage = tempResultImage;
 
                             if (ctCode == "Internal_Error" || resultImage == null)
                             {
-                                AddLog($"[LAB-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程");
+                                AddLog(
+                                    $"[LAB-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程"
+                                );
                                 resultImage?.Dispose();
                                 continue;
                             }
@@ -1793,13 +2563,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             else
                             {
-                                AddLog($"[LAB-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效");
+                                AddLog(
+                                    $"[LAB-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效"
+                                );
                                 resultImage?.Dispose();
                             }
                         }
                         catch (Exception ex)
                         {
-                            AddLog($"[LAB-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}");
+                            AddLog(
+                                $"[LAB-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}"
+                            );
                             resultImage?.Dispose();
                         }
                         finally
@@ -1829,14 +2603,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             finally
             {
                 _semaphoreLAB.Release();
-                if (_safeDetectQueueLAB.Count == 0 && _semaphoreLAB.CurrentCount == MaxConcurrentLAB)
+                if (
+                    _safeDetectQueueLAB.Count == 0
+                    && _semaphoreLAB.CurrentCount == MaxConcurrentLAB
+                )
                 {
                     _isQueueRunningLAB = false;
                     //AddLog("[队列处理] 所有任务完成，线程已释放");
                 }
-                AddLog($"[LAB-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}");
+                AddLog(
+                    $"[LAB-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}"
+                );
             }
         }
+
         private void StopOnlineMonitoringLAB()
         {
             if (_onlineMonitorWatcherLAB != null)
@@ -1845,7 +2625,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _onlineMonitorWatcherLAB.Created -= OnOnlineFileCreatedLAB;
                 _onlineMonitorWatcherLAB.Dispose();
                 _onlineMonitorWatcherLAB = null;
-
             }
             _isThreadTerminatingLAB = true;
             _queueEventLAB.Set();
@@ -1861,14 +2640,92 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
             }
         }
+
+        private async Task RestartFileSystemWatcherLABAsync()
+        {
+            try
+            {
+                const int retryDelayMs = 2000;
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+
+                while (true)
+                {
+                    try
+                    {
+                        AddLog("[LAB-Watcher监控] 尝试重启FileSystemWatcher...");
+
+                        if (_onlineMonitorWatcherLAB != null)
+                        {
+                            _onlineMonitorWatcherLAB.Created -= OnOnlineFileCreatedLAB;
+                            _onlineMonitorWatcherLAB.Error -= OnlineMonitorWatcherErrorLAB;
+                            _onlineMonitorWatcherLAB.Dispose();
+                            _onlineMonitorWatcherLAB = null;
+                        }
+
+                        if (
+                            !string.IsNullOrEmpty(SelectedMonitorFolderPathLAB)
+                            && Directory.Exists(SelectedMonitorFolderPathLAB)
+                        )
+                        {
+                            _onlineMonitorWatcherLAB = new FileSystemWatcher(
+                                SelectedMonitorFolderPathLAB
+                            )
+                            {
+                                Filter = "*.png",
+                                IncludeSubdirectories = true,
+                                NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
+                                EnableRaisingEvents = true,
+                                InternalBufferSize = 64 * 1024,
+                            };
+                            _onlineMonitorWatcherLAB.Created += OnOnlineFileCreatedLAB;
+                            _onlineMonitorWatcherLAB.Error += OnlineMonitorWatcherErrorLAB;
+                            AddLog("[LAB-Watcher监控] 重启成功");
+                            return; // 成功退出
+                        }
+                        else
+                        {
+                            _logger.Error(
+                                $"[LAB-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathLAB}]"
+                            );
+                            await _webApiClient.SendMachineErrorAlertAsync(
+                                deviceId,
+                                $"[LAB-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathLAB}]",
+                                "1",
+                                projectName: "CTOL"
+                            );
+                        }
+
+                        await Task.Delay(retryDelayMs);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"[LAB-Watcher监控] 重启错误：{ex.Message}");
+                        await _webApiClient.SendMachineErrorAlertAsync(
+                            deviceId,
+                            $"[LAB-Watcher监控] 重启错误：{ex.Message}",
+                            "1",
+                            projectName: "CTOL"
+                        );
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[LAB-Watcher监控] 重启错误：{ex.Message}");
+            }
+        }
+
         // 清理LAB工位相关的缓存
         private void CleanupLabRelatedCacheLAB()
         {
             lock (_cacheLock)
             {
                 // 筛选出LAB工位的图片缓存
-                var labCacheKeys = _firstDetectionImageCache.Keys
-                    .Where(key => key.StartsWith(SelectedMonitorFolderPathLAB ?? ""))
+                var labCacheKeys = _firstDetectionImageCache
+                    .Keys.Where(key => key.StartsWith(SelectedMonitorFolderPathLAB ?? ""))
                     .ToList();
 
                 foreach (var key in labCacheKeys)
@@ -1885,6 +2742,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _barcodeLastActivityTime.Clear();
             }
         }
+
         private void SelectMonitorFolderLAB()
         {
             // 检查权限
@@ -1894,7 +2752,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
             var folderDialog = new OpenFolderDialog();
             folderDialog.Title = "选择LAB在线检测监控文件夹";
-            folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            folderDialog.InitialDirectory = Environment.GetFolderPath(
+                Environment.SpecialFolder.MyPictures
+            );
             folderDialog.ValidateNames = true;
             folderDialog.Multiselect = false;
             bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
@@ -1928,15 +2788,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             get => _isOnlineDetectionEnabledLCD;
             set
             {
-
-                if (_isOnlineDetectionEnabledLCD == value) return;
+                if (_isOnlineDetectionEnabledLCD == value)
+                    return;
 
                 //在线检测开启
                 if (value)
                 {
-                    if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLCD) || !Directory.Exists(SelectedMonitorFolderPathLCD))
+                    if (
+                        string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLCD)
+                        || !Directory.Exists(SelectedMonitorFolderPathLCD)
+                    )
                     {
-                        System.Windows.MessageBox.Show("请先选择有效的在线监控文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        System.Windows.MessageBox.Show(
+                            "请先选择有效的在线监控文件夹！",
+                            "提示",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
                         _isOnlineDetectionEnabledLCD = false;
                         OnPropertyChanged();
                         return;
@@ -1965,21 +2833,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 OnPropertyChanged(nameof(IsInAnyDetectionLCD));
             }
         }
+
         private void StartOnlineMonitoringLCD()
         {
             CurrentMonitoringStation = "LCD";
 
-            if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLCD) || !Directory.Exists(SelectedMonitorFolderPathLCD))
+            if (
+                string.IsNullOrWhiteSpace(SelectedMonitorFolderPathLCD)
+                || !Directory.Exists(SelectedMonitorFolderPathLCD)
+            )
             {
                 AddLog("[LCD] 监控文件夹不存在，请先选择有效文件夹");
                 IsOnlineDetectionEnabledLCD = false;
-                System.Windows.MessageBox.Show("LCD监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    "LCD监控文件夹不存在，请先选择有效文件夹",
+                    "在线检测错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
             _isThreadTerminatingLCD = false;
             if (_onlineMonitorWatcherLCD != null)
             {
                 _onlineMonitorWatcherLCD.Created -= OnOnlineFileCreatedLCD;
+                _onlineMonitorWatcherLCD.Error -= OnlineMonitorWatcherErrorLCD;
                 _onlineMonitorWatcherLCD.Dispose();
                 _onlineMonitorWatcherLCD = null;
             }
@@ -1989,97 +2867,147 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
                 EnableRaisingEvents = true,
-                InternalBufferSize = 65536
+                InternalBufferSize = 64 * 1024,
             };
             _onlineMonitorWatcherLCD.Created += OnOnlineFileCreatedLCD; // 绑定LCD工位文件事件
+            _onlineMonitorWatcherLCD.Error += OnlineMonitorWatcherErrorLCD;
 
             AddLog($"[LCD] 已启动监控，路径：{SelectedMonitorFolderPathLCD}");
         }
 
+        private void OnlineMonitorWatcherErrorLCD(object sender, System.IO.ErrorEventArgs e)
+        {
+            try
+            {
+                _logger.Error($"[LCD-文件监测错误]：{e.GetException().ToString()}");
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+                _webApiClient.SendMachineErrorAlertAsync(
+                    deviceId,
+                    $"[LCD-文件监测错误-请检查网络连接情况]：{e.GetException().ToString().Replace("\\", "\\\\")}",
+                    "1",
+                    projectName: "CTOL"
+                );
+                if (IsOnlineDetectionEnabledLCD)
+                {
+                    _ = RestartFileSystemWatcherLCDAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[LCD-文件监测错误]：{ex.ToString()}");
+            }
+        }
+
         private void OnOnlineFileCreatedLCD(object sender, FileSystemEventArgs e)
         {
-            string fileName = Path.GetFileName(e.FullPath);
-            //检查文件所在目录是否在名为 "OK" 的文件夹之下
-            string? currentDirectory = Path.GetDirectoryName(e.FullPath);
-            if (!string.IsNullOrEmpty(currentDirectory))
+            try
             {
-                bool isUnderOKFolder = false;
-                DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
-                while (dirInfo.Parent != null)
+                string fileName = Path.GetFileName(e.FullPath);
+                AddLog($"[LCD-文件创建监测]：{fileName}");
+                //检查文件所在目录是否在名为 "OK" 的文件夹之下
+                string? currentDirectory = Path.GetDirectoryName(e.FullPath);
+                if (!string.IsNullOrEmpty(currentDirectory))
                 {
-                    if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
+                    bool isUnderOKFolder = false;
+                    DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
+                    while (dirInfo.Parent != null)
                     {
-                        isUnderOKFolder = true;
-                        break;
-                    }
-                    dirInfo = dirInfo.Parent;
-                }
-                if (!isUnderOKFolder)
-                {
-                    return;
-                }
-            }
-
-            // 优先排除系统缩略图缓存文件Thumbs.db
-            if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
-            {
-                AddLog($"[LCD-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
-                return;
-            }
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var allowedExts = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
-                    var ext = Path.GetExtension(e.FullPath).ToLower();
-                    if (!allowedExts.Contains(ext))
-                    {
-                        AddLog($"[LCD-跳过] 非图片格式：{fileName}");
-                        return;
-                    }
-
-                    // 仅处理包含"_origin"的图片
-                    if (!fileName.Contains("_origin"))
-                    {
-                        // AddLog($"[LCD-跳过] 非origin图片：{fileName}");
-                        return;
-                    }
-
-                    bool isFileReady = false;
-                    int retryCount = 0;
-                    while (retryCount < FileReadyMaxRetry)
-                    {
-                        if (IsFileAccessible(e.FullPath))
+                        if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
                         {
-                            isFileReady = true;
+                            isUnderOKFolder = true;
                             break;
                         }
-                        retryCount++;
-                        await Task.Delay(FileReadyRetryDelay);
-                        if (!File.Exists(e.FullPath))
+                        dirInfo = dirInfo.Parent;
+                    }
+                    if (!isUnderOKFolder)
+                    {
+                        return;
+                    }
+                }
+
+                // 优先排除系统缩略图缓存文件Thumbs.db
+                if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddLog($"[LCD-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
+                    return;
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var allowedExts = new HashSet<string>
                         {
-                            AddLog($"[LCD-丢弃] {fileName} 在重试期间被删除");
+                            ".bmp",
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".gif",
+                            ".tiff",
+                            ".webp",
+                        };
+                        var ext = Path.GetExtension(e.FullPath).ToLower();
+                        if (!allowedExts.Contains(ext))
+                        {
+                            AddLog($"[LCD-跳过] 非图片格式：{fileName}");
                             return;
                         }
+
+                        // 仅处理包含"_origin"的图片
+                        if (!fileName.Contains("_origin"))
+                        {
+                            // AddLog($"[LCD-跳过] 非origin图片：{fileName}");
+                            return;
+                        }
+
+                        bool isFileReady = false;
+                        int retryCount = 0;
+                        while (retryCount < FileReadyMaxRetry)
+                        {
+                            if (IsFileAccessible(e.FullPath))
+                            {
+                                isFileReady = true;
+                                break;
+                            }
+                            retryCount++;
+                            await Task.Delay(FileReadyRetryDelay);
+                            if (!File.Exists(e.FullPath))
+                            {
+                                AddLog($"[LCD-丢弃] {fileName} 在重试期间被删除");
+                                return;
+                            }
+                        }
+                        if (!isFileReady)
+                        {
+                            AddLog(
+                                $"[LCD-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪"
+                            );
+                            return;
+                        }
+                        if (!File.Exists(e.FullPath))
+                        {
+                            AddLog($"[LCD-丢弃] {fileName} 已被删除");
+                            return;
+                        }
+                        EnqueueTaskLCD(e.FullPath);
                     }
-                    if (!isFileReady)
+                    catch (Exception ex)
                     {
-                        AddLog($"[LCD-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪");
-                        return;
+                        AddLog(
+                            $"[LCD-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                        );
                     }
-                    if (!File.Exists(e.FullPath))
-                    {
-                        AddLog($"[LCD-丢弃] {fileName} 已被删除");
-                        return;
-                    }
-                    EnqueueTaskLCD(e.FullPath);
-                }
-                catch (Exception ex)
-                {
-                    AddLog($"[LCD-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}");
-                }
-            });
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    $"[LCD-文件创建监测异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                );
+            }
         }
 
         public void EnqueueTaskLCD(string filePath)
@@ -2089,7 +3017,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog("[LCD-入队] 无效路径，跳过入队");
                 return;
             }
-
 
             _safeDetectQueueLCD.Enqueue(filePath);
 
@@ -2108,6 +3035,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _ = ProcessQueueConcurrentLCD();
             }
         }
+
         //private readonly SemaphoreSlim _lcdProcessingSemaphore = new SemaphoreSlim(2, 2);
         private async Task ProcessQueueConcurrentLCD()
         {
@@ -2130,7 +3058,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             break; // 队列空，退出内层循环
                         }
 
-                        if (filePath == null) break;
+                        if (filePath == null)
+                            break;
 
                         // 检查文件是否存在
                         if (!File.Exists(filePath))
@@ -2145,7 +3074,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             resultImage = tempResultImage;
                             if (ctCode == "Internal_Error" || resultImage == null)
                             {
-                                AddLog($"[LCD-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程");
+                                AddLog(
+                                    $"[LCD-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程"
+                                );
                                 resultImage?.Dispose();
                                 continue;
                             }
@@ -2171,13 +3102,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             else
                             {
-                                AddLog($"[LCD-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效");
+                                AddLog(
+                                    $"[LCD-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效"
+                                );
                                 resultImage?.Dispose();
                             }
                         }
                         catch (Exception ex)
                         {
-                            AddLog($"[LCD-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}");
+                            AddLog(
+                                $"[LCD-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}"
+                            );
                             resultImage?.Dispose();
                         }
                         finally
@@ -2205,12 +3140,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             finally
             {
                 _semaphoreLCD.Release();
-                if (_safeDetectQueueLCD.Count == 0 && _semaphoreLCD.CurrentCount == MaxConcurrentLCD)
+                if (
+                    _safeDetectQueueLCD.Count == 0
+                    && _semaphoreLCD.CurrentCount == MaxConcurrentLCD
+                )
                 {
                     _isQueueRunningLCD = false;
                     //AddLog("[队列处理] 所有任务完成，线程已释放");
                 }
-                AddLog($"[LCD-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}");
+                AddLog(
+                    $"[LCD-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}"
+                );
             }
         }
 
@@ -2235,15 +3175,93 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     _runningStationsCount--;
                 }
             }
-
         }
+
+        private async Task RestartFileSystemWatcherLCDAsync()
+        {
+            try
+            {
+                const int retryDelayMs = 2000;
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+                while (true)
+                {
+                    try
+                    {
+                        AddLog("[LCD-Watcher监控] 尝试重启FileSystemWatcher...");
+
+                        // 释放旧实例
+                        if (_onlineMonitorWatcherLCD != null)
+                        {
+                            _onlineMonitorWatcherLCD.Created -= OnOnlineFileCreatedLCD;
+                            _onlineMonitorWatcherLCD.Error -= OnlineMonitorWatcherErrorLCD;
+                            _onlineMonitorWatcherLCD.Dispose();
+                            _onlineMonitorWatcherLCD = null;
+                        }
+
+                        // 仅在路径有效时重建
+                        if (
+                            !string.IsNullOrEmpty(SelectedMonitorFolderPathLCD)
+                            && Directory.Exists(SelectedMonitorFolderPathLCD)
+                        )
+                        {
+                            _onlineMonitorWatcherLCD = new FileSystemWatcher(
+                                SelectedMonitorFolderPathLCD
+                            )
+                            {
+                                Filter = "*.png",
+                                IncludeSubdirectories = true,
+                                NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
+                                EnableRaisingEvents = true,
+                                InternalBufferSize = 64 * 1024,
+                            };
+                            _onlineMonitorWatcherLCD.Created += OnOnlineFileCreatedLCD;
+                            _onlineMonitorWatcherLCD.Error += OnlineMonitorWatcherErrorLCD;
+                            AddLog("[LCD-Watcher监控] 重启成功");
+                            return; // 成功退出
+                        }
+                        else
+                        {
+                            _logger.Error(
+                                $"[LCD-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathLCD}]"
+                            );
+                            await _webApiClient.SendMachineErrorAlertAsync(
+                                deviceId,
+                                $"[LCD-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathLCD}]",
+                                "1",
+                                projectName: "CTOL"
+                            );
+                        }
+
+                        await Task.Delay(retryDelayMs);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"[LCD-Watcher监控] 重启错误：{ex.Message}");
+                        await _webApiClient.SendMachineErrorAlertAsync(
+                            deviceId,
+                            $"[LCD-Watcher监控] 重启错误：{ex.Message}",
+                            "1",
+                            projectName: "CTOL"
+                        );
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[LCD-Watcher监控] 重启错误：{ex.Message}");
+            }
+        }
+
         // 清理LCD工位相关的缓存
         private void CleanupLabRelatedCacheLCD()
         {
             lock (_cacheLock)
             {
-                var labCacheKeys = _firstDetectionImageCache.Keys
-                    .Where(key => key.StartsWith(SelectedMonitorFolderPathLCD ?? ""))
+                var labCacheKeys = _firstDetectionImageCache
+                    .Keys.Where(key => key.StartsWith(SelectedMonitorFolderPathLCD ?? ""))
                     .ToList();
 
                 foreach (var key in labCacheKeys)
@@ -2259,6 +3277,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _barcodeLastActivityTime.Clear();
             }
         }
+
         private void SelectMonitorFolderLCD()
         {
             // 检查权限
@@ -2269,7 +3288,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             var folderDialog = new OpenFolderDialog();
             folderDialog.Title = "选择LCD在线检测监控文件夹";
-            folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            folderDialog.InitialDirectory = Environment.GetFolderPath(
+                Environment.SpecialFolder.MyPictures
+            );
             folderDialog.ValidateNames = true;
             folderDialog.Multiselect = false;
 
@@ -2303,15 +3324,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             get => _isOnlineDetectionEnabledRAB;
             set
             {
-
-                if (_isOnlineDetectionEnabledRAB == value) return;
+                if (_isOnlineDetectionEnabledRAB == value)
+                    return;
 
                 // 在线检测开启
                 if (value)
                 {
-                    if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRAB) || !Directory.Exists(SelectedMonitorFolderPathRAB))
+                    if (
+                        string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRAB)
+                        || !Directory.Exists(SelectedMonitorFolderPathRAB)
+                    )
                     {
-                        System.Windows.MessageBox.Show("请先选择有效的在线监控文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        System.Windows.MessageBox.Show(
+                            "请先选择有效的在线监控文件夹！",
+                            "提示",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
                         _isOnlineDetectionEnabledRAB = false;
                         OnPropertyChanged();
                         return;
@@ -2340,21 +3369,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 OnPropertyChanged(nameof(IsInAnyDetectionRAB));
             }
         }
+
         private void StartOnlineMonitoringRAB()
         {
             CurrentMonitoringStation = "RAB";
 
-            if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRAB) || !Directory.Exists(SelectedMonitorFolderPathRAB))
+            if (
+                string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRAB)
+                || !Directory.Exists(SelectedMonitorFolderPathRAB)
+            )
             {
                 AddLog("[RAB] 监控文件夹不存在，请先选择有效文件夹");
                 IsOnlineDetectionEnabledRAB = false;
-                System.Windows.MessageBox.Show("RAB监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    "RAB监控文件夹不存在，请先选择有效文件夹",
+                    "在线检测错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
             _isThreadTerminatingRAB = false;
             if (_onlineMonitorWatcherRAB != null)
             {
                 _onlineMonitorWatcherRAB.Created -= OnOnlineFileCreatedRAB;
+                _onlineMonitorWatcherRAB.Error -= OnlineMonitorWatcherErrorRAB;
                 _onlineMonitorWatcherRAB.Dispose();
                 _onlineMonitorWatcherRAB = null;
             }
@@ -2364,97 +3403,146 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
                 EnableRaisingEvents = true,
-                InternalBufferSize = 65536
+                InternalBufferSize = 64 * 1024,
             };
             _onlineMonitorWatcherRAB.Created += OnOnlineFileCreatedRAB;
+            _onlineMonitorWatcherRAB.Error += OnlineMonitorWatcherErrorRAB;
 
             AddLog($"[RAB] 已启动监控，路径：{SelectedMonitorFolderPathRAB}");
         }
 
+        private void OnlineMonitorWatcherErrorRAB(object sender, System.IO.ErrorEventArgs e)
+        {
+            try
+            {
+                _logger.Error($"[RAB-文件监测错误]：{e.GetException().ToString()}");
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+                _webApiClient.SendMachineErrorAlertAsync(
+                    deviceId,
+                    $"[RAB-文件监测错误-请检查网络连接情况]：{e.GetException().ToString().Replace("\\", "\\\\")}",
+                    "1",
+                    projectName: "CTOL"
+                );
+                if (IsOnlineDetectionEnabledRAB)
+                {
+                    _ = RestartFileSystemWatcherRABAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[RAB-文件监测错误]：{ex.ToString()}");
+            }
+        }
+
         private void OnOnlineFileCreatedRAB(object sender, FileSystemEventArgs e)
         {
-
-            string fileName = Path.GetFileName(e.FullPath);
-            //检查文件所在目录是否在名为 "OK" 的文件夹之下
-            string? currentDirectory = Path.GetDirectoryName(e.FullPath);
-
-            if (!string.IsNullOrEmpty(currentDirectory))
+            try
             {
-                bool isUnderOKFolder = false;
-                DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
-                while (dirInfo.Parent != null)
-                {
-                    if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
-                    {
-                        isUnderOKFolder = true;
-                        break;
-                    }
-                    dirInfo = dirInfo.Parent;
-                }
-                if (!isUnderOKFolder)
-                {
-                    return;
-                }
-            }
+                string fileName = Path.GetFileName(e.FullPath);
+                AddLog($"[RAB-文件创建监测]：{fileName}");
+                //检查文件所在目录是否在名为 "OK" 的文件夹之下
+                string? currentDirectory = Path.GetDirectoryName(e.FullPath);
 
-            // 优先排除系统缩略图缓存文件Thumbs.db
-            if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
-            {
-                AddLog($"[RAB-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
-                return;
-            }
-
-            _ = Task.Run(async () =>
-            {
-                try
+                if (!string.IsNullOrEmpty(currentDirectory))
                 {
-                    var allowedExts = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
-                    var ext = Path.GetExtension(e.FullPath).ToLower();
-                    if (!allowedExts.Contains(ext))
+                    bool isUnderOKFolder = false;
+                    DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
+                    while (dirInfo.Parent != null)
                     {
-                        AddLog($"[RAB-跳过] 非图片格式：{fileName}");
-                        return;
-                    }
-                    // 仅处理包含"_origin"的图片
-                    if (!fileName.Contains("_origin"))
-                    {
-                        // AddLog($"[RAB-跳过] 非origin图片：{fileName}");
-                        return;
-                    }
-                    bool isFileReady = false;
-                    int retryCount = 0;
-                    while (retryCount < FileReadyMaxRetry)
-                    {
-                        if (IsFileAccessible(e.FullPath))
+                        if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
                         {
-                            isFileReady = true;
+                            isUnderOKFolder = true;
                             break;
                         }
-                        retryCount++;
-                        await Task.Delay(FileReadyRetryDelay);
-                        if (!File.Exists(e.FullPath))
+                        dirInfo = dirInfo.Parent;
+                    }
+                    if (!isUnderOKFolder)
+                    {
+                        return;
+                    }
+                }
+
+                // 优先排除系统缩略图缓存文件Thumbs.db
+                if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddLog($"[RAB-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
+                    return;
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var allowedExts = new HashSet<string>
                         {
-                            AddLog($"[RAB-丢弃] {fileName} 在重试期间被删除");
+                            ".bmp",
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".gif",
+                            ".tiff",
+                            ".webp",
+                        };
+                        var ext = Path.GetExtension(e.FullPath).ToLower();
+                        if (!allowedExts.Contains(ext))
+                        {
+                            AddLog($"[RAB-跳过] 非图片格式：{fileName}");
                             return;
                         }
+                        // 仅处理包含"_origin"的图片
+                        if (!fileName.Contains("_origin"))
+                        {
+                            // AddLog($"[RAB-跳过] 非origin图片：{fileName}");
+                            return;
+                        }
+                        bool isFileReady = false;
+                        int retryCount = 0;
+                        while (retryCount < FileReadyMaxRetry)
+                        {
+                            if (IsFileAccessible(e.FullPath))
+                            {
+                                isFileReady = true;
+                                break;
+                            }
+                            retryCount++;
+                            await Task.Delay(FileReadyRetryDelay);
+                            if (!File.Exists(e.FullPath))
+                            {
+                                AddLog($"[RAB-丢弃] {fileName} 在重试期间被删除");
+                                return;
+                            }
+                        }
+                        if (!isFileReady)
+                        {
+                            AddLog(
+                                $"[RAB-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪"
+                            );
+                            return;
+                        }
+                        if (!File.Exists(e.FullPath))
+                        {
+                            AddLog($"[RAB-丢弃] {fileName} 已被删除");
+                            return;
+                        }
+                        EnqueueTaskRAB(e.FullPath);
                     }
-                    if (!isFileReady)
+                    catch (Exception ex)
                     {
-                        AddLog($"[RAB-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪");
-                        return;
+                        AddLog(
+                            $"[RAB-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                        );
                     }
-                    if (!File.Exists(e.FullPath))
-                    {
-                        AddLog($"[RAB-丢弃] {fileName} 已被删除");
-                        return;
-                    }
-                    EnqueueTaskRAB(e.FullPath);
-                }
-                catch (Exception ex)
-                {
-                    AddLog($"[RAB-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}");
-                }
-            });
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    $"[RAB-文件创建监测异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                );
+            }
         }
 
         public void EnqueueTaskRAB(string filePath)
@@ -2464,7 +3552,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog("[RAB-入队] 无效路径，跳过入队");
                 return;
             }
-
 
             _safeDetectQueueRAB.Enqueue(filePath);
             if (!_isQueueRunningRAB)
@@ -2482,6 +3569,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _ = ProcessQueueConcurrentRAB();
             }
         }
+
         private async Task ProcessQueueConcurrentRAB()
         {
             await _semaphoreRAB.WaitAsync();
@@ -2502,8 +3590,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             break;
                         }
 
-
-                        if (filePath == null) break;
+                        if (filePath == null)
+                            break;
 
                         // 检查文件是否存在
                         if (!File.Exists(filePath))
@@ -2518,7 +3606,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             resultImage = tempResultImage;
                             if (ctCode == "Internal_Error" || resultImage == null)
                             {
-                                AddLog($"[RAB-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程");
+                                AddLog(
+                                    $"[RAB-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程"
+                                );
                                 resultImage?.Dispose();
                                 continue;
                             }
@@ -2546,13 +3636,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             else
                             {
-                                AddLog($"[RAB-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效");
+                                AddLog(
+                                    $"[RAB-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效"
+                                );
                                 resultImage?.Dispose();
                             }
                         }
                         catch (Exception ex)
                         {
-                            AddLog($"[RAB-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}");
+                            AddLog(
+                                $"[RAB-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}"
+                            );
                             resultImage?.Dispose();
                         }
                         finally
@@ -2581,14 +3675,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             finally
             {
                 _semaphoreRAB.Release();
-                if (_safeDetectQueueRAB.Count == 0 && _semaphoreRAB.CurrentCount == MaxConcurrentRAB)
+                if (
+                    _safeDetectQueueRAB.Count == 0
+                    && _semaphoreRAB.CurrentCount == MaxConcurrentRAB
+                )
                 {
                     _isQueueRunningRAB = false;
                     //AddLog("[队列处理] 所有任务完成，线程已释放");
                 }
-                AddLog($"[RAB-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}");
+                AddLog(
+                    $"[RAB-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}"
+                );
             }
         }
+
         private void SelectMonitorFolderRAB()
         {
             // 检查权限
@@ -2599,7 +3699,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             var folderDialog = new OpenFolderDialog();
             folderDialog.Title = "选择RAB在线检测监控文件夹";
-            folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            folderDialog.InitialDirectory = Environment.GetFolderPath(
+                Environment.SpecialFolder.MyPictures
+            );
             folderDialog.ValidateNames = true;
             folderDialog.Multiselect = false;
 
@@ -2632,14 +3734,92 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     _runningStationsCount--;
                 }
             }
-
         }
+
+        private async Task RestartFileSystemWatcherRABAsync()
+        {
+            try
+            {
+                const int retryDelayMs = 2000;
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+                while (true)
+                {
+                    try
+                    {
+                        AddLog("[RAB-Watcher监控] 尝试重启FileSystemWatcher...");
+
+                        // 释放旧实例
+                        if (_onlineMonitorWatcherRAB != null)
+                        {
+                            _onlineMonitorWatcherRAB.Created -= OnOnlineFileCreatedRAB;
+                            _onlineMonitorWatcherRAB.Error -= OnlineMonitorWatcherErrorRAB;
+                            _onlineMonitorWatcherRAB.Dispose();
+                            _onlineMonitorWatcherRAB = null;
+                        }
+
+                        // 仅在路径有效时重建
+                        if (
+                            !string.IsNullOrEmpty(SelectedMonitorFolderPathRAB)
+                            && Directory.Exists(SelectedMonitorFolderPathRAB)
+                        )
+                        {
+                            _onlineMonitorWatcherRAB = new FileSystemWatcher(
+                                SelectedMonitorFolderPathRAB
+                            )
+                            {
+                                Filter = "*.png",
+                                IncludeSubdirectories = true,
+                                NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
+                                EnableRaisingEvents = true,
+                                InternalBufferSize = 64 * 1024,
+                            };
+                            _onlineMonitorWatcherRAB.Created += OnOnlineFileCreatedRAB;
+                            _onlineMonitorWatcherRAB.Error += OnlineMonitorWatcherErrorRAB;
+                            AddLog("[RAB-Watcher监控] 重启成功");
+                            return; // 成功退出
+                        }
+                        else
+                        {
+                            _logger.Error(
+                                $"[RAB-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathRAB}]"
+                            );
+                            await _webApiClient.SendMachineErrorAlertAsync(
+                                deviceId,
+                                $"[RAB-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathRAB}]",
+                                "1",
+                                projectName: "CTOL"
+                            );
+                        }
+
+                        await Task.Delay(retryDelayMs);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"[RAB-Watcher监控] 重启错误：{ex.Message}");
+                        await _webApiClient.SendMachineErrorAlertAsync(
+                            deviceId,
+                            $"[RAB-Watcher监控] 重启错误：{ex.Message}",
+                            "1",
+                            projectName: "CTOL"
+                        );
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[RAB-Watcher监控] 重启错误：{ex.Message}");
+            }
+        }
+
         private void CleanupLabRelatedCacheRAB()
         {
             lock (_cacheLock)
             {
-                var labCacheKeys = _firstDetectionImageCache.Keys
-                    .Where(key => key.StartsWith(SelectedMonitorFolderPathRAB ?? ""))
+                var labCacheKeys = _firstDetectionImageCache
+                    .Keys.Where(key => key.StartsWith(SelectedMonitorFolderPathRAB ?? ""))
                     .ToList();
 
                 foreach (var key in labCacheKeys)
@@ -2679,15 +3859,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             get => _isOnlineDetectionEnabledRCD;
             set
             {
-
-                if (_isOnlineDetectionEnabledRCD == value) return;
+                if (_isOnlineDetectionEnabledRCD == value)
+                    return;
 
                 //在线检测开启
                 if (value)
                 {
-                    if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRCD) || !Directory.Exists(SelectedMonitorFolderPathRCD))
+                    if (
+                        string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRCD)
+                        || !Directory.Exists(SelectedMonitorFolderPathRCD)
+                    )
                     {
-                        System.Windows.MessageBox.Show("请先选择有效的在线监控文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        System.Windows.MessageBox.Show(
+                            "请先选择有效的在线监控文件夹！",
+                            "提示",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
                         _isOnlineDetectionEnabledRCD = false;
                         OnPropertyChanged();
                         return;
@@ -2715,21 +3903,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 OnPropertyChanged(nameof(IsInAnyDetectionRCD));
             }
         }
+
         private void StartOnlineMonitoringRCD()
         {
             CurrentMonitoringStation = "RCD";
 
-            if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRCD) || !Directory.Exists(SelectedMonitorFolderPathRCD))
+            if (
+                string.IsNullOrWhiteSpace(SelectedMonitorFolderPathRCD)
+                || !Directory.Exists(SelectedMonitorFolderPathRCD)
+            )
             {
                 AddLog("[RCD] 监控文件夹不存在，请先选择有效文件夹");
                 IsOnlineDetectionEnabledRCD = false;
-                System.Windows.MessageBox.Show("RCD监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    "RCD监控文件夹不存在，请先选择有效文件夹",
+                    "在线检测错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
             _isThreadTerminatingRCD = false;
             if (_onlineMonitorWatcherRCD != null)
             {
                 _onlineMonitorWatcherRCD.Created -= OnOnlineFileCreatedRCD;
+                _onlineMonitorWatcherRCD.Error -= OnlineMonitorWatcherErrorRCD;
                 _onlineMonitorWatcherRCD.Dispose();
                 _onlineMonitorWatcherRCD = null;
             }
@@ -2739,98 +3937,147 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
                 EnableRaisingEvents = true,
-                InternalBufferSize = 65536
+                InternalBufferSize = 64 * 1024,
             };
             _onlineMonitorWatcherRCD.Created += OnOnlineFileCreatedRCD;
+            _onlineMonitorWatcherRCD.Error += OnlineMonitorWatcherErrorRCD;
 
             AddLog($"[RCD] 已启动监控，路径：{SelectedMonitorFolderPathRCD}");
         }
 
+        private void OnlineMonitorWatcherErrorRCD(object sender, System.IO.ErrorEventArgs e)
+        {
+            try
+            {
+                _logger.Error($"[RCD-文件监测错误]：{e.GetException().ToString()}");
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+                _webApiClient.SendMachineErrorAlertAsync(
+                    deviceId,
+                    $"[RCD-文件监测错误-请检查网络连接情况]：{e.GetException().ToString().Replace("\\", "\\\\")}",
+                    "1",
+                    projectName: "CTOL"
+                );
+                if (IsOnlineDetectionEnabledRCD)
+                {
+                    _ = RestartFileSystemWatcherRCDAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[RCD-文件监测错误]：{ex.ToString()}");
+            }
+        }
+
         private void OnOnlineFileCreatedRCD(object sender, FileSystemEventArgs e)
         {
-
-            string fileName = Path.GetFileName(e.FullPath);
-            //检查文件所在目录是否在名为 "OK" 的文件夹之下
-            string? currentDirectory = Path.GetDirectoryName(e.FullPath);
-            if (!string.IsNullOrEmpty(currentDirectory))
+            try
             {
-                bool isUnderOKFolder = false;
-                DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
-                while (dirInfo.Parent != null)
+                string fileName = Path.GetFileName(e.FullPath);
+                AddLog($"[RCD-文件创建监测]：{fileName}");
+                //检查文件所在目录是否在名为 "OK" 的文件夹之下
+                string? currentDirectory = Path.GetDirectoryName(e.FullPath);
+                if (!string.IsNullOrEmpty(currentDirectory))
                 {
-                    if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
+                    bool isUnderOKFolder = false;
+                    DirectoryInfo dirInfo = new DirectoryInfo(currentDirectory);
+                    while (dirInfo.Parent != null)
                     {
-                        isUnderOKFolder = true;
-                        break;
-                    }
-                    dirInfo = dirInfo.Parent;
-                }
-                if (!isUnderOKFolder)
-                {
-                    return;
-                }
-            }
-
-            // 优先排除系统缩略图缓存文件Thumbs.db
-            if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
-            {
-                AddLog($"[RCD-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
-                return;
-            }
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var allowedExts = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
-                    var ext = Path.GetExtension(e.FullPath).ToLower();
-                    if (!allowedExts.Contains(ext))
-                    {
-                        AddLog($"[RCD-跳过] 非图片格式：{fileName}");
-                        return;
-                    }
-
-                    // 仅处理包含"_origin"的图片
-                    if (!fileName.Contains("_origin"))
-                    {
-                        // AddLog($"[RCD-跳过] 非origin图片：{fileName}");
-                        return;
-                    }
-                    bool isFileReady = false;
-                    int retryCount = 0;
-                    while (retryCount < FileReadyMaxRetry)
-                    {
-                        if (IsFileAccessible(e.FullPath))
+                        if (string.Equals(dirInfo.Name, "OK", StringComparison.OrdinalIgnoreCase))
                         {
-                            isFileReady = true;
+                            isUnderOKFolder = true;
                             break;
                         }
-                        retryCount++;
-                        await Task.Delay(FileReadyRetryDelay);
+                        dirInfo = dirInfo.Parent;
+                    }
+                    if (!isUnderOKFolder)
+                    {
+                        return;
+                    }
+                }
+
+                // 优先排除系统缩略图缓存文件Thumbs.db
+                if (string.Equals(fileName, "Thumbs.db", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddLog($"[RCD-跳过系统文件] 自动忽略Thumbs.db：{fileName}");
+                    return;
+                }
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var allowedExts = new HashSet<string>
+                        {
+                            ".bmp",
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".gif",
+                            ".tiff",
+                            ".webp",
+                        };
+                        var ext = Path.GetExtension(e.FullPath).ToLower();
+                        if (!allowedExts.Contains(ext))
+                        {
+                            AddLog($"[RCD-跳过] 非图片格式：{fileName}");
+                            return;
+                        }
+
+                        // 仅处理包含"_origin"的图片
+                        if (!fileName.Contains("_origin"))
+                        {
+                            // AddLog($"[RCD-跳过] 非origin图片：{fileName}");
+                            return;
+                        }
+                        bool isFileReady = false;
+                        int retryCount = 0;
+                        while (retryCount < FileReadyMaxRetry)
+                        {
+                            if (IsFileAccessible(e.FullPath))
+                            {
+                                isFileReady = true;
+                                break;
+                            }
+                            retryCount++;
+                            await Task.Delay(FileReadyRetryDelay);
+
+                            if (!File.Exists(e.FullPath))
+                            {
+                                AddLog($"[RCD-丢弃] {fileName} 在重试期间被删除");
+                                return;
+                            }
+                        }
+                        if (!isFileReady)
+                        {
+                            AddLog(
+                                $"[RCD-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪"
+                            );
+                            return;
+                        }
 
                         if (!File.Exists(e.FullPath))
                         {
-                            AddLog($"[RCD-丢弃] {fileName} 在重试期间被删除");
+                            AddLog($"[RCD-丢弃] {fileName} 已被删除");
                             return;
                         }
+                        EnqueueTaskRCD(e.FullPath);
                     }
-                    if (!isFileReady)
+                    catch (Exception ex)
                     {
-                        AddLog($"[RCD-丢弃] {fileName} 超过最大重试次数（{FileReadyMaxRetry}次）仍未就绪");
-                        return;
+                        AddLog(
+                            $"[RCD-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                        );
                     }
-
-                    if (!File.Exists(e.FullPath))
-                    {
-                        AddLog($"[RCD-丢弃] {fileName} 已被删除");
-                        return;
-                    }
-                    EnqueueTaskRCD(e.FullPath);
-                }
-                catch (Exception ex)
-                {
-                    AddLog($"[RCD-文件处理异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}");
-                }
-            });
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    $"[RCD-文件创建监测异常] {e.FullPath}：{ex.Message}，堆栈：{ex.StackTrace}"
+                );
+            }
         }
 
         public void EnqueueTaskRCD(string filePath)
@@ -2858,6 +4105,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _ = ProcessQueueConcurrentRCD();
             }
         }
+
         private async Task ProcessQueueConcurrentRCD()
         {
             await _semaphoreRCD.WaitAsync();
@@ -2869,7 +4117,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     {
                         string? filePath = null;
 
-
                         if (_safeDetectQueueRCD.TryDequeue(out filePath))
                         {
                             //AddLog($"[RCD-出队成功] 文件：{Path.GetFileName(filePath)}，线程ID：{Thread.CurrentThread.ManagedThreadId}");
@@ -2879,8 +4126,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             break;
                         }
 
-
-                        if (filePath == null) break;
+                        if (filePath == null)
+                            break;
 
                         if (!File.Exists(filePath))
                         {
@@ -2895,7 +4142,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             resultImage = tempResultImage;
                             if (ctCode == "Internal_Error" || resultImage == null)
                             {
-                                AddLog($"[RCD-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程");
+                                AddLog(
+                                    $"[RCD-异常跳过] {Path.GetFileName(filePath)} 为算法异常，不进入后续流程"
+                                );
                                 resultImage?.Dispose();
                                 continue;
                             }
@@ -2920,13 +4169,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             else
                             {
-                                AddLog($"[RCD-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效");
+                                AddLog(
+                                    $"[RCD-缓存存入失败] 文件：{Path.GetFileName(filePath)}，resultImage无效"
+                                );
                                 resultImage?.Dispose();
                             }
                         }
                         catch (Exception ex)
                         {
-                            AddLog($"[RCD-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}");
+                            AddLog(
+                                $"[RCD-检测异常] 文件：{Path.GetFileName(filePath)}，异常：{ex.Message}，堆栈：{ex.StackTrace}"
+                            );
                             resultImage?.Dispose();
                         }
                         finally
@@ -2954,12 +4207,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             finally
             {
                 _semaphoreRCD.Release();
-                if (_safeDetectQueueRCD.Count == 0 && _semaphoreRCD.CurrentCount == MaxConcurrentRCD)
+                if (
+                    _safeDetectQueueRCD.Count == 0
+                    && _semaphoreRCD.CurrentCount == MaxConcurrentRCD
+                )
                 {
                     _isQueueRunningRCD = false;
                     //AddLog("[队列处理] 所有任务完成，线程已释放");
                 }
-                AddLog($"[RCD-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}");
+                AddLog(
+                    $"[RCD-线程终止] 释放信号量，线程ID：{Thread.CurrentThread.ManagedThreadId}"
+                );
             }
         }
 
@@ -2993,12 +4251,92 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _firstDetectionImageCache.Clear();
             }
         }
+
+        private async Task RestartFileSystemWatcherRCDAsync()
+        {
+            try
+            {
+                const int retryDelayMs = 2000;
+                var deviceId = _globalSettingRepository.GetSettingValue<string>(
+                    "DeviceSn",
+                    string.Empty
+                );
+
+                while (true)
+                {
+                    try
+                    {
+                        AddLog("[RCD-Watcher监控] 尝试重启FileSystemWatcher...");
+
+                        // 释放旧实例
+                        if (_onlineMonitorWatcherRCD != null)
+                        {
+                            _onlineMonitorWatcherRCD.Created -= OnOnlineFileCreatedRCD;
+                            _onlineMonitorWatcherRCD.Error -= OnlineMonitorWatcherErrorRCD;
+                            _onlineMonitorWatcherRCD.Dispose();
+                            _onlineMonitorWatcherRCD = null;
+                        }
+
+                        // 仅在路径有效时重建
+                        if (
+                            !string.IsNullOrEmpty(SelectedMonitorFolderPathRCD)
+                            && Directory.Exists(SelectedMonitorFolderPathRCD)
+                        )
+                        {
+                            _onlineMonitorWatcherRCD = new FileSystemWatcher(
+                                SelectedMonitorFolderPathRCD
+                            )
+                            {
+                                Filter = "*.png",
+                                IncludeSubdirectories = true,
+                                NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
+                                EnableRaisingEvents = true,
+                                InternalBufferSize = 64 * 1024,
+                            };
+                            _onlineMonitorWatcherRCD.Created += OnOnlineFileCreatedRCD;
+                            _onlineMonitorWatcherRCD.Error += OnlineMonitorWatcherErrorRCD;
+                            AddLog("[RCD-Watcher监控] 重启成功");
+                            return; // 成功退出
+                        }
+                        else
+                        {
+                            _logger.Error(
+                                $"[RCD-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathRCD}]"
+                            );
+                            await _webApiClient.SendMachineErrorAlertAsync(
+                                deviceId,
+                                $"[RCD-Watcher监控] 无法重启，目录无效 [{SelectedMonitorFolderPathRCD}]",
+                                "1",
+                                projectName: "CTOL"
+                            );
+                        }
+
+                        await Task.Delay(retryDelayMs);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"[RCD-Watcher监控] 重启错误：{ex.Message}");
+                        await _webApiClient.SendMachineErrorAlertAsync(
+                            deviceId,
+                            $"[RCD-Watcher监控] 重启错误：{ex.Message}",
+                            "1",
+                            projectName: "CTOL"
+                        );
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[RCD-Watcher监控] 重启错误：{ex.Message}");
+            }
+        }
+
         private void CleanupLabRelatedCacheRCD()
         {
             lock (_cacheLock)
             {
-                var labCacheKeys = _firstDetectionImageCache.Keys
-                    .Where(key => key.StartsWith(SelectedMonitorFolderPathRCD ?? ""))
+                var labCacheKeys = _firstDetectionImageCache
+                    .Keys.Where(key => key.StartsWith(SelectedMonitorFolderPathRCD ?? ""))
                     .ToList();
 
                 foreach (var key in labCacheKeys)
@@ -3015,6 +4353,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 _barcodeLastActivityTime.Clear();
             }
         }
+
         private void SelectMonitorFolderRCD()
         {
             // 检查权限
@@ -3025,7 +4364,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             var folderDialog = new OpenFolderDialog();
             folderDialog.Title = "选择RCD在线检测监控文件夹";
-            folderDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            folderDialog.InitialDirectory = Environment.GetFolderPath(
+                Environment.SpecialFolder.MyPictures
+            );
             folderDialog.ValidateNames = true;
             folderDialog.Multiselect = false;
 
@@ -4074,14 +5415,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             Gap46Limit = _projectsetting.GetSettingValue("Gap46Limit", "VM_CTAutoDetectionC06Page");
             Gap47Limit = _projectsetting.GetSettingValue("Gap47Limit", "VM_CTAutoDetectionC06Page");
         }
+
         private void InitParameters()
         {
-
-            SelectedResultImagePath = _projectsetting.GetSettingValue("SelectedResultImagePath", "VM_CTAutoDetectionC06Page");
-            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out LABmodel, out string runinfoLAB);
-            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out LCDmodel, out string runinfoLCD);
-            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out RABmodel, out string runinfoRAB);
-            ai.Model_init(@"E:\在线CT\1222\C06_best.onnx", true, out RCDmodel, out string runinfoRCD);
+            SelectedResultImagePath = _projectsetting.GetSettingValue(
+                "SelectedResultImagePath",
+                "VM_CTAutoDetectionC06Page"
+            );
+            ai.Model_init(
+                @"E:\在线CT\1222\C06_best.onnx",
+                true,
+                out LABmodel,
+                out string runinfoLAB
+            );
+            ai.Model_init(
+                @"E:\在线CT\1222\C06_best.onnx",
+                true,
+                out LCDmodel,
+                out string runinfoLCD
+            );
+            ai.Model_init(
+                @"E:\在线CT\1222\C06_best.onnx",
+                true,
+                out RABmodel,
+                out string runinfoRAB
+            );
+            ai.Model_init(
+                @"E:\在线CT\1222\C06_best.onnx",
+                true,
+                out RCDmodel,
+                out string runinfoRCD
+            );
             if (!string.IsNullOrEmpty(runinfoLAB))
             {
                 Console.WriteLine($"LAB模型初始化异常：{runinfoLAB}");
@@ -4104,14 +5468,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
         }
 
-
-        public VM_CTAutoDetectionC06Page(INavigationService navigationService, VM_UserCenter userCenterViewModel, ILoggerService<VM_CTAutoDetectionC06Page> logger, IProjectSettingRepository projectsetting)
+        public VM_CTAutoDetectionC06Page(
+            INavigationService navigationService,
+            VM_UserCenter userCenterViewModel,
+            ILoggerService<VM_CTAutoDetectionC06Page> logger,
+            IProjectSettingRepository projectsetting,
+            IWebApiClient webApiClient,
+            IGlobalSettingRepository globalSettingRepository
+        )
         {
-
             _logger = logger;
             _projectsetting = projectsetting;
-            _userCenterViewModel = userCenterViewModel ?? throw new ArgumentNullException(nameof(userCenterViewModel));
+            _userCenterViewModel =
+                userCenterViewModel ?? throw new ArgumentNullException(nameof(userCenterViewModel));
             _navigationService = navigationService;
+            _webApiClient = webApiClient;
+            _globalSettingRepository = globalSettingRepository;
             _userCenterViewModel.PropertyChanged += UserCenterViewModel_PropertyChanged;
             LoadConfig();
             InitPieChart();
@@ -4120,19 +5492,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             InitThreshold();
             SyncTempPropertiesWithFormalProperties();
 
-
-
             _logTable = new ObservableCollection<Tuple<string, string>>();
             AddLog("系统启动，日志功能就绪");
             InitParameters();
 
             _imeresultRoot = Path.Combine(SelectedResultImagePath ?? @"E:\", "IMEResult");
             // 指定新目标根路径， "\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C01CT看图（中工序）（A线）（勿删）\CT\IMEResult"
-            _archiveTargetRoot = @"\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C06CT看图（中工序）（A线）勿删\IMEResult";
+            _archiveTargetRoot =
+                @"\\10.178.5.10\生产数据暂存（如空间不足，请自行删除文件）\C06CT看图（中工序）（A线）勿删\IMEResult";
             // 初始化文件移动服务
             _fileMoverService = new DefectFileMoverService(_imeresultRoot, _archiveTargetRoot);
             _fileMoverService.AddLog = this.AddLog;
-            _dailyTaskService = new SimpleDailyTaskService(() => _fileMoverService.MoveYesterdayDefectFilesAsync());
+            _dailyTaskService = new SimpleDailyTaskService(
+                () => _fileMoverService.MoveYesterdayDefectFilesAsync()
+            );
             _dailyTaskService.AddLog = this.AddLog;
             _dailyTaskService.Start();
 
@@ -4144,7 +5517,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             GPUMonitor();
             //LAB结果图操作--可以优化，代码冗余
             SelectResultImagePath = new RelayCommand(ExecuteSelectResultImagePath);
-            ZoomRealTimeImageCommandLAB = new RelayCommand<MouseWheelEventArgs>(OnZoomRealTimeImageLAB);
+            ZoomRealTimeImageCommandLAB = new RelayCommand<MouseWheelEventArgs>(
+                OnZoomRealTimeImageLAB
+            );
             ZoomInRealTimeCommandLAB = new RelayCommand(OnZoomInRealTimeLAB);
             ZoomOutRealTimeCommandLAB = new RelayCommand(OnZoomOutRealTimeLAB);
             ResetRealTimeImageZoomCommandLAB = new RelayCommand(OnResetRealTimeZoomLAB);
@@ -4152,7 +5527,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             ImageMouseMoveCommandLAB = new RelayCommand<MouseEventArgs>(OnImageMouseMoveLAB);
             ImageMouseUpCommandLAB = new RelayCommand<MouseEventArgs>(OnImageMouseUpLAB);
             //LCD结果图操作
-            ZoomRealTimeImageCommandLCD = new RelayCommand<MouseWheelEventArgs>(OnZoomRealTimeImageLCD);
+            ZoomRealTimeImageCommandLCD = new RelayCommand<MouseWheelEventArgs>(
+                OnZoomRealTimeImageLCD
+            );
             ZoomInRealTimeCommandLCD = new RelayCommand(OnZoomInRealTimeLCD);
             ZoomOutRealTimeCommandLCD = new RelayCommand(OnZoomOutRealTimeLCD);
             ResetRealTimeImageZoomCommandLCD = new RelayCommand(OnResetRealTimeZoomLCD);
@@ -4160,7 +5537,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             ImageMouseMoveCommandLCD = new RelayCommand<MouseEventArgs>(OnImageMouseMoveLCD);
             ImageMouseUpCommandLCD = new RelayCommand<MouseEventArgs>(OnImageMouseUpLCD);
             //RAB结果图操作
-            ZoomRealTimeImageCommandRAB = new RelayCommand<MouseWheelEventArgs>(OnZoomRealTimeImageRAB);
+            ZoomRealTimeImageCommandRAB = new RelayCommand<MouseWheelEventArgs>(
+                OnZoomRealTimeImageRAB
+            );
             ZoomInRealTimeCommandRAB = new RelayCommand(OnZoomInRealTimeRAB);
             ZoomOutRealTimeCommandRAB = new RelayCommand(OnZoomOutRealTimeRAB);
             ResetRealTimeImageZoomCommandRAB = new RelayCommand(OnResetRealTimeZoomRAB);
@@ -4168,7 +5547,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             ImageMouseMoveCommandRAB = new RelayCommand<MouseEventArgs>(OnImageMouseMoveRAB);
             ImageMouseUpCommandRAB = new RelayCommand<MouseEventArgs>(OnImageMouseUpRAB);
             //RCD结果图操作
-            ZoomRealTimeImageCommandRCD = new RelayCommand<MouseWheelEventArgs>(OnZoomRealTimeImageRCD);
+            ZoomRealTimeImageCommandRCD = new RelayCommand<MouseWheelEventArgs>(
+                OnZoomRealTimeImageRCD
+            );
             ZoomInRealTimeCommandRCD = new RelayCommand(OnZoomInRealTimeRCD);
             ZoomOutRealTimeCommandRCD = new RelayCommand(OnZoomOutRealTimeRCD);
             ResetRealTimeImageZoomCommandRCD = new RelayCommand(OnResetRealTimeZoomRCD);
@@ -4190,7 +5571,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             _semaphoreRCD = new SemaphoreSlim(MaxConcurrentRCD, MaxConcurrentRCD);
             QueryCommand = new RelayCommand(async () => await ExecuteQueryAsync());
             ExportCommand = new RelayCommand(async () => await ExecuteExportAsync());
-            StartDateTime = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0);
+            StartDateTime = new DateTime(
+                DateTime.Now.Year,
+                DateTime.Now.Month,
+                DateTime.Now.Day,
+                0,
+                0,
+                0
+            );
             EndDateTime = DateTime.Now.Date.AddHours(23).AddMinutes(59).AddSeconds(59);
             PagedAbnormalDataList = new ObservableCollection<Dictionary<string, object>>();
             SelectedAbnormalTypeText = "全部";
@@ -4204,12 +5592,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             PreviousPageCommand = new RelayCommand(ExecutePreviousPage);
             NextPageCommand = new RelayCommand(ExecuteNextPage);
         }
+
         // 辅助方法：判断文件是否可访问
         private static bool IsFileAccessible(string filePath)
         {
             try
             {
-                using (var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (
+                    var stream = File.Open(
+                        filePath,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.None
+                    )
+                )
                 {
                     return stream.CanRead; // 能打开且可读，说明文件就绪
                 }
@@ -4223,8 +5619,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 return false;
             }
         }
+
         // 监听登录状态变化
-        private void UserCenterViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private void UserCenterViewModel_PropertyChanged(
+            object? sender,
+            System.ComponentModel.PropertyChangedEventArgs e
+        )
         {
             if (e.PropertyName == nameof(VM_UserCenter.IsLoggedIn))
             {
@@ -4242,6 +5642,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
             }
         }
+
         private void AutoNavigateBackAfterLogin()
         {
             // 导航回应用界面
@@ -4257,21 +5658,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             var token = _autoLogoutCancellationTokenSource.Token;
 
             Task.Delay(TimeSpan.FromMinutes(15), token)
-                .ContinueWith(t =>
-                {
-                    if (!t.IsCanceled)
+                .ContinueWith(
+                    t =>
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        if (!t.IsCanceled)
                         {
-                            if (_userCenterViewModel.IsLoggedIn)
+                            Application.Current.Dispatcher.Invoke(() =>
                             {
-                                AddLog("登录时间已超过15分钟，为保障账户安全，已自动退出登录。");
-                                // 调用主框架的退出登录命令
-                                _userCenterViewModel.LogoutCommand?.Execute(null);
-                            }
-                        });
-                    }
-                }, token);
+                                if (_userCenterViewModel.IsLoggedIn)
+                                {
+                                    AddLog(
+                                        "登录时间已超过15分钟，为保障账户安全，已自动退出登录。"
+                                    );
+                                    // 调用主框架的退出登录命令
+                                    _userCenterViewModel.LogoutCommand?.Execute(null);
+                                }
+                            });
+                        }
+                    },
+                    token
+                );
         }
 
         /// <summary>
@@ -4280,13 +5686,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private void CancelAutoLogoutTimer()
         {
             // 检查令牌源是否存在且未被取消
-            if (_autoLogoutCancellationTokenSource != null && !_autoLogoutCancellationTokenSource.IsCancellationRequested)
+            if (
+                _autoLogoutCancellationTokenSource != null
+                && !_autoLogoutCancellationTokenSource.IsCancellationRequested
+            )
             {
                 _autoLogoutCancellationTokenSource.Cancel();
                 _autoLogoutCancellationTokenSource.Dispose();
                 _autoLogoutCancellationTokenSource = null;
             }
         }
+
         /// <summary>
         /// 执行“浏览路径”命令
         /// </summary>
@@ -4301,7 +5711,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 Title = "请选择结果存储路径",
                 InitialDirectory = SelectedResultImagePath,
-                Multiselect = false // 禁止多选文件夹
+                Multiselect = false, // 禁止多选文件夹
             };
 
             bool? isSelected = folderDialog.ShowDialog();
@@ -4318,8 +5728,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         {
             //按时间倒序取最新150条
             var targetNgList = _fullDetectionDataList
-                .Where(data => data != null
-                            && !string.IsNullOrEmpty(data?.DetectionResult))
+                .Where(data => data != null && !string.IsNullOrEmpty(data?.DetectionResult))
                 .OrderByDescending(data => data.DetectionTime)
                 .Take(150)
                 .ToList();
@@ -4337,9 +5746,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
 
                 //找出需要添加的新数据
-                var toAdd = targetNgList
-                    .Where(item => !DetectionDataList.Contains(item))
-                    .ToList();
+                var toAdd = targetNgList.Where(item => !DetectionDataList.Contains(item)).ToList();
 
                 // 插入新数据
                 foreach (var item in toAdd)
@@ -4404,7 +5811,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
                 else
                 {
-                    throw new FormatException($"Invalid format for string '{str}'. Cannot convert to double.");
+                    throw new FormatException(
+                        $"Invalid format for string '{str}'. Cannot convert to double."
+                    );
                 }
             }
             return doubleList.ToArray();
@@ -4420,7 +5829,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// <param name="cc">负极差阈值</param>
         /// <param name="numbers">正极间隙值</param>
         /// <param name="ImgName">图片名字比如1-X来区分</param>
-        public string? NGOK(int aa, int bb, double[] aaaa, double[] bbbb, double cc, string ImgName, double[] gap0MaxArray, int NGflag)
+        public string? NGOK(
+            int aa,
+            int bb,
+            double[] aaaa,
+            double[] bbbb,
+            double cc,
+            string ImgName,
+            double[] gap0MaxArray,
+            int NGflag
+        )
         {
             string Result = "OK";
             //判断OH不良
@@ -4469,6 +5887,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             return false;
         }
+
         //掉片判断逻辑之二三
         public string HandleZJYDP(string station)
         {
@@ -4476,7 +5895,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             bool FirstBOOL2 = false;
 
             //从嵌套字典中提取当前工位的Y1-Y4
-            double[]? Y1 = null, Y2 = null, Y3 = null, Y4 = null;
+            double[]? Y1 = null,
+                Y2 = null,
+                Y3 = null,
+                Y4 = null;
             lock (stationDataLocker)
             {
                 if (stationYDataDict.TryGetValue(station, out var currentStationDict))
@@ -4545,6 +5967,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             AddLog($"工位 {station} 计算完成，所有差值均未超过0.3。");
             return "OK";
         }
+
         // 判断数组越界
         private bool CheckArrayOutOfRange(string ImgName, double[] aaaa, out string? result)
         {
@@ -4554,44 +5977,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             //处理X类型
             if (ImgName.Contains("1-X"))
             {
-                upper = Gap2Limit;    // 1-X 上限：Gap2Limit
-                lower = Gap1Limit;    // 1-X 下限：Gap1Limit
+                upper = Gap2Limit; // 1-X 上限：Gap2Limit
+                lower = Gap1Limit; // 1-X 下限：Gap1Limit
             }
             else if (ImgName.Contains("2-X"))
             {
-                upper = Gap14Limit;   // 2-X 上限：Gap14Limit
-                lower = Gap13Limit;   // 2-X 下限：Gap13Limit
+                upper = Gap14Limit; // 2-X 上限：Gap14Limit
+                lower = Gap13Limit; // 2-X 下限：Gap13Limit
             }
             else if (ImgName.Contains("3-X"))
             {
-                upper = Gap24Limit;   // 3-X 上限：Gap24Limit
-                lower = Gap23Limit;   // 3-X 下限：Gap23Limit
+                upper = Gap24Limit; // 3-X 上限：Gap24Limit
+                lower = Gap23Limit; // 3-X 下限：Gap23Limit
             }
             else if (ImgName.Contains("4-X"))
             {
-                upper = Gap34Limit;   // 4-X 上限：Gap34Limit
-                lower = Gap33Limit;   // 4-X 下限：Gap33Limit
+                upper = Gap34Limit; // 4-X 上限：Gap34Limit
+                lower = Gap33Limit; // 4-X 下限：Gap33Limit
             }
             //处理Y类型）
             else if (ImgName.Contains("1-Y"))
             {
-                upper = Gap8Limit;    // 1-Y 上限：Gap8Limit
-                lower = Gap7Limit;    // 1-Y 下限：Gap7Limit
+                upper = Gap8Limit; // 1-Y 上限：Gap8Limit
+                lower = Gap7Limit; // 1-Y 下限：Gap7Limit
             }
             else if (ImgName.Contains("2-Y"))
             {
-                upper = Gap19Limit;   // 2-Y 上限：Gap19Limit
-                lower = Gap18Limit;   // 2-Y 下限：Gap18Limit
+                upper = Gap19Limit; // 2-Y 上限：Gap19Limit
+                lower = Gap18Limit; // 2-Y 下限：Gap18Limit
             }
             else if (ImgName.Contains("3-Y"))
             {
-                upper = Gap29Limit;   // 3-Y 上限：Gap29Limit
-                lower = Gap28Limit;   // 3-Y 下限：Gap28Limit
+                upper = Gap29Limit; // 3-Y 上限：Gap29Limit
+                lower = Gap28Limit; // 3-Y 下限：Gap28Limit
             }
             else if (ImgName.Contains("4-Y"))
             {
-                upper = Gap40Limit;   // 4-Y 上限：Gap40Limit
-                lower = Gap39Limit;   // 4-Y 下限：Gap39Limit
+                upper = Gap40Limit; // 4-Y 上限：Gap40Limit
+                lower = Gap39Limit; // 4-Y 下限：Gap39Limit
             }
             else
             {
@@ -4612,6 +6035,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             result = null;
             return false;
         }
+
         // 判断负极差不良
         private bool CheckCC(string ImgName, double cc, out string? result)
         {
@@ -4650,6 +6074,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             return false;
         }
+
         /// <summary>
         /// 检查负极首尾层、正极首尾层、正极中间层间隙最大值是否超差
         /// </summary>
@@ -4676,61 +6101,61 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
 
             // 提取三个间隙最大值
-            double negEndMax = distGapMax[0];       // 负极首尾层间隙最大值
-            double posEndMax = distGapMax[1];       // 正极首尾层间隙最大值
-            double posMiddleMax = distGapMax[2];    // 正极中间层间隙最大值
+            double negEndMax = distGapMax[0]; // 负极首尾层间隙最大值
+            double posEndMax = distGapMax[1]; // 正极首尾层间隙最大值
+            double posMiddleMax = distGapMax[2]; // 正极中间层间隙最大值
 
             // 根据图片类型匹配对应的阈值
-            double negEndThreshold;   // 负极边缘间隙阈值
-            double posEndThreshold;   // 正极边缘间隙阈值
-            double posMiddleThreshold;// 正极中间间隙阈值
+            double negEndThreshold; // 负极边缘间隙阈值
+            double posEndThreshold; // 正极边缘间隙阈值
+            double posMiddleThreshold; // 正极中间间隙阈值
 
             if (ImgName.Contains("1-X"))
             {
-                negEndThreshold = Gap4Limit;     // 1-X 负极边缘间隙阈值
-                posEndThreshold = Gap5Limit;     // 1-X 正极边缘间隙阈值
-                posMiddleThreshold = Gap6Limit;  // 1-X 正极中间间隙阈值
+                negEndThreshold = Gap4Limit; // 1-X 负极边缘间隙阈值
+                posEndThreshold = Gap5Limit; // 1-X 正极边缘间隙阈值
+                posMiddleThreshold = Gap6Limit; // 1-X 正极中间间隙阈值
             }
             else if (ImgName.Contains("1-Y"))
             {
-                negEndThreshold = Gap10Limit;    // 1-Y 负极边缘间隙阈值
-                posEndThreshold = Gap11Limit;    // 1-Y 正极边缘间隙阈值
+                negEndThreshold = Gap10Limit; // 1-Y 负极边缘间隙阈值
+                posEndThreshold = Gap11Limit; // 1-Y 正极边缘间隙阈值
                 posMiddleThreshold = Gap12Limit; // 1-Y 正极中间间隙阈值
             }
             else if (ImgName.Contains("2-X"))
             {
-                negEndThreshold = Gap15Limit;    // 2-X 负极边缘间隙阈值
-                posEndThreshold = Gap16Limit;    // 2-X 正极边缘间隙阈值
+                negEndThreshold = Gap15Limit; // 2-X 负极边缘间隙阈值
+                posEndThreshold = Gap16Limit; // 2-X 正极边缘间隙阈值
                 posMiddleThreshold = Gap17Limit; // 2-X 正极中间间隙阈值
             }
             else if (ImgName.Contains("2-Y"))
             {
-                negEndThreshold = Gap20Limit;    // 2-Y 负极边缘间隙阈值
-                posEndThreshold = Gap21Limit;    // 2-Y 正极边缘间隙阈值
+                negEndThreshold = Gap20Limit; // 2-Y 负极边缘间隙阈值
+                posEndThreshold = Gap21Limit; // 2-Y 正极边缘间隙阈值
                 posMiddleThreshold = Gap22Limit; // 2-Y 正极中间间隙阈值
             }
             else if (ImgName.Contains("3-X"))
             {
-                negEndThreshold = Gap25Limit;    // 3-X 负极边缘间隙阈值
-                posEndThreshold = Gap26Limit;    // 3-X 正极边缘间隙阈值
+                negEndThreshold = Gap25Limit; // 3-X 负极边缘间隙阈值
+                posEndThreshold = Gap26Limit; // 3-X 正极边缘间隙阈值
                 posMiddleThreshold = Gap27Limit; // 3-X 正极中间间隙阈值
             }
             else if (ImgName.Contains("3-Y"))
             {
-                negEndThreshold = Gap30Limit;    // 3-Y 负极边缘间隙阈值
-                posEndThreshold = Gap31Limit;    // 3-Y 正极边缘间隙阈值
+                negEndThreshold = Gap30Limit; // 3-Y 负极边缘间隙阈值
+                posEndThreshold = Gap31Limit; // 3-Y 正极边缘间隙阈值
                 posMiddleThreshold = Gap32Limit; // 3-Y 正极中间间隙阈值
             }
             else if (ImgName.Contains("4-X"))
             {
-                negEndThreshold = Gap36Limit;    // 4-X 负极边缘间隙阈值
-                posEndThreshold = Gap37Limit;    // 4-X 正极边缘间隙阈值
+                negEndThreshold = Gap36Limit; // 4-X 负极边缘间隙阈值
+                posEndThreshold = Gap37Limit; // 4-X 正极边缘间隙阈值
                 posMiddleThreshold = Gap38Limit; // 4-X 正极中间间隙阈值
             }
             else if (ImgName.Contains("4-Y"))
             {
-                negEndThreshold = Gap42Limit;    // 4-Y 负极边缘间隙阈值
-                posEndThreshold = Gap43Limit;    // 4-Y 正极边缘间隙阈值
+                negEndThreshold = Gap42Limit; // 4-Y 负极边缘间隙阈值
+                posEndThreshold = Gap43Limit; // 4-Y 正极边缘间隙阈值
                 posMiddleThreshold = Gap44Limit; // 4-Y 正极中间间隙阈值
             }
             else
@@ -4759,7 +6184,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             // 未超差
             return false;
         }
-        public static bool CountValuesAboveThreshold(double[] array, double threshold, int countThreshold)
+
+        public static bool CountValuesAboveThreshold(
+            double[] array,
+            double threshold,
+            int countThreshold
+        )
         {
             int consecutiveCount = 0;
 
@@ -4804,15 +6234,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             return ctCode.Contains("OK") ? "无" : ctCode.Trim();
         }
 
-
-
         private void UpdateStationImage(string station, ImageSource wpfImage, HObject hImage)
         {
             //检查是否在 UI 线程，不在则调度
             if (!Application.Current.Dispatcher.CheckAccess())
             {
-                Application.Current.Dispatcher.Invoke(new Action(() =>
-                    UpdateStationImage(station, wpfImage, hImage)));
+                Application.Current.Dispatcher.Invoke(
+                    new Action(() => UpdateStationImage(station, wpfImage, hImage))
+                );
                 return;
             }
 
@@ -4869,19 +6298,43 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 newHImage?.Dispose();
             }
         }
-        private static readonly object _halconGlobalLock = new object();
+
+        //private static readonly object _halconGlobalLock = new object();
+        private static readonly object _halconLockLAB = new object();
+        private static readonly object _halconLockLCD = new object();
+        private static readonly object _halconLockRAB = new object();
+        private static readonly object _halconLockRCD = new object();
 
         // 核心检测逻辑
-        public (string? ctCode, HObject? resultImage) GapDetection(string imageFilePath, string station)
+        public (string? ctCode, HObject? resultImage) GapDetection(
+            string imageFilePath,
+            string station
+        )
         {
             // 检测过程临时变量
-            HObject? recNE = null, recPE = null, recMiddlePE = null;
-            HTuple? distOHInt = null, distOHOut = null, distSortPEColMiddle = null, distHTPE = null, _gapMax = null;
-            HTuple? peRows = null, peCols = null, neRows = null, neCols = null, middlePERows = null, middlePECols = null;
+            HObject? recNE = null,
+                recPE = null,
+                recMiddlePE = null;
+            HTuple? distOHInt = null,
+                distOHOut = null,
+                distSortPEColMiddle = null,
+                distHTPE = null,
+                _gapMax = null;
+            HTuple? peRows = null,
+                peCols = null,
+                neRows = null,
+                neCols = null,
+                middlePERows = null,
+                middlePECols = null;
             float hDNe = 0;
-            string? ctCode = "OK", resultCode = "OK", errorReport = "";
-            int imgWidth = 0, imgHeight = 0, neNGflag = 0;
-            List<int> ohAbnormalPositions1 = new List<int>(), ohAbnormalPositions2 = new List<int>();
+            string? ctCode = "OK",
+                resultCode = "OK",
+                errorReport = "";
+            int imgWidth = 0,
+                imgHeight = 0,
+                neNGflag = 0;
+            List<int> ohAbnormalPositions1 = new List<int>(),
+                ohAbnormalPositions2 = new List<int>();
             double[]? arr1 = null;
             double[]? gapMaxArray = null;
             double[]? oHoutarr = null;
@@ -4890,16 +6343,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             HObject? originImg = new HObject();
             HObject? resultImage = new HObject();
             Stopwatch? drawStopwatch = null;
+            Stopwatch? algorithmStopwatch = null;
+            Stopwatch? resultJudgeAndDataProcessingStopwatch = null;
+            Stopwatch? releaseAllObjectStopwatch = null;
+            Stopwatch? releaseHalconObjectStopwatch = null;
 
             Stopwatch totalStopwatch = Stopwatch.StartNew();
-            Stopwatch processingStopwatch = Stopwatch.StartNew();
-            Stopwatch gapDetectionTimer = Stopwatch.StartNew();
 
             AddLog($"[检测开始] 文件：{Path.GetFileName(imageFilePath)}");
 
+            object halconLock = station switch
+            {
+                "LAB" => _halconLockLAB,
+                "LCD" => _halconLockLCD,
+                "RAB" => _halconLockRAB,
+                "RCD" => _halconLockRCD,
+                _ => throw new ArgumentException("无效工站"),
+            };
+
             try
             {
-                lock (_halconGlobalLock)
+                //lock (_halconGlobalLock)
+                lock (halconLock)
                 {
                     // 初始化算法输出对象
                     recNE = new HObject();
@@ -4912,59 +6377,107 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     _gapMax = new HTuple();
 
                     // 调用算法模型
-                    //H246modle?.Dispose();
+                    algorithmStopwatch = new Stopwatch();
+                    algorithmStopwatch.Start();
                     switch (station)
                     {
                         case "LAB":
                             //H246modle = LABmodel;
-                            ai.Algorithm_Action(imageFilePath, LABmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            ai.Algorithm_Action(
+                                imageFilePath,
+                                LABmodel!,
+                                out originImg,
+                                out recNE,
+                                out recPE,
+                                out recMiddlePE,
+                                out distOHInt,
+                                out distOHOut,
+                                out _gapMax,
+                                out hDNe,
+                                out neNGflag,
+                                out errorReport
+                            );
                             break;
                         case "LCD":
                             //H246modle = LCDmodel;
-                            ai.Algorithm_Action(imageFilePath, LCDmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            ai.Algorithm_Action(
+                                imageFilePath,
+                                LCDmodel!,
+                                out originImg,
+                                out recNE,
+                                out recPE,
+                                out recMiddlePE,
+                                out distOHInt,
+                                out distOHOut,
+                                out _gapMax,
+                                out hDNe,
+                                out neNGflag,
+                                out errorReport
+                            );
                             break;
                         case "RAB":
                             //H246modle = RABmodel;
-                            ai.Algorithm_Action(imageFilePath, RABmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            ai.Algorithm_Action(
+                                imageFilePath,
+                                RABmodel!,
+                                out originImg,
+                                out recNE,
+                                out recPE,
+                                out recMiddlePE,
+                                out distOHInt,
+                                out distOHOut,
+                                out _gapMax,
+                                out hDNe,
+                                out neNGflag,
+                                out errorReport
+                            );
                             break;
                         case "RCD":
                             //H246modle = RCDmodel;
-                            ai.Algorithm_Action(imageFilePath, RCDmodel!, out originImg, out recNE, out recPE, out recMiddlePE, out distOHInt, out distOHOut, out _gapMax, out hDNe, out neNGflag, out errorReport);
+                            ai.Algorithm_Action(
+                                imageFilePath,
+                                RCDmodel!,
+                                out originImg,
+                                out recNE,
+                                out recPE,
+                                out recMiddlePE,
+                                out distOHInt,
+                                out distOHOut,
+                                out _gapMax,
+                                out hDNe,
+                                out neNGflag,
+                                out errorReport
+                            );
                             break;
                     }
-                    //algorithmStopwatch.Stop();
-                    //ai.Algorithm_Action(
-                    //    imageFilePath,
-                    //    H246modle,
-                    //    out recNE,
-                    //    out recPE,
-                    //    out recMiddlePE,
-                    //    out distOHInt,
-                    //    out distOHOut,
-                    //    out _gapMax,
-                    //    out hDNe,
-                    //    out neNGflag,
-                    //    out errorReport);
-                    //algorithmStopwatch.Stop();
-                    //AddLog($"[算法耗时] {algorithmStopwatch.ElapsedMilliseconds} ms");
+                    algorithmStopwatch.Stop();
+                    AddLog($"[算法耗时] {algorithmStopwatch.ElapsedMilliseconds} ms");
+
                     HOperatorSet.GetImageSize(originImg, out HTuple width, out HTuple height);
                     imgWidth = (int)width.I;
                     imgHeight = (int)height.I;
                     AddLog($"[图像尺寸] 宽：{imgWidth}，高：{imgHeight}");
 
                     #region 检测结果判断与数据解析
+                    resultJudgeAndDataProcessingStopwatch = new Stopwatch();
+                    resultJudgeAndDataProcessingStopwatch.Start();
                     if (string.IsNullOrEmpty(errorReport))
                     {
                         // 获取区域坐标
                         HOperatorSet.AreaCenter(recPE, out _, out peRows, out peCols);
                         HOperatorSet.AreaCenter(recNE, out _, out neRows, out neCols);
-                        HOperatorSet.AreaCenter(recMiddlePE, out _, out middlePERows, out middlePECols);
+                        HOperatorSet.AreaCenter(
+                            recMiddlePE,
+                            out _,
+                            out middlePERows,
+                            out middlePECols
+                        );
 
                         // 解析算法数据为double数组
                         arr1 = ConvertStringArrayToDoubleArray(distOHInt.SArr); // 从distOHInt提取核心数据
                         gapMaxArray = ConvertStringArrayToDoubleArray(_gapMax.SArr);
                         oHoutarr = ConvertStringArrayToDoubleArray(distOHOut.SArr); // bbbb参数（负极OH值）
-                                                                                    //distSortPEColMiddlearr = ConvertStringArrayToDoubleArray(distSortPEColMiddle.SArr); // numbers参数（正极间隙值）
+                        //distSortPEColMiddlearr = ConvertStringArrayToDoubleArray(distSortPEColMiddle.SArr); // numbers参数（正极间隙值）
                         ohAbnormalPositions1 = GetAbnormalPositions(arr1, imageFilePath); // 异常位置标记
 
                         // 根据文件名给Y1-Y4赋值
@@ -4978,7 +6491,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 stationYDataDict[station] = new Dictionary<string, double[]>();
                             }
                             // 获取当前工位的内层字典（存储该工位的Y1-Y4）
-                            Dictionary<string, double[]> currentStationDict = stationYDataDict[station];
+                            Dictionary<string, double[]> currentStationDict = stationYDataDict[
+                                station
+                            ];
 
                             // 根据图片类型给当前工位的对应Y值赋值
                             if (namePart.Contains("1-Y"))
@@ -5002,13 +6517,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         // 判断OK/NG
                         string imgNamePart = namePart;
                         ctCode = NGOK(
-                            peRows.DArr.Length, neRows.DArr.Length,
+                            peRows.DArr.Length,
+                            neRows.DArr.Length,
                             arr1, // aaaa参数（正极OH值）
                             oHoutarr, // bbbb参数（负极OH值）
                             hDNe, // cc参数（负极差阈值）
                             imgNamePart,
                             gapMaxArray,
-                            neNGflag);
+                            neNGflag
+                        );
 
                         resultCode = ctCode?.Contains("OK") ?? false ? "OK" : "NG";
                         AddLog($"[检测结果] {fileName} - {ctCode}");
@@ -5017,14 +6534,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         drawStopwatch = new Stopwatch();
                         drawStopwatch.Start();
                         resultImage = GenerateResultImage(
-                            originImg, imgWidth, imgHeight,
-                            recPE, recNE, recMiddlePE,
-                            peRows, peCols, neRows, neCols, middlePERows, middlePECols,
-                            distOHInt, distOHOut, distSortPEColMiddle,
-                            hDNe, ctCode, resultCode,
-                            ohAbnormalPositions1, ohAbnormalPositions2,
-                            arr1, ConvertStringArrayToDoubleArray(distOHOut.SArr), gapMaxArray,
-                            imageFilePath);
+                            originImg,
+                            imgWidth,
+                            imgHeight,
+                            recPE,
+                            recNE,
+                            recMiddlePE,
+                            peRows,
+                            peCols,
+                            neRows,
+                            neCols,
+                            middlePERows,
+                            middlePECols,
+                            distOHInt,
+                            distOHOut,
+                            distSortPEColMiddle,
+                            hDNe,
+                            ctCode,
+                            resultCode,
+                            ohAbnormalPositions1,
+                            ohAbnormalPositions2,
+                            arr1,
+                            ConvertStringArrayToDoubleArray(distOHOut.SArr),
+                            gapMaxArray,
+                            imageFilePath
+                        );
                         drawStopwatch.Stop();
                         AddLog($"[绘图耗时] {drawStopwatch.ElapsedMilliseconds} ms");
 
@@ -5032,11 +6566,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         if (gapMaxArray != null && gapMaxArray.Length >= 3)
                         {
                             _imageGapValueCache.TryAdd(imageFilePath, gapMaxArray);
-                            AddLog($"[间隙值缓存] {Path.GetFileName(imageFilePath)} - 负极边缘：{gapMaxArray[0]:F3}，正极边缘：{gapMaxArray[1]:F3}，正极中间：{gapMaxArray[2]:F3}");
+                            AddLog(
+                                $"[间隙值缓存] {Path.GetFileName(imageFilePath)} - 负极边缘：{gapMaxArray[0]:F3}，正极边缘：{gapMaxArray[1]:F3}，正极中间：{gapMaxArray[2]:F3}"
+                            );
                         }
                         else
                         {
-                            AddLog($"[间隙值缓存失败] {Path.GetFileName(imageFilePath)} - gapMaxArray为空或长度不足");
+                            AddLog(
+                                $"[间隙值缓存失败] {Path.GetFileName(imageFilePath)} - gapMaxArray为空或长度不足"
+                            );
                             // 兜底：存入空数组避免后续报错
                             _imageGapValueCache.TryAdd(imageFilePath, new double[] { 0, 0, 0 });
                         }
@@ -5047,10 +6585,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         if (resultImage != null && resultImage.IsInitialized())
                         {
                             ImageSource wpfImage = ConvertHObjectToImageSourceFast(resultImage);
-                            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                            {
-                                UpdateStationImage(station, wpfImage, resultImage);
-                            }), System.Windows.Threading.DispatcherPriority.Normal);
+                            Application.Current.Dispatcher.BeginInvoke(
+                                new Action(() =>
+                                {
+                                    UpdateStationImage(station, wpfImage, resultImage);
+                                }),
+                                System.Windows.Threading.DispatcherPriority.Normal
+                            );
                             AddLog($"[实时更新] {station}工位 - 直接显示新图：{fileName}");
                         }
                         else
@@ -5063,14 +6604,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     else
                     {
                         // 算法异常：归档原图，返回null结果
-                        AddLog($"[算法异常] {Path.GetFileName(imageFilePath)}，原因：{errorReport}");
+                        AddLog(
+                            $"[算法异常] {Path.GetFileName(imageFilePath)}，原因：{errorReport}"
+                        );
                         ArchiveAbnormalImage(imageFilePath, errorReport);
                         resultImage?.Dispose();
                         return ("Internal_Error", null);
                     }
+                    resultJudgeAndDataProcessingStopwatch.Stop();
+                    AddLog(
+                        $"[检测结果判断与数据解析耗时] {resultJudgeAndDataProcessingStopwatch.ElapsedMilliseconds} ms"
+                    );
                     #endregion
                 }
-
             }
             catch (Exception ex)
             {
@@ -5082,6 +6628,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
             finally
             {
+                releaseAllObjectStopwatch = new Stopwatch();
+                releaseAllObjectStopwatch.Start();
+                releaseHalconObjectStopwatch = new Stopwatch();
+                releaseHalconObjectStopwatch.Start();
                 // 释放所有临时HALCON对象
                 originImg?.Dispose();
                 recNE?.Dispose();
@@ -5099,18 +6649,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 middlePERows?.Dispose();
                 middlePECols?.Dispose();
 
+                releaseHalconObjectStopwatch.Stop();
+                AddLog(
+                    $"[释放Halcon对象总耗时] {releaseHalconObjectStopwatch.ElapsedMilliseconds} ms"
+                );
+
                 // 释放算法相关的计时器
                 totalStopwatch?.Stop();
-                processingStopwatch?.Stop();
-                gapDetectionTimer?.Stop();
                 drawStopwatch?.Stop();
+                algorithmStopwatch?.Stop();
+                resultJudgeAndDataProcessingStopwatch?.Stop();
+                releaseAllObjectStopwatch.Stop();
+                AddLog($"[释放所有对象总耗时] {releaseAllObjectStopwatch.ElapsedMilliseconds} ms");
             }
 
             //totalStopwatch.Stop();
-            AddLog($"[检测完成] {Path.GetFileName(imageFilePath)} 总耗时：{totalStopwatch.ElapsedMilliseconds} ms");
+            AddLog(
+                $"[检测完成] {Path.GetFileName(imageFilePath)} 总耗时：{totalStopwatch.ElapsedMilliseconds} ms"
+            );
             // 返回检测编码和独立结果图像
             return (ctCode, resultImage);
         }
+
         private void ArchiveAbnormalImage(string imageFilePath, string reason)
         {
             try
@@ -5124,7 +6684,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
 
                 string? targetDrive = SelectedResultImagePath;
-                string baseArchivePath = Path.Combine(targetDrive ?? @"E:\", "IMEResult", "算法异常");
+                string baseArchivePath = Path.Combine(
+                    targetDrive ?? @"E:\",
+                    "IMEResult",
+                    "算法异常"
+                );
                 string? rootDir = Path.GetPathRoot(originalDir);
                 string relativePath = originalDir.Substring(rootDir?.Length ?? 0);
                 string targetDir = Path.Combine(baseArchivePath, relativePath);
@@ -5139,9 +6703,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
             catch (Exception ex)
             {
-                AddLog($"[归档失败] 路径：{imageFilePath}，错误：{ex.Message}，堆栈：{ex.StackTrace}");
+                AddLog(
+                    $"[归档失败] 路径：{imageFilePath}，错误：{ex.Message}，堆栈：{ex.StackTrace}"
+                );
             }
         }
+
         private static ImageSource ConvertHObjectToImageSourceFast(HObject halconImage)
         {
             // 获取图像通道信息
@@ -5152,7 +6719,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 // 单通道图像
                 return ConvertGrayImage(halconImage);
             }
-
             else if (channels.I == 3)
             {
                 // 三通道图像
@@ -5162,13 +6728,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 return ConvertColorImage(halconImage);
             }
-
         }
 
         //转换灰度图像
         private static ImageSource ConvertGrayImage(HObject halconImage)
         {
-            HOperatorSet.GetImagePointer1(halconImage, out HTuple pointer, out HTuple type, out HTuple width, out HTuple height);
+            HOperatorSet.GetImagePointer1(
+                halconImage,
+                out HTuple pointer,
+                out HTuple type,
+                out HTuple width,
+                out HTuple height
+            );
 
             int imgWidth = width.I;
             int imgHeight = height.I;
@@ -5197,7 +6768,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             System.Runtime.InteropServices.Marshal.Copy(pointer, buffer, 0, buffer.Length);
 
             BitmapSource bitmapSource = BitmapSource.Create(
-                imgWidth, imgHeight, 96, 96, pixelFormat, null, buffer, stride);
+                imgWidth,
+                imgHeight,
+                96,
+                96,
+                pixelFormat,
+                null,
+                buffer,
+                stride
+            );
 
             bitmapSource.Freeze();
             return bitmapSource;
@@ -5207,13 +6786,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private static ImageSource ConvertColorImage(HObject halconImage)
         {
             // 获取三个通道的指针
-            HOperatorSet.GetImagePointer3(halconImage,
+            HOperatorSet.GetImagePointer3(
+                halconImage,
                 out HTuple pointerRed,
                 out HTuple pointerGreen,
                 out HTuple pointerBlue,
                 out HTuple type,
                 out HTuple width,
-                out HTuple height);
+                out HTuple height
+            );
 
             int imgWidth = width.I;
             int imgHeight = height.I;
@@ -5228,9 +6809,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             byte[] greenChannel = new byte[imgWidth * imgHeight];
             byte[] blueChannel = new byte[imgWidth * imgHeight];
 
-            System.Runtime.InteropServices.Marshal.Copy(pointerRed, redChannel, 0, redChannel.Length);
-            System.Runtime.InteropServices.Marshal.Copy(pointerGreen, greenChannel, 0, greenChannel.Length);
-            System.Runtime.InteropServices.Marshal.Copy(pointerBlue, blueChannel, 0, blueChannel.Length);
+            System.Runtime.InteropServices.Marshal.Copy(
+                pointerRed,
+                redChannel,
+                0,
+                redChannel.Length
+            );
+            System.Runtime.InteropServices.Marshal.Copy(
+                pointerGreen,
+                greenChannel,
+                0,
+                greenChannel.Length
+            );
+            System.Runtime.InteropServices.Marshal.Copy(
+                pointerBlue,
+                blueChannel,
+                0,
+                blueChannel.Length
+            );
 
             // 合并通道到 RGB 缓冲区
             for (int y = 0; y < imgHeight; y++)
@@ -5241,14 +6837,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     int dstIndex = y * stride + x * 3;
 
                     // WPF 使用 BGR 顺序，所以需要交换 R 和 B
-                    buffer[dstIndex] = blueChannel[srcIndex];     // B
+                    buffer[dstIndex] = blueChannel[srcIndex]; // B
                     buffer[dstIndex + 1] = greenChannel[srcIndex]; // G
-                    buffer[dstIndex + 2] = redChannel[srcIndex];   // R
+                    buffer[dstIndex + 2] = redChannel[srcIndex]; // R
                 }
             }
 
             BitmapSource bitmapSource = BitmapSource.Create(
-                imgWidth, imgHeight, 96, 96, PixelFormats.Bgr24, null, buffer, stride);
+                imgWidth,
+                imgHeight,
+                96,
+                96,
+                PixelFormats.Bgr24,
+                null,
+                buffer,
+                stride
+            );
 
             bitmapSource.Freeze();
             return bitmapSource;
@@ -5260,6 +6864,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             string key = $"{station}_{barcode}";
             return _barcodeQueues.GetOrAdd(key, _ => new ConcurrentQueue<string>());
         }
+
         //取当前条码队列的专属锁
         private object GetBarcodeQueueLock(string station, string barcode)
         {
@@ -5274,7 +6879,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private void CleanupTimeoutBarcodes(object? sender, System.Timers.ElapsedEventArgs e)
         {
             // 检查是否有任何工位处于运行状态，如果都没有，则跳过
-            if (!IsOnlineDetectionEnabledLAB && !IsOnlineDetectionEnabledLCD && !IsOnlineDetectionEnabledRAB && !IsOnlineDetectionEnabledRCD)
+            if (
+                !IsOnlineDetectionEnabledLAB
+                && !IsOnlineDetectionEnabledLCD
+                && !IsOnlineDetectionEnabledRAB
+                && !IsOnlineDetectionEnabledRCD
+            )
             {
                 return;
             }
@@ -5305,13 +6915,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                     if (station != null)
                     {
-                        AddLog($"[{station}-超时处理] 条码{barcode}超过{timeoutThreshold.TotalMinutes}分钟未凑齐8张，开始保存部分结果");
+                        AddLog(
+                            $"[{station}-超时处理] 条码{barcode}超过{timeoutThreshold.TotalMinutes}分钟未凑齐8张，开始保存部分结果"
+                        );
                         _ = ProcessPartialResultsForBarcode(barcode, station);
                     }
                     else
                     {
                         // 如果找不到对应的工位，可能是队列已被清空，但时间记录未被移除
-                        AddLog($"[超时处理-警告] 找不到条码{barcode}对应的工位，可能已被处理。将清理时间记录。");
+                        AddLog(
+                            $"[超时处理-警告] 找不到条码{barcode}对应的工位，可能已被处理。将清理时间记录。"
+                        );
                         lock (_barcodeTimeLock)
                         {
                             _barcodeLastActivityTime.Remove(barcode);
@@ -5406,17 +7020,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
 
             //提取缓存中的HObject
-            List<(string imgPath, HObject resultImage)> partialResults = new List<(string, HObject)>();
+            List<(string imgPath, HObject resultImage)> partialResults =
+                new List<(string, HObject)>();
             List<string> cachedImgPaths = new List<string>(); // 记录缓存中存在的图片路径
             lock (_cacheLock)
             {
                 foreach (var item in itemsToProcess)
                 {
                     string[] parts = item.Split(new[] { "||" }, StringSplitOptions.None);
-                    if (parts.Length != 2) continue;
+                    if (parts.Length != 2)
+                        continue;
 
                     string imgPath = parts[0];
-                    if (_firstDetectionImageCache.TryGetValue(imgPath, out HObject? resultImage) && resultImage.IsInitialized())
+                    if (
+                        _firstDetectionImageCache.TryGetValue(imgPath, out HObject? resultImage)
+                        && resultImage.IsInitialized()
+                    )
                     {
                         partialResults.Add((imgPath, resultImage));
                         cachedImgPaths.Add(imgPath); // 仅记录缓存中存在的路径
@@ -5429,7 +7048,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 try
                 {
                     await SavePartialResults(partialResults, barcode, station);
-                    AddLog($"[{station}-超时处理] 条码{barcode}成功保存{partialResults.Count}张部分结果");
+                    AddLog(
+                        $"[{station}-超时处理] 条码{barcode}成功保存{partialResults.Count}张部分结果"
+                    );
                 }
                 finally
                 {
@@ -5440,7 +7061,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         {
                             if (_firstDetectionImageCache.ContainsKey(imgPath))
                             {
-
                                 _firstDetectionImageCache.Remove(imgPath);
                             }
                         }
@@ -5462,26 +7082,36 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// <summary>
         /// 保存部分结果（仅保存图片到对应工位的文件夹，不进行数据库操作和缺陷分类）
         /// </summary>
-        private async Task SavePartialResults(List<(string imgPath, HObject resultImage)> partialResults, string barcode, string station)
+        private async Task SavePartialResults(
+            List<(string imgPath, HObject resultImage)> partialResults,
+            string barcode,
+            string station
+        )
         {
-            if (partialResults.Count == 0) return;
+            if (partialResults.Count == 0)
+                return;
 
             await Task.Run(() =>
             {
                 try
                 {
-
                     string? rootSavePath = SelectedResultImagePath;
 
                     if (string.IsNullOrEmpty(rootSavePath))
                     {
                         // 根路径未设置，选择默认路径或记录错误
-                        rootSavePath = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-                        AddLog($"[{station}-部分结果保存-警告] 结果保存根路径未设置，将使用默认图片文件夹: {rootSavePath}");
+                        rootSavePath = Environment.GetFolderPath(
+                            Environment.SpecialFolder.MyPictures
+                        );
+                        AddLog(
+                            $"[{station}-部分结果保存-警告] 结果保存根路径未设置，将使用默认图片文件夹: {rootSavePath}"
+                        );
                     }
                     else if (!Directory.Exists(rootSavePath))
                     {
-                        AddLog($"[{station}-部分结果保存-警告] 结果保存根路径不存在，将尝试创建: {rootSavePath}");
+                        AddLog(
+                            $"[{station}-部分结果保存-警告] 结果保存根路径不存在，将尝试创建: {rootSavePath}"
+                        );
                         Directory.CreateDirectory(rootSavePath);
                     }
 
@@ -5493,7 +7123,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         station,
                         barcode
                     );
-
 
                     Directory.CreateDirectory(targetDir);
                     AddLog($"[{station}-部分结果保存] 创建目标目录：{targetDir}");
@@ -5528,7 +7157,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// <summary>
         /// 检测后处理：队列处理、统计更新、结果保存
         /// </summary>
-        private async Task HandlePostDetection(string? ctCode, string resultCode, string imageFilePath, string station)
+        private async Task HandlePostDetection(
+            string? ctCode,
+            string resultCode,
+            string imageFilePath,
+            string station
+        )
         {
             try
             {
@@ -5565,15 +7199,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     if (previousCount == 0 && currentCount == 1)
                     {
                         startTime = DateTime.Now;
-                        _cellStartTimes.AddOrUpdate((station, barcode), startTime, (key, oldValue) => startTime);
-                        AddLog($"[{station}-{barcode}开始计时] 第一张图入队，开始时间：{startTime:yyyy-MM-dd HH:mm:ss.fff}");
+                        _cellStartTimes.AddOrUpdate(
+                            (station, barcode),
+                            startTime,
+                            (key, oldValue) => startTime
+                        );
+                        AddLog(
+                            $"[{station}-{barcode}开始计时] 第一张图入队，开始时间：{startTime:yyyy-MM-dd HH:mm:ss.fff}"
+                        );
                     }
-                    else if (_cellStartTimes.TryGetValue((station, barcode), out var existingStartTime))
+                    else if (
+                        _cellStartTimes.TryGetValue((station, barcode), out var existingStartTime)
+                    )
                     {
                         startTime = existingStartTime;
                     }
 
-                    AddLog($"[{station}-{barcode}入队] 项：{queueItem}，队列长度：{targetQueue.Count}");
+                    AddLog(
+                        $"[{station}-{barcode}入队] 项：{queueItem}，队列长度：{targetQueue.Count}"
+                    );
                 }
 
                 // 检查当前条码的队列是否满8张
@@ -5598,7 +7242,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         if (targetQueue.Count < 8)
                         {
                             queueValid = false;
-                            AddLog($"[{station}-{barcode}队列长度变化] 实际长度{targetQueue.Count} < 8，中断处理");
+                            AddLog(
+                                $"[{station}-{barcode}队列长度变化] 实际长度{targetQueue.Count} < 8，中断处理"
+                            );
                         }
                         else
                         {
@@ -5607,7 +7253,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 if (!targetQueue.TryDequeue(out string? item))
                                 {
                                     queueValid = false;
-                                    AddLog($"[{station}-{barcode}出队失败] 第{i + 1}项：队列突然为空");
+                                    AddLog(
+                                        $"[{station}-{barcode}出队失败] 第{i + 1}项：队列突然为空"
+                                    );
                                     break;
                                 }
                                 itemsToProcess.Add(item);
@@ -5618,13 +7266,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     // 组包验证通过
                     if (queueValid && itemsToProcess.Count == 8)
                     {
-
                         AddLog($"[{station}-{barcode}组包成功] 开始提取缓存");
-                        List<(string imgPath, string ctCode, HObject resultImage)> firstDetectionResults = new List<(string, string, HObject)>();
+                        List<(
+                            string imgPath,
+                            string ctCode,
+                            HObject resultImage
+                        )> firstDetectionResults = new List<(string, string, HObject)>();
 
                         foreach (var item in itemsToProcess)
                         {
-                            string[] itemParts = item.Split(new[] { "||" }, StringSplitOptions.None);
+                            string[] itemParts = item.Split(
+                                new[] { "||" },
+                                StringSplitOptions.None
+                            );
                             if (itemParts.Length != 2)
                             {
                                 queueValid = false;
@@ -5637,8 +7291,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             // 检查缓存
                             lock (_cacheLock)
                             {
-                                if (_firstDetectionImageCache.TryGetValue(imgPath, out HObject? resultImage)
-                                    && resultImage != null && resultImage.IsInitialized())
+                                if (
+                                    _firstDetectionImageCache.TryGetValue(
+                                        imgPath,
+                                        out HObject? resultImage
+                                    )
+                                    && resultImage != null
+                                    && resultImage.IsInitialized()
+                                )
                                 {
                                     firstDetectionResults.Add((imgPath, innerCtCode, resultImage));
                                     _firstDetectionImageCache.Remove(imgPath);
@@ -5646,7 +7306,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 else
                                 {
                                     queueValid = false;
-                                    AddLog($"[{station}-{barcode}缓存缺失] 文件：{Path.GetFileName(imgPath)}");
+                                    AddLog(
+                                        $"[{station}-{barcode}缓存缺失] 文件：{Path.GetFileName(imgPath)}"
+                                    );
                                     break;
                                 }
                             }
@@ -5661,13 +7323,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             }
                             TimeSpan queueWaitTime = DateTime.Now - actualStartTime;
                             // 调用保存逻辑
-                            bool finalIsOK = await ProcessBadTypeStatistics(firstDetectionResults, barcode, station, actualStartTime);
-                            AddLog($"[{station}-{barcode}保存完成] 结果：{(finalIsOK ? "OK" : "NG")}");
+                            bool finalIsOK = await ProcessBadTypeStatistics(
+                                firstDetectionResults,
+                                barcode,
+                                station,
+                                actualStartTime
+                            );
+                            AddLog(
+                                $"[{station}-{barcode}保存完成] 结果：{(finalIsOK ? "OK" : "NG")}"
+                            );
 
                             lock (_countLock)
                             {
-                                if (finalIsOK) OKDetectionNum++;
-                                else NGDetectionNum++;
+                                if (finalIsOK)
+                                    OKDetectionNum++;
+                                else
+                                    NGDetectionNum++;
                                 OnPropertiesChanged(nameof(OKDetectionNum));
                                 OnPropertiesChanged(nameof(NGDetectionNum));
                                 OnPropertiesChanged(nameof(TotalDetectionNum));
@@ -5675,7 +7346,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         }
                         else
                         {
-                            AddLog($"[{station}-{barcode}缓存提取失败] 有效项{firstDetectionResults.Count}/8");
+                            AddLog(
+                                $"[{station}-{barcode}缓存提取失败] 有效项{firstDetectionResults.Count}/8"
+                            );
                             // 回退有效资源
                             foreach (var result in firstDetectionResults)
                             {
@@ -5683,8 +7356,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 {
                                     if (!_firstDetectionImageCache.ContainsKey(result.imgPath))
                                     {
-                                        _firstDetectionImageCache[result.imgPath] = result.resultImage;
-                                        AddLog($"[{station}-资源回退] 文件：{Path.GetFileName(result.imgPath)}");
+                                        _firstDetectionImageCache[result.imgPath] =
+                                            result.resultImage;
+                                        AddLog(
+                                            $"[{station}-资源回退] 文件：{Path.GetFileName(result.imgPath)}"
+                                        );
                                     }
                                 }
                             }
@@ -5692,7 +7368,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                     else
                     {
-                        AddLog($"[{station}-{barcode}组包失败] 有效项{itemsToProcess.Count}/8，queueValid={queueValid}");
+                        AddLog(
+                            $"[{station}-{barcode}组包失败] 有效项{itemsToProcess.Count}/8，queueValid={queueValid}"
+                        );
                     }
                 }
                 else
@@ -5705,26 +7383,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog($"[{station}-Handle异常] {ex.Message}");
             }
         }
+
         /// <summary>
         /// 处理不良类型统计与文件移动
         /// </summary>
         private async Task<bool> ProcessBadTypeStatistics(
             List<(string imgPath, string ctCode, HObject resultImage)> firstDetectionResults,
             string barcode,
-            string station, DateTime startTime)
+            string station,
+            DateTime startTime
+        )
         {
             string? savedResultImagePath = null;
             bool finalIsOK = true;
             string finalHighestPriorityDefect = "无缺陷";
             List<string> confirmedDefects = new List<string>();
-           // DateTime processStartTime = DateTime.Now;
+            // DateTime processStartTime = DateTime.Now;
             //DateTime endTime = DateTime.Now;
 
             List<CsvGapDetail> csvGapDetails = new List<CsvGapDetail>();
 
             try
             {
-
                 // 获取文件夹路径
                 if (firstDetectionResults.Count == 0)
                 {
@@ -5734,11 +7414,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 string? folderPath = Path.GetDirectoryName(firstDetectionResults[0].imgPath);
                 if (string.IsNullOrEmpty(folderPath))
                 {
-                    AddLog($"[{station}-处理异常] 无效路径（第一张图路径：{firstDetectionResults[0].imgPath}）");
+                    AddLog(
+                        $"[{station}-处理异常] 无效路径（第一张图路径：{firstDetectionResults[0].imgPath}）"
+                    );
                     return false;
                 }
                 // 预计算每张图片的最终结果和确认的缺陷列表
-                var imageFinalResults = new List<(string imgPath, HObject resultImage, string individualResultName)>();
+                var imageFinalResults =
+                    new List<(string imgPath, HObject resultImage, string individualResultName)>();
                 foreach (var result in firstDetectionResults)
                 {
                     string defectType = GetBadTypeFromItem(result.ctCode);
@@ -5764,23 +7447,29 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                     else
                     {
-
                         individualResultName = "OK";
                     }
                     //--------------------CSV记录阈值(后续可删掉)-------------------
-                    double[] gapValues = _imageGapValueCache.TryGetValue(result.imgPath, out var arr)
+                    double[] gapValues = _imageGapValueCache.TryGetValue(
+                        result.imgPath,
+                        out var arr
+                    )
                         ? arr
                         : new double[] { 0, 0, 0 }; // 兜底空值
-                    csvGapDetails.Add(new CsvGapDetail
-                    {
-                        ImageName = Path.GetFileName(result.imgPath),
-                        DetectionResult = individualResultName,
-                        NegativeEdgeGap = gapValues.Length > 0 ? gapValues[0] : 0,
-                        PositiveEdgeGap = gapValues.Length > 1 ? gapValues[1] : 0,
-                        PositiveMiddleGap = gapValues.Length > 2 ? gapValues[2] : 0
-                    });
+                    csvGapDetails.Add(
+                        new CsvGapDetail
+                        {
+                            ImageName = Path.GetFileName(result.imgPath),
+                            DetectionResult = individualResultName,
+                            NegativeEdgeGap = gapValues.Length > 0 ? gapValues[0] : 0,
+                            PositiveEdgeGap = gapValues.Length > 1 ? gapValues[1] : 0,
+                            PositiveMiddleGap = gapValues.Length > 2 ? gapValues[2] : 0,
+                        }
+                    );
                     //-----------------------------------------------------------------
-                    imageFinalResults.Add((result.imgPath, result.resultImage, individualResultName));
+                    imageFinalResults.Add(
+                        (result.imgPath, result.resultImage, individualResultName)
+                    );
                 }
                 if (confirmedDefects.Any())
                 {
@@ -5788,14 +7477,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                     // 缺陷优先级排序
                     Dictionary<string, int> badTypePriority = new Dictionary<string, int>
-                        {
-                            {"负极压伤", 1},{"负极边缘间隙不良", 2}, {"正极边缘间隙不良", 3},  {"正极中间间隙不良", 4},
-                            {"负极多片", 5},{"正极Y方向掉片", 6},{"OH不良", 7},{"负极少片", 8}, {"正极少片", 9},
-                            {"正极多片", 10}, {"负极差不良", 11}
-                        };
+                    {
+                        { "负极压伤", 1 },
+                        { "负极边缘间隙不良", 2 },
+                        { "正极边缘间隙不良", 3 },
+                        { "正极中间间隙不良", 4 },
+                        { "负极多片", 5 },
+                        { "正极Y方向掉片", 6 },
+                        { "OH不良", 7 },
+                        { "负极少片", 8 },
+                        { "正极少片", 9 },
+                        { "正极多片", 10 },
+                        { "负极差不良", 11 },
+                    };
 
-                    var topPriorityDefect = confirmedDefects.Distinct()
-                        .Select(d => new { Defect = d, Priority = badTypePriority.TryGetValue(d, out int p) ? p : int.MaxValue })
+                    var topPriorityDefect = confirmedDefects
+                        .Distinct()
+                        .Select(d => new
+                        {
+                            Defect = d,
+                            Priority = badTypePriority.TryGetValue(d, out int p) ? p : int.MaxValue,
+                        })
                         .OrderBy(item => item.Priority)
                         .FirstOrDefault();
 
@@ -5808,19 +7510,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             //仅对最高优先级的缺陷进行计数
                             switch (topPriorityDefect.Defect)
                             {
-                                case "OH不良": Count_OHBL++; break;
-                                case "负极少片": Count_FJSP++; break;
-                                case "负极多片": Count_FJDP++; break;
-                                case "正极少片": Count_ZJSP++; break;
-                                case "正极多片": Count_ZJDP++; break;
-                                case "负极差不良": Count_CPBL++; break;
-                                case "负极边缘间隙不良": Count_FJBYJXBL++; break;
-                                case "正极边缘间隙不良": Count_ZJBYJXBL++; break;
-                                case "正极中间间隙不良": Count_ZJZJJXBL++; break;
-                                case "负极压伤": Count_FJYS++; break;
-                                case "正极Y方向掉片": Count_ZJYDP++; AddLog($"[{station}-掉片计数] 电芯{barcode}，Count_ZJYDP增加到：{Count_ZJYDP}"); break;
+                                case "OH不良":
+                                    Count_OHBL++;
+                                    break;
+                                case "负极少片":
+                                    Count_FJSP++;
+                                    break;
+                                case "负极多片":
+                                    Count_FJDP++;
+                                    break;
+                                case "正极少片":
+                                    Count_ZJSP++;
+                                    break;
+                                case "正极多片":
+                                    Count_ZJDP++;
+                                    break;
+                                case "负极差不良":
+                                    Count_CPBL++;
+                                    break;
+                                case "负极边缘间隙不良":
+                                    Count_FJBYJXBL++;
+                                    break;
+                                case "正极边缘间隙不良":
+                                    Count_ZJBYJXBL++;
+                                    break;
+                                case "正极中间间隙不良":
+                                    Count_ZJZJJXBL++;
+                                    break;
+                                case "负极压伤":
+                                    Count_FJYS++;
+                                    break;
+                                case "正极Y方向掉片":
+                                    Count_ZJYDP++;
+                                    AddLog(
+                                        $"[{station}-掉片计数] 电芯{barcode}，Count_ZJYDP增加到：{Count_ZJYDP}"
+                                    );
+                                    break;
                                 default:
-                                    AddLog($"[{station}-警告] 未知缺陷：{topPriorityDefect.Defect}");
+                                    AddLog(
+                                        $"[{station}-警告] 未知缺陷：{topPriorityDefect.Defect}"
+                                    );
                                     break;
                             }
                             UpdateRiskRatios();
@@ -5838,7 +7567,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 }
                             });
                         }
-                       //------------------------------------------------
+                        //------------------------------------------------
                     }
                 }
 
@@ -5848,7 +7577,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     {
                         //目录名由电芯最高优先级缺陷决定
                         string unifiedDefectType = finalIsOK ? "OK" : finalHighestPriorityDefect;
-                        string? targetDir = await GetUnifiedSaveDirectory(firstDetectionResults[0].imgPath, barcode, unifiedDefectType);
+                        string? targetDir = await GetUnifiedSaveDirectory(
+                            firstDetectionResults[0].imgPath,
+                            barcode,
+                            unifiedDefectType
+                        );
 
                         if (string.IsNullOrEmpty(targetDir))
                         {
@@ -5857,7 +7590,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             return;
                         }
 
-                        AddLog($"[{station}-批量保存] 电芯{barcode}的8张图将保存到：{unifiedDefectType} 文件夹");
+                        AddLog(
+                            $"[{station}-批量保存] 电芯{barcode}的8张图将保存到：{unifiedDefectType} 文件夹"
+                        );
 
                         // 保存所有图片
                         for (int i = 0; i < imageFinalResults.Count; i++)
@@ -5868,9 +7603,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 string? resultPath = await SaveGapDetectionResultBatch(
                                     processedResult.imgPath,
                                     processedResult.individualResultName,
-                                    (newPath) => HOperatorSet.WriteImage(processedResult.resultImage, "png", 0, newPath),
+                                    (newPath) =>
+                                        HOperatorSet.WriteImage(
+                                            processedResult.resultImage,
+                                            "png",
+                                            0,
+                                            newPath
+                                        ),
                                     unifiedDefectType,
-                                    targetDir);
+                                    targetDir
+                                );
 
                                 if (i == 0 && !string.IsNullOrEmpty(resultPath))
                                 {
@@ -5895,7 +7637,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         );
                         await SaveToDatabase(detectionRecord);
                         AddLog($"[{station}-数据库] 电芯{barcode}记录已保存。");
-
                     }
                     catch (Exception ex)
                     {
@@ -5924,18 +7665,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 //);
 
                 //更新UI列表
-                await Application.Current.Dispatcher.InvokeAsync(new Action(() =>
-                {
-                    dynamic detectionData = new ExpandoObject();
-                    detectionData.CellBarcode = barcode;
-                    detectionData.DetectionResult = finalIsOK ? "OK" : "NG";
-                    detectionData.NgDetails = finalHighestPriorityDefect;
-                    detectionData.Station = station;
-                    detectionData.DetectionTime = DateTime.Now;
-                    detectionData.ResultImagePath = savedResultImagePath ?? "无结果图路径";
-                    _fullDetectionDataList.Add(detectionData);
-                    UpdateDisplayDataList(); // 刷新UI上的结果列表
-                }), System.Windows.Threading.DispatcherPriority.Normal);
+                await Application.Current.Dispatcher.InvokeAsync(
+                    new Action(() =>
+                    {
+                        dynamic detectionData = new ExpandoObject();
+                        detectionData.CellBarcode = barcode;
+                        detectionData.DetectionResult = finalIsOK ? "OK" : "NG";
+                        detectionData.NgDetails = finalHighestPriorityDefect;
+                        detectionData.Station = station;
+                        detectionData.DetectionTime = DateTime.Now;
+                        detectionData.ResultImagePath = savedResultImagePath ?? "无结果图路径";
+                        _fullDetectionDataList.Add(detectionData);
+                        UpdateDisplayDataList(); // 刷新UI上的结果列表
+                    }),
+                    System.Windows.Threading.DispatcherPriority.Normal
+                );
 
                 AddLog($"[{station}-处理完成] 电芯{barcode}最终结果：{(!finalIsOK ? "NG" : "OK")}");
 
@@ -5954,13 +7698,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             //    }
             //}
         }
+
         #region 记录正负极间隙值到CSV
         /// <summary>
         /// CSV明细数据模型（对应表头：图片名、检测结果、负极边缘间隙、正极边缘间隙、正极中间间隙）
         /// </summary>
         private class CsvGapDetail
         {
-            public string ImageName { get; set; } = string.Empty;    // 图片名
+            public string ImageName { get; set; } = string.Empty; // 图片名
             public string DetectionResult { get; set; } = string.Empty; // 检测结果
             public double NegativeEdgeGap { get; set; } // 负极边缘间隙
             public double PositiveEdgeGap { get; set; } // 正极边缘间隙
@@ -5972,17 +7717,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// </summary>
         private bool IsTargetGapDefect(string defectType)
         {
-            return defectType == "负极边缘间隙不良" ||
-                   defectType == "正极边缘间隙不良" ||
-                   defectType == "正极中间间隙不良";
+            return defectType == "负极边缘间隙不良"
+                || defectType == "正极边缘间隙不良"
+                || defectType == "正极中间间隙不良";
         }
-
 
         // CSV根路径
         private readonly string _gapCsvRootPath = AppDomain.CurrentDomain.BaseDirectory;
         private readonly string _gapCsvFolderName = "正负极间隙值";
 
-        private string _gapCsvFolderPath => Path.Combine(Environment.CurrentDirectory, "..", _gapCsvFolderName);
+        private string _gapCsvFolderPath =>
+            Path.Combine(Environment.CurrentDirectory, "..", _gapCsvFolderName);
 
         /// <summary>
         /// 获取当日的间隙值CSV文件路径
@@ -6000,7 +7745,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             return fullPath;
         }
 
-
         /// <summary>
         /// 初始化间隙不良CSV文件
         /// </summary>
@@ -6017,8 +7761,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         // 确保软件同级目录存在
                         Directory.CreateDirectory(Path.GetDirectoryName(dailyCsvPath)!);
                         // 写入当日CSV表头
-                        string header = "电芯条码,工位,图片名,检测结果,负极边缘间隙,正极边缘间隙,正极中间间隙";
-                        File.WriteAllText(dailyCsvPath, header + Environment.NewLine, Encoding.UTF8);
+                        string header =
+                            "电芯条码,工位,图片名,检测结果,负极边缘间隙,正极边缘间隙,正极中间间隙";
+                        File.WriteAllText(
+                            dailyCsvPath,
+                            header + Environment.NewLine,
+                            Encoding.UTF8
+                        );
                         AddLog($"[间隙CSV初始化] 已创建当日文件：{dailyCsvPath}");
                     }
                 }
@@ -6028,7 +7777,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// <summary>
         /// 追加8张图的间隙明细到CSV
         /// </summary>
-        private void AppendGapDetailToCsv(List<CsvGapDetail> gapDetails, string barcode, string station)
+        private void AppendGapDetailToCsv(
+            List<CsvGapDetail> gapDetails,
+            string barcode,
+            string station
+        )
         {
             if (gapDetails == null || gapDetails.Count != 8)
             {
@@ -6048,8 +7801,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     string imageName = EscapeCsvField(detail.ImageName);
                     string detectResult = EscapeCsvField(detail.DetectionResult);
-                    sb.AppendLine($"{barcode},{station},{imageName},{detectResult}," +
-                                  $"{detail.NegativeEdgeGap:F3},{detail.PositiveEdgeGap:F3},{detail.PositiveMiddleGap:F3}");
+                    sb.AppendLine(
+                        $"{barcode},{station},{imageName},{detectResult},"
+                            + $"{detail.NegativeEdgeGap:F3},{detail.PositiveEdgeGap:F3},{detail.PositiveMiddleGap:F3}"
+                    );
                 }
                 // 追加写入当日CSV
                 File.AppendAllText(dailyCsvPath, sb.ToString(), Encoding.UTF8);
@@ -6057,14 +7812,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
         }
         #endregion
-        private async Task<string?> GetUnifiedSaveDirectory(string sampleImagePath, string barcode, string defectType)
+        private async Task<string?> GetUnifiedSaveDirectory(
+            string sampleImagePath,
+            string barcode,
+            string defectType
+        )
         {
             return await Task.Run(() =>
             {
                 try
                 {
                     string[] stationFolders = new[] { "LAB", "LCD", "RAB", "RCD" };
-                    string[] originalPathPartsFull = sampleImagePath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+                    string[] originalPathPartsFull = sampleImagePath.Split(
+                        Path.DirectorySeparatorChar,
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
 
                     if (originalPathPartsFull.Length < 4)
                     {
@@ -6072,7 +7834,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         return null;
                     }
 
-                    string? stationFolder = originalPathPartsFull.FirstOrDefault(part => stationFolders.Contains(part));
+                    string? stationFolder = originalPathPartsFull.FirstOrDefault(part =>
+                        stationFolders.Contains(part)
+                    );
                     if (string.IsNullOrEmpty(stationFolder))
                     {
                         AddLog($"[目录创建失败] 未找到工位文件夹：{sampleImagePath}");
@@ -6081,7 +7845,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                     int stationIndex = Array.IndexOf(originalPathPartsFull, stationFolder);
                     int dateIndex = stationIndex + 1;
-                    var pathToDate = originalPathPartsFull.Skip(stationIndex).Take(dateIndex - stationIndex + 1).ToArray();
+                    var pathToDate = originalPathPartsFull
+                        .Skip(stationIndex)
+                        .Take(dateIndex - stationIndex + 1)
+                        .ToArray();
 
                     string? targetDrive = SelectedResultImagePath;
                     string imeresultRoot = Path.Combine($"{targetDrive}", "IMEResult");
@@ -6114,9 +7881,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             string detectionResult,
             Action<string> saveImageAction,
             string defectType,
-            string targetDir)
+            string targetDir
+        )
         {
-
             return await Task.Run(() =>
             {
                 try
@@ -6126,7 +7893,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                     string resultFileNameBase = fileNameWithoutExt;
                     if (resultFileNameBase.EndsWith("_origin"))
-                        resultFileNameBase = resultFileNameBase.Substring(0, resultFileNameBase.Length - "_origin".Length);
+                        resultFileNameBase = resultFileNameBase.Substring(
+                            0,
+                            resultFileNameBase.Length - "_origin".Length
+                        );
 
                     string newFileName = $"{resultFileNameBase}_result_{detectionResult}.png";
                     string targetFilePath = Path.Combine(targetDir, newFileName);
@@ -6137,14 +7907,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     // 复制原图
                     if (File.Exists(originalImagePath))
                     {
-                        string originalTargetPath = Path.Combine(targetDir, Path.GetFileName(originalImagePath));
+                        string originalTargetPath = Path.Combine(
+                            targetDir,
+                            Path.GetFileName(originalImagePath)
+                        );
                         if (!File.Exists(originalTargetPath))
                         {
                             File.Copy(originalImagePath, originalTargetPath);
                         }
                     }
 
-                    AddLog($"[批量保存] {Path.GetFileName(originalImagePath)} -> {defectType}/{Path.GetFileName(targetFilePath)}");
+                    AddLog(
+                        $"[批量保存] {Path.GetFileName(originalImagePath)} -> {defectType}/{Path.GetFileName(targetFilePath)}"
+                    );
                     return targetFilePath;
                 }
                 catch (Exception ex)
@@ -6160,22 +7935,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// </summary>
         private static string GetBadTypeFromItem(string item)
         {
-            if (item.Contains("OH不良")) return "OH不良";
-            if (item.Contains("负极少片")) return "负极少片";
-            if (item.Contains("负极多片")) return "负极多片";
-            if (item.Contains("正极少片")) return "正极少片";
-            if (item.Contains("正极多片")) return "正极多片";
-            if (item.Contains("负极差不良")) return "负极差不良";
-            if (item.Contains("正极Y方向掉片")) return "正极Y方向掉片";
-            if (item.Contains("分割异常")) return "分割异常";
-            if (item.Contains("正极边缘间隙不良")) return "正极边缘间隙不良";
-            if (item.Contains("负极边缘间隙不良")) return "负极边缘间隙不良";
-            if (item.Contains("正极中间间隙不良")) return "正极中间间隙不良";
-            if (item.Contains("负极压伤")) return "负极压伤";
+            if (item.Contains("OH不良"))
+                return "OH不良";
+            if (item.Contains("负极少片"))
+                return "负极少片";
+            if (item.Contains("负极多片"))
+                return "负极多片";
+            if (item.Contains("正极少片"))
+                return "正极少片";
+            if (item.Contains("正极多片"))
+                return "正极多片";
+            if (item.Contains("负极差不良"))
+                return "负极差不良";
+            if (item.Contains("正极Y方向掉片"))
+                return "正极Y方向掉片";
+            if (item.Contains("分割异常"))
+                return "分割异常";
+            if (item.Contains("正极边缘间隙不良"))
+                return "正极边缘间隙不良";
+            if (item.Contains("负极边缘间隙不良"))
+                return "负极边缘间隙不良";
+            if (item.Contains("正极中间间隙不良"))
+                return "正极中间间隙不良";
+            if (item.Contains("负极压伤"))
+                return "负极压伤";
             return "未知不良";
-
         }
-
 
         /// <summary>
         /// 异步保存检测结果图片和原图
@@ -6185,7 +7970,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         /// <param name="saveImageAction">保存图像的委托</param>
         /// <param name="defectType">缺陷类型</param>
         /// <returns>保存的结果图路径，如果保存失败则返回 null。</returns>
-        private async Task<string?> SaveGapDetectionResultAsync(string originalImagePath, string detectionResult, Action<string> saveImageAction, string defectType)
+        private async Task<string?> SaveGapDetectionResultAsync(
+            string originalImagePath,
+            string detectionResult,
+            Action<string> saveImageAction,
+            string defectType
+        )
         {
             return await Task.Run(() =>
             {
@@ -6201,10 +7991,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                     else
                     {
-                        string[] originalPathParts = originalImagePath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+                        string[] originalPathParts = originalImagePath.Split(
+                            Path.DirectorySeparatorChar,
+                            StringSplitOptions.RemoveEmptyEntries
+                        );
                         if (originalPathParts.Length < 2)
                         {
-                            AddLog($"[保存失败] 路径层级不足，无法获取上一级目录: {originalImagePath}");
+                            AddLog(
+                                $"[保存失败] 路径层级不足，无法获取上一级目录: {originalImagePath}"
+                            );
                             return null;
                         }
                         string parentFolderName = originalPathParts[originalPathParts.Length - 2];
@@ -6212,7 +8007,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         if (parentFolderName.Contains('_'))
                         {
                             keyName = parentFolderName.Split('_')[0];
-                            AddLog($"[路径优化] 从文件夹名 '{parentFolderName}' 中提取电芯码 '{keyName}'");
+                            AddLog(
+                                $"[路径优化] 从文件夹名 '{parentFolderName}' 中提取电芯码 '{keyName}'"
+                            );
                         }
                         else
                         {
@@ -6222,18 +8019,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                     string resultFileNameBase = fileNameWithoutExt;
                     if (resultFileNameBase.EndsWith("_origin"))
-                        resultFileNameBase = resultFileNameBase.Substring(0, resultFileNameBase.Length - "_origin".Length);
+                        resultFileNameBase = resultFileNameBase.Substring(
+                            0,
+                            resultFileNameBase.Length - "_origin".Length
+                        );
                     string newFileName = $"{resultFileNameBase}_result_{detectionResult}.png";
 
                     string[] stationFolders = new[] { "LAB", "LCD", "RAB", "RCD" };
-                    string[] originalPathPartsFull = originalImagePath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+                    string[] originalPathPartsFull = originalImagePath.Split(
+                        Path.DirectorySeparatorChar,
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
                     if (originalPathPartsFull.Length < 4)
                     {
                         AddLog($"[保存失败] 路径层级不足：{originalImagePath}");
                         return null;
                     }
 
-                    string? station = originalPathPartsFull.FirstOrDefault(part => stationFolders.Contains(part));
+                    string? station = originalPathPartsFull.FirstOrDefault(part =>
+                        stationFolders.Contains(part)
+                    );
                     if (string.IsNullOrEmpty(station))
                     {
                         AddLog($"[保存失败] 未找到工位文件夹：{originalImagePath}");
@@ -6241,7 +8046,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     }
                     int stationIndex = Array.IndexOf(originalPathPartsFull, station);
                     int dateIndex = stationIndex + 1;
-                    var pathToDate = originalPathPartsFull.Skip(stationIndex).Take(dateIndex - stationIndex + 1).ToArray();
+                    var pathToDate = originalPathPartsFull
+                        .Skip(stationIndex)
+                        .Take(dateIndex - stationIndex + 1)
+                        .ToArray();
 
                     string? targetDrive = SelectedResultImagePath;
                     string imeresultRoot = Path.Combine($"{targetDrive}", "IMEResult");
@@ -6262,14 +8070,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                     if (File.Exists(originalImagePath))
                     {
-                        string originalTargetPath = Path.Combine(targetDir, Path.GetFileName(originalImagePath));
+                        string originalTargetPath = Path.Combine(
+                            targetDir,
+                            Path.GetFileName(originalImagePath)
+                        );
                         if (!File.Exists(originalTargetPath))
                         {
                             File.Copy(originalImagePath, originalTargetPath);
                         }
                         else
                         {
-                            AddLog($"[文件已存在] 跳过复制原图: {Path.GetFileName(originalImagePath)}");
+                            AddLog(
+                                $"[文件已存在] 跳过复制原图: {Path.GetFileName(originalImagePath)}"
+                            );
                         }
                     }
 
@@ -6295,44 +8108,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             // 处理X类型
             if (imgNamePart.Contains("1-X"))
             {
-                upper = Gap2Limit;    // 1-X 上限：Gap2Limit
-                lower = Gap1Limit;    // 1-X 下限：Gap1Limit
+                upper = Gap2Limit; // 1-X 上限：Gap2Limit
+                lower = Gap1Limit; // 1-X 下限：Gap1Limit
             }
             else if (imgNamePart.Contains("2-X"))
             {
-                upper = Gap14Limit;   // 2-X 上限：Gap14Limit
-                lower = Gap13Limit;   // 2-X 下限：Gap13Limit
+                upper = Gap14Limit; // 2-X 上限：Gap14Limit
+                lower = Gap13Limit; // 2-X 下限：Gap13Limit
             }
             else if (imgNamePart.Contains("3-X"))
             {
-                upper = Gap24Limit;   // 3-X 上限：Gap24Limit
-                lower = Gap23Limit;   // 3-X 下限：Gap23Limit
+                upper = Gap24Limit; // 3-X 上限：Gap24Limit
+                lower = Gap23Limit; // 3-X 下限：Gap23Limit
             }
             else if (imgNamePart.Contains("4-X"))
             {
-                upper = Gap34Limit;   // 4-X 上限：Gap34Limit
-                lower = Gap33Limit;   // 4-X 下限：Gap33Limit
+                upper = Gap34Limit; // 4-X 上限：Gap34Limit
+                lower = Gap33Limit; // 4-X 下限：Gap33Limit
             }
             //处理Y类型
             else if (imgNamePart.Contains("1-Y"))
             {
-                upper = Gap8Limit;    // 1-Y 上限：Gap8Limit
-                lower = Gap7Limit;    // 1-Y 下限：Gap7Limit
+                upper = Gap8Limit; // 1-Y 上限：Gap8Limit
+                lower = Gap7Limit; // 1-Y 下限：Gap7Limit
             }
             else if (imgNamePart.Contains("2-Y"))
             {
-                upper = Gap19Limit;   // 2-Y 上限：Gap19Limit
-                lower = Gap18Limit;   // 2-Y 下限：Gap18Limit
+                upper = Gap19Limit; // 2-Y 上限：Gap19Limit
+                lower = Gap18Limit; // 2-Y 下限：Gap18Limit
             }
             else if (imgNamePart.Contains("3-Y"))
             {
-                upper = Gap29Limit;   // 3-Y 上限：Gap29Limit
-                lower = Gap28Limit;   // 3-Y 下限：Gap28Limit
+                upper = Gap29Limit; // 3-Y 上限：Gap29Limit
+                lower = Gap28Limit; // 3-Y 下限：Gap28Limit
             }
             else if (imgNamePart.Contains("4-Y"))
             {
-                upper = Gap40Limit;   // 4-Y 上限：Gap40Limit
-                lower = Gap39Limit;   // 4-Y 下限：Gap39Limit
+                upper = Gap40Limit; // 4-Y 上限：Gap40Limit
+                lower = Gap39Limit; // 4-Y 下限：Gap39Limit
             }
             //未知类型
             else
@@ -6352,19 +8165,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         #region 结果图生成
         // 生成结果图片
         private HObject? GenerateResultImage(
-            HObject originImg, int imgWidth, int imgHeight,
-            HObject recPE, HObject recNE, HObject recMiddlePE,
-            HTuple peRows, HTuple peCols, HTuple neRows, HTuple neCols, HTuple middlePERows, HTuple middlePECols,
-            HTuple distOHInt, HTuple distOHOut, HTuple distSortPEColMiddle,
-            double hDNe, string? ctCode, string resultCode,
-            List<int> ohAbnormalPositions1, List<int> ohAbnormalPositions2,
-            double[] arr1, double[] arr2, double[] distGapMax,
-            string imageFilePath)
+            HObject originImg,
+            int imgWidth,
+            int imgHeight,
+            HObject recPE,
+            HObject recNE,
+            HObject recMiddlePE,
+            HTuple peRows,
+            HTuple peCols,
+            HTuple neRows,
+            HTuple neCols,
+            HTuple middlePERows,
+            HTuple middlePECols,
+            HTuple distOHInt,
+            HTuple distOHOut,
+            HTuple distSortPEColMiddle,
+            double hDNe,
+            string? ctCode,
+            string resultCode,
+            List<int> ohAbnormalPositions1,
+            List<int> ohAbnormalPositions2,
+            double[] arr1,
+            double[] arr2,
+            double[] distGapMax,
+            string imageFilePath
+        )
         {
             // 验证输入
             if (imgWidth <= 0 || imgHeight <= 0)
             {
-                AddLog($"[生成结果图失败] 图像尺寸无效：宽={imgWidth}，高={imgHeight}，文件：{Path.GetFileName(imageFilePath)}");
+                AddLog(
+                    $"[生成结果图失败] 图像尺寸无效：宽={imgWidth}，高={imgHeight}，文件：{Path.GetFileName(imageFilePath)}"
+                );
                 return null;
             }
             if (originImg == null || !originImg.IsInitialized())
@@ -6383,7 +8215,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 int windowWidth = Math.Max(imgWidth, 800);
                 int windowHeight = imgHeight + 720; // 顶部60+底部540
 
-                tempWindow.OpenWindow(0, 0, windowWidth, windowHeight, new HTuple(0), "invisible", "");
+                tempWindow.OpenWindow(
+                    0,
+                    0,
+                    windowWidth,
+                    windowHeight,
+                    new HTuple(0),
+                    "invisible",
+                    ""
+                );
 
                 // ★ 核心：通过 SetPart 偏移显示，让图像从第60行开始
                 tempWindow.SetPart(-60, 0, imgHeight + 660, imgWidth - 1);
@@ -6395,14 +8235,48 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 DrawTopInfo(imageFilePath, resultCode, tempWindow);
 
                 //绘制区域标记（标记行坐标+60，与原图位置对齐）
-                DrawRegionMarkers(peRows, peCols, ohAbnormalPositions1, tempWindow, "orange", "red");
-                DrawRegionMarkers(neRows, neCols, ohAbnormalPositions2, tempWindow, "yellow", "red");
-                DrawRegionMarkers(middlePERows, middlePECols, new List<int>(), tempWindow, "blue", "blue");
+                DrawRegionMarkers(
+                    peRows,
+                    peCols,
+                    ohAbnormalPositions1,
+                    tempWindow,
+                    "orange",
+                    "red"
+                );
+                DrawRegionMarkers(
+                    neRows,
+                    neCols,
+                    ohAbnormalPositions2,
+                    tempWindow,
+                    "yellow",
+                    "red"
+                );
+                DrawRegionMarkers(
+                    middlePERows,
+                    middlePECols,
+                    new List<int>(),
+                    tempWindow,
+                    "blue",
+                    "blue"
+                );
 
                 //绘制文本信息
-                DrawTextInfo(ctCode, imageFilePath, imgHeight,
-                    peRows.Length, neRows.Length, hDNe, distOHInt, distOHOut,
-                    arr1, arr2, ohAbnormalPositions1, ohAbnormalPositions2, tempWindow, distGapMax);
+                DrawTextInfo(
+                    ctCode,
+                    imageFilePath,
+                    imgHeight,
+                    peRows.Length,
+                    neRows.Length,
+                    hDNe,
+                    distOHInt,
+                    distOHOut,
+                    arr1,
+                    arr2,
+                    ohAbnormalPositions1,
+                    ohAbnormalPositions2,
+                    tempWindow,
+                    distGapMax
+                );
                 // 导出最终图像
 
                 // 备用方案：临时文件
@@ -6416,14 +8290,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
                 catch (Exception tempFileEx)
                 {
-                    AddLog($"[临时文件方式也失败] {tempFileEx.Message}, 文件：{Path.GetFileName(imageFilePath)}");
+                    AddLog(
+                        $"[临时文件方式也失败] {tempFileEx.Message}, 文件：{Path.GetFileName(imageFilePath)}"
+                    );
                 }
 
                 return finalImage;
             }
             catch (HOperatorException ex)
             {
-                AddLog($"[HALCON绘图错误] 代码：{ex.GetErrorCode()}，消息：{ex.Message}，文件：{Path.GetFileName(imageFilePath)}");
+                AddLog(
+                    $"[HALCON绘图错误] 代码：{ex.GetErrorCode()}，消息：{ex.Message}，文件：{Path.GetFileName(imageFilePath)}"
+                );
                 if (originImg.IsInitialized())
                 {
                     HOperatorSet.CopyImage(originImg, out HObject backupImg);
@@ -6440,12 +8318,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 if (tempWindow != null)
                 {
-                    try { tempWindow.CloseWindow(); } catch { }
+                    try
+                    {
+                        tempWindow.CloseWindow();
+                    }
+                    catch { }
                     tempWindow.Dispose();
                 }
             }
         }
-
 
         // 绘制顶部信息
         private void DrawTopInfo(string imageFilePath, string resultCode, HWindow window)
@@ -6468,7 +8349,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     barcode = $"{fileNameParts[0]}_{fileNameParts[1]}";
                     imgNum = fileNameParts[2];
-
                 }
                 else
                 {
@@ -6484,20 +8364,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     // 位置：行0、列0
                     window.DispText(
                         $"电芯条码:{barcode}\t\t\t\t\t\t\t\t\t\t\t\t\t图片编号:{imgNum}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t检测结果:",
-                        "window", 0, 0, "white", "box", "false");
+                        "window",
+                        0,
+                        0,
+                        "white",
+                        "box",
+                        "false"
+                    );
                 }
                 else
                 {
                     // 位置：行0、列0
                     window.DispText(
                         $"电芯条码:{barcode}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t图片编号:{imgNum}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t检测结果:",
-                        "window", 0, 0, "white", "box", "false");
+                        "window",
+                        0,
+                        0,
+                        "white",
+                        "box",
+                        "false"
+                    );
                 }
 
                 window.SetColor(resultCode == "OK" ? "green" : "red");
                 // 检测结果位置：行5、列1380
-                window.DispText(resultCode,
-                    "window", 5, 1380, resultCode == "OK" ? "green" : "red", "box", "false");
+                window.DispText(
+                    resultCode,
+                    "window",
+                    5,
+                    1380,
+                    resultCode == "OK" ? "green" : "red",
+                    "box",
+                    "false"
+                );
             }
             catch (Exception ex)
             {
@@ -6506,10 +8405,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         }
 
         //绘制区域标记
-        private void DrawRegionMarkers(HTuple rows, HTuple cols, List<int> abnormalPositions,
-                          HWindow window, string normalColor, string abnormalColor)
+        private void DrawRegionMarkers(
+            HTuple rows,
+            HTuple cols,
+            List<int> abnormalPositions,
+            HWindow window,
+            string normalColor,
+            string abnormalColor
+        )
         {
-            if (window == null || rows == null || cols == null || rows.Length == 0 || cols.Length == 0 || rows.Length != cols.Length)
+            if (
+                window == null
+                || rows == null
+                || cols == null
+                || rows.Length == 0
+                || cols.Length == 0
+                || rows.Length != cols.Length
+            )
             {
                 AddLog("[标记绘制错误] 参数无效或窗口对象为空");
                 return;
@@ -6584,13 +8496,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
             }
         }
+
         //绘制文本信息
-        private void DrawTextInfo(string? ctCode, string imageFilePath, int imgHeight,
-                     int peCount, int neCount, double hDNe,
-                     HTuple distOHInt, HTuple distOHOut,
-                     double[] arr1, double[] arr2,
-                     List<int> ohAbnormalPositions1, List<int> ohAbnormalPositions2,
-                     HWindow window, double[] distGapMax)
+        private void DrawTextInfo(
+            string? ctCode,
+            string imageFilePath,
+            int imgHeight,
+            int peCount,
+            int neCount,
+            double hDNe,
+            HTuple distOHInt,
+            HTuple distOHOut,
+            double[] arr1,
+            double[] arr2,
+            List<int> ohAbnormalPositions1,
+            List<int> ohAbnormalPositions2,
+            HWindow window,
+            double[] distGapMax
+        )
         {
             if (window == null)
             {
@@ -6601,9 +8524,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 string fileName = Path.GetFileName(imageFilePath);
                 string barcode = fileName.Split('_')[0];
-                if (barcode.Length > 16) barcode = barcode.Substring(6, 14);
-                string imgNum = fileName.Split('_').Length > 1 ?
-        (fileName.Split('_')[1].Length < 10 ? fileName.Split('_')[1] : fileName.Split('_')[2]) : "未知编号";
+                if (barcode.Length > 16)
+                    barcode = barcode.Substring(6, 14);
+                string imgNum =
+                    fileName.Split('_').Length > 1
+                        ? (
+                            fileName.Split('_')[1].Length < 10
+                                ? fileName.Split('_')[1]
+                                : fileName.Split('_')[2]
+                        )
+                        : "未知编号";
 
                 // 初始化OH标准范围
                 string ohBz = "[未知范围]";
@@ -6643,14 +8573,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     ohBz = $"[{Gap33Limit:F2},{Gap34Limit:F2}]"; // 4-X：下限Gap33，上限Gap34
                 }
 
-
-                double[] ohMaxMin = (distOHInt?.SArr != null && distOHOut?.SArr != null) ?
-                    GapMax(distOHInt.SArr, distOHOut.SArr) : new double[] { 0, 0 };
+                double[] ohMaxMin =
+                    (distOHInt?.SArr != null && distOHOut?.SArr != null)
+                        ? GapMax(distOHInt.SArr, distOHOut.SArr)
+                        : new double[] { 0, 0 };
 
                 //处理正极间隙最大值及阈值
-                double fjEndMax = 0;       // 正极片边缘间隙最大值（gpa数组第一个元素）
-                double posEndMax = 0;       // 正极片边缘间隙最大值（gpa数组第二个元素）
-                double posMiddleMax = 0;    // 正极片中间间隙最大值（gpa数组第三个元素）
+                double fjEndMax = 0; // 正极片边缘间隙最大值（gpa数组第一个元素）
+                double posEndMax = 0; // 正极片边缘间隙最大值（gpa数组第二个元素）
+                double posMiddleMax = 0; // 正极片中间间隙最大值（gpa数组第三个元素）
                 double fjEndThreshold = 0;
                 double posEndThreshold = 0; // 正极片边缘间隙阈值
                 double posMiddleThreshold = 0; // 正极片中间间隙阈值
@@ -6659,8 +8590,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 if (distGapMax != null && distGapMax.Length == 3)
                 {
                     fjEndMax = distGapMax[0];
-                    posEndMax = distGapMax[1];       // 取第二个元素：正极边缘最大值
-                    posMiddleMax = distGapMax[2];    // 取第三个元素：正极中间最大值
+                    posEndMax = distGapMax[1]; // 取第二个元素：正极边缘最大值
+                    posMiddleMax = distGapMax[2]; // 取第三个元素：正极中间最大值
                 }
                 else
                 {
@@ -6671,49 +8602,49 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 if (imgNum.Contains("1-X"))
                 {
                     fjEndThreshold = Gap4Limit;
-                    posEndThreshold = Gap5Limit;     // 1-X 正极边缘阈值
-                    posMiddleThreshold = Gap6Limit;  // 1-X 正极中间阈值
+                    posEndThreshold = Gap5Limit; // 1-X 正极边缘阈值
+                    posMiddleThreshold = Gap6Limit; // 1-X 正极中间阈值
                 }
                 else if (imgNum.Contains("1-Y"))
                 {
                     fjEndThreshold = Gap10Limit;
-                    posEndThreshold = Gap11Limit;    // 1-Y 正极边缘阈值
+                    posEndThreshold = Gap11Limit; // 1-Y 正极边缘阈值
                     posMiddleThreshold = Gap12Limit; // 1-Y 正极中间阈值
                 }
                 else if (imgNum.Contains("2-X"))
                 {
                     fjEndThreshold = Gap15Limit;
-                    posEndThreshold = Gap16Limit;    // 2-X 正极边缘阈值
+                    posEndThreshold = Gap16Limit; // 2-X 正极边缘阈值
                     posMiddleThreshold = Gap17Limit; // 2-X 正极中间阈值
                 }
                 else if (imgNum.Contains("2-Y"))
                 {
                     fjEndThreshold = Gap20Limit;
-                    posEndThreshold = Gap21Limit;    // 2-Y 正极边缘阈值
+                    posEndThreshold = Gap21Limit; // 2-Y 正极边缘阈值
                     posMiddleThreshold = Gap22Limit; // 2-Y 正极中间阈值
                 }
                 else if (imgNum.Contains("3-X"))
                 {
                     fjEndThreshold = Gap25Limit;
-                    posEndThreshold = Gap26Limit;    // 3-X 正极边缘阈值
+                    posEndThreshold = Gap26Limit; // 3-X 正极边缘阈值
                     posMiddleThreshold = Gap27Limit; // 3-X 正极中间阈值
                 }
                 else if (imgNum.Contains("3-Y"))
                 {
                     fjEndThreshold = Gap30Limit;
-                    posEndThreshold = Gap31Limit;    // 3-Y 正极边缘阈值
+                    posEndThreshold = Gap31Limit; // 3-Y 正极边缘阈值
                     posMiddleThreshold = Gap32Limit; // 3-Y 正极中间阈值
                 }
                 else if (imgNum.Contains("4-X"))
                 {
                     fjEndThreshold = Gap36Limit;
-                    posEndThreshold = Gap37Limit;    // 4-X 正极边缘阈值
+                    posEndThreshold = Gap37Limit; // 4-X 正极边缘阈值
                     posMiddleThreshold = Gap38Limit; // 4-X 正极中间阈值
                 }
                 else if (imgNum.Contains("4-Y"))
                 {
                     fjEndThreshold = Gap42Limit;
-                    posEndThreshold = Gap43Limit;    // 4-Y 正极边缘阈值
+                    posEndThreshold = Gap43Limit; // 4-Y 正极边缘阈值
                     posMiddleThreshold = Gap44Limit; // 4-Y 正极中间阈值
                 }
                 else
@@ -6752,7 +8683,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     thresholdDesc = $"{Gap41Limit:F3}";
                 }
 
-
                 // 字体：Times New Roman，大小23
                 window.SetFont("Times New Roman-23");
 
@@ -6764,167 +8694,319 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 string peTitle = "正极层数: ";
                 // 绘制标题
                 window.SetColor("orange");
-                window.DispText(peTitle,
-                    "window", startHeight, titleX, "orange", "box", "false");
+                window.DispText(peTitle, "window", startHeight, titleX, "orange", "box", "false");
                 // 绘制数据
                 string peData = $"{peCount} (标准76)";
                 window.SetColor(peCount != 76 ? "red" : "green");
-                window.DispText(peData,
-                    "window", startHeight, 100, peCount != 76 ? "red" : "green", "box", "false");
-
+                window.DispText(
+                    peData,
+                    "window",
+                    startHeight,
+                    100,
+                    peCount != 76 ? "red" : "green",
+                    "box",
+                    "false"
+                );
 
                 // 负极层数
                 string neTitle = "负极层数: ";
                 window.SetColor("orange");
-                window.DispText(neTitle,
-                    "window", startHeight + lineHeight, titleX, "orange", "box", "false");
+                window.DispText(
+                    neTitle,
+                    "window",
+                    startHeight + lineHeight,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 string neData = $"{neCount} (标准77)";
                 window.SetColor(neCount != 77 ? "red" : "green");
-                window.DispText(neData,
-                    "window", startHeight + lineHeight, 100, neCount != 77 ? "red" : "green", "box", "false");
-
+                window.DispText(
+                    neData,
+                    "window",
+                    startHeight + lineHeight,
+                    100,
+                    neCount != 77 ? "red" : "green",
+                    "box",
+                    "false"
+                );
 
                 //OH最大值
                 bool isOverSize = ctCode?.Contains("偏大") ?? false;
                 string ohMaxTitle = "OH最大值: ";
                 window.SetColor("orange");
-                window.DispText(ohMaxTitle,
-                    "window", startHeight + lineHeight * 2, titleX, "orange", "box", "false");
+                window.DispText(
+                    ohMaxTitle,
+                    "window",
+                    startHeight + lineHeight * 2,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 string ohMaxData = $"{ohMaxMin[1]:F3} {(isOverSize ? "(异常)" : "")}";
                 window.SetColor(isOverSize ? "red" : "green");
-                window.DispText(ohMaxData,
-                    "window", startHeight + lineHeight * 2, 115, isOverSize ? "red" : "green", "box", "false");
-
+                window.DispText(
+                    ohMaxData,
+                    "window",
+                    startHeight + lineHeight * 2,
+                    115,
+                    isOverSize ? "red" : "green",
+                    "box",
+                    "false"
+                );
 
                 //OH最小值
                 bool isUnderSize = ctCode?.Contains("偏小") ?? false;
                 string ohMinTitle = "OH最小值: ";
                 window.SetColor("orange");
-                window.DispText(ohMinTitle,
-                    "window", startHeight + lineHeight * 3, titleX, "orange", "box", "false");
+                window.DispText(
+                    ohMinTitle,
+                    "window",
+                    startHeight + lineHeight * 3,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 string ohMinData = $"{ohMaxMin[0]:F3} {(isUnderSize ? "(异常)" : "")}";
                 window.SetColor(isUnderSize ? "red" : "green");
-                window.DispText(ohMinData,
-                    "window", startHeight + lineHeight * 3, 115, isUnderSize ? "red" : "green", "box", "false");
+                window.DispText(
+                    ohMinData,
+                    "window",
+                    startHeight + lineHeight * 3,
+                    115,
+                    isUnderSize ? "red" : "green",
+                    "box",
+                    "false"
+                );
 
                 // 合并文本区域：逐行处理
                 int combinedStartRow = startHeight + lineHeight * 4;
                 int currentRow = combinedStartRow;
 
-
                 //OH标准
                 string ohBzTitle = "OH标准: ";
                 window.SetColor("orange");
-                window.DispText(ohBzTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
+                window.DispText(ohBzTitle, "window", currentRow, titleX, "orange", "box", "false");
                 window.SetColor("orange");
-                window.DispText(ohBz,
-                    "window", currentRow, 90, "orange", "box", "false");
+                window.DispText(ohBz, "window", currentRow, 90, "orange", "box", "false");
                 currentRow += lineHeight;
-
 
                 //负极差值
                 if (showNegativeDiffThreshold)
                 {
                     string negativeDiffTitle = "负极差值: ";
                     window.SetColor("orange");
-                    window.DispText(negativeDiffTitle,
-                        "window", currentRow, titleX, "orange", "box", "false");
+                    window.DispText(
+                        negativeDiffTitle,
+                        "window",
+                        currentRow,
+                        titleX,
+                        "orange",
+                        "box",
+                        "false"
+                    );
                     bool isNegativeDiffOver = hDNe > negativeDiffThreshold;
                     string negativeDiffData = $"{hDNe:F3} {(isNegativeDiffOver ? "(异常)" : "")}";
                     window.SetColor(isNegativeDiffOver ? "red" : "green");
-                    window.DispText(negativeDiffData,
-                        "window", currentRow, 100, isNegativeDiffOver ? "red" : "green", "box", "false");
+                    window.DispText(
+                        negativeDiffData,
+                        "window",
+                        currentRow,
+                        100,
+                        isNegativeDiffOver ? "red" : "green",
+                        "box",
+                        "false"
+                    );
                     currentRow += lineHeight;
 
                     string negativeThresholdTitle = "负极差阈值: ";
                     window.SetColor("orange");
-                    window.DispText(negativeThresholdTitle,
-                        "window", currentRow, titleX, "orange", "box", "false");
+                    window.DispText(
+                        negativeThresholdTitle,
+                        "window",
+                        currentRow,
+                        titleX,
+                        "orange",
+                        "box",
+                        "false"
+                    );
                     window.SetColor("green");
-                    window.DispText(thresholdDesc,
-                        "window", currentRow, 130, "green", "box", "false");
+                    window.DispText(
+                        thresholdDesc,
+                        "window",
+                        currentRow,
+                        130,
+                        "green",
+                        "box",
+                        "false"
+                    );
                     currentRow += lineHeight;
                 }
-
 
                 //负极边缘间隙最大值
                 string fjEndMaxTitle = "负极边缘间隙最大值: ";
                 window.SetColor("orange");
-                window.DispText(fjEndMaxTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
-
+                window.DispText(
+                    fjEndMaxTitle,
+                    "window",
+                    currentRow,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
 
                 bool isFjEndOver = fjEndMax > fjEndThreshold;
                 string fjEndMaxData = $"{fjEndMax:F3} {(isFjEndOver ? "(异常)" : "")}";
                 window.SetColor(isFjEndOver ? "red" : "green");
-                window.DispText(fjEndMaxData,
-                    "window", currentRow, 215, isFjEndOver ? "red" : "green", "box", "false");
+                window.DispText(
+                    fjEndMaxData,
+                    "window",
+                    currentRow,
+                    215,
+                    isFjEndOver ? "red" : "green",
+                    "box",
+                    "false"
+                );
                 currentRow += lineHeight;
-
 
                 //负极边缘间隙阈值
                 string fjEndThresholdTitle = "负极边缘间隙阈值: ";
                 window.SetColor("orange");
-                window.DispText(fjEndThresholdTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
+                window.DispText(
+                    fjEndThresholdTitle,
+                    "window",
+                    currentRow,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 window.SetColor("green");
-                window.DispText($"{fjEndThreshold:F3}",
-                    "window", currentRow, 195, "green", "box", "false");
+                window.DispText(
+                    $"{fjEndThreshold:F3}",
+                    "window",
+                    currentRow,
+                    195,
+                    "green",
+                    "box",
+                    "false"
+                );
                 currentRow += lineHeight;
-
 
                 //正极边缘间隙最大值
                 string posEndMaxTitle = "正极边缘间隙最大值: ";
                 window.SetColor("orange");
-                window.DispText(posEndMaxTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
+                window.DispText(
+                    posEndMaxTitle,
+                    "window",
+                    currentRow,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 bool isPosEndOver = posEndMax > posEndThreshold;
                 string posEndMaxData = $"{posEndMax:F3} {(isPosEndOver ? "(异常)" : "")}";
                 window.SetColor(isPosEndOver ? "red" : "green");
-                window.DispText(posEndMaxData,
-                    "window", currentRow, 215, isPosEndOver ? "red" : "green", "box", "false");
+                window.DispText(
+                    posEndMaxData,
+                    "window",
+                    currentRow,
+                    215,
+                    isPosEndOver ? "red" : "green",
+                    "box",
+                    "false"
+                );
                 currentRow += lineHeight;
-
 
                 //正极边缘间隙阈值
                 string posEndThresholdTitle = "正极边缘间隙阈值: ";
                 window.SetColor("orange");
-                window.DispText(posEndThresholdTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
+                window.DispText(
+                    posEndThresholdTitle,
+                    "window",
+                    currentRow,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 window.SetColor("green");
-                window.DispText($"{posEndThreshold:F3}",
-                    "window", currentRow, 195, "green", "box", "false");
+                window.DispText(
+                    $"{posEndThreshold:F3}",
+                    "window",
+                    currentRow,
+                    195,
+                    "green",
+                    "box",
+                    "false"
+                );
                 currentRow += lineHeight;
-
 
                 //正极中间间隙最大值
                 string posMiddleMaxTitle = "正极中间间隙最大值: ";
                 window.SetColor("orange");
-                window.DispText(posMiddleMaxTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
+                window.DispText(
+                    posMiddleMaxTitle,
+                    "window",
+                    currentRow,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 bool isPosMiddleOver = posMiddleMax > posMiddleThreshold;
                 string posMiddleMaxData = $"{posMiddleMax:F3} {(isPosMiddleOver ? "(异常)" : "")}";
                 window.SetColor(isPosMiddleOver ? "red" : "green");
-                window.DispText(posMiddleMaxData,
-                    "window", currentRow, 215, isPosMiddleOver ? "red" : "green", "box", "false");
+                window.DispText(
+                    posMiddleMaxData,
+                    "window",
+                    currentRow,
+                    215,
+                    isPosMiddleOver ? "red" : "green",
+                    "box",
+                    "false"
+                );
                 currentRow += lineHeight;
-
 
                 //正极中间间隙阈值
                 string posMiddleThresholdTitle = "正极中间间隙阈值: ";
                 window.SetColor("orange");
-                window.DispText(posMiddleThresholdTitle,
-                    "window", currentRow, titleX, "orange", "box", "false");
+                window.DispText(
+                    posMiddleThresholdTitle,
+                    "window",
+                    currentRow,
+                    titleX,
+                    "orange",
+                    "box",
+                    "false"
+                );
                 window.SetColor("green");
-                window.DispText($"{posMiddleThreshold:F3}",
-                    "window", currentRow, 195, "green", "box", "false");
-
+                window.DispText(
+                    $"{posMiddleThreshold:F3}",
+                    "window",
+                    currentRow,
+                    195,
+                    "green",
+                    "box",
+                    "false"
+                );
 
                 // 绘制OH参数表格
                 if (arr1 != null && arr2 != null)
                 {
-                    DrawOhValueTable(arr1, arr2, ohAbnormalPositions1, ohAbnormalPositions2, imgHeight, window);
+                    DrawOhValueTable(
+                        arr1,
+                        arr2,
+                        ohAbnormalPositions1,
+                        ohAbnormalPositions2,
+                        imgHeight,
+                        window
+                    );
                 }
             }
             catch (Exception ex)
@@ -6934,8 +9016,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         }
 
         //绘制OH参数表格
-        private void DrawOhValueTable(double[] arr1, double[] arr2, List<int> abnormal1, List<int> abnormal2,
-                             int imgHeight, HWindow window)
+        private void DrawOhValueTable(
+            double[] arr1,
+            double[] arr2,
+            List<int> abnormal1,
+            List<int> abnormal2,
+            int imgHeight,
+            HWindow window
+        )
         {
             if (window == null)
             {
@@ -6964,7 +9052,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     for (int row = 0; row < rowsPerCol; row++)
                     {
                         int index = row + col * rowsPerCol;
-                        if (index >= arr1.Length || index >= arr2.Length) break;
+                        if (index >= arr1.Length || index >= arr2.Length)
+                            break;
 
                         string label = $"L{(index + 1).ToString("D3")}:";
                         string val1 = $"{arr1[index]:F3}";
@@ -6983,20 +9072,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                         // 绘制标签
                         window.SetColor("orange");
-                        window.DispText(labelLines[i],
-                            "window", currentRow, colOffset, "orange", "box", "false");
+                        window.DispText(
+                            labelLines[i],
+                            "window",
+                            currentRow,
+                            colOffset,
+                            "orange",
+                            "box",
+                            "false"
+                        );
 
                         // 绘制数值1
                         string color1 = abnormal1.Contains(i + col * rowsPerCol) ? "red" : "green";
                         window.SetColor(color1);
-                        window.DispText(value1Lines[i],
-                            "window", currentRow, colOffset + 60, color1, "box", "false");
+                        window.DispText(
+                            value1Lines[i],
+                            "window",
+                            currentRow,
+                            colOffset + 60,
+                            color1,
+                            "box",
+                            "false"
+                        );
 
                         // 绘制数值2
                         string color2 = abnormal2.Contains(i + col * rowsPerCol) ? "red" : "green";
                         window.SetColor(color2);
-                        window.DispText(value2Lines[i],
-                            "window", currentRow, colOffset + 120, color2, "box", "false");
+                        window.DispText(
+                            value2Lines[i],
+                            "window",
+                            currentRow,
+                            colOffset + 120,
+                            color2,
+                            "box",
+                            "false"
+                        );
                     }
                 }
             }
@@ -7005,7 +9115,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog($"[表格绘制错误] {ex.Message}");
             }
         }
-
 
         #endregion
 
@@ -7045,17 +9154,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             string detectionResult,
             string ngDetails,
             string station,
-            string resultImagePath)
+            string resultImagePath
+        )
         {
             return new Dictionary<string, object>
             {
-                {"Id", 0}, // 数据库自增ID，初始为0
-                {"DetectionTime", detectionTime}, // 检测时间
-                {"CellBarcode", cellBarcode}, // 电芯条码
-                {"DetectionResult", detectionResult}, // OK/NG
-                {"NgDetails", ngDetails}, // 异常类型
-                {"Station", station}, // 工位
-                {"ResultImagePath", resultImagePath} // 结果图路径
+                { "Id", 0 }, // 数据库自增ID，初始为0
+                { "DetectionTime", detectionTime }, // 检测时间
+                { "CellBarcode", cellBarcode }, // 电芯条码
+                { "DetectionResult", detectionResult }, // OK/NG
+                { "NgDetails", ngDetails }, // 异常类型
+                { "Station", station }, // 工位
+                { "ResultImagePath", resultImagePath }, // 结果图路径
             };
         }
 
@@ -7070,7 +9180,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             // 创建表
             using (var cmd = _dbConnection.CreateCommand())
             {
-                cmd.CommandText = @"
+                cmd.CommandText =
+                    @"
             CREATE TABLE IF NOT EXISTS DetectionRecords (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 DetectionTime DATETIME NOT NULL,
@@ -7101,7 +9212,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 using (var cmd = _dbConnection.CreateCommand())
                 {
-                    cmd.CommandText = @"
+                    cmd.CommandText =
+                        @"
                 INSERT INTO DetectionRecords (DetectionTime, CellBarcode, DetectionResult, NgDetails, Station, ResultImagePath)
                 VALUES (@DetectionTime, @CellBarcode, @DetectionResult, @NgDetails, @Station, @ResultImagePath)
             ";
@@ -7111,7 +9223,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     cmd.Parameters.AddWithValue("@DetectionResult", record["DetectionResult"]);
                     cmd.Parameters.AddWithValue("@NgDetails", record["NgDetails"] ?? DBNull.Value); // 处理空值
                     cmd.Parameters.AddWithValue("@Station", record["Station"]);
-                    cmd.Parameters.AddWithValue("@ResultImagePath", record["ResultImagePath"] ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue(
+                        "@ResultImagePath",
+                        record["ResultImagePath"] ?? DBNull.Value
+                    );
 
                     await cmd.ExecuteNonQueryAsync();
                 }
@@ -7137,20 +9252,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 //验证输入参数
                 if (!StartDateTime.HasValue)
                 {
-                    System.Windows.MessageBox.Show("请选择开始时间", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show(
+                        "请选择开始时间",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
                     AddLog("[查询中断] 未选择开始时间");
                     return;
                 }
                 if (!EndDateTime.HasValue)
                 {
-                    System.Windows.MessageBox.Show("请选择结束时间", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show(
+                        "请选择结束时间",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
                     AddLog("[查询中断] 未选择结束时间");
                     return;
                 }
                 if (StartDateTime.Value > EndDateTime.Value)
                 {
-                    System.Windows.MessageBox.Show("开始时间不能晚于结束时间", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    AddLog($"[查询中断] 时间范围无效（开始：{StartDateTime.Value:yyyy-MM-dd HH:mm}，结束：{EndDateTime.Value:yyyy-MM-dd HH:mm}）");
+                    System.Windows.MessageBox.Show(
+                        "开始时间不能晚于结束时间",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
+                    AddLog(
+                        $"[查询中断] 时间范围无效（开始：{StartDateTime.Value:yyyy-MM-dd HH:mm}，结束：{EndDateTime.Value:yyyy-MM-dd HH:mm}）"
+                    );
                     return;
                 }
                 if (string.IsNullOrEmpty(SelectedAbnormalType))
@@ -7160,7 +9292,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 }
 
                 //记录查询条件
-                AddLog($"[查询条件] 时间范围：{StartDateTime.Value:yyyy-MM-dd HH:mm} 至 {EndDateTime.Value:yyyy-MM-dd HH:mm}，异常类型：{SelectedAbnormalType}");
+                AddLog(
+                    $"[查询条件] 时间范围：{StartDateTime.Value:yyyy-MM-dd HH:mm} 至 {EndDateTime.Value:yyyy-MM-dd HH:mm}，异常类型：{SelectedAbnormalType}"
+                );
 
                 //查询符合条件的总数量
                 TotalCount = await GetTotalCountAsync();
@@ -7174,19 +9308,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 //无数据时提示
                 if (TotalCount == 0)
                 {
-                    System.Windows.MessageBox.Show("未查询到符合条件的数据", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    System.Windows.MessageBox.Show(
+                        "未查询到符合条件的数据",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
                 }
             }
             catch (SqliteException ex)
             {
                 // 数据库相关异常
-                System.Windows.MessageBox.Show($"查询失败：数据库错误（{ex.Message}）", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"查询失败：数据库错误（{ex.Message}）",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 AddLog($"[查询异常-数据库] {ex.Message}，堆栈：{ex.StackTrace}");
             }
             catch (Exception ex)
             {
                 // 其他未知异常
-                System.Windows.MessageBox.Show($"查询失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"查询失败：{ex.Message}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 AddLog($"[查询异常-未知] {ex.Message}，堆栈：{ex.StackTrace}");
             }
             finally
@@ -7208,7 +9357,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             using (var cmd = _dbConnection.CreateCommand())
             {
-                cmd.CommandText = @"
+                cmd.CommandText =
+                    @"
             SELECT COUNT(*) FROM DetectionRecords
             WHERE DetectionTime BETWEEN @Start AND @End
         ";
@@ -7254,7 +9404,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
             using (var cmd = _dbConnection.CreateCommand())
             {
-                cmd.CommandText = @"
+                cmd.CommandText =
+                    @"
             SELECT DetectionTime, CellBarcode, NgDetails
             FROM DetectionRecords
             WHERE DetectionTime BETWEEN @Start AND @End
@@ -7265,7 +9416,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                 cmd.CommandText += BuildAbnormalTypeWhere(cmd);
 
-                cmd.CommandText += @"
+                cmd.CommandText +=
+                    @"
             ORDER BY DetectionTime DESC
             LIMIT @PageSize OFFSET @Offset
         ";
@@ -7277,17 +9429,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     while (await reader.ReadAsync())
                     {
-                        PagedAbnormalDataList.Add(new Dictionary<string, object>
-                {
-                    { "Time", reader.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss") },
-                    { "CellBarcode", reader.GetString(1) },
-                    { "AbnormalType", reader.IsDBNull(2) ? "OK" : reader.GetString(2) }
-                });
+                        PagedAbnormalDataList.Add(
+                            new Dictionary<string, object>
+                            {
+                                { "Time", reader.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss") },
+                                { "CellBarcode", reader.GetString(1) },
+                                { "AbnormalType", reader.IsDBNull(2) ? "OK" : reader.GetString(2) },
+                            }
+                        );
                     }
                 }
             }
         }
-
 
         private async Task ExecuteExportAsync()
         {
@@ -7302,8 +9455,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             var saveFileDialog = new SaveFileDialog
             {
                 Filter = "CSV文件 (*.csv)|*.csv",
-                FileName =
-                    $"{StartDateTime:yyMMddHHmm}_{EndDateTime:yyMMddHHmm}_{suffix}.csv"
+                FileName = $"{StartDateTime:yyMMddHHmm}_{EndDateTime:yyMMddHHmm}_{suffix}.csv",
             };
 
             if (saveFileDialog.ShowDialog() != true)
@@ -7319,7 +9471,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                 await Task.Run(async () =>
                 {
-                    using (var writer = new StreamWriter(saveFileDialog.FileName, false, Encoding.UTF8))
+                    using (
+                        var writer = new StreamWriter(saveFileDialog.FileName, false, Encoding.UTF8)
+                    )
                     {
                         await writer.WriteLineAsync("时间,工位,电芯条码,异常类型,检测结果");
 
@@ -7332,14 +9486,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             foreach (var item in batchData)
                             {
                                 // 从 Dictionary 中取字段值
-                                string time = EscapeCsvField(Convert.ToDateTime(item["DetectionTime"]).ToString("yyyy-MM-dd HH:mm:ss"));
+                                string time = EscapeCsvField(
+                                    Convert
+                                        .ToDateTime(item["DetectionTime"])
+                                        .ToString("yyyy-MM-dd HH:mm:ss")
+                                );
                                 string station = EscapeCsvField(item["Station"]?.ToString() ?? "");
-                                string barcode = EscapeCsvField(item["CellBarcode"]?.ToString() ?? "");
-                                string abnormalType = EscapeCsvField(item["NgDetails"]?.ToString() ?? "OK");
+                                string barcode = EscapeCsvField(
+                                    item["CellBarcode"]?.ToString() ?? ""
+                                );
+                                string abnormalType = EscapeCsvField(
+                                    item["NgDetails"]?.ToString() ?? "OK"
+                                );
                                 string detectionResult = item["DetectionResult"]?.ToString() ?? "";
 
                                 //写入行（仅包含时间、条码、异常类型、检测结果）
-                                await writer.WriteLineAsync($"{time},{station},{barcode},{abnormalType},{detectionResult}");
+                                await writer.WriteLineAsync(
+                                    $"{time},{station},{barcode},{abnormalType},{detectionResult}"
+                                );
                             }
 
                             totalExported += batchData.Count;
@@ -7359,13 +9523,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         }
 
         // 分批获取导出数据（返回 Dictionary 集合）
-        private async Task<List<Dictionary<string, object>>> GetExportBatchDataAsync(int offset, int batchSize)
+        private async Task<List<Dictionary<string, object>>> GetExportBatchDataAsync(
+            int offset,
+            int batchSize
+        )
         {
             var result = new List<Dictionary<string, object>>();
 
             using (var cmd = _dbConnection!.CreateCommand())
             {
-                cmd.CommandText = @"
+                cmd.CommandText =
+                    @"
             SELECT DetectionTime, Station, CellBarcode, DetectionResult, NgDetails
             FROM DetectionRecords
             WHERE DetectionTime BETWEEN @Start AND @End
@@ -7376,7 +9544,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                 cmd.CommandText += BuildAbnormalTypeWhere(cmd);
 
-                cmd.CommandText += @"
+                cmd.CommandText +=
+                    @"
             ORDER BY DetectionTime DESC
             LIMIT @BatchSize OFFSET @Offset
         ";
@@ -7388,21 +9557,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     while (await reader.ReadAsync())
                     {
-                        result.Add(new Dictionary<string, object>
-                {
-                    { "DetectionTime", reader.GetDateTime(0) },
-                    { "Station", reader.IsDBNull(1) ? "" : reader.GetString(1) },
-                    { "CellBarcode", reader.GetString(2) },
-                    { "DetectionResult", reader.GetString(3) },
-                    { "NgDetails", reader.IsDBNull(4) ? "OK" : reader.GetString(4) }
-                });
+                        result.Add(
+                            new Dictionary<string, object>
+                            {
+                                { "DetectionTime", reader.GetDateTime(0) },
+                                { "Station", reader.IsDBNull(1) ? "" : reader.GetString(1) },
+                                { "CellBarcode", reader.GetString(2) },
+                                { "DetectionResult", reader.GetString(3) },
+                                { "NgDetails", reader.IsDBNull(4) ? "OK" : reader.GetString(4) },
+                            }
+                        );
                     }
                 }
             }
 
             return result;
         }
-
 
         /// <summary>
         /// 处理CSV字段中的特殊字符
@@ -7413,14 +9583,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 return "";
 
             // 包含逗号、引号或换行符时，需要用双引号包裹
-            if (field.Contains(",") || field.Contains("\"") || field.Contains("\n") || field.Contains("\r"))
+            if (
+                field.Contains(",")
+                || field.Contains("\"")
+                || field.Contains("\n")
+                || field.Contains("\r")
+            )
             {
                 // 双引号替换为两个双引号
                 return $"\"{field.Replace("\"", "\"\"")}\"";
             }
             return field;
         }
-
 
         public void AddLog(string logContent)
         {
@@ -7449,32 +9623,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             LogTable.RemoveAt(LogTable.Count - 1);
                         }
                     })
-
                 );
             }
         }
 
         //全局查看状态按工位存储
-        private readonly Dictionary<string, bool> _isViewingResultDict = new Dictionary<string, bool>
+        private readonly Dictionary<string, bool> _isViewingResultDict = new Dictionary<
+            string,
+            bool
+        >
         {
-            {"LAB", false}, {"LCD", false}, {"RAB", false}, {"RCD", false}
+            { "LAB", false },
+            { "LCD", false },
+            { "RAB", false },
+            { "RCD", false },
         };
 
         // 用于取消延迟任务的控制器
-        private readonly Dictionary<string, CancellationTokenSource?> _viewDelayCtsDict = new Dictionary<string, CancellationTokenSource?>
+        private readonly Dictionary<string, CancellationTokenSource?> _viewDelayCtsDict =
+            new Dictionary<string, CancellationTokenSource?>
             {
-                {"LAB", null}, {"LCD", null}, {"RAB", null}, {"RCD", null}
+                { "LAB", null },
+                { "LCD", null },
+                { "RAB", null },
+                { "RCD", null },
             };
         private const int ViewDelayMilliseconds = 3000;
         private readonly object _statusLocker = new object(); // 线程安全锁
-
 
         // 执行查看结果命令（显示识别结果图，按工位更新对应区域）
         private void ExecuteViewResult(dynamic? data)
         {
             if (data == null)
             {
-                System.Windows.MessageBox.Show("未选中任何检测数据，请先在表格中选择一条记录", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show(
+                    "未选中任何检测数据，请先在表格中选择一条记录",
+                    "提示",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information
+                );
                 return;
             }
 
@@ -7484,7 +9671,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 var dataDict = (IDictionary<string, object?>)expandoData;
                 // 假设数据中包含"Station"字段（值为"LAB"/"LCD"/"RAB"/"RCD"）
-                if (dataDict.TryGetValue("Station", out object? stationObj) && stationObj is string stationStr)
+                if (
+                    dataDict.TryGetValue("Station", out object? stationObj)
+                    && stationObj is string stationStr
+                )
                 {
                     station = stationStr;
                 }
@@ -7493,7 +9683,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             if (string.IsNullOrEmpty(station) || !_isViewingResultDict.ContainsKey(station))
             {
                 AddLog($"[查看失败] 未找到有效工位标识（数据中缺少Station字段或值无效）");
-                System.Windows.MessageBox.Show("选中的数据不包含有效工位信息，无法确定显示区域！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    "选中的数据不包含有效工位信息，无法确定显示区域！",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
 
@@ -7502,9 +9697,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             if (data is ExpandoObject expando)
             {
                 var dataDict = (IDictionary<string, object?>)expando;
-                if (dataDict.TryGetValue("ResultImagePath", out object? pathObj)
+                if (
+                    dataDict.TryGetValue("ResultImagePath", out object? pathObj)
                     && pathObj is string pathStr
-                    && !string.IsNullOrWhiteSpace(pathStr))
+                    && !string.IsNullOrWhiteSpace(pathStr)
+                )
                 {
                     resultImagePath = Path.GetFullPath(pathStr);
                 }
@@ -7518,25 +9715,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             if (string.IsNullOrEmpty(resultImagePath))
             {
                 AddLog($"[查看失败] {station}工位结果图路径为空（未找到有效ResultImagePath）");
-                System.Windows.MessageBox.Show($"{station}工位结果图路径未生成，请先完成检测", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"{station}工位结果图路径未生成，请先完成检测",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
             if (!File.Exists(resultImagePath))
             {
                 AddLog($"[查看失败] {station}工位结果图文件不存在，路径：{resultImagePath}");
-                string tips = $"文件可能已被移动/删除，默认存储路径为：\n{Path.GetDirectoryName(resultImagePath)}";
-                System.Windows.MessageBox.Show($"{station}工位结果图不存在或路径无效！\n{tips}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                string tips =
+                    $"文件可能已被移动/删除，默认存储路径为：\n{Path.GetDirectoryName(resultImagePath)}";
+                System.Windows.MessageBox.Show(
+                    $"{station}工位结果图不存在或路径无效！\n{tips}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
                 return;
             }
 
             try
             {
                 // 3. 加载图片（保持原有逻辑，增加工位上下文）
-                using (var fileStream = new FileStream(resultImagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (
+                    var fileStream = new FileStream(
+                        resultImagePath,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.ReadWrite
+                    )
+                )
                 {
                     if (fileStream.Length == 0)
                     {
-                        throw new IOException($"{station}工位结果图文件为空（可能是检测时保存失败）");
+                        throw new IOException(
+                            $"{station}工位结果图文件为空（可能是检测时保存失败）"
+                        );
                     }
 
                     var bitmap = new BitmapImage();
@@ -7577,57 +9794,91 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                         }
                     });
 
-                    AddLog($"[查看成功] {station}工位结果图已加载：{resultImagePath}（分辨率：{bitmap.PixelWidth}×{bitmap.PixelHeight}）");
+                    AddLog(
+                        $"[查看成功] {station}工位结果图已加载：{resultImagePath}（分辨率：{bitmap.PixelWidth}×{bitmap.PixelHeight}）"
+                    );
                 }
             }
             // 细化异常场景（增加工位上下文）
             catch (UnauthorizedAccessException ex)
             {
-                AddLog($"[加载失败] {station}工位无权限访问结果图：{ex.Message}，路径：{resultImagePath}");
-                System.Windows.MessageBox.Show($"{station}工位：无权限访问图片文件，请检查文件夹权限！\n路径：{resultImagePath}", "权限错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                AddLog(
+                    $"[加载失败] {station}工位无权限访问结果图：{ex.Message}，路径：{resultImagePath}"
+                );
+                System.Windows.MessageBox.Show(
+                    $"{station}工位：无权限访问图片文件，请检查文件夹权限！\n路径：{resultImagePath}",
+                    "权限错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
             catch (FileFormatException ex)
             {
-                AddLog($"[加载失败] {station}工位图片格式不支持：{ex.Message}，路径：{resultImagePath}");
-                System.Windows.MessageBox.Show($"{station}工位：图片格式无效（仅支持 BMP/JPG/PNG/TIFF 等）！\n路径：{resultImagePath}", "格式错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                AddLog(
+                    $"[加载失败] {station}工位图片格式不支持：{ex.Message}，路径：{resultImagePath}"
+                );
+                System.Windows.MessageBox.Show(
+                    $"{station}工位：图片格式无效（仅支持 BMP/JPG/PNG/TIFF 等）！\n路径：{resultImagePath}",
+                    "格式错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
             catch (IOException ex)
             {
-                AddLog($"[加载失败] {station}工位文件读写异常：{ex.Message}，路径：{resultImagePath}");
-                System.Windows.MessageBox.Show($"{station}工位：图片文件被占用或损坏！\n建议：关闭其他可能打开该文件的程序后重试。", "文件异常", MessageBoxButton.OK, MessageBoxImage.Error);
+                AddLog(
+                    $"[加载失败] {station}工位文件读写异常：{ex.Message}，路径：{resultImagePath}"
+                );
+                System.Windows.MessageBox.Show(
+                    $"{station}工位：图片文件被占用或损坏！\n建议：关闭其他可能打开该文件的程序后重试。",
+                    "文件异常",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
             catch (Exception ex)
             {
-                AddLog($"[加载失败] {station}工位未知错误：{ex.Message}，堆栈：{ex.StackTrace}，路径：{resultImagePath}");
-                System.Windows.MessageBox.Show($"{station}工位：图片加载失败：{ex.Message}\n路径：{resultImagePath}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                AddLog(
+                    $"[加载失败] {station}工位未知错误：{ex.Message}，堆栈：{ex.StackTrace}，路径：{resultImagePath}"
+                );
+                System.Windows.MessageBox.Show(
+                    $"{station}工位：图片加载失败：{ex.Message}\n路径：{resultImagePath}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
         }
-
 
         #region 结果图缩放
         #region LAB
         //滚轮缩放逻辑
         private void OnZoomRealTimeImageLAB(MouseWheelEventArgs? e)
         {
-            if (e == null) return;
+            if (e == null)
+                return;
 
             // e.Delta：滚轮增量（正值=向前滚动=放大，负值=向后滚动=缩小）
             if (e.Delta > 0)
             {
                 // 放大
-                RealTimeImageScaleXLAB = Math.Min(RealTimeImageScaleXLAB + ZoomStepLAB, MaxScaleLAB);
+                RealTimeImageScaleXLAB = Math.Min(
+                    RealTimeImageScaleXLAB + ZoomStepLAB,
+                    MaxScaleLAB
+                );
                 RealTimeImageScaleYLAB = RealTimeImageScaleXLAB;
             }
             else
             {
                 // 缩小
-                RealTimeImageScaleXLAB = Math.Max(RealTimeImageScaleXLAB - ZoomStepLAB, MinScaleLAB);
+                RealTimeImageScaleXLAB = Math.Max(
+                    RealTimeImageScaleXLAB - ZoomStepLAB,
+                    MinScaleLAB
+                );
                 RealTimeImageScaleYLAB = RealTimeImageScaleXLAB;
             }
             e.Handled = true;
         }
-
-
 
         private void OnZoomInRealTimeLAB()
         {
@@ -7648,6 +9899,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             RealTimeImageTranslateXLAB = 0; // 回到X轴初始位置
             RealTimeImageTranslateYLAB = 0; // 回到Y轴初始位置
         }
+
         /// <summary>
         /// 鼠标按下：记录拖动起始状态
         /// </summary>
@@ -7716,25 +9968,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         //滚轮缩放逻辑
         private void OnZoomRealTimeImageLCD(MouseWheelEventArgs? e)
         {
-            if (e == null) return;
+            if (e == null)
+                return;
 
             // e.Delta：滚轮增量（正值=向前滚动=放大，负值=向后滚动=缩小）
             if (e.Delta > 0)
             {
                 // 放大
-                RealTimeImageScaleXLCD = Math.Min(RealTimeImageScaleXLCD + ZoomStepLCD, MaxScaleLCD);
+                RealTimeImageScaleXLCD = Math.Min(
+                    RealTimeImageScaleXLCD + ZoomStepLCD,
+                    MaxScaleLCD
+                );
                 RealTimeImageScaleYLCD = RealTimeImageScaleXLCD;
             }
             else
             {
                 // 缩小
-                RealTimeImageScaleXLCD = Math.Max(RealTimeImageScaleXLCD - ZoomStepLCD, MinScaleLCD);
+                RealTimeImageScaleXLCD = Math.Max(
+                    RealTimeImageScaleXLCD - ZoomStepLCD,
+                    MinScaleLCD
+                );
                 RealTimeImageScaleYLCD = RealTimeImageScaleXLCD;
             }
             e.Handled = true;
         }
-
-
 
         private void OnZoomInRealTimeLCD()
         {
@@ -7755,6 +10012,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             RealTimeImageTranslateXLCD = 0; // 回到X轴初始位置
             RealTimeImageTranslateYLCD = 0; // 回到Y轴初始位置
         }
+
         /// <summary>
         /// 鼠标按下：记录拖动起始状态
         /// </summary>
@@ -7823,25 +10081,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         //滚轮缩放逻辑
         private void OnZoomRealTimeImageRAB(MouseWheelEventArgs? e)
         {
-            if (e == null) return;
+            if (e == null)
+                return;
 
             // e.Delta：滚轮增量（正值=向前滚动=放大，负值=向后滚动=缩小）
             if (e.Delta > 0)
             {
                 // 放大
-                RealTimeImageScaleXRAB = Math.Min(RealTimeImageScaleXRAB + ZoomStepRAB, MaxScaleRAB);
+                RealTimeImageScaleXRAB = Math.Min(
+                    RealTimeImageScaleXRAB + ZoomStepRAB,
+                    MaxScaleRAB
+                );
                 RealTimeImageScaleYRAB = RealTimeImageScaleXRAB;
             }
             else
             {
                 // 缩小
-                RealTimeImageScaleXRAB = Math.Max(RealTimeImageScaleXRAB - ZoomStepRAB, MinScaleRAB);
+                RealTimeImageScaleXRAB = Math.Max(
+                    RealTimeImageScaleXRAB - ZoomStepRAB,
+                    MinScaleRAB
+                );
                 RealTimeImageScaleYRAB = RealTimeImageScaleXRAB;
             }
             e.Handled = true;
         }
-
-
 
         private void OnZoomInRealTimeRAB()
         {
@@ -7862,6 +10125,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             RealTimeImageTranslateXRAB = 0; // 回到X轴初始位置
             RealTimeImageTranslateYRAB = 0; // 回到Y轴初始位置
         }
+
         /// <summary>
         /// 鼠标按下：记录拖动起始状态
         /// </summary>
@@ -7930,25 +10194,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         //滚轮缩放逻辑
         private void OnZoomRealTimeImageRCD(MouseWheelEventArgs? e)
         {
-            if (e == null) return;
+            if (e == null)
+                return;
 
             // e.Delta：滚轮增量（正值=向前滚动=放大，负值=向后滚动=缩小）
             if (e.Delta > 0)
             {
                 // 放大
-                RealTimeImageScaleXRCD = Math.Min(RealTimeImageScaleXRCD + ZoomStepRCD, MaxScaleRCD);
+                RealTimeImageScaleXRCD = Math.Min(
+                    RealTimeImageScaleXRCD + ZoomStepRCD,
+                    MaxScaleRCD
+                );
                 RealTimeImageScaleYRCD = RealTimeImageScaleXRCD;
             }
             else
             {
                 // 缩小
-                RealTimeImageScaleXRCD = Math.Max(RealTimeImageScaleXRCD - ZoomStepRCD, MinScaleRCD);
+                RealTimeImageScaleXRCD = Math.Max(
+                    RealTimeImageScaleXRCD - ZoomStepRCD,
+                    MinScaleRCD
+                );
                 RealTimeImageScaleYRCD = RealTimeImageScaleXRCD;
             }
             e.Handled = true;
         }
-
-
 
         private void OnZoomInRealTimeRCD()
         {
@@ -7969,6 +10238,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             RealTimeImageTranslateXRCD = 0; // 回到X轴初始位置
             RealTimeImageTranslateYRCD = 0; // 回到Y轴初始位置
         }
+
         /// <summary>
         /// 鼠标按下：记录拖动起始状态
         /// </summary>
@@ -8039,9 +10309,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private void UpdateRiskRatios()
         {
             // 总计数
-            int totalCount = Count_ZJDP + Count_ZJSP + Count_FJDP + Count_FJSP
-                            + Count_OHBL + Count_CPBL + Count_ZJYDP
-                           + Count_FJBYJXBL + Count_ZJBYJXBL + Count_ZJZJJXBL + Count_FJYS + OKDetectionNum;
+            int totalCount =
+                Count_ZJDP
+                + Count_ZJSP
+                + Count_FJDP
+                + Count_FJSP
+                + Count_OHBL
+                + Count_CPBL
+                + Count_ZJYDP
+                + Count_FJBYJXBL
+                + Count_ZJBYJXBL
+                + Count_ZJZJJXBL
+                + Count_FJYS
+                + OKDetectionNum;
 
             // 避免除以零
             if (totalCount == 0)
@@ -8076,19 +10356,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         }
 
         private readonly OxyColor[] _defectColors = new OxyColor[]
-            {
-                OxyColor.FromRgb(255, 99, 132),   // #FF6384 - OH不良
-                OxyColor.FromRgb(54, 162, 235),   // #36A2EB - 正极少片
-                OxyColor.FromRgb(255, 206, 86),   // #FFCE56 - 正极多片
-                OxyColor.FromRgb(75, 192, 192),   // #4BC0C0 - 负极多片
-                OxyColor.FromRgb(153, 102, 255),  // #9966FF - 负极少片
-                OxyColor.FromRgb(255, 159, 64),   // #FF9F40 - 负极差不良
-                OxyColor.FromRgb(231, 233, 237),  // #E7E9ED - 负极边缘间隙不良
-                OxyColor.FromRgb(255, 87, 34),    // #FF5722 - 正极边缘间隙不良
-                OxyColor.FromRgb(67, 160, 71),    // #43A047 - 正极中间间隙不良
-                OxyColor.FromRgb(141, 110, 99),   // #2196F3 - 负极压伤
-                OxyColor.FromRgb(123, 31, 162)    // #7B1FA2 - 正极Y方向掉片
-            };
+        {
+            OxyColor.FromRgb(255, 99, 132), // #FF6384 - OH不良
+            OxyColor.FromRgb(54, 162, 235), // #36A2EB - 正极少片
+            OxyColor.FromRgb(255, 206, 86), // #FFCE56 - 正极多片
+            OxyColor.FromRgb(75, 192, 192), // #4BC0C0 - 负极多片
+            OxyColor.FromRgb(153, 102, 255), // #9966FF - 负极少片
+            OxyColor.FromRgb(255, 159, 64), // #FF9F40 - 负极差不良
+            OxyColor.FromRgb(231, 233, 237), // #E7E9ED - 负极边缘间隙不良
+            OxyColor.FromRgb(255, 87, 34), // #FF5722 - 正极边缘间隙不良
+            OxyColor.FromRgb(67, 160, 71), // #43A047 - 正极中间间隙不良
+            OxyColor.FromRgb(141, 110, 99), // #2196F3 - 负极压伤
+            OxyColor.FromRgb(123, 31, 162), // #7B1FA2 - 正极Y方向掉片
+        };
 
         // 辅助方法：获取所有缺陷类型及其计数值的列表
         private List<(string Name, int Count)> GetDefectData()
@@ -8105,7 +10385,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 ("正极边缘间隙不良", Count_ZJBYJXBL),
                 ("正极中间间隙不良", Count_ZJZJJXBL),
                 ("负极压伤", Count_FJYS),
-                ("正极Y方向掉片", Count_ZJYDP)
+                ("正极Y方向掉片", Count_ZJYDP),
             };
         }
 
@@ -8115,7 +10395,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             {
                 //Title = "状态占比",
                 IsLegendVisible = false,
-                PlotMargins = new OxyThickness(10, 5, 10, 5)
+                PlotMargins = new OxyThickness(10, 5, 10, 5),
             };
 
             var pieSeries = new PieSeries
@@ -8127,15 +10407,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 TickRadialLength = 0,
                 TickHorizontalLength = 0,
                 AngleSpan = 360,
-                StartAngle = 45
-
+                StartAngle = 45,
             };
 
             // 初始值
-            pieSeries.Slices.Add(new PieSlice("OK", 0)
-            {
-                Fill = OxyColor.FromRgb(47, 128, 237) // #2F80ED - OK颜色
-            });
+            pieSeries.Slices.Add(
+                new PieSlice("OK", 0)
+                {
+                    Fill = OxyColor.FromRgb(47, 128, 237), // #2F80ED - OK颜色
+                }
+            );
 
             PieModel.Series.Add(pieSeries);
         }
@@ -8156,10 +10437,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 // 处理初始状态或无数据状态
                 if (totalCount == 0)
                 {
-                    pieSeries.Slices.Add(new PieSlice("无检测数据", 1)
-                    {
-                        Fill = OxyColors.LightGray
-                    });
+                    pieSeries.Slices.Add(
+                        new PieSlice("无检测数据", 1) { Fill = OxyColors.LightGray }
+                    );
                 }
                 else
                 {
@@ -8167,10 +10447,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     if (OKDetectionNum > 0)
                     {
                         double okPercentage = (double)OKDetectionNum / totalCount * 100;
-                        pieSeries.Slices.Add(new PieSlice($"OK ({okPercentage:F1}%)", OKDetectionNum)
-                        {
-                            Fill = OxyColor.FromRgb(47, 128, 237) // OK 使用固定的蓝色
-                        });
+                        pieSeries.Slices.Add(
+                            new PieSlice($"OK ({okPercentage:F1}%)", OKDetectionNum)
+                            {
+                                Fill = OxyColor.FromRgb(47, 128, 237), // OK 使用固定的蓝色
+                            }
+                        );
                     }
 
                     //添加各个缺陷类型的切片
@@ -8185,14 +10467,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             OxyColor color = _defectColors[i];
 
                             //百分比≤2% 则隐藏标签----没效果？
-                            string sliceLabel = percentage > 2
-                                ? $"{name} ({percentage:F1}%)"
-                                : string.Empty;
+                            string sliceLabel =
+                                percentage > 2 ? $"{name} ({percentage:F1}%)" : string.Empty;
 
-                            pieSeries.Slices.Add(new PieSlice(sliceLabel, count)
-                            {
-                                Fill = color
-                            });
+                            pieSeries.Slices.Add(new PieSlice(sliceLabel, count) { Fill = color });
                         }
                     }
                 }
@@ -8208,10 +10486,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             if (!IsInAnyDetection)
             {
                 System.Windows.MessageBox.Show(
-                     "当前正在执行检测任务或处于在线监控模式，\n暂无法清空列表！\n请先结束检测/关闭监控后再尝试。",
-                     "操作限制",
-                     MessageBoxButton.OK,
-                     MessageBoxImage.Warning);
+                    "当前正在执行检测任务或处于在线监控模式，\n暂无法清空列表！\n请先结束检测/关闭监控后再尝试。",
+                    "操作限制",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning
+                );
 
                 AddLog("[清空列表] 检测中/监控中，操作终止");
                 return;
@@ -8221,7 +10500,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 "确定要清空图片列表吗？此操作不可恢复。",
                 "确认清空",
                 MessageBoxButton.OKCancel,
-                MessageBoxImage.Question);
+                MessageBoxImage.Question
+            );
 
             if (result == MessageBoxResult.OK)
             {
@@ -8234,16 +10514,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog("[清空列表] 用户取消，操作终止");
             }
         }
+
         // ---------- 统计清零：仅清空负极缺陷信息 ----------
         private void ExecuteClearStatistics()
         {
             if (!IsInAnyDetection)
             {
                 System.Windows.MessageBox.Show(
-                     "当前正在执行检测任务或处于在线监控模式，\n暂无法重置统计数据！\n请先结束检测/关闭监控后再尝试。",
-                     "操作限制",
-                     MessageBoxButton.OK,
-                     MessageBoxImage.Warning);
+                    "当前正在执行检测任务或处于在线监控模式，\n暂无法重置统计数据！\n请先结束检测/关闭监控后再尝试。",
+                    "操作限制",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning
+                );
 
                 AddLog("[统计清零] 检测中/监控中，操作终止");
                 return;
@@ -8253,7 +10535,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 "确定要重置统计数据吗？此操作不可恢复。",
                 "确认清零",
                 MessageBoxButton.OKCancel,
-                MessageBoxImage.Question);
+                MessageBoxImage.Question
+            );
 
             if (result == MessageBoxResult.OK)
             {
@@ -8335,7 +10618,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 "确定要将阈值重置为上一次保存的值吗？\n此操作会覆盖当前未保存的修改。",
                 "确认重置",
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+                MessageBoxImage.Warning
+            );
             if (result1 != MessageBoxResult.Yes)
                 return;
 
@@ -8396,6 +10680,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog($"重置失败：{ex.Message}");
             }
         }
+
         private void SaveThresholdConfig()
         {
             //检查是否登录
@@ -8430,53 +10715,241 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             }
             try
             {
-                _projectsetting.UpdateSettingValue("Gap1Limit", "VM_CTAutoDetectionC06Page", TempGap1Limit);
-                _projectsetting.UpdateSettingValue("Gap2Limit", "VM_CTAutoDetectionC06Page", TempGap2Limit);
-                _projectsetting.UpdateSettingValue("Gap3Limit", "VM_CTAutoDetectionC06Page", TempGap3Limit);
-                _projectsetting.UpdateSettingValue("Gap4Limit", "VM_CTAutoDetectionC06Page", TempGap4Limit);
-                _projectsetting.UpdateSettingValue("Gap5Limit", "VM_CTAutoDetectionC06Page", TempGap5Limit);
-                _projectsetting.UpdateSettingValue("Gap6Limit", "VM_CTAutoDetectionC06Page", TempGap6Limit);
-                _projectsetting.UpdateSettingValue("Gap7Limit", "VM_CTAutoDetectionC06Page", TempGap7Limit);
-                _projectsetting.UpdateSettingValue("Gap8Limit", "VM_CTAutoDetectionC06Page", TempGap8Limit);
-                _projectsetting.UpdateSettingValue("Gap9Limit", "VM_CTAutoDetectionC06Page", TempGap9Limit);
-                _projectsetting.UpdateSettingValue("Gap10Limit", "VM_CTAutoDetectionC06Page", TempGap10Limit);
-                _projectsetting.UpdateSettingValue("Gap11Limit", "VM_CTAutoDetectionC06Page", TempGap11Limit);
-                _projectsetting.UpdateSettingValue("Gap12Limit", "VM_CTAutoDetectionC06Page", TempGap12Limit);
-                _projectsetting.UpdateSettingValue("Gap13Limit", "VM_CTAutoDetectionC06Page", TempGap13Limit);
-                _projectsetting.UpdateSettingValue("Gap14Limit", "VM_CTAutoDetectionC06Page", TempGap14Limit);
-                _projectsetting.UpdateSettingValue("Gap15Limit", "VM_CTAutoDetectionC06Page", TempGap15Limit);
-                _projectsetting.UpdateSettingValue("Gap16Limit", "VM_CTAutoDetectionC06Page", TempGap16Limit);
-                _projectsetting.UpdateSettingValue("Gap17Limit", "VM_CTAutoDetectionC06Page", TempGap17Limit);
-                _projectsetting.UpdateSettingValue("Gap18Limit", "VM_CTAutoDetectionC06Page", TempGap18Limit);
-                _projectsetting.UpdateSettingValue("Gap19Limit", "VM_CTAutoDetectionC06Page", TempGap19Limit);
-                _projectsetting.UpdateSettingValue("Gap20Limit", "VM_CTAutoDetectionC06Page", TempGap20Limit);
-                _projectsetting.UpdateSettingValue("Gap21Limit", "VM_CTAutoDetectionC06Page", TempGap21Limit);
-                _projectsetting.UpdateSettingValue("Gap22Limit", "VM_CTAutoDetectionC06Page", TempGap22Limit);
-                _projectsetting.UpdateSettingValue("Gap23Limit", "VM_CTAutoDetectionC06Page", TempGap23Limit);
-                _projectsetting.UpdateSettingValue("Gap24Limit", "VM_CTAutoDetectionC06Page", TempGap24Limit);
-                _projectsetting.UpdateSettingValue("Gap25Limit", "VM_CTAutoDetectionC06Page", TempGap25Limit);
-                _projectsetting.UpdateSettingValue("Gap26Limit", "VM_CTAutoDetectionC06Page", TempGap26Limit);
-                _projectsetting.UpdateSettingValue("Gap27Limit", "VM_CTAutoDetectionC06Page", TempGap27Limit);
-                _projectsetting.UpdateSettingValue("Gap28Limit", "VM_CTAutoDetectionC06Page", TempGap28Limit);
-                _projectsetting.UpdateSettingValue("Gap29Limit", "VM_CTAutoDetectionC06Page", TempGap29Limit);
-                _projectsetting.UpdateSettingValue("Gap30Limit", "VM_CTAutoDetectionC06Page", TempGap30Limit);
-                _projectsetting.UpdateSettingValue("Gap31Limit", "VM_CTAutoDetectionC06Page", TempGap31Limit);
-                _projectsetting.UpdateSettingValue("Gap32Limit", "VM_CTAutoDetectionC06Page", TempGap32Limit);
-                _projectsetting.UpdateSettingValue("Gap33Limit", "VM_CTAutoDetectionC06Page", TempGap33Limit);
-                _projectsetting.UpdateSettingValue("Gap34Limit", "VM_CTAutoDetectionC06Page", TempGap34Limit);
-                _projectsetting.UpdateSettingValue("Gap35Limit", "VM_CTAutoDetectionC06Page", TempGap35Limit);
-                _projectsetting.UpdateSettingValue("Gap36Limit", "VM_CTAutoDetectionC06Page", TempGap36Limit);
-                _projectsetting.UpdateSettingValue("Gap37Limit", "VM_CTAutoDetectionC06Page", TempGap37Limit);
-                _projectsetting.UpdateSettingValue("Gap38Limit", "VM_CTAutoDetectionC06Page", TempGap38Limit);
-                _projectsetting.UpdateSettingValue("Gap39Limit", "VM_CTAutoDetectionC06Page", TempGap39Limit);
-                _projectsetting.UpdateSettingValue("Gap40Limit", "VM_CTAutoDetectionC06Page", TempGap40Limit);
-                _projectsetting.UpdateSettingValue("Gap41Limit", "VM_CTAutoDetectionC06Page", TempGap41Limit);
-                _projectsetting.UpdateSettingValue("Gap42Limit", "VM_CTAutoDetectionC06Page", TempGap42Limit);
-                _projectsetting.UpdateSettingValue("Gap43Limit", "VM_CTAutoDetectionC06Page", TempGap43Limit);
-                _projectsetting.UpdateSettingValue("Gap44Limit", "VM_CTAutoDetectionC06Page", TempGap44Limit);
-                _projectsetting.UpdateSettingValue("Gap45Limit", "VM_CTAutoDetectionC06Page", TempGap45Limit);
-                _projectsetting.UpdateSettingValue("Gap46Limit", "VM_CTAutoDetectionC06Page", TempGap46Limit);
-                _projectsetting.UpdateSettingValue("Gap47Limit", "VM_CTAutoDetectionC06Page", TempGap47Limit);
+                _projectsetting.UpdateSettingValue(
+                    "Gap1Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap1Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap2Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap2Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap3Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap3Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap4Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap4Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap5Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap5Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap6Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap6Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap7Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap7Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap8Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap8Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap9Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap9Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap10Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap10Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap11Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap11Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap12Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap12Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap13Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap13Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap14Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap14Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap15Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap15Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap16Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap16Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap17Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap17Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap18Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap18Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap19Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap19Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap20Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap20Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap21Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap21Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap22Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap22Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap23Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap23Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap24Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap24Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap25Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap25Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap26Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap26Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap27Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap27Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap28Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap28Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap29Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap29Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap30Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap30Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap31Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap31Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap32Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap32Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap33Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap33Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap34Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap34Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap35Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap35Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap36Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap36Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap37Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap37Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap38Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap38Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap39Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap39Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap40Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap40Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap41Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap41Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap42Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap42Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap43Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap43Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap44Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap44Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap45Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap45Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap46Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap46Limit
+                );
+                _projectsetting.UpdateSettingValue(
+                    "Gap47Limit",
+                    "VM_CTAutoDetectionC06Page",
+                    TempGap47Limit
+                );
                 InitThreshold();
                 SyncTempPropertiesWithFormalProperties();
                 AddLog("阈值配置保存成功");
@@ -8487,8 +10960,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 AddLog("更新设置失败");
                 Growl.ErrorGlobal($"更新失败: {ex.Message}");
             }
-
         }
+
         /// <summary>
         /// 将所有正式属性的值同步到对应的临时属性
         /// </summary>
@@ -8546,7 +11019,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         }
 
         /// <summary>
-        /// 加载设置配置 
+        /// 加载设置配置
         /// </summary>
         private void LoadConfig()
         {
@@ -8569,74 +11042,145 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             //Count_ZJYDP = _projectsetting.GetSettingValue("Count_ZJYDP", "VM_CTAutoDetectionC06Page");
             //Count_FJYS = _projectsetting.GetSettingValue("Count_FJYS", "VM_CTAutoDetectionC06Page");
             //UpdateRiskRatios();
-            if (!File.Exists(_configFilePath)) return;
+            if (!File.Exists(_configFilePath))
+                return;
 
             try
             {
                 string json = File.ReadAllText(_configFilePath);
-                var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    json
+                );
 
                 // 安全地读取路径配置，如果值不存在或为null，则保持原有值
-                if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathLAB", out var pathLAB) && pathLAB != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("SelectedMonitorFolderPathLAB", out var pathLAB)
+                    && pathLAB != null
+                )
                     SelectedMonitorFolderPathLAB = pathLAB.ToString();
-                if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathLCD", out var pathLCD) && pathLCD != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("SelectedMonitorFolderPathLCD", out var pathLCD)
+                    && pathLCD != null
+                )
                     SelectedMonitorFolderPathLCD = pathLCD.ToString();
-                if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathRAB", out var pathRAB) && pathRAB != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("SelectedMonitorFolderPathRAB", out var pathRAB)
+                    && pathRAB != null
+                )
                     SelectedMonitorFolderPathRAB = pathRAB.ToString();
-                if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathRCD", out var pathRCD) && pathRCD != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("SelectedMonitorFolderPathRCD", out var pathRCD)
+                    && pathRCD != null
+                )
                     SelectedMonitorFolderPathRCD = pathRCD.ToString();
 
                 // 安全地读取整数配置，如果值不存在、为null或格式不正确，则保持原有值
-                if (dict != null && dict.TryGetValue("OKDetectionNum", out var okDetectionNum) && okDetectionNum != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("OKDetectionNum", out var okDetectionNum)
+                    && okDetectionNum != null
+                )
                 {
                     int.TryParse(okDetectionNum.ToString(), out _historyOKCount);
                 }
-                if (dict != null && dict.TryGetValue("NGDetectionNum", out var ngDetectionNum) && ngDetectionNum != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("NGDetectionNum", out var ngDetectionNum)
+                    && ngDetectionNum != null
+                )
                 {
                     int.TryParse(ngDetectionNum.ToString(), out _historyNGCount);
                 }
 
-                if (dict != null && dict.TryGetValue("Count_ZJDP", out var Count_zjdp) && Count_zjdp != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_ZJDP", out var Count_zjdp)
+                    && Count_zjdp != null
+                )
                 {
                     int.TryParse(Count_zjdp.ToString(), out _historyCount_ZJDP);
                 }
-                if (dict != null && dict.TryGetValue("Count_ZJSP", out var Count_zjsp) && Count_zjsp != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_ZJSP", out var Count_zjsp)
+                    && Count_zjsp != null
+                )
                 {
                     int.TryParse(Count_zjsp.ToString(), out _historyCount_ZJSP);
                 }
-                if (dict != null && dict.TryGetValue("Count_FJSP", out var Count_fjsp) && Count_fjsp != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_FJSP", out var Count_fjsp)
+                    && Count_fjsp != null
+                )
                 {
                     int.TryParse(Count_fjsp.ToString(), out _historyCount_FJSP);
                 }
-                if (dict != null && dict.TryGetValue("Count_FJDP", out var Count_fjdp) && Count_fjdp != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_FJDP", out var Count_fjdp)
+                    && Count_fjdp != null
+                )
                 {
                     int.TryParse(Count_fjdp.ToString(), out _historyCount_FJDP);
                 }
-                if (dict != null && dict.TryGetValue("Count_OHBL", out var Count_ohbl) && Count_ohbl != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_OHBL", out var Count_ohbl)
+                    && Count_ohbl != null
+                )
                 {
                     int.TryParse(Count_ohbl.ToString(), out _historyCount_OHBL);
                 }
-                if (dict != null && dict.TryGetValue("Count_FJBYJXBL", out var Count_fjbyjxbl) && Count_fjbyjxbl != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_FJBYJXBL", out var Count_fjbyjxbl)
+                    && Count_fjbyjxbl != null
+                )
                 {
                     int.TryParse(Count_fjbyjxbl.ToString(), out _historyCount_FJBYJXBL);
                 }
-                if (dict != null && dict.TryGetValue("Count_ZJBYJXBL", out var Count_zjbyjxbl) && Count_zjbyjxbl != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_ZJBYJXBL", out var Count_zjbyjxbl)
+                    && Count_zjbyjxbl != null
+                )
                 {
                     int.TryParse(Count_zjbyjxbl.ToString(), out _historyCount_ZJBYJXBL);
                 }
-                if (dict != null && dict.TryGetValue("Count_ZJZJJXBL", out var Count_zjzjjxbl) && Count_zjzjjxbl != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_ZJZJJXBL", out var Count_zjzjjxbl)
+                    && Count_zjzjjxbl != null
+                )
                 {
                     int.TryParse(Count_zjzjjxbl.ToString(), out _historyCount_ZJZJJXBL);
                 }
-                if (dict != null && dict.TryGetValue("Count_CPBL", out var Count_cpbl) && Count_cpbl != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_CPBL", out var Count_cpbl)
+                    && Count_cpbl != null
+                )
                 {
                     int.TryParse(Count_cpbl.ToString(), out _historyCount_CPBL);
                 }
-                if (dict != null && dict.TryGetValue("Count_ZJYDP", out var Count_zjydp) && Count_zjydp != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_ZJYDP", out var Count_zjydp)
+                    && Count_zjydp != null
+                )
                 {
                     int.TryParse(Count_zjydp.ToString(), out _historyCount_ZJYDP);
                 }
-                if (dict != null && dict.TryGetValue("Count_FJYS", out var Count_fjys) && Count_fjys != null)
+                if (
+                    dict != null
+                    && dict.TryGetValue("Count_FJYS", out var Count_fjys)
+                    && Count_fjys != null
+                )
                 {
                     int.TryParse(Count_fjys.ToString(), out _historyCount_FJYS);
                 }
@@ -8660,14 +11204,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     Count_FJYS = _historyCount_FJYS;
                 }
                 UpdateRiskRatios();
-                AddLog($"[统计加载] 历史统计数据：总检测数={_historyTotalCount}，OK数={_historyOKCount}，NG数={_historyNGCount}");
-
+                AddLog(
+                    $"[统计加载] 历史统计数据：总检测数={_historyTotalCount}，OK数={_historyOKCount}，NG数={_historyNGCount}"
+                );
             }
             catch (Exception ex)
             {
                 AddLog($"加载配置失败：{ex.Message}");
             }
         }
+
         // 辅助方法：检查是否有权限执行操作
         private bool CheckPermission()
         {
@@ -8702,6 +11248,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             // 检查通过
             return true;
         }
+
         /// <summary>
         /// 保存设置配置
         /// </summary>
@@ -8767,7 +11314,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 };
 
                 // 序列化为JSON
-                string json = System.Text.Json.JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
+                string json = System.Text.Json.JsonSerializer.Serialize(
+                    configData,
+                    new JsonSerializerOptions { WriteIndented = true }
+                );
                 File.WriteAllText(_configFilePath, json);
             }
             catch (Exception ex)
@@ -8779,6 +11329,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
 
         private static readonly object _fileLock = new object();
+
         private void GPUMonitor()
         {
             string processName = $"{Process.GetCurrentProcess().ProcessName}.exe";
@@ -8794,7 +11345,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     );
                     Directory.CreateDirectory(monitorDir); // 确保目录存在
 
-                    string header = "时间,进程Id,主线程Id,CPU占用(%),内存占用(MB),GPU占用(%),I/O读写速度(MB/s),每秒异常数,线程数,等待获取托管锁线程数";
+                    string header =
+                        "时间,进程Id,主线程Id,CPU占用(%),内存占用(MB),GPU占用(%),I/O读写速度(MB/s),每秒异常数,线程数,等待获取托管锁线程数";
 
                     // 记录当前日期
                     DateTime currentDate = DateTime.Today;
@@ -8816,15 +11368,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
                             StringBuilder contentBuilder = new StringBuilder();
                             contentBuilder.Append($"{DateTime.Now:yyyy-MM-dd HH:mm:ss},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].Pid},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].MainThreadId},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].CPULoad},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].RAMUsage},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].GPULoad},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].IODataRate},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].ExceptionCountPerSecond},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].ThreadCount},");
-                            contentBuilder.Append($"{monitor.WindowProcessMonitorInfoDic[processName].ThreadCurrentQueueLength}");
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].Pid},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].MainThreadId},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].CPULoad},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].RAMUsage},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].GPULoad},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].IODataRate},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].ExceptionCountPerSecond},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].ThreadCount},"
+                            );
+                            contentBuilder.Append(
+                                $"{monitor.WindowProcessMonitorInfoDic[processName].ThreadCurrentQueueLength}"
+                            );
 
                             // 写入文件
                             lock (_fileLock)
@@ -8852,7 +11422,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             );
         }
 
-        public void SaveCSVFile(string directoryPath, string filename, string header, string content)
+        public void SaveCSVFile(
+            string directoryPath,
+            string filename,
+            string header,
+            string content
+        )
         {
             try
             {
@@ -8891,7 +11466,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                             File.SetAttributes(fullPath, attributes & ~FileAttributes.ReadOnly);
                         }
                     }
-                    catch { /* 忽略属性错误 */ }
+                    catch
+                    { /* 忽略属性错误 */
+                    }
                 }
 
                 // 追加内容
@@ -8905,34 +11482,54 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 {
                     File.SetAttributes(fullPath, FileAttributes.ReadOnly);
                 }
-                catch { /* 忽略 */ }
+                catch
+                { /* 忽略 */
+                }
             }
             catch (Exception ex)
             {
-
                 AddLog($"保存CSV文件异常：{ex}");
             }
         }
+
         // 记录每个电芯的开始时间
-        private readonly ConcurrentDictionary<(string station, string barcode), DateTime> _cellStartTimes = new ConcurrentDictionary<(string, string), DateTime>();
+        private readonly ConcurrentDictionary<
+            (string station, string barcode),
+            DateTime
+        > _cellStartTimes = new ConcurrentDictionary<(string, string), DateTime>();
 
         // 记录电芯检测时间到CSV文件
-        private void LogCellDetectionTimeToCSV(string station, string barcode, DateTime startTime, DateTime endTime,
-                                             string result, string defectType, int queueWaitMs, int processingMs)
+        private void LogCellDetectionTimeToCSV(
+            string station,
+            string barcode,
+            DateTime startTime,
+            DateTime endTime,
+            string result,
+            string defectType,
+            int queueWaitMs,
+            int processingMs
+        )
         {
             try
             {
-                string logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DetectionTimeLogs");
+                string logDirectory = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "DetectionTimeLogs"
+                );
                 if (!Directory.Exists(logDirectory))
                     Directory.CreateDirectory(logDirectory);
 
                 // 按天生成日志文件
-                string logPath = Path.Combine(logDirectory, $"CellDetectionTime_{DateTime.Today:yyyyMMdd}.csv");
+                string logPath = Path.Combine(
+                    logDirectory,
+                    $"CellDetectionTime_{DateTime.Today:yyyyMMdd}.csv"
+                );
 
                 // 如果文件不存在，写入表头
                 if (!File.Exists(logPath))
                 {
-                    string header = "时间戳,工位,电芯条码,开始时间,结束时间,总耗时(ms),队列等待(ms),处理耗时(ms),检测结果,缺陷类型\n";
+                    string header =
+                        "时间戳,工位,电芯条码,开始时间,结束时间,总耗时(ms),队列等待(ms),处理耗时(ms),检测结果,缺陷类型\n";
                     File.WriteAllText(logPath, header, Encoding.UTF8);
                 }
 
@@ -8940,14 +11537,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 TimeSpan totalTime = endTime - startTime;
 
                 // 构建日志行
-                string logLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{station},{barcode}," +
-                                $"{startTime:yyyy-MM-dd HH:mm:ss.fff},{endTime:yyyy-MM-dd HH:mm:ss.fff}," +
-                                $"{totalTime.TotalMilliseconds:F0},{queueWaitMs},{processingMs},{result},{defectType}\n";
+                string logLine =
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{station},{barcode},"
+                    + $"{startTime:yyyy-MM-dd HH:mm:ss.fff},{endTime:yyyy-MM-dd HH:mm:ss.fff},"
+                    + $"{totalTime.TotalMilliseconds:F0},{queueWaitMs},{processingMs},{result},{defectType}\n";
 
                 // 写入文件
                 File.AppendAllText(logPath, logLine, Encoding.UTF8);
 
-                AddLog($"[{station}-{barcode}时间记录] 已保存到CSV，总耗时：{totalTime.TotalMilliseconds:F0}ms");
+                AddLog(
+                    $"[{station}-{barcode}时间记录] 已保存到CSV，总耗时：{totalTime.TotalMilliseconds:F0}ms"
+                );
             }
             catch (Exception ex)
             {

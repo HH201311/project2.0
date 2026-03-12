@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls"
-             mc:Ignorable="d" Loaded="UserControl_Loaded"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -36,18 +36,18 @@
             </Style>
 
             <!--CPK虚线样式-->
-            <Style x:Key="CPKDashLineStyle" TargetType="Line">
+            <Style x:Key="SubLineStyle" TargetType="Line">
                 <Setter Property="Stroke" Value="#FF29CC7A"/>
                 <Setter Property="StrokeDashArray" Value="5,5"/>
             </Style>
 
             <!--CPK折线样式-->
-            <Style x:Key="CPKLinePathStyle" TargetType="Path">
+            <Style x:Key="LinePathStyle" TargetType="Path">
                 <Setter Property="StrokeThickness" Value="3"/>
             </Style>
 
             <!--CPK点样式-->
-            <Style x:Key="CPKPointsEllipseStyle" TargetType="Ellipse">
+            <Style x:Key="PointsEllipseStyle" TargetType="Ellipse">
                 <Setter Property="Width" Value="5"/>
                 <Setter Property="Height" Value="5"/>
                 <Setter Property="Margin" Value="-2.5,-2.5,0,0"/>

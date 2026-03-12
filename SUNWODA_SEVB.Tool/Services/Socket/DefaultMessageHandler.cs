@@ -33,7 +33,7 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
                 return SocketResponse.Success($"回显: {echoMessage}");
             }
 
-            return SocketResponse.Success($"已接收消息，长度: {message.Length}");
+            return SocketResponse.Success($"成功接收，信息长度为: {message.Length}");
         }
     }
 }

@@ -8,7 +8,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <FileVersion>2.1.0.0</FileVersion>
-    <ApplicationIcon>Assets\Images\avatar.ico</ApplicationIcon>
+    <ApplicationIcon>avatar.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +37,11 @@
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_CCDDataPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_SummaryPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_TBDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_AlarmSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_CommunicationSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_PermissionSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_FunctionSettingPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_ClosedLoopSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\VM_CCTBMonitoringPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\VM_CCTBRecordingsPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\VM_CCTBSettingsPage.cs" />
@@ -45,6 +51,11 @@
     <Compile Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettingsPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -61,21 +72,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CrissCross.WPF.WebView2" Version="2.6.2" />
-    <PackageReference Include="CustomSelectFileDlg" Version="1.0.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
     <PackageReference Include="Extended.Wpf.Toolkit" Version="5.0.0" />
-    <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="HandyControl" Version="3.5.1" />
-    <PackageReference Include="itext7" Version="8.0.0" />
-    <PackageReference Include="itext7.bouncy-castle-adapter" Version="8.0.0" />
-    <PackageReference Include="itext7.font-asian" Version="9.3.0" />
     <PackageReference Include="MahApps.Metro" Version="2.4.11" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.0.0" />
+    <PackageReference Include="Masuit.Tools.Core" Version="2025.6.4" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.5" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
     <PackageReference Include="OpenCvSharp4.Extensions" Version="4.11.0.20250507" />
+    <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.11.0.20250507" />
+    <PackageReference Include="QuestPDF" Version="2025.12.3" />
     <PackageReference Include="TouchSocket" Version="3.1.16" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.20.1" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
@@ -127,11 +136,6 @@
     </Reference>
     <Reference Include="halcondotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
-      <Aliases></Aliases>
-    </Reference>
-    <Reference Include="halcondotnetxl">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnetxl.dll</HintPath>
-      <Aliases>halcondotnetxl</Aliases>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
@@ -203,6 +207,11 @@
     <Page Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettingsPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml" />
   </ItemGroup>
 
 </Project>

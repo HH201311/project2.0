@@ -21,27 +21,23 @@ namespace SUNWODA_SEVB.Views.Pages.PTO
     /// </summary>
     public partial class PTODamageDetectionPage : Page
     {
-        private VM_PTODamageDetectionPage? _viewModel;
-        public PTODamageDetectionPage()
+        private readonly VM_PTODamageDetectionPage _viewModel;
+        public PTODamageDetectionPage(VM_PTODamageDetectionPage viewModel)
         {
 
             InitializeComponent();
-            this.Loaded += (s, e) =>
-            {
-                _viewModel = this.Resources["DamageDetectionVM"] as VM_PTODamageDetectionPage;
-            };
+            _viewModel = viewModel;
+            this.DataContext = _viewModel;
         }
         /// <summary>
         /// InkCanvas加载完成后，将引用传给ViewModel
         /// </summary>
         private void NegativeRoiInkCanvas_Loaded(object sender, RoutedEventArgs e)
         {
-            if (sender is InkCanvas inkCanvas && _viewModel != null)
+            if (sender is InkCanvas inkCanvas)
             {
-                _viewModel.SetInkCanvas(inkCanvas); 
+                _viewModel.SetInkCanvas(inkCanvas);
             }
         }
-
-
     }
 }

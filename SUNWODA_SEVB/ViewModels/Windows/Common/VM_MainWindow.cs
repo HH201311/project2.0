@@ -24,6 +24,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
         private string _loadingMessage = "";
         private bool _isNavigationExpanded = false;
         private GridLength _navigationColumnDefinitionWidth;
+        private bool _isExiting = false;
 
         // 添加导航防抖
         private CancellationTokenSource? _navigationCts;
@@ -65,6 +66,15 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
             get => _isNavigationExpanded;
             set => SetProperty(ref _isNavigationExpanded, value);
         }
+        /// <summary>
+        /// 是否正在退出
+        /// </summary>
+        public bool IsExiting
+        {
+            get => _isExiting;
+            set => SetProperty(ref _isExiting, value);
+        }
+
 
         public ICommand? NavigateCommand { get; set; }
         public ICommand? SettingsCommand { get; set; }
@@ -331,5 +341,144 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
 
             await base.OnCleanupAsync();
         }
+        /// <summary>
+        /// 请求退出应用程序
+        /// </summary>
+        /// <returns>是否允许退出</returns>
+        public async Task<bool> RequestExitAsync()
+        {
+            if (IsExiting)
+                return true; // 避免重复执行
+
+            IsExiting = true;
+
+            try
+            {
+                // 1. 检查是否有运行中的模块需要确认
+                bool hasRunningTasks = await CheckRunningTasksAsync();
+
+                // 2. 弹窗确认
+                string message = hasRunningTasks
+                    ? "当前有任务正在运行，确定要退出吗？\n退出后当前进度将丢失！"
+                    : "确定要退出软件吗？";
+
+                var result = await Application.Current.Dispatcher.InvokeAsync(() =>
+                    MessageBox.Show(
+                        message,
+                        "确认退出",
+                        MessageBoxButton.YesNo,
+                        hasRunningTasks ? MessageBoxImage.Warning : MessageBoxImage.Question
+                    )
+                );
+
+                if (result == MessageBoxResult.No)
+                {
+                    IsExiting = false;
+                    return false; // 用户取消退出
+                }
+
+                // 3. 执行清理工作
+                await PerformCleanupAsync();
+
+                _logger.Info("应用程序正常退出");
+                return true; // 允许退出
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("退出时发生错误", ex);
+                IsExiting = false;
+
+                // 即使发生错误也询问用户是否强制退出
+                var forceExit = await Application.Current.Dispatcher.InvokeAsync(() =>
+                    MessageBox.Show(
+                        $"退出时发生错误：{ex.Message}\n\n是否强制退出？",
+                        "退出错误",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Error
+                    )
+                );
+
+                return forceExit == MessageBoxResult.Yes;
+            }
+        }
+
+        /// <summary>
+        /// 检查是否有运行中的任务
+        /// </summary>
+        private async Task<bool> CheckRunningTasksAsync()
+        {
+            try
+            {
+                // 检查所有已加载的模块是否有运行中的任务
+                foreach (var module in _moduleManager.Modules)
+                {
+                    var viewModel = _moduleManager.GetViewModel(module);
+
+                    // 如果 ViewModel 实现了特定接口，检查其状态
+                    if (viewModel is ITaskRunningChecker checker)
+                    {
+                        if (await checker.HasRunningTasksAsync())
+                        {
+                            _logger.Info($"模块 {module.DisplayName} 有运行中的任务");
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("检查运行任务时发生错误", ex);
+                return false; // 检查失败时保守处理
+            }
+        }
+
+        /// <summary>
+        /// 执行退出前的清理工作
+        /// </summary>
+        private async Task PerformCleanupAsync()
+        {
+            LoadingMessage = "正在清理资源...";
+
+            try
+            {
+                // 1. 通知所有模块准备退出
+                foreach (var module in _moduleManager.Modules)
+                {
+                    try
+                    {
+                        var viewModel = _moduleManager.GetViewModel(module);
+                        if (viewModel is ICleanupable cleanupable)
+                        {
+                            await cleanupable.CleanupAsync();
+                            _logger.Info($"模块 {module.DisplayName} 清理完成");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"清理模块 {module.DisplayName} 时发生错误", ex);
+                    }
+                }
+
+                // 2. 保存全局设置
+                //_globalSettingRepository.SaveSettings();
+
+                // 3. 取消所有导航任务
+                _navigationCts?.Cancel();
+
+                // 4. 执行 ViewModel 自身的清理
+                await OnCleanupAsync();
+
+                LoadingMessage = "";
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("执行清理工作时发生错误", ex);
+            }
+        }
+
+
+
     }
 }

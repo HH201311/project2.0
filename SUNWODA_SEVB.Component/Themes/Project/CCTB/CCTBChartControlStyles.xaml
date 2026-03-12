@@ -3,7 +3,9 @@
                     xmlns:hc="https://handyorg.github.io/handycontrol">
 
     <!--CPK柱状图和折线图的ToolTip样式-->
-    <Style x:Key="CPKToolTipStyle" TargetType="ToolTip">
+    <Style x:Key="CPKToolTipStyle" TargetType="ToolTip" BasedOn="{StaticResource ChartToolTipStyle}"/>
+
+    <Style x:Key="ChartToolTipStyle" TargetType="ToolTip">
         <Setter Property="MinWidth" Value="20"/>
         <Setter Property="Margin" Value="0,0,0,10"/>
         <Setter Property="OverridesDefaultStyle" Value="True"/>

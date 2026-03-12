@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls"
-             mc:Ignorable="d" Loaded="UserControl_Loaded"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -13,14 +13,14 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBChartControlStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <!--CPK虚线样式-->
-            <Style x:Key="CPKDashLineStyle" TargetType="Line">
+            <Style x:Key="SubLineStyle" TargetType="Line">
                 <Setter Property="Stroke" Value="#CC29CC7A"/>
                 <Setter Property="StrokeDashArray" Value="5,5"/>
                 <Setter Property="StrokeThickness" Value="1"/>
             </Style>
 
             <!--CPK柱子样式-->
-            <Style x:Key="CPKBarGraphPathStyle" TargetType="Path">
+            <Style x:Key="BarGraphPathStyle" TargetType="Path">
                 <Setter Property="Stroke" Value="Transparent"/>
                 <Setter Property="StrokeThickness" Value="0"/>
                 <Setter Property="Fill" Value="#FF29CC7A"/>

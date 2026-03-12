@@ -248,6 +248,15 @@ namespace SUNWODA_SEVB.PLC
             return plc;
         }
 
+        public dynamic? GetPLCByName(string name)
+        {
+            if (PLCs != null && PLCs.Values.Any(o => o.Name == name))
+            {
+                return PLCs.Values.First(o => o.Name == name);
+            }
+            return default(PLC);
+        }
+
         /// <summary>
         /// 配置设备连接
         /// </summary>
@@ -1001,31 +1010,31 @@ namespace SUNWODA_SEVB.PLC
             switch (plc.BrandSpecificationProtocal)
             {
                 case PLCBrandSpecificationProtocal.Melsec_MC_Binary:
-                {
-                    var melsec = new MelsecMcNet(plc.IP, plc.Port);
-                    //melsec.ByteTransform.IsStringReverseByteWord = false;
-                    plc.ByteTransform = melsec.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return melsec;
-                }
-                case PLCBrandSpecificationProtocal.Melsec_MC_Ascii:
-                {
-                    var melsec = new MelsecMcAsciiNet(plc.IP, plc.Port)
                     {
-                        ByteTransform = { IsStringReverseByteWord = true },
-                    };
-                    plc.ByteTransform = melsec.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return melsec;
-                }
+                        var melsec = new MelsecMcNet(plc.IP, plc.Port);
+                        //melsec.ByteTransform.IsStringReverseByteWord = false;
+                        plc.ByteTransform = melsec.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return melsec;
+                    }
+                case PLCBrandSpecificationProtocal.Melsec_MC_Ascii:
+                    {
+                        var melsec = new MelsecMcAsciiNet(plc.IP, plc.Port)
+                        {
+                            ByteTransform = { IsStringReverseByteWord = true },
+                        };
+                        plc.ByteTransform = melsec.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return melsec;
+                    }
                 case PLCBrandSpecificationProtocal.Melsec_A1E_Binary:
-                {
-                    var melsec = new MelsecA1ENet(plc.IP, plc.Port);
-                    //melsec.ByteTransform.IsStringReverseByteWord = false;
-                    plc.ByteTransform = melsec.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return melsec;
-                }
+                    {
+                        var melsec = new MelsecA1ENet(plc.IP, plc.Port);
+                        //melsec.ByteTransform.IsStringReverseByteWord = false;
+                        plc.ByteTransform = melsec.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return melsec;
+                    }
                 default:
                     return default;
             }
@@ -1045,22 +1054,22 @@ namespace SUNWODA_SEVB.PLC
             switch (plc.BrandSpecificationProtocal)
             {
                 case PLCBrandSpecificationProtocal.Keyence_MC_Binary:
-                {
-                    var keyence = new KeyenceMcNet(plc.IP, plc.Port);
-                    //keyence.ByteTransform.IsStringReverseByteWord = false;
-                    plc.ByteTransform = keyence.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return keyence;
-                }
+                    {
+                        var keyence = new KeyenceMcNet(plc.IP, plc.Port);
+                        //keyence.ByteTransform.IsStringReverseByteWord = false;
+                        plc.ByteTransform = keyence.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return keyence;
+                    }
 
                 case PLCBrandSpecificationProtocal.Keyence_MC_Ascii:
-                {
-                    var keyence = new KeyenceMcAsciiNet(plc.IP, plc.Port);
-                    keyence.ByteTransform.IsStringReverseByteWord = true;
-                    plc.ByteTransform = keyence.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return keyence;
-                }
+                    {
+                        var keyence = new KeyenceMcAsciiNet(plc.IP, plc.Port);
+                        keyence.ByteTransform.IsStringReverseByteWord = true;
+                        plc.ByteTransform = keyence.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return keyence;
+                    }
 
                 default:
                     return null;

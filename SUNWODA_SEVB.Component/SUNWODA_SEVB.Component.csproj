@@ -47,12 +47,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SUNWODA_SEVB.Core\SUNWODA_SEVB.Core.csproj" />
+    <ProjectReference Include="..\SUNWODA_SEVB.Tool\SUNWODA_SEVB.Tool.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Animations\" />
     <Folder Include="Behaviors\" />
     <Folder Include="Selectors\" />
-    <Folder Include="UserControls\Project\HawkEye\" />
   </ItemGroup>
 </Project>

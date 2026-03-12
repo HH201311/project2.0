@@ -8,7 +8,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// <summary>
     /// CSV 文件读写帮助类
     /// </summary>
-    public static class CsvHelper
+    public static class CsvSaveHelper
     {
         private const char DefaultDelimiter = ',';
         private const char Quote = '"';
@@ -67,6 +67,19 @@ namespace SUNWODA_SEVB.Tool.Helper
             File.WriteAllText(filePath, content, encoding);
         }
 
+
+        public static async Task WriteToFileAsync(
+            string filePath,
+            DataTable dataTable,
+            bool includeHeader = true,
+            char delimiter = DefaultDelimiter,
+            Encoding? encoding = null,
+            CancellationToken cancellationToken = default)
+        {
+            encoding ??= Encoding.UTF8;
+            var content = ConvertToCsv(dataTable, includeHeader, delimiter);
+            await File.WriteAllTextAsync(filePath, content, encoding, cancellationToken);
+        }
         /// <summary>
         /// 将对象列表转换为 CSV 字符串
         /// </summary>

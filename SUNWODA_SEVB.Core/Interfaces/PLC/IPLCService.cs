@@ -11,5 +11,12 @@ namespace SUNWODA_SEVB.Core.Interfaces.PLC
         /// 初始化PLC
         /// </summary>
         Task<bool> InitializeAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 获取PLC对象
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        dynamic? GetPLCByName(string name);
     }
 }

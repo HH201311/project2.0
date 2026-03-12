@@ -25,7 +25,6 @@ using System.Windows.Media.Imaging;
 using Dm.filter;
 using HalconDotNet;
 using HandyControl.Controls;
-using iText.IO.Image;
 using Microsoft.Data.Sqlite;
 using Microsoft.Win32;
 using MySqlX.XDevAPI.Common;

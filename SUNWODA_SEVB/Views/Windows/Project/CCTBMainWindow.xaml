@@ -127,7 +127,7 @@
             </Frame>
 
             <!-- Growl 专用容器 -->
-            <ScrollViewer Margin="0,0,0,-20" Width="Auto" HorizontalAlignment="Right">
+            <ScrollViewer Margin="0,0,0,-20" Width="Auto" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <StackPanel hc:Growl.Token="ProductionMonitor" VerticalAlignment="Top" HorizontalAlignment="Right"/>
             </ScrollViewer>
         </Grid>

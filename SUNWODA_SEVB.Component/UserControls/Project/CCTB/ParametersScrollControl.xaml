@@ -64,7 +64,7 @@
                                     <ColumnDefinition Width="2.2*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{Binding PName}" 
+                                <TextBlock Grid.Column="0" Text="{Binding PName}" d:Text="ParamName"
                                            Margin="0,0,0,0" Foreground="#99FFFFFF" FontSize="{TemplateBinding FontSize}" FontWeight="Medium"
                                            FontFamily="{TemplateBinding FontFamily}" TextAlignment="Left"
                                            HorizontalAlignment="Left" VerticalAlignment="Center">
@@ -74,7 +74,7 @@
                                         </ToolTip>
                                     </TextBlock.ToolTip>
                                 </TextBlock>
-                                <TextBlock Grid.Column="1" Text="{Binding PValue}" 
+                                <TextBlock Grid.Column="1" Text="{Binding PValue}" d:Text="0.00"
                                            Margin="0,0,0,0" Foreground="#CCFFFFFF" FontSize="{TemplateBinding FontSize}" FontWeight="Bold"
                                            FontFamily="{TemplateBinding FontFamily}" TextAlignment="Left"
                                            HorizontalAlignment="Left" VerticalAlignment="Center"/>

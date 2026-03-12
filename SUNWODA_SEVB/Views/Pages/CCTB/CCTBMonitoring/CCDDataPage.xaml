@@ -4,11 +4,179 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBMonitoring"
+      xmlns:system="clr-namespace:System;assembly=mscorlib"
+      xmlns:uccharts="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls;assembly=SUNWODA_SEVB.Component" 
+      xmlns:ucdatagrids="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls;assembly=SUNWODA_SEVB.Component" 
       mc:Ignorable="d" 
-      d:DesignHeight="450" d:DesignWidth="800"
+      d:DesignHeight="820" d:DesignWidth="1780"
       Title="CCDDataPage">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBChartControlStyles.xaml"/>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
 
-    <Grid Background="DarkGray">
-        
+            <Style x:Key="FilmLeftRadioButtonStyle" TargetType="RadioButton">
+                <Setter Property="Width" Value="80"/>
+                <Setter Property="Height" Value="30"/>
+                <Setter Property="Content" Value="干膜数据"/>
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Foreground" Value="#CCFFFFFF"/>
+                <Setter Property="Background" Value="#FF3DCC84"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="BorderBrush" Value="#FF3DCC84"/>
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+                <Setter Property="ToolTip" >
+                    <Setter.Value>
+                        <ToolTip Content="设备无干膜数据" Placement="Top" Style="{StaticResource ChartToolTipStyle}"/>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid>
+                                <!--边框&背景-->
+                                <Border Background="{TemplateBinding Background}" BorderThickness="{TemplateBinding BorderThickness}" 
+                                        BorderBrush="{TemplateBinding BorderBrush}" CornerRadius="5,0,0,5"/>
+                                <!--内容-->
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="False">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="FontWeight" Value="Medium"/>
+                                    <Setter Property="Foreground" Value="#FF3DCC84"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#FF3DCC84"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Foreground" Value="#CCFFFFFF"/>
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="True">
+                                    <Setter Property="ToolTip" Value="{x:Null}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="BorderBrush" Value="#0DFFFFFF"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Foreground" Value="#61FFFFFF"/>
+                                    <Setter Property="FontWeight" Value="Medium"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="FilmRightRadioButtonStyle" TargetType="RadioButton">
+                <Setter Property="Width" Value="80"/>
+                <Setter Property="Height" Value="30"/>
+                <Setter Property="Content" Value="湿膜数据"/>
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Foreground" Value="#CCFFFFFF"/>
+                <Setter Property="Background" Value="#FF3DCC84"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="BorderBrush" Value="#FF3DCC84"/>
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+                <Setter Property="ToolTip" >
+                    <Setter.Value>
+                        <ToolTip Content="设备无湿膜数据" Placement="Top" Style="{StaticResource ChartToolTipStyle}"/>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid>
+                                <!--边框&背景-->
+                                <Border Background="{TemplateBinding Background}" BorderThickness="{TemplateBinding BorderThickness}" 
+                                        BorderBrush="{TemplateBinding BorderBrush}" CornerRadius="0,5,5,0"/>
+                                <!--内容-->
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="False">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="FontWeight" Value="Medium"/>
+                                    <Setter Property="Foreground" Value="#FF3DCC84"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#FF3DCC84"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Foreground" Value="#CCFFFFFF"/>
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="True">
+                                    <Setter Property="ToolTip" Value="{x:Null}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="BorderBrush" Value="#0DFFFFFF"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Foreground" Value="#61FFFFFF"/>
+                                    <Setter Property="FontWeight" Value="Medium"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="300*"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="260*"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="260*"/>
+        </Grid.RowDefinitions>
+        <GroupBox Grid.Row="0" Header="CCD实时数据" Style="{StaticResource SimpleGroupBoxStyle}">
+            <Grid Margin="20,-10,20,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="45"/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <uccharts:CCDDataChartControl Grid.Row="0" TitleHeaderA="A干" TitleHeaderB="B湿" BaseMaterialValue="{Binding BaseMaterialValueA}" ItemASource="{Binding DryFilmDataA}" ItemBSource="{Binding WetFilmDataB}"/>
+                <uccharts:CCDDataChartControl Grid.Row="2" TitleHeaderA="A干" TitleHeaderB="B干" BaseMaterialValue="{Binding BaseMaterialValueB}" ItemASource="{Binding DryFilmDataA}" ItemBSource="{Binding DryFilmDataB}"/>
+            </Grid>
+        </GroupBox>
+        <Grid Grid.Row="2">
+            <GroupBox Header="A面" Style="{StaticResource SimpleGroupBoxStyle}">
+                <ucdatagrids:CCDDataGridControl Margin="20,10,20,20" x:Name="DGA" ItemsSource="{Binding DryFilmDatasA}"/>
+            </GroupBox>
+            <StackPanel Width="160" Height="30" Margin="0,15,20,0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <RadioButton IsChecked="True" IsEnabled="{Binding DryFilmEnableA}" Command="{Binding DryFilmChangedACommand}" CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}" 
+                             Style="{StaticResource FilmLeftRadioButtonStyle}"/>
+                <RadioButton IsChecked="False" IsEnabled="{Binding WetFilmEnableA}" Command="{Binding WetFilmChangedACommand}" CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}" 
+                             Style="{StaticResource FilmRightRadioButtonStyle}"/>
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="4">
+            <GroupBox Header="B面" Style="{StaticResource SimpleGroupBoxStyle}">
+                <ucdatagrids:CCDDataGridControl Margin="20,10,20,20" x:Name="DGB" ItemsSource="{Binding DryFilmDatasB}"/>
+            </GroupBox>
+            <StackPanel Width="160" Height="30" Margin="0,15,20,0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <RadioButton IsChecked="True" IsEnabled="{Binding DryFilmEnableB}" Command="{Binding DryFilmChangedBCommand}" CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}" 
+                             Style="{StaticResource FilmLeftRadioButtonStyle}"/>
+                <RadioButton IsChecked="False" IsEnabled="{Binding WetFilmEnableB}" Command="{Binding WetFilmChangedBCommand}" CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}" 
+                             Style="{StaticResource FilmRightRadioButtonStyle}"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Page>

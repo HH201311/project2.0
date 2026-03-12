@@ -293,7 +293,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     return;
                 }
 
-                OpenFileDialog openFileDialog = new OpenFileDialog
+                OpenFileDialog openFileDialog = new()
                 {
                     Title = "打开 JSON 文件",
                     Filter = "JSON 文件 (*.json)|*.json",

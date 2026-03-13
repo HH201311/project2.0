@@ -13,6 +13,7 @@ using SUNWODA_SEVB.Core.Interfaces.PLC;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;

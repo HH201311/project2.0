@@ -1,50 +1,68 @@
-﻿<Page x:Class="SUNWODA_SEVB.Views.Pages.CCTB.CCTBSettingsPage"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-      xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB"
-      mc:Ignorable="d" 
-      d:DesignHeight="450" d:DesignWidth="800"
-      Title="CCTBSettingsPage">
+﻿<Page
+    x:Class="SUNWODA_SEVB.Views.Pages.CCTB.CCTBSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="CCTBSettingsPage"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
     <Page.Resources>
-        
-        
         <Style x:Key="NavigationRadioButtonStyle" TargetType="RadioButton">
-            <Setter Property="Width" Value="150"/>
-            <Setter Property="Height" Value="60"/>
-            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
-            <Setter Property="Foreground" Value="#99FFFFFF"/>
-            <Setter Property="FontSize" Value="20"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="150" />
+            <Setter Property="Height" Value="60" />
+            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
+            <Setter Property="Foreground" Value="#99FFFFFF" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Grid>
-                            <Grid x:Name="checkedTag" Visibility="Hidden" Margin="-10,0,0,0" Width="20" Height="20" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                <Ellipse Fill="#FF2B2B2B" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                                <Path Data="M5.42,0 L0,5 L5.42,10" Stroke="#CCFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Grid
+                                x:Name="checkedTag"
+                                Width="20"
+                                Height="20"
+                                Margin="-10,0,0,0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Visibility="Hidden">
+                                <Ellipse
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch"
+                                    Fill="#FF2B2B2B" />
+                                <Path
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Data="M5.42,0 L0,5 L5.42,10"
+                                    Stroke="#CCFFFFFF" />
                             </Grid>
                             <Grid Margin="10">
-                                <Border CornerRadius="10" Opacity="0.1" BorderThickness="0" Background="{TemplateBinding Background}"/>
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="0"
+                                    CornerRadius="10"
+                                    Opacity="0.1" />
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                             </Grid>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="#CCFFFFFF"/>
-                                <Setter Property="Background" Value="#FF3DCC84"/>
-                                <Setter Property="FontWeight" Value="Bold"/>
-                                <Setter TargetName="checkedTag" Property="Visibility" Value="Visible"/>
+                                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                                <Setter Property="Background" Value="#FF3DCC84" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                                <Setter TargetName="checkedTag" Property="Visibility" Value="Visible" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Opacity" Value="0.8"/>
+                                <Setter Property="Opacity" Value="0.8" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -55,19 +73,43 @@
 
     <Grid Background="Transparent">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="150"/>
-            <ColumnDefinition/>
+            <ColumnDefinition Width="150" />
+            <ColumnDefinition />
         </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" Background="#0DFFFFFF" CornerRadius="10" BorderThickness="0">
+        <Border
+            Grid.Column="0"
+            Background="#0DFFFFFF"
+            BorderThickness="0"
+            CornerRadius="10">
             <StackPanel Orientation="Vertical">
-                <RadioButton IsChecked="True" Content="闭环设置" Command="{Binding ClosedLoopSettingCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
-                <RadioButton Content="功能设置" Command="{Binding FunctionSettingCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
-                <RadioButton Content="报警设置" Command="{Binding AlarmSettingCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
-                <RadioButton Content="通讯设置" Command="{Binding CommunicationSettingCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
-                <RadioButton Content="权限设置" Command="{Binding PermissionSettingCommand}" Style="{StaticResource NavigationRadioButtonStyle}"/>
+                <RadioButton
+                    Command="{Binding ClosedLoopSettingCommand}"
+                    Content="闭环设置"
+                    IsChecked="True"
+                    Style="{StaticResource NavigationRadioButtonStyle}" />
+                <RadioButton
+                    Command="{Binding FunctionSettingCommand}"
+                    Content="功能设置"
+                    Style="{StaticResource NavigationRadioButtonStyle}" />
+                <RadioButton
+                    Command="{Binding AlarmSettingCommand}"
+                    Content="报警设置"
+                    Style="{StaticResource NavigationRadioButtonStyle}" />
+                <RadioButton
+                    Command="{Binding CommunicationSettingCommand}"
+                    Content="通讯设置"
+                    Style="{StaticResource NavigationRadioButtonStyle}" />
+                <RadioButton
+                    Command="{Binding PermissionSettingCommand}"
+                    Content="权限设置"
+                    Style="{StaticResource NavigationRadioButtonStyle}" />
             </StackPanel>
         </Border>
 
-        <Frame Grid.Column="1" Margin="20,0,0,0" Content="{Binding NavigationPage}" BorderThickness="0"/>
+        <Frame
+            Grid.Column="1"
+            Margin="20,0,0,0"
+            BorderThickness="0"
+            Content="{Binding NavigationPage}" />
     </Grid>
 </Page>

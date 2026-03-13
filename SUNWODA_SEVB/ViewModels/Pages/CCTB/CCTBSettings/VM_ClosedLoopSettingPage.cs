@@ -1,4 +1,8 @@
-﻿using SqlSugar;
+﻿using HandyControl.Controls;
+using HandyControl.Tools.Extension;
+using Masuit.Tools;
+using Newtonsoft.Json;
+using SqlSugar;
 using SUNWODA_SEVB.Component.UserControls.Project.CCTB;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -10,13 +14,16 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Core.Models.Project.HawkEye;
+using SUNWODA_SEVB.Tool.Extension;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
@@ -55,19 +62,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         {
             // 初始化导航
             InitializeArithmeticProjectSettings();
+            InitializeClosedLoopProjectSettings();
+            InitializeGeneralProjectSettings();
+
             base.OnInitialize();
         }
 
         protected override async Task OnInitializeAsync()
         {
-            await InitializeArithmeticModelAsync();
+            await LoadArithmeticModelAsync();
+            await LoadGeneralSettingsModelAsync();
             await base.OnInitializeAsync();
         }
 
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
-            await RunOnUIThreadAsync(async () => await InitializeArithmeticModelAsync());
-            //await InitializeArithmeticModelAsync();
+            await LoadArithmeticModelAsync();
+            await LoadGeneralSettingsModelAsync();
             await base.OnNavigatedToAsync(parameter);
         }
 
@@ -82,196 +93,198 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 
         public ICommand? ArithmeticEnableChangedCommand => new RelayCommand(ArithmeticEnableChanged);
         public ICommand? ArithmeticVerifyCommand => new RelayCommand(ArithmeticVerify);
-        public ICommand? ParamSettingClickCommand => new RelayCommand(ParamSettingClick);
 
-        private void ArithmeticEnableChanged(object? arg)
+        private async void ArithmeticEnableChanged(object? arg)
         {
-            if (!(arg is object[] args && args?.Length == 4)) return;
-            if (!(args[0] is ESideType sideType)) return;
-            if (!(args[1] is EClosedLoopType closedLoopType)) return;
-            if (!(args[2] is bool isCheck)) return;
-            if (!(args[3] is Action<bool> action)) return;
+            if (!(arg is ArithmeticSettingControl page)) return;
+            var closedLoopType = page.ClosedLoopType;
+            var sideType = page.SideType;
 
-            // -TODO  算法校验
-
-            // 若校验成功则执行更新(界面+数据库)
-            if (true)
+            var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
+            var settingModel = (closedLoopType, sideType) switch
             {
-                var paramName = $"ArithmeticEnable_{closedLoopType}{sideType}";
-                _ = RefreshParamrersAsync(paramName, isCheck);
-                action.Invoke(isCheck);
+                (EClosedLoopType.MD, ESideType.A) => ArithmeticModel_MDA,
+                (EClosedLoopType.TD, ESideType.A) => ArithmeticModel_TDA,
+                (EClosedLoopType.MDTD, ESideType.A) => ArithmeticModel_MDTDA,
+                (EClosedLoopType.MD, ESideType.B) => ArithmeticModel_MDB,
+                (EClosedLoopType.TD, ESideType.B) => ArithmeticModel_TDB,
+                (EClosedLoopType.MDTD, ESideType.B) => ArithmeticModel_MDTDB,
+                _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
+            };
+            // 若校验成功则执行更新(界面+数据库)
+            var re = await RefreshJsonParamrersAsync(projectSettingName, settingModel);
+            if (!re)
+            {
+                settingModel.IsEnable = !page.IsArithmeticEnabled;
             }
         }
 
-        private void ArithmeticVerify(object? arg)
+        private async void ArithmeticVerify(object? arg)
         {
             if (!(arg is object[] args && args?.Length == 4)) return;
             if (!(args[0] is ESideType sideType)) return;
             if (!(args[1] is EClosedLoopType closedLoopType)) return;
-            if (!(args[2] is string arithmeticName)) return;
-            if (!(args[3] is Action<string> action)) return;
+            if (!(args[2] is string newArithmeticName)) return;
+            if (!(args[3] is string oldArithmeticName)) return;
+
+            if (string.IsNullOrEmpty(newArithmeticName)) return; ;
+            if (string.Equals(newArithmeticName, oldArithmeticName)) return;
+
+            var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
+            var settingModel = (closedLoopType, sideType) switch
+            {
+                (EClosedLoopType.MD, ESideType.A) => ArithmeticModel_MDA,
+                (EClosedLoopType.TD, ESideType.A) => ArithmeticModel_TDA,
+                (EClosedLoopType.MDTD, ESideType.A) => ArithmeticModel_MDTDA,
+                (EClosedLoopType.MD, ESideType.B) => ArithmeticModel_MDB,
+                (EClosedLoopType.TD, ESideType.B) => ArithmeticModel_TDB,
+                (EClosedLoopType.MDTD, ESideType.B) => ArithmeticModel_MDTDB,
+                _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
+            };
 
             // 校验算法
             if (false)// 校验失败则弹窗提示
             {
-                MessageBox.Show($"{sideType}面{closedLoopType}算法[{arithmeticName}]校验失败:[]!");
+                MessageBox.Show($"{sideType}面{closedLoopType}算法[{newArithmeticName}]校验失败:[]!");
+                settingModel.ArithmeticName = oldArithmeticName;
                 return;
             }
 
-            var paramName = $"ArithmeticName_{closedLoopType}{sideType}";
-            _ = RefreshParamrersAsync(paramName, arithmeticName);
-
-            // 若校验成功则执行更新(界面+数据库)
-            action.Invoke(arithmeticName);
+            settingModel.ArithmeticName = newArithmeticName;
+            var re = await RefreshArithmeticParamrersAsync(projectSettingName, settingModel);
+            if (!re)
+            {
+                MessageBox.Show($"{sideType}面{closedLoopType}算法[{newArithmeticName}]保存数据库失败!");
+                settingModel.ArithmeticName = oldArithmeticName;
+                return;
+            }
         }
 
-        private void ParamSettingClick(object? arg)
+        private async Task<bool> RefreshArithmeticParamrersAsync(string paramName, ArithmeticModel value)
         {
-            if (arg == null) return;
-            if (!(arg is ArithmeticSettingControl page)) return;
-
-        }
-
-        /// <summary>
-        /// 保存到数据库
-        /// </summary>
-        /// <returns></returns>
-        private async Task RefreshParamrersAsync(string paramName, object value)
-        {
-            var paramrer = _projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramrer == null) return;
-            paramrer.Value = value?.ToString() ?? "";
-            await _projectSettingRepository.UpdateAsync(paramrer);
+            return await RefreshJsonParamrersAsync(paramName, value);
         }
 
         private void InitializeArithmeticProjectSettings()
         {
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_MDA" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticName_MDA", CCTBCore.BelongToVM, "", "string", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_TDA" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticName_TDA", CCTBCore.BelongToVM, "", "string", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_MDTDA" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticName_MDTDA", CCTBCore.BelongToVM, "", "string", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_MDB" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticName_MDB", CCTBCore.BelongToVM, "", "string", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_TDB" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticName_TDB", CCTBCore.BelongToVM, "", "string", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_MDTDB" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticName_MDTDB", CCTBCore.BelongToVM, "", "string", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
+            var model = new ArithmeticModel();
+            model.IsEnable = false;
+            model.ArithmeticName = "DY-MD-L1-1-N-S-314Ah";
 
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticEnable_MDA" && model.BelongToVM == CCTBCore.BelongToVM))
+            var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
+            var sideTypes = Enum.GetValues(typeof(ESideType));
+            foreach (EClosedLoopType closedLoopType in closedLoopTypes)
             {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticEnable_MDA", CCTBCore.BelongToVM, "false", "bool", 2)
+                foreach (ESideType sideType in sideTypes)
+                {
+                    var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
+                    if (!_projectSettingRepository.Exists(model => model.Name == projectSettingName && model.BelongToVM == CCTBCore.BelongToVM))
                     {
-                        Remark = "涂布闭环算法设置"
+                        _projectSettingRepository.Add(
+                            new ProjectSettingModel(projectSettingName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 2)
+                            {
+                                Remark = "涂布闭环算法设置"
+                            }
+                        );
                     }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticEnable_TDA" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticEnable_TDA", CCTBCore.BelongToVM, "false", "bool", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticEnable_MDTDA" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticEnable_MDTDA", CCTBCore.BelongToVM, "false", "bool", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticEnable_MDB" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticEnable_MDB", CCTBCore.BelongToVM, "false", "bool", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticEnable_TDB" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticEnable_TDB", CCTBCore.BelongToVM, "false", "bool", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
-            }
-            if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticEnable_MDTDB" && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel("ArithmeticEnable_MDTDB", CCTBCore.BelongToVM, "false", "bool", 2)
-                    {
-                        Remark = "涂布闭环算法设置"
-                    }
-                );
+                }
             }
         }
 
-        private async Task InitializeArithmeticModelAsync()
+        private async Task LoadArithmeticModelAsync()
         {
-            ArithmeticModel_MDA.ArithmeticName = _projectSettingRepository.GetByNameAndVM("ArithmeticName_MDA", CCTBCore.BelongToVM)?.Value ?? "";
-            ArithmeticModel_TDA.ArithmeticName = _projectSettingRepository.GetByNameAndVM("ArithmeticName_TDA", CCTBCore.BelongToVM)?.Value ?? "";
-            ArithmeticModel_MDTDA.ArithmeticName = _projectSettingRepository.GetByNameAndVM("ArithmeticName_MDTDA", CCTBCore.BelongToVM)?.Value ?? "";
-            ArithmeticModel_MDB.ArithmeticName = _projectSettingRepository.GetByNameAndVM("ArithmeticName_MDB", CCTBCore.BelongToVM)?.Value ?? "";
-            ArithmeticModel_TDB.ArithmeticName = _projectSettingRepository.GetByNameAndVM("ArithmeticName_TDB", CCTBCore.BelongToVM)?.Value ?? "";
-            ArithmeticModel_MDTDB.ArithmeticName = _projectSettingRepository.GetByNameAndVM("ArithmeticName_MDTDB", CCTBCore.BelongToVM)?.Value ?? "";
-            var arithmeticEnable = false;
-            ArithmeticModel_MDA.IsEnable = bool.TryParse(_projectSettingRepository.GetByNameAndVM("ArithmeticEnable_MDA", CCTBCore.BelongToVM)?.Value ?? "", out arithmeticEnable) ? arithmeticEnable : false;
-            ArithmeticModel_TDA.IsEnable = bool.TryParse(_projectSettingRepository.GetByNameAndVM("ArithmeticEnable_TDA", CCTBCore.BelongToVM)?.Value ?? "", out arithmeticEnable) ? arithmeticEnable : false;
-            ArithmeticModel_MDTDA.IsEnable = bool.TryParse(_projectSettingRepository.GetByNameAndVM("ArithmeticEnable_MDTDA", CCTBCore.BelongToVM)?.Value ?? "", out arithmeticEnable) ? arithmeticEnable : false;
-            ArithmeticModel_MDB.IsEnable = bool.TryParse(_projectSettingRepository.GetByNameAndVM("ArithmeticEnable_MDB", CCTBCore.BelongToVM)?.Value ?? "", out arithmeticEnable) ? arithmeticEnable : false;
-            ArithmeticModel_TDB.IsEnable = bool.TryParse(_projectSettingRepository.GetByNameAndVM("ArithmeticEnable_TDB", CCTBCore.BelongToVM)?.Value ?? "", out arithmeticEnable) ? arithmeticEnable : false;
-            ArithmeticModel_MDTDB.IsEnable = bool.TryParse(_projectSettingRepository.GetByNameAndVM("ArithmeticEnable_MDTDB", CCTBCore.BelongToVM)?.Value ?? "", out arithmeticEnable) ? arithmeticEnable : false;
+            var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
+            var sideTypes = Enum.GetValues(typeof(ESideType));
+            foreach (EClosedLoopType closedLoopType in closedLoopTypes)
+            {
+                foreach (ESideType sideType in sideTypes)
+                {
+                    var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
+                    var projectSetting = _projectSettingRepository.GetByNameAndVM(projectSettingName, CCTBCore.BelongToVM)?.Value ?? "";
+                    var settingModel = JsonConvert.DeserializeObject<ArithmeticModel>(projectSetting);
+                    if (settingModel == null) continue;
+
+                    var arithmeticModel = (closedLoopType, sideType) switch
+                    {
+                        (EClosedLoopType.MD, ESideType.A) => ArithmeticModel_MDA,
+                        (EClosedLoopType.TD, ESideType.A) => ArithmeticModel_TDA,
+                        (EClosedLoopType.MDTD, ESideType.A) => ArithmeticModel_MDTDA,
+                        (EClosedLoopType.MD, ESideType.B) => ArithmeticModel_MDB,
+                        (EClosedLoopType.TD, ESideType.B) => ArithmeticModel_TDB,
+                        (EClosedLoopType.MDTD, ESideType.B) => ArithmeticModel_MDTDB,
+                        _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
+                    };
+                    arithmeticModel.IsEnable = settingModel.IsEnable;
+                    arithmeticModel.ArithmeticName = settingModel.ArithmeticName;
+                }
+            }
+        }
+        #endregion
+
+        #region 闭环参数设置
+        public ICommand? ParamSettingClickCommand => new RelayCommand(ParamSettingClick);
+
+        private async void ParamSettingClick(object? arg)
+        {
+            if (arg == null) return;
+            if (!(arg is ArithmeticSettingControl page)) return;
+            var closedLoopType = page.ClosedLoopType;
+            var sideType = page.SideType;
+            var projectSettingName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
+            var settingModel = LoadClosedLoopSettingModel(closedLoopType, sideType);
+            if (settingModel == null) return;
+
+            var result = await Dialog
+                .Show(new VM_ClosedLoopSettingDialog().UIElement)
+                .Initialize<VM_ClosedLoopSettingDialog>(o =>
+                {
+                    o.SideType = sideType;
+                    o.ClosedLoopType = closedLoopType;
+                    o.ClosedLoopSettingModel = settingModel;
+                })
+                .GetResultAsync<bool>();
+
+            if (result)// 保存数据库
+            {
+                var re = await RefreshClosedLoopParamrersAsync(projectSettingName, settingModel);
+            }
+        }
+
+        private async Task<bool> RefreshClosedLoopParamrersAsync(string paramName, ClosedLoopSettingModel value)
+        {
+            return await RefreshJsonParamrersAsync(paramName, value);
+        }
+
+        private void InitializeClosedLoopProjectSettings()
+        {
+            var model = new ClosedLoopSettingModel();
+
+            var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
+            var sideTypes = Enum.GetValues(typeof(ESideType));
+            foreach (EClosedLoopType closedLoopType in closedLoopTypes)
+            {
+                foreach (ESideType sideType in sideTypes)
+                {
+                    var projectSettingName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
+                    if (!_projectSettingRepository.Exists(model => model.Name == projectSettingName && model.BelongToVM == CCTBCore.BelongToVM))
+                    {
+                        _projectSettingRepository.Add(
+                            new ProjectSettingModel(projectSettingName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 2)
+                            {
+                                Remark = "涂布闭环参数设置"
+                            }
+                        );
+                    }
+                }
+            }
+        }
+
+        private ClosedLoopSettingModel? LoadClosedLoopSettingModel(EClosedLoopType closedLoopType, ESideType sideType)
+        {
+            var projectSettingName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
+            var projectSetting = _projectSettingRepository.GetByNameAndVM(projectSettingName, CCTBCore.BelongToVM)?.Value ?? "";
+            var settingModel = JsonConvert.DeserializeObject<ClosedLoopSettingModel>(projectSetting);
+            return settingModel;
         }
         #endregion
 
@@ -292,30 +305,79 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             .Select(v => new ComboboxItemModel<EPartitionedType>() { ItemValue = v, DisplayName = v.ToString() }));
 
         public ICommand? ParamSaveCommand => new RelayCommand(ParamSave);
+        public ICommand? PartitionedSelectionChangedCommand => new RelayCommand(PartitionedSelectionChanged);
+
+        private GeneralSettingsModel generalSettingsModel = new();
+
+        public GeneralSettingsModel GeneralSettingsModel { get => generalSettingsModel; set => SetProperty(ref generalSettingsModel, value); }
+
+        public ObservableCollection<PartitionedModel> PartitionedModels { get; set; } = [];
 
         private void ParamSave()
         {
-
+            _ = RefreshGeneralParamrersAsync();
         }
 
-        private GeneralSettingsModel generalSettingsModel = new();
-        public GeneralSettingsModel GeneralSettingsModel { get => generalSettingsModel; set => SetProperty(ref generalSettingsModel, value); }
+        private void PartitionedSelectionChanged(object? arg)
+        {
+            if (!(arg is ComboboxItemModel<EPartitionedType> item)) return;
+
+            var partitionedModels = PartitionedModel.GetPartitionedModels(GeneralSettingsModel.PartitionedType, GeneralSettingsModel.PartitionedModels);
+            PartitionedModels.Clear();
+            PartitionedModels.AddRange(partitionedModels);
+        }
+
+        private async Task<bool> RefreshGeneralParamrersAsync()
+        {
+            var projectSettingName = "GeneralSettings";
+            GeneralSettingsModel.PartitionedModels.Clear();
+            GeneralSettingsModel.PartitionedModels.AddRange(PartitionedModels);
+            return await RefreshJsonParamrersAsync(projectSettingName, GeneralSettingsModel);
+        }
 
         private void InitializeGeneralProjectSettings()
         {
-            //if (!_projectSettingRepository.Exists(model => model.Name == "ArithmeticName_MDA" && model.BelongToVM == CCTBCore.BelongToVM))
-            //{
-            //    _projectSettingRepository.Add(
-            //        new ProjectSettingModel("ArithmeticName_MDA", CCTBCore.BelongToVM, "", "string", 2)
-            //        {
-            //            Remark = "涂布闭环通用设置"
-            //        }
-            //    );
-            //}
+            var model = new GeneralSettingsModel();
+            model.PartitionedType = EPartitionedType.一分膜区;
+            model.PartitionedModels.AddRange(PartitionedModel.GetPartitionedModels(model.PartitionedType));
+
+            var projectSettingName = "GeneralSettings";
+            if (!_projectSettingRepository.Exists(model => model.Name == projectSettingName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(projectSettingName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 2)
+                    {
+                        Remark = "涂布闭环通用设置"
+                    }
+                );
+            }
         }
 
+        private async Task LoadGeneralSettingsModelAsync()
+        {
+            var projectSettingName = "GeneralSettings";
+            var projectSetting = _projectSettingRepository.GetByNameAndVM(projectSettingName, CCTBCore.BelongToVM)?.Value ?? "";
+            var settingModel = JsonConvert.DeserializeObject<GeneralSettingsModel>(projectSetting);
+            if (settingModel == null) return;
 
+            GeneralSettingsModel = settingModel;
+            var partitionedModels = PartitionedModel.GetPartitionedModels(settingModel.PartitionedType, settingModel.PartitionedModels);
+            PartitionedModels.Clear();
+            PartitionedModels.AddRange(partitionedModels);
+        }
         #endregion
+
+        /// <summary>
+        /// 保存到数据库
+        /// </summary>
+        /// <returns></returns>
+        private async Task<bool> RefreshJsonParamrersAsync(string paramName, object value)
+        {
+            var paramrer = _projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramrer == null) return false;
+            paramrer.Value = JsonConvert.SerializeObject(value);
+            return await _projectSettingRepository.UpdateAsync(paramrer);
+        }
 
         #region
         public class ComboboxItemModel<T> : ModelBase where T : Enum

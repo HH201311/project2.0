@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 using SUNWODA_SEVB.Core.Common;
 
-namespace SUNWODA_SEVB.Core.Models.Project.CCTB
+namespace SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels
 {
     public class ParameterModel<T> : ModelBase
     {

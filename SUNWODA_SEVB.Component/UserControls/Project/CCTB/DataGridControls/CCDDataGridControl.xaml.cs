@@ -41,10 +41,10 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
             UpdateColumns(1);
 
             DC.ItemsSource = Columns;
-            DR.ItemsSource = Rows; 
+            DR.ItemsSource = Rows;
             _subscription = _dataUpdateRequests
                             .Throttle(TimeSpan.FromMilliseconds(200)) // 200ms内合并请求
-                            .Subscribe(_ => Dispatcher.Invoke(() => DrawChart()));
+                            .Subscribe(_ => Dispatcher?.Invoke(DrawChart));
         }
 
         public ObservableCollection<string> Columns { get; set; } = new();

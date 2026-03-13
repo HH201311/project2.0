@@ -2,7 +2,7 @@
 using SUNWODA_SEVB.Core.Common;
 using System.ComponentModel;
 
-namespace SUNWODA_SEVB.Core.Models.Project.CCTB
+namespace SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels
 {
     public class LineInfoModel : ModelBase
     {

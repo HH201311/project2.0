@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 using SUNWODA_SEVB.Core.Common;
-using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;

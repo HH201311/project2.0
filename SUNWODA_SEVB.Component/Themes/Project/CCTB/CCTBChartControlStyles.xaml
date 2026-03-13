@@ -1,25 +1,35 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:hc="https://handyorg.github.io/handycontrol">
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:hc="https://handyorg.github.io/handycontrol">
 
-    <!--CPK柱状图和折线图的ToolTip样式-->
-    <Style x:Key="CPKToolTipStyle" TargetType="ToolTip" BasedOn="{StaticResource ChartToolTipStyle}"/>
+    <!--  CPK柱状图和折线图的ToolTip样式  -->
+    <Style
+        x:Key="CPKToolTipStyle"
+        BasedOn="{StaticResource ChartToolTipStyle}"
+        TargetType="ToolTip" />
 
     <Style x:Key="ChartToolTipStyle" TargetType="ToolTip">
-        <Setter Property="MinWidth" Value="20"/>
-        <Setter Property="Margin" Value="0,0,0,10"/>
-        <Setter Property="OverridesDefaultStyle" Value="True"/>
-        <Setter Property="HasDropShadow" Value="True"/>
-        <Setter Property="Placement" Value="Mouse"/>
-        <Setter Property="Background" Value="#FF121212"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+        <Setter Property="MinWidth" Value="20" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="HasDropShadow" Value="True" />
+        <Setter Property="Placement" Value="Mouse" />
+        <Setter Property="Background" Value="#FF121212" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="#1AFFFFFF" />
         <Setter Property="ContentTemplate">
             <Setter.Value>
                 <DataTemplate>
-                    <TextBlock Text="{Binding}" FontFamily="{StaticResource CCTB.SourceHanSansCN}" 
-                               FontSize="14" FontWeight="Medium" Foreground="#CCFFFFFF" Opacity="1" 
-                               TextAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock
+                        FontFamily="{StaticResource CCTB.SourceHanSansCN}"
+                        FontSize="14"
+                        FontWeight="Medium"
+                        Foreground="#CCFFFFFF"
+                        Opacity="1"
+                        Text="{Binding}"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
                 </DataTemplate>
             </Setter.Value>
         </Setter>
@@ -27,15 +37,23 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ToolTip">
                     <Grid Margin="{TemplateBinding Margin}" Background="Transparent">
-                        <!--边框&背景虚化效果-->
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}" Opacity="1">
+                        <!--  边框&背景虚化效果  -->
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="5"
+                            Opacity="1">
                             <Border Background="#1AFFFFFF" BorderThickness="0">
                                 <Border.Effect>
-                                    <BlurEffect Radius="50" KernelType="Gaussian" RenderingBias="Quality"/>
+                                    <BlurEffect
+                                        KernelType="Gaussian"
+                                        Radius="50"
+                                        RenderingBias="Quality" />
                                 </Border.Effect>
                             </Border>
                         </Border>
-                        <!--箭头-->
+                        <!--  箭头  -->
                         <!--<Grid Width="10" Height="8" Margin="0,0,0,-7" HorizontalAlignment="Center" VerticalAlignment="Bottom">
                             <Path Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="1" Data="M0,0 L5,8 L10,0">
                                 <Path.Effect>
@@ -43,8 +61,11 @@
                                 </Path.Effect>
                             </Path>
                         </Grid>-->
-                        <!--内容-->
-                        <ContentPresenter Margin="10,5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <!--  内容  -->
+                        <ContentPresenter
+                            Margin="10,5"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>

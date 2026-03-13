@@ -43,15 +43,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
         /// <param name="partitionedType"></param>
         /// <param name="partitionedModels"></param>
         /// <returns></returns>
-        public List<PartitionedModel> GetPartitionedModels(EPartitionedType partitionedType, List<PartitionedModel> partitionedModels)
+        public static List<PartitionedModel> GetPartitionedModels(EPartitionedType partitionedType, List<PartitionedModel>? partitionedModels = null)
         {
-            var count = (int)partitionedType;
+            var count = (int)partitionedType + 1;
             var re = new List<PartitionedModel>(count);
             for (int i = 0; i < count; i++)
             {
                 var model = new PartitionedModel();
                 model.PartitionedName = $"膜区{i + 1}";
-                if (partitionedModels.Count > i && partitionedModels[i] != null)
+                if (partitionedModels != null && partitionedModels.Count > i && partitionedModels[i] != null)
                 {
                     model.startIndex = partitionedModels[i].StartIndex;
                     model.endIndex = partitionedModels[i].EndIndex;

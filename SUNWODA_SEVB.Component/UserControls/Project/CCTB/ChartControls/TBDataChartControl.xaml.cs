@@ -2,6 +2,7 @@
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using System;
 using System.Collections.Generic;

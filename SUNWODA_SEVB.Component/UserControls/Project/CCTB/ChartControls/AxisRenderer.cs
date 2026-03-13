@@ -34,7 +34,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
 
         public AxisRenderer()
         {
-            var globalFont = Application.Current.Resources["CCTB.SourceHanSansCN"] as FontFamily;
+            var globalFont = Application.Current.Resources["CCTB.SourceHanSansCN-Medium"] as FontFamily;
             _typeface = new Typeface(globalFont, FontStyles.Normal, FontWeights.Medium, FontStretches.Normal);
             _textBrush = new SolidColorBrush(Color.FromArgb(204, 255, 255, 255)); // 半透明白
             _textBrush.Freeze();

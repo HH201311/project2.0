@@ -14,7 +14,6 @@
 
   <ItemGroup>
     <None Remove="Assets\Fonts\iconfont_cctb.ttf" />
-    <None Remove="Assets\Fonts\SourceHanSansCN.otf" />
     <None Remove="Assets\Fonts\阿里妈妈数黑体.ttf" />
     <None Remove="Assets\images\logo%402x.png" />
     <Compile Remove="ViewModels\Pages\CCTB\**" />
@@ -168,9 +167,6 @@
     <Resource Include="Assets\Fonts\iconfont_cctb.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\Fonts\SourceHanSansCN.otf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Resource>
     <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
@@ -212,6 +208,10 @@
     <Page Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Assets\Fonts\思源黑体\" />
   </ItemGroup>
 
 </Project>

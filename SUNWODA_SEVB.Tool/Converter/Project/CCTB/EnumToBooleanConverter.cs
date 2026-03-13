@@ -1,0 +1,47 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Data;
+
+namespace SUNWODA_SEVB.Tool.Converter.Project.CCTB
+{
+    public class EnumToBooleanConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null || parameter == null)
+                return false;
+
+            var checkValue = value.ToString();
+            if (checkValue == null) return false;
+            var targetValue = parameter.ToString();
+
+            return checkValue.Equals(targetValue, StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null || parameter == null)
+                return Binding.DoNothing;
+
+            if ((bool)value)
+            {
+                try
+                {
+                    var parameterValue = parameter.ToString();
+                    if (parameterValue == null) return Binding.DoNothing;
+                    return Enum.Parse(targetType, parameterValue);
+                }
+                catch
+                {
+                    return Binding.DoNothing;
+                }
+            }
+
+            return Binding.DoNothing;
+        }
+    }
+}

@@ -1,4 +1,5 @@
 ﻿using SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls;
+using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using System;
 using System.Collections.Generic;
@@ -96,7 +97,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
             var uc = d as ArithmeticSettingControl;
             if (uc != null)
             {
-                uc.GB.Header = uc.Header;
+                //uc.GB.Header = uc.Header;
             }
         }
         #endregion
@@ -120,7 +121,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
             var uc = d as ArithmeticSettingControl;
             if (uc != null)
             {
-                uc.ArithmeticTB.Text = e.NewValue.ToString();
+                //uc.ArithmeticName_TB.Text = e.NewValue?.ToString();
             }
         }
         #endregion
@@ -144,8 +145,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
             var uc = d as ArithmeticSettingControl;
             if (uc != null)
             {
-                uc.ArithmeticEnable_TB.IsChecked = (bool)e.NewValue;
-                uc.EnabledGrid.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed;
+                //uc.ArithmeticEnable_TB.IsChecked = (bool)e.NewValue;
+                //uc.EnabledGrid.IsEnabled = (bool)e.NewValue;
             }
         }
         #endregion
@@ -167,7 +168,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         private static void OnParamSettingClickCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as ArithmeticSettingControl;
-            if (uc != null)
+            if (uc != null && e.NewValue != null)
             {
                 uc.ParamSetting_Btn.Command = uc.ParamSettingClickCommand;
                 uc.ParamSetting_Btn.CommandParameter = uc;
@@ -192,9 +193,10 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         private static void OnArithmeticEnableChangedCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as ArithmeticSettingControl;
-            if (uc != null)
+            if (uc != null && e.NewValue != null)
             {
-
+                uc.ArithmeticEnable_TB.Command = (ICommand)e.NewValue;
+                uc.ArithmeticEnable_TB.CommandParameter = uc;
             }
         }
         #endregion
@@ -224,18 +226,14 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         #endregion
 
         private string arithmeticNameTemp = string.Empty;
-        private void RefreshArithmeticName(string arithmeticName)
-        {
-            arithmeticNameTemp = arithmeticName;
-        }
 
         private void EditBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button btn)) return;
             arithmeticNameTemp = ArithmeticName;
-            this.ArithmeticTB.IsReadOnly = false;
-            this.ArithmeticTB.Focus();
-            this.ArithmeticTB.SelectionStart = 0;
+            this.ArithmeticName_TB.IsReadOnly = false;
+            this.ArithmeticName_TB.Focus();
+            this.ArithmeticName_TB.SelectionStart = 0;
             btn.Visibility = Visibility.Collapsed;
             this.Edit_Bd1.BorderThickness = new Thickness(1);
             this.Edit_Bd2.Visibility = Visibility.Visible;
@@ -245,12 +243,21 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         {
             if (e.Key == Key.Escape)
             {
+                this.ArithmeticName_TB.Text = arithmeticNameTemp;
                 ArithmeticNameEditEnd();
                 return;
             }
             if (e.Key != Key.Enter) return;
-            try { ArithmeticNameVerify(); }
-            catch (Exception ex) { throw new Exception(ex.Message); }
+            try
+            {
+                ArithmeticNameVerify();
+                arithmeticNameTemp = this.ArithmeticName;
+            }
+            catch (Exception ex)
+            {
+                this.ArithmeticName = arithmeticNameTemp;
+                throw new Exception(ex.Message);
+            }
             finally { ArithmeticNameEditEnd(); }
         }
 
@@ -258,19 +265,21 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         {
             if (!(sender is TextBox tb)) return;
             if (tb.IsFocused) return;
+
+            this.ArithmeticName = arithmeticNameTemp;
             ArithmeticNameEditEnd();
         }
 
         private void ArithmeticNameVerify()
         {
-            var arithmeticName = this.ArithmeticTB.Text;
+            var arithmeticName = this.ArithmeticName_TB.Text;
 
             if (arithmeticName == arithmeticNameTemp) return;
 
             if (ArithmeticVerifyCommand == null)
                 throw new Exception($"{nameof(ArithmeticVerifyCommand)} 参数未赋值！");
 
-            var arg = new object[] { SideType, ClosedLoopType, arithmeticName, (Action<string>)RefreshArithmeticName };
+            var arg = new object[] { SideType, ClosedLoopType, arithmeticName, arithmeticNameTemp };
             ArithmeticVerifyCommand.Execute(arg);
         }
 
@@ -279,29 +288,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
             this.Edit_Btn.Visibility = Visibility.Visible;
             this.Edit_Bd1.BorderThickness = new Thickness(0);
             this.Edit_Bd2.Visibility = Visibility.Collapsed;
-            this.ArithmeticTB.IsReadOnly = true;
-            this.ArithmeticName = arithmeticNameTemp;
-            this.ArithmeticTB.Text = arithmeticNameTemp;
+            this.ArithmeticName_TB.IsReadOnly = true;
             Keyboard.ClearFocus();
-        }
-
-        private void RefreshArithmeticEnableState(bool isEnable)
-        {
-            this.IsArithmeticEnabled = isEnable;
-            this.EnabledGrid.Visibility = isEnable ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        private void ArithmeticEnableTB_Click(object sender, RoutedEventArgs e)
-        {
-            if (!(sender is ToggleButton tb)) return;
-            var isCheck = tb.IsChecked ?? false;
-            if (ArithmeticEnableChangedCommand == null)
-            {
-                tb.IsChecked = !isCheck;
-                throw new Exception($"{nameof(ArithmeticEnableChangedCommand)} 参数未赋值！");
-            }
-            var arg = new object[] { SideType, ClosedLoopType, isCheck, (Action<bool>)RefreshArithmeticEnableState };
-            ArithmeticEnableChangedCommand.Execute(arg);
         }
     }
 }

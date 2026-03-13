@@ -1,0 +1,400 @@
+﻿<Border
+    x:Class="SUNWODA_SEVB.Views.Dialogs.CCTB.ClosedLoopSettingDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Tool.Converter.Project.CCTB;assembly=SUNWODA_SEVB.Tool"
+    xmlns:core="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.CoatingOPMM"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    MinWidth="1292"
+    MinHeight="410"
+    d:Height="410"
+    d:Width="1630"
+    Background="Transparent"
+    BorderBrush="#1AFFFFFF"
+    BorderThickness="1"
+    CornerRadius="10"
+    mc:Ignorable="d">
+    <Border.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBGrowlControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+
+            <!--  标题样式  -->
+            <Style x:Key="TitleTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                <Setter Property="Foreground" Value="#FFFFFF" />
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="Opacity" Value="0.8" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!--  关闭按钮  -->
+            <Style x:Key="ClosedButtonStyle" TargetType="Button">
+                <Setter Property="Width" Value="14" />
+                <Setter Property="Height" Value="14" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="Opacity" Value="0.8" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}" />
+                <Setter Property="Content" Value="&#xe669;" />
+            </Style>
+
+            <!--  功能按钮  -->
+            <Style
+                x:Key="ConfirmButtonStyle"
+                BasedOn="{StaticResource GrowlConfirmButtonStyle}"
+                TargetType="Button" />
+            <Style
+                x:Key="CancleButtonStyle"
+                BasedOn="{StaticResource GrowlCancleButtonStyle}"
+                TargetType="Button" />
+        </ResourceDictionary>
+    </Border.Resources>
+
+    <Grid Background="#FF2B2B2B">
+        <Grid Margin="20,0,20,0" Background="Transparent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="60" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="50" />
+            </Grid.RowDefinitions>
+
+            <!--  标题  -->
+            <DockPanel
+                Grid.Row="0"
+                VerticalAlignment="Center"
+                LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource TitleTextBlockStyle}">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="{}{0}面-{1}闭环算法设置">
+                            <Binding FallbackValue="x" Path="SideType" />
+                            <Binding FallbackValue="xxxx" Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
+                <Button
+                    Command="{Binding CloseCommand}"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource ClosedButtonStyle}" />
+            </DockPanel>
+
+            <!--  内容  -->
+            <WrapPanel
+                Grid.Row="1"
+                Margin="0,0,-20,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+                <Grid
+                    Width="300"
+                    Height="280"
+                    Margin="0,0,20,20"
+                    VerticalAlignment="Stretch">
+                    <Border
+                        Background="#FFFFFF"
+                        CornerRadius="10"
+                        Opacity="0.05" />
+                    <GroupBox
+                        Background="Transparent"
+                        Header="异常数据设置"
+                        Style="{StaticResource SimpleGroupBoxStyle1}">
+                        <StackPanel
+                            Margin="20,0,20,20"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Orientation="Vertical">
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="速度判异-走带速度" />
+                                <TextBox
+                                    d:Text="20"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.Rid_VelocityCondition, Mode=TwoWay}" />
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="阈值判异-剔除规格" />
+                                <TextBox
+                                    d:Text="6"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.Rid_Threshold, Mode=TwoWay}" />
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="阈值判异-判异个数" />
+                                <TextBox
+                                    d:Text="2"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.Rid_Count, Mode=TwoWay}" />
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="间隔个数" />
+                                <TextBox
+                                    d:Text="3"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.Rid_Interval, Mode=TwoWay}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+                <Grid
+                    Width="300"
+                    Height="280"
+                    Margin="0,0,20,20"
+                    VerticalAlignment="Stretch">
+                    <Border
+                        Background="#FFFFFF"
+                        CornerRadius="10"
+                        Opacity="0.05" />
+                    <GroupBox
+                        Background="Transparent"
+                        Header="开机判断设置"
+                        Style="{StaticResource SimpleGroupBoxStyle1}">
+                        <StackPanel
+                            Margin="20,0,20,20"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Orientation="Vertical">
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机判定" />
+                                <UniformGrid Columns="2">
+                                    <RadioButton
+                                        x:Name="dataNumber_RB"
+                                        d:IsChecked="True"
+                                        Command="{Binding SelectBootUpTypeCommand}"
+                                        CommandParameter="{x:Static core:EBootUpType.DataNumber}"
+                                        Content="趟数"
+                                        IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=DataNumber}"
+                                        Style="{StaticResource ParamValueRadioButtonStyle}" />
+                                    <RadioButton
+                                        x:Name="time_RB"
+                                        d:IsChecked="False"
+                                        Command="{Binding SelectBootUpTypeCommand}"
+                                        CommandParameter="{x:Static core:EBootUpType.Time}"
+                                        Content="时间"
+                                        IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Time}"
+                                        Style="{StaticResource ParamValueRadioButtonStyle}" />
+                                </UniformGrid>
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                d:Visibility="Visible"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机判定参数(趟数)" />
+                                <TextBox
+                                    d:Text="3"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.BootUp_ZeroCount, Mode=TwoWay}" />
+                                <UniformGrid.Style>
+                                    <Style TargetType="UniformGrid">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ClosedLoopSettingModel.BootUp_EBootUpType}" Value="{x:Static core:EBootUpType.DataNumber}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </UniformGrid.Style>
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                d:Visibility="Visible"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机判定参数(时间s)" />
+                                <TextBox
+                                    d:Text="60"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.BootUp_BootTime, Mode=TwoWay}" />
+                                <UniformGrid.Style>
+                                    <Style TargetType="UniformGrid">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ClosedLoopSettingModel.BootUp_EBootUpType}" Value="{x:Static core:EBootUpType.Time}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </UniformGrid.Style>
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机剔除躺数" />
+                                <TextBox
+                                    d:Text="3"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.BootUp_RidCount, Mode=TwoWay}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+                <Grid
+                    Width="300"
+                    Height="280"
+                    Margin="0,0,20,20"
+                    VerticalAlignment="Stretch">
+                    <Border
+                        Background="#FFFFFF"
+                        CornerRadius="10"
+                        Opacity="0.05" />
+                    <GroupBox
+                        Background="Transparent"
+                        Header="算法信息配置"
+                        Style="{StaticResource SimpleGroupBoxStyle1}">
+                        <StackPanel
+                            Margin="20,0,20,20"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Orientation="Vertical">
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="入参躺数" />
+                                <TextBox
+                                    d:Text="7"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.Arithmetic_InputDataCount, Mode=TwoWay}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+                <Grid
+                    Width="300"
+                    Height="280"
+                    Margin="0,0,20,20"
+                    VerticalAlignment="Stretch">
+                    <Border
+                        Background="#FFFFFF"
+                        CornerRadius="10"
+                        Opacity="0.05" />
+                    <GroupBox
+                        Background="Transparent"
+                        Header="调机下发配置"
+                        Style="{StaticResource SimpleGroupBoxStyle1}">
+                        <StackPanel
+                            Margin="20,0,20,20"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Orientation="Vertical">
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="泵速下发系数" />
+                                <TextBox
+                                    d:Text="1"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.SetB_Coefficient, Mode=TwoWay}" />
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="T块下发系数" />
+                                <TextBox
+                                    d:Text="7"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.SetT_Coefficient, Mode=TwoWay}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+                <Grid
+                    Width="300"
+                    Height="280"
+                    Margin="0,0,20,20"
+                    VerticalAlignment="Stretch">
+                    <Border
+                        Background="#FFFFFF"
+                        CornerRadius="10"
+                        Opacity="0.05" />
+                    <GroupBox
+                        Background="Transparent"
+                        Header="目标值设置"
+                        Style="{StaticResource SimpleGroupBoxStyle1}">
+                        <StackPanel
+                            Margin="20,0,20,20"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Orientation="Vertical">
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="使用动态目标值" />
+                                <ToggleButton
+                                    d:IsChecked="False"
+                                    IsChecked="{Binding ClosedLoopSettingModel.IsUseDynamicTargetValue, Mode=TwoWay}"
+                                    Style="{StaticResource ParamValueToggleButton}" />
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="净重没目标值设置" />
+                                <TextBox
+                                    d:Text="324"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.TChange, Mode=TwoWay}" />
+                            </UniformGrid>
+                            <UniformGrid
+                                MinHeight="30"
+                                Margin="0,20,0,0"
+                                Columns="2">
+                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="目标值偏移量设置" />
+                                <TextBox
+                                    d:Text="0"
+                                    Style="{StaticResource ParamValueTextBoxStyle}"
+                                    Text="{Binding ClosedLoopSettingModel.TOffset, Mode=TwoWay}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+            </WrapPanel>
+
+            <!--  功能按钮  -->
+            <StackPanel
+                Grid.Row="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Background="#FF3DCC84"
+                    Command="{Binding ConfirmCommand}"
+                    Content="确认"
+                    Style="{StaticResource ConfirmButtonStyle}" />
+                <Button
+                    Background="Transparent"
+                    Command="{Binding CancleCommand}"
+                    Content="取消"
+                    Style="{StaticResource CancleButtonStyle}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Border>
+

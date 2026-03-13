@@ -1,5 +1,5 @@
 ﻿using SUNWODA_SEVB.Component.CustomControls;
-using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;

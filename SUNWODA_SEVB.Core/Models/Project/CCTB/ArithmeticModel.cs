@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
@@ -16,16 +17,19 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
         /// <summary>
         /// 请求调用的接口用户Key，由Web组提供
         /// </summary>
+        [JsonIgnore]
         public const string AppKey = "PID_ONE";
 
         /// <summary>
         /// 运行模型类型:PRED或TRAIN
         /// </summary>
+        [JsonIgnore]
         public const string ExecuteType = "PRED";
 
         /// <summary>
         /// 解密公共钥匙
         /// </summary>
+        [JsonIgnore]
         public const string PublicKey = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCAivKVcm+SvCC9nVCx3yd3b0IK1XK3x6+IRoD7szG0Dg76xrW2wW6N0FJ6gLzCDzeJvgba8ZM9H+u59M6+wxKKW1TVqhovGvWLFKwBAEKd04RjRRDb6szYCDakAEruIWMj85tjczJfDhirHej4Q3fdtulOmJqTTUNSdrwHEXZxZQIDAQAB";
 
         /// <summary>
@@ -41,6 +45,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
         /// <summary>
         /// 算法类型
         /// </summary>
+        [JsonIgnore]
         public EArithmeticType ArithmeticType { get; set; }
 
         /// <summary>

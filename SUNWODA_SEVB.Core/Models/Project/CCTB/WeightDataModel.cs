@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
-    public class CCTBWeightDataModel
+    public class WeightDataModel
     {
         [Name("采集时间")]
         public DateTime GatherTime { get; set; }

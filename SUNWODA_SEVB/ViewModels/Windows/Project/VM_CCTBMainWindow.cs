@@ -75,11 +75,11 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             _globalSettingRepository = globalSettingRepository;
         }
 
-        public override void OnInitialize()
+        protected override async Task OnInitializeAsync()
         {
             DeviceSwitchoverCommand = new RelayCommand(() => { });
             ControlSwitchoverCommand = new RelayCommand(() => { });
-            base.OnInitialize();
+            await base.OnInitializeAsync();
         }
 
         public void InitNavigation()

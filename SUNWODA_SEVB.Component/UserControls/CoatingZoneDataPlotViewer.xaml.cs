@@ -181,6 +181,57 @@ namespace SUNWODA_SEVB.Component.UserControls
             }
         }
 
+        public string BackgroundColorHex
+        {
+            get { return (string)GetValue(BackgroundColorHexProperty); }
+            set { SetValue(BackgroundColorHexProperty, value); }
+        }
+
+        public static readonly DependencyProperty BackgroundColorHexProperty =
+            DependencyProperty.Register(
+                "BackgroundColorHex",
+                typeof(string),
+                typeof(CoatingZoneDataPlotViewer),
+                new PropertyMetadata("#FFFFFF", OnBackgroundColorHexChanged)
+            );
+
+        private static void OnBackgroundColorHexChanged(
+            DependencyObject d,
+            DependencyPropertyChangedEventArgs e
+        )
+        {
+            if (d is CoatingZoneDataPlotViewer viewer)
+            {
+                viewer.ShowWeightBar();
+            }
+        }
+
+        public string LabelFontColorHex
+        {
+            get { return (string)GetValue(LabelFontColorHexProperty); }
+            set { SetValue(LabelFontColorHexProperty, value); }
+        }
+
+        public static readonly DependencyProperty LabelFontColorHexProperty =
+            DependencyProperty.Register(
+                "LabelFontColorHex",
+                typeof(string),
+                typeof(CoatingZoneDataPlotViewer),
+                new PropertyMetadata("#000000", OnLabelFontColorHexChanged)
+            );
+
+        private static void OnLabelFontColorHexChanged(
+            DependencyObject d,
+            DependencyPropertyChangedEventArgs e
+        )
+        {
+            if (d is CoatingZoneDataPlotViewer viewer)
+            {
+                viewer.UpdateBar();
+                viewer.ShowWeightBar();
+            }
+        }
+
         // ===== 柱状体生成 =====
         public void UpdateBar()
         {
@@ -215,6 +266,7 @@ namespace SUNWODA_SEVB.Component.UserControls
                             LabelRotation = -45,
                             LabelText = $"{(BaseValue + zone[i]):F2}",
                             LabelFontSize = (float)LabelFontSize,
+                            LabelFontColor = Color.FromHex(LabelFontColorHex),
                         }
                     );
                     pos++;
@@ -366,6 +418,11 @@ namespace SUNWODA_SEVB.Component.UserControls
             plt.Axes.Left.RemoveTickGenerator();
             plt.Axes.Right.IsVisible = false;
             plt.Grid.IsVisible = false;
+
+            plt.FigureBackground = new BackgroundStyle()
+            {
+                Color = Color.FromHex(BackgroundColorHex),
+            };
 
             if (_bars.Count > 0)
                 plt.Add.Bars(_bars);

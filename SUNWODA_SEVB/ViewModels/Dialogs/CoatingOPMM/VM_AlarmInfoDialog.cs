@@ -18,6 +18,8 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CoatingOPMM
         private Timer? _timer;
         private double _countdownTime = 5.0;
         private double _mainFontSize = 30;
+        private Brush _background = new SolidColorBrush(Colors.White);
+        private Brush _foreground = new SolidColorBrush(Colors.Black);
 
         private readonly Brush YellowColor = new SolidColorBrush(Color.FromRgb(255, 184, 51));
         private readonly Brush RedColor = new SolidColorBrush(Color.FromRgb(255, 51, 51));
@@ -69,6 +71,18 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CoatingOPMM
         {
             get => _mainFontSize;
             set => SetProperty(ref _mainFontSize, value);
+        }
+
+        public Brush Background
+        {
+            get => _background;
+            set => SetProperty(ref _background, value);
+        }
+
+        public Brush Foreground
+        {
+            get => _foreground;
+            set => SetProperty(ref _foreground, value);
         }
 
         public bool Result { get; set; }

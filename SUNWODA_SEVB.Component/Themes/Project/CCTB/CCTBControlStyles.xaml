@@ -1,32 +1,39 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:hc="https://handyorg.github.io/handycontrol">
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:hc="https://handyorg.github.io/handycontrol">
 
-    <!--标题栏控制按钮-->
+    <!--  标题栏控制按钮  -->
     <Style x:Key="ControlButtonStyle" TargetType="Button">
-        <Setter Property="MinWidth" Value="10"/>
-        <Setter Property="MinHeight" Value="10"/>
-        <Setter Property="VerticalAlignment" Value="Stretch"/>
-        <Setter Property="HorizontalAlignment" Value="Center"/>
-        <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="HorizontalContentAlignment" Value="Center"/>
-        <Setter Property="Margin" Value="0,0,0,0"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="White"/>
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}"/>
-        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="MinWidth" Value="10" />
+        <Setter Property="MinHeight" Value="10" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,0,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}" />
+        <Setter Property="FontSize" Value="10" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid Background="{TemplateBinding Background}" Margin="{TemplateBinding Margin}"
-                          HorizontalAlignment="{TemplateBinding HorizontalAlignment}" VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                    <Grid
+                        Margin="{TemplateBinding Margin}"
+                        HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                        VerticalAlignment="{TemplateBinding VerticalAlignment}"
+                        Background="{TemplateBinding Background}">
                         <Border x:Name="border">
-                            <ContentPresenter Margin="10,0,10,0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter
+                                Margin="10,0,10,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#33FFFFFF"/>
+                            <Setter TargetName="border" Property="Background" Value="#33FFFFFF" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -34,52 +41,65 @@
         </Setter>
     </Style>
 
-    <!--设备状态开关按钮-->
+    <!--  设备状态开关按钮  -->
     <Style x:Key="DeviceToggleButtonStyle" TargetType="ToggleButton">
-        <Setter Property="Width" Value="60"/>
-        <Setter Property="Height" Value="60"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Foreground" Value="#99FFFFFF"/>
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
-        <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Width" Value="60" />
+        <Setter Property="Height" Value="60" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#99FFFFFF" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}"
-                                Opacity="{TemplateBinding Opacity}" CornerRadius="10">
-                        <UniformGrid Rows="2" Margin="6">
-                            <TextBlock Text="{Binding Path=Content, RelativeSource={RelativeSource TemplatedParent}}" 
-                                       Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}" 
-                                       FontSize="16" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" 
-                                       TextAlignment="Left"/>
-                            <TextBlock x:Name="StatusTB" Foreground="{TemplateBinding Foreground}" 
-                                       FontFamily="{TemplateBinding FontFamily}" FontSize="12" FontWeight="Medium"
-                                       HorizontalAlignment="Left" VerticalAlignment="Center" TextAlignment="Left"/>
+                    <Border
+                        Background="{TemplateBinding Background}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="10"
+                        Opacity="{TemplateBinding Opacity}">
+                        <UniformGrid Margin="6" Rows="2">
+                            <TextBlock
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                FontFamily="{StaticResource CCTB.SourceHanSansCN-Bold}"
+                                FontSize="16"
+                                FontWeight="Bold"
+                                Foreground="{TemplateBinding Foreground}"
+                                Text="{Binding Path=Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                TextAlignment="Left" />
+                            <TextBlock
+                                x:Name="StatusTB"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                FontFamily="{StaticResource CCTB.SourceHanSansCN-Medium}"
+                                FontSize="12"
+                                FontWeight="Medium"
+                                Foreground="{TemplateBinding Foreground}"
+                                TextAlignment="Left" />
                         </UniformGrid>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <!-- 悬停状态 (可选，稍微变亮) -->
+                        <!--  悬停状态 (可选，稍微变亮)  -->
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Opacity" Value="0.9"/>
+                            <Setter Property="Opacity" Value="0.9" />
                         </Trigger>
 
-                        <!-- 选中状态 (IsChecked = True) -->
+                        <!--  选中状态 (IsChecked = True)  -->
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="StatusTB" Property="Text" Value="已连接"/>
-                            <Setter Property="Background" Value="#FF29CC7A"/>
-                            <Setter Property="Foreground" Value="#CCFFFFFF"/>
+                            <Setter TargetName="StatusTB" Property="Text" Value="已连接" />
+                            <Setter Property="Background" Value="#FF29CC7A" />
+                            <Setter Property="Foreground" Value="#CCFFFFFF" />
                         </Trigger>
-                        <!-- 未选中状态 (IsChecked = False) -->
+                        <!--  未选中状态 (IsChecked = False)  -->
                         <Trigger Property="IsChecked" Value="False">
-                            <Setter TargetName="StatusTB" Property="Text" Value="未连接"/>
-                            <Setter Property="Background" Value="#1AFFFFFF"/>
-                            <Setter Property="Foreground" Value="#99FFFFFF"/>
+                            <Setter TargetName="StatusTB" Property="Text" Value="未连接" />
+                            <Setter Property="Background" Value="#1AFFFFFF" />
+                            <Setter Property="Foreground" Value="#99FFFFFF" />
                         </Trigger>
 
-                        <!-- 禁用状态 -->
+                        <!--  禁用状态  -->
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5"/>
+                            <Setter Property="Opacity" Value="0.5" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -87,58 +107,75 @@
         </Setter>
     </Style>
 
-    <!--导航栏单选按钮-->
+    <!--  导航栏单选按钮  -->
     <Style x:Key="NavigationRadioButtonStyle" TargetType="RadioButton">
-        <Setter Property="Width" Value="80"/>
-        <Setter Property="Height" Value="80"/>
-        <Setter Property="Margin" Value="10"/>
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Width" Value="80" />
+        <Setter Property="Height" Value="80" />
+        <Setter Property="Margin" Value="10" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Grid>
-                        <!--背景-->
-                        <Border x:Name="border" CornerRadius="20" BorderThickness="0" Background="{TemplateBinding Background}"/>
+                        <!--  背景  -->
+                        <Border
+                            x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderThickness="0"
+                            CornerRadius="20" />
 
                         <DockPanel Margin="14" LastChildFill="False">
-                            <!--图标-->
-                            <TextBlock DockPanel.Dock="Top" Text="{Binding Path=Tag, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource CCTB.IconFont}" 
-                                               FontSize="30" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <!--文本-->
-                            <TextBlock x:Name="TextTB" DockPanel.Dock="Bottom" Text="{Binding Path=Content, RelativeSource={RelativeSource TemplatedParent}}" 
-                                               FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}"
-                                               FontWeight="{TemplateBinding FontWeight}" FontStretch="{TemplateBinding FontStretch}" 
-                                               FontStyle="{TemplateBinding FontStyle}" Foreground="{TemplateBinding Foreground}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+                            <!--  图标  -->
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                DockPanel.Dock="Top"
+                                FontFamily="{StaticResource CCTB.IconFont}"
+                                FontSize="30"
+                                Foreground="{TemplateBinding Foreground}"
+                                Text="{Binding Path=Tag, RelativeSource={RelativeSource TemplatedParent}}" />
+                            <!--  文本  -->
+                            <TextBlock
+                                x:Name="TextTB"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                DockPanel.Dock="Bottom"
+                                FontFamily="{TemplateBinding FontFamily}"
+                                FontSize="{TemplateBinding FontSize}"
+                                FontStretch="{TemplateBinding FontStretch}"
+                                FontStyle="{TemplateBinding FontStyle}"
+                                FontWeight="{TemplateBinding FontWeight}"
+                                Foreground="{TemplateBinding Foreground}"
+                                Text="{Binding Path=Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                TextAlignment="Center" />
                         </DockPanel>
                     </Grid>
                     <ControlTemplate.Triggers>
-                        <!-- 悬停状态 (可选，稍微变亮) -->
+                        <!--  悬停状态 (可选，稍微变亮)  -->
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Opacity" Value="0.9"/>
+                            <Setter Property="Opacity" Value="0.9" />
                         </Trigger>
 
-                        <!-- 选中状态 (IsChecked = True) -->
+                        <!--  选中状态 (IsChecked = True)  -->
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="TextTB" Property="Opacity" Value="1"/>
-                            <Setter Property="Foreground" Value="#FF29CC7A"/>
-                            <Setter Property="FontWeight" Value="Bold"/>
-                            <Setter Property="Background" Value="#FF29CC7A"/>
-                            <Setter TargetName="border" Property="Opacity" Value="0.1"/>
+                            <Setter TargetName="TextTB" Property="Opacity" Value="1" />
+                            <Setter Property="Foreground" Value="#FF29CC7A" />
+                            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                            <Setter Property="Background" Value="#FF29CC7A" />
+                            <Setter TargetName="border" Property="Opacity" Value="0.1" />
                         </Trigger>
-                        <!-- 未选中状态 (IsChecked = False) -->
+                        <!--  未选中状态 (IsChecked = False)  -->
                         <Trigger Property="IsChecked" Value="False">
-                            <Setter TargetName="TextTB" Property="Opacity" Value="0.8"/>
-                            <Setter Property="Foreground" Value="#CCFFFFFF"/>
-                            <Setter Property="FontWeight" Value="Medium"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                            <Setter TargetName="TextTB" Property="Opacity" Value="0.8" />
+                            <Setter Property="Foreground" Value="#CCFFFFFF" />
+                            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter TargetName="border" Property="Opacity" Value="0.5" />
                         </Trigger>
 
-                        <!-- 禁用状态 -->
+                        <!--  禁用状态  -->
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5"/>
+                            <Setter Property="Opacity" Value="0.5" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -146,41 +183,46 @@
         </Setter>
     </Style>
 
-    <!--监控界面单选按钮-->
+    <!--  监控界面单选按钮  -->
     <Style x:Key="MenuRadioButtonStyle" TargetType="RadioButton">
-        <Setter Property="Margin" Value="50,0,0,0"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="FontSize" Value="20"/>
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
+        <Setter Property="Margin" Value="50,0,0,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontSize" Value="20" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Grid VerticalAlignment="Stretch">
-                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <Border Name="border" DockPanel.Dock="Bottom" Width="30" Height="5" CornerRadius="2" VerticalAlignment="Bottom"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border
+                            Name="border"
+                            Width="30"
+                            Height="5"
+                            VerticalAlignment="Bottom"
+                            CornerRadius="2"
+                            DockPanel.Dock="Bottom" />
                     </Grid>
                     <ControlTemplate.Triggers>
-                        <!-- 悬停状态 (可选，稍微变亮) -->
+                        <!--  悬停状态 (可选，稍微变亮)  -->
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Opacity" Value="0.9"/>
+                            <Setter Property="Opacity" Value="0.9" />
                         </Trigger>
 
-                        <!-- 选中状态 (IsChecked = True) -->
+                        <!--  选中状态 (IsChecked = True)  -->
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter Property="Foreground" Value="#CCFFFFFF"/>
-                            <Setter Property="FontWeight" Value="Bold"/>
-                            <Setter TargetName="border" Property="Background" Value="#FF29CC7A"/>
+                            <Setter Property="Foreground" Value="#CCFFFFFF" />
+                            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                            <Setter TargetName="border" Property="Background" Value="#FF29CC7A" />
                         </Trigger>
-                        <!-- 未选中状态 (IsChecked = False) -->
+                        <!--  未选中状态 (IsChecked = False)  -->
                         <Trigger Property="IsChecked" Value="False">
-                            <Setter Property="Foreground" Value="#99FFFFFF"/>
-                            <Setter Property="FontWeight" Value="Medium"/>
-                            <Setter TargetName="border" Property="Background" Value="Transparent"/>
+                            <Setter Property="Foreground" Value="#99FFFFFF" />
+                            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                            <Setter TargetName="border" Property="Background" Value="Transparent" />
                         </Trigger>
 
-                        <!-- 禁用状态 -->
+                        <!--  禁用状态  -->
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5"/>
+                            <Setter Property="Opacity" Value="0.5" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -188,32 +230,34 @@
         </Setter>
     </Style>
 
-    <!--监控界面功能按钮-->
+    <!--  监控界面功能按钮  -->
     <Style x:Key="ClickButtonStyle" TargetType="Button">
-        <Setter Property="Width" Value="80"/>
-        <Setter Property="Height" Value="30"/>
-        <Setter Property="Margin" Value="20,0,0,0"/>
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
-        <Setter Property="FontSize" Value="14"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="#CCFFFFFF"/>
-        <Setter Property="Background" Value="#FF29CC7A"/>
+        <Setter Property="Width" Value="80" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Margin" Value="20,0,0,0" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="Background" Value="#FF29CC7A" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Grid>
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5" Opacity="0.87"/>
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="5"
+                            Opacity="0.87" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
                     <ControlTemplate.Triggers>
-                        <!-- 悬停状态 (可选，稍微变亮) -->
+                        <!--  悬停状态 (可选，稍微变亮)  -->
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Opacity" Value="0.9"/>
+                            <Setter Property="Opacity" Value="0.9" />
                         </Trigger>
 
-                        <!-- 禁用状态 -->
+                        <!--  禁用状态  -->
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5"/>
+                            <Setter Property="Opacity" Value="0.5" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -221,35 +265,100 @@
         </Setter>
     </Style>
 
-    <!--GroupBox容器的简单样式-->
+    <!--#region GroupBox容器-->
+    <!--  GroupBox容器的简单样式  -->
     <Style x:Key="SimpleGroupBoxStyle" TargetType="GroupBox">
-        <Setter Property="Background" Value="#0DFFFFFF"/>
-        <Setter Property="Foreground" Value="#CCFFFFFF"/>
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}"/>
-        <Setter Property="FontSize" Value="20"/>
-        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Background" Value="#0DFFFFFF" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+        <Setter Property="FontSize" Value="20" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="GroupBox">
-                    <Border CornerRadius="10" Background="{TemplateBinding Background}">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="10">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-                            <!--Header-->
-                            <StackPanel Grid.Row="0" Margin="20,20,20,0" Orientation="Horizontal" VerticalAlignment="Stretch">
-                                <Border Width="5" Height="20" CornerRadius="3" Background="#FF29CC7A" VerticalAlignment="Top"/>
-                                <TextBlock Margin="10,0,0,0" Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" HorizontalAlignment="Left" VerticalAlignment="Center" TextAlignment="Left"
-                                                   FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}"/>
+                            <!--  Header  -->
+                            <StackPanel
+                                Grid.Row="0"
+                                Margin="20,20,20,0"
+                                VerticalAlignment="Stretch"
+                                Orientation="Horizontal">
+                                <Border
+                                    Width="5"
+                                    Height="20"
+                                    VerticalAlignment="Top"
+                                    Background="#FF29CC7A"
+                                    CornerRadius="3" />
+                                <TextBlock
+                                    Margin="10,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    FontFamily="{TemplateBinding FontFamily}"
+                                    FontSize="{TemplateBinding FontSize}"
+                                    FontWeight="{TemplateBinding FontWeight}"
+                                    Foreground="{TemplateBinding Foreground}"
+                                    Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}"
+                                    TextAlignment="Left" />
                             </StackPanel>
 
-                            <!--内容-->
-                            <ContentPresenter Grid.Row="1"/>
+                            <!--  内容  -->
+                            <ContentPresenter Grid.Row="1" />
                         </Grid>
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!--  GroupBox容器的简单样式  -->
+    <Style x:Key="SimpleGroupBoxStyle1" TargetType="GroupBox">
+        <Setter Property="Background" Value="#0DFFFFFF" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GroupBox">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <!--  Header  -->
+                            <StackPanel
+                                Grid.Row="0"
+                                Margin="20,20,20,0"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Top"
+                                Orientation="Vertical">
+                                <TextBlock
+                                    Margin="0,0,0,20"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    FontFamily="{TemplateBinding FontFamily}"
+                                    FontSize="{TemplateBinding FontSize}"
+                                    Foreground="{TemplateBinding Foreground}"
+                                    Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}"
+                                    TextAlignment="Left" />
+                                <Rectangle
+                                    Height="1"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Bottom"
+                                    Stroke="#61FFFFFF" />
+                            </StackPanel>
+
+                            <!--  内容  -->
+                            <ContentPresenter Grid.Row="1" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!--#endregion-->
 </ResourceDictionary>

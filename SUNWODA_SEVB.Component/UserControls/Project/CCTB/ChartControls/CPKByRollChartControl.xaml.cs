@@ -1,4 +1,7 @@
-﻿using SUNWODA_SEVB.Core.Models.Project.CCTB;
+﻿using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -26,31 +29,27 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         public CPKByRollChartControl()
         {
             InitializeComponent();
+
+            InitializeAxisAndSubLine();
         }
 
         public const double CPK2_00 = 2.00;
         public const double CPK1_67 = 1.67;
         public const double CPK1_33 = 1.33;
 
-        private void UserControl_Loaded(object sender, RoutedEventArgs e)
-        {
-            XAxisPainter.RotationAngle = 350;
-            XAxisPainter.Update("1", "2", "3", "4", "5", "6", "7", "8", "9", "膜卷号");
-            YAxisPainter.RotationAngle = 0;
-            YAxisPainter.Update(0, 4, 0.5);
+        private const double yStep = 0.5;
 
-            (double yMin, double yMax) = RefreshYAxis(0, 0);
-            var yRange = yMax - yMin;
-
-            RefreshCPKDashLine(ref cpkDashLine0, CPK2_00, yMin, yRange, 0.9);
-            RefreshCPKDashLine(ref cpkDashLine1, CPK1_67, yMin, yRange, 0.6);
-            RefreshCPKDashLine(ref cpkDashLine2, CPK1_33, yMin, yRange, 0.3);
-        }
-
+        #region 事件
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ChartGrid_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             DrawChart();
         }
+        #endregion
 
         #region YMin
         public double YMin
@@ -100,94 +99,97 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         }
         #endregion
 
-        #region YStep
-        public double YStep
+        #region ItemsSource
+        public IEnumerable<CPKByRollModel> ItemsSource
         {
-            get { return (double)GetValue(YStepProperty); }
-            set { SetValue(YStepProperty, value); }
+            get { return (IEnumerable<CPKByRollModel>)GetValue(ItemsSourceProperty); }
+            set { SetValue(ItemsSourceProperty, value); }
         }
 
-        public static readonly DependencyProperty YStepProperty = DependencyProperty.Register(
-            "YStep",
-            typeof(double),
+        public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
+            nameof(ItemsSource),
+            typeof(IEnumerable<CPKByRollModel>),
             typeof(CPKByRollChartControl),
-            new PropertyMetadata(0.5d, new PropertyChangedCallback(OnYStepChanged))
+            new PropertyMetadata(null, new PropertyChangedCallback(OnItemsSourceChanged))
         );
 
-        private static void OnYStepChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as CPKByRollChartControl;
-            if (uc != null)
-            {
-                uc.DrawChart();
-            }
-        }
-        #endregion
-
-        #region ItemSource
-        public IEnumerable<CCTBCPKModel> ItemSource
-        {
-            get { return (IEnumerable<CCTBCPKModel>)GetValue(ItemSourceProperty); }
-            set { SetValue(ItemSourceProperty, value); }
-        }
-
-        public static readonly DependencyProperty ItemSourceProperty = DependencyProperty.Register(
-            "ItemSource",
-            typeof(IEnumerable<CCTBCPKModel>),
-            typeof(CPKByRollChartControl),
-            new PropertyMetadata(null, new PropertyChangedCallback(OnItemSourceChanged))
-        );
-
-        private static void OnItemSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            var uc = d as CPKByRollChartControl;
-            if (uc != null && uc.ItemSource != null)
+            if (uc != null && uc.ItemsSource != null)
             {
                 // A. 防止内存泄漏：取消订阅旧集合的事件
                 if (e.OldValue is INotifyCollectionChanged oldCollection)
                 {
-                    oldCollection.CollectionChanged -= uc.OnCollectionChanged;
+                    oldCollection.CollectionChanged -= uc.OnItemsSourcePropertyChanged;
                 }
 
                 // B. 订阅新集合的事件
                 if (e.NewValue is INotifyCollectionChanged newCollection)
                 {
-                    newCollection.CollectionChanged += uc.OnCollectionChanged;
+                    newCollection.CollectionChanged += uc.OnItemsSourcePropertyChanged;
                 }
 
                 // C. 数据源变了，立即重绘一次
                 uc.DrawChart();
             }
         }
-        #endregion
 
-        private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnItemsSourcePropertyChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             // 当数据增加、删除、重置时，重新绘制
             DrawChart();
         }
+        #endregion
 
-        Line? cpkDashLine0;
-        Line? cpkDashLine1;
-        Line? cpkDashLine2;
-        List<Path>? cpkBarGraphs;
-        private void DrawChart()
+        Line subLine0 = new(), subLine1 = new(), subLine2 = new();
+        List<Path> barGraphs = [];
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void InitializeAxisAndSubLine()
         {
-            if (ItemSource == null || ItemSource.Count() <= 0) return;
+            XAxisPainter.RotationAngle = 350;
+            XAxisPainter.Update("1", "2", "3", "4", "5", "6", "7", "8", "9", "膜卷号");
+            YAxisPainter.RotationAngle = 0;
+            YAxisPainter.Update(0, 4, yStep);
 
-            var datas = ItemSource.Select(o => o.CPKValue ?? 0).ToList();
-            var min = datas.Min();
-            var max = datas.Max();
-
-            var xLabels = ItemSource.Select(o => o.CPKLabel ?? "").ToList();
-            RefreshXAxis(xLabels);
-            (double yMin, double yMax) = RefreshYAxis(min, max);
+            (double yMin, double yMax) = RefreshYAxis();
             var yRange = yMax - yMin;
 
-            RefreshCPKDashLine(ref cpkDashLine0, CPK2_00, yMin, yRange, 0.9);
-            RefreshCPKDashLine(ref cpkDashLine1, CPK1_67, yMin, yRange, 0.6);
-            RefreshCPKDashLine(ref cpkDashLine2, CPK1_33, yMin, yRange, 0.3);
-            RefreshCPKBarGraph(datas, yMin, yRange);
+            RefreshSubLine(ref subLine0, CPK2_00, yMin, yRange, 0.9);
+            RefreshSubLine(ref subLine1, CPK1_67, yMin, yRange, 0.6);
+            RefreshSubLine(ref subLine2, CPK1_33, yMin, yRange, 0.3);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void DrawChart()
+        {
+            if (ItemsSource == null || ItemsSource.Count() <= 0)
+            {
+                InitializeAxisAndSubLine();
+                return;
+            }
+
+            var datas = ItemsSource.Select(o => o.CPKValue).ToList();
+
+            var xLabels = ItemsSource.Select(o => o.DisplayName ?? "").ToList();
+            RefreshXAxis(xLabels);
+            (double yMin, double yMax) = RefreshYAxis(datas.ToArray());
+            var yRange = yMax - yMin;
+
+            RefreshSubLine(ref subLine0, CPK2_00, yMin, yRange, 0.9);
+            RefreshSubLine(ref subLine1, CPK1_67, yMin, yRange, 0.6);
+            RefreshSubLine(ref subLine2, CPK1_33, yMin, yRange, 0.3);
+            RefreshBarGraph(datas, yMin, yRange);
         }
 
         private void RefreshXAxis(List<string> labels)
@@ -199,31 +201,27 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             XAxisPainter.Update(labels.ToArray());
         }
 
-        private (double yMin, double yMax) RefreshYAxis(double vMin, double vMax)
+        private (double yMin, double yMax) RefreshYAxis(params double[] values)
         {
+            var vMin = values?.Length > 0 ? values.Min() : 0;
+            var vMax = values?.Length > 0 ? values.Max() : 0;
             var range = vMax - vMin;
             double yMin = vMin - range / 5, yMax = vMax + range / 5;
             if (YMax > YMin)
             {
-                // 找中线
-                var yMiddle = (YMax - YMin) / 2;
-                // 中线上范围
-                var halfRangeTop = Math.Max(YMax, yMax) - yMiddle;
-                // 中线下范围
-                var halfRangeButtom = yMiddle - Math.Min(YMin, yMin);
-                // 最大半范围
-                var halfRangeMax = Math.Max(halfRangeTop, halfRangeButtom);
-                yMin = yMiddle - halfRangeMax * 1.2;
-                yMax = yMiddle + halfRangeMax * 1.2;
+                yMin = YMin; yMax = YMax;
+                if (values?.Length > 0)
+                {
+                    while (yMin > vMin) yMin -= yStep;
+                    while (yMax <= vMax) yMax += yStep;
+                }
             }
 
             var yRange = yMax - yMin;
-            var yLabelCount = (int)(yRange / YStep);
             var yLabels = new List<string>();
-            var yStep = (YStep > 0 && yLabelCount > 2 && yLabelCount < 9) ? YStep : yRange / 8;
-            for (var i = yMin; i < yMax; i += yStep)
+            for (var i = yMin; i <= yMax; i += yStep)
             {
-                yLabels.Add(i.ToString("F2"));
+                yLabels.Add(i.ToString("F1"));
             }
 
             YAxisPainter.RotationAngle = 0;
@@ -231,41 +229,55 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             return (yMin, yMax);
         }
 
-        private Style? cpkDashLineStyle;
-        private void RefreshCPKDashLine(ref Line? dashLine, double yValue, double yMin, double yRange, double opacity)
+        #region 虚线
+        private Style? subLineStyle;
+        private void RefreshSubLine(ref Line subLine, double yValue, double yMin, double yRange, double opacity)
         {
-            if (cpkDashLineStyle == null) cpkDashLineStyle = this.Resources["CPKDashLineStyle"] as Style;
-            if (dashLine == null) dashLine = new Line() { Style = cpkDashLineStyle, Opacity = opacity };
+            if (subLineStyle == null) subLineStyle = this.Resources["SubLineStyle"] as Style;
+            subLine.Style = subLineStyle;
+            subLine.Opacity = opacity;
+            Panel.SetZIndex(subLine, 1);
 
             var w = ChartGrid.ActualWidth;
             var h = ChartGrid.ActualHeight;
 
             if (yRange == 0) yRange = 1;
-            var y = Normalize(yValue, yMin, yRange, h);
-            dashLine.X1 = 0;
-            dashLine.Y1 = y;
-            dashLine.X2 = w;
-            dashLine.Y2 = y;
+            var y = GraphicHelper.Normalize(yValue, yMin, yRange, h);
+            subLine.X1 = 0;
+            subLine.Y1 = y;
+            subLine.X2 = w;
+            subLine.Y2 = y;
 
-            if (!ChartGrid.Children.Contains(dashLine) && dashLine != null)
+            if (!ChartGrid.Children.Contains(subLine) && subLine != null)
             {
-                ChartGrid.Children.Add(dashLine);
+                ChartGrid.Children.Add(subLine);
             }
         }
+        #endregion
 
-        private Style? cpkBarGraphStyle;
-        private Style? cpkToolTipStyle;
-        private void RefreshCPKBarGraph(List<double> datas, double yMin, double yRange)
+        #region 柱状图
+        private Style? barGraphStyle;
+        private Style? chartToolTipStyle;
+        private void RefreshBarGraph(List<double> datas, double yMin, double yRange)
         {
-            if (cpkBarGraphs == null) cpkBarGraphs = new List<Path>();
-            if (cpkBarGraphStyle == null) cpkBarGraphStyle = this.Resources["CPKBarGraphPathStyle"] as Style;
-            if (cpkToolTipStyle == null) cpkToolTipStyle = this.Resources["CPKToolTipStyle"] as Style;
-            while (cpkBarGraphs.Count < datas.Count)
+            if (barGraphStyle == null) barGraphStyle = this.Resources["BarGraphPathStyle"] as Style;
+            if (chartToolTipStyle == null) chartToolTipStyle = this.Resources["ChartToolTipStyle"] as Style;
+
+            while (barGraphs.Count > datas.Count)
             {
-                var p = new Path() { Style = cpkBarGraphStyle };
-                p.ToolTip = new ToolTip { Style = cpkToolTipStyle };
-                cpkBarGraphs.Add(p);
+                var p = barGraphs[barGraphs.Count - 1];
+                if (ChartGrid.Children.Contains(p)) ChartGrid.Children.Remove(p);
+                barGraphs.Remove(p);
             }
+            while (barGraphs.Count < datas.Count)
+            {
+                var p = new Path { Style = barGraphStyle };
+                Panel.SetZIndex(p, 10);
+                p.ToolTip = new ToolTip { Style = chartToolTipStyle };
+                barGraphs.Add(p);
+                ChartGrid.Children.Add(p);
+            }
+
             var w = ChartGrid.ActualWidth;
             var h = ChartGrid.ActualHeight;
 
@@ -274,78 +286,17 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             for (int i = 0; i < datas.Count; i++)
             {
                 var x = (i + 1) * stepX;
-                var y = Normalize(datas[i], yMin, yRange, h);
+                var y = GraphicHelper.Normalize(datas[i], yMin, yRange, h);
                 var pointLB = new Point(x - 10, h);
                 var pointLT = new Point(x - 10, y);
                 var pointRT = new Point(x + 10, y);
                 var pointRB = new Point(x + 10, h);
-                var geometry = CreatStreamGeometry(pointLB, pointLT, pointRT, pointRB);
-                cpkBarGraphs[i].Data = geometry;
-                var toolTip = cpkBarGraphs[i].ToolTip as ToolTip;
+                var geometry = GraphicHelper.CreatStreamGeometryWithCorner(pointLB, pointLT, pointRT, pointRB);
+                barGraphs[i].Data = geometry;
+                var toolTip = barGraphs[i].ToolTip as ToolTip;
                 toolTip!.Content = datas[i].ToString();
-                //toolTip!.HorizontalOffset = x - toolTip!.ActualWidth / 2;
-                //toolTip!.VerticalOffset = y - 5;
-            }
-
-            for (int i = 0; i < cpkBarGraphs.Count; i++)
-            {
-                if (i < datas.Count)
-                {
-                    if (!ChartGrid.Children.Contains(cpkBarGraphs[i]) && cpkBarGraphs[i] != null)
-                    {
-                        ChartGrid.Children.Add(cpkBarGraphs[i]);
-                    }
-                    continue;
-                }
-                if (ChartGrid.Children.Contains(cpkBarGraphs[i]))
-                {
-                    ChartGrid.Children.Remove(cpkBarGraphs[i]);
-                }
             }
         }
-
-        private StreamGeometry CreatStreamGeometry(Point pointLB, Point pointLT, Point pointRT, Point pointRB)
-        {
-            var r = 5.0; // 圆角半径
-            var geometry = new StreamGeometry();
-            using (var ctx = geometry.Open())
-            {
-                // 起点 左下角
-                ctx.BeginFigure(pointLB, true, true);
-
-                // 左上圆角
-                var arcStartPointLT = new Point(pointLT.X, pointLT.Y + r);
-                var arcEndPointLT = new Point(pointLT.X + r, pointLT.Y);
-                ctx.LineTo(arcStartPointLT, true, true);
-                ctx.ArcTo(arcEndPointLT, new Size(r, r), 0, false, SweepDirection.Clockwise, true, true);
-
-                // 右上圆角
-                var arcStartPointLRT = new Point(pointRT.X - r, pointRT.Y);
-                var arcEndPointRT = new Point(pointRT.X, pointRT.Y + r);
-                ctx.LineTo(arcStartPointLRT, true, true);
-                ctx.ArcTo(arcEndPointRT, new Size(r, r), 0, false, SweepDirection.Clockwise, true, true);
-
-                // 右下角
-                ctx.LineTo(pointRB, true, true);
-                // 终点 左下角
-                ctx.LineTo(pointLB, true, true);
-            }
-            geometry.Freeze();
-            return geometry;
-        }
-
-        /// <summary>
-        /// 坐标转换辅助方法：将数值转换为屏幕 Y 坐标
-        /// </summary>
-        /// <param name="yValue"></param>
-        /// <param name="yMin"></param>
-        /// <param name="yRange"></param>
-        /// <param name="height"></param>
-        /// <returns></returns>
-        private double Normalize(double yValue, double yMin, double yRange, double height)
-        {
-            // 数值越大，Y坐标越小（因为屏幕坐标系原点在左上角）
-            return height - ((yValue - yMin) / yRange * height);
-        }
+        #endregion
     }
 }

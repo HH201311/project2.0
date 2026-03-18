@@ -125,9 +125,9 @@ namespace SUNWODA_SEVB.Data.Repositories
                     totalDeleted += deletedCount;
 
                     // 设置一个上限，防止意外的无限循环
-                    if (totalDeleted > 100000)
+                    if (totalDeleted > 1000000)
                     {
-                        _logger.Warn("按大小删除日志操作已删除超过10万条记录，已自动中止。");
+                        _logger.Warn("按大小删除日志操作已删除超过100万条记录，已自动中止。");
                         break;
                     }
 

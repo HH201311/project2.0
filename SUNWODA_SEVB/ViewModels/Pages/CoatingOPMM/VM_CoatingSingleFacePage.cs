@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Windows.Media;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Models;
@@ -16,6 +17,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         private double mainFontSize = 16;
         private double littleTitleFontSize = 18;
         private double parameterVerticalSpacing = 80;
+        private Brush pageForeground = new SolidColorBrush(Colors.Black);
+        private string plotBackgroundColorHex = "#FFFFFF";
+        private string plotLabelFontColorHex = "#000000";
 
         public double MainFontSize
         {
@@ -33,6 +37,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CoatingOPMM
         {
             get => parameterVerticalSpacing;
             set => SetProperty(ref parameterVerticalSpacing, value);
+        }
+
+        public Brush PageForeground
+        {
+            get => pageForeground;
+            set => SetProperty(ref pageForeground, value);
+        }
+
+        public string PlotBackgroundColorHex
+        {
+            get => plotBackgroundColorHex;
+            set => SetProperty(ref plotBackgroundColorHex, value);
+        }
+
+        public string PlotLabelFontColorHex
+        {
+            get => plotLabelFontColorHex;
+            set => SetProperty(ref plotLabelFontColorHex, value);
         }
 
         public string? Title

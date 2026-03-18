@@ -1,9 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
-using HslCommunication;
+﻿using HslCommunication;
 using HslCommunication.Core;
 using HslCommunication.Core.Device;
 using HslCommunication.ModBus;
@@ -13,6 +8,7 @@ using HslCommunication.Profinet.Melsec;
 using HslCommunication.Profinet.Omron;
 using HslCommunication.Profinet.Panasonic;
 using HslCommunication.Profinet.Siemens;
+using Org.BouncyCastle.Utilities;
 using SUNWODA_SEVB.Core.Enumerations.PLC;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
@@ -20,6 +16,11 @@ using SUNWODA_SEVB.Core.Interfaces.PLC;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.PLC;
 using SUNWODA_SEVB.Tool.Extension;
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SUNWODA_SEVB.PLC
 {
@@ -45,6 +46,7 @@ namespace SUNWODA_SEVB.PLC
 
         // 编译正则表达式以提高性能
         private static readonly Regex AddressNumberRegex = new(@"[^\d.\d]", RegexOptions.Compiled);
+        private static readonly Regex AddressArrayNumberRegex = new(@"^.*\[(\d+)\]$", RegexOptions.Compiled);
         private static readonly Regex NumericRegex = new(
             @"^[+-]?\d*[.]?\d*$",
             RegexOptions.Compiled
@@ -170,22 +172,43 @@ namespace SUNWODA_SEVB.PLC
                     {
                         if (_rwConfigs.TryGetValue(addressConfig.PLCRWID, out var rwConfig))
                         {
-                            var rwAddress = new PLCRWAddress(
-                                addressConfig.ID,
-                                addressConfig.PLCID,
-                                addressConfig.PLCRWID,
-                                addressConfig.CategoryID,
-                                addressConfig.ParameterName,
-                                addressConfig.Type,
-                                addressConfig.Length,
-                                addressConfig.Address,
-                                addressConfig.Unit,
-                                addressConfig.Remark,
-                                GetAddressNumber(addressConfig.Address)
-                                    - rwConfig.StartAddress.ToInt(),
-                                GetAddressBitNumber(addressConfig.Address)
-                            );
-                            _rwAddresses[addressConfig.ID] = rwAddress;
+                            if (!plcConfig.BrandSpecificationProtocal.Contains("CIP"))
+                            {
+                                var rwAddress = new PLCRWAddress(
+                                    addressConfig.ID,
+                                    addressConfig.PLCID,
+                                    addressConfig.PLCRWID,
+                                    addressConfig.CategoryID,
+                                    addressConfig.ParameterName,
+                                    addressConfig.Type,
+                                    addressConfig.Length,
+                                    addressConfig.Address,
+                                    addressConfig.Unit,
+                                    addressConfig.Remark,
+                                    GetAddressNumber(addressConfig.Address)
+                                        - rwConfig.StartAddress.ToInt(),
+                                    GetAddressBitNumber(addressConfig.Address)
+                                );
+                                _rwAddresses[addressConfig.ID] = rwAddress;
+                            }
+                            else
+                            {
+                                var rwAddress = new PLCRWAddress(
+                                    addressConfig.ID,
+                                    addressConfig.PLCID,
+                                    addressConfig.PLCRWID,
+                                    addressConfig.CategoryID,
+                                    addressConfig.ParameterName,
+                                    addressConfig.Type,
+                                    addressConfig.Length,
+                                    addressConfig.Address,
+                                    addressConfig.Unit,
+                                    addressConfig.Remark,
+                                    (GetArrayAddressNumber(addressConfig.Address)
+                                        - rwConfig.StartAddress.ToInt()) * plc.AddressWordLength
+                                );
+                                _rwAddresses[addressConfig.ID] = rwAddress;
+                            }
                         }
                     }
 
@@ -225,6 +248,15 @@ namespace SUNWODA_SEVB.PLC
             return plc;
         }
 
+        public dynamic? GetPLCByName(string name)
+        {
+            if (PLCs != null && PLCs.Values.Any(o => o.Name == name))
+            {
+                return PLCs.Values.First(o => o.Name == name);
+            }
+            return default(PLC);
+        }
+
         /// <summary>
         /// 配置设备连接
         /// </summary>
@@ -259,6 +291,7 @@ namespace SUNWODA_SEVB.PLC
                     SiemensPLCS.S200Smart
                 ),
                 PLCBrandSpecificationProtocal.Omron_Fins_TCP => ConfigureOmron(plc),
+                PLCBrandSpecificationProtocal.Omron_Connected_CIP => ConfigureOmron(plc),
                 PLCBrandSpecificationProtocal.Melsec_MC_Binary => ConfigureMelsec(plc),
                 PLCBrandSpecificationProtocal.Melsec_MC_Ascii => ConfigureMelsec(plc),
                 PLCBrandSpecificationProtocal.Melsec_A1E_Binary => ConfigureMelsec(plc),
@@ -468,7 +501,19 @@ namespace SUNWODA_SEVB.PLC
             CancellationToken cancellationToken
         )
         {
-            var address = $"{rwConfig.AreaName}{rwConfig.StartAddress}";
+            string address = "";
+            if (rwConfig.AddressType == 0) // 标签地址
+            {
+                address = $"{rwConfig.AreaName}";
+            }
+            else if (rwConfig.AddressType == 1) // 地址块
+            {
+                address = $"{rwConfig.AreaName}{rwConfig.StartAddress}";
+            }
+            else // 默认
+            {
+                address = $"{rwConfig.AreaName}{rwConfig.StartAddress}";
+            }
             //var result = await Task.Run(
             //    () => plc.Device?.Read(address, (ushort)rwConfig.Length),
             //    cancellationToken
@@ -547,7 +592,14 @@ namespace SUNWODA_SEVB.PLC
                 {
                     try
                     {
-                        address.MonitorValue = ConvertValue(
+                        if (rwConfig.AddressType == 0 && address.Type?.ToUpperInvariant() == "STRING")
+                        {
+                            ushort len = BitConverter.ToUInt16(data, 0);
+                            address.MonitorValue = Encoding.UTF8.GetString(data, 2, len);
+                        }
+                        else
+                        {
+                            address.MonitorValue = ConvertValue(
                             data,
                             address.Type,
                             plc.ByteTransform,
@@ -556,6 +608,8 @@ namespace SUNWODA_SEVB.PLC
                             address.BitIndex,
                             address.Length
                         );
+                        }
+                        
                     }
                     catch (Exception ex)
                     {
@@ -755,8 +809,8 @@ namespace SUNWODA_SEVB.PLC
             return type switch
             {
                 "STRING" => length == 1
-                    ? byteTransform.TransString(bytes, offset, length, Encoding.ASCII)[0]
-                    : byteTransform.TransString(bytes, offset, length, Encoding.ASCII),
+                    ? byteTransform.TransString(bytes, offset, length, Encoding.UTF8)[0]
+                    : byteTransform.TransString(bytes, offset, length, Encoding.UTF8),
                 "FLOAT" => length == 1
                     ? byteTransform.TransSingle(bytes, offset, length)[0]
                     : byteTransform.TransSingle(bytes, offset, length),
@@ -835,6 +889,26 @@ namespace SUNWODA_SEVB.PLC
             return 0;
         }
 
+        private static int GetArrayAddressNumber(string source)
+        {
+            if (string.IsNullOrWhiteSpace(source))
+                return 0;
+
+            var match = AddressArrayNumberRegex.Match(source);
+
+            if (match.Success)
+            {
+                string number = match.Groups[1].Value;  // 获取数字部分
+
+                if (number != null && decimal.TryParse(number, out var value))
+                {
+                    return (int)Math.Floor(value);
+                }
+            }
+
+            return 0;
+        }
+
         private static int GetAddressBitNumber(string source)
         {
             string[] result = source.Split('.');
@@ -857,6 +931,7 @@ namespace SUNWODA_SEVB.PLC
                 "SIEMENS_S7NETS1200" => PLCBrandSpecificationProtocal.Siemens_S7NetS1200,
                 "SIEMENS_S7NETS1500" => PLCBrandSpecificationProtocal.Siemens_S7NetS1500,
                 "OMRON_FINS_TCP" => PLCBrandSpecificationProtocal.Omron_Fins_TCP,
+                "OMRON_CONNECTED_CIP" => PLCBrandSpecificationProtocal.Omron_Connected_CIP,
                 "MELSEC_MC_BINARY" => PLCBrandSpecificationProtocal.Melsec_MC_Binary,
                 "MELSEC_MC_ASCII" => PLCBrandSpecificationProtocal.Melsec_MC_Ascii,
                 "MELSEC_A1E_BINARY" => PLCBrandSpecificationProtocal.Melsec_A1E_Binary,
@@ -902,14 +977,32 @@ namespace SUNWODA_SEVB.PLC
             return siemens;
         }
 
-        private static DeviceTcpNet ConfigureOmron(PLC plc)
+        private static DeviceTcpNet? ConfigureOmron(PLC plc)
         {
-            var omron = new OmronFinsNet(plc.IP, plc.Port);
-            if (plc.ByteDataFormat is not null)
-                omron.ByteTransform.DataFormat = (DataFormat)plc.ByteDataFormat;
-            plc.ByteTransform = omron.ByteTransform;
-            plc.AddressWordLength = 2;
-            return omron;
+            switch (plc.BrandSpecificationProtocal)
+            {
+                case PLCBrandSpecificationProtocal.Omron_Fins_TCP:
+                    {
+                        var omron = new OmronFinsNet(plc.IP, plc.Port);
+                        if (plc.ByteDataFormat is not null)
+                            omron.ByteTransform.DataFormat = (DataFormat)plc.ByteDataFormat;
+                        plc.ByteTransform = omron.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return omron;
+                    }
+                case PLCBrandSpecificationProtocal.Omron_Connected_CIP:
+                    {
+                        var omron = new OmronConnectedCipNet(plc.IP, plc.Port);
+                        if (plc.ByteDataFormat is not null)
+                            omron.ByteTransform.DataFormat = (DataFormat)plc.ByteDataFormat;
+                        plc.ByteTransform = omron.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return omron;
+                    }
+                default:
+                    return default;
+            }
+            
         }
 
         private static DeviceTcpNet? ConfigureMelsec(PLC plc)
@@ -917,31 +1010,31 @@ namespace SUNWODA_SEVB.PLC
             switch (plc.BrandSpecificationProtocal)
             {
                 case PLCBrandSpecificationProtocal.Melsec_MC_Binary:
-                {
-                    var melsec = new MelsecMcNet(plc.IP, plc.Port);
-                    //melsec.ByteTransform.IsStringReverseByteWord = false;
-                    plc.ByteTransform = melsec.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return melsec;
-                }
-                case PLCBrandSpecificationProtocal.Melsec_MC_Ascii:
-                {
-                    var melsec = new MelsecMcAsciiNet(plc.IP, plc.Port)
                     {
-                        ByteTransform = { IsStringReverseByteWord = true },
-                    };
-                    plc.ByteTransform = melsec.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return melsec;
-                }
+                        var melsec = new MelsecMcNet(plc.IP, plc.Port);
+                        //melsec.ByteTransform.IsStringReverseByteWord = false;
+                        plc.ByteTransform = melsec.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return melsec;
+                    }
+                case PLCBrandSpecificationProtocal.Melsec_MC_Ascii:
+                    {
+                        var melsec = new MelsecMcAsciiNet(plc.IP, plc.Port)
+                        {
+                            ByteTransform = { IsStringReverseByteWord = true },
+                        };
+                        plc.ByteTransform = melsec.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return melsec;
+                    }
                 case PLCBrandSpecificationProtocal.Melsec_A1E_Binary:
-                {
-                    var melsec = new MelsecA1ENet(plc.IP, plc.Port);
-                    //melsec.ByteTransform.IsStringReverseByteWord = false;
-                    plc.ByteTransform = melsec.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return melsec;
-                }
+                    {
+                        var melsec = new MelsecA1ENet(plc.IP, plc.Port);
+                        //melsec.ByteTransform.IsStringReverseByteWord = false;
+                        plc.ByteTransform = melsec.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return melsec;
+                    }
                 default:
                     return default;
             }
@@ -961,22 +1054,22 @@ namespace SUNWODA_SEVB.PLC
             switch (plc.BrandSpecificationProtocal)
             {
                 case PLCBrandSpecificationProtocal.Keyence_MC_Binary:
-                {
-                    var keyence = new KeyenceMcNet(plc.IP, plc.Port);
-                    //keyence.ByteTransform.IsStringReverseByteWord = false;
-                    plc.ByteTransform = keyence.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return keyence;
-                }
+                    {
+                        var keyence = new KeyenceMcNet(plc.IP, plc.Port);
+                        //keyence.ByteTransform.IsStringReverseByteWord = false;
+                        plc.ByteTransform = keyence.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return keyence;
+                    }
 
                 case PLCBrandSpecificationProtocal.Keyence_MC_Ascii:
-                {
-                    var keyence = new KeyenceMcAsciiNet(plc.IP, plc.Port);
-                    keyence.ByteTransform.IsStringReverseByteWord = true;
-                    plc.ByteTransform = keyence.ByteTransform;
-                    plc.AddressWordLength = 2;
-                    return keyence;
-                }
+                    {
+                        var keyence = new KeyenceMcAsciiNet(plc.IP, plc.Port);
+                        keyence.ByteTransform.IsStringReverseByteWord = true;
+                        plc.ByteTransform = keyence.ByteTransform;
+                        plc.AddressWordLength = 2;
+                        return keyence;
+                    }
 
                 default:
                     return null;

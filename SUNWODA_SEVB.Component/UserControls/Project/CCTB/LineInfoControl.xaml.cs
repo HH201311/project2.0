@@ -1,5 +1,5 @@
 ﻿using SUNWODA_SEVB.Component.CustomControls;
-using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -53,15 +53,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB
         #endregion
 
         #region ParameterSource
-        public CCTBLineInfoModel ParameterSource
+        public LineInfoModel ParameterSource
         {
-            get { return (CCTBLineInfoModel)GetValue(ParameterSourceProperty); }
+            get { return (LineInfoModel)GetValue(ParameterSourceProperty); }
             set { SetValue(ParameterSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ParameterSourceProperty = DependencyProperty.Register(
             "ParameterSource",
-            typeof(CCTBLineInfoModel),
+            typeof(LineInfoModel),
             typeof(LineInfoControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnParameterSourceChanged))
         );

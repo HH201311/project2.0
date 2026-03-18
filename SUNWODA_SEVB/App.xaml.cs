@@ -27,12 +27,17 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Timers;
+using System.Windows;
 
 namespace SUNWODA_SEVB
 {
     public partial class App : Application
     {
         private IHost? _host;
+        private System.Timers.Timer _logCleanupTimer = new System.Timers.Timer();
         private CancellationTokenSource _shutdownCts = new CancellationTokenSource();
         private Mutex? _mutex;
         private const string ServiceName = "WatchDogService";
@@ -44,7 +49,7 @@ namespace SUNWODA_SEVB
             //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
-                MonitorAppIsRunning();
+                //MonitorAppIsRunning();
                 // 确保配置文件存在且有效
                 ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host
@@ -479,34 +484,64 @@ namespace SUNWODA_SEVB
                 logger?.Error($"初始日志清理失败: {ex.Message}", ex);
             }
 
-            // 定时清理循环
-            while (!_shutdownCts.Token.IsCancellationRequested)
+            // 设置每天执行的定时任务
+            _logCleanupTimer.Interval = TimeSpan.FromDays(1).TotalMilliseconds;  // 每24小时触发一次
+            _logCleanupTimer.Elapsed += LogCleanupElapsed;
+            _logCleanupTimer.Start();
+
+            //// 定时清理循环
+            //while (!_shutdownCts.Token.IsCancellationRequested)
+            //{
+            //    try
+            //    {
+            //        // 计算下次执行时间（每天凌晨2点）
+            //        var now = DateTime.Now;
+            //        var nextRun = now.Date.AddDays(1).AddHours(2);
+            //        var delay = nextRun - now;
+
+            //        await Task.Delay(delay, _shutdownCts.Token);
+
+            //        if (_shutdownCts.Token.IsCancellationRequested)
+            //            break;
+
+            //        logger?.Info("执行定时日志清理...");
+            //        logManagementService?.CleanupOldLogs(99);
+            //        await CleanupDatabaseLogs(logger);
+            //        logger?.Info("定时日志清理完成");
+            //    }
+            //    catch (TaskCanceledException)
+            //    {
+            //        break;
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        logger?.Error($"定时日志清理失败: {ex.Message}", ex);
+            //    }
+            //}
+        }
+
+        private void LogCleanupElapsed(object? sender, ElapsedEventArgs e)
+        {
+            var logger = _host?.Services?.GetService<ILoggerService<App>>();
+            var logManagementService = _host?.Services?.GetService<ILogManagementService>();
+
+            try
             {
-                try
-                {
-                    // 计算下次执行时间（每天凌晨2点）
-                    var now = DateTime.Now;
-                    var nextRun = now.Date.AddDays(1).AddHours(2);
-                    var delay = nextRun - now;
+                if (_shutdownCts.Token.IsCancellationRequested)
+                    return;
 
-                    await Task.Delay(delay, _shutdownCts.Token);
-
-                    if (_shutdownCts.Token.IsCancellationRequested)
-                        break;
-
-                    logger?.Info("执行定时日志清理...");
-                    logManagementService?.CleanupOldLogs(99);
-                    await CleanupDatabaseLogs(logger);
-                    logger?.Info("定时日志清理完成");
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    logger?.Error($"定时日志清理失败: {ex.Message}", ex);
-                }
+                logger?.Info("执行定时日志清理...");
+                logManagementService?.CleanupOldLogs(99);
+                _ = CleanupDatabaseLogs(logger);
+                logger?.Info("定时日志清理完成");
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                logger?.Error($"定时日志清理失败: {ex.Message}", ex);
             }
         }
 
@@ -680,6 +715,7 @@ namespace SUNWODA_SEVB
             {
                 // 取消后台任务
                 _shutdownCts.Cancel();
+                _logCleanupTimer.Stop();
 
                 var appLogger = _host?.Services?.GetService<ILoggerService<App>>();
 

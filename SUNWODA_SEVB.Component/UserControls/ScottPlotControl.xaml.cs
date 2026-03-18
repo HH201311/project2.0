@@ -191,7 +191,7 @@ namespace SUNWODA_SEVB.Component.UserControls
 
 
         #region 属性
-        private ScottPlot.Plottables.Crosshair? _crosshair;
+        //private ScottPlot.Plottables.Crosshair? _crosshair;
         private ToolTip? _plotToolTip;
         #endregion
 

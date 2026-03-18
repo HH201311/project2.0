@@ -13,6 +13,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.PTO
         private double _area;
         private double _credibility;
         private bool _isEnable;
+        private int _ngCount;
+        private double _yieldRate = 100.00;
 
         public string? DefectName
         {
@@ -50,6 +52,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.PTO
             set => SetProperty(ref _isEnable, value);
         }
 
+        public int NGCount
+        {
+            get => _ngCount;
+            set => SetProperty(ref _ngCount, value);
+        }
+
+        public double YieldRate
+        {
+            get => _yieldRate;
+            set => SetProperty(ref _yieldRate, value);
+
+        }
     }
 
     /// <summary>

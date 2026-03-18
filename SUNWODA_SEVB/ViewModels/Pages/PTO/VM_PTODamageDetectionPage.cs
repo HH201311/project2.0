@@ -927,6 +927,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private int _historyTotalCount = 0;    // 历史总检测数
         private int _historyOKCount = 0;       // 历史OK数
         private int _historyNGCount = 0;       // 历史NG数
+        private Dictionary<string, int> _historyDefectNGCount = new Dictionary<string, int>();  // 历史各缺陷NG数
         private readonly object _statisticsLock = new object(); //统计锁
         private static readonly HashSet<string> AllowedImageExtensions =new(StringComparer.OrdinalIgnoreCase)
         {
@@ -1122,7 +1123,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 okCount = value;
                 OnPropertyChanged();
-                SaveConfig();
+                //SaveConfig();
             }
         }
         /// <summary>
@@ -1135,7 +1136,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 ngCount = value;
                 OnPropertyChanged();
-                SaveConfig();
+                //SaveConfig();
             }
         }
         /// <summary>
@@ -1148,7 +1149,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 totalNeDetectionCount = value;
                 OnPropertyChanged();
-                SaveConfig();
+                //SaveConfig();
             }
         }
         /// <summary>
@@ -3826,11 +3827,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             // 解析文件路径到动态对象（提取如文件名、路径、时间等信息）
                             ParsePathToDynamicObject(detectionData, filePath);
                             detectionData.Station = "A";// 标记工位为A
-                                                        // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
-                            string detectResult = DamageDetection(filePath, "正极");
+                            // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
+                            //string detectResult = DamageDetection(filePath, "正极");
+                            string detectResult = DamageDetection(filePath, "正极", out List<string> triggeredList);
+                            detectionData.TriggeredDefects = triggeredList;
                             DateTime realDetectionTime = DateTime.Now;
                             bool isNG = detectResult == "NG";// 判断是否为不良品
-                                                             // 6.3 将图片添加到结果队列（用于后续报表/展示）
+
+                            // 6.3 将图片添加到结果队列（用于后续报表/展示）
                             AddImageToQueue(filePath, isNG, "A", realDetectionTime);
                             // 6.4 空图片异常处理：不统计，直接跳过后续逻辑
                             if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
@@ -3847,13 +3851,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             // InvokeAsync：异步执行，避免阻塞检测线程
                             await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
-                                _fullDetectionDataList.Add(detectionData);// 添加到完整检测数据列表
-                                // 限制最大记录数（例如保留最近的 10000 条即可，足够统计使用）
-                                if (_fullDetectionDataList.Count > 2000)
-                                {
-                                    // 移除最旧的 2000 条，避免频繁触发 Remove 降低性能
-                                    _fullDetectionDataList.RemoveRange(0, 200);
-                                }
+                                AddDetectionDataAndEnsureCapacity(detectionData); // 安全添加并清理
                                 UpdateDisplayDataList();// 更新展示用的数据列表
                                 CalculateDetectionStatistics();// 重新计算检测统计（OK数、NG数、OK率等）
                             });
@@ -3913,8 +3911,55 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 StartConcurrentProcessingA();
             }
         }
-
         
+        /// <summary>
+        /// 清理统计缓存
+        /// </summary>
+        /// <param name="detectionData"></param>
+        private void AddDetectionDataAndEnsureCapacity(dynamic detectionData)
+        {
+            _fullDetectionDataList.Add(detectionData);
+
+            if (_fullDetectionDataList.Count > 2000)
+            {
+                var itemsToRemove = _fullDetectionDataList.Take(200).ToList();
+
+                int removedTotal = itemsToRemove.Count;
+                int removedOK = itemsToRemove.Count(d =>
+                {
+                    var dict = d as IDictionary<string, object>;
+                    return dict != null && dict.TryGetValue("DetectionResult", out var res) && res?.ToString() == "OK";
+                });
+                int removedNG = removedTotal - removedOK;
+
+                lock (_statisticsLock)
+                {
+                    _historyTotalCount += removedTotal;
+                    _historyOKCount += removedOK;
+                    _historyNGCount += removedNG;
+
+                    foreach (var d in itemsToRemove)
+                    {
+                        var dict = d as IDictionary<string, object>;
+                        if (dict != null && dict.TryGetValue("DetectionResult", out var res) && res?.ToString() == "NG")
+                        {
+                            if (dict.TryGetValue("TriggeredDefects", out var defectsObj) && defectsObj is List<string> defects)
+                            {
+                                foreach (var defect in defects)
+                                {
+                                    if (!_historyDefectNGCount.ContainsKey(defect)) _historyDefectNGCount[defect] = 0;
+                                    _historyDefectNGCount[defect]++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                _fullDetectionDataList.RemoveRange(0, 200);
+            }
+        }
+
+
         #endregion
         #endregion
 
@@ -4092,7 +4137,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         var station = GetElectrodeType(filePath);
                         dynamic detectionData = new ExpandoObject();
                         ParsePathToDynamicObject(detectionData, filePath);
-                        string detectResult = DamageDetection(filePath, station);
+                        string detectResult = DamageDetection(filePath, station, out List<string> triggeredList);
+                        detectionData.TriggeredDefects = triggeredList;
 
                         if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                         {
@@ -4109,7 +4155,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         // 异步UI更新，不阻塞检测
                         await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
-                            _fullDetectionDataList.Add(detectionData);
+                            AddDetectionDataAndEnsureCapacity(detectionData);
                             UpdateDisplayDataList();
                             CalculateDetectionStatistics();
                         });
@@ -4476,7 +4522,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         private bool _isPositivePolarity = false;// 全局布尔变量：true 表示正极，false 表示负极
-        private string DamageDetection(string imagePath, string? station)
+        private string DamageDetection(string imagePath, string? station, out List<string> triggeredDefects)
         {
             #region 参数定义
             // 线宽常量 - 可根据需要调整
@@ -4496,6 +4542,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             #endregion
 
             #region 初始化变量
+            triggeredDefects = new List<string>();
             List<AIResultModel>? defectList = null;
             Mat? imageMat = null;
             string ZhengGongwei = "PTO与行大面正极";
@@ -4595,7 +4642,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
                 if (!string.IsNullOrEmpty(exInfo))
                 {
-                    AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Info, isToDatabase: true);
+                    AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Warn, isToDatabase: true);
                     SaveToReviewFolder(imagePath, imageMat, "检测异常", false);
                 }
                 #endregion
@@ -4676,7 +4723,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     if (realDefects.Count > 0)
                     {
                         finalResult = "NG";
+                        // 提取本次触发的缺陷类别名称并去重，赋值给 out 参数
+                        triggeredDefects = realDefects.Select(d => d.Name).Distinct().ToList();
                     }
+
+
                 }
                 #endregion
 
@@ -5245,7 +5296,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     var station = GetElectrodeType(filePath);
                     dynamic detectionData = new ExpandoObject();
                     ParsePathToDynamicObject(detectionData, filePath);
-                    string detectResult = DamageDetection(filePath, station);
+                    //string detectResult = DamageDetection(filePath, station);
+                    string detectResult = DamageDetection(filePath, station, out List<string> triggeredList);
+                    detectionData.TriggeredDefects = triggeredList;
                     DateTime realDetectionTime = DateTime.Now;
                     if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
                     {
@@ -5272,7 +5325,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         // 先添加到完整集合
-                        _fullDetectionDataList.Add(detectionData);
+                        AddDetectionDataAndEnsureCapacity(detectionData);
 
                         // 更新显示列表(仅显示NG结果)
                         UpdateDisplayDataList();
@@ -5403,7 +5456,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             dynamic detectionData = new ExpandoObject();
                             ParsePathToDynamicObject(detectionData, filePath);
                             if (token.IsCancellationRequested) break;
-                            string detectResult = DamageDetection(filePath, station);
+                            //string detectResult = DamageDetection(filePath, station);
+                            string detectResult = DamageDetection(filePath, station, out List<string> triggeredList);
+                            detectionData.TriggeredDefects = triggeredList;
+
                             DateTime realDetectionTime = DateTime.Now;
                             bool isNG = detectResult == "NG";
                             AddImageToQueue(filePath, isNG, "离线", realDetectionTime);
@@ -5430,7 +5486,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             {
                                 await Application.Current.Dispatcher.InvokeAsync(() =>
                                 {
-                                    _fullDetectionDataList.Add(detectionData);
+                                    AddDetectionDataAndEnsureCapacity(detectionData);
                                     UpdateDisplayDataList();
                                     CalculateDetectionStatistics();
                                 });
@@ -5438,7 +5494,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             else
                             {
                                 //只添加数据，不刷新UI
-                                _fullDetectionDataList.Add(detectionData);
+                                await Application.Current.Dispatcher.InvokeAsync(() =>
+                                {
+                                    AddDetectionDataAndEnsureCapacity(detectionData);
+                                });
                             }
                         }
                         catch (Exception ex)
@@ -5609,6 +5668,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         //计算检测统计数据
         private void CalculateDetectionStatistics()
         {
+            int newTotalVal = 0, newOKVal = 0, newNGVal = 0;
+            double newRateVal = 0;
+            Dictionary<string, int> historyCopy;
+            Dictionary<string, int> currentCopy;
+
             lock (_statisticsLock)
             {
                 //计算 _fullDetectionDataList 中“新检测数据”的统计值
@@ -5622,22 +5686,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                         // 2. 必须包含检测结果和极性信息
                         if (!dataDict.ContainsKey("DetectionResult")) return false;
-                        if (!dataDict.TryGetValue("PartType", out var partTypeObj)) return false;
-                        if (partTypeObj == null) return false;
+                        if (!dataDict.TryGetValue("PartType", out var partTypeObj) || partTypeObj == null) return false;
 
                         string partType = partTypeObj?.ToString() ?? string.Empty;
                         if (string.IsNullOrEmpty(partType)) return false;
 
-                        // 3. 核心筛选逻辑
-                        // 如果勾选正极 且 数据类型是正极 -> 保留
+                        // 3. 核心筛选逻辑                     
                         bool matchPositive = IsPositive && partType == "正极";
-                        // 如果勾选负极 且 数据类型是负极 -> 保留
                         bool matchNegative = IsNegative && partType == "负极";
 
-                        // 只要满足其中一个条件即可
                         return matchPositive || matchNegative;
-                    })
-                    .ToList();
+                    }).ToList();
 
                 //统计新数据中的 OK/NG 数量
                 int newTotalCount = filteredData.Count;
@@ -5650,17 +5709,70 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 int newNGCount = newTotalCount - newOKCount;
 
 
-                //最终统计值 = 历史基础值 + 新数据值
-                TotalNeDetectionCount = _historyTotalCount + newTotalCount;
-                OKCount = _historyOKCount + newOKCount;
-                NGCount = _historyNGCount + newNGCount;
-
-                //计算 OK率
-                OKRate = TotalNeDetectionCount > 0
-                    ? Math.Round((double)OKCount / TotalNeDetectionCount * 100, 2)
-                    : 0;
+                // 将计算结果存入局部变量
+                newTotalVal = _historyTotalCount + newTotalCount;
+                newOKVal = _historyOKCount + newOKCount;
+                newNGVal = _historyNGCount + newNGCount;
+                newRateVal = newTotalVal > 0 ? Math.Round((double)newOKVal / newTotalVal * 100, 2) : 0;
 
                 //AddLog($"[统计计算] 历史值+新数据值：总={_historyTotalCount}+{newTotalCount}={TotalNeDetectionCount}，OK={_historyOKCount}+{newOKCount}={OKCount}，NG={_historyNGCount}+{newNGCount}={NGCount}");
+                
+                // 【核心：计算当前列表中的各类别 NG 数量】
+                var currentDefectNGCounts = new Dictionary<string, int>();
+                foreach (var data in filteredData)
+                {
+                    var dataDict = (IDictionary<string, object>)data;
+                    if (dataDict.TryGetValue("DetectionResult", out var resObj) && resObj?.ToString() == "NG")
+                    {
+                        if (dataDict.TryGetValue("TriggeredDefects", out var defectsObj) && defectsObj is List<string> defects)
+                        {
+                            foreach (var defect in defects)
+                            {
+                                if (!currentDefectNGCounts.ContainsKey(defect)) currentDefectNGCounts[defect] = 0;
+                                currentDefectNGCounts[defect]++;
+                            }
+                        }
+                    }
+                }
+                currentCopy = new Dictionary<string, int>(currentDefectNGCounts);
+                historyCopy = new Dictionary<string, int>(_historyDefectNGCount);
+        
+            }
+            Action updateAction = () =>
+            {
+                foreach (var item in DefectDataGrid)
+                {
+                    if (string.IsNullOrEmpty(item.DefectName)) continue;
+
+                    int hist = historyCopy.ContainsKey(item.DefectName) ? historyCopy[item.DefectName] : 0;
+                    int curr = currentCopy.ContainsKey(item.DefectName) ? currentCopy[item.DefectName] : 0;
+
+                    // 同步更新属性
+                    item.NGCount = hist + curr;
+                    item.YieldRate = newTotalVal > 0
+                        ? Math.Round((double)(newTotalVal - item.NGCount) / newTotalVal * 100, 2)
+                        : 100.00;
+                }
+
+                // 赋值核心统计字段
+                TotalNeDetectionCount = newTotalVal;
+                OKCount = newOKVal;
+                NGCount = newNGVal;
+
+                // 【重点】：在这个时刻，上方的 DefectDataGrid 已经完全更新完毕。
+                // 此时再触发 OKRate 的 Set 访问器（进而引发 SaveConfig），抓取到的就是最新的数据。
+                OKRate = newRateVal;
+            };
+
+
+            // 安全调度：如果在 UI 线程则直接执行，如果不在则阻塞式 Invoke
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                updateAction();
+            }
+            else
+            {
+                Application.Current.Dispatcher.Invoke(updateAction);
             }
         }
 
@@ -5683,12 +5795,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     _historyNGCount = NGCount;
 
                     // 清空列表和数据源
-                    DetectionDataList.Clear();
+                    foreach (var item in DefectDataGrid)
+                    {
+                        if (string.IsNullOrEmpty(item.DefectName)) continue;
+                        _historyDefectNGCount[item.DefectName] = item.NGCount;
+                    }
                     _fullDetectionDataList.Clear();
-
                     AddLog($"[清空列表] 已保留当前统计值到历史：总={_historyTotalCount}, OK={_historyOKCount}, NG={_historyNGCount}");
                 }
-
+                DetectionDataList.Clear();
                 _currentCsvFilePath = null;
                 SaveConfig(); // 保存配置,防止重启后丢失
             }
@@ -5715,17 +5830,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     _historyTotalCount = 0;
                     _historyOKCount = 0;
                     _historyNGCount = 0;
-                    AddLog($"[统计清零] 已重置历史基础值：历史总检测数={_historyTotalCount}，历史OK数={_historyOKCount}，历史NG数={_historyNGCount}");
+                    AddLog($"[统计清零] 已重置历史基础值：历史总检测数={_historyTotalCount}，历史OK数={_historyOKCount}，历史NG数={_historyNGCount}", isToDatabase: true);
 
                     _fullDetectionDataList.Clear();
-                    //AddLog($"[统计清零] 已清空新检测数据列表（_fullDetectionDataList）");
-                    TotalNeDetectionCount = 0;
-                    OKCount = 0;
-                    NGCount = 0;
-                    OKRate = 0;
-                    //AddLog($"[统计清零] 已重置当前统计属性：总检测数={TotalNeDetectionCount}，OK数={OKCount}，NG数={NGCount}，OK率={OKRate}%");
-                    _currentCsvFilePath = null;
+                    _historyDefectNGCount.Clear();
                 }
+                
+                DetectionDataList.Clear();
+                TotalNeDetectionCount = 0;
+                OKCount = 0;
+                NGCount = 0;
+                OKRate = 0;
+                _currentCsvFilePath = null;
+
+                foreach (var item in DefectDataGrid) 
+                { 
+                    item.NGCount = 0; 
+                    item.YieldRate = 100; 
+                }
+                AddLog($"[统计清零] 已重置当前统计属性：总检测数={TotalNeDetectionCount}，OK数={OKCount}，NG数={NGCount}，OK率={OKRate}%", isToDatabase: true);
+
                 OnPropertyChanged(nameof(TotalNeDetectionCount));
                 OnPropertyChanged(nameof(OKCount));
                 OnPropertyChanged(nameof(NGCount));
@@ -7415,6 +7539,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         private bool _isThreadRunningA = false;
+        private bool _isLoadingConfig = false;
 
         /// <summary>
         /// 从JSON配置文件加载程序所有配置项（监控路径、筛选规则、统计数据等）
@@ -7422,23 +7547,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private void LoadConfig()
         {
-            // 前置校验：配置文件不存在时直接返回，避免读取不存在文件的异常
             if (!File.Exists(_configFilePath)) return;
 
             try
             {
-                // 1. 读取配置文件的JSON字符串（同步读取，适合小体积配置文件）
+                _isLoadingConfig = true;
                 string json = File.ReadAllText(_configFilePath);
-                // 2. 反序列化为字典（灵活适配配置项，无需定义强类型类；key=配置项名称，value=配置值）
                 var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
 
-                // 监控路径
-                // 3. 解析字符串类型配置：监控文件夹路径（A/B工位）
-                // TryGetValue：避免键不存在导致的KeyNotFoundException；?.ToString()：避免值为null的空引用
+                // 解析字符串类型配置：
                 if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathA", out var pathA))
                     SelectedMonitorFolderPathA = pathA?.ToString() ?? string.Empty;
-                //if (dict != null && dict.TryGetValue("SelectedMonitorFolderPathB", out var pathB))
-                //    SelectedMonitorFolderPathB = pathB?.ToString() ?? string.Empty;
 
                 if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledA", out var enableA)
                     && bool.TryParse(enableA?.ToString(), out bool isEnabledA))
@@ -7448,11 +7567,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     OnPropertyChanged(nameof(IsOnlineDetectionEnabledA));
                 }
 
-                //if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledB", out var enableB)
-                //    && bool.TryParse(enableB?.ToString(), out bool isEnabledB))
-                //{
-                //    IsOnlineDetectionEnabledB = isEnabledB;
-                //}
+                if (dict != null && dict.TryGetValue("HistoryDefectNGCount", out var historyDefectObj) && historyDefectObj != null)
+                {
+                    try
+                    {
+                        string defectJson = historyDefectObj is JsonElement element ? element.GetRawText() : historyDefectObj.ToString()!;
+                        if (!string.IsNullOrEmpty(defectJson))
+                        {
+                            _historyDefectNGCount = JsonSerializer.Deserialize<Dictionary<string, int>>(defectJson) ?? new Dictionary<string, int>();
+                        }
+
+                    }
+                    catch { }
+                }
 
                 // 工位选择
                 // 4. 解析布尔类型配置：工位筛选规则（正极/负极）
@@ -7551,6 +7678,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 AddLog($"加载配置失败：{ex.Message}");
             }
+            finally
+            {
+                _isLoadingConfig = false;
+            }
         }
 
         /// <summary>
@@ -7558,12 +7689,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private void SaveConfig()
         {
+            if (_isLoadingConfig) return;
             try
             {
+                // 获取统计数据量
+                var currentTotalDefectNGCount = new Dictionary<string, int>();
+                if (DefectDataGrid != null)
+                {
+                    // 使用 ToList() 避免多线程下的集合修改异常
+                    var gridItems = DefectDataGrid.ToList();
+                    foreach (var item in gridItems)
+                    {
+                        if (!string.IsNullOrEmpty(item.DefectName) && item.NGCount > 0)
+                        {
+                            currentTotalDefectNGCount[item.DefectName] = item.NGCount;
+                        }
+                    }
+                }
+
                 // 构建匿名对象，仅包含需要保存的属性
-                // 1. 构建匿名对象封装需要持久化的配置属性
-                // 优势：快速聚合需保存的属性，无需定义额外的配置实体类；属性名与原变量名一致，序列化后JSON字段名直观
-                // 注意：仅包含业务需要保存的核心配置，避免冗余数据
                 var configData = new
                 {
                     SelectedMonitorFolderPathA,                   
@@ -7584,17 +7728,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     OKCount,
                     NGCount,
                     OKRate,
-                    SelectedMode = _selectedMode.ToString()
+                    SelectedMode = _selectedMode.ToString(),
+                    HistoryDefectNGCount = currentTotalDefectNGCount
                 };
 
-                // 2. 将匿名对象序列化为格式化的JSON字符串
-                // JsonSerializerOptions { WriteIndented = true }：启用缩进格式化，生成的JSON易读（调试/人工修改友好）
-                // 若不设置此参数，JSON会压缩为一行，节省空间但可读性差
                 string json = System.Text.Json.JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
-                // 3. 将JSON字符串写入配置文件
-                // File.WriteAllText：自动处理文件创建/覆盖逻辑（文件不存在则创建，存在则覆盖）
-                // 注意：该方法会一次性写入所有内容，适合小体积配置文件（配置文件通常几KB，无性能问题）
                 File.WriteAllText(_configFilePath, json);
+
             }
             catch (Exception ex)
             {
@@ -8653,7 +8793,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             try
             {
                 // 确保配置文件夹存在
-                Directory.CreateDirectory(ConfigFolder);
+                if (!Directory.Exists(ConfigFolder))
+                {
+                    Directory.CreateDirectory(ConfigFolder);
+                }               
 
                 if (File.Exists(DefectFilePath))
                 {
@@ -8670,6 +8813,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             DefectDataGrid.Add(item);
                         }
                         AddLog($"从 {DefectFilePath} 成功加载 {DefectDataGrid.Count} 条缺陷参数");
+                        CalculateDetectionStatistics();
                         return;
                     }
                 }

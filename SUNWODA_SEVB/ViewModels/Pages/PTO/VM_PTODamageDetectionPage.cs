@@ -1,4 +1,5 @@
-﻿using HalconDotNet;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using HalconDotNet;
 using HandyControl.Controls;
 using HelixToolkit.Wpf;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ using SUNWODA_SEVB.Core.Enumerations.Logging;
 using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.PLC;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.PTO;
 using SUNWODA_SEVB.Tool.Helper;
@@ -176,7 +178,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         //private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "PushUserIdConfig.json");
         private readonly ILoggerService<VM_PTODamageDetectionPage> _logger;
         private readonly IServiceProvider _serviceProvider;
-
+        private readonly IPLCService _PLCService;
 
 
 
@@ -1507,12 +1509,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ResetOfflineProgress();//重置离线检测进度状态
         }
 
-        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider)
+        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider,IPLCService PLCService)
         {
             _logger = logger;
             _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-            
+            _PLCService = PLCService ?? throw new ArgumentNullException(nameof(PLCService));
+
             //同步初始化
             Settings.License = LicenseType.Community;
 
@@ -4806,7 +4809,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                         SaveToReviewFolder(imagePath, drawMat, finalResult, true);
                         SaveToParamControlFolder(imagePath, drawMat, finalResult, true);
+
+                        // 发送信号进行设备报警 (使用弃元 _ 接收Task，使其在后台执行，不阻塞当前视觉检测流程)
+                        _ = TriggerPLCAlarmAsync(station ?? "未知");
                     }
+
+                   
                 }
                 #endregion
 
@@ -4848,6 +4856,58 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
 
 
+        }
+
+        /// <summary>
+        /// 触发设备报警（基于配置参数名）
+        /// </summary>
+        /// <param name="station">工位信息</param>
+        private async Task TriggerPLCAlarmAsync(string station)
+        {
+            try
+            {
+                // 1. 根据约定的参数名称，从配置池中找到报警地址对象                
+                var alarmAddress = _PLCService.RWAddresses.Values.FirstOrDefault(a => a.ParameterName == "报警");               
+
+                if (alarmAddress == null)
+                {
+                    AddLog($"[{station}工位报警失败] 未在PLC配置中找到参数名为'设备NG报警'的地址", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 2. 通过地址ID获取关联的PLC ID
+                int? plcId = _PLCService.GetPLCIdForAddress(alarmAddress.ID);
+                if (!plcId.HasValue)
+                {
+                    AddLog($"[{station}工位报警失败] 无法根据地址ID({alarmAddress.ID})获取PLC ID", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 3. 根据 PLC ID 找到对应的 PLC 对象
+                if (!_PLCService.PLCs.TryGetValue(plcId.Value, out var plc))
+                {
+                    AddLog($"[{station}工位报警失败] 绑定的PLC(ID:{plcId})未找到", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 4. 确保 PLC 连接
+                bool connected = await _PLCService.EnsurePLCConnectedAsync(plc);
+                if (!connected)
+                {
+                    AddLog($"[{station}工位报警失败] PLC({plc.Name})未连接，无法发送报警信号", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 5. 赋予报警触发值并写入
+                alarmAddress.MonitorValue = 1;
+                await _PLCService.WriteAddressAsync(plc, alarmAddress);
+                AddLog($"[{station}工位设备报警] NG信号已发送至 {plc.Name} 的 {alarmAddress.Address} 点位");
+
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[{station}工位设备报警异常] {ex.Message}", CoreLogLevel.Error);
+            }
         }
 
         private void ReleaseDefectList(List<AIResultModel>? defectList)

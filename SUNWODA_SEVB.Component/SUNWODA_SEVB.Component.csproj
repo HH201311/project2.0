@@ -34,6 +34,7 @@
     <PackageReference Include="HelixToolkit.Core.Wpf" Version="2.27.0" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.9.3" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.0.0" />
+    <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3351.48" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.19" />
     <PackageReference Include="NLog.Extensions.Logging" Version="6.0.2" />
@@ -54,5 +55,26 @@
     <Folder Include="Animations\" />
     <Folder Include="Behaviors\" />
     <Folder Include="Selectors\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="UserControls\Project\CCTB\SettingControls\CommunicationSettingControls\DHCommunicationControl.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="UserControls\Project\CCTB\SettingControls\CommunicationSettingControls\CCDCommunicationControl.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="UserControls\Project\CCTB\SettingControls\CommunicationSettingControls\CMCommunicationControl.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="UserControls\Project\CCTB\SettingControls\CommunicationSettingControls\WMCommunicationControl.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="UserControls\Project\CCTB\SettingControls\FuntionSettingControls\ISFunctionControl.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="UserControls\Project\CCTB\SettingControls\FuntionSettingControls\ICFunctionControl.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 </Project>

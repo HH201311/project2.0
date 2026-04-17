@@ -35,14 +35,8 @@
                 <ColumnDefinition Width="20" />
                 <ColumnDefinition Width="35*" />
             </Grid.ColumnDefinitions>
-            <uccctb:LineInfoControl
-                Grid.Column="0"
-                Header="拉线信息"
-                ParameterSource="{Binding LineInfo}" />
-            <uccctb:ProductionInfoControl
-                Grid.Column="2"
-                Header="生产信息"
-                ParameterSource="{Binding ProductionInfo}" />
+            <uccctb:LineInfoControl Grid.Column="0" ParameterSource="{Binding LineInfo}" />
+            <uccctb:ProductionInfoControl Grid.Column="2" ParameterSource="{Binding ProductionInfo}" />
             <uccctb:ParametersScrollControl
                 Grid.Column="4"
                 Header="关键控制"

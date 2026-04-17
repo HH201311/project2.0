@@ -21,7 +21,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         /// <summary>
         /// PLC名称
         /// </summary>
-        public const string CCTBPLCName = "涂布PLC";
+        public const string PLCName = "涂布PLC";
 
         #region 涂布项目全局消息通知
         public delegate void MessageEventHandler<T>(object? sender, MessageEventArgs<T> e) where T : class;

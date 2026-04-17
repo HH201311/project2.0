@@ -2,6 +2,7 @@
     x:Class="SUNWODA_SEVB.Views.Pages.CCTB.CCTBMonitoringPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -14,6 +15,8 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
         </ResourceDictionary>
     </Page.Resources>
 
@@ -32,16 +35,18 @@
                 <RadioButton
                     Command="{Binding SummaryCommand}"
                     Content="总况"
-                    IsChecked="True"
-                    Style="{StaticResource MenuRadioButtonStyle}" />
+                    IsChecked="{Binding SelectedModule.Name, Mode=OneWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='VM_SummaryPage'}"
+                    Style="{StaticResource TabNavigationRadioButtonStyle}" />
                 <RadioButton
                     Command="{Binding TBDataCommand}"
                     Content="面密度"
-                    Style="{StaticResource MenuRadioButtonStyle}" />
+                    IsChecked="{Binding SelectedModule.Name, Mode=OneWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='VM_TBDataPage'}"
+                    Style="{StaticResource TabNavigationRadioButtonStyle}" />
                 <RadioButton
                     Command="{Binding CCDDataCommand}"
                     Content="尺寸"
-                    Style="{StaticResource MenuRadioButtonStyle}" />
+                    IsChecked="{Binding SelectedModule.Name, Mode=OneWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='VM_CCDDataPage'}"
+                    Style="{StaticResource TabNavigationRadioButtonStyle}" />
                 <StackPanel
                     Margin="0,0,20,0"
                     VerticalAlignment="Stretch"

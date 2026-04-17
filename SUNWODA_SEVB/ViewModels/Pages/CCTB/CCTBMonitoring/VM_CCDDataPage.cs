@@ -5,7 +5,7 @@ using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
-using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
@@ -22,7 +22,7 @@ using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 {
-    [Module("VM_CCDDataPage", "系统设置", Order = 0, Category = "VM_CCTBMonitoringPage/VM_CCDDataPage")]
+    [Module("VM_CCDDataPage", "系统设置", Order = 1, Category = "VM_CCTBMonitoringPage/VM_CCDDataPage")]
     class VM_CCDDataPage : ViewModelBase
     {
         private readonly ILoggerService<VM_CCDDataPage> _logger;

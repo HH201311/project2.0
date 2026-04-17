@@ -11,6 +11,8 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
 {
     public class CCTBCsvHelper
     {
+        public static readonly object WriteLocker = new();
+
         public static string WriteCSV(string fullPath, DataTable data)
         {
             // 移除路径中的不可见控制字符（如 ASCII 0）
@@ -21,6 +23,8 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
             if (data == null || data.Rows.Count == 0) return fullPath;
 
             var filePath = Path.GetDirectoryName(fullPath);
+            if (filePath == null) throw new ArgumentNullException(nameof(fullPath), "参数不可为空！");
+
             // 路径不存在，则创建
             if (!Directory.Exists(filePath)) Directory.CreateDirectory(filePath);
 
@@ -77,6 +81,7 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
 
             return isChanged;
         }
+
         private static void WriteNewFile(string fullPath, DataTable data)
         {
             // 获取列名
@@ -127,7 +132,7 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
                 sw.WriteLine(string.Join(",", newHeaders));
 
                 // 1.3 逐行读取旧数据并映射到新列结构
-                string line;
+                string? line;
                 while ((line = sr.ReadLine()) != null)
                 {
                     var values = line.Split(',');
@@ -146,6 +151,7 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
             File.Delete(fullPath);
             File.Move(tempPath, fullPath);
         }
+
         private static string BuildCsvLine(DataRow row, List<string> headers)
         {
             var values = new string[headers.Count];
@@ -181,7 +187,7 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        private static string EscapeCsvString(string value)
+        private static string EscapeCsvString(string? value)
         {
             if (value == null) return "";
             if (value.IndexOfAny(new[] { ',', '"', '\n', '\r' }) > -1)
@@ -191,19 +197,19 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
             return value;
         }
 
-        public static DataTable DicToTable(List<Dictionary<string, string>> list)
+        public static DataTable DicToTable(params Dictionary<string, string>[] dics)
         {
             DataTable result = new DataTable();
 
             // 1. 检查列表是否为空
-            if (list == null || list.Count == 0)
+            if (dics == null || dics.Length == 0)
             {
                 return result;
             }
 
             // 2. 获取所有唯一的 Key (列名)
             // 使用 SelectMany 将所有字典的 Keys 扁平化，然后用 Distinct 去重
-            var columnNames = list.SelectMany(dict => dict.Keys).Distinct().ToList();
+            var columnNames = dics.SelectMany(dict => dict.Keys).Distinct().ToList();
 
             // 3. 创建 DataTable 的列
             foreach (var colName in columnNames)
@@ -213,7 +219,7 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
             }
 
             // 4. 填充数据行
-            foreach (var dict in list)
+            foreach (var dict in dics)
             {
                 DataRow row = result.NewRow();
 

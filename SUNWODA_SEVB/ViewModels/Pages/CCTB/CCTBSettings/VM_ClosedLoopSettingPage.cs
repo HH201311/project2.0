@@ -7,14 +7,19 @@ using SUNWODA_SEVB.Component.UserControls.Project.CCTB;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
+using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
+using SUNWODA_SEVB.Data.Repositories;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using System;
@@ -25,18 +30,22 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
+using SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls;
+using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 {
-    [Module("VM_ClosedLoopSettingPage", "闭环设置", Order = 0, Category = "VM_CCTBSettingsPage/VM_ClosedLoopSettingPage")]
+    [Module("VM_ClosedLoopSettingPage", "闭环设置", Order = 2, Category = "VM_CCTBSettingsPage/VM_ClosedLoopSettingPage")]
     class VM_ClosedLoopSettingPage : ViewModelBase
     {
         private readonly ILoggerService<VM_ClosedLoopSettingPage> _logger;
         private readonly IGlobalSettingRepository _globalSettingRepository;
+        private readonly IUsersRepository _usersRepository;
         private readonly IPLCConfigRepository _plcConfigRepository;
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
+        private readonly OperationUtil _operationUtil;
 
         /// <summary>
         /// 构造函数
@@ -44,6 +53,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         public VM_ClosedLoopSettingPage(
             ILoggerService<VM_ClosedLoopSettingPage> logger,
             IGlobalSettingRepository globalSettingRepository,
+            IUsersRepository usersRepository,
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
@@ -52,33 +62,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         {
             _logger = logger;
             _globalSettingRepository = globalSettingRepository;
+            _usersRepository = usersRepository;
             _plcConfigRepository = plcConfigRepository;
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
+
+            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
+        /// <summary>
+        /// 初始化
+        /// </summary>
         public override void OnInitialize()
         {
-            // 初始化导航
-            InitializeArithmeticProjectSettings();
-            InitializeClosedLoopProjectSettings();
-            InitializeGeneralProjectSettings();
-
+            LoadArithmeticModel();
+            LoadGeneralSettingsModel();
             base.OnInitialize();
         }
 
-        protected override async Task OnInitializeAsync()
-        {
-            await LoadArithmeticModelAsync();
-            await LoadGeneralSettingsModelAsync();
-            await base.OnInitializeAsync();
-        }
-
+        /// <summary>
+        /// 导航完成时触发
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <returns></returns>
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
-            await LoadArithmeticModelAsync();
-            await LoadGeneralSettingsModelAsync();
+            LoadArithmeticModel();
+            LoadGeneralSettingsModel();
             await base.OnNavigatedToAsync(parameter);
         }
 
@@ -94,7 +105,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         public ICommand? ArithmeticEnableChangedCommand => new RelayCommand(ArithmeticEnableChanged);
         public ICommand? ArithmeticVerifyCommand => new RelayCommand(ArithmeticVerify);
 
-        private async void ArithmeticEnableChanged(object? arg)
+        private void ArithmeticEnableChanged(object? arg)
         {
             if (!(arg is ArithmeticSettingControl page)) return;
             var closedLoopType = page.ClosedLoopType;
@@ -112,14 +123,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
             };
             // 若校验成功则执行更新(界面+数据库)
-            var re = await RefreshJsonParamrersAsync(projectSettingName, settingModel);
+            var re = _operationUtil.SaveArithmeticProjectParamrers(closedLoopType, sideType, settingModel);
             if (!re)
             {
                 settingModel.IsEnable = !page.IsArithmeticEnabled;
+                page.IsArithmeticEnabled = !page.IsArithmeticEnabled;
             }
         }
 
-        private async void ArithmeticVerify(object? arg)
+        private void ArithmeticVerify(object? arg)
         {
             if (!(arg is object[] args && args?.Length == 4)) return;
             if (!(args[0] is ESideType sideType)) return;
@@ -151,47 +163,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             }
 
             settingModel.ArithmeticName = newArithmeticName;
-            var re = await RefreshArithmeticParamrersAsync(projectSettingName, settingModel);
+            var re = _operationUtil.SaveArithmeticProjectParamrers(closedLoopType, sideType, settingModel);
             if (!re)
             {
                 MessageBox.Show($"{sideType}面{closedLoopType}算法[{newArithmeticName}]保存数据库失败!");
                 settingModel.ArithmeticName = oldArithmeticName;
-                return;
             }
         }
 
-        private async Task<bool> RefreshArithmeticParamrersAsync(string paramName, ArithmeticModel value)
-        {
-            return await RefreshJsonParamrersAsync(paramName, value);
-        }
-
-        private void InitializeArithmeticProjectSettings()
-        {
-            var model = new ArithmeticModel();
-            model.IsEnable = false;
-            model.ArithmeticName = "DY-MD-L1-1-N-S-314Ah";
-
-            var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
-            var sideTypes = Enum.GetValues(typeof(ESideType));
-            foreach (EClosedLoopType closedLoopType in closedLoopTypes)
-            {
-                foreach (ESideType sideType in sideTypes)
-                {
-                    var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
-                    if (!_projectSettingRepository.Exists(model => model.Name == projectSettingName && model.BelongToVM == CCTBCore.BelongToVM))
-                    {
-                        _projectSettingRepository.Add(
-                            new ProjectSettingModel(projectSettingName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 2)
-                            {
-                                Remark = "涂布闭环算法设置"
-                            }
-                        );
-                    }
-                }
-            }
-        }
-
-        private async Task LoadArithmeticModelAsync()
+        private void LoadArithmeticModel()
         {
             var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
             var sideTypes = Enum.GetValues(typeof(ESideType));
@@ -199,9 +179,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             {
                 foreach (ESideType sideType in sideTypes)
                 {
-                    var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
-                    var projectSetting = _projectSettingRepository.GetByNameAndVM(projectSettingName, CCTBCore.BelongToVM)?.Value ?? "";
-                    var settingModel = JsonConvert.DeserializeObject<ArithmeticModel>(projectSetting);
+                    var settingModel = _operationUtil.LoadArithmeticProjectParamrers(closedLoopType, sideType);
                     if (settingModel == null) continue;
 
                     var arithmeticModel = (closedLoopType, sideType) switch
@@ -230,9 +208,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             if (!(arg is ArithmeticSettingControl page)) return;
             var closedLoopType = page.ClosedLoopType;
             var sideType = page.SideType;
-            var projectSettingName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
-            var settingModel = LoadClosedLoopSettingModel(closedLoopType, sideType);
+            var settingModel = _operationUtil.LoadClosedLoopSettingProjectParamrers(closedLoopType, sideType);
             if (settingModel == null) return;
+
+            // 获取当前用户角色
+            var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
+            var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
 
             var result = await Dialog
                 .Show(new VM_ClosedLoopSettingDialog().UIElement)
@@ -241,50 +222,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                     o.SideType = sideType;
                     o.ClosedLoopType = closedLoopType;
                     o.ClosedLoopSettingModel = settingModel;
+                    o.UserRole = (UserRole)roleId;
                 })
                 .GetResultAsync<bool>();
 
-            if (result)// 保存数据库
-            {
-                var re = await RefreshClosedLoopParamrersAsync(projectSettingName, settingModel);
-            }
-        }
-
-        private async Task<bool> RefreshClosedLoopParamrersAsync(string paramName, ClosedLoopSettingModel value)
-        {
-            return await RefreshJsonParamrersAsync(paramName, value);
-        }
-
-        private void InitializeClosedLoopProjectSettings()
-        {
-            var model = new ClosedLoopSettingModel();
-
-            var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
-            var sideTypes = Enum.GetValues(typeof(ESideType));
-            foreach (EClosedLoopType closedLoopType in closedLoopTypes)
-            {
-                foreach (ESideType sideType in sideTypes)
-                {
-                    var projectSettingName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
-                    if (!_projectSettingRepository.Exists(model => model.Name == projectSettingName && model.BelongToVM == CCTBCore.BelongToVM))
-                    {
-                        _projectSettingRepository.Add(
-                            new ProjectSettingModel(projectSettingName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 2)
-                            {
-                                Remark = "涂布闭环参数设置"
-                            }
-                        );
-                    }
-                }
-            }
-        }
-
-        private ClosedLoopSettingModel? LoadClosedLoopSettingModel(EClosedLoopType closedLoopType, ESideType sideType)
-        {
-            var projectSettingName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
-            var projectSetting = _projectSettingRepository.GetByNameAndVM(projectSettingName, CCTBCore.BelongToVM)?.Value ?? "";
-            var settingModel = JsonConvert.DeserializeObject<ClosedLoopSettingModel>(projectSetting);
-            return settingModel;
+            if (!result) return;
+            var re = _operationUtil.SaveClosedLoopSettingProjectParamrers(closedLoopType, sideType, settingModel);
         }
         #endregion
 
@@ -315,7 +258,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 
         private void ParamSave()
         {
-            _ = RefreshGeneralParamrersAsync();
+            GeneralSettingsModel.PartitionedModels.Clear();
+            GeneralSettingsModel.PartitionedModels.AddRange(PartitionedModels);
+            var re = _operationUtil.SaveGeneralSettingsProjectParamrers(GeneralSettingsModel);
         }
 
         private void PartitionedSelectionChanged(object? arg)
@@ -327,66 +272,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             PartitionedModels.AddRange(partitionedModels);
         }
 
-        private async Task<bool> RefreshGeneralParamrersAsync()
+        /// <summary>
+        /// 加载涂布闭环通用参数
+        /// </summary>
+        private void LoadGeneralSettingsModel()
         {
-            var projectSettingName = "GeneralSettings";
-            GeneralSettingsModel.PartitionedModels.Clear();
-            GeneralSettingsModel.PartitionedModels.AddRange(PartitionedModels);
-            return await RefreshJsonParamrersAsync(projectSettingName, GeneralSettingsModel);
-        }
-
-        private void InitializeGeneralProjectSettings()
-        {
-            var model = new GeneralSettingsModel();
-            model.PartitionedType = EPartitionedType.一分膜区;
-            model.PartitionedModels.AddRange(PartitionedModel.GetPartitionedModels(model.PartitionedType));
-
-            var projectSettingName = "GeneralSettings";
-            if (!_projectSettingRepository.Exists(model => model.Name == projectSettingName && model.BelongToVM == CCTBCore.BelongToVM))
-            {
-                _projectSettingRepository.Add(
-                    new ProjectSettingModel(projectSettingName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 2)
-                    {
-                        Remark = "涂布闭环通用设置"
-                    }
-                );
-            }
-        }
-
-        private async Task LoadGeneralSettingsModelAsync()
-        {
-            var projectSettingName = "GeneralSettings";
-            var projectSetting = _projectSettingRepository.GetByNameAndVM(projectSettingName, CCTBCore.BelongToVM)?.Value ?? "";
-            var settingModel = JsonConvert.DeserializeObject<GeneralSettingsModel>(projectSetting);
+            var settingModel = _operationUtil.LoadGeneralSettingsProjectParamrers();
             if (settingModel == null) return;
 
             GeneralSettingsModel = settingModel;
             var partitionedModels = PartitionedModel.GetPartitionedModels(settingModel.PartitionedType, settingModel.PartitionedModels);
-            PartitionedModels.Clear();
-            PartitionedModels.AddRange(partitionedModels);
-        }
-        #endregion
-
-        /// <summary>
-        /// 保存到数据库
-        /// </summary>
-        /// <returns></returns>
-        private async Task<bool> RefreshJsonParamrersAsync(string paramName, object value)
-        {
-            var paramrer = _projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramrer == null) return false;
-            paramrer.Value = JsonConvert.SerializeObject(value);
-            return await _projectSettingRepository.UpdateAsync(paramrer);
-        }
-
-        #region
-        public class ComboboxItemModel<T> : ModelBase where T : Enum
-        {
-            private T? itemValue;
-            private string? displayName;
-
-            public T? ItemValue { get => itemValue; set => SetProperty(ref itemValue, value); }
-            public string? DisplayName { get => displayName; set => SetProperty(ref displayName, value); }
+            RunOnUIThread(() =>
+            {
+                PartitionedModels.Clear();
+                PartitionedModels.AddRange(partitionedModels);
+            });
         }
         #endregion
     }

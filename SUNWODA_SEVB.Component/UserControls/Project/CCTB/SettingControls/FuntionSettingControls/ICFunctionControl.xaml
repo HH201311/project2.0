@@ -1,0 +1,119 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls.ICFunctionControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls"
+    d:DesignHeight="820"
+    d:DesignWidth="1330"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="70" />
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" Margin="20">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="展示界面分区数据及CPK计算数据选择" />
+                <WrapPanel Margin="0,10,0,-10" Orientation="Horizontal">
+                    <RadioButton
+                        Height="30"
+                        Margin="0,0,20,10"
+                        d:IsChecked="True"
+                        Content="分区干膜净重"
+                        IsChecked="{Binding ItemSource.FormChartDataType, Mode=TwoWay, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EWeightDataType.干膜净重分区数据}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamHookRadioButtonStyle}" />
+                    <RadioButton
+                        Height="30"
+                        Margin="0,0,20,10"
+                        d:IsChecked="False"
+                        Content="分区干膜总重"
+                        IsChecked="{Binding ItemSource.FormChartDataType, Mode=TwoWay, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EWeightDataType.干膜总重分区数据}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamHookRadioButtonStyle}" />
+                    <RadioButton
+                        Height="30"
+                        Margin="0,0,20,10"
+                        d:IsChecked="False"
+                        Content="毫米干膜总重"
+                        IsChecked="{Binding ItemSource.FormChartDataType, Mode=TwoWay, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EWeightDataType.干膜总重毫米数据}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamHookRadioButtonStyle}" />
+                    <RadioButton
+                        Height="30"
+                        Margin="0,0,20,10"
+                        d:IsChecked="False"
+                        Content="毫米干膜净重"
+                        IsChecked="{Binding ItemSource.FormChartDataType, Mode=TwoWay, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EWeightDataType.干膜净重毫米数据}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamHookRadioButtonStyle}" />
+                </WrapPanel>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="展示界面毫米数据选择" />
+                <WrapPanel Margin="0,10,0,-10" Orientation="Horizontal">
+                    <RadioButton
+                        Height="30"
+                        Margin="0,0,20,10"
+                        d:IsChecked="True"
+                        Content="毫米干膜总重"
+                        IsChecked="{Binding ItemSource.FormLineDataType, Mode=TwoWay, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EWeightDataType.干膜总重毫米数据}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamHookRadioButtonStyle}" />
+                    <RadioButton
+                        Height="30"
+                        Margin="0,0,20,10"
+                        d:IsChecked="False"
+                        Content="毫米干膜净重"
+                        IsChecked="{Binding ItemSource.FormLineDataType, Mode=TwoWay, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EWeightDataType.干膜净重毫米数据}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamHookRadioButtonStyle}" />
+                </WrapPanel>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="CPK计算数据处理" />
+                <uccc:PairContentControl PairKeyText="异常数据剔除规格" Style="{StaticResource PPairContentControlStyle}">
+                    <TextBox
+                        d:Text="10"
+                        Style="{StaticResource PValueTextBoxStyle}"
+                        Text="{Binding ItemSource.EliminateSpecificationsOfCPK, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </uccc:PairContentControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  功能按钮  -->
+        <Border
+            Grid.Row="1"
+            BorderBrush="#61FFFFFF"
+            BorderThickness="0,1,0,0">
+            <StackPanel
+                Margin="0,0,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Command="{Binding SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="保存"
+                    Style="{StaticResource ParamOKButtonStyle}" />
+                <Button
+                    Command="{Binding CancleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="取消"
+                    Style="{StaticResource ParamCancleButtonStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

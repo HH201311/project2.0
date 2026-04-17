@@ -23,8 +23,7 @@
                 <Setter Property="Width" Value="80" />
                 <Setter Property="Height" Value="30" />
                 <Setter Property="Content" Value="干膜数据" />
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
-                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Foreground" Value="#CCFFFFFF" />
                 <Setter Property="Background" Value="#FF3DCC84" />
@@ -87,8 +86,7 @@
                 <Setter Property="Width" Value="80" />
                 <Setter Property="Height" Value="30" />
                 <Setter Property="Content" Value="湿膜数据" />
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
-                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Foreground" Value="#CCFFFFFF" />
                 <Setter Property="Background" Value="#FF3DCC84" />

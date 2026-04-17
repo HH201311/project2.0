@@ -14,6 +14,14 @@
 
   <ItemGroup>
     <None Remove="Assets\Fonts\iconfont_cctb.ttf" />
+    <None Remove="Assets\Fonts\SourceHanSansCN-VF.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-Bold_0.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-ExtraLight.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-Heavy_0.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-Light.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-Medium.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-Normal.otf" />
+    <None Remove="Assets\Fonts\思源黑体\SourceHanSansCN-Regular_0.otf" />
     <None Remove="Assets\Fonts\阿里妈妈数黑体.ttf" />
     <None Remove="Assets\images\logo%402x.png" />
     <Compile Remove="ViewModels\Pages\CCTB\**" />
@@ -36,6 +44,8 @@
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_CCDDataPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_SummaryPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_TBDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\FunctionSetting\VM_BasicFunctionsPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\FunctionSetting\VM_SpecialFunctionsPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_AlarmSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_CommunicationSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_PermissionSettingPage.cs" />
@@ -54,6 +64,8 @@
     <Compile Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\SpecialFunctionsPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\BasicFunctionsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml.cs" />
   </ItemGroup>
 
@@ -167,6 +179,30 @@
     <Resource Include="Assets\Fonts\iconfont_cctb.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\Fonts\SourceHanSansCN-VF.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-Bold_0.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-ExtraLight.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-Heavy_0.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-Light.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-Medium.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-Normal.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Fonts\思源黑体\SourceHanSansCN-Regular_0.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
@@ -207,11 +243,9 @@
     <Page Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\CommunicationSettingPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\SpecialFunctionsPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\BasicFunctionsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Assets\Fonts\思源黑体\" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 ﻿using SUNWODA_SEVB.Core.Common;
 using System.ComponentModel;
 
-namespace SUNWODA_SEVB.Core.Models.Project.PTO
+namespace SUNWODA_SEVB.Core.Models.Project.JRCW
 {
     /// <summary>
     /// 缺陷参数模型（防栈溢出+双向绑定）

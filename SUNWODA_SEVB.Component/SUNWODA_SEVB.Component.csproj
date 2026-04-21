@@ -52,12 +52,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Animations\" />
-    <Folder Include="Behaviors\" />
-    <Folder Include="Selectors\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Update="UserControls\Project\CCTB\SettingControls\CommunicationSettingControls\DHCommunicationControl.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

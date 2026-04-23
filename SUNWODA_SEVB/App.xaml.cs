@@ -1,7 +1,5 @@
 ﻿using System.IO;
 using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -18,7 +16,6 @@ using SUNWODA_SEVB.Logging.Targets;
 using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
-using SUNWODA_SEVB.Services.Project;
 using SUNWODA_SEVB.Tool.Configuration;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
@@ -27,8 +24,6 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using System.Diagnostics;
-using System.IO;
-using System.Windows;
 
 namespace SUNWODA_SEVB
 {

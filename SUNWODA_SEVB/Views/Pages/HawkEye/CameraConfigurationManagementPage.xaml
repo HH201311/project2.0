@@ -135,7 +135,7 @@
                                         DockPanel.Dock="Left"
                                         FontSize="14PX"
                                         FontWeight="Black"
-                                        Text="视频保存:"
+                                        Text="图片保存:"
                                         TextAlignment="Left" />
                                     <Rectangle Width="5" />
                                     <CheckBox

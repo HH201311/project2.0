@@ -1,11 +1,5 @@
 ﻿using OpenCvSharp;
 using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Tool.Extension;
-using System;
-using System.Globalization;
-using System.IO;
-using System.Windows;
-using Size = OpenCvSharp.Size;
 
 namespace SUNWODA_SEVB.Tool.Helper
 {

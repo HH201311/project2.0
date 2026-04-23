@@ -352,7 +352,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Common
 
         public async Task LoadGlobalSettingsAsync()
         {
-            //_globalSettings = await _globalSettingRepository.GetAllAsync();
+            //_globalSettings = await globalSettingRepository.GetAllAsync();
             var currentUser = (UsersModel)(
                 await _usersRepository.GetByUserAccountAsync(
                     _globalSettingRepository.GetSettingValue("CurrentUserAccount")

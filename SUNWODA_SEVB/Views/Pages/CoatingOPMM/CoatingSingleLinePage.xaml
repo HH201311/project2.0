@@ -11,7 +11,7 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     FontSize="{Binding MainFontSize}"
-    Foreground="Black"
+    Foreground="{Binding PageForeground}"
     mc:Ignorable="d">
 
     <Grid>
@@ -23,7 +23,7 @@
         </Grid.RowDefinitions>
 
 
-        <Border d:Background="#e9faf1" Background="{Binding StatusBarBrush}">
+        <Border>
             <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
                 <TextBlock
                     Margin="0,0,2,0"

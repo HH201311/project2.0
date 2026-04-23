@@ -1,0 +1,104 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls.WMFunctionControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls"
+    d:DesignHeight="820"
+    d:DesignWidth="1330"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="70" />
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" Margin="20">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据采集" />
+                <uccc:PairContentControl PairKeyText="测重仪数采功能是否开启" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.IsUseCollectFunctionOfWMWeightData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据类型选择" />
+                <CheckBox
+                    Margin="0,10,0,0"
+                    d:IsChecked="True"
+                    Content="毫米数据"
+                    IsChecked="{Binding ItemSource.IsUseMillimeterData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Style="{StaticResource ParamCheckBoxStyle}" />
+                <CheckBox
+                    Margin="0,10,0,0"
+                    d:IsChecked="True"
+                    Content="分区干膜总重数据"
+                    IsChecked="{Binding ItemSource.IsUseDryFilmTotalDataOfPartitioned, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Style="{StaticResource ParamCheckBoxStyle}" />
+                <CheckBox
+                    Margin="0,10,0,0"
+                    d:IsChecked="False"
+                    Content="分区干膜净重数据"
+                    IsChecked="{Binding ItemSource.IsUseDryFilmNetDataOfPartitioned, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Style="{StaticResource ParamCheckBoxStyle}" />
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率" />
+                <uccc:PairContentControl PairKeyText="面密度数据采集频率(s/次)" Style="{StaticResource PPairContentControlStyle}">
+                    <TextBox
+                        d:Text="1"
+                        Style="{StaticResource PValueTextBoxStyle}"
+                        Text="{Binding ItemSource.CollectFrequencyOfWeightData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </uccc:PairContentControl>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据保存" />
+                <uccc:PairContentControl PairKeyText="保存路径" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:FloderPicker
+                        Width="400"
+                        Height="40"
+                        d:FloderText="D:\项目工作\涂布闭环\闭环框架及界面"
+                        FloderText="{Binding ItemSource.SavePathOfWM, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        PickerContent="更改" />
+                </uccc:PairContentControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  功能按钮  -->
+        <Border
+            Grid.Row="1"
+            BorderBrush="#61FFFFFF"
+            BorderThickness="0,1,0,0">
+            <StackPanel
+                Margin="0,0,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Command="{Binding SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="保存"
+                    Style="{StaticResource ParamOKButtonStyle}" />
+                <Button
+                    Command="{Binding CancleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="取消"
+                    Style="{StaticResource ParamCancleButtonStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

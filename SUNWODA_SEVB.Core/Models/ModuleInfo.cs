@@ -5,9 +5,14 @@ namespace SUNWODA_SEVB.Core.Models
 {
     public class ModuleInfo : ModelBase
     {
+        private string? _name;
         private bool _isSelected;
 
-        public string? Name { get; set; }
+        public string? Name
+        {
+            get => _name;
+            set => SetProperty(ref _name, value);
+        }
         public string? DisplayName { get; set; }
         public string? Icon { get; set; }
         public int Order { get; set; }

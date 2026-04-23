@@ -26,6 +26,7 @@ namespace SUNWODA_SEVB.WEB.Services
         private bool _isFirstCheck = true;
         private bool _isDownloading = false;
         private readonly object _lockObject = new(); // 添加锁对象用于线程安全
+        private volatile bool _shouldTriggerImmediateHeartbeat = false;
 
         public BackgroundTaskService(
             IServiceProvider serviceProvider,
@@ -144,7 +145,7 @@ namespace SUNWODA_SEVB.WEB.Services
 
         private async Task HeartbeatTaskAsync(CancellationToken cancellationToken)
         {
-            var lastHeartbeatTime = DateTime.Now;
+            var lastHeartbeatTime = DateTime.MinValue;
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -159,10 +160,16 @@ namespace SUNWODA_SEVB.WEB.Services
                         continue;
                     }
 
-                    if ((DateTime.Now - lastHeartbeatTime).TotalSeconds < settings.HeartbeatIntervalSeconds)
+                    // 检查是否需要立即触发（设备刚绑定成功）
+                    bool forceHeartbeat = _shouldTriggerImmediateHeartbeat;
+                    if (forceHeartbeat)
                     {
-                        continue;
+                        _shouldTriggerImmediateHeartbeat = false;
                     }
+
+                    bool intervalElapsed = (DateTime.Now - lastHeartbeatTime).TotalSeconds >= settings.HeartbeatIntervalSeconds;
+
+                    if (!forceHeartbeat && !intervalElapsed) continue;
 
                     // 使用状态服务检查设备绑定状态
                     if (!_stateService.IsDeviceBound)
@@ -255,7 +262,41 @@ namespace SUNWODA_SEVB.WEB.Services
 
                         // 通过ServiceProvider获取WebService实例
                         var webService = _serviceProvider.GetRequiredService<IWebService>();
-                        await webService.BindDeviceAsync();
+                        var bindSuccess = await webService.BindDeviceAsync();
+
+                        if (bindSuccess)
+                        {
+                            _logger.Info("设备绑定成功");
+
+                            _shouldTriggerImmediateHeartbeat = true;
+                            try
+                            {
+                                var currentSettings = _configuration.GetSettings();
+                                if (currentSettings.IsHeartbeatConfigValid())
+                                {
+                                    var heartbeatResponse = await _apiClient.SendHeartbeatAsync(
+                                        currentSettings.DeviceSn!,
+                                        "正常",
+                                        currentSettings.SoftVersion ?? "Unknown",
+                                        currentSettings.UUID!);
+
+                                    if (heartbeatResponse.IsSuccess)
+                                    {
+                                        _stateService.UpdateConnectionStatus(true);
+                                        _logger.Info("设备绑定后首次心跳成功，连接已就绪");
+                                    }
+                                    else
+                                    {
+                                        _logger.Warn($"设备绑定后首次心跳失败: {heartbeatResponse.Message}");
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warn($"设备绑定后发送心跳异常: {ex.Message}");
+                            }
+                        }
+                       
                     }
 
                     // PC信息上传

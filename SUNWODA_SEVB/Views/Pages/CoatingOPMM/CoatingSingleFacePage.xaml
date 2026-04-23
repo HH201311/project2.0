@@ -12,7 +12,7 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     FontSize="{Binding MainFontSize}"
-    Foreground="Black"
+    Foreground="{Binding PageForeground}"
     mc:Ignorable="d">
 
     <Grid>
@@ -52,8 +52,10 @@
 
                     <uc:CoatingZoneDataPlotViewer
                         x:Name="DemoPlot"
+                        BackgroundColorHex="{Binding PlotBackgroundColorHex}"
                         BaseValue="{Binding ZoneBaseValue}"
                         FilmData="{Binding FilmData}"
+                        LabelFontColorHex="{Binding PlotLabelFontColorHex}"
                         LabelFontSize="{Binding MainFontSize}"
                         RefValue="{Binding RefValue}" />
                 </DockPanel>
@@ -79,6 +81,7 @@
 
                     <uc:MmTrendPlot
                         AutoFitOnDataChange="True"
+                        BackgroundColorHex="{Binding PlotBackgroundColorHex}"
                         Baseline="{Binding MMBaseline}"
                         LabelFontSize="{Binding MainFontSize}"
                         LineWidth="2"

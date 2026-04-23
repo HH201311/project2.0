@@ -1,21 +1,16 @@
-﻿using Azure.Messaging;
+﻿
 using HalconDotNet;
 using HandyControl.Controls;
 using Microsoft.Win32;
-//using Microsoft.WindowsAPICodePack.Dialogs;
-using MySqlX.XDevAPI.Common;
-using NetTaste;
 using OpenCvSharp;
-using OpenCvSharp.WpfExtensions;
-using Org.BouncyCastle.Bcpg.OpenPgp;
 using OxyPlot;
-using OxyPlot.Axes;
 using OxyPlot.Series;
 //using ScottPlot;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Enumerations.Logging;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
@@ -39,6 +34,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -881,7 +877,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
 
             // 启动每日8点推送统计
             StartDailyPushTask();
-
+           
             // 程序退出时停止定时器，避免内存泄漏
             Application.Current.Exit += (s, e) => StopDailyPushTask();
         }
@@ -959,6 +955,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
         public MethodInfo? ModelInitMethod { get; set; }
         public object?[]? param { get; set; }
         public object?[]? acparam { get; set; }
+
+        //TabRedDetection tabai= new TabRedDetection();
         private void InitDll1()
         {
             // 基础配置（DLL和模型共用的密钥）
@@ -1223,6 +1221,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                 // 加锁：同一时间仅一个线程调用模型
                 lock (_modelInvokeLock)
                 {
+                    //tabai.ModelActionJiEr(H246modle, imageMat, Gongwei, out detectresult, out aiError);
+
+
                     // 每次调用重新初始化参数（避免多线程参数污染）
                     acparam = new object?[5] { H246modle, imageMat, Gongwei, default(MeasureResult), aiError };
                     // 执行反射调用（此时仅当前线程操作模型和参数）
@@ -2378,36 +2379,50 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
         #endregion
 
 
-        public void AddLog(string logContent)
+        public void AddLog(string message, CoreLogLevel level = CoreLogLevel.Info, bool isToDatabase = false,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
         {
             // 校验日志内容
-            string validLogContent = string.IsNullOrWhiteSpace(logContent)
-                ? "【空日志内容（可能是异常信息为空导致）】"
-                : logContent.Trim();
+            if (string.IsNullOrWhiteSpace(message))
+                return;
 
-            _logger.Info(validLogContent);
+            switch (level)
+            {
+                case CoreLogLevel.Info:
+                    _logger?.Info(message, isToDatabase, memberName, filePath, lineNumber);
+                    break;
+                case CoreLogLevel.Warn:
+                    _logger?.Warn(message, true, memberName, filePath, lineNumber);
+                    break;
+                case CoreLogLevel.Error:
+                    _logger?.Error(message, true, memberName, filePath, lineNumber);
+                    break;
+                default:
+                    _logger?.Log(level, message, isToDatabase, memberName, filePath, lineNumber);
+                    break;
+            }
 
+            string uiMessage = $"[{level}]{message}";
             // 创建日志项
             var newLog = Tuple.Create(
                 DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                validLogContent
+                uiMessage
             );
 
             // 仅当内容有效时添加到日志集合
-            if (!string.IsNullOrWhiteSpace(validLogContent))
-            {
-                Application.Current.Dispatcher.BeginInvoke(
-                    new Action(() =>
-                    {
-                        LogTable.Insert(0, newLog);
-                        if (LogTable.Count > 300)
-                        {
-                            LogTable.RemoveAt(LogTable.Count - 1);
-                        }
-                    })
 
-                );
-            }
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                LogTable.Insert(0, newLog);
+                if (LogTable.Count > 100)
+                {
+                    LogTable.RemoveAt(LogTable.Count - 1);
+                }
+            })
+            );
+
         }
 
         //滚轮缩放逻辑
@@ -4137,18 +4152,58 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
         /// </summary>
         private void StartDailyPushTask()
         {
-            if (_dailyPushTimer != null) return;
+            ScheduleNextPush();
+        }
 
-            // 计算首次推送时间（次日8点）
+        /// <summary>
+        /// 计算并设置下一次推送的定时器
+        /// </summary>
+        private void ScheduleNextPush()
+        {
+            // 停止旧计时器（如果在运行）
+            if (_dailyPushTimer != null)
+            {
+                _dailyPushTimer.Stop();
+                _dailyPushTimer.Dispose();
+            }
+
+            // 1. 获取当前时间
             DateTime now = DateTime.Now;
-            DateTime nextPushTime = new DateTime(now.Year, now.Month, now.Day, 8, 0, 0);
-            if (now > nextPushTime) nextPushTime = nextPushTime.AddDays(1);
-            double initialDelay = (nextPushTime - now).TotalMilliseconds;
 
-            // 关键修正：初始化 System.Timers.Timer
-            _dailyPushTimer = new System.Timers.Timer(initialDelay) { AutoReset = false };
-            _dailyPushTimer.Elapsed += async (s, e) => await ExecuteDailyPush();
-            _dailyPushTimer.Start(); // 现在可正常调用Start()
+            // 2. 计算目标时间（今天的8点）
+            DateTime targetTime = new DateTime(now.Year, now.Month, now.Day, 8, 0, 0);
+
+            // 3. 如果当前时间已经过了今天8点，则目标时间设为明天8点
+            if (now >= targetTime)
+            {
+                targetTime = targetTime.AddDays(1);
+            }
+
+            // 4. 计算延迟毫秒数
+            double initialDelay = (targetTime - now).TotalMilliseconds;
+
+            // 防止出现负数或极小值的极端情况
+            if (initialDelay <= 0) initialDelay = 1000;
+
+            // 5. 初始化定时器 (只执行一次，不要AutoReset)
+            _dailyPushTimer = new System.Timers.Timer(initialDelay);
+            _dailyPushTimer.AutoReset = false; // 关键：执行一次后自动停止，等待重新调度
+            _dailyPushTimer.Elapsed += async (s, e) =>
+            {
+                try
+                {
+                    await ExecuteDailyPush();
+                }
+                finally
+                {
+                    // 任务完成后，递归调用调度方法，重新计算明天的8点
+                    ScheduleNextPush();
+                }
+            };
+            _dailyPushTimer.Start();
+
+            // 可选：记录日志方便排查
+            AddLog($"下次推送时间已设定：{targetTime:yyyy-MM-dd HH:mm:ss} (延迟 {initialDelay/1000/3600:F2} 小时)",isToDatabase:true);
         }
 
         /// <summary>
@@ -4158,7 +4213,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
         {
             try
             {
-                //if (_fullDetectionDataList == null || _fullDetectionDataList.Count == 0) return;
+                // 安全检查：如果被意外触发（比如时间没到8点），强行中止或仅记录日志
+                if (DateTime.Now.Hour < 8)
+                {
+                    AddLog("检测到非8点触发推送，任务已跳过，等待下次调度。",CoreLogLevel.Warn);
+                    return;
+                }
 
                 // 统计时间范围：昨天8:00 ~ 今天8:00（白班+夜班）
                 DateTime yesterday = DateTime.Now.AddDays(-1);
@@ -4217,13 +4277,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
             }
             finally
             {
-                // 重置定时器为24小时
-                if (_dailyPushTimer != null)
-                {
-                    _dailyPushTimer.Interval = 86400000;
-                    _dailyPushTimer.AutoReset = true;
-                    _dailyPushTimer.Start();
-                }
                 CleanLastPushDayData();
             }
         }
@@ -4263,7 +4316,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
             //从内存中移除「上一次推送日」的数据
             _fullDetectionDataList.RemoveAll(d => d.DetectionTime.Date == lastPushDay);
 
-            //AddLog($"清理完成：移除上一次推送日（{lastPushDay:yyyy-MM-dd}）的{lastPushDayData.Count}条数据，当前列表保留【本次推送日的前一天（{today.AddDays(-1):yyyy-MM-dd}）+ 今日】数据");
+            AddLog($"清理完成：移除上一次推送日（{lastPushDay:yyyy-MM-dd}）的{lastPushDayData.Count}条数据，当前列表保留【本次推送日的前一天（{today.AddDays(-1):yyyy-MM-dd}）+ 今日】数据");
         }
 
 

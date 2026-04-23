@@ -10,7 +10,7 @@ namespace SUNWODA_SEVB.Tool.Extension
     public static class MathExtension
     {
         /// <summary>
-        /// 总体标准差
+        /// 总体标准差/Sigma
         /// </summary>
         /// <param name="values"></param>
         /// <returns></returns>
@@ -44,10 +44,10 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <exception cref="ArgumentException"></exception>
         public static double CPK(this IEnumerable<double> values, double targetValue, double toleranceValue)
         {
-            if (values == null || !values.Any())
-                throw new ArgumentException("输入的数据不能为空！");
-            if (values.Count() < 2)
-                throw new InvalidOperationException("需至少2个数据点");
+            if (values == null || !values.Any()) return 0;
+            //throw new ArgumentException("输入的数据不能为空！");
+            if (values.Count() < 2) return 0;
+            //throw new InvalidOperationException("需至少2个数据点");
             // 计算均值
             double mean = values.Average();
             // 计算总体标准差
@@ -62,6 +62,22 @@ namespace SUNWODA_SEVB.Tool.Extension
             // 计算cpk
             double cpk = minValue / 3 / sigma;
             return cpk;
+        }
+
+        public static double COV(this IEnumerable<double> values)
+        {
+            if (values == null || !values.Any())
+                throw new ArgumentException("输入的数据不能为空！");
+
+            if (values.Count() == 0 || values.All(o => o == 0)) return 0;
+            var mean = values.Average();
+            var sigma = values.Sigma();
+            return sigma / mean;
+        }
+
+        public static double Sigma(this IEnumerable<double> values)
+        {
+            return values.STDEVP();
         }
     }
 }

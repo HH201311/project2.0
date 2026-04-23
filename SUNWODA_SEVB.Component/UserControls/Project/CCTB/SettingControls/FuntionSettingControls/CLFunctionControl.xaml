@@ -1,0 +1,223 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls.CLFunctionControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls"
+    d:DesignHeight="1020"
+    d:DesignWidth="1330"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="70" />
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" Margin="20">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="算法调用" />
+                <uccc:PairContentControl PairKeyText="上位机是否调用算法" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.IsUseArithmetic, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="闭环入参数据选择" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Width="270" Orientation="Vertical">
+                        <CheckBox
+                            Margin="0,10,0,0"
+                            d:IsChecked="True"
+                            Content="面密度数据"
+                            IsChecked="{Binding ItemSource.IsUseWeightDataOfArithmeticParam, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamCheckBoxStyle}" />
+                        <CheckBox
+                            Margin="0,10,0,0"
+                            d:IsChecked="False"
+                            Content="涂布PLC数据"
+                            IsChecked="{Binding ItemSource.IsUsePLCDataOfArithmeticParam, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamCheckBoxStyle}" />
+                        <CheckBox
+                            Margin="0,10,0,0"
+                            d:IsChecked="False"
+                            Content="CCD尺寸数据"
+                            IsChecked="{Binding ItemSource.IsUseCCDDataOfArithmeticParam, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamCheckBoxStyle}" />
+                    </StackPanel>
+                    <ComboBox
+                        Grid.Column="1"
+                        Width="200"
+                        Height="40"
+                        Margin="0,5,0,0"
+                        VerticalAlignment="Top"
+                        DisplayMemberPath="DisplayName"
+                        ItemsSource="{Binding WeightDataTypeOfArithmeticParamSource, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        SelectedValue="{Binding ItemSource.WeightDataTypeOfArithmeticParam, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        SelectedValuePath="ItemValue"
+                        Style="{StaticResource ParamValueComboBoxStyle}" />
+                </Grid>
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据输出频率" />
+                <uccc:PairContentControl PairKeyText="上位机数据输出频率(s/次)" Style="{StaticResource PPairContentControlStyle}">
+                    <TextBox
+                        d:Text="7"
+                        Style="{StaticResource PValueTextBoxStyle}"
+                        Text="{Binding ItemSource.ExportFrequencyOfCL, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </uccc:PairContentControl>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据保存" />
+                <uccc:PairContentControl PairKeyText="保存路径" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:FloderPicker
+                        Width="400"
+                        Height="40"
+                        d:FloderText="D:\项目工作\涂布闭环\闭环框架及界面"
+                        FloderText="{Binding ItemSource.SavePathOfCL, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        PickerContent="更改" />
+                </uccc:PairContentControl>
+
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="其他" />
+                <UniformGrid Columns="1">
+                    <uccc:PairContentControl PairKeyText="&quot;涂布机闭环开关旋钮未开启&quot;提醒功能" Style="{StaticResource PPairContentControlStyle}">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.IsUseReminderOfClosedLoopSwitch, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <uccc:PairContentControl PairKeyText="&quot;是否开启进退刀判定&quot;功能" Style="{StaticResource PPairContentControlStyle}">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.IsUseJudgeOfKnife, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <uccc:PairContentControl PairKeyText="&quot;是否开启FTP上传&quot;功能" Style="{StaticResource PPairContentControlStyle}">
+                        <DockPanel MinWidth="400" LastChildFill="True">
+                            <uccc:SimpleToggleButton
+                                d:IsChecked="True"
+                                IsChecked="{Binding ItemSource.IsUseFTPUpload, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                            <uccc:ClickContentControl
+                                Margin="20,0,0,0"
+                                ClickCommand="{Binding FTPUploadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                ClickCommandParameter="{Binding FTPUploadDate, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                ClickContent="手动上传"
+                                Style="{StaticResource ParamClickContentControlStyle}">
+                                <DatePicker
+                                    HorizontalContentAlignment="Right"
+                                    VerticalContentAlignment="Center"
+                                    d:SelectedDate="2025/12/28"
+                                    d:Text="2025/12/28"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    FlowDirection="RightToLeft"
+                                    FontFamily="Arial"
+                                    FontSize="14"
+                                    FontWeight="Regular"
+                                    Foreground="#CCFFFFFF"
+                                    SelectedDate="{Binding FTPUploadDate, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </uccc:ClickContentControl>
+                        </DockPanel>
+                    </uccc:PairContentControl>
+                    <uccc:PairContentControl PairKeyText="泵速下发模式" Style="{StaticResource PPairContentControlStyle}">
+                        <DockPanel MinWidth="400" LastChildFill="True">
+                            <RadioButton
+                                d:IsChecked="True"
+                                Content="PLC"
+                                IsChecked="{Binding ItemSource.ModeOfPumpAdjust, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EModeOfPumpAdjust.PLC}}"
+                                Style="{StaticResource ParamValueRadioButtonStyle}" />
+                            <RadioButton
+                                Margin="10,0,0,0"
+                                Content="Socket"
+                                IsChecked="{Binding ItemSource.ModeOfPumpAdjust, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EModeOfPumpAdjust.Socket}}"
+                                Style="{StaticResource ParamValueRadioButtonStyle}" />
+                        </DockPanel>
+                    </uccc:PairContentControl>
+                    <uccc:PairContentControl PairKeyText="膜卷号读取方式" Style="{StaticResource PPairContentControlStyle}">
+                        <DockPanel MinWidth="400" LastChildFill="True">
+                            <RadioButton
+                                d:IsChecked="True"
+                                Content="PLC"
+                                IsChecked="{Binding ItemSource.ModeOfRollNumReading, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:ERollNumReading.PLC}}"
+                                Style="{StaticResource ParamValueRadioButtonStyle}" />
+                            <RadioButton
+                                Margin="10,0,0,0"
+                                d:IsChecked="False"
+                                Content="txt"
+                                IsChecked="{Binding ItemSource.ModeOfRollNumReading, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:ERollNumReading.txt}}"
+                                Style="{StaticResource ParamValueRadioButtonStyle}" />
+                            <uccc:ClickContentControl
+                                Margin="20,0,0,0"
+                                ClickCommand="{Binding RollNumPathVerifyCommand}"
+                                ClickCommandParameter="{Binding ItemSource.PathOfRollNumReadingTxt, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                ClickContent="点击验证"
+                                Style="{StaticResource ParamClickContentControlStyle}">
+                                <TextBox
+                                    d:IsReadOnly="True"
+                                    d:Text="\\DESKTOP-986B1JE\MESClientData\MESClientData.txt"
+                                    Background="Transparent"
+                                    IsReadOnly="{Binding ItemSource.ModeOfRollNumReading, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:ERollNumReading.PLC}}"
+                                    Style="{StaticResource PValueTextBoxStyle}"
+                                    Text="{Binding ItemSource.PathOfRollNumReadingTxt, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </uccc:ClickContentControl>
+                        </DockPanel>
+                    </uccc:PairContentControl>
+                    <uccc:PairContentControl PairKeyText="闭环自动启动" Style="{StaticResource PPairContentControlStyle}">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.IsClosedLoopAutoStart, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                </UniformGrid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  功能按钮  -->
+        <Border
+            Grid.Row="1"
+            BorderBrush="#61FFFFFF"
+            BorderThickness="0,1,0,0">
+            <StackPanel
+                Margin="0,0,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Command="{Binding SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="保存"
+                    Style="{StaticResource ParamOKButtonStyle}" />
+                <Button
+                    Command="{Binding CancleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="取消"
+                    Style="{StaticResource ParamCancleButtonStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

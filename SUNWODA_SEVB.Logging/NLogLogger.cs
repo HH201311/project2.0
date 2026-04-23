@@ -35,9 +35,13 @@ namespace SUNWODA_SEVB.Logging
 
         #endregion
 
+        #region 委托事件
+        public event ILoggerService.OnLoggerReportEventHandle? OnLoggerReportEvent;
+        #endregion
+
         #region 基础日志方法（仅消息）
 
-        public void Trace(string message,bool isToDatabase = false,
+        public void Trace(string message, bool isToDatabase = false,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
@@ -214,6 +218,7 @@ namespace SUNWODA_SEVB.Logging
 
         #region 接口日志方法
         private readonly IMesInterfaceLogRepository? _mesLogRepository;
+
         /// <summary>
         /// 记录MES接口日志
         /// </summary>
@@ -296,7 +301,7 @@ namespace SUNWODA_SEVB.Logging
             logEvent.Properties["ResponseBody"] = responseBody;
             logEvent.Properties["StatusCode"] = statusCode;
             logEvent.Properties["ExecutionTime"] = executionTime;
-            logEvent.Properties["IsToDatabase"] = true; 
+            logEvent.Properties["IsToDatabase"] = true;
             logger.Log(logEvent);
         }
         #endregion
@@ -313,6 +318,14 @@ namespace SUNWODA_SEVB.Logging
         {
             var logEvent = CreateLogEventWithCallSite(level, message, exception, isToDatabase, memberName, filePath, lineNumber);
             Logger.Log(typeof(NLogLogger<T>), logEvent);
+
+            var logModel = new AppLogModel();
+            logModel.LogTime = logEvent.TimeStamp;
+            logModel.LogLevel = logEvent.Level.Name;
+            logModel.Message = logEvent.Message;
+            logModel.Exception = logEvent.Exception?.ToString();
+            Task.Run(() => OnLoggerReportEvent?.Invoke(logModel));
+            Task.Run(() => ILoggerService.RaiseOnLoggerReportGlobalEvent(logModel));
         }
 
         /// <summary>
@@ -407,7 +420,7 @@ namespace SUNWODA_SEVB.Logging
                 using var scope = _serviceProvider.CreateScope();
                 var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
 
-                var currentUser = globalSettingRepo.GetSettingValue("CurrentUserAccount");              
+                var currentUser = globalSettingRepo.GetSettingValue("CurrentUserAccount");
                 return currentUser?.ToString();
             }
             catch

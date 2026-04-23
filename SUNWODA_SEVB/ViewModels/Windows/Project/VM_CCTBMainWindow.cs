@@ -1,15 +1,16 @@
-﻿using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Threading;
-using SUNWODA_SEVB.Core.Common;
+﻿using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models;
 using SUNWODA_SEVB.Services;
+using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace SUNWODA_SEVB.ViewModels.Windows.Project
 {
@@ -19,9 +20,10 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         private readonly INavigationService _navigationService;
         private readonly IModuleManager _moduleManager;
         private readonly IGlobalSettingRepository _globalSettingRepository;
+
+        private Page? _navigationPage;
         private ModuleInfo? _selectedModule;
         private bool _isNavigating;
-        private string _loadingMessage = "";
 
         // 添加导航防抖
         private CancellationTokenSource? _navigationCts;
@@ -29,7 +31,11 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         private const int NAVIGATION_DEBOUNCE_MS = 100;
 
         public Frame? NavigationFrame { get; set; }
-
+        public Page? NavigationPage
+        {
+            get => _navigationPage;
+            set => SetProperty(ref _navigationPage, value);
+        }
         public ModuleInfo? SelectedModule
         {
             get => _selectedModule;
@@ -48,12 +54,6 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         {
             get => _isNavigating;
             set => SetProperty(ref _isNavigating, value);
-        }
-
-        public string LoadingMessage
-        {
-            get => _loadingMessage;
-            set => SetProperty(ref _loadingMessage, value);
         }
 
         public ICommand? DeviceSwitchoverCommand { get; set; }
@@ -75,58 +75,71 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             _globalSettingRepository = globalSettingRepository;
         }
 
+        /// <summary>
+        /// 初始化
+        /// </summary>
         public override void OnInitialize()
         {
             DeviceSwitchoverCommand = new RelayCommand(() => { });
             ControlSwitchoverCommand = new RelayCommand(() => { });
+
             base.OnInitialize();
         }
 
+        /// <summary>
+        /// 异步初始化
+        /// </summary>
+        /// <returns></returns>
+        protected override async Task OnInitializeAsync()
+        {
+            await base.OnInitializeAsync();
+        }
+
+        /// <summary>
+        /// 初始化导航系统
+        /// </summary>
+        /// <exception cref="ArgumentNullException"></exception>
         public void InitNavigation()
         {
             // 显示加载提示
             IsNavigating = true;
-            LoadingMessage = "正在初始化导航系统...";
 
-            // 加载模块
-            _moduleManager.AutoRegisterModulesByName("VM_CCTBMonitoringPage", "VM_CCTBSettingsPage", "VM_CCTBRecordingsPage");
-
+            // 初始化导航
             MonitoringCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBMonitoringPage"));
             SettingsCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBSettingsPage"));
             RecordingsCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBRecordingsPage"));
 
-            // 订阅导航事件
-            _navigationService.Navigated += OnNavigated;
-            _navigationService.Navigating += OnNavigating;
+            // 加载模块
+            _moduleManager.AutoRegisterModulesByName("VM_CCTBMonitoringPage", "VM_CCTBSettingsPage", "VM_CCTBRecordingsPage");
 
-            // 订阅模块注册事件
-            _moduleManager.ModuleRegistered += OnModuleRegistered;
-
-            // 初始化导航服务
-            ((NavigationService)_navigationService).Initialize(NavigationFrame ?? throw new ArgumentNullException(nameof(NavigationFrame)));
-
+            // 导航到默认界面
             NavigateToDefaultAsync();
 
-            LoadingMessage = "";
             IsNavigating = false;
         }
 
+        /// <summary>
+        /// 导航到默认界面
+        /// </summary>
         private async void NavigateToDefaultAsync()
         {
             var defaultModule = _moduleManager.GetModule("VM_CCTBMonitoringPage");
-            if (defaultModule != null)
-            {
-                await Application.Current.Dispatcher.InvokeAsync(
-                    () =>
-                    {
-                        defaultModule.IsSelected = true;
-                        _navigationService.NavigateTo(defaultModule.Name ?? "");
-                    },
-                    DispatcherPriority.Normal
-                );
-            }
+            if (defaultModule == null) return;
+
+            await Application.Current.Dispatcher.InvokeAsync(
+                () =>
+                {
+                    defaultModule.IsSelected = true;
+                    SelectedModule = defaultModule;
+                },
+                DispatcherPriority.Normal
+            );
         }
 
+        /// <summary>
+        /// 导航到指定界面-防抖
+        /// </summary>
+        /// <param name="module"></param>
         private async void NavigateToModuleDebounced(ModuleInfo module)
         {
             // 取消之前的导航
@@ -152,6 +165,10 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             }
         }
 
+        /// <summary>
+        /// 异步导航到指定界面
+        /// </summary>
+        /// <param name="module"></param>
         private async void NavigateToModuleAsync(ModuleInfo module)
         {
             if (string.IsNullOrEmpty(module.Name))
@@ -160,9 +177,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             try
             {
                 IsNavigating = true;
-                LoadingMessage = $"正在加载 {module.DisplayName}...";
-
-                _navigationService.NavigateTo(module.Name);
+                NavigationPage = _moduleManager.GetView(module.Name);
+                var viewModel = NavigationPage?.DataContext as ViewModelBase;
+                viewModel?.OnNavigatedTo(null);
             }
             catch (Exception ex)
             {
@@ -173,34 +190,13 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
                 // 延迟一点清除加载状态，避免闪烁
                 await Task.Delay(50);
                 IsNavigating = false;
-                LoadingMessage = "";
             }
         }
 
-        private void OnNavigating(object? sender, NavigatingEventArgs e)
-        {
-            // 导航开始时的处理
-            IsNavigating = true;
-            LoadingMessage = $"正在加载...";
-        }
-
-        private void OnNavigated(object? sender, NavigationEventArgs e)
-        {
-            _logger.Info($"导航完成: {e.ModuleName}");
-
-            // 更新选中状态
-            _selectedModule = _moduleManager.GetModule(e.ModuleName ?? "");
-            OnPropertyChanged(nameof(SelectedModule));
-
-            // 清除加载状态
-            IsNavigating = false;
-            LoadingMessage = "";
-        }
-
-        private void OnModuleRegistered(object? sender, ModuleRegisteredEventArgs e)
-        {
-        }
-
+        /// <summary>
+        /// 异步导航到指定界面
+        /// </summary>
+        /// <param name="moduleName"></param>
         private async void NavigateToSpecialModuleAsync(string moduleName)
         {
             if (IsNavigating)
@@ -208,32 +204,19 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
 
             var module = _moduleManager.GetModule(moduleName);
 
-            if (module != null)
-            {
-                if (SelectedModule != null)
-                    SelectedModule.IsSelected = false;
+            if (module == null) return;
 
-                await Task.Run(() =>
-                {
-                    Application.Current.Dispatcher.BeginInvoke(
-                        DispatcherPriority.Background,
-                        new Action(() =>
-                        {
-                            _navigationService.NavigateTo(module.Name ?? "");
-                        })
-                    );
-                });
-            }
+            if (SelectedModule != null)
+                SelectedModule.IsSelected = false;
+
+            module.IsSelected = true;
+            SelectedModule = module;
         }
 
         protected override async Task OnCleanupAsync()
         {
             _navigationCts?.Cancel();
             _navigationCts?.Dispose();
-
-            _navigationService.Navigated -= OnNavigated;
-            _navigationService.Navigating -= OnNavigating;
-            _moduleManager.ModuleRegistered -= OnModuleRegistered;
 
             await base.OnCleanupAsync();
         }

@@ -25,20 +25,34 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Padding" Value="0,4,0,4" />
+            <Setter Property="Foreground" Value="{Binding RelativeSource={RelativeSource AncestorType=local:AlarmBarControl}, Path=Foreground}" />
         </Style>
 
         <!--  详情单元格（省略号 + ToolTip）  -->
         <DataTemplate x:Key="DetailCellTemplate">
             <TextBlock
                 VerticalAlignment="Center"
+                Foreground="{Binding RelativeSource={RelativeSource AncestorType=local:AlarmBarControl}, Path=Foreground}"
                 Text="{Binding AlarmDetail}"
                 TextTrimming="CharacterEllipsis"
                 ToolTip="{Binding AlarmDetail}" />
         </DataTemplate>
 
+        <Style BasedOn="{StaticResource BaseStyle}" TargetType="DataGrid">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False" />
+            </Style.Triggers>
+        </Style>
+
         <!--  行样式：按等级着色  -->
         <Style TargetType="DataGridRow">
             <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="IsEnabled" Value="False" />
+
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False" />
+            </Style.Triggers>
         </Style>
 
         <!--  表头样式  -->
@@ -47,6 +61,10 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
+
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False" />
+            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 

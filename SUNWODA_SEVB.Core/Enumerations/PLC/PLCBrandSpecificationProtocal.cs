@@ -34,6 +34,10 @@
         /// </summary>
         Omron_Fins_TCP,
         /// <summary>
+        /// 欧姆龙Connected CIP
+        /// </summary>
+        Omron_Connected_CIP,
+        /// <summary>
         /// 三菱MC(Binary)
         /// </summary>
         Melsec_MC_Binary,

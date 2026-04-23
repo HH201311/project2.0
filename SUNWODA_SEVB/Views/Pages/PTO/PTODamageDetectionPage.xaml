@@ -3,17 +3,22 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:cov="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.PTO"
     xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="clr-namespace:SUNWODA_SEVB.Core.Models.Project.PTO;assembly=SUNWODA_SEVB.Core"
     xmlns:vm="clr-namespace:SUNWODA_SEVB.ViewModels.Pages.PTO"
     Title="PTODamageDetectionPage"
     d:DesignHeight="1080"
     d:DesignWidth="1920"
     FontSize="15"
     mc:Ignorable="d">
-   
+
+    <Page.Resources>
+        <cov:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+    </Page.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -202,7 +207,7 @@
                             Height="20"
                             Margin="0,0,15,0"
                             Background="#E0E0E0"
-                            Foreground="Red"
+                            Foreground="Green"
                             Maximum="100"
                             Minimum="0"
                             Value="{Binding OfflineProgressValue, FallbackValue=0}" />
@@ -440,7 +445,7 @@
                                 Grid.ColumnSpan="5"
                                 Margin="0,570,0,0" />
 
-                            <Border
+                            <!--<Border
                                 Grid.Row="1"
                                 Grid.ColumnSpan="5"
                                 MaxHeight="400"
@@ -454,7 +459,7 @@
                                         FontSize="20"
                                         FontWeight="Bold"
                                         Foreground="DarkBlue"
-                                        Text="负极缺陷检测信息" />
+                                        Text="缺陷检测信息" />
 
                                     <Border
                                         HorizontalAlignment="Stretch"
@@ -480,7 +485,9 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
 
-                                            <!--  行1  -->
+                            -->
+                            <!--  行1  -->
+                            <!--
                                             <Border Grid.Row="0" Grid.Column="0">
                                                 <TextBlock
                                                     HorizontalAlignment="Center"
@@ -500,7 +507,9 @@
                                                     FontWeight="SemiBold"
                                                     Text="OK数" />
                                             </Border>
-                                            <!--  行2  -->
+                            -->
+                            <!--  行2  -->
+                            <!--
                                             <Border Grid.Row="1" Grid.Column="0">
                                                 <TextBlock
                                                     HorizontalAlignment="Center"
@@ -518,7 +527,9 @@
                                                     FontSize="16"
                                                     Text="{Binding OKCount}" />
                                             </Border>
-                                            <!--  行3  -->
+                            -->
+                            <!--  行3  -->
+                            <!--
                                             <Border Grid.Row="2" Grid.Column="0">
                                                 <TextBlock
                                                     HorizontalAlignment="Center"
@@ -538,7 +549,9 @@
                                                     FontWeight="SemiBold"
                                                     Text="一次优率" />
                                             </Border>
-                                            <!--  行4  -->
+                            -->
+                            <!--  行4  -->
+                            <!--
                                             <Border
                                                 Grid.Row="3"
                                                 Grid.Column="0"
@@ -604,7 +617,214 @@
                                             Foreground="Black" />
                                     </StackPanel>
                                 </StackPanel>
+                            </Border>-->
+
+                            <Border
+                                Grid.Row="1"
+                                Grid.ColumnSpan="5"
+                                MaxHeight="400"
+                                Margin="0,5,0,0"
+                                BorderBrush="LightGray"
+                                BorderThickness="1">
+
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="10">
+                                        <TextBlock
+                                            Margin="0,0,0,15"
+                                            HorizontalAlignment="Center"
+                                            FontSize="20"
+                                            FontWeight="Bold"
+                                            Foreground="DarkBlue"
+                                            Text="缺陷检测总体信息" />
+                                        <Border
+                                            HorizontalAlignment="Stretch"
+                                            BorderBrush="Black"
+                                            BorderThickness="1">
+                                            <Grid>
+                                                <Grid.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="Black" />
+                                                        <Setter Property="BorderThickness" Value="0,0,1,1" />
+                                                        <Setter Property="Padding" Value="10" />
+                                                    </Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center" />
+                                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                                        <Setter Property="FontSize" Value="16" />
+                                                    </Style>
+                                                </Grid.Resources>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Row="0" Grid.Column="0">
+                                                    <TextBlock FontWeight="SemiBold" Text="总检测数" />
+                                                </Border>
+                                                <Border
+                                                    Grid.Row="0"
+                                                    Grid.Column="1"
+                                                    BorderThickness="0,0,0,1">
+                                                    <TextBlock FontWeight="SemiBold" Text="OK数" />
+                                                </Border>
+                                                <Border Grid.Row="1" Grid.Column="0">
+                                                    <TextBlock Text="{Binding TotalNeDetectionCount}" />
+                                                </Border>
+                                                <Border
+                                                    Grid.Row="1"
+                                                    Grid.Column="1"
+                                                    BorderThickness="0,0,0,1">
+                                                    <TextBlock Text="{Binding OKCount}" />
+                                                </Border>
+
+                                                <Border Grid.Row="2" Grid.Column="0">
+                                                    <TextBlock FontWeight="SemiBold" Text="NG数" />
+                                                </Border>
+                                                <Border
+                                                    Grid.Row="2"
+                                                    Grid.Column="1"
+                                                    BorderThickness="0,0,0,1">
+                                                    <TextBlock FontWeight="SemiBold" Text="一次优率" />
+                                                </Border>
+                                                <Border
+                                                    Grid.Row="3"
+                                                    Grid.Column="0"
+                                                    BorderThickness="0,0,1,0">
+                                                    <TextBlock Foreground="Red" Text="{Binding NGCount}" />
+                                                </Border>
+                                                <Border
+                                                    Grid.Row="3"
+                                                    Grid.Column="1"
+                                                    BorderThickness="0">
+                                                    <TextBlock Foreground="Green" Text="{Binding OKRate, StringFormat={}{0:F2}%}" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <TextBlock
+                                            Margin="0,20,0,10"
+                                            FontSize="18"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333"
+                                            Text="各缺陷类别检测统计：" />
+
+                                        <ItemsControl ItemsSource="{Binding DefectDataGrid}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Padding="5,10"
+                                                        BorderBrush="#E0E0E0"
+                                                        BorderThickness="0,0,0,1">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsEnable}" Value="False">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="2*" />
+                                                                <ColumnDefinition Width="1.5*" />
+                                                                <ColumnDefinition Width="1.5*" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <TextBlock
+                                                                Grid.Column="0"
+                                                                VerticalAlignment="Center"
+                                                                FontSize="16"
+                                                                FontWeight="SemiBold"
+                                                                Text="{Binding DefectName}" />
+
+                                                            <StackPanel
+                                                                Grid.Column="1"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                Orientation="Horizontal">
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    Foreground="Gray"
+                                                                    Text="NG: " />
+                                                                <TextBlock
+                                                                    FontSize="16"
+                                                                    FontWeight="Bold"
+                                                                    Foreground="Red"
+                                                                    Text="{Binding NGCount}" />
+                                                            </StackPanel>
+
+                                                            <StackPanel
+                                                                Grid.Column="2"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Center"
+                                                                Orientation="Horizontal">
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    Foreground="Gray"
+                                                                    Text="优率: " />
+                                                                <TextBlock
+                                                                    FontSize="16"
+                                                                    FontWeight="Bold"
+                                                                    Foreground="Green"
+                                                                    Text="{Binding YieldRate, StringFormat={}{0:F2}%}" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <StackPanel
+                                            Margin="0,40,0,0"
+                                            HorizontalAlignment="Center"
+                                            Orientation="Horizontal">
+                                            <Button
+                                                Width="120"
+                                                Height="35"
+                                                Margin="0,0,40,0"
+                                                Background="#F5B0"
+                                                BorderBrush="Gray"
+                                                BorderThickness="1"
+                                                Command="{Binding StopDetectionCommand}"
+                                                Content="停止检测"
+                                                FontSize="16"
+                                                Foreground="Black" />
+
+                                            <Button
+                                                Width="120"
+                                                Height="35"
+                                                Margin="0,0,20,0"
+                                                Background="#F5B041"
+                                                BorderBrush="Gray"
+                                                BorderThickness="1"
+                                                Command="{Binding ClearListCommand}"
+                                                Content="清空列表"
+                                                FontSize="16"
+                                                Foreground="Black" />
+
+                                            <Button
+                                                Width="120"
+                                                Height="35"
+                                                Margin="20,0,0,0"
+                                                Background="#F5B041"
+                                                BorderBrush="Gray"
+                                                BorderThickness="1"
+                                                Command="{Binding ClearStatisticsCommand}"
+                                                Content="统计清零"
+                                                FontSize="16"
+                                                Foreground="Black" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
                             </Border>
+
+
                         </Grid>
                     </TabItem>
 
@@ -620,7 +840,7 @@
                                     Width="Auto"
                                     VerticalAlignment="Center"
                                     FontWeight="Bold"
-                                    Text="正极工位监听路径：" />
+                                    Text="供应商文件监听路径：" />
                                 <TextBox
                                     Width="200"
                                     Height="30"
@@ -628,7 +848,7 @@
                                     BorderBrush="#CCCCCC"
                                     BorderThickness="1"
                                     FontSize="18"
-                                    IsEnabled="{Binding IsInAnyDetectionA}"
+                                    IsEnabled="{Binding CanOperate}"
                                     Text="{Binding SelectedMonitorFolderPathA, Mode=TwoWay}" />
                                 <!--  IsEnabled为True时触发Command，为False时不触发  -->
                                 <Button
@@ -640,36 +860,10 @@
                                     Command="{Binding SelectMonitorFolderCommandA}"
                                     Content="浏览..."
                                     Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionA}" />
+                                    IsEnabled="{Binding CanOperate}" />
                             </StackPanel>
 
-                            <!--  B工位监听路径  -->
-                            <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                                <TextBlock
-                                    Width="Auto"
-                                    VerticalAlignment="Center"
-                                    FontWeight="Bold"
-                                    Text="负极工位监听路径：" />
-                                <TextBox
-                                    Width="200"
-                                    Height="30"
-                                    Margin="5,0"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    FontSize="18"
-                                    IsEnabled="{Binding IsInAnyDetectionB}"
-                                    Text="{Binding SelectedMonitorFolderPathB, Mode=TwoWay}" />
-                                <Button
-                                    Width="60"
-                                    Height="30"
-                                    Margin="5,0"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectMonitorFolderCommandB}"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionB}" />
-                            </StackPanel>
+
 
                             <!--  在线检测  -->
                             <StackPanel
@@ -693,22 +887,22 @@
                                     IsEnabled="{Binding IsOnlineToggleEnabledA}">
                                     <ToggleButton.Style>
                                         <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                            <Setter Property="Content" Value="正极工位已关闭" />
+                                            <Setter Property="Content" Value="在线检测已关闭" />
                                             <Style.Triggers>
                                                 <!--  触发器1：按钮自身IsChecked=True（选中）→ 显示“A工位已打开”  -->
                                                 <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="Content" Value="正极工位已打开" />
+                                                    <Setter Property="Content" Value="在线检测已打开" />
                                                 </DataTrigger>
                                                 <!--  触发器2：按钮自身IsChecked=False（未选中）→ 显示“A工位已关闭”  -->
                                                 <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                    <Setter Property="Content" Value="正极工位已关闭" />
+                                                    <Setter Property="Content" Value="在线检测已关闭" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </ToggleButton.Style>
                                 </ToggleButton>
                                 <!--  B工位开关  -->
-                                <ToggleButton
+                                <!--<ToggleButton
                                     Height="30"
                                     Margin="0,0,0,0"
                                     FontSize="15"
@@ -727,13 +921,14 @@
                                             </Style.Triggers>
                                         </Style>
                                     </ToggleButton.Style>
-                                </ToggleButton>
+                                </ToggleButton>-->
                             </StackPanel>
 
                             <!--  图像检索、图像存储  -->
                             <Grid Margin="0,20,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="0.6*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
@@ -765,45 +960,43 @@
                                             <CheckBox
                                                 Content="正极"
                                                 IsChecked="{Binding IsPositive, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
                                                 Content="负极"
                                                 IsChecked="{Binding IsNegative, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
-                                        <!--<TextBlock
+                                        <TextBlock
                                             Grid.Row="1"
                                             Grid.Column="0"
                                             VerticalAlignment="Center"
                                             FontSize="25"
-                                            Text="相机：" />
+                                            Text="模式：" />
                                         <StackPanel
                                             Grid.Row="1"
                                             Grid.Column="1"
+                                            Margin="0,5"
                                             Orientation="Vertical">
-                                            <CheckBox
-                                                Content="相机1"
-                                                IsChecked="{Binding IsCamera1, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
-                                            <CheckBox
-                                                Content="相机2"
-                                                IsChecked="{Binding IsCamera2, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                            <RadioButton
+                                                HorizontalAlignment="Left"
+                                                Content="全检"
+                                                GroupName="DetectionMode"
+                                                IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.全检}}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <RadioButton
+                                                HorizontalAlignment="Left"
+                                                Content="OK"
+                                                GroupName="DetectionMode"
+                                                IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.OK}}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <RadioButton
+                                                HorizontalAlignment="Left"
+                                                Content="NG"
+                                                GroupName="DetectionMode"
+                                                IsChecked="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static models:DetectionMode.NG}}"
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
-                                        <StackPanel
-                                            Grid.Row="1"
-                                            Grid.Column="2"
-                                            Margin="20,0,0,0"
-                                            Orientation="Vertical">
-                                            <CheckBox
-                                                Content="相机3"
-                                                IsChecked="{Binding IsCamera3, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
-                                            <CheckBox
-                                                Content="相机4"
-                                                IsChecked="{Binding IsCamera4, Mode=TwoWay}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
-                                        </StackPanel>-->
+
                                     </Grid>
                                 </StackPanel>
                                 <!--  图像存储  -->
@@ -837,35 +1030,56 @@
                                             <CheckBox
                                                 Content="OK"
                                                 IsChecked="{Binding IsSaveOriginalOK}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
                                                 Content="NG"
                                                 IsChecked="{Binding IsSaveOriginalNG}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
 
                                         <TextBlock
                                             Grid.Row="1"
                                             Grid.Column="0"
-                                            Margin="0,0,0,0"
+                                            Margin="0,5"
                                             VerticalAlignment="Top"
                                             FontSize="25"
                                             Text="结果图：" />
                                         <StackPanel
                                             Grid.Row="1"
                                             Grid.Column="1"
-                                            Margin="0,0,0,0"
+                                            Margin="0,5"
                                             Orientation="Vertical">
                                             <CheckBox
                                                 Content="OK"
                                                 IsChecked="{Binding IsSaveResultOK}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
                                                 Content="NG"
                                                 IsChecked="{Binding IsSaveResultNG}"
-                                                IsEnabled="{Binding IsInAnyDetection}" />
+                                                IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
                                     </Grid>
+                                </StackPanel>
+                                <!--  存储缓存刷新  -->
+                                <StackPanel
+                                    Grid.Column="2"
+                                    Margin="0,20,0,0"
+                                    Orientation="Horizontal">
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontWeight="Bold"
+                                        Text="存储管理:" />
+                                    <Button
+                                        Width="100"
+                                        Height="30"
+                                        Margin="10,0,0,0"
+                                        Background="#E74C3C"
+                                        BorderThickness="0"
+                                        Command="{Binding InvalidateStorageCacheCommand}"
+                                        Content="刷新存储"
+                                        Foreground="White"
+                                        IsEnabled="{Binding CanOperate}"
+                                        ToolTip="清理磁盘后点击，立即重新检测可用盘符并重置告警状态" />
                                 </StackPanel>
                             </Grid>
 
@@ -1187,7 +1401,7 @@
                                         Margin="0,0,0,0"
                                         VerticalAlignment="Center"
                                         FontSize="20"
-                                        IsEnabled="{Binding IsInAnyDetection}"
+                                        IsEnabled="{Binding CanOperate}"
                                         Text="{Binding MaxImagesPerReport, Mode=TwoWay}"
                                         TextAlignment="Center" />
 
@@ -1204,7 +1418,7 @@
                                             Command="{Binding IncrementMaxImagesCommand}"
                                             Content="▲"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
 
                                         <!--  下箭头按钮  -->
                                         <Button
@@ -1215,7 +1429,7 @@
                                             Command="{Binding DecrementMaxImagesCommand}"
                                             Content="▼"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                     </StackPanel>
                                 </Grid>
 
@@ -1227,7 +1441,7 @@
                                     Background="#5DADE2"
                                     Command="{Binding SaveMaxImagesCommand}"
                                     Content="保存"
-                                    IsEnabled="{Binding IsInAnyDetection}" />
+                                    IsEnabled="{Binding CanOperate}" />
 
                                 <TextBlock
                                     Grid.Row="1"
@@ -1254,7 +1468,7 @@
                                         Margin="0,0,0,0"
                                         VerticalAlignment="Center"
                                         FontSize="20"
-                                        IsEnabled="{Binding IsInAnyDetection}"
+                                        IsEnabled="{Binding CanOperate}"
                                         Text="{Binding ReportTimeoutMinutes, Mode=TwoWay}"
                                         TextAlignment="Center" />
 
@@ -1271,7 +1485,7 @@
                                             Command="{Binding IncrementTimeoutCommand}"
                                             Content="▲"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
 
                                         <!--  下箭头按钮  -->
                                         <Button
@@ -1282,7 +1496,7 @@
                                             Command="{Binding DecrementTimeoutCommand}"
                                             Content="▼"
                                             FontSize="8"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                     </StackPanel>
                                 </Grid>
 
@@ -1294,7 +1508,7 @@
                                     Background="#5DADE2"
                                     Command="{Binding SaveTimeoutCommand}"
                                     Content="保存"
-                                    IsEnabled="{Binding IsInAnyDetection}" />
+                                    IsEnabled="{Binding CanOperate}" />
                             </Grid>
 
                             <!--  添加推送用户ID  -->
@@ -1408,7 +1622,7 @@
                                             CommandParameter="正极"
                                             Content="选择绘制图片"
                                             Foreground="Black"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                         <Button
                                             Width="120"
                                             Height="26"
@@ -1541,7 +1755,7 @@
                                             CommandParameter="负极"
                                             Content="选择绘制图片"
                                             Foreground="Black"
-                                            IsEnabled="{Binding IsInAnyDetection}" />
+                                            IsEnabled="{Binding CanOperate}" />
                                         <Button
                                             Width="120"
                                             Height="26"
@@ -1877,7 +2091,7 @@
                                 Background="OrangeRed"
                                 Command="{Binding DeleteNegativeRoiCommand}"
                                 Content="删除绘制"
-                                IsEnabled="{Binding IsInAnyDetection}" />
+                                IsEnabled="{Binding CanOperate}" />
 
                             <Button
                                 Width="130"
@@ -1886,7 +2100,7 @@
                                 Background="GreenYellow"
                                 Command="{Binding SaveNegativeRoiCommand}"
                                 Content="保存区域"
-                                IsEnabled="{Binding IsInAnyDetection}" />
+                                IsEnabled="{Binding CanOperate}" />
 
                             <Button
                                 Width="130"

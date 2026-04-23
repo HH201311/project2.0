@@ -28,6 +28,7 @@
                             Background="Transparent"
                             BorderThickness="0"
                             CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}"
+                            Foreground="{TemplateBinding Foreground}"
                             HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
                             VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
                             <ItemsPresenter />
@@ -35,8 +36,8 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="Border" Property="Background" Value="{x:Static SystemColors.ControlBrush}" />
-                            <Setter TargetName="Border" Property="Opacity" Value="0.5" />
+                            <!--<Setter TargetName="Border" Property="Background" Value="{x:Static SystemColors.ControlBrush}" />
+                            <Setter TargetName="Border" Property="Opacity" Value="0.5" />-->
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

@@ -1,0 +1,66 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls.ISFunctionControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls"
+    d:DesignHeight="820"
+    d:DesignWidth="1330"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="70" />
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" Margin="20">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="T块位置坐标轴刻度设置" />
+                <uccc:PairContentControl PairKeyText="刻度上限" Style="{StaticResource PPairContentControlStyle}">
+                    <TextBox
+                        d:Text="1000"
+                        Style="{StaticResource PValueTextBoxStyle}"
+                        Text="{Binding ItemSource.UpperLimitOfTBlock, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </uccc:PairContentControl>
+                <uccc:PairContentControl PairKeyText="刻度下限" Style="{StaticResource PPairContentControlStyle}">
+                    <TextBox
+                        d:Text="1500"
+                        Style="{StaticResource PValueTextBoxStyle}"
+                        Text="{Binding ItemSource.LowerLimitOfTBlock, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </uccc:PairContentControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  功能按钮  -->
+        <Border
+            Grid.Row="1"
+            BorderBrush="#61FFFFFF"
+            BorderThickness="0,1,0,0">
+            <StackPanel
+                Margin="0,0,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Command="{Binding SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="保存"
+                    Style="{StaticResource ParamOKButtonStyle}" />
+                <Button
+                    Command="{Binding CancleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="取消"
+                    Style="{StaticResource ParamCancleButtonStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

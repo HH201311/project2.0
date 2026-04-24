@@ -9,6 +9,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:oxy="clr-namespace:OxyPlot.Wpf;assembly=OxyPlot.Wpf"
     xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CTOL;assembly=SUNWODA_SEVB.Component"
+    xmlns:vm="clr-namespace:SUNWODA_SEVB.ViewModels.Pages.CTOL"
     Title="CTOLAutoDetectionPage"
     d:DesignHeight="1080"
     d:DesignWidth="1920"
@@ -47,106 +48,38 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="1*" />
-                <ColumnDefinition Width="1.6*" />
+                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="1.4*" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <ItemsControl ItemsSource="{Binding Monitors}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="2" Rows="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
 
-                <Grid Grid.Row="1" Margin="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="2" Background="Black">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                    <Grid Margin="0,0,2,2" Background="Black">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                            <TextBlock
+                                Grid.Row="0"
+                                HorizontalAlignment="Center"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Foreground="White"
+                                Text="{Binding Id}" />
 
-                        <TextBlock
-                            Grid.Row="0"
-                            Margin="0"
-                            HorizontalAlignment="Center"
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Foreground="White"
-                            Text="LAB" />
-                        <uc:ImageShowControl Grid.Row="1" Source="{Binding CurrentResultImageLAB}" />
-                    </Grid>
-
-                    <Grid
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2,0,0,2"
-                        Background="Black">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock
-                            Grid.Row="0"
-                            Margin="0"
-                            HorizontalAlignment="Center"
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Foreground="White"
-                            Text="LCD" />
-                        <uc:ImageShowControl Grid.Row="1" Source="{Binding CurrentResultImageLCD}" />
-                    </Grid>
-
-                    <Grid
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        Margin="0,2,2,0"
-                        Background="Black">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock
-                            Grid.Row="0"
-                            Margin="0"
-                            HorizontalAlignment="Center"
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Foreground="White"
-                            Text="RAB" />
-                        <uc:ImageShowControl Grid.Row="1" Source="{Binding CurrentResultImageRAB}" />
-                    </Grid>
-
-                    <Grid
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2,2,0,0"
-                        Background="Black">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock
-                            Grid.Row="0"
-                            Margin="0"
-                            HorizontalAlignment="Center"
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Foreground="White"
-                            Text="RCD" />
-                        <uc:ImageShowControl Grid.Row="1" Source="{Binding CurrentResultImageRCD}" />
-                    </Grid>
-                </Grid>
-            </Grid>
+                            <uc:ImageShowControl Grid.Row="1" Source="{Binding LastProcessedImage}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <Border
                 x:Name="StatusInfo"
@@ -169,6 +102,7 @@
                             Height="{Binding ElementName=StatusInfo, Path=ActualWidth}"
                             DockPanel.Dock="Top"
                             Labels="{Binding DetectionSattisticalLabel}"
+                            LabelsColor="{Binding DetectionStatisticalLabelColor}"
                             Values="{Binding DetectionSattisticalData}" />
 
 
@@ -191,83 +125,29 @@
                                     Text="{Binding TotalDetectionNum}" />
                             </Grid>
 
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1*" />
-                                    <ColumnDefinition Width="1*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    Grid.Column="0"
-                                    FontSize="15"
-                                    FontWeight="SemiBold"
-                                    Foreground="#FF9800"
-                                    Text="NG" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    FontSize="15"
-                                    Text="{Binding NGDetectionNum}" />
-                            </Grid>
-
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1*" />
-                                    <ColumnDefinition Width="1*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    Grid.Column="0"
-                                    FontSize="15"
-                                    FontWeight="SemiBold"
-                                    Foreground="#2F80ED"
-                                    Text="OK" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    FontSize="15"
-                                    Text="{Binding OKDetectionNum}" />
-                            </Grid>
-
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1*" />
-                                    <ColumnDefinition Width="1*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    Grid.Column="0"
-                                    FontSize="15"
-                                    FontWeight="SemiBold"
-                                    Text="一次优率" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    FontSize="15"
-                                    Text="{Binding OKRate, StringFormat={}{0:P2}}" />
-                            </Grid>
-
-                            <hc:UniformSpacingPanel
-                                x:Name="uniformSpacingPanel"
-                                Width="{Binding ElementName=StatusInfo, Path=Width}"
-                                HorizontalAlignment="Center">
+                            <hc:UniformSpacingPanel x:Name="uniformSpacingPanel" HorizontalAlignment="Center">
                                 <Button
                                     x:Name="clearListBtn"
                                     Height="35"
                                     Background="#F5B041"
                                     BorderBrush="Gray"
-                                    BorderThickness="1"
+                                    BorderThickness="0"
                                     Command="{Binding ClearListCommand}"
-                                    Content="清空列表"
+                                    Content="清空监测"
                                     FontSize="16"
-                                    Foreground="Black" />
+                                    Foreground="Black"
+                                    IsEnabled="{Binding AreAllMonitorsStopped}" />
                                 <Button
                                     x:Name="clearStatisticsBtn"
                                     Height="35"
                                     Background="#F5B041"
                                     BorderBrush="Gray"
-                                    BorderThickness="1"
+                                    BorderThickness="0"
                                     Command="{Binding ClearStatisticsCommand}"
                                     Content="统计清零"
                                     FontSize="16"
-                                    Foreground="Black" />
+                                    Foreground="Black"
+                                    IsEnabled="{Binding AreAllMonitorsStopped}" />
                             </hc:UniformSpacingPanel>
                         </StackPanel>
 
@@ -312,7 +192,7 @@
                 BorderThickness="1">
                 <TabControl>
                     <!--  第一页：数据页  -->
-                    <TabItem FontSize="25" Header="统计数据">
+                    <TabItem FontSize="25" Header="监测数据">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
@@ -331,7 +211,7 @@
                                 CanUserSortColumns="False"
                                 HorizontalScrollBarVisibility="Auto"
                                 IsReadOnly="True"
-                                ItemsSource="{Binding DetectionDataList}"
+                                ItemsSource="{Binding InspectionResultList}"
                                 RowHeaderWidth="0">
                                 <DataGrid.Resources>
                                     <Style TargetType="DataGridColumnHeader">
@@ -345,7 +225,7 @@
                                     <DataGridTextColumn
                                         Width="1.6*"
                                         MinWidth="100"
-                                        Binding="{Binding CellBarcode}"
+                                        Binding="{Binding Barcode}"
                                         Header="条码">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock">
@@ -361,7 +241,7 @@
                                     <DataGridTextColumn
                                         Width="1.2*"
                                         MinWidth="80"
-                                        Binding="{Binding NgDetails}"
+                                        Binding="{Binding DefectType}"
                                         Header="缺陷类型">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock">
@@ -388,6 +268,12 @@
                                                     <DataTrigger Binding="{Binding DetectionResult}" Value="NG">
                                                         <Setter Property="Foreground" Value="Red" />
                                                     </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DetectionResult}" Value="算法异常">
+                                                        <Setter Property="Foreground" Value="Red" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DetectionResult}" Value="超时">
+                                                        <Setter Property="Foreground" Value="Red" />
+                                                    </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
@@ -396,254 +282,6 @@
                             </DataGrid>
                         </Grid>
                     </TabItem>
-
-                    <!--<TabItem FontSize="25" Header="路径选择">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto">
-                            <Grid Margin="10,20,10,0" VerticalAlignment="Top">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition x:Name="row1" Height="40" />
-                                    <RowDefinition x:Name="row2" Height="40" />
-                                    <RowDefinition x:Name="row3" Height="40" />
-                                    <RowDefinition x:Name="row4" Height="40" />
-                                    <RowDefinition x:Name="row5" Height="43" />
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="60" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock
-                                    Grid.Row="0"
-                                    Grid.Column="0"
-                                    Width="Auto"
-                                    Margin="0,5"
-                                    VerticalAlignment="Center"
-                                    FontSize="15"
-                                    FontWeight="Bold"
-                                    Text="LAB监听路径：" />
-                                <TextBox
-                                    Grid.Row="0"
-                                    Grid.Column="1"
-                                    Margin="5,5"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    FontSize="15"
-                                    IsEnabled="{Binding IsInAnyDetectionLAB}"
-                                    Text="{Binding SelectedMonitorFolderPathLAB, Mode=TwoWay}" />
-                                <Button
-                                    Grid.Row="0"
-                                    Grid.Column="2"
-                                    Margin="5,5"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectMonitorFolderCommandLAB}"
-                                    CommandParameter="LAB"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionLAB}" />
-                                <ToggleButton
-                                    Grid.Row="0"
-                                    Grid.Column="3"
-                                    Height="{Binding ElementName=row1, Path=Height}"
-                                    Margin="5,5"
-                                    FontSize="15"
-                                    IsChecked="{Binding IsOnlineDetectionEnabledLAB, Mode=TwoWay}">
-                                    <ToggleButton.Style>
-                                        <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                            <Setter Property="Content" Value="LAB已关闭" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="Content" Value="LAB已打开" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                    <Setter Property="Content" Value="LAB已关闭" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ToggleButton.Style>
-                                </ToggleButton>
-
-                                <TextBlock
-                                    Grid.Row="1"
-                                    Grid.Column="0"
-                                    Margin="0,5"
-                                    VerticalAlignment="Center"
-                                    FontSize="15"
-                                    FontWeight="Bold"
-                                    Text="LCD监听路径：" />
-                                <TextBox
-                                    Grid.Row="1"
-                                    Grid.Column="1"
-                                    Margin="5,5"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    FontSize="15"
-                                    IsEnabled="{Binding IsInAnyDetectionLCD}"
-                                    Text="{Binding SelectedMonitorFolderPathLCD, Mode=TwoWay}" />
-                                <Button
-                                    Grid.Row="1"
-                                    Grid.Column="2"
-                                    Margin="5,5"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectMonitorFolderCommandLCD}"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionLCD}" />
-                                <ToggleButton
-                                    Grid.Row="1"
-                                    Grid.Column="3"
-                                    Height="{Binding ElementName=row2, Path=Height}"
-                                    Margin="5,5"
-                                    FontSize="15"
-                                    IsChecked="{Binding IsOnlineDetectionEnabledLCD, Mode=TwoWay}">
-                                    <ToggleButton.Style>
-                                        <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                            <Setter Property="Content" Value="LCD已关闭" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="Content" Value="LCD已打开" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                    <Setter Property="Content" Value="LCD已关闭" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ToggleButton.Style>
-                                </ToggleButton>
-
-                                <TextBlock
-                                    Grid.Row="2"
-                                    Grid.Column="0"
-                                    Margin="0,5"
-                                    VerticalAlignment="Center"
-                                    FontSize="15"
-                                    FontWeight="Bold"
-                                    Text="RAB监听路径：" />
-                                <TextBox
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    Margin="5,5"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    FontSize="15"
-                                    IsEnabled="{Binding IsInAnyDetectionRAB}"
-                                    Text="{Binding SelectedMonitorFolderPathRAB, Mode=TwoWay}" />
-                                <Button
-                                    Grid.Row="2"
-                                    Grid.Column="2"
-                                    Margin="5,5"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectMonitorFolderCommandRAB}"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionRAB}" />
-                                <ToggleButton
-                                    Grid.Row="2"
-                                    Grid.Column="3"
-                                    Height="{Binding ElementName=row3, Path=Height}"
-                                    Margin="5,5"
-                                    FontSize="15"
-                                    IsChecked="{Binding IsOnlineDetectionEnabledRAB, Mode=TwoWay}">
-                                    <ToggleButton.Style>
-                                        <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                            <Setter Property="Content" Value="RAB已关闭" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="Content" Value="RAB已打开" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                    <Setter Property="Content" Value="RAB已关闭" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ToggleButton.Style>
-                                </ToggleButton>
-
-                                <TextBlock
-                                    Grid.Row="3"
-                                    Grid.Column="0"
-                                    Margin="0,5"
-                                    VerticalAlignment="Center"
-                                    FontSize="15"
-                                    FontWeight="Bold"
-                                    Text="RCD监听路径：" />
-                                <TextBox
-                                    Grid.Row="3"
-                                    Grid.Column="1"
-                                    Margin="5,5"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    FontSize="15"
-                                    IsEnabled="{Binding IsInAnyDetectionRCD}"
-                                    Text="{Binding SelectedMonitorFolderPathRCD, Mode=TwoWay}" />
-                                <Button
-                                    Grid.Row="3"
-                                    Grid.Column="2"
-                                    Margin="5,5"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectMonitorFolderCommandRCD}"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetectionRCD}" />
-                                <ToggleButton
-                                    Grid.Row="3"
-                                    Grid.Column="3"
-                                    Height="{Binding ElementName=row4, Path=Height}"
-                                    Margin="5,5"
-                                    FontSize="15"
-                                    IsChecked="{Binding IsOnlineDetectionEnabledRCD, Mode=TwoWay}">
-                                    <ToggleButton.Style>
-                                        <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                            <Setter Property="Content" Value="RCD已关闭" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="Content" Value="RCD已打开" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                    <Setter Property="Content" Value="RCD已关闭" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ToggleButton.Style>
-                                </ToggleButton>
-
-                                <DockPanel
-                                    Grid.Row="4"
-                                    Grid.Column="0"
-                                    Grid.ColumnSpan="2"
-                                    Margin="0,5">
-                                    <TextBlock
-                                        VerticalAlignment="Center"
-                                        FontSize="20"
-                                        FontWeight="Bold"
-                                        Text="结果存储路径：" />
-                                    <TextBox
-                                        Margin="0,0,5,0"
-                                        BorderBrush="#CCCCCC"
-                                        BorderThickness="1"
-                                        FontSize="18"
-                                        IsEnabled="{Binding IsInAnyDetection}"
-                                        Text="{Binding SelectedResultImagePath, Mode=TwoWay}" />
-                                </DockPanel>
-
-                                <Button
-                                    Grid.Row="4"
-                                    Grid.Column="2"
-                                    Margin="5,5"
-                                    Background="#5DADE2"
-                                    BorderThickness="0"
-                                    Command="{Binding SelectResultImagePath}"
-                                    Content="浏览..."
-                                    Foreground="White"
-                                    IsEnabled="{Binding IsInAnyDetection}" />
-                            </Grid>
-                        </ScrollViewer>
-                    </TabItem>-->
 
                     <TabItem
                         d:IsSelected="True"
@@ -658,6 +296,7 @@
                                 hc:InfoElement.Title="开始时间："
                                 DockPanel.Dock="Top"
                                 FontSize="15"
+                                SelectedDateTime="{Binding StartDate}"
                                 Style="{StaticResource DateTimePickerPlus}" />
                             <hc:DateTimePicker
                                 Margin="0,5"
@@ -665,14 +304,20 @@
                                 hc:InfoElement.Title="结束时间："
                                 DockPanel.Dock="Top"
                                 FontSize="15"
+                                SelectedDateTime="{Binding EndDate}"
                                 Style="{StaticResource DateTimePickerPlus}" />
                             <hc:CheckComboBox
                                 Margin="0,5"
                                 hc:InfoElement.Placeholder="请选择类型"
                                 hc:InfoElement.Title="类型筛选："
+                                vm:CheckComboBoxHelper.SelectedItems="{Binding DefectSelectedItems, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                DisplayMemberPath="DefectType"
                                 DockPanel.Dock="Top"
                                 FontSize="15"
-                                Style="{StaticResource CheckComboBoxPlus}" />
+                                ItemsSource="{Binding DefectDataList}"
+                                SelectedValuePath="DefectType"
+                                ShowSelectAllButton="True"
+                                Style="{StaticResource CheckComboBoxExtend}" />
                             <Button
                                 Width="80"
                                 Height="30"
@@ -720,7 +365,7 @@
                                     CanUserSortColumns="False"
                                     HorizontalScrollBarVisibility="Auto"
                                     IsReadOnly="True"
-                                    ItemsSource="{Binding PagedAbnormalDataList}"
+                                    ItemsSource="{Binding ShowResults}"
                                     RowHeaderWidth="0">
                                     <DataGrid.Resources>
                                         <Style TargetType="DataGridColumnHeader">
@@ -735,7 +380,7 @@
                                         <DataGridTextColumn
                                             Width="1.1*"
                                             MinWidth="125"
-                                            Binding="{Binding [Time]}"
+                                            Binding="{Binding Time, StringFormat=yyyy-MM-dd HH:mm:ss}"
                                             Header="时间">
                                             <DataGridTextColumn.ElementStyle>
                                                 <Style TargetType="TextBlock">
@@ -749,7 +394,7 @@
                                         <DataGridTextColumn
                                             Width="1*"
                                             MinWidth="125"
-                                            Binding="{Binding [CellBarcode]}"
+                                            Binding="{Binding Barcode}"
                                             Header="电芯条码">
                                             <DataGridTextColumn.ElementStyle>
                                                 <Style TargetType="TextBlock">
@@ -763,7 +408,7 @@
                                         <DataGridTextColumn
                                             Width="1*"
                                             MinWidth="80"
-                                            Binding="{Binding [AbnormalType]}"
+                                            Binding="{Binding DefectType}"
                                             Header="缺陷类型">
                                             <DataGridTextColumn.ElementStyle>
                                                 <Style TargetType="TextBlock">
@@ -782,11 +427,11 @@
                                     HorizontalAlignment="Center"
                                     FontSize="15"
                                     IsJumpEnabled="True"
-                                    MaxPageCount="10"
+                                    MaxPageCount="{Binding MaxPageCount}"
                                     PageIndex="{Binding PageIndex}">
                                     <hc:Interaction.Triggers>
                                         <hc:EventTrigger EventName="PageUpdated">
-                                            <hc:EventToCommand Command="{Binding PageUpdatedCmd}" PassEventArgsToCommand="True" />
+                                            <hc:EventToCommand Command="{Binding PageUpdatedCommand}" PassEventArgsToCommand="True" />
                                         </hc:EventTrigger>
                                     </hc:Interaction.Triggers>
                                 </hc:Pagination>
@@ -799,697 +444,551 @@
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"
                             VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <Grid Margin="10,20,10,0" VerticalAlignment="Top">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition x:Name="row1" Height="40" />
-                                        <RowDefinition x:Name="row2" Height="40" />
-                                        <RowDefinition x:Name="row3" Height="40" />
-                                        <RowDefinition x:Name="row4" Height="40" />
-                                        <RowDefinition x:Name="row5" Height="43" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="60" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+                            <StackPanel x:Name="ParameterSetPanel" SizeChanged="ParameterSetPanel_SizeChanged">
 
-                                    <TextBlock
-                                        Grid.Row="0"
-                                        Grid.Column="0"
-                                        Width="Auto"
-                                        Margin="0,5"
-                                        VerticalAlignment="Center"
-                                        FontSize="15"
-                                        FontWeight="Bold"
-                                        Text="LAB监听路径：" />
-                                    <TextBox
-                                        Grid.Row="0"
-                                        Grid.Column="1"
-                                        Margin="5,5"
-                                        BorderBrush="#CCCCCC"
-                                        BorderThickness="1"
-                                        FontSize="15"
-                                        IsEnabled="{Binding IsInAnyDetectionLAB}"
-                                        Text="{Binding SelectedMonitorFolderPathLAB, Mode=TwoWay}" />
-                                    <Button
-                                        Grid.Row="0"
-                                        Grid.Column="2"
-                                        Margin="5,5"
-                                        Background="#5DADE2"
+                                <ItemsControl
+                                    Margin="10,20,10,0"
+                                    d:ItemsSource="{d:SampleData ItemCount=4}"
+                                    ItemsSource="{Binding Monitors}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border
+                                                Margin="0,0,0,12"
+                                                Padding="12"
+                                                Background="White"
+                                                BorderBrush="#DDDDDD"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="10" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="8" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+
+                                                    <!--  第一行：ID + 状态指示 + 启停按钮  -->
+                                                    <DockPanel Grid.Row="0" LastChildFill="False">
+
+                                                        <TextBlock
+                                                            VerticalAlignment="Center"
+                                                            DockPanel.Dock="Left"
+                                                            FontSize="15"
+                                                            FontWeight="Bold"
+                                                            Foreground="#1A1A2E"
+                                                            Text="{Binding Id}" />
+
+                                                        <!--  启停按钮  -->
+                                                        <ToggleButton
+                                                            Width="52"
+                                                            Height="30"
+                                                            Padding="0"
+                                                            hc:VisualElement.HighlightBrush="#2ECC71"
+                                                            Command="{Binding ToggleCommand}"
+                                                            DockPanel.Dock="Right"
+                                                            Style="{StaticResource ToggleButtonSwitch.Small}" />
+
+                                                        <!--  状态指示器  -->
+                                                        <StackPanel
+                                                            Margin="0,0,16,0"
+                                                            VerticalAlignment="Center"
+                                                            DockPanel.Dock="Right"
+                                                            Orientation="Horizontal">
+                                                            <Ellipse
+                                                                Width="9"
+                                                                Height="9"
+                                                                Margin="0,0,5,0">
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse">
+                                                                        <Setter Property="Fill" Value="#95A5A6" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                                                <Setter Property="Fill" Value="#2ECC71" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+
+                                                            <TextBlock
+                                                                VerticalAlignment="Center"
+                                                                FontSize="12"
+                                                                Foreground="#666666"
+                                                                Text="{Binding StatusText}" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+
+                                                    <!--  第二行：监听路径  -->
+                                                    <Grid Grid.Row="2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="70" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="60" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock
+                                                            Grid.Column="0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="12"
+                                                            Foreground="#888"
+                                                            Text="监听路径" />
+
+                                                        <TextBox
+                                                            Grid.Column="1"
+                                                            Margin="0,0,6,0"
+                                                            FontSize="15"
+                                                            IsEnabled="{Binding CanEdit}"
+                                                            Text="{Binding RemotePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                        <Button
+                                                            Grid.Column="2"
+                                                            Width="52"
+                                                            Height="28"
+                                                            Background="#5DADE2"
+                                                            BorderThickness="0"
+                                                            Command="{Binding BrowseRemotePathCommand}"
+                                                            Content="浏览"
+                                                            IsEnabled="{Binding CanEdit}" />
+                                                    </Grid>
+
+                                                    <!--  第三行：输出路径  -->
+                                                    <Grid Grid.Row="4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="70" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="60" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock
+                                                            Grid.Column="0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="12"
+                                                            Foreground="#888"
+                                                            Text="输出路径" />
+
+                                                        <TextBox
+                                                            Grid.Column="1"
+                                                            Margin="0,0,6,0"
+                                                            FontSize="15"
+                                                            IsEnabled="{Binding CanEdit}"
+                                                            Text="{Binding OutputDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                        <Button
+                                                            Grid.Column="2"
+                                                            Width="52"
+                                                            Height="28"
+                                                            Background="#5DADE2"
+                                                            BorderThickness="0"
+                                                            Command="{Binding BrowseOutputDirectoryCommand}"
+                                                            Content="浏览"
+                                                            IsEnabled="{Binding CanEdit}" />
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!--  视野阈值表格（共享）  -->
+                                <Border
+                                    Margin="12,0,12,12"
+                                    Background="White"
+                                    BorderBrush="#DDDDDD"
+                                    BorderThickness="1"
+                                    CornerRadius="6">
+                                    <DataGrid
+                                        d:ItemsSource="{d:SampleData ItemCount=8}"
+                                        hc:DataGridAttach.ShowRowNumber="False"
+                                        hc:DataGridAttach.ShowSelectAllButton="False"
+                                        AutoGenerateColumns="False"
+                                        Background="Transparent"
                                         BorderThickness="0"
-                                        Command="{Binding SelectMonitorFolderCommandLAB}"
-                                        CommandParameter="LAB"
-                                        Content="浏览..."
-                                        Foreground="White"
-                                        IsEnabled="{Binding IsInAnyDetectionLAB}" />
-                                    <ToggleButton
-                                        Grid.Row="0"
-                                        Grid.Column="3"
-                                        Height="{Binding ElementName=row1, Path=Height}"
-                                        Margin="5,5"
-                                        FontSize="15"
-                                        IsChecked="{Binding IsOnlineDetectionEnabledLAB, Mode=TwoWay}">
-                                        <ToggleButton.Style>
-                                            <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                                <Setter Property="Content" Value="LAB已关闭" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                        <Setter Property="Content" Value="LAB已打开" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                        <Setter Property="Content" Value="LAB已关闭" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ToggleButton.Style>
-                                    </ToggleButton>
+                                        CanUserAddRows="False"
+                                        CanUserDeleteRows="False"
+                                        CanUserReorderColumns="False"
+                                        CanUserSortColumns="False"
+                                        FontSize="11"
+                                        GridLinesVisibility="None"
+                                        HeadersVisibility="Column"
+                                        IsEnabled="{Binding AreAllMonitorsStopped}"
+                                        ItemsSource="{Binding SharedGapThresholdRows}"
+                                        RowHeaderWidth="45"
+                                        RowHeight="28"
+                                        SelectionMode="Single">
 
-                                    <TextBlock
-                                        Grid.Row="1"
-                                        Grid.Column="0"
-                                        Margin="0,5"
-                                        VerticalAlignment="Center"
-                                        FontSize="15"
-                                        FontWeight="Bold"
-                                        Text="LCD监听路径：" />
-                                    <TextBox
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        Margin="5,5"
-                                        BorderBrush="#CCCCCC"
-                                        BorderThickness="1"
-                                        FontSize="15"
-                                        IsEnabled="{Binding IsInAnyDetectionLCD}"
-                                        Text="{Binding SelectedMonitorFolderPathLCD, Mode=TwoWay}" />
-                                    <Button
-                                        Grid.Row="1"
-                                        Grid.Column="2"
-                                        Margin="5,5"
-                                        Background="#5DADE2"
-                                        BorderThickness="0"
-                                        Command="{Binding SelectMonitorFolderCommandLCD}"
-                                        Content="浏览..."
-                                        Foreground="White"
-                                        IsEnabled="{Binding IsInAnyDetectionLCD}" />
-                                    <ToggleButton
-                                        Grid.Row="1"
-                                        Grid.Column="3"
-                                        Height="{Binding ElementName=row2, Path=Height}"
-                                        Margin="5,5"
-                                        FontSize="15"
-                                        IsChecked="{Binding IsOnlineDetectionEnabledLCD, Mode=TwoWay}">
-                                        <ToggleButton.Style>
-                                            <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                                <Setter Property="Content" Value="LCD已关闭" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                        <Setter Property="Content" Value="LCD已打开" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                        <Setter Property="Content" Value="LCD已关闭" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
+                                        <DataGrid.Resources>
+                                            <!--  表头  -->
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#D9D9D9" />
+                                                <Setter Property="FontSize" Value="11" />
+                                                <Setter Property="Padding" Value="6,4" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                                <Setter Property="VerticalContentAlignment" Value="Center" />
                                             </Style>
-                                        </ToggleButton.Style>
-                                    </ToggleButton>
 
-                                    <TextBlock
-                                        Grid.Row="2"
-                                        Grid.Column="0"
-                                        Margin="0,5"
-                                        VerticalAlignment="Center"
-                                        FontSize="15"
-                                        FontWeight="Bold"
-                                        Text="RAB监听路径：" />
-                                    <TextBox
-                                        Grid.Row="2"
-                                        Grid.Column="1"
-                                        Margin="5,5"
-                                        BorderBrush="#CCCCCC"
-                                        BorderThickness="1"
-                                        FontSize="15"
-                                        IsEnabled="{Binding IsInAnyDetectionRAB}"
-                                        Text="{Binding SelectedMonitorFolderPathRAB, Mode=TwoWay}" />
-                                    <Button
-                                        Grid.Row="2"
-                                        Grid.Column="2"
-                                        Margin="5,5"
-                                        Background="#5DADE2"
-                                        BorderThickness="0"
-                                        Command="{Binding SelectMonitorFolderCommandRAB}"
-                                        Content="浏览..."
-                                        Foreground="White"
-                                        IsEnabled="{Binding IsInAnyDetectionRAB}" />
-                                    <ToggleButton
-                                        Grid.Row="2"
-                                        Grid.Column="3"
-                                        Height="{Binding ElementName=row3, Path=Height}"
-                                        Margin="5,5"
-                                        FontSize="15"
-                                        IsChecked="{Binding IsOnlineDetectionEnabledRAB, Mode=TwoWay}">
-                                        <ToggleButton.Style>
-                                            <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                                <Setter Property="Content" Value="RAB已关闭" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                        <Setter Property="Content" Value="RAB已打开" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                        <Setter Property="Content" Value="RAB已关闭" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
+                                            <!--  行头（行号）  -->
+                                            <Style TargetType="DataGridRowHeader">
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                                <Setter Property="VerticalContentAlignment" Value="Center" />
                                             </Style>
-                                        </ToggleButton.Style>
-                                    </ToggleButton>
 
-                                    <TextBlock
-                                        Grid.Row="3"
-                                        Grid.Column="0"
-                                        Margin="0,5"
-                                        VerticalAlignment="Center"
-                                        FontSize="15"
-                                        FontWeight="Bold"
-                                        Text="RCD监听路径：" />
-                                    <TextBox
-                                        Grid.Row="3"
-                                        Grid.Column="1"
-                                        Margin="5,5"
-                                        BorderBrush="#CCCCCC"
-                                        BorderThickness="1"
-                                        FontSize="15"
-                                        IsEnabled="{Binding IsInAnyDetectionRCD}"
-                                        Text="{Binding SelectedMonitorFolderPathRCD, Mode=TwoWay}" />
-                                    <Button
-                                        Grid.Row="3"
-                                        Grid.Column="2"
-                                        Margin="5,5"
-                                        Background="#5DADE2"
-                                        BorderThickness="0"
-                                        Command="{Binding SelectMonitorFolderCommandRCD}"
-                                        Content="浏览..."
-                                        Foreground="White"
-                                        IsEnabled="{Binding IsInAnyDetectionRCD}" />
-                                    <ToggleButton
-                                        Grid.Row="3"
-                                        Grid.Column="3"
-                                        Height="{Binding ElementName=row4, Path=Height}"
-                                        Margin="5,5"
-                                        FontSize="15"
-                                        IsChecked="{Binding IsOnlineDetectionEnabledRCD, Mode=TwoWay}">
-                                        <ToggleButton.Style>
-                                            <Style BasedOn="{StaticResource ToggleButtonSwitch.Small}" TargetType="ToggleButton">
-                                                <Setter Property="Content" Value="RCD已关闭" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                                                        <Setter Property="Content" Value="RCD已打开" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                                                        <Setter Property="Content" Value="RCD已关闭" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
+                                            <!--  行  -->
+                                            <Style TargetType="DataGridRow">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="BorderBrush" Value="#D0D0D0" />
+                                                <Setter Property="BorderThickness" Value="1" />
+                                                <Setter Property="Margin" Value="0,0,0,6" />
                                             </Style>
-                                        </ToggleButton.Style>
-                                    </ToggleButton>
 
-                                    <DockPanel
-                                        Grid.Row="4"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        Margin="0,5">
+                                            <!--  单元格  -->
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="Padding" Value="4,2" />
+                                                <Setter Property="FontSize" Value="11" />
+                                                <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                            </Style>
+
+                                            <!--  只读文本  -->
+                                            <Style x:Key="GridTextBlockStyle" TargetType="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                                <Setter Property="HorizontalAlignment" Value="Center" />
+                                            </Style>
+                                        </DataGrid.Resources>
+
+                                        <DataGrid.Columns>
+                                            <!--  角位  -->
+                                            <DataGridTextColumn
+                                                Width="40"
+                                                Binding="{Binding ViewType}"
+                                                Header="角位"
+                                                IsReadOnly="True">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="TextAlignment" Value="Center" />
+                                                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+
+                                            <!--  OH下限  -->
+                                            <DataGridTemplateColumn Width="65" Header="OH下限">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource GridTextBlockStyle}" Text="{Binding OhLower, StringFormat=F3}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding OhLower, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <!--  OH上限  -->
+                                            <DataGridTemplateColumn Width="65" Header="OH上限">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource GridTextBlockStyle}" Text="{Binding OhUpper, StringFormat=F3}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding OhUpper, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <!--  负极差  -->
+                                            <DataGridTemplateColumn Width="65" Header="负极差">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding NegDiff, StringFormat=F3}">
+                                                            <TextBlock.Style>
+                                                                <Style BasedOn="{StaticResource GridTextBlockStyle}" TargetType="TextBlock">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasNegDiff}" Value="False">
+                                                                            <Setter Property="Foreground" Value="#DDDDDD" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding NegDiff, Mode=TwoWay, UpdateSourceTrigger=LostFocus}">
+                                                            <TextBox.Style>
+                                                                <Style BasedOn="{StaticResource TextBoxBaseStyle}" TargetType="TextBox">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasNegDiff}" Value="False">
+                                                                            <Setter Property="IsEnabled" Value="False" />
+                                                                            <Setter Property="Opacity" Value="0.6" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBox.Style>
+                                                        </TextBox>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <!--  负极边缘  -->
+                                            <DataGridTemplateColumn Width="65" Header="负极边缘">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource GridTextBlockStyle}" Text="{Binding FjEnd, StringFormat=F3}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding FjEnd, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <!--  正极边缘  -->
+                                            <DataGridTemplateColumn Width="65" Header="正极边缘">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource GridTextBlockStyle}" Text="{Binding PosEnd, StringFormat=F3}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding PosEnd, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <!--  正极中间  -->
+                                            <DataGridTemplateColumn Width="65" Header="正极中间">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource GridTextBlockStyle}" Text="{Binding PosMiddle, StringFormat=F3}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                                <DataGridTemplateColumn.CellEditingTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding PosMiddle, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellEditingTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+
+                                <!--  掉片专用阈值（共享）  -->
+                                <Border
+                                    Margin="12,0,12,12"
+                                    Padding="8"
+                                    Background="White"
+                                    BorderBrush="#DDDDDD"
+                                    BorderThickness="1"
+                                    CornerRadius="6">
+                                    <StackPanel IsEnabled="{Binding AreAllMonitorsStopped}">
                                         <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontSize="20"
-                                            FontWeight="Bold"
-                                            Text="结果存储路径：" />
-                                        <TextBox
-                                            Margin="0,0,5,0"
-                                            BorderBrush="#CCCCCC"
-                                            BorderThickness="1"
-                                            FontSize="18"
-                                            IsEnabled="{Binding IsInAnyDetection}"
-                                            Text="{Binding SelectedResultImagePath, Mode=TwoWay}" />
-                                    </DockPanel>
+                                            Margin="0,0,0,8"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"
+                                            Text="正极Y方向掉片参数" />
 
+                                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                                            <TextBlock
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="中间层与相邻两层差值≥" />
+                                            <hc:NumericUpDown
+                                                Height="22"
+                                                VerticalContentAlignment="Center"
+                                                DecimalPlaces="3"
+                                                FontSize="12"
+                                                Increment="0.001"
+                                                Minimum="0"
+                                                Value="{Binding SharedGap45Limit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DockPanel>
+
+                                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                                            <TextBlock
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="|1-Y + 3-Y - 2-Y - 4-Y|≥" />
+                                            <hc:NumericUpDown
+                                                Height="22"
+                                                VerticalContentAlignment="Center"
+                                                DecimalPlaces="3"
+                                                FontSize="12"
+                                                Increment="0.001"
+                                                Minimum="0"
+                                                Value="{Binding SharedGap46Limit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DockPanel>
+
+                                        <DockPanel LastChildFill="True">
+                                            <TextBlock
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="|1-Y - 3-Y| 或 |2-Y - 4-Y|≥" />
+                                            <hc:NumericUpDown
+                                                Height="22"
+                                                VerticalContentAlignment="Center"
+                                                DecimalPlaces="3"
+                                                FontSize="12"
+                                                Increment="0.001"
+                                                Minimum="0"
+                                                Value="{Binding SharedGap47Limit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DockPanel>
+
+                                    </StackPanel>
+                                </Border>
+
+                                <Border
+                                    Margin="12,0,12,12"
+                                    Padding="8"
+                                    Background="White"
+                                    BorderBrush="#DDDDDD"
+                                    BorderThickness="1"
+                                    CornerRadius="6">
+                                    <StackPanel IsEnabled="{Binding AreAllMonitorsStopped}">
+                                        <TextBlock
+                                            Margin="0,0,0,8"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"
+                                            Text="每日上传参数" />
+
+                                        <!--  启用开关  -->
+                                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                                            <ToggleButton
+                                                Width="52"
+                                                Height="30"
+                                                Padding="0"
+                                                hc:VisualElement.HighlightBrush="#2ECC71"
+                                                DockPanel.Dock="Right"
+                                                IsChecked="{Binding IsEnabled}"
+                                                Style="{StaticResource ToggleButtonSwitch.Small}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="启用每日上传" />
+                                        </DockPanel>
+
+                                        <!--  目标目录  -->
+                                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                                            <TextBlock
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="上传目标目录" />
+                                            <hc:TextBox
+                                                hc:InfoElement.Placeholder="请输入上传目标目录"
+                                                FontSize="12"
+                                                Text="{Binding UploadTargetDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="目标根目录" />
+                                        </DockPanel>
+
+                                        <!--  触发时间  -->
+                                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                                            <TextBlock
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="触发时间" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <hc:NumericUpDown
+                                                    Width="55"
+                                                    DecimalPlaces="0"
+                                                    FontSize="12"
+                                                    Maximum="23"
+                                                    Minimum="0"
+                                                    ToolTip="触发小时（0–23）"
+                                                    Value="{Binding TriggerHour, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock
+                                                    Margin="4,0"
+                                                    VerticalAlignment="Center"
+                                                    FontSize="12"
+                                                    Text="时" />
+                                                <hc:NumericUpDown
+                                                    Width="55"
+                                                    DecimalPlaces="0"
+                                                    FontSize="12"
+                                                    Maximum="59"
+                                                    Minimum="0"
+                                                    ToolTip="触发分钟（0–59）"
+                                                    Value="{Binding TriggerMinute, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock
+                                                    Margin="4,0"
+                                                    VerticalAlignment="Center"
+                                                    FontSize="12"
+                                                    Text="分"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </DockPanel>
+
+                                        <DockPanel LastChildFill="True">
+                                            <TextBlock
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontSize="12"
+                                                Text="上传缺陷类型" />
+                                            <hc:CheckComboBox
+                                                hc:InfoElement.Placeholder="请选择类型"
+                                                vm:CheckComboBoxHelper.SelectedItems="{Binding UploadDefectSelectedItems, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                DisplayMemberPath="DefectType"
+                                                DockPanel.Dock="Top"
+                                                FontSize="15"
+                                                ItemsSource="{Binding DefectDataList}"
+                                                SelectedValuePath="DefectType"
+                                                ShowSelectAllButton="True"
+                                                Style="{StaticResource CheckComboBoxExtend}" />
+                                        </DockPanel>
+                                    </StackPanel>
+                                </Border>
+
+
+                                <hc:UniformSpacingPanel
+                                    x:Name="saveAndresetBtnPanel"
+                                    Margin="0,0,0,12"
+                                    HorizontalAlignment="Center">
                                     <Button
-                                        Grid.Row="4"
-                                        Grid.Column="2"
-                                        Margin="5,5"
-                                        Background="#5DADE2"
+                                        x:Name="saveParameterBtn"
+                                        Height="35"
+                                        Background="#4CAF50"
                                         BorderThickness="0"
-                                        Command="{Binding SelectResultImagePath}"
-                                        Content="浏览..."
+                                        Command="{Binding SaveSettingsCommand}"
+                                        Content="保存设置"
+                                        FontSize="20"
                                         Foreground="White"
-                                        IsEnabled="{Binding IsInAnyDetection}" />
-                                </Grid>
-                                <Expander
-                                    Margin="5,5"
-                                    HorizontalContentAlignment="Center"
-                                    Header="1-角位参数"
-                                    IsExpanded="True">
-                                    <Border
-                                        Background="{DynamicResource RegionBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1,0,1,1"
-                                        CornerRadius="0,0,4,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
+                                        IsEnabled="{Binding AreAllMonitorsStopped}" />
+                                    <Button
+                                        x:Name="resetParameterBtn"
+                                        Height="35"
+                                        Background="#F44336"
+                                        BorderThickness="0"
+                                        Command="{Binding ResetSettingsCommand}"
+                                        Content="重置设置"
+                                        FontSize="20"
+                                        Foreground="White"
+                                        IsEnabled="{Binding AreAllMonitorsStopped}" />
+                                </hc:UniformSpacingPanel>
+                                <StackPanel
+                                    Margin="0,10"
+                                    HorizontalAlignment="Center"
+                                    Orientation="Horizontal" />
 
-                                            <StackPanel Margin="5,5,25,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="X方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X负极差阈值："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1" Margin="25,5,5,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="Y方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y负极差阈值："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </Expander>
-
-                                <Expander
-                                    Margin="5,5"
-                                    HorizontalContentAlignment="Center"
-                                    Header="2-角位参数"
-                                    IsExpanded="True">
-                                    <Border
-                                        Background="{DynamicResource RegionBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1,0,1,1"
-                                        CornerRadius="0,0,4,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Margin="5,5,25,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="X方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1" Margin="25,5,5,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="Y方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </Expander>
-
-                                <Expander
-                                    Margin="5,5"
-                                    HorizontalContentAlignment="Center"
-                                    Header="3-角位参数"
-                                    IsExpanded="True">
-                                    <Border
-                                        Background="{DynamicResource RegionBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1,0,1,1"
-                                        CornerRadius="0,0,4,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Margin="5,5,25,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="X方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1" Margin="25,5,5,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="Y方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </Expander>
-
-                                <Expander
-                                    Margin="5,5"
-                                    HorizontalContentAlignment="Center"
-                                    Header="4-角位参数"
-                                    IsExpanded="True">
-                                    <Border
-                                        Background="{DynamicResource RegionBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1,0,1,1"
-                                        CornerRadius="0,0,4,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Margin="5,5,25,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="X方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X负极差阈值："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="X正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1" Margin="25,5,5,5">
-                                                <TextBlock
-                                                    Margin="0,5"
-                                                    FontSize="15"
-                                                    FontWeight="Bold"
-                                                    Text="Y方向参数" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH下限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y-OH上限："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y负极差阈值："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y负极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极边缘间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                                <hc:NumericUpDown
-                                                    Margin="0,5"
-                                                    hc:InfoElement.Title="Y正极中间间隙："
-                                                    hc:InfoElement.TitlePlacement="Left"
-                                                    hc:InfoElement.TitleWidth="130"
-                                                    FontSize="15"
-                                                    Style="{StaticResource NumericUpDownExtend}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </Expander>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

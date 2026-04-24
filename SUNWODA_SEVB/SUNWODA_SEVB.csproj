@@ -79,10 +79,16 @@
     <PackageReference Include="Masuit.Tools.Core" Version="2025.6.4" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.5" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
-    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.11.0.20250507" />
-    <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.11.0.20250507" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.7" />
+    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.10.0.20241108" />
+    <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.10.0.20241108" />
     <PackageReference Include="QuestPDF" Version="2025.12.3" />
     <PackageReference Include="TouchSocket" Version="3.1.16" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.20.1" />
@@ -121,6 +127,9 @@
     <None Update="nlog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="remote_file_monitor_config.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -133,11 +142,20 @@
     <Reference Include="Calibration">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Calibration.dll</HintPath>
     </Reference>
+    <Reference Include="CF">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\CF.dll</HintPath>
+    </Reference>
     <Reference Include="halcondotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="NJCT">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\NJCT.dll</HintPath>
+    </Reference>
+    <Reference Include="RemoteFileMonitor.Core">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\RemoteFileMonitor.Core.dll</HintPath>
     </Reference>
     <Reference Include="TrajectoryDiagnosisLib">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\TrajectoryDiagnosisLib.dll</HintPath>

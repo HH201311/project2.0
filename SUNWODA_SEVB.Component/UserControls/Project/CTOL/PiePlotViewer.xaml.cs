@@ -1,7 +1,8 @@
-﻿using System.Windows;
+﻿using ScottPlot;
+using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using ScottPlot;
 
 namespace SUNWODA_SEVB.Component.UserControls.Project.CTOL
 {
@@ -45,6 +46,20 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CTOL
             typeof(PiePlotViewer),
             new PropertyMetadata(null, OnDataChanged)
         );
+
+
+
+        public List<string> LabelsColor
+        {
+            get { return (List<string>)GetValue(LabelsColorProperty); }
+            set { SetValue(LabelsColorProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for LabelsColor.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty LabelsColorProperty =
+            DependencyProperty.Register("LabelsColor", typeof(List<string>), typeof(PiePlotViewer), new PropertyMetadata(null, OnDataChanged));
+
+
 
         public string BackgroundColorHex
         {
@@ -101,10 +116,21 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CTOL
             // 隐藏轴与网格
             plt.Axes.Frameless();
             plt.HideGrid();
-            plt.FigureBackground = new BackgroundStyle()
+            if (IsHexColor(BackgroundColorHex))
             {
-                Color = ScottPlot.Color.FromHex(BackgroundColorHex),
-            };
+                plt.FigureBackground = new BackgroundStyle()
+                {
+                    Color = Color.FromHex(BackgroundColorHex),
+                };
+            }
+            else
+            {
+                plt.FigureBackground = new BackgroundStyle()
+                {
+                    Color = Color.FromHex("#FFFFFF"),
+                };
+            }
+            
 
             var pie = plt.Add.Pie(Values);
 
@@ -112,7 +138,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CTOL
             double total = pie.Slices.Select(x => x.Value).Sum();
             for (int i = 0; i < pie.Slices.Count; i++)
             {
-                pie.Slices[i].LabelFontSize = 20;
+                pie.Slices[i].LabelFontSize = 12;
+                if (LabelsColor is not null && IsHexColor(LabelsColor[i]))
+                {
+                    pie.Slices[i].FillColor = Color.FromHex($"{LabelsColor[i]}");
+                }
                 pie.Slices[i].LegendText = $"{Labels[i]} " + $"({pie.Slices[i].Value / total:p1})";
             }
 
@@ -157,6 +187,12 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CTOL
                 plt.Axes.Remove(_legendPanel);
                 _legendPanel = null;
             }
+        }
+
+        private bool IsHexColor(string input)
+        {
+            return !string.IsNullOrEmpty(input) &&
+                   Regex.IsMatch(input, @"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$");
         }
     }
 }

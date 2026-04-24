@@ -47,5 +47,22 @@ namespace SUNWODA_SEVB.Views.Pages.CTOL
                 spacing = 10;
             uniformSpacingPanel.Spacing = spacing;
         }
+
+        private void ParameterSetPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            double total = ParameterSetPanel.ActualWidth;
+            if (total <= 0)
+                return;
+
+            var spacing =
+                (
+                    ParameterSetPanel.ActualWidth
+                    - saveParameterBtn.ActualWidth
+                    - resetParameterBtn.ActualWidth
+                ) / 3;
+            if (spacing <= 0)
+                spacing = 10;
+            saveAndresetBtnPanel.Spacing = spacing;
+        }
     }
 }

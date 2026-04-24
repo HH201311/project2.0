@@ -85,6 +85,9 @@
     <None Update="Dlls\OpenNetV8.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Dlls\RemoteFileMonitor.Core.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Dlls\XCloudSDK.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

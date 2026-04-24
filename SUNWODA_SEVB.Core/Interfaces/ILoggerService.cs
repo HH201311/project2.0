@@ -1,4 +1,5 @@
 ﻿using SUNWODA_SEVB.Core.Enumerations.Logging;
+using SUNWODA_SEVB.Core.Models.Data;
 using System.Runtime.CompilerServices;
 
 
@@ -9,6 +10,13 @@ namespace SUNWODA_SEVB.Core.Interfaces
     /// </summary>
     public interface ILoggerService
     {
+        #region 委托实现自定义处理
+        public delegate void OnLoggerReportEventHandle(AppLogModel logModel);
+        event OnLoggerReportEventHandle? OnLoggerReportEvent;
+        static event OnLoggerReportEventHandle? OnLoggerReportGlobalEvent;
+        protected static void RaiseOnLoggerReportGlobalEvent(AppLogModel logModel) => OnLoggerReportGlobalEvent?.Invoke(logModel);
+        #endregion
+
         #region 基础日志方法
 
         void Trace(string message, bool isToDatabase = false,

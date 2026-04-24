@@ -6,19 +6,20 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary x:Name="CCTBThemeResourceDictionary">
+                    <FontFamily x:Key="CCTB.SourceHanSansCN-VF">/SUNWODA_SEVB;component/Assets/Fonts/SourceHanSansCN-VF.otf#思源黑体 CN VF</FontFamily>
+                    <FontFamily x:Key="CCTB.SourceHanSansCN-Bold">/SUNWODA_SEVB;component/Assets/Fonts/思源黑体/SourceHanSansCN-Bold_0.otf#思源黑体 CN Bold Bold</FontFamily>
+                    <FontFamily x:Key="CCTB.SourceHanSansCN-Medium">/SUNWODA_SEVB;component/Assets/Fonts/思源黑体/SourceHanSansCN-Medium.otf#思源黑体 CN Medium</FontFamily>
+                    <FontFamily x:Key="CCTB.SourceHanSansCN-Regular">/SUNWODA_SEVB;component/Assets/Fonts/思源黑体/SourceHanSansCN-Regular_0.otf#思源黑体 CN Regular</FontFamily>
+                    <FontFamily x:Key="CCTB.AlimamaShuHeiTi">/SUNWODA_SEVB;component/Assets/Fonts/#阿里妈妈数黑体</FontFamily>
+                    <FontFamily x:Key="CCTB.IconFont">/SUNWODA_SEVB;component/Assets/Fonts/#iconfont_cctb</FontFamily>
+                </ResourceDictionary>
+
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/AIMarkdownViewerStyle.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/EqualSpacingItemsControlStyle.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/UniformWrapItemsControlStyle.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
-
-                <ResourceDictionary x:Name="CCTBThemeResourceDictionary">
-                    <FontFamily x:Key="CCTB.SourceHanSansCN-VF">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/SourceHanSansCN-VF.otf#思源黑体 CN VF</FontFamily>
-                    <FontFamily x:Key="CCTB.SourceHanSansCN-Bold">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/思源黑体/#SourceHanSansCN-Bold_0.otf#思源黑体 CN Bold Bold</FontFamily>
-                    <FontFamily x:Key="CCTB.SourceHanSansCN-Medium">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/思源黑体/SourceHanSansCN-Medium.otf#思源黑体 CN Medium</FontFamily>
-                    <FontFamily x:Key="CCTB.AlimamaShuHeiTi">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/#阿里妈妈数黑体</FontFamily>
-                    <FontFamily x:Key="CCTB.IconFont">pack://application:,,,/SUNWODA_SEVB;component/Assets/Fonts/#iconfont_cctb</FontFamily>
-                </ResourceDictionary>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -16,9 +16,8 @@
 
             <!--  标题文本样式  -->
             <Style x:Key="TitleTextBlockStyle" TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Regular}" />
                 <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontWeight" Value="Regular" />
                 <Setter Property="Foreground" Value="#CCFFFFFF" />
                 <Setter Property="Opacity" Value="0.8" />
                 <Setter Property="HorizontalAlignment" Value="Center" />

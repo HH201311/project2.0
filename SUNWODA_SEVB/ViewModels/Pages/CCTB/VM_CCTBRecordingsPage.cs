@@ -23,7 +23,7 @@ using System.Windows.Threading;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
 {
-    [Module("VM_CCTBRecordingsPage", "系统记录", Order = 0, Category = "VM_CCTBRecordingsPage")]
+    [Module("VM_CCTBRecordingsPage", "系统记录", Order = 1, Category = "VM_CCTBRecordingsPage")]
     class VM_CCTBRecordingsPage : ViewModelBase
     {
         private readonly ILoggerService<VM_CCTBRecordingsPage> _logger;

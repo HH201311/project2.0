@@ -5,15 +5,16 @@ using OpenCvSharp;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
-using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
@@ -27,10 +28,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Input;
+using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 {
-    [Module("VM_TBDataPage", "系统设置", Order = 0, Category = "VM_CCTBMonitoringPage/VM_TBDataPage")]
+    [Module("VM_TBDataPage", "系统设置", Order = 1, Category = "VM_CCTBMonitoringPage/VM_TBDataPage")]
     class VM_TBDataPage : ViewModelBase
     {
         private readonly ILoggerService<VM_TBDataPage> _logger;
@@ -39,6 +41,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
+        private readonly OperationUtil _operationUtil;
 
         /// <summary>
         /// 构造函数
@@ -58,12 +61,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
+
+            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         protected override async Task OnInitializeAsync()
         {
             // 初始化面密度实时数据控件
-            await InitializeTBDatasChartAsync();
+            await InializeParamOptionsCalculateAsync();
 
             CCTBCore.CoatingMessageNotificationEvent -= OnCoatingMessageNotificationAsync;
             CCTBCore.CoatingMessageNotificationEvent += OnCoatingMessageNotificationAsync;
@@ -87,7 +92,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             // 更新面密度数据柱状图
             await RefreshTBDatasAsync(e.Message.SideType, e.Message.Datas);
             // 更新面密度参数显示
-            await RefreshParamOptionAsync(e.Message.SideType);
+            await RefreshParamOptionCalculateAsync(e.Message.SideType);
             // 更新面密度数据表格
             await RefreshTBDataHistoryAsync(e.Message.SideType, e.Message.Datas);
         }
@@ -127,48 +132,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         public ObservableCollection<double> TBDatasA { get => tbDatasA; set => SetProperty(ref tbDatasA, value); }
         public ObservableCollection<double> TBDatasB { get => tbDatasB; set => SetProperty(ref tbDatasB, value); }
 
-        public ICommand ParamOptionSelectedACommand => new RelayCommand(() => OnParamOptionSelected(ESideType.A));
-        public ICommand ParamOptionSelectedBCommand => new RelayCommand(() => OnParamOptionSelected(ESideType.B));
+        public ICommand ParamOptionSelectedCommand => new RelayCommand(OnParamOptionSelected);
 
         /// <summary>
         /// 面密度参数修改时触发
         /// </summary>
-        /// <param name="sideType"></param>
-        private async void OnParamOptionSelected(ESideType sideType)
+        /// <param name="arg"></param>
+        private async void OnParamOptionSelected(object? arg)
         {
-            var paramOptionsCache = new List<EParamOption>();
+            if (!(arg is ESideType sideType)) return;
+
+            // 加载配置
+            var paramOptions = _operationUtil.LoadParamOptionsProjectParameters(sideType);
             var result = await Dialog
-                .Show(new VM_TBDataConfigDialog(sideType, _projectSettingRepository).UIElement)
-                .Initialize<VM_TBDataConfigDialog>(o =>
-                {
-                    paramOptionsCache = o.ParamOptions;
-                })
+                .Show(new VM_TBDataConfigDialog(paramOptions).UIElement)
                 .GetResultAsync<bool>();
 
             if (!result) return;
 
+            _operationUtil.SaveParamOptionsProjectParameters(sideType, paramOptions);
             if (sideType == ESideType.A)
             {
                 tbParamOptionsACache.Clear();
-                tbParamOptionsACache.AddRange(paramOptionsCache);
+                tbParamOptionsACache.AddRange(paramOptions);
             }
             if (sideType == ESideType.B)
             {
                 tbParamOptionsBCache.Clear();
-                tbParamOptionsBCache.AddRange(paramOptionsCache);
+                tbParamOptionsBCache.AddRange(paramOptions);
             }
-            await RefreshParamOptionAsync(sideType);
+            await RefreshParamOptionCalculateAsync(sideType);
         }
 
         /// <summary>
         /// 更新面密度参数显示
         /// </summary>
         /// <param name="sideType"></param>
-        /// <param name="datas"></param>
-        /// <param name="paramOptions"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private async Task RefreshParamOptionAsync(ESideType sideType)
+        private async Task RefreshParamOptionCalculateAsync(ESideType sideType)
         {
             var paramPairs = sideType switch
             {
@@ -188,7 +190,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
                 ESideType.B => tbParamOptionsBCache,
                 _ => throw new Exception($"未实现[{sideType}]!")
             };
-            await RunOnUIThreadAsync(async () => { paramPairs.Clear(); });
+            await RunOnUIThreadAsync(() => { paramPairs.Clear(); });
 
             // 数据清洗：不为0
             var cleanedDatas = datas == null ? new List<double>(0) : datas.Where(o => o != 0).ToList();
@@ -209,7 +211,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
                     _ => "--",
                 };
                 paramPair.PValue = pValue;
-                await RunOnUIThreadAsync(async () => { paramPairs.Add(paramPair); });
+                await RunOnUIThreadAsync(() => { paramPairs.Add(paramPair); });
             }
         }
 
@@ -237,48 +239,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             });
         }
 
-        private async Task InitializeTBDatasChartAsync()
+        /// <summary>
+        /// 初始化面密度参数显示
+        /// </summary>
+        /// <returns></returns>
+        private async Task InializeParamOptionsCalculateAsync()
         {
             var sideTypes = Enum.GetValues(typeof(ESideType));
             foreach (ESideType sideType in sideTypes)
             {
-                // 初始化参数配置
-                var paramName = $"TBDataParamOptions{sideType}";
-                if (!_projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
-                {
-                    _projectSettingRepository.Add(
-                        new ProjectSettingModel(paramName, CCTBCore.BelongToVM, "", DataTypeConverter.TypeToString(typeof(EParamOption[])), 2)
-                        {
-                            Remark = "涂布闭环面密度实时参数显示配置"
-                        }
-                    );
-                }
+                var paramOptions = _operationUtil.LoadParamOptionsProjectParameters(sideType);
+                if (paramOptions == null) continue;
 
-                // 初始化面密度实时数据柱状图
-                await InializeParamOptionsLoadAsync(sideType);
+                if (sideType == ESideType.A) tbParamOptionsACache = paramOptions;
+                if (sideType == ESideType.B) tbParamOptionsBCache = paramOptions;
+                await RefreshParamOptionCalculateAsync(sideType);
             }
-        }
-
-        /// <summary>
-        /// 初始化面密度参数加载
-        /// </summary>
-        /// <param name="sideType"></param>
-        /// <returns></returns>
-        private async Task InializeParamOptionsLoadAsync(ESideType sideType)
-        {
-            var paramName = $"TBDataParamOptions{sideType}";
-            var tbDataParamOptions = _projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM)?.Value?.Split(',')?.ToList();
-            if (tbDataParamOptions == null) return;
-            var tbpPramPairs = new List<EParamOption>();
-            foreach (var tbDataParamOption in tbDataParamOptions)
-            {
-                if (!Enum.TryParse(tbDataParamOption, out EParamOption paramOption)) continue;
-                tbpPramPairs.Add(paramOption);
-            }
-
-            if (sideType == ESideType.A) tbParamOptionsACache = tbpPramPairs;
-            if (sideType == ESideType.B) tbParamOptionsBCache = tbpPramPairs;
-            await RefreshParamOptionAsync(sideType);
         }
         #endregion
 

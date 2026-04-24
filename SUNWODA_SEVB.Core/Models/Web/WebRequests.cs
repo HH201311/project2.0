@@ -237,6 +237,12 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// </summary>
         [JsonPropertyName("dataType")]
         public int DataType { get; set; }
+
+        /// <summary>
+        /// 视频段异常轨迹
+        /// </summary>
+        [JsonPropertyName("frameDtoList")]
+        public List<FrameDtoList>? FrameDtoList { get; set; }
     }
 
     /// <summary>

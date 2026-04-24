@@ -17,13 +17,12 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
-                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBGrowlControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!--  标题样式  -->
             <Style x:Key="ConfigHeaderTextBlockStyle" TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
-                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
                 <Setter Property="Foreground" Value="#CCFFFFFF" />
                 <Setter Property="FontSize" Value="20" />
                 <Setter Property="HorizontalAlignment" Value="Left" />
@@ -41,86 +40,6 @@
                 <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}" />
                 <Setter Property="Content" Value="&#xe669;" />
             </Style>
-
-            <!--  功能选项按钮  -->
-            <Style x:Key="ParamSelectCheckBoxStyle" TargetType="CheckBox">
-                <Setter Property="MinWidth" Value="65" />
-                <Setter Property="Height" Value="30" />
-                <Setter Property="Margin" Value="0,0,20,20" />
-                <Setter Property="Background" Value="#0DFFFFFF" />
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
-                <Setter Property="FontWeight" Value="Medium" />
-                <Setter Property="Foreground" Value="#CCFFFFFF" />
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="HorizontalAlignment" Value="Center" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="HorizontalContentAlignment" Value="Center" />
-                <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="CheckBox">
-                            <Border Background="{TemplateBinding Background}" CornerRadius="5">
-                                <Grid>
-                                    <!--  遮罩:选中效果  -->
-                                    <Grid x:Name="SelectShade" Visibility="Hidden">
-                                        <Border Background="#FF3DCC84" Opacity="0.1" />
-                                        <Border
-                                            Width="14"
-                                            Height="14"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Bottom"
-                                            Background="#FF3DCC84"
-                                            CornerRadius="5,0,5,0">
-                                            <Path
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                Data="M0,2 3,5 8,0"
-                                                Stroke="#FFFFFF"
-                                                StrokeThickness="2" />
-                                        </Border>
-                                    </Grid>
-                                    <!--  内容  -->
-                                    <TextBlock
-                                        Margin="20,0"
-                                        HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                        VerticalAlignment="{TemplateBinding VerticalAlignment}"
-                                        FontFamily="{TemplateBinding FontFamily}"
-                                        FontSize="{TemplateBinding FontSize}"
-                                        FontWeight="{TemplateBinding FontWeight}"
-                                        Foreground="{TemplateBinding Foreground}"
-                                        Text="{Binding Path=Content, RelativeSource={RelativeSource TemplatedParent}}" />
-                                </Grid>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter Property="Foreground" Value="#FF3DCC84" />
-                                    <Setter Property="FontWeight" Value="Bold" />
-                                    <Setter TargetName="SelectShade" Property="Visibility" Value="Visible" />
-                                </Trigger>
-                                <Trigger Property="IsChecked" Value="False">
-                                    <Setter Property="Foreground" Value="#CCFFFFFF" />
-                                    <Setter Property="FontWeight" Value="Medium" />
-                                    <Setter TargetName="SelectShade" Property="Visibility" Value="Hidden" />
-                                </Trigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Opacity" Value="0.8" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <!--  功能按钮  -->
-            <Style
-                x:Key="ConfigConfirmButtonStyle"
-                BasedOn="{StaticResource GrowlConfirmButtonStyle}"
-                TargetType="Button" />
-            <Style
-                x:Key="ConfigCancleButtonStyle"
-                BasedOn="{StaticResource GrowlCancleButtonStyle}"
-                TargetType="Button" />
-
         </ResourceDictionary>
     </Border.Resources>
 
@@ -162,11 +81,10 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <CheckBox
-                            Command="{Binding DataContext.ParamSelectedCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                            CommandParameter="{Binding}"
+                            Margin="0,0,20,20"
                             Content="{Binding DisplayName}"
-                            IsChecked="{Binding IsSelected}"
-                            Style="{StaticResource ParamSelectCheckBoxStyle}" />
+                            IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                            Style="{StaticResource ParamHookCheckBoxStyle}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -179,15 +97,13 @@
                 FlowDirection="LeftToRight"
                 Orientation="Horizontal">
                 <Button
-                    Background="#FF3DCC84"
                     Command="{Binding ConfirmCommand}"
                     Content="确认"
-                    Style="{StaticResource ConfigConfirmButtonStyle}" />
+                    Style="{StaticResource ParamOKButtonStyle}" />
                 <Button
-                    Background="Transparent"
                     Command="{Binding CancleCommand}"
                     Content="取消"
-                    Style="{StaticResource ConfigCancleButtonStyle}" />
+                    Style="{StaticResource ParamCancleButtonStyle}" />
             </StackPanel>
         </Grid>
     </Grid>

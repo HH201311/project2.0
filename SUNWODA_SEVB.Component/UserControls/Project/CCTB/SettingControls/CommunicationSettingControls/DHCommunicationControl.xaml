@@ -1,0 +1,136 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls.DHCommunicationControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls"
+    d:DesignHeight="1020"
+    d:DesignWidth="1330"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+            <convert:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="70" />
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" Margin="20">
+            <StackPanel Orientation="Vertical">
+                <Label
+                    Margin="0,0,0,20"
+                    Content="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    ContentStringFormat="{}{0}头"
+                    Style="{StaticResource ParamTitleLabelStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="模头IP" />
+                <TextBox
+                    Width="200"
+                    Height="40"
+                    Margin="0,10,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    d:Text="192.168.1.30">
+                    <TextBox.Style>
+                        <Style BasedOn="{StaticResource PValueTextBoxStyle}" TargetType="TextBox">
+                            <Setter Property="Text" Value="{Binding ItemSource.DHIPA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.A}">
+                                    <Setter Property="Text" Value="{Binding ItemSource.DHIPA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.B}">
+                                    <Setter Property="Text" Value="{Binding ItemSource.DHIPB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="客户端端口" />
+                <TextBox
+                    Width="200"
+                    Height="40"
+                    Margin="0,10,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    d:Text="8989">
+                    <TextBox.Style>
+                        <Style BasedOn="{StaticResource PValueTextBoxStyle}" TargetType="TextBox">
+                            <Setter Property="Text" Value="{Binding ItemSource.DHClientPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.A}">
+                                    <Setter Property="Text" Value="{Binding ItemSource.DHClientPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.B}">
+                                    <Setter Property="Text" Value="{Binding ItemSource.DHClientPortB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="服务端端口" />
+                <TextBox
+                    Width="200"
+                    Height="40"
+                    Margin="0,10,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    d:Text="5555">
+                    <TextBox.Style>
+                        <Style BasedOn="{StaticResource PValueTextBoxStyle}" TargetType="TextBox">
+                            <Setter Property="Text" Value="{Binding ItemSource.DHServerPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.A}">
+                                    <Setter Property="Text" Value="{Binding ItemSource.DHServerPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.B}">
+                                    <Setter Property="Text" Value="{Binding ItemSource.DHServerPortB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  功能按钮  -->
+        <Border
+            Grid.Row="1"
+            BorderBrush="#61FFFFFF"
+            BorderThickness="0,1,0,0">
+            <StackPanel
+                Margin="0,0,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Command="{Binding SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="保存"
+                    Style="{StaticResource ParamOKButtonStyle}" />
+                <Button
+                    Command="{Binding CancleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Content="取消"
+                    Style="{StaticResource ParamCancleButtonStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

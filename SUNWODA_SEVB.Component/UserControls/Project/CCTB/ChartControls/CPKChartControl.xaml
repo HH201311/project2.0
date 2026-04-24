@@ -18,9 +18,8 @@
             <!--  图表标签文本样式  -->
             <Style x:Key="ChartLabelContentControlStyle" TargetType="ContentControl">
                 <Setter Property="Margin" Value="10,0,10,0" />
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
                 <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontWeight" Value="Medium" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ContentControl">

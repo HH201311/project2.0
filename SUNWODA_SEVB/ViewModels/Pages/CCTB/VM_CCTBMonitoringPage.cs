@@ -18,6 +18,7 @@ using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
@@ -72,7 +73,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
 
-        private ConcurrentDictionary<string, Page?> _navigationPages = [];
         private Page? _navigationPage;
         private ModuleInfo? _selectedModule;
         private bool _isNavigating;
@@ -137,7 +137,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
         }
 
         /// <summary>
-        /// 异步初始化
+        /// 初始化
         /// </summary>
         /// <returns></returns>
         public override void OnInitialize()
@@ -146,12 +146,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             ControlRecordingsCommand = new RelayCommand(ControlRecordingsOpen);
 
             // 初始化导航
-            _ = InitNavigationAsync();
+            InitNavigation();
 
             base.OnInitialize();
         }
 
-        private async Task InitNavigationAsync()
+        /// <summary>
+        /// 异步初始化
+        /// </summary>
+        /// <returns></returns>
+        protected override async Task OnInitializeAsync()
+        {
+            await base.OnInitializeAsync();
+        }
+
+        /// <summary>
+        /// 初始化导航
+        /// </summary>
+        private void InitNavigation()
         {
             // 显示加载提示
             IsNavigating = true;
@@ -159,42 +171,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             // 加载模块
             _moduleManager.AutoRegisterModulesByName("VM_SummaryPage", "VM_TBDataPage", "VM_CCDDataPage");
 
-            InitializeNavigationPages("VM_SummaryPage", "VM_TBDataPage", "VM_CCDDataPage");
-
-            SummaryCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_SummaryPage"));
-            TBDataCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_TBDataPage"));
-            CCDDataCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCDDataPage"));
+            SummaryCommand = new RelayCommand(() => NavigateToSpecialModule("VM_SummaryPage"));
+            TBDataCommand = new RelayCommand(() => NavigateToSpecialModule("VM_TBDataPage"));
+            CCDDataCommand = new RelayCommand(() => NavigateToSpecialModule("VM_CCDDataPage"));
 
             IsNavigating = false;
 
-            await NavigateToDefaultAsync();
+            NavigateToDefault();
         }
 
-        private Task NavigateToDefaultAsync()
+        /// <summary>
+        /// 到喊道默认界面
+        /// </summary>
+        /// <returns></returns>
+        private void NavigateToDefault()
         {
+            if (SelectedModule?.Name == "VM_SummaryPage") return;
+
             var defaultModule = _moduleManager.GetModule("VM_SummaryPage");
-            if (defaultModule != null)
-            {
-                defaultModule.IsSelected = true;
-                SelectedModule = defaultModule;
-            }
-            return Task.CompletedTask;
+            if (defaultModule == null) return;
+
+            defaultModule.IsSelected = true;
+            SelectedModule = defaultModule;
         }
 
-        private void InitializeNavigationPages(params string[] moduleNames)
-        {
-            foreach (var moduleName in moduleNames)
-            {
-                var module = _moduleManager.GetModule(moduleName);
-                if (module == null) continue;
-                if (string.IsNullOrEmpty(module.Name)) continue;
-                if (_navigationPages.ContainsKey(module.Name)) continue;
-
-                NavigationPage = _moduleManager.GetView(module.Name);
-                _navigationPages[module.Name] = NavigationPage;
-            }
-        }
-
+        /// <summary>
+        /// 异步导航到指定界面：防抖
+        /// </summary>
+        /// <param name="module"></param>
         private async void NavigateToModuleDebounced(ModuleInfo module)
         {
             // 取消之前的导航
@@ -220,6 +224,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             }
         }
 
+        /// <summary>
+        /// 导航到指定界面
+        /// </summary>
+        /// <param name="module"></param>
         private async void NavigateToModuleAsync(ModuleInfo module)
         {
             if (string.IsNullOrEmpty(module.Name))
@@ -228,13 +236,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             try
             {
                 IsNavigating = true;
-                if (_navigationPages.TryGetValue(module.Name, out Page? navigationPage) && navigationPage != null)
-                {
-                    NavigationPage = navigationPage;
-                    return;
-                }
                 NavigationPage = _moduleManager.GetView(module.Name);
-                _navigationPages[module.Name] = NavigationPage;
+                var viewModel = NavigationPage?.DataContext as ViewModelBase;
+                viewModel?.OnNavigatedTo(null);
             }
             catch (Exception ex)
             {
@@ -248,21 +252,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             }
         }
 
-        private async void NavigateToSpecialModuleAsync(string moduleName)
+        /// <summary>
+        /// 导航到指定界面
+        /// </summary>
+        /// <param name="moduleName"></param>
+        private void NavigateToSpecialModule(string moduleName)
         {
             if (IsNavigating)
                 return;
 
             var module = _moduleManager.GetModule(moduleName);
 
-            if (module != null)
-            {
-                if (SelectedModule != null)
-                    SelectedModule.IsSelected = false;
-                SelectedModule = module;
-            }
+            if (module == null) return;
+
+            if (SelectedModule != null)
+                SelectedModule.IsSelected = false;
+
+            module.IsSelected = true;
+            SelectedModule = module;
         }
 
+        /// <summary>
+        /// 导航完成时触达
+        /// </summary>
+        /// <param name="parameter"></param>
         public override void OnNavigatedTo(object? parameter)
         {
             Growl.Success(new GrowlInfo

@@ -16,6 +16,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Core
         /// <summary>
         /// PLC名称
         /// </summary>
-        public const string CCTBPLCName = "卷绕PLC";
+        public const string PLCName = "卷绕极耳错位闭环PLC";
     }
 }

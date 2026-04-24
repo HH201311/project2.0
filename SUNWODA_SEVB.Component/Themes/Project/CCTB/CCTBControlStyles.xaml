@@ -107,8 +107,9 @@
         </Setter>
     </Style>
 
-    <!--  导航栏单选按钮  -->
-    <Style x:Key="NavigationRadioButtonStyle" TargetType="RadioButton">
+    <!--#region 导航按钮RadioButton样式-->
+    <!--  主导航  -->
+    <Style x:Key="MainNavigationRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="Width" Value="80" />
         <Setter Property="Height" Value="80" />
         <Setter Property="Margin" Value="10" />
@@ -183,8 +184,68 @@
         </Setter>
     </Style>
 
-    <!--  监控界面单选按钮  -->
-    <Style x:Key="MenuRadioButtonStyle" TargetType="RadioButton">
+    <!--  次级导航  -->
+    <Style x:Key="SubNavigationRadioButtonStyle" TargetType="RadioButton">
+        <Setter Property="Width" Value="150" />
+        <Setter Property="Height" Value="60" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+        <Setter Property="Foreground" Value="#99FFFFFF" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid>
+                        <Grid
+                            x:Name="checkedTag"
+                            Width="20"
+                            Height="20"
+                            Margin="-10,0,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Visibility="Hidden">
+                            <Ellipse
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Fill="#FF2B2B2B" />
+                            <Path
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Data="M5.42,0 L0,5 L5.42,10"
+                                Stroke="#CCFFFFFF" />
+                        </Grid>
+                        <Grid Margin="10">
+                            <Border
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="10"
+                                Opacity="0.1" />
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Foreground" Value="#CCFFFFFF" />
+                            <Setter Property="Background" Value="#FF3DCC84" />
+                            <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                            <Setter TargetName="checkedTag" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="0.8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  标签导航  -->
+    <Style x:Key="TabNavigationRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="Margin" Value="50,0,0,0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="FontSize" Value="20" />
@@ -229,6 +290,7 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!--#endregion-->
 
     <!--  监控界面功能按钮  -->
     <Style x:Key="ClickButtonStyle" TargetType="Button">
@@ -285,12 +347,12 @@
                             <StackPanel
                                 Grid.Row="0"
                                 Margin="20,20,20,0"
-                                VerticalAlignment="Stretch"
+                                VerticalAlignment="Top"
                                 Orientation="Horizontal">
                                 <Border
                                     Width="5"
-                                    Height="20"
-                                    VerticalAlignment="Top"
+                                    Height="{TemplateBinding FontSize}"
+                                    VerticalAlignment="Center"
                                     Background="#FF29CC7A"
                                     CornerRadius="3" />
                                 <TextBlock
@@ -313,49 +375,96 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!--#endregion-->
 
-    <!--  GroupBox容器的简单样式  -->
-    <Style x:Key="SimpleGroupBoxStyle1" TargetType="GroupBox">
-        <Setter Property="Background" Value="#0DFFFFFF" />
-        <Setter Property="Foreground" Value="#CCFFFFFF" />
-        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
-        <Setter Property="FontSize" Value="18" />
+    <!--#region ScrollViewer容器样式-->
+    <!--  ScrollViewer垂直滚动条滑块样式  -->
+    <Style x:Key="ModernScrollThumb" TargetType="{x:Type Thumb}">
+        <Setter Property="Background" Value="#61FFFFFF" />
+        <Setter Property="Width" Value="Auto" />
+        <Setter Property="Height" Value="Auto" />
         <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate TargetType="GroupBox">
-                    <Border Background="{TemplateBinding Background}" CornerRadius="10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <!--  Header  -->
-                            <StackPanel
-                                Grid.Row="0"
-                                Margin="20,20,20,0"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Top"
-                                Orientation="Vertical">
-                                <TextBlock
-                                    Margin="0,0,0,20"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Top"
-                                    FontFamily="{TemplateBinding FontFamily}"
-                                    FontSize="{TemplateBinding FontSize}"
-                                    Foreground="{TemplateBinding Foreground}"
-                                    Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}"
-                                    TextAlignment="Left" />
-                                <Rectangle
-                                    Height="1"
-                                    HorizontalAlignment="Stretch"
-                                    VerticalAlignment="Bottom"
-                                    Stroke="#61FFFFFF" />
-                            </StackPanel>
+                <ControlTemplate TargetType="{x:Type Thumb}">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="3" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
-                            <!--  内容  -->
-                            <ContentPresenter Grid.Row="1" />
-                        </Grid>
-                    </Border>
+    <!--  ScrollViewer垂直滚动条样式  -->
+    <Style x:Key="ModernScrollBar" TargetType="{x:Type ScrollBar}">
+        <Setter Property="Stylus.IsFlicksEnabled" Value="false" />
+        <Setter Property="Width" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                    <Grid
+                        x:Name="GridRoot"
+                        Width="{TemplateBinding Width}"
+                        Background="Transparent">
+                        <Track
+                            x:Name="PART_Track"
+                            Focusable="false"
+                            IsDirectionReversed="true">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ModernScrollThumb}" />
+                            </Track.Thumb>
+                            <!--  隐藏上下箭头按钮 (Increase/DecreaseRepeatButton)  -->
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton
+                                    Command="ScrollBar.PageDownCommand"
+                                    Focusable="false"
+                                    Opacity="0" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton
+                                    Command="ScrollBar.PageUpCommand"
+                                    Focusable="false"
+                                    Opacity="0" />
+                            </Track.DecreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  ScrollViewer样式  -->
+    <Style x:Key="ModernScrollViewer" TargetType="{x:Type ScrollViewer}">
+        <Setter Property="Margin" Value="10,25,10,25" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                    <Grid x:Name="Grid" Background="{TemplateBinding Background}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ScrollContentPresenter
+                            x:Name="PART_ScrollContentPresenter"
+                            Grid.Row="0"
+                            Grid.RowSpan="2"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
+                            Margin="{TemplateBinding Padding}"
+                            CanContentScroll="{TemplateBinding CanContentScroll}" />
+                        <!--  垂直滚动条  -->
+                        <ScrollBar
+                            x:Name="PART_VerticalScrollBar"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Maximum="{TemplateBinding ScrollableHeight}"
+                            Style="{StaticResource ModernScrollBar}"
+                            ViewportSize="{TemplateBinding ViewportHeight}"
+                            Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                            Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                    </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

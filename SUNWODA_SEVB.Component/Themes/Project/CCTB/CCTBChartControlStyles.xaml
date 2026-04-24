@@ -22,9 +22,8 @@
             <Setter.Value>
                 <DataTemplate>
                     <TextBlock
-                        FontFamily="{StaticResource CCTB.SourceHanSansCN}"
+                        FontFamily="{StaticResource CCTB.SourceHanSansCN-Medium}"
                         FontSize="14"
-                        FontWeight="Medium"
                         Foreground="#CCFFFFFF"
                         Opacity="1"
                         Text="{Binding}"

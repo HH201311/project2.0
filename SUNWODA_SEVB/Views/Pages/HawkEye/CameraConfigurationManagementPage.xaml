@@ -135,7 +135,7 @@
                                         DockPanel.Dock="Left"
                                         FontSize="14PX"
                                         FontWeight="Black"
-                                        Text="视频保存:"
+                                        Text="图片保存:"
                                         TextAlignment="Left" />
                                     <Rectangle Width="5" />
                                     <CheckBox
@@ -342,6 +342,17 @@
                                     Margin="5"
                                     BorderBrush="#3355FF"
                                     BorderThickness="1">
+
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RealTimeDisplay}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
 
                                     <ScrollViewer
                                         PreviewMouseLeftButtonDown="OnMouseDown"

@@ -12,6 +12,7 @@
     Title="单机数字化平台"
     Width="800"
     Height="450"
+    hc:Dialog.Token="DialogMainWindow"
     WindowState="Maximized"
     mc:Ignorable="d">
     <!--  添加资源和转换器  -->
@@ -316,5 +317,7 @@
                 Foreground="White"
                 Kind="{Binding IsNavigationExpanded, Converter={StaticResource BooleanToRLAngleConverter}}" />
         </Button>
+
+        <hc:DialogContainer Grid.ColumnSpan="3" />
     </Grid>
 </hc:Window>

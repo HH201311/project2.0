@@ -147,10 +147,13 @@
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
     <Reference Include="YingYanAlgoCore">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
+      <HintPath>bin\Debug\net8.0-windows\YingYanAlgoCore.dll</HintPath>
     </Reference>
     <Reference Include="Yolo8Core">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Yolo8Core.dll</HintPath>
+    </Reference>
+    <Reference Include="YOLODetFW48">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLODetFW48.dll</HintPath>
     </Reference>
 
     <Reference Include="ZZC1OnlineCTModel">

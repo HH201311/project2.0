@@ -57,190 +57,102 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
 
-            <GroupBox
-                Grid.Column="0"
-                Margin="0,0,5,0"
-                Header="实时监控阵列 (Live)">
-                <UniformGrid Columns="2" Rows="2">
+            <Grid Grid.Column="0" Margin="0,0,10,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-                    <Grid Margin="2">
-                        <Grid Background="Black">
-                            <vlc:VideoView
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
-                                MediaPlayer="{Binding LiveMediaPlayer1}" />
+                <GroupBox Grid.Row="0" Header="实时监控 (Live)" Margin="0,0,0,5">
+                    <UniformGrid Columns="3" Rows="1">
+                        <Grid Margin="2">
+                            <Grid Background="Black">
+                                <vlc:VideoView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MediaPlayer="{Binding LiveMediaPlayer1}" />
+                            </Grid>
+                            <Border Margin="5" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#A0000000">
+                                <TextBlock FontSize="12" Foreground="LightGreen" Text="CAM 1 (实时)" />
+                            </Border>
                         </Grid>
-                        <Border
-                            Margin="5"
-                            Padding="5,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Background="#A0000000">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="LightGreen"
-                                Text="CAM 1 (实时)" />
-                        </Border>
-                    </Grid>
-
-                    <Grid Margin="2">
-                        <Grid Background="Black">
-                            <vlc:VideoView
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
-                                MediaPlayer="{Binding LiveMediaPlayer2}" />
+                        <Grid Margin="2">
+                            <Grid Background="Black">
+                                <vlc:VideoView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MediaPlayer="{Binding LiveMediaPlayer2}" />
+                            </Grid>
+                            <Border Margin="5" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#A0000000">
+                                <TextBlock FontSize="12" Foreground="LightGreen" Text="CAM 2 (实时)" />
+                            </Border>
                         </Grid>
-                        <Border
-                            Margin="5"
-                            Padding="5,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Background="#A0000000">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="LightGreen"
-                                Text="CAM 2 (实时)" />
-                        </Border>
-                    </Grid>
-
-                    <Grid Margin="2">
-                        <Grid Background="Black">
-                            <vlc:VideoView
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
-                                MediaPlayer="{Binding LiveMediaPlayer3}" />
+                        <Grid Margin="2">
+                            <Grid Background="Black">
+                                <vlc:VideoView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MediaPlayer="{Binding LiveMediaPlayer3}" />
+                            </Grid>
+                            <Border Margin="5" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#A0000000">
+                                <TextBlock FontSize="12" Foreground="LightGreen" Text="CAM 3 (实时)" />
+                            </Border>
                         </Grid>
-                        <Border
-                            Margin="5"
-                            Padding="5,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Background="#A0000000">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="LightGreen"
-                                Text="CAM 3 (实时)" />
-                        </Border>
-                    </Grid>
+                    </UniformGrid>
+                </GroupBox>
 
-                    <Grid Margin="2">
-                        <GroupBox Header="报警与事件日志">
-                            <ListBox ItemsSource="{Binding AlarmLogs}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock
-                                            Margin="0,2"
-                                            FontSize="11"
-                                            Foreground="#AA0000"
-                                            Text="{Binding}"
-                                            TextWrapping="Wrap" />
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </GroupBox>
-                    </Grid>
+                <GroupBox Grid.Row="1" Margin="0,5,0,0" BorderBrush="#CC0000" BorderThickness="1" Header="智能预警 (Warnings)">
+                    <UniformGrid Columns="3" Rows="1">
+                        <Grid Margin="2" Background="#1A1A1A">
+                            <vlc:VideoView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MediaPlayer="{Binding AnomalyMediaPlayer1}" />
+                            <Border Margin="5" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#A0CC0000">
+                                <TextBlock FontSize="12" Foreground="White" Text="CAM 1 (异常回放)" />
+                            </Border>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#444" Text="等待触发..." 
+                                       Visibility="{Binding HasAnomaly1, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}" />
+                        </Grid>
+                        <Grid Margin="2" Background="#1A1A1A">
+                            <vlc:VideoView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MediaPlayer="{Binding AnomalyMediaPlayer2}" />
+                            <Border Margin="5" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#A0CC0000">
+                                <TextBlock FontSize="12" Foreground="White" Text="CAM 2 (异常回放)" />
+                            </Border>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#444" Text="等待触发..." 
+                                       Visibility="{Binding HasAnomaly2, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}" />
+                        </Grid>
+                        <Grid Margin="2" Background="#1A1A1A">
+                            <vlc:VideoView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MediaPlayer="{Binding AnomalyMediaPlayer3}" />
+                            <Border Margin="5" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#A0CC0000">
+                                <TextBlock FontSize="12" Foreground="White" Text="CAM 3 (异常回放)" />
+                            </Border>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#444" Text="等待触发..." 
+                                       Visibility="{Binding HasAnomaly3, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}" />
+                        </Grid>
+                    </UniformGrid>
+                </GroupBox>
+            </Grid>
 
-                </UniformGrid>
-            </GroupBox>
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <GroupBox
-                Grid.Column="1"
-                Margin="5,0,0,0"
-                BorderBrush="#CC0000"
-                BorderThickness="1"
-                Header="异常录像回放 (Playback)">
-                <UniformGrid Columns="2" Rows="2">
+                <!--数据统计部分-->
+                <!--<GroupBox Grid.Row="0" Margin="0,0,0,5" Header="人员合规检测统计">
+                    <StackPanel Margin="10">
+                        <TextBlock Margin="0,0,0,8" FontSize="14" Foreground="#333" Text="{Binding TotalCheckCount, StringFormat=今日总检测人次: {0}}" />
+                        <TextBlock Margin="0,0,0,8" FontSize="14" Foreground="#333" Text="{Binding ViolationCount, StringFormat=今日违规次数: {0}}" />
+                        <Separator Margin="0,10" />
+                        <TextBlock FontWeight="Bold" Foreground="#CC0000" Text="最新违规提示:" />
+                        <TextBlock Margin="0,5,0,0" Foreground="#555" TextWrapping="Wrap" Text="{Binding LatestViolationHint}" />
+                    </StackPanel>
+                </GroupBox>-->
 
-                    <Grid Margin="2" Background="#1A1A1A">
-                        <vlc:VideoView
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            MediaPlayer="{Binding AnomalyMediaPlayer1}" />
-                        <Border
-                            Margin="5"
-                            Padding="5,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Background="#A0CC0000">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="White"
-                                Text="CAM 1 (异常回放)" />
-                        </Border>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="#444"
-                            Text="等待触发..."
-                            Visibility="{Binding HasAnomaly1, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}" />
-                    </Grid>
-
-                    <Grid Margin="2" Background="#1A1A1A">
-                        <vlc:VideoView
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            MediaPlayer="{Binding AnomalyMediaPlayer2}" />
-                        <Border
-                            Margin="5"
-                            Padding="5,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Background="#A0CC0000">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="White"
-                                Text="CAM 2 (异常回放)" />
-                        </Border>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="#444"
-                            Text="等待触发..."
-                            Visibility="{Binding HasAnomaly2, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}" />
-                    </Grid>
-
-                    <Grid Margin="2" Background="#1A1A1A">
-                        <vlc:VideoView
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            MediaPlayer="{Binding AnomalyMediaPlayer3}" />
-                        <Border
-                            Margin="5"
-                            Padding="5,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Background="#A0CC0000">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="White"
-                                Text="CAM 3 (异常回放)" />
-                        </Border>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="#444"
-                            Text="等待触发..."
-                            Visibility="{Binding HasAnomaly3, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}" />
-                    </Grid>
-
-                    <Grid Margin="2">
-                        <GroupBox Header="人员合规检测统计">
-                            <StackPanel Margin="10">
-                                <TextBlock Margin="0,0,0,8" FontSize="14" Foreground="#333" Text="{Binding TotalCheckCount, StringFormat=今日总检测人次: {0}}" />
-                                <TextBlock Margin="0,0,0,8" FontSize="14" Foreground="#333" Text="{Binding ViolationCount, StringFormat=今日违规次数: {0}}" />
-                                <Separator Margin="0,10" />
-                                <TextBlock FontWeight="Bold" Foreground="#CC0000" Text="最新违规提示:" />
-                                <TextBlock Margin="0,5,0,0" Foreground="#555" TextWrapping="Wrap" Text="{Binding LatestViolationHint}" />
-                            </StackPanel>
-                        </GroupBox>
-                    </Grid>
-
-                </UniformGrid>
-            </GroupBox>
+                <GroupBox Grid.Row="1" Margin="0,5,0,0" Header="报警与事件日志">
+                    <ListBox ItemsSource="{Binding AlarmLogs}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Margin="0,2" FontSize="11" Foreground="#AA0000" Text="{Binding}" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </GroupBox>
+            </Grid>
         </Grid>
 
         <StatusBar Grid.Row="2" Background="#FFF0F0F0">

@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
+    <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +36,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.7" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageReference Include="OpenCvSharp4.Windows" Version="4.11.0.20250507" />
   </ItemGroup>
 
   <ItemGroup>
@@ -98,11 +100,6 @@
     <None Update="Dlls\YoloV8Net.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Interfaces\Project\HawkEye\" />
-    <Folder Include="Interfaces\Project\CCTB\" />
   </ItemGroup>
 
 </Project>

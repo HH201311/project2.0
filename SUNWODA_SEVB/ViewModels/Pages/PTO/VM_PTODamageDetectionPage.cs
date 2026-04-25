@@ -368,7 +368,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
                 {
-                    MessageBox.Show("请先选择有效的在线监控文件夹！", "路径无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    //MessageBox.Show("请先选择有效的在线监控文件夹！", "路径无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Growl.Error("请先选择有效的在线监控文件夹！");
                     _isOnlineDetectionEnabledA = false;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(CanOperate));
@@ -661,7 +662,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
             }
         }
+        private bool _isAlarmEnabled = true;
+        public bool IsAlarmEnabled
+        {
+            get => _isAlarmEnabled;
+            set
+            {
+                if (_isAlarmEnabled != value)
+                {
+                    _isAlarmEnabled = value;
+                    OnPropertyChanged(nameof(IsAlarmEnabled)); // 如果实现了INotifyPropertyChanged
+                    AddLog($"报警功能已{(value ? "启用" : "禁用")}", CoreLogLevel.Info);
 
+                    // 保存到数据库
+                    SaveAlarmEnabledToDataBase();
+                }
+            }
+        }
 
         /// <summary>
         /// 统一的按钮状态更新方法
@@ -1524,7 +1541,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             LoadConfig();
             LoadUserIds();
             InitParameters();
-
+            LoadAlarmEnabled();
             // 异步加载
             _ = Task.Run(async () =>
             {
@@ -1752,9 +1769,51 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
 
+        private void LoadAlarmEnabled()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+                var settingValue = projectSettingRepo.GetByNameAndVM("AlarmEnabled", "VM_PTODamageDetection")?.Value;
 
+                // 解析布尔值，默认为true
+                if (bool.TryParse(settingValue, out bool enabled))
+                {
+                    _isAlarmEnabled = enabled;
+                }
+                else
+                {
+                    _isAlarmEnabled = true; // 默认启用
+                }
 
+                AddLog($"报警功能状态已加载：{(_isAlarmEnabled ? "启用" : "禁用")}", CoreLogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"加载报警开关状态失败：{ex.Message}，使用默认值（启用）", CoreLogLevel.Warn);
+                _isAlarmEnabled = true; // 异常时默认启用
+            }
+        }
 
+        // 保存报警开关状态到数据库
+        private void SaveAlarmEnabledToDataBase()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+
+                projectSettingRepo.UpdateSettingValue("AlarmEnabled", "VM_PTODamageDetection", _isAlarmEnabled.ToString());
+
+                AddLog($"报警开关状态已保存到数据库：{(_isAlarmEnabled ? "启用" : "禁用")}", CoreLogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"保存报警开关状态失败：{ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"保存报警开关状态失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
 
 
@@ -1837,7 +1896,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
 
-                var settingValue = projectSettingRepo.GetSettingValue("PushUserId", "VM_PTODamageDetection") as string;
+                var settingValue = projectSettingRepo.GetByNameAndVM("PushUserId", "VM_PTODamageDetection")?.Value;
                 var savedList = settingValue?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                       .Select(id => id.Trim())
                       .ToList() ?? new List<string>();
@@ -1976,6 +2035,54 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         #region ROI
         /// <summary>
+        /// 计算 InkCanvas (Stretch="Uniform") 与 真实图像 之间的坐标映射关系
+        /// </summary>
+        private void GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, int imagePixelWidth, int imagePixelHeight)
+        {
+            offsetX = 0; offsetY = 0; scaleX = 1; scaleY = 1;
+            if (_inkCanvas == null ) return;
+
+            _inkCanvas.UpdateLayout();
+            double canvasWidth = _inkCanvas.ActualWidth;
+            double canvasHeight = _inkCanvas.ActualHeight;
+
+            if (canvasWidth == 0 || canvasHeight == 0) return;
+
+            double dipWidth = imagePixelWidth;
+            double dipHeight = imagePixelHeight;
+
+            if (_inkCanvas.Background is ImageBrush brush && brush.ImageSource is BitmapSource bmpSource)
+            {
+                dipWidth = bmpSource.Width;
+                dipHeight = bmpSource.Height;
+            }
+
+            double imageAspect = dipWidth / dipHeight;
+            double canvasAspect = canvasWidth / canvasHeight;
+
+            double renderWidth, renderHeight;
+
+            // 计算留白偏移量
+            if (imageAspect > canvasAspect)
+            {
+                renderWidth = canvasWidth;
+                renderHeight = canvasWidth / imageAspect;
+                offsetX = 0;
+                offsetY = (canvasHeight - renderHeight) / 2.0;
+            }
+            else
+            {
+                renderHeight = canvasHeight;
+                renderWidth = canvasHeight * imageAspect;
+                offsetX = (canvasWidth - renderWidth) / 2.0;
+                offsetY = 0;
+            }
+
+            // 屏幕像素 -> 物理像素的缩放比
+            scaleX = imagePixelWidth / renderWidth;
+            scaleY = imagePixelHeight / renderHeight;
+        }
+        /// <summary>
         /// 选择绘制图片
         /// 选择指定工位+相机的负极ROI参考图片，并初始化绘制画布（核心流程：参数校验→文件选择→图片加载→历史ROI恢复→打开绘制弹窗）
         /// 设计要点：严格的参数校验、UI线程安全操作、WPF图片加载规范、历史ROI复用、异常容错
@@ -2060,8 +2167,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 //加载该工位+相机的历史ROI
-                LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
                 IsDrawFlyoutOpen = true;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _inkCanvas?.UpdateLayout();
+                    // 在 UI 空闲，渲染彻底落实后恢复历史 ROI，以此获取正确的映射偏移量
+                    LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
+                }, DispatcherPriority.ContextIdle);
             }
         }
 
@@ -2107,18 +2219,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         return;
 
                     // 计算缩放比例
-                    double scaleX = (double)currentImageWidth / historyWidth;
-                    double scaleY = (double)currentImageHeight / historyHeight;
-                    double canvasScaleX = _inkCanvas.ActualWidth / currentImageWidth;
-                    double canvasScaleY = _inkCanvas.ActualHeight / currentImageHeight;
-
+                    GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, historyWidth, historyHeight);
+                   
                     // 转换坐标并添加到画布
                     var stylusPoints = new StylusPointCollection();
                     for (int i = 0; i < xldRow.Length; i++)
                     {
-                        double x = xldCol[i].D * scaleX * canvasScaleX;
-                        double y = xldRow[i].D * scaleY * canvasScaleY;
-                        stylusPoints.Add(new StylusPoint(x, y));
+                        // 映射公式
+                        double x = (xldCol[i].D / scaleX) + offsetX;
+                        double y = (xldRow[i].D / scaleY) + offsetY;
+
+                        if (!double.IsNaN(x) && !double.IsNaN(y))
+                        {
+                            stylusPoints.Add(new StylusPoint(x, y));
+                        }
                     }
 
                     var historyStroke = new Stroke(stylusPoints)
@@ -2242,8 +2356,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                double scaleX = _drawImageWidth / canvasWidth;
-                double scaleY = _drawImageHeight / canvasHeight;
+                //double scaleX = _drawImageWidth / canvasWidth;
+                //double scaleY = _drawImageHeight / canvasHeight;
+
+                //HTuple row = new HTuple();
+                //HTuple col = new HTuple();
+
+                //foreach (var stroke in _inkCanvas.Strokes)
+                //{
+                //    foreach (var sp in stroke.StylusPoints)
+                //    {
+                //        double originalX = sp.X * scaleX;
+                //        double originalY = sp.Y * scaleY;
+                //        row = row.TupleConcat(originalY);
+                //        col = col.TupleConcat(originalX);
+                //    }
+                //}
+
+                //if (row.Length > 0 && col.Length > 0)
+                //{
+                //    row = row.TupleConcat(row[0]);
+                //    col = col.TupleConcat(col[0]);
+                //}
+
+
+                GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, _drawImageWidth, _drawImageHeight);
 
                 HTuple row = new HTuple();
                 HTuple col = new HTuple();
@@ -2252,18 +2389,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     foreach (var sp in stroke.StylusPoints)
                     {
-                        double originalX = sp.X * scaleX;
-                        double originalY = sp.Y * scaleY;
+                        // 2. 将屏幕坐标转换为真实的图像坐标 (剔除黑边偏移)
+                        double originalX = (sp.X - offsetX) * scaleX;
+                        double originalY = (sp.Y - offsetY) * scaleY;
+
+                        // 限制在边界内
+                        originalX = Math.Max(0, Math.Min(originalX, _drawImageWidth - 1));
+                        originalY = Math.Max(0, Math.Min(originalY, _drawImageHeight - 1));
+
                         row = row.TupleConcat(originalY);
                         col = col.TupleConcat(originalX);
                     }
                 }
 
-                if (row.Length > 0 && col.Length > 0)
-                {
-                    row = row.TupleConcat(row[0]);
-                    col = col.TupleConcat(col[0]);
-                }
+
+
+
 
                 HObject? roiXld = null;
                 HObject? delRegion = null;
@@ -2338,14 +2479,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 解析参数
             if (string.IsNullOrEmpty(param) || param.Length < 2)
             {
-                AddLog("[查看ROI] 无效参数（格式应为“A1”“B3”等）");
+                AddLog("[查看ROI] 无效参数");
                 return;
             }
-            string station = param[0].ToString();
-            string cameraNo = param.Substring(1);
+            string station = param;
+            //string cameraNo = param.Substring(1);
 
             _currentRoiCameraNo = param; // 同步当前标识
-            DrawTitle = $"绘制负极误判区域 - {station}工位相机{cameraNo}";
+            DrawTitle = $"绘制负极误判区域 - {station}工位";
 
             var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
             string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
@@ -2391,7 +2532,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     HOperatorSet.ReadObject(out roiXld, hobjPath);
                     HOperatorSet.GetContourXld(roiXld, out xldRow, out xldCol);
 
-                    AddLog($"[查看ROI] {station}工位相机{cameraNo}，坐标点数量：row={xldRow.Length}, col={xldCol.Length}");
+                    //AddLog($"[查看ROI] {station}工位相机{cameraNo}，坐标点数量：row={xldRow.Length}, col={xldCol.Length}");
 
                     if (xldRow.Length == 0 || xldCol.Length == 0)
                     {
@@ -2399,17 +2540,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         return;
                     }
 
-                    double scaleX = _inkCanvas.ActualWidth / drawWidth;
-                    double scaleY = _inkCanvas.ActualHeight / drawHeight;
-                    ClearCanvasOnly();
+                    IsDrawFlyoutOpen = true;
+
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
+                        _inkCanvas.UpdateLayout();
+                        GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, drawWidth, drawHeight);
+                        _inkCanvas.Strokes.Clear();
+
                         var stylusPoints = new StylusPointCollection();
                         for (int i = 0; i < xldRow.Length; i++)
                         {
-                            double x = xldCol[i].D * scaleX;
-                            double y = xldRow[i].D * scaleY;
+                            double x = (xldCol[i].D / scaleX) + offsetX;
+                            double y = (xldRow[i].D / scaleY) + offsetY;
                             stylusPoints.Add(new StylusPoint(x, y));
                         }
 
@@ -2424,8 +2568,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         };
 
                         _inkCanvas.Strokes.Add(stroke);
-                        _inkCanvas.UpdateLayout();
-                    });
+                    }, DispatcherPriority.ContextIdle);
                 }
                 finally
                 {
@@ -2574,8 +2717,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 // 加载历史ROI
-                LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
                 IsDrawFlyoutOpen = true;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _inkCanvas?.UpdateLayout();
+                    // 在 UI 空闲，渲染彻底落实后恢复历史 ROI，以此获取正确的映射偏移量
+                    LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
+                }, DispatcherPriority.ContextIdle);
             }
         }
 
@@ -2659,18 +2807,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         MessageBox.Show("从XLD提取不到坐标,请重新保存ROI!", "错误");
                         return;
                     }
+                    IsDrawFlyoutOpen = true;
 
-                    double scaleX = _inkCanvas.ActualWidth / drawWidth;
-                    double scaleY = _inkCanvas.ActualHeight / drawHeight;
-                    ClearCanvasOnly();
+                    //double scaleX = _inkCanvas.ActualWidth / drawWidth;
+                    //double scaleY = _inkCanvas.ActualHeight / drawHeight;
+                    //ClearCanvasOnly();
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
+                        _inkCanvas.UpdateLayout();
+                        GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, drawWidth, drawHeight);
+                        _inkCanvas.Strokes.Clear();
+
                         var stylusPoints = new StylusPointCollection();
                         for (int i = 0; i < xldRow.Length; i++)
                         {
-                            double x = xldCol[i].D * scaleX;
-                            double y = xldRow[i].D * scaleY;
+                            double x = (xldCol[i].D / scaleX) + offsetX;
+                            double y = (xldRow[i].D / scaleY) + offsetY;
                             stylusPoints.Add(new StylusPoint(x, y));
                         }
 
@@ -2685,8 +2838,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         };
 
                         _inkCanvas.Strokes.Add(stroke);
-                        _inkCanvas.UpdateLayout();
-                    });
+                    }, DispatcherPriority.ContextIdle);    
                 }
                 finally
                 {
@@ -2695,7 +2847,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     xldCol?.Dispose();
                 }
 
-                IsDrawFlyoutOpen = true;
+               
             }
             catch (Exception ex)
             {
@@ -2706,12 +2858,139 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 保存正极ROI区域
         /// </summary>
+        //private void SavePositiveRoiAsHalconRegion()
+        //{
+        //    if (_inkCanvas == null)
+        //    {
+        //        MessageBox.Show("画布未初始化!", "错误");
+        //        AddLog("画布未初始化!");
+        //        return;
+        //    }
+
+        //    if (string.IsNullOrEmpty(_currentRoiCameraNo))
+        //    {
+        //        MessageBox.Show("未选择目标相机,请重新操作!", "错误");
+        //        return;
+        //    }
+
+        //    // 解析当前工位和相机号
+        //    string station = _currentRoiCameraNo;
+
+        //    try
+        //    {
+        //        if (_drawImageWidth == 0 || _drawImageHeight == 0)
+        //        {
+        //            MessageBox.Show("请选择需要绘制的图片后再修改!", "错误");
+        //            AddLog("未选择绘制图片,无法获取原图尺寸!");
+        //            return;
+        //        }
+
+        //        var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+        //        Directory.CreateDirectory(roiDir);
+
+        //        // 正极ROI文件路径(关键差异:文件名前缀为"正极")
+        //        string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
+        //        string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+
+        //        // 清空ROI的情况
+        //        if (_inkCanvas.Strokes.Count == 0)
+        //        {
+        //            if (File.Exists(hobjPath))
+        //                File.Delete(hobjPath);
+
+        //            // 保存尺寸和图片路径
+        //            string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+        //            File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
+
+        //            // 更新缓存
+        //            if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+        //            {
+        //                _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+        //                _detectionRegionCache.Remove(_currentRoiCameraNo);
+        //            }
+
+        //            MessageBox.Show($"{station}工位的ROI已清空并保存!", "成功");
+        //            AddLog($"{station}工位的ROI已清空并保存!");
+        //            return;
+        //        }
+
+        //        double canvasWidth = _inkCanvas.ActualWidth;
+        //        double canvasHeight = _inkCanvas.ActualHeight;
+
+        //        if (canvasWidth == 0 || canvasHeight == 0)
+        //        {
+        //            MessageBox.Show("画布尺寸无效!", "错误");
+        //            return;
+        //        }
+
+        //        double scaleX = _drawImageWidth / canvasWidth;
+        //        double scaleY = _drawImageHeight / canvasHeight;
+
+        //        HTuple row = new HTuple();
+        //        HTuple col = new HTuple();
+
+        //        foreach (var stroke in _inkCanvas.Strokes)
+        //        {
+        //            foreach (var sp in stroke.StylusPoints)
+        //            {
+        //                double originalX = sp.X * scaleX;
+        //                double originalY = sp.Y * scaleY;
+        //                row = row.TupleConcat(originalY);
+        //                col = col.TupleConcat(originalX);
+        //            }
+        //        }
+
+        //        if (row.Length > 0 && col.Length > 0)
+        //        {
+        //            row = row.TupleConcat(row[0]);
+        //            col = col.TupleConcat(col[0]);
+        //        }
+
+        //        HObject? roiXld = null;
+        //        HObject? delRegion = null;
+        //        HObject? dummyImage = null;
+        //        try
+        //        {
+        //            HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
+        //            HOperatorSet.GenImageConst(out dummyImage, "byte", _drawImageWidth, _drawImageHeight);
+        //            HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
+
+        //            HOperatorSet.WriteObject(roiXld, hobjPath);
+        //            string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+        //            File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
+
+        //            // 更新缓存
+        //            if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+        //            {
+        //                _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
+        //                _detectionRegionCache.Remove(_currentRoiCameraNo);
+        //            }
+        //            _detectionRegionCache.Add(_currentRoiCameraNo, delRegion);
+        //        }
+        //        finally
+        //        {
+        //            roiXld?.Dispose();
+        //            row?.Dispose();
+        //            col?.Dispose();
+        //        }
+
+        //        UpdateRoiStatus(station, true);
+
+        //        IsDrawFlyoutOpen = false;
+        //        MessageBox.Show($"{station}工位的ROI已保存!", "成功");
+        //        AddLog($"{station}工位的ROI已保存!");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show($"保存ROI失败:{ex.Message}", "错误");
+        //        AddLog($"保存正极ROI异常:{ex.Message}");
+        //    }
+        //}
         private void SavePositiveRoiAsHalconRegion()
         {
             if (_inkCanvas == null)
             {
                 MessageBox.Show("画布未初始化!", "错误");
-                AddLog("画布未初始化!");
                 return;
             }
 
@@ -2721,7 +3000,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return;
             }
 
-            // 解析当前工位和相机号
             string station = _currentRoiCameraNo;
 
             try
@@ -2729,28 +3007,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (_drawImageWidth == 0 || _drawImageHeight == 0)
                 {
                     MessageBox.Show("请选择需要绘制的图片后再修改!", "错误");
-                    AddLog("未选择绘制图片,无法获取原图尺寸!");
                     return;
                 }
 
                 var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
                 Directory.CreateDirectory(roiDir);
 
-                // 正极ROI文件路径(关键差异:文件名前缀为"正极")
                 string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
                 string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
 
-                // 清空ROI的情况
                 if (_inkCanvas.Strokes.Count == 0)
                 {
-                    if (File.Exists(hobjPath))
-                        File.Delete(hobjPath);
+                    if (File.Exists(hobjPath)) File.Delete(hobjPath);
+                    string imgPath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var p) ? p : "";
+                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imgPath}");
 
-                    // 保存尺寸和图片路径
-                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
-                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
-
-                    // 更新缓存
                     if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
                     {
                         _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
@@ -2758,82 +3029,129 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
 
                     MessageBox.Show($"{station}工位的ROI已清空并保存!", "成功");
-                    AddLog($"{station}工位的ROI已清空并保存!");
                     return;
                 }
 
+                // 强制刷新布局，获取最精确的画布尺寸
+                _inkCanvas.UpdateLayout();
                 double canvasWidth = _inkCanvas.ActualWidth;
                 double canvasHeight = _inkCanvas.ActualHeight;
 
-                if (canvasWidth == 0 || canvasHeight == 0)
+                if (canvasWidth == 0 || canvasHeight == 0) return;
+
+                // 🌟 核心修复点：获取 ImageBrush 底层的 DIP 尺寸，计算出最真实的屏幕渲染黑边
+                double dipWidth = _drawImageWidth;
+                double dipHeight = _drawImageHeight;
+                if (_inkCanvas.Background is ImageBrush brush && brush.ImageSource is BitmapSource bmpSource)
                 {
-                    MessageBox.Show("画布尺寸无效!", "错误");
-                    return;
+                    dipWidth = bmpSource.Width;   // WPF 渲染依赖的 DIP 宽度
+                    dipHeight = bmpSource.Height; // WPF 渲染依赖的 DIP 高度
                 }
 
-                double scaleX = _drawImageWidth / canvasWidth;
-                double scaleY = _drawImageHeight / canvasHeight;
+                // 完全按照 WPF ImageBrush 的内部逻辑计算比例
+                double imageAspect = dipWidth / dipHeight;
+                double canvasAspect = canvasWidth / canvasHeight;
 
-                HTuple row = new HTuple();
-                HTuple col = new HTuple();
+                double renderWidth, renderHeight, offsetX, offsetY;
+
+                if (imageAspect > canvasAspect)
+                {
+                    renderWidth = canvasWidth;
+                    renderHeight = canvasWidth / imageAspect;
+                    offsetX = 0;
+                    offsetY = (canvasHeight - renderHeight) / 2.0;
+                }
+                else
+                {
+                    renderHeight = canvasHeight;
+                    renderWidth = canvasHeight * imageAspect;
+                    offsetX = (canvasWidth - renderWidth) / 2.0;
+                    offsetY = 0;
+                }
+
+                // 计算从 屏幕像素 -> 物理像素 的最终转换比例
+                double scaleX = _drawImageWidth / renderWidth;
+                double scaleY = _drawImageHeight / renderHeight;
+
+                HObject? allRegions = null;
+                HOperatorSet.GenEmptyRegion(out allRegions);
 
                 foreach (var stroke in _inkCanvas.Strokes)
                 {
-                    foreach (var sp in stroke.StylusPoints)
+                    var points = stroke.StylusPoints;
+                    HTuple row = new HTuple();
+                    HTuple col = new HTuple();
+
+                    foreach (var sp in points)
                     {
-                        double originalX = sp.X * scaleX;
-                        double originalY = sp.Y * scaleY;
+                        // 🌟 严格映射回真实图像矩阵
+                        double originalX = (sp.X - offsetX) * scaleX;
+                        double originalY = (sp.Y - offsetY) * scaleY;
+
+                        originalX = Math.Max(0, Math.Min(originalX, _drawImageWidth - 1));
+                        originalY = Math.Max(0, Math.Min(originalY, _drawImageHeight - 1));
+
                         row = row.TupleConcat(originalY);
                         col = col.TupleConcat(originalX);
                     }
+
+                    if (row.Length >= 3)
+                    {
+                        row = row.TupleConcat(row[0]);
+                        col = col.TupleConcat(col[0]);
+
+                        HObject? roiXld = null;
+                        HObject? partRegion = null;
+                        HObject? tempRegion = null;
+
+                        try
+                        {
+                            HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
+                            HOperatorSet.GenRegionContourXld(roiXld, out partRegion, "filled");
+                            HOperatorSet.Union2(allRegions, partRegion, out tempRegion);
+
+                            allRegions.Dispose();
+                            allRegions = tempRegion;
+                        }
+                        finally
+                        {
+                            roiXld?.Dispose();
+                            partRegion?.Dispose();
+                        }
+                    }
+                    row.Dispose();
+                    col.Dispose();
                 }
 
-                if (row.Length > 0 && col.Length > 0)
-                {
-                    row = row.TupleConcat(row[0]);
-                    col = col.TupleConcat(col[0]);
-                }
-
-                HObject? roiXld = null;
-                HObject? delRegion = null;
-                HObject? dummyImage = null;
                 try
                 {
-                    HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
-                    HOperatorSet.GenImageConst(out dummyImage, "byte", 1920, 1200);
-                    HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
-
-                    HOperatorSet.WriteObject(roiXld, hobjPath);
+                    HOperatorSet.WriteObject(allRegions, hobjPath);
                     string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
                     File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
 
-                    // 更新缓存
                     if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
                     {
                         _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
                         _detectionRegionCache.Remove(_currentRoiCameraNo);
                     }
-                    _detectionRegionCache.Add(_currentRoiCameraNo, delRegion);
+                    _detectionRegionCache.Add(_currentRoiCameraNo, allRegions);
+                    allRegions = null;
                 }
                 finally
                 {
-                    roiXld?.Dispose();
-                    row?.Dispose();
-                    col?.Dispose();
+                    allRegions?.Dispose();
                 }
 
                 UpdateRoiStatus(station, true);
-
                 IsDrawFlyoutOpen = false;
                 MessageBox.Show($"{station}工位的ROI已保存!", "成功");
-                AddLog($"{station}工位的ROI已保存!");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"保存ROI失败:{ex.Message}", "错误");
-                AddLog($"保存正极ROI异常:{ex.Message}");
             }
         }
+
         #endregion
         #region 辅助方法
         /// <summary>
@@ -2994,9 +3312,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
             {
-                AddLog("[A工位] 监控文件夹不存在，请先选择有效文件夹");
+                AddLog("[供应商监控文件夹不存在，请先选择有效文件夹");
                 _isAMonitorRunning = false;
-                MessageBox.Show("A工位监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                //MessageBox.Show("供应商监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                Growl.Error("供应商监控文件夹不可访问");
+                //推送消息到飞书群中
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var response = await _webApiClient.PushMessageAsync("供应商监控文件夹不可访问");
+                        if (response.Code != 200)
+                            _logger.Warn($"消息推送失败：{response.Message}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn($"消息推送异常：{ex.Message}");
+                    }
+                });
                 return;
             }
 
@@ -4866,6 +5199,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
+                // 检查报警功能是否启用
+                if (!IsAlarmEnabled)
+                {
+                    AddLog($"[{station}工位] 报警功能已禁用，跳过报警触发", CoreLogLevel.Info);
+                    return;
+                }
+
                 // 1. 根据约定的参数名称，从配置池中找到报警地址对象                
                 var alarmAddress = _PLCService.RWAddresses.Values.FirstOrDefault(a => a.ParameterName == "报警");               
 
@@ -4901,7 +5241,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 // 5. 赋予报警触发值并写入
                 alarmAddress.MonitorValue = 1;
                 await _PLCService.WriteAddressAsync(plc, alarmAddress);
-                AddLog($"[{station}工位设备报警] NG信号已发送至 {plc.Name} 的 {alarmAddress.Address} 点位");
+                AddLog($"[{station}工位设备报警] NG信号已发送至 {plc.Name} 的 {alarmAddress.Address} 报警点位");
 
             }
             catch (Exception ex)

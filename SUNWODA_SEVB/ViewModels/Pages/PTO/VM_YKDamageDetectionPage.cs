@@ -1,4 +1,5 @@
-﻿using HalconDotNet;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using HalconDotNet;
 using HandyControl.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -136,6 +137,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public ICommand SaveData { get; set; } = null!;
 
         public ICommand InvalidateStorageCacheCommand { get; set; } = null!;
+
+        public enum Station { A, B }
         #endregion
 
 
@@ -297,12 +300,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         #region 双工位
         // A工位监控器
+        //Y:\202604\30\260479941\正极\正极1234\OK\原图
+        //X:\202604\30\260479942\负极\负极1234\OK\原图
         private FileSystemWatcher? _rootWatcherA;
-        private FileSystemWatcher? _dateWatcherA;
-        private string _currentMonitoringDate = string.Empty;
-        private readonly System.Timers.Timer _dateCheckTimer = new(60000);      // 每分钟检查日期切换
-        private readonly System.Timers.Timer _fileScanTimer = new(300000);     // 每5分钟补检文件
-        private readonly ConcurrentDictionary<string, byte> _processedFiles = new();
+  
+        private readonly ConcurrentDictionary<string, byte> _processedFilesA = new();
         private readonly object _watcherLock = new();
         private readonly ConcurrentQueue<string> _safeDetectQueueA = new ConcurrentQueue<string>();
         private bool _isQueueRunningA = false;
@@ -314,8 +316,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         // B工位监控器
         private FileSystemWatcher? _rootWatcherB;
-        private FileSystemWatcher? _dateWatcherB;
-        private string _currentMonitoringDateB = string.Empty;
+        private readonly ConcurrentDictionary<string, byte> _processedFilesB = new();
         private readonly ConcurrentQueue<string> _safeDetectQueueB = new ConcurrentQueue<string>();
         private bool _isQueueRunningB = false;
         private readonly SemaphoreSlim _semaphoreB = new SemaphoreSlim(3, 3); // B工位最大并发数
@@ -458,21 +459,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         // 1. 启动文件系统监控器（轻量级操作）
                         StartRootWatcherA();
 
-                        string todayDate = DateTime.Now.ToString("yyyyMMdd");
-                        StartDateWatcherA(todayDate);
-
-                        // 2. 异步扫描已存在文件（避免阻塞）
-                        ScanExistingFilesForTodayAsync(todayDate);
+                        //// 2. 异步扫描已存在文件（避免阻塞）
+                        //ScanExistingFilesForTodayAsync(todayDate);
 
                         // 3. 启动定时任务
-                        _dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
-                        _dateCheckTimer.Start();
+                        //_dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
+                        //_dateCheckTimer.Start();
 
                         // 4. 标记运行状态
                         _isAMonitorRunning = true;
 
                         UpdateUIState(() =>
-                            AddLog($"[在线检测-A] 监控已启动\n路径: {SelectedMonitorFolderPathA}\n日期: {todayDate}"));
+                            AddLog($"[在线检测-A] 监控已启动\n路径: {SelectedMonitorFolderPathA}\n"));
 
                         // 5. 启动并发处理
                         StartConcurrentProcessingA();
@@ -483,7 +481,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         UpdateUIState(() =>
                             AddLog($"[在线检测-A] 启动异常: {ex.Message}", CoreLogLevel.Error));
 
-                        StopAllWatchers();
+                        StopAllWatchersA();
                         _isThreadRunningA = false;
                         _isAMonitorRunning = false;
 
@@ -639,24 +637,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         // A工位相机1-4的ROI状态
-        private bool _hasPositiveRoiA1;
-        public bool HasPositiveRoiA1 { get => _hasPositiveRoiA1; set { _hasPositiveRoiA1 = value; OnPropertyChanged(); }}
-        private bool _hasPositiveRoiA2; 
-        public bool HasPositiveRoiA2 { get => _hasPositiveRoiA2; set { _hasPositiveRoiA2 = value; OnPropertyChanged(); } }
-        private bool _hasPositiveRoiA3;
-        public bool HasPositiveRoiA3 { get => _hasPositiveRoiA3; set { _hasPositiveRoiA3 = value; OnPropertyChanged(); } }
-        private bool _hasPositiveRoiA4; 
-        public bool HasPositiveRoiA4 { get => _hasPositiveRoiA4; set { _hasPositiveRoiA4 = value; OnPropertyChanged(); } }
+        private bool _hasRoiA1;
+        public bool HasRoiA1 { get => _hasRoiA1; set { _hasRoiA1 = value; OnPropertyChanged(); }}
+        private bool _hasRoiA2; 
+        public bool HasRoiA2 { get => _hasRoiA2; set { _hasRoiA2 = value; OnPropertyChanged(); } }
+        private bool _hasRoiA3;
+        public bool HasRoiA3 { get => _hasRoiA3; set { _hasRoiA3 = value; OnPropertyChanged(); } }
+        private bool _hasRoiA4; 
+        public bool HasRoiA4 { get => _hasRoiA4; set { _hasRoiA4 = value; OnPropertyChanged(); } }
 
         // B工位相机状态
-        private bool _hasNegativeRoiB1;
-        public bool HasNegativeRoiB1 { get => _hasNegativeRoiB1; set { _hasNegativeRoiB1 = value; OnPropertyChanged(); } }
-        private bool _hasNegativeRoiB2; 
-        public bool HasNegativeRoiB2 { get => _hasNegativeRoiB2; set { _hasNegativeRoiB2 = value; OnPropertyChanged(); } }
-        private bool _hasNegativeRoiB3; 
-        public bool HasNegativeRoiB3 { get => _hasNegativeRoiB3; set { _hasNegativeRoiB3 = value; OnPropertyChanged(); } }
-        private bool _hasNegativeRoiB4; 
-        public bool HasNegativeRoiB4 { get => _hasNegativeRoiB4; set { _hasNegativeRoiB4 = value; OnPropertyChanged(); } }
+        private bool _hasRoiB1;
+        public bool HasRoiB1 { get => _hasRoiB1; set { _hasRoiB1 = value; OnPropertyChanged(); } }
+        private bool _hasRoiB2; 
+        public bool HasRoiB2 { get => _hasRoiB2; set { _hasRoiB2 = value; OnPropertyChanged(); } }
+        private bool _hasRoiB3; 
+        public bool HasRoiB3 { get => _hasRoiB3; set { _hasRoiB3 = value; OnPropertyChanged(); } }
+        private bool _hasRoiB4; 
+        public bool HasRoiB4 { get => _hasRoiB4; set { _hasRoiB4 = value; OnPropertyChanged(); } }
 
 
         // 记录已经提示过“未使用过滤”的相机
@@ -2423,20 +2421,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             switch (station)
             {
-                case "正极":
-                    HasPositiveRoiA1 = isEnabled;
-                    break;
-                case "负极":
-                    HasNegativeRoiB1 = isEnabled;
-                    break;
-                case "A1": HasPositiveRoiA1 = isEnabled; break;
-                case "A2": HasPositiveRoiA2 = isEnabled; break;
-                case "A3": HasPositiveRoiA3 = isEnabled; break;
-                case "A4": HasPositiveRoiA4 = isEnabled; break;
-                case "B1": HasNegativeRoiB1 = isEnabled; break;
-                case "B2": HasNegativeRoiB2 = isEnabled; break;
-                case "B3": HasNegativeRoiB3 = isEnabled; break;
-                case "B4": HasNegativeRoiB4 = isEnabled; break;
+                case "A1": HasRoiA1 = isEnabled; break;
+                case "A2": HasRoiA2 = isEnabled; break;
+                case "A3": HasRoiA3 = isEnabled; break;
+                case "A4": HasRoiA4 = isEnabled; break;
+                case "B1": HasRoiB1 = isEnabled; break;
+                case "B2": HasRoiB2 = isEnabled; break;
+                case "B3": HasRoiB3 = isEnabled; break;
+                case "B4": HasRoiB4 = isEnabled; break;
             }
         }
 
@@ -3069,56 +3061,115 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         // 监控运行状态标记
         private bool _isAMonitorRunning = false;
 
-        // A工位启动监控
-        private void StartOnlineMonitoringA()
+        // A工位启动监控（监听异常时底层启动逻辑）
+        private void StartOnlineMonitoring(Station station)
         {
-            if (_isThreadRunningA) return;
-            _isThreadRunningA = true;
+            // 获取工位特定的变量和方法
+            var (isThreadRunning, isMonitorRunning, isThreadTerminating, folderPath,
+                 startWatcher, stopWatchers, startProcessing) = GetStationResources(station);
 
-
+            if (isThreadRunning) return;
+            SetStationThreadRunning(station, true);
 
             lock (_stationCountLock)
             {
-                if (_isAMonitorRunning)
+                if (isMonitorRunning)
                 {
-                    AddLog("[A工位] 在线监控已启动，无需重复执行");
+                    AddLog($"[{station}工位] 在线监控已启动，无需重复执行");
                     return;
                 }
 
-                CurrentMonitoringStation = "A";
-                _isThreadTerminatingA = false;
+                CurrentMonitoringStation = station.ToString();
+                SetStationThreadTerminating(station, false);
 
                 try
                 {
-                    StartRootWatcherA();
+                    startWatcher?.Invoke();
+                    SetStationMonitorRunning(station, true);
 
-                    string todayDate = DateTime.Now.ToString("yyyyMMdd");
-                    StartDateWatcherA(todayDate);
-
-                    ScanExistingFilesForToday(todayDate);
-
-                    //启动定时任务 
-                    _dateCheckTimer.Elapsed -= OnDateCheckTimerElapsed;
-                    _dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
-                    _dateCheckTimer.Start();
-
-                    //_fileScanTimer.Elapsed += OnFileScanTimerElapsed;
-                    //_fileScanTimer.Start();
-
-
-                    _isAMonitorRunning = true;
-
-                    AddLog($"[A工位] 已启动监控，缓冲区已扩容。路径：{SelectedMonitorFolderPathA}, 当前日期:{todayDate}");
-                    StartConcurrentProcessingA();
+                    AddLog($"[{station}工位] 已启动监控，缓冲区已扩容。路径：{folderPath}");
+                    startProcessing?.Invoke();
                 }
                 catch (Exception ex)
                 {
-                    AddLog($"[A工位] 启动监控失败: {ex.Message}", CoreLogLevel.Error);
-                    StopAllWatchers();
-                    _isThreadRunningA = false;
+                    AddLog($"[{station}工位] 启动监控失败: {ex.Message}", CoreLogLevel.Error);
+                    stopWatchers?.Invoke();
+                    SetStationThreadRunning(station, false);
                 }
             }
         }
+
+        /// <summary>
+        /// 获取工位资源
+        /// </summary>
+        private (bool isThreadRunning, bool isMonitorRunning, bool isThreadTerminating, string? folderPath,
+                 Action startWatcher, Action stopWatchers, Action startProcessing) GetStationResources(Station station)
+        {
+            return station switch
+            {
+                Station.A => (
+                    _isThreadRunningA,
+                    _isAMonitorRunning,
+                    _isThreadTerminatingA,
+                    SelectedMonitorFolderPathA,
+                    StartRootWatcherA,
+                    StopAllWatchersA,
+                    StartConcurrentProcessingA
+                ),
+                Station.B => (
+                    _isThreadRunningB,
+                    _isBMonitorRunning,
+                    _isThreadTerminatingB,
+                    SelectedMonitorFolderPathB,
+                    StartRootWatcherB,
+                    StopAllWatchersB,
+                    StartConcurrentProcessingB
+                ),
+                _ => throw new ArgumentException($"未知工位: {station}")
+            };
+        }
+
+        /// <summary>
+        /// 设置工位线程运行状态
+        /// </summary>
+        private void SetStationThreadRunning(Station station, bool value)
+        {
+            if (station == Station.A)
+                _isThreadRunningA = value;
+            else if (station == Station.B)
+                _isThreadRunningB = value;
+        }
+
+        /// <summary>
+        /// 设置工位监控运行状态
+        /// </summary>
+        private void SetStationMonitorRunning(Station station, bool value)
+        {
+            if (station == Station.A)
+                _isAMonitorRunning = value;
+            else if (station == Station.B)
+                _isBMonitorRunning = value;
+        }
+
+        /// <summary>
+        /// 设置工位线程终止标志
+        /// </summary>
+        private void SetStationThreadTerminating(Station station, bool value)
+        {
+            if (station == Station.A)
+                _isThreadTerminatingA = value;
+            else if (station == Station.B)
+                _isThreadTerminatingB = value;
+        }
+
+
+
+
+
+
+
+
+
 
         /// <summary>
         /// 启动主监听器 - 仅监听新日期文件夹创建
@@ -3143,233 +3194,42 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 _rootWatcherA = new FileSystemWatcher(SelectedMonitorFolderPathA)
                 {
-                    // 关键: 仅监听目录创建
-                    NotifyFilter = NotifyFilters.DirectoryName,
-                    IncludeSubdirectories = false,  // 不监听子目录
-                    InternalBufferSize = 16 * 1024  // 小缓冲区即可
+
+                    
+                    IncludeSubdirectories = true,  
+                    NotifyFilter = NotifyFilters.FileName,
+                    InternalBufferSize = 64 * 1024 ,
+                    Filter = "*.png"
                 };
 
-                _rootWatcherA.Created += OnRootDirectoryCreatedA;
-                _rootWatcherA.Error += OnWatcherError;
+                _rootWatcherA.Created += OnFileCreatedA;
+                _rootWatcherA.Error += OnWatcherErrorA;
                 _rootWatcherA.EnableRaisingEvents = true;
 
-                AddLog($"[主监听器] 已启动 - 路径: {SelectedMonitorFolderPathA}");
-            }
-        }
-
-        /// <summary>
-        /// 主监听器事件 - 检测到新日期文件夹创建
-        /// </summary>
-        private void OnRootDirectoryCreatedA(object sender, FileSystemEventArgs e)
-        {
-            try
-            {
-                string folderName = Path.GetFileName(e.FullPath);
-
-                // 检查是否为8位日期格式 (YYYYMMDD)
-                if (folderName.Length == 8 &&
-                    int.TryParse(folderName, out _) &&
-                    DateTime.TryParseExact(folderName, "yyyyMMdd", null,
-                        System.Globalization.DateTimeStyles.None, out DateTime newDate))
-                {
-                    string today = DateTime.Now.ToString("yyyyMMdd");
-
-                    // 仅当新文件夹是今天的日期时才切换
-                    if (folderName == today && folderName != _currentMonitoringDate)
-                    {
-                        AddLog($"[主监听器] 检测到今日文件夹创建: {folderName}");
-
-                        // 延迟100ms确保文件夹创建完成
-                        Task.Delay(100).ContinueWith(_ =>
-                        {
-                            StartDateWatcherA(folderName);
-                            ScanExistingFilesForToday(folderName);
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AddLog($"[主监听器] 处理文件夹创建事件异常: {ex.Message}", CoreLogLevel.Error);
+                AddLog($"[A工位监听器] 已启动 - 路径: {SelectedMonitorFolderPathA}");
             }
         }
 
 
         /// <summary>
-        /// 启动/切换日期监听器
+        /// 文件创建事件
         /// </summary>
-        private void StartDateWatcherA(string dateFolder)
+        private void OnFileCreatedA(object sender, FileSystemEventArgs e)
         {
-            lock (_watcherLock)
-            {
-                // 路径构造
-                string datePath = Path.Combine(SelectedMonitorFolderPathA!, dateFolder);
-
-                // 如果路径不存在,尝试创建
-                if (!Directory.Exists(datePath))
-                {
-                    try
-                    {
-                        Directory.CreateDirectory(datePath);
-                        AddLog($"[子监听器] 自动创建日期目录: {datePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        AddLog($"[子监听器] 创建目录失败: {ex.Message}", CoreLogLevel.Error);
-                        return;
-                    }
-                }
-
-                // 如果已监听相同日期,跳过
-                if (_currentMonitoringDate == dateFolder &&
-                    _dateWatcherA != null &&
-                    _dateWatcherA.EnableRaisingEvents)
-                {
-                    return;
-                }
-
-                // 释放旧监听器
-                if (_dateWatcherA != null)
-                {
-                    AddLog($"[子监听器] 停止旧日期监听: {_currentMonitoringDate}");
-                    _dateWatcherA.EnableRaisingEvents = false;
-                    _dateWatcherA.Dispose();
-                    _dateWatcherA = null;
-                }
-
-                // 创建新监听器
-                _dateWatcherA = new FileSystemWatcher(datePath)
-                {
-                    //Filter = "*.*",
-                    IncludeSubdirectories = true,
-                    NotifyFilter = NotifyFilters.FileName,  // 仅监听文件名变化
-                    InternalBufferSize = 64 * 1024
-                };
-                _dateWatcherA.Filters.Add("*.jpg");
-                _dateWatcherA.Filters.Add("*.jpeg");
-                _dateWatcherA.Created += OnDateFileCreated;
-                //_dateWatcher.Renamed += OnDateFileRenamed;  // 防止部分系统文件以Renamed触发
-                _dateWatcherA.Error += OnWatcherError;
-                _dateWatcherA.EnableRaisingEvents = true;
-
-                _currentMonitoringDate = dateFolder;
-                AddLog($"[子监听器] 已启动 - 日期: {dateFolder}, 路径: {datePath}");
-            }
-        }
-
-        /// <summary>
-        /// 子监听器 - 文件创建事件
-        /// </summary>
-        private void OnDateFileCreated(object sender, FileSystemEventArgs e)
-        {
-            ProcessNewFile(e.FullPath);
-        }
-
-        /// <summary>
-        /// 子监听器 - 文件重命名事件 (兜底)
-        /// </summary>
-        //private void OnDateFileRenamed(object sender, RenamedEventArgs e)
-        //{
-        //    ProcessNewFile(e.FullPath);
-        //}
-        /// <summary>
-        /// 启动/切换监视器B的日期监听器
-        /// </summary>
-        /// <param name="dateFolder">日期文件夹名称 (例如 "2023-10-27")</param>
-        private void StartDateWatcherB(string dateFolder)
-        {
-            // 使用同一个锁对象确保线程安全，或者如果您确定AB互不干扰，
-            // 也可以使用专门为B准备的 _watcherLockB
-            lock (_watcherLock)
-            {
-                // 1. 路径构造 (使用监视器B的基础路径)
-                if (string.IsNullOrEmpty(SelectedMonitorFolderPathB))
-                {
-                    AddLog("[子监听器B] 基础路径未设置，无法启动日期监听。", CoreLogLevel.Error);
-                    return;
-                }
-
-                string datePath = Path.Combine(SelectedMonitorFolderPathB, dateFolder);
-
-                // 2. 如果路径不存在,尝试创建
-                if (!Directory.Exists(datePath))
-                {
-                    try
-                    {
-                        Directory.CreateDirectory(datePath);
-                        AddLog($"[子监听器B] 自动创建日期目录: {datePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        AddLog($"[子监听器B] 创建目录失败: {ex.Message}", CoreLogLevel.Error);
-                        return;
-                    }
-                }
-
-                // 3. 检查状态 (注意：这里需要判断B自己的状态)
-                // 假设 _currentMonitoringDateB 是专门记录B当前日期的变量。
-                // 如果AB总是同步切换日期，也可以继续使用 _currentMonitoringDate，
-                // 但为了架构清晰，建议分开记录，除非需求强制同步。
-                if (_currentMonitoringDateB == dateFolder &&
-                    _dateWatcherB != null &&
-                    _dateWatcherB.EnableRaisingEvents)
-                {
-                    return;
-                }
-
-                // 4. 释放旧监听器 (针对 B)
-                if (_dateWatcherB != null)
-                {
-                    AddLog($"[子监听器B] 停止旧日期监听: {_currentMonitoringDateB}");
-                    _dateWatcherB.EnableRaisingEvents = false;
-                    _dateWatcherB.Dispose();
-                    _dateWatcherB = null;
-                }
-
-                // 5. 创建新监听器 (针对 B)
-                try
-                {
-                    _dateWatcherB = new FileSystemWatcher(datePath)
-                    {
-                        IncludeSubdirectories = true,
-                        NotifyFilter = NotifyFilters.FileName, // 仅监听文件名变化
-                        InternalBufferSize = 64 * 1024       // 保持 64KB 缓冲区
-                    };
-
-                    // 添加图片过滤器
-                    _dateWatcherB.Filters.Add("*.jpg");
-                    _dateWatcherB.Filters.Add("*.jpeg");
-
-                    // 绑定 B 的事件处理函数
-                    _dateWatcherB.Created += OnDateFileCreated;
-                    _dateWatcherB.Error += OnWatcherError;
-
-                    // 启动
-                    _dateWatcherB.EnableRaisingEvents = true;
-
-                    // 更新B的当前监听日期状态
-                    _currentMonitoringDateB = dateFolder;
-                    AddLog($"[子监听器B] 已启动 - 日期: {dateFolder}, 路径: {datePath}");
-                }
-                catch (Exception ex)
-                {
-                    AddLog($"[子监听器B] 启动监听失败路径 {datePath}: {ex.Message}", CoreLogLevel.Error);
-                    _dateWatcherB = null;
-                }
-            }
+            ProcessNewFile(e.FullPath, _processedFilesA,"A");
         }
 
 
         /// <summary>
         /// 处理新文件
         /// </summary>
-        private void ProcessNewFile(string filePath)
+        private void ProcessNewFile(string filePath, ConcurrentDictionary<string, byte> _processedFiles, string stationName)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    AddLog("[子监听器] 文件路径为空，跳过处理", CoreLogLevel.Warn);
+                    AddLog("[监听器] 文件路径为空，跳过处理", CoreLogLevel.Warn);
                     return;
                 }
                 // 防重复处理
@@ -3387,37 +3247,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                // 极性选择校验         
-                if (!IsPositive && !IsNegative)
-                {
-                    AddLog($"未选择正极或者负极，跳过文件：{Path.GetFileName(filePath)}", CoreLogLevel.Warn);
-                    Growl.Warning("未选择正极或者负极，跳过文件处理！");
-                    _processedFiles.TryRemove(filePath, out _);
-                    return;
-                }
-                // 检测文件判定
-                if (!filePath.Contains("大面检测"))
-                {
-                    _processedFiles.TryRemove(filePath, out _);
-                    return;
-                }
 
-                //极性匹配
-                string polarity = GetPolarityFromPath(filePath, true);
-                if (polarity != "正极" && polarity != "负极")
-                {
-                    AddLog($"[极性-跳过] 无法识别极性 ({polarity})：{Path.GetFileName(filePath)}", CoreLogLevel.Warn);
-                    _processedFiles.TryRemove(filePath, out _);
-                    return;
-                }
-                bool isPolarityMatch = (IsPositive && polarity == "正极") || (IsNegative && polarity == "负极");
-                if (!isPolarityMatch)
-                {
-                    _processedFiles.TryRemove(filePath, out _);
-                    return;
-                }
-
-                //检测模式（工位）匹配
+                //检测模式（工位）匹配 OK NG 或全检
                 if (!IsDetectionModeMatch(filePath))
                 {
                     AddLog($"[工位-跳过] 当前检测模式不匹配 ({SelectedMode})：{Path.GetFileName(filePath)}", CoreLogLevel.Warn);
@@ -3440,8 +3271,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
                 // 加入处理队列
-                EnqueueTaskA(filePath);
-                AddLog($"[子监听器] 检测到文件: {Path.GetFileName(filePath)}");
+
+                EnqueueTask(filePath, stationName);
+
+                AddLog($"[监听器] 检测到文件: {Path.GetFileName(filePath)}");
             }
             catch (Exception ex)
             {
@@ -3456,225 +3289,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <param name="filePath">文件路径</param>
         /// <param name="timeout">超时时间</param>
         /// <returns>文件是否就绪</returns>
-        private bool WaitForFileReady(string filePath, TimeSpan timeout)
+        private bool WaitForFileReady(string filePath, TimeSpan timeout,int pollInterval = 50,bool requireExclusive = true)
         {
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            if (string.IsNullOrWhiteSpace(filePath))
+                return false;
 
-            while (stopwatch.Elapsed < timeout)
+            var share = requireExclusive ? FileShare.None : FileShare.Read;
+            var sw = Stopwatch.StartNew();
+
+            while (sw.Elapsed < timeout)
             {
+                if (!File.Exists(filePath))
+                    return false;
+
                 try
                 {
-                    // 尝试以独占方式打开文件
-                    using (var stream = new FileStream(
+                    using var stream = new FileStream(
                         filePath,
                         FileMode.Open,
                         FileAccess.Read,
-                        FileShare.None))  // 关键:不允许共享,确保文件未被占用
-                    {
-                        // 如果能打开,说明文件已写入完成
-                        return true;
-                    }
+                        share);
+                    return true; // 成功打开，文件就绪
                 }
                 catch (FileNotFoundException)
                 {
-                    // 文件不存在
-                    return false;
-                }
-                catch (IOException)
-                {
-                    // 文件被占用,继续等待
-                    Thread.Sleep(50);  // 等待50ms后重试
+                    return false; // 文件已被删除
                 }
                 catch (UnauthorizedAccessException)
                 {
-                    // 权限问题
-                    return false;
+                    return false; // 无权限，无需重试
+                }
+                catch (IOException)
+                {
+                    Thread.Sleep(pollInterval); // 被占用，继续等待
                 }
             }
 
-            // 超时
-            return false;
+            return false; // 超时
         }
-
-
-        /// <summary>
-        /// 扫描当天已存在的文件 (启动时调用)
-        /// </summary>
-        private void ScanExistingFilesForToday(string dateFolder)
-        {
-            try
-            {
-                string datePath = Path.Combine(SelectedMonitorFolderPathA!, dateFolder);
-                if (!Directory.Exists(datePath))
-                {
-                    return;
-                }
-
-                var allowedExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp"
-                };
-
-                var files = Directory.EnumerateFiles(datePath, "*.*", SearchOption.AllDirectories)
-                    .Where(f => allowedExts.Contains(Path.GetExtension(f)))
-                    .ToList();
-
-                if (files.Count == 0)
-                {
-                    AddLog($"[启动扫描] 今日文件夹已扫描，未发现符合条件的文件");
-                    return;
-                }
-                else if (files.Count > 100)
-                {
-                    AddLog($"启动扫描时已检测文件超过100，忽略当前已生成文件");
-                    return;
-                }
-
-                int newFileCount = 0;
-                foreach (var file in files)
-                {
-                    if (_processedFiles.TryAdd(file, 0))
-                    {
-                        EnqueueTaskA(file);
-                        newFileCount++;
-                    }
-                }
-
-                if (newFileCount > 0)
-                {
-                    AddLog($"[启动扫描] 发现 {newFileCount} 个未处理文件");
-                }
-            }
-            catch (Exception ex)
-            {
-                AddLog($"[启动扫描] 异常: {ex.Message}", CoreLogLevel.Error);
-            }
-        }
-
-        /// <summary>
-        /// 异步扫描当天已存在的文件
-        /// </summary>
-        private void ScanExistingFilesForTodayAsync(string dateFolder)
-        {
-            _ = Task.Run(() =>
-            {
-                try
-                {
-                    string datePath = Path.Combine(SelectedMonitorFolderPathA!, dateFolder);
-
-                    if (!Directory.Exists(datePath))
-                    {
-                        UpdateUIState(() =>
-                            AddLog($"[启动扫描] 今日文件夹不存在: {dateFolder}"));
-                        return;
-                    }
-
-                    // 定义支持的图像格式
-                    var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp"
-                    };
-
-                    // 异步枚举文件（避免阻塞）
-                    var imageFiles = Directory.EnumerateFiles(datePath, "*.*", SearchOption.AllDirectories)
-                        .Where(file => allowedExtensions.Contains(Path.GetExtension(file)))
-                        .ToList();
-
-                    // 文件数量检查
-                    if (imageFiles.Count == 0)
-                    {
-                        UpdateUIState(() =>
-                            AddLog("[启动扫描] 今日文件夹为空"));
-                        return;
-                    }
-
-                    if (imageFiles.Count > 100)
-                    {
-                        UpdateUIState(() =>
-                            AddLog($"[启动扫描] ⚠ 检测到 {imageFiles.Count} 个文件（>100），跳过历史文件"));
-                        return;
-                    }
-
-                    // 批量入队处理
-                    int newFileCount = 0;
-                    foreach (var file in imageFiles)
-                    {
-                        if (_processedFiles.TryAdd(file, 0))
-                        {
-                            EnqueueTaskA(file);
-                            newFileCount++;
-                        }
-                    }
-
-                    if (newFileCount > 0)
-                    {
-                        UpdateUIState(() =>
-                            AddLog($"[启动扫描] ✅ 发现 {newFileCount} 个待处理文件"));
-                    }
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    UpdateUIState(() =>
-                        AddLog($"[启动扫描] ❌ 权限不足: {ex.Message}", CoreLogLevel.Error));
-                }
-                catch (Exception ex)
-                {
-                    UpdateUIState(() =>
-                        AddLog($"[启动扫描] ❌ 扫描异常: {ex.Message}", CoreLogLevel.Error));
-                }
-            });
-        }
-
-        /// <summary>
-        /// 定时检查日期切换
-        /// </summary>
-        private void OnDateCheckTimerElapsed(object? sender, ElapsedEventArgs e)
-        {
-            string today = DateTime.Now.ToString("yyyyMMdd");
-
-            if (today != _currentMonitoringDate)
-            {
-                AddLog($"[日期切换] {_currentMonitoringDate} → {today}");
-                if (CanOperateA == false)
-                {
-                    StartDateWatcherA(today);
-                }
-                if (CanOperateB == false)
-                {
-                    StartDateWatcherB(today);
-                }
-
-                // 清理旧日期的处理记录 (可选,防止内存膨胀)
-                var oldFiles = _processedFiles.Keys
-                    .Where(k => !k.Contains(today))
-                    .ToList();
-
-                foreach (var file in oldFiles)
-                {
-                    _processedFiles.TryRemove(file, out _);
-                }
-
-                AddLog($"[日期切换] 已清理 {oldFiles.Count} 条旧记录");
-                // 跨天时清空极性缓存，防止内存无限膨胀
-                _polarityCache.Clear();
-            }
-        }
-
-        /// <summary>
-        /// 定时补检文件 (防止事件丢失)
-        /// </summary>
-        private void OnFileScanTimerElapsed(object? sender, ElapsedEventArgs e)
-        {
-            if (string.IsNullOrEmpty(_currentMonitoringDate))
-            {
-                return;
-            }
-
-            //ScanExistingFilesForToday(_currentMonitoringDate);
-        }
-
-
-
 
 
 
@@ -3682,7 +3334,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <summary>
         /// 处理 FileSystemWatcher 的内部错误（如缓冲区溢出）
         /// </summary>
-        private void OnWatcherError(object sender, ErrorEventArgs e)
+        private void OnWatcherErrorA(object sender, ErrorEventArgs e)
         {
             // 获取异常信息
             Exception ex = e.GetException();
@@ -3711,7 +3363,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     {
                         AddLog("[A工位] 正在执行自动重启恢复监控...");
                         // 重新触发启动逻辑（注意避免死循环，这里直接调用底层启动逻辑）
-                        StartOnlineMonitoringA();
+                        StartOnlineMonitoring(Station.A);
 
                         // 恢复计数（因为 StopOnlineMonitoringA 会减计数）
                         lock (_stationCountLock)
@@ -3743,22 +3395,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         // 1. 启动文件系统监控器
                         StartRootWatcherB();
 
-                        string todayDate = DateTime.Now.ToString("yyyyMMdd");
-                        StartDateWatcherB(todayDate);
-
-                        // 2. 异步扫描已存在文件
-                        ScanExistingFilesForTodayAsync(todayDate);
-
-                        // 3. 启动定时任务（双工位可共享同一个日期切换检测器）
-                        _dateCheckTimer.Elapsed -= OnDateCheckTimerElapsed;
-                        _dateCheckTimer.Elapsed += OnDateCheckTimerElapsed;
-                        _dateCheckTimer.Start();
-
-                        // 4. 标记运行状态
+                        // 2. 标记运行状态
                         _isBMonitorRunning = true;
 
                         UpdateUIState(() =>
-                            AddLog($"[在线检测-B] 监控已启动\n路径: {SelectedMonitorFolderPathB}\n日期: {todayDate}"));
+                            AddLog($"[在线检测-B] 监控已启动\n路径: {SelectedMonitorFolderPathB}"));
 
                         // 5. 启动并发处理
                         StartConcurrentProcessingB();
@@ -3791,23 +3432,86 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         private void StartRootWatcherB()
         {
+            if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathB) || !Directory.Exists(SelectedMonitorFolderPathB))
+            {
+                AddLog("[B工位] 监控文件夹不存在，请先选择有效文件夹");
+                _isBMonitorRunning = false;
+                MessageBox.Show("B工位监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
             lock (_watcherLock)
             {
-                _rootWatcherB?.Dispose();
+                if(_rootWatcherB != null)
+                {
+                    _rootWatcherB.EnableRaisingEvents = false;
+                    _rootWatcherB.Dispose();
+                }
+
                 _rootWatcherB = new FileSystemWatcher(SelectedMonitorFolderPathB!)
                 {
-                    NotifyFilter = NotifyFilters.DirectoryName,
-                    IncludeSubdirectories = false,
-                    EnableRaisingEvents = true
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.FileName,
+                    InternalBufferSize = 64 * 1024,
+                    Filter = "*.png"
                 };
-                _rootWatcherB.Created += (s, e) => {
-                    // 逻辑同 A，监听日期文件夹创建后调用 StartDateWatcherB
-                };
+                _rootWatcherB.Created += OnFileCreatedB;
+                _rootWatcherB.Error += OnWatcherErrorB; 
+                _rootWatcherB.EnableRaisingEvents = true;
+                AddLog($"[B监听器] 已启动 － 路径:{SelectedMonitorFolderPathB}");
             }
         }
 
+        /// <summary>
+        /// 文件创建事件
+        /// </summary>
+        private void OnFileCreatedB(object sender, FileSystemEventArgs e)
+        {
+            ProcessNewFile(e.FullPath, _processedFilesB,"B");
+        }
 
+        /// <summary>
+        /// 处理 FileSystemWatcher 的内部错误（如缓冲区溢出）
+        /// </summary>
+        private void OnWatcherErrorB(object sender, ErrorEventArgs e)
+        {
+            // 获取异常信息
+            Exception ex = e.GetException();
+            AddLog($"[B工位-监控严重错误] 文件监控发生异常: {ex.Message}。尝试自动重启监控...", CoreLogLevel.Error);
 
+            // 缓冲区溢出是最常见的原因
+            if (ex is InternalBufferOverflowException)
+            {
+                AddLog("[B工位] 检测到缓冲区溢出，说明短时间内文件过多。", CoreLogLevel.Warn);
+            }
+
+            // 必须在非 UI 线程中重启，防止死锁，但因为涉及 UI 状态，需谨慎操作
+            Task.Run(async () =>
+            {
+                // 1. 先停止现有监控
+                StopOnlineMonitoringB();
+
+                // 2. 稍作等待，让系统资源释放
+                await Task.Delay(2000);
+
+                // 3. 重新检查开关状态，如果用户可以接受自动重启，则再次启动
+                // 注意：这需要操作 UI 线程绑定的属性或直接调用内部逻辑
+                if (IsOnlineDetectionEnabledB)
+                {
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        AddLog("[B工位] 正在执行自动重启恢复监控...");
+                        // 重新触发启动逻辑（注意避免死循环，这里直接调用底层启动逻辑）
+                        StartOnlineMonitoring(Station.B);
+
+                        // 恢复计数（因为 StopOnlineMonitoringA 会减计数）
+                        lock (_stationCountLock)
+                        {
+                            _runningStationsCount++;
+                        }
+                    });
+                }
+            });
+        }
         #endregion
 
         #region 双工位停止监控
@@ -3829,10 +3533,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 // 标记线程终止并透过 CancellationToken 取消处理任务
                 _isThreadTerminatingA = true;
-                StopAllWatchers();
+                StopAllWatchersA();
 
-                _dateCheckTimer?.Stop();
-                _fileScanTimer?.Stop();
 
                 //_processedFiles.Clear();
 
@@ -3877,7 +3579,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 //AddLog("[A工位] 在线监控已停止（StopOnlineMonitoringA 完成）");
             }
         }
-        private void StopAllWatchers()
+        private void StopAllWatchersA()
         {
             lock (_watcherLock)
             {
@@ -3888,14 +3590,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     _rootWatcherA.Dispose();
                     _rootWatcherA = null;
                 }
-
-                // 停止子监听器
-                if (_dateWatcherB != null)
-                {
-                    _dateWatcherB.EnableRaisingEvents = false;
-                    _dateWatcherB.Dispose();
-                    _dateWatcherB = null;
-                }
             }
         }
         //B 工位停止监控
@@ -3905,10 +3599,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 if (!_isBMonitorRunning) return;
                 _isThreadTerminatingB = true;
-                _rootWatcherB?.Dispose();
-                _dateWatcherB?.Dispose();
                 _isBMonitorRunning = false;
-                AddLog("[B工位] 监控已停止");
+                _isThreadRunningB = false;
+            }
+
+            StopAllWatchersB();
+
+            lock (_processingLockB)
+            {
+                _ctsB?.Cancel();
+                _ctsB?.Dispose();
+                _ctsB = null;
+            }
+
+            _queueEventB.Set(); // 唤醒可能阻塞的处理线程，让其退出
+            AddLog("[B工位] 监控已停止");
+        }
+        private void StopAllWatchersB()
+        {
+            lock (_watcherLock)
+            {
+                // 停止子监听器
+                if (_rootWatcherB != null)
+                {
+                    _rootWatcherB.EnableRaisingEvents = false;
+                    _rootWatcherB.Dispose();
+                    _rootWatcherB = null;
+                }
             }
         }
         #endregion
@@ -3973,7 +3690,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         return;
                     }
 
-                    EnqueueTaskA(e.FullPath);
+                    EnqueueTask(e.FullPath,"A");
                 }
                 catch (Exception ex)
                 {
@@ -4120,16 +3837,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             // ⚡ 核心优化：WaitHandle.WaitAny 监听两个信号，实现“有任务就唤醒，有取消就退出，超时就重试”
                             int signaledIndex = WaitHandle.WaitAny(new WaitHandle[]
                             {
-                        // 监听的信号集合：
-                        _queueEventA,
-                        token.WaitHandle
-                            }, TimeSpan.FromSeconds(30));
+                            // 监听的信号集合：
+                            _queueEventA, token.WaitHandle}, TimeSpan.FromSeconds(30));
 
-                            if (signaledIndex == WaitHandle.WaitTimeout)
+                                if (signaledIndex == WaitHandle.WaitTimeout)
+                                    continue;
+                                if (token.IsCancellationRequested || _isThreadTerminatingA)
+                                    break;
                                 continue;
-                            if (token.IsCancellationRequested || _isThreadTerminatingA)
-                                break;
-                            continue;
                         }
 
                         // 3. 检测取消信号：若已取消，直接抛出取消异常（触发外层catch处理）
@@ -4153,9 +3868,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             // 解析文件路径到动态对象（提取如文件名、路径、时间等信息）
                             ParsePathToDynamicObject(detectionData, filePath);
                             detectionData.Station = "A";// 标记工位为A
-                            // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
-                            //string detectResult = DamageDetection(filePath, "正极");
-                            string detectResult = DamageDetection(filePath, "正极", out List<string> triggeredList);
+
+                            string roiKey = GetRoiKeyFromImagePath(filePath, "A");
+
+                            // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常                        
+                            string detectResult = DamageDetection(filePath, roiKey, out List<string> triggeredList); 
                             detectionData.TriggeredDefects = triggeredList;
                             DateTime realDetectionTime = DateTime.Now;
                             bool isNG = detectResult == "NG";// 判断是否为不良品
@@ -4216,25 +3933,55 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
 
-        public void EnqueueTaskA(string filePath)
+        public void EnqueueTask(string filePath,string stationName)
         {
             if (string.IsNullOrEmpty(filePath))
             {
-                AddLog("[A工位-入队] 无效路径，跳过入队");
+                AddLog($"[{stationName}工位-入队] 无效路径，跳过入队");
                 return;
             }
 
-            lock (_queueLockA)
+            try
             {
-                _safeDetectQueueA.Enqueue(filePath);
-            }
+                if (stationName == "A")
+                {
+                    lock (_queueLockA)
+                    {
+                        _safeDetectQueueA.Enqueue(filePath);
+                    }
 
-            _queueEventA.Set(); // 唤醒等待线程（线程由 StartOnlineMonitoringA 启动并保持）
-                                // AddLog($"[A工位-入队] 新任务入队：{Path.GetFileName(filePath)} (队列大小未知)");
-            if (!_isQueueRunningA)
+                    _queueEventA.Set(); // 唤醒等待线程（线程由 StartOnlineMonitoringA 启动并保持）
+                                        // AddLog($"[A工位-入队] 新任务入队：{Path.GetFileName(filePath)} (队列大小未知)");
+                    if (!_isQueueRunningA)
+                    {
+                        AddLog($"[{stationName}工位-入队] 检测到处理线程未运行，尝试重新启动");
+                        StartConcurrentProcessingA();
+                    }
+                }
+                else if (stationName == "B")
+                {
+                    lock (_queueLockB)
+                    {
+                        _safeDetectQueueB.Enqueue(filePath);
+                    }
+
+                    _queueEventB.Set();
+
+                    if (!_isQueueRunningB)
+                    {
+                        AddLog($"[{stationName}工位-入队] 检测到处理线程未运行，尝试重新启动");
+                        StartConcurrentProcessingB();
+                    }
+                }
+                else
+                {
+                    AddLog($"[入队] 未知工位: {stationName}", CoreLogLevel.Error);
+                    return;
+                }
+            }
+            catch (Exception ex)
             {
-                AddLog("[A工位-入队] 检测到处理线程未运行，尝试重新启动");
-                StartConcurrentProcessingA();
+                AddLog($"[{stationName}工位-入队] 异常: {ex.Message}", CoreLogLevel.Error);
             }
         }
 
@@ -4363,6 +4110,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
+
+
+        private string GetRoiKeyFromImagePath(string imagePath, string station)
+        {
+            string cameraNo = ExtractCameraNumber(imagePath);  // "1"-"4"
+            return $"{station}{cameraNo}";  // "A1", "B3" 等
+        }
+        private string ExtractCameraNumber(string imagePath)
+        {
+            // 从路径提取相机号
+            // 路径格式: X:\202605\07\260583115\负极\负极1\OK\原图\260477057-69-20260426-230987654-501.png
+            // 需要提取 "负极1" 中的 "1"
+            if (string.IsNullOrEmpty(imagePath))
+                return string.Empty;
+            var pathParts = imagePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            // 查找包含"负极"或"正极"的部分
+            for (int i = pathParts.Length - 1; i >= 0; i--)
+            {
+                var part = pathParts[i];
+                if (part.Contains("负极") || part.Contains("正极"))
+                {
+                    var match = Regex.Match(part, @"\d+$");
+                    if (match.Success)
+                    {
+                        return match.Value;
+                    }
+                    break; 
+                }
+            }
+
+            return string.Empty;
+        }
         /// <summary>
         /// B工位入队逻辑
         /// </summary>
@@ -4661,15 +4441,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             // 仅当内容有效时添加到日志集合
 
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            var app = Application.Current;
+            if (app?.Dispatcher == null)
+                return;  // 应用正在关闭，直接丢弃UI日志
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return;
+
+            try
             {
-                LogTable.Insert(0, newLog);
-                if (LogTable.Count > 100)
+                dispatcher.BeginInvoke(new Action(() =>
                 {
-                    LogTable.RemoveAt(LogTable.Count - 1);
-                }
-            })
-            );
+                    if (LogTable == null) return;
+
+                    LogTable.Insert(0, newLog);
+
+                    // 保持最多100条
+                    while (LogTable.Count > 100)
+                    {
+                        LogTable.RemoveAt(LogTable.Count - 1);
+                    }
+                }), DispatcherPriority.Background);   // 使用 Background 优先级更安全
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException ||
+                                       ex is InvalidOperationException ||
+                                       ex.Message.Contains("shutdown", StringComparison.OrdinalIgnoreCase))
+            {
+                // 忽略关闭过程中的正常异常
+            }
 
         }
         private void InitDll1()
@@ -7270,23 +7070,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 if (isOnline)
                 {
-                    if (imagePath.Contains("大面检测"))
+                    //if (imagePath.Contains("大面检测"))
+                    //{
+                    //    if (imagePath.Contains("正极"))
+                    //    {
+                    //        return "正极";
+                    //    }
+                    //    else
+                    //    {
+                    //        return "负极";
+                    //    }
+                    //}
+                    //else
+                    //{
+                    //    return "未知极性";
+                    //}
+                    if (imagePath.Contains("正极"))
                     {
-                        if (imagePath.Contains("正极"))
-                        {
-                            return "正极";
-                        }
-                        else
-                        {
-                            return "负极";
-                        }
+                        return "正极";
+                    }
+                    else if (imagePath.Contains("负极"))
+                    {
+                        return "负极";
                     }
                     else
                     {
                         return "未知极性";
                     }
                 }
-
+                //离线模式
                 if (imagePath.Contains("正极"))
                 {
                     return "正极";
@@ -8017,6 +7829,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         private bool _isThreadRunningA = false;
+        private bool _isThreadRunningB = false;
         private bool _isLoadingConfig = false;
 
         /// <summary>
@@ -9229,13 +9042,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private void UpdateUIState(Action uiAction)
         {
-            if (Application.Current.Dispatcher.CheckAccess())
+            if (uiAction == null) return;
+
+            var app = Application.Current;
+            if (app == null)
             {
-                uiAction();
+                // 应用正在关闭，直接在当前线程执行（或忽略）
+                try { uiAction(); } catch { }
+                return;
             }
-            else
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
             {
-                Application.Current.Dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+                try { uiAction(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (dispatcher.CheckAccess())
+                {
+                    uiAction();
+                }
+                else
+                {
+                    dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+                }
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException ||
+                                       ex is InvalidOperationException ||
+                                       ex.Message.Contains("shutdown"))
+            {
+                // 忽略关闭过程中的正常异常
             }
         }
 
@@ -9244,7 +9083,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private Task UpdateUIStateAsync(Action uiAction)
         {
-            return Application.Current.Dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+            if (uiAction == null) return Task.CompletedTask;
+
+            var app = Application.Current;
+            if (app == null) return Task.CompletedTask;
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return Task.CompletedTask;
+
+            try
+            {
+                return dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+            }
+            catch (Exception) // 忽略关闭过程中的异常
+            {
+                return Task.CompletedTask;
+            }
         }
 
         #endregion

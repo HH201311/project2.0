@@ -42,4 +42,5 @@ namespace SUNWODA_SEVB.Core.Models.Project.PCD
             _capture?.Release();
         }
     }
+
 }

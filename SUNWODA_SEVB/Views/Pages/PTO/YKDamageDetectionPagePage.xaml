@@ -1696,7 +1696,7 @@
                                             CommandParameter="A1"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasRoiPositiveA1}" />
+                                            IsEnabled="{Binding HasRoiA1}" />
                                     </StackPanel>
 
                                     <!--  A工位相机2  -->
@@ -1726,7 +1726,7 @@
                                             CommandParameter="A2"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiA2}" />
+                                            IsEnabled="{Binding HasRoiA2}" />
                                     </StackPanel>
 
 
@@ -1757,7 +1757,7 @@
                                             CommandParameter="A3"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiA3}" />
+                                            IsEnabled="{Binding HasRoiA3}" />
                                     </StackPanel>
 
 
@@ -1788,7 +1788,7 @@
                                             CommandParameter="A4"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiA4}" />
+                                            IsEnabled="{Binding HasRoiA4}" />
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -1829,7 +1829,7 @@
                                             CommandParameter="B1"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasRoiNegativeB1}" />
+                                            IsEnabled="{Binding HasRoiB1}" />
                                     </StackPanel>
 
                                     <!--  B工位相机2  -->
@@ -1859,7 +1859,7 @@
                                             CommandParameter="B2"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiB2}" />
+                                            IsEnabled="{Binding HasRoiB2}" />
                                     </StackPanel>
 
 
@@ -1890,7 +1890,7 @@
                                             CommandParameter="B3"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiB3}" />
+                                            IsEnabled="{Binding HasRoiB3}" />
                                     </StackPanel>
 
 
@@ -1921,7 +1921,7 @@
                                             CommandParameter="B4"
                                             Content="查看绘制结果"
                                             Foreground="Black"
-                                            IsEnabled="{Binding HasNegativeRoiB4}" />
+                                            IsEnabled="{Binding HasRoiB4}" />
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>

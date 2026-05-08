@@ -47,7 +47,7 @@ namespace SUNWODA_SEVB
             //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
-                //MonitorAppIsRunning();
+                MonitorAppIsRunning();
                 // 确保配置文件存在且有效
                 ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host
@@ -113,6 +113,12 @@ namespace SUNWODA_SEVB
                         WinApiHelper.SetForegroundWindow(process.MainWindowHandle);
                     }
                 }
+                // 显示提示信息
+                MessageBox.Show(
+                    "软件已在运行中，请勿重复启动。\n已为您切换到运行中的窗口。",
+                    "提示",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 Shutdown();
                 Environment.Exit(0);
             }

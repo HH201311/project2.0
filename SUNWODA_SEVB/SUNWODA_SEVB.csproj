@@ -155,6 +155,9 @@
     <Reference Include="YOLODetFW48">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLODetFW48.dll</HintPath>
     </Reference>
+    <Reference Include="YWPackActionDetect">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YWPackActionDetect.dll</HintPath>
+    </Reference>
 
     <Reference Include="ZZC1OnlineCTModel">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC1OnlineCTModel.dll</HintPath>

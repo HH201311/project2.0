@@ -4575,16 +4575,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             );
 
             // 仅当内容有效时添加到日志集合
+            var app = Application.Current;
+            if (app?.Dispatcher == null)
+                return;  // 应用正在关闭，直接丢弃UI日志
 
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            var dispatcher = app.Dispatcher;
+            if (dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return;
+
+            try
             {
-                LogTable.Insert(0, newLog);
-                if (LogTable.Count > 100)
+                dispatcher.BeginInvoke(new Action(() =>
                 {
-                    LogTable.RemoveAt(LogTable.Count - 1);
-                }
-            })
-            );
+                    if (LogTable == null) return;
+
+                    LogTable.Insert(0, newLog);
+
+                    // 保持最多100条
+                    while (LogTable.Count > 100)
+                    {
+                        LogTable.RemoveAt(LogTable.Count - 1);
+                    }
+                }), DispatcherPriority.Background);   // 使用 Background 优先级更安全
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException ||
+                                       ex is InvalidOperationException ||
+                                       ex.Message.Contains("shutdown", StringComparison.OrdinalIgnoreCase))
+            {
+                // 忽略关闭过程中的正常异常
+            }
 
         }
         private void InitDll1()
@@ -9151,13 +9170,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private void UpdateUIState(Action uiAction)
         {
-            if (Application.Current.Dispatcher.CheckAccess())
+            if (uiAction == null) return;
+
+            var app = Application.Current;
+            if (app == null)
             {
-                uiAction();
+                // 应用正在关闭，直接在当前线程执行（或忽略）
+                try { uiAction(); } catch { }
+                return;
             }
-            else
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
             {
-                Application.Current.Dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+                try { uiAction(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (dispatcher.CheckAccess())
+                {
+                    uiAction();
+                }
+                else
+                {
+                    dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+                }
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException ||
+                                       ex is InvalidOperationException ||
+                                       ex.Message.Contains("shutdown"))
+            {
+                // 忽略关闭过程中的正常异常
             }
         }
 
@@ -9166,7 +9211,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private Task UpdateUIStateAsync(Action uiAction)
         {
-            return Application.Current.Dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+            if (uiAction == null) return Task.CompletedTask;
+
+            var app = Application.Current;
+            if (app == null) return Task.CompletedTask;
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return Task.CompletedTask;
+
+            try
+            {
+                return dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+            }
+            catch (Exception) // 忽略关闭过程中的异常
+            {
+                return Task.CompletedTask;
+            }
         }
 
         #endregion

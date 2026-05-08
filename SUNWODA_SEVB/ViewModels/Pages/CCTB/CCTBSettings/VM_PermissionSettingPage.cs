@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 {
-    [Module("VM_PermissionSettingPage", "权限设置", Order = 0, Category = "VM_CCTBSettingsPage/VM_PermissionSettingPage")]
+    [Module("VM_PermissionSettingPage", "权限设置", Order = 2, Category = "VM_CCTBSettingsPage/VM_PermissionSettingPage")]
     class VM_PermissionSettingPage : ViewModelBase
     {
         private readonly ILoggerService<VM_PermissionSettingPage> _logger;

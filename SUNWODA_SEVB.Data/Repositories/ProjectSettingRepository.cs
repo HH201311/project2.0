@@ -1,4 +1,5 @@
-﻿using SqlSugar;
+﻿using Google.Protobuf.WellKnownTypes;
+using SqlSugar;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Data.Models;

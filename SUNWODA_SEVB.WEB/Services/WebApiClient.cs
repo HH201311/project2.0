@@ -672,7 +672,7 @@ namespace SUNWODA_SEVB.WEB.Services
         public async Task<AiDetectionDataResponse> AiDetectionDataAsync
         (
             string position, string barCode, long abnormalTimeStamp,
-            string detectionResult, byte[]? file,string contentType = "image/png", 
+            string detectionResult, byte[]? file, List<FrameDtoList>? frameResultDataList = null, string contentType = "image/png", 
             string fileExt = "png",int dataType = 2
         )
         {
@@ -703,7 +703,10 @@ namespace SUNWODA_SEVB.WEB.Services
                     DataType = dataType
                 };
 
-                var json = JsonHelper.Serialize(request);
+                if (dataType == 3)
+                    request.FrameDtoList = frameResultDataList;
+                
+                var json = JsonHelper.Serialize(request);                
 
                 Stopwatch sw = Stopwatch.StartNew();
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, contentType, fileExt)));

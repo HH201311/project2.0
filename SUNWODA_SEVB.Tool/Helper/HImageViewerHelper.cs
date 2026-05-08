@@ -70,6 +70,34 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
+        /// 添加填充矩形
+        /// </summary>
+        /// <param name="centerRow">矩形中心行坐标</param>
+        /// <param name="centerColumn">矩形中心列坐标</param>
+        /// <param name="centerPhi">矩形主轴角度(弧度制)</param>
+        /// <param name="halfLength">矩形长度一半</param>
+        /// <param name="halfWidth">矩形宽度一半</param>
+        /// <returns>绘制图形</returns>
+        public static HObject GenFillRectangle(
+            HTuple centerRow,
+            HTuple centerColumn,
+            HTuple centerPhi,
+            HTuple halfLength,
+            HTuple halfWidth
+        )
+        {
+            HOperatorSet.GenRectangle2(
+                out HObject rectangle,
+                centerRow,
+                centerColumn,
+                centerPhi,
+                halfLength,
+                halfWidth
+            );
+            return rectangle;
+        }
+
+        /// <summary>
         /// 添加圆形轮廓
         /// </summary>
         /// <param name="centerRow">圆心行坐标</param>

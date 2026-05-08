@@ -204,7 +204,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
         //    if (string.IsNullOrWhiteSpace(ProductSn))
         //    {
         //        await AddLogAsync("✗ 请输入产品序列号");
-        //        _logger.Warn("上传失败: 产品序列号为空");
+        //        logger.Warn("上传失败: 产品序列号为空");
         //        return;
         //    }
 
@@ -269,20 +269,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
         //        {
         //            UploadStatus = "上传成功";
         //            await AddLogAsync($"✓ 上传成功 - TraceId: {response.TraceId}");
-        //            _logger.Info($"MES离线数据上传成功 - {ProductSn}", true);
+        //            logger.Info($"MES离线数据上传成功 - {ProductSn}", true);
         //        }
         //        else
         //        {
         //            UploadStatus = "上传失败";
         //            await AddLogAsync($"✗ 上传失败 - {response.Code}: {response.Message}");
-        //            _logger.Warn($"MES离线数据上传失败 - {ProductSn}: {response.Message}", true);
+        //            logger.Warn($"MES离线数据上传失败 - {ProductSn}: {response.Message}", true);
         //        }
         //    }
         //    catch (Exception ex)
         //    {
         //        UploadStatus = "上传异常";
         //        await AddLogAsync($"✗ 上传异常: {ex.Message}");
-        //        _logger.Error($"MES离线数据上传异常 - {ProductSn}", ex, true);
+        //        logger.Error($"MES离线数据上传异常 - {ProductSn}", ex, true);
         //    }
         //    finally
         //    {

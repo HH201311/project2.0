@@ -85,6 +85,26 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         }
         #endregion
 
+        #region ParamOptionSelectedCommandParameter
+        public object? ParamOptionSelectedCommandParameter
+        {
+            get { return (object)GetValue(ParamOptionSelectedCommandParameterProperty); }
+            set { SetValue(ParamOptionSelectedCommandParameterProperty, value); }
+        }
+
+        public static readonly DependencyProperty ParamOptionSelectedCommandParameterProperty = DependencyProperty.Register(
+            "ParamOptionSelectedCommandParameter",
+            typeof(object),
+            typeof(TBDataChartControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnParamOptionSelectedCommandParameterChanged))
+        );
+
+        private static void OnParamOptionSelectedCommandParameterChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as TBDataChartControl;
+        }
+        #endregion
+
         #region ParamOptionSelectedCommand
         public ICommand ParamOptionSelectedCommand
         {
@@ -102,10 +122,6 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         private static void OnParamOptionSelectedCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as TBDataChartControl;
-            if (uc != null)
-            {
-                uc.ParamOptionSelected_Btn.Command = uc.ParamOptionSelectedCommand;
-            }
         }
         #endregion
 

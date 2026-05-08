@@ -14,6 +14,7 @@ using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
@@ -40,7 +41,7 @@ using TouchSocket.Core;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 {
-    [Module("VM_SummaryPage", "系统设置", Order = 0, Category = "VM_CCTBMonitoringPage/VM_SummaryPage")]
+    [Module("VM_SummaryPage", "系统设置", Order = 1, Category = "VM_CCTBMonitoringPage/VM_SummaryPage")]
     class VM_SummaryPage : ViewModelBase
     {
         private readonly ILoggerService<VM_SummaryPage> _logger;
@@ -136,7 +137,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         #endregion
 
         #region 生产信息
-        public ProductionInfoModel ProductionInfo { get; set; } = new();
+        private ProductionInfoModel productionInfo = new();
+        public ProductionInfoModel ProductionInfo { get => productionInfo; set => SetProperty(ref productionInfo, value); }
 
         private void InitializeProductionInfo()
         {
@@ -157,7 +159,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             ProductionInfo.CCDSpecificationLimit_Mismatch = 0.5;
 
             //  -TODO   后续注册到数据更新处
-        }
+        }   
         #endregion
 
         #region 关键控制

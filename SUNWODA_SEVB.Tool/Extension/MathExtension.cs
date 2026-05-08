@@ -44,10 +44,10 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <exception cref="ArgumentException"></exception>
         public static double CPK(this IEnumerable<double> values, double targetValue, double toleranceValue)
         {
-            if (values == null || !values.Any())
-                throw new ArgumentException("输入的数据不能为空！");
-            if (values.Count() < 2)
-                throw new InvalidOperationException("需至少2个数据点");
+            if (values == null || !values.Any()) return 0;
+            //throw new ArgumentException("输入的数据不能为空！");
+            if (values.Count() < 2) return 0;
+            //throw new InvalidOperationException("需至少2个数据点");
             // 计算均值
             double mean = values.Average();
             // 计算总体标准差

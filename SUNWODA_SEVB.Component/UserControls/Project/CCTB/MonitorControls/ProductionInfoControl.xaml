@@ -1,0 +1,152 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.ProductionInfoControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:modelcctb="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:StringFormatConverter x:Key="StringFormatConverter" />
+            <convert:StringFormatMultiConverter x:Key="StringFormatMultiConverter" />
+
+            <!--  表头样式  -->
+            <Style x:Key="HeaderTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <GroupBox Header="生产信息" Style="{StaticResource SimpleGroupBoxStyle}">
+        <Grid Margin="60,20,60,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="1.5*" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="1.5*" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="4*" />
+                <ColumnDefinition Width="5*" />
+            </Grid.ColumnDefinitions>
+            <uccc:PairContentControl
+                Grid.Row="0"
+                Grid.Column="0"
+                d:Content="314AH"
+                Content="{Binding ParameterSource.CellModel, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                PairKeyText="生产型号"
+                Style="{StaticResource ParamPairContentControlStyle}" />
+            <uccc:PairContentControl
+                Grid.Row="0"
+                Grid.Column="1"
+                d:Content="AD36X2124I05D31"
+                Content="{Binding ParameterSource.FilmRollNumber, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                PairKeyText="膜卷号"
+                Style="{StaticResource ParamPairContentControlStyle}" />
+            <TextBlock
+                Grid.Row="1"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Style="{StaticResource HeaderTextBlockStyle}"
+                Text="面密度净重规格" />
+            <uccc:PairContentControl
+                Grid.Row="2"
+                Grid.Column="0"
+                d:Content="324±4"
+                PairKeyText="单面"
+                Style="{StaticResource ParamPairContentControlStyle}">
+                <uccc:PairContentControl.Content>
+                    <MultiBinding Converter="{StaticResource StringFormatMultiConverter}" ConverterParameter="{}{0} ± {1}">
+                        <Binding Path="ParameterSource.NetWeightSpecification_A" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.NetWeightSpecificationLimit_A" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                    </MultiBinding>
+                </uccc:PairContentControl.Content>
+            </uccc:PairContentControl>
+            <uccc:PairContentControl
+                Grid.Row="2"
+                Grid.Column="1"
+                d:Content="648±7"
+                PairKeyText="双面"
+                Style="{StaticResource ParamPairContentControlStyle}">
+                <uccc:PairContentControl.Content>
+                    <MultiBinding Converter="{StaticResource StringFormatMultiConverter}" ConverterParameter="{}{0} ± {1}">
+                        <Binding Path="ParameterSource.NetWeightSpecification_B" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.NetWeightSpecificationLimit_B" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                    </MultiBinding>
+                </uccc:PairContentControl.Content>
+            </uccc:PairContentControl>
+            <TextBlock
+                Grid.Row="3"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Style="{StaticResource HeaderTextBlockStyle}"
+                Text="尺寸规格" />
+            <uccc:PairContentControl
+                Grid.Row="4"
+                Grid.Column="0"
+                d:Content="375±0.5"
+                PairKeyText="膜区"
+                Style="{StaticResource ParamPairContentControlStyle}">
+                <uccc:PairContentControl.Content>
+                    <MultiBinding Converter="{StaticResource StringFormatMultiConverter}" ConverterParameter="{}{0} ± {1}">
+                        <Binding Path="ParameterSource.CCDSpecification_MembraneZone" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.CCDSpecificationLimit_MembraneZone" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                    </MultiBinding>
+                </uccc:PairContentControl.Content>
+            </uccc:PairContentControl>
+            <uccc:PairContentControl
+                Grid.Row="4"
+                Grid.Column="1"
+                d:Content="33±0.5(两边)   33±0.5(中间)"
+                PairKeyText="极耳"
+                Style="{StaticResource ParamPairContentControlStyle}">
+                <uccc:PairContentControl.Content>
+                    <MultiBinding Converter="{StaticResource StringFormatMultiConverter}" ConverterParameter="{}{0} ± {1}(两边)   {2} ± {3}(中间)">
+                        <Binding Path="ParameterSource.CCDSpecification_BatteryTabSide" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.CCDSpecificationLimit_BatteryTabSide" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.CCDSpecification_BatteryTabMiddle" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.CCDSpecificationLimit_BatteryTabMiddle" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                    </MultiBinding>
+                </uccc:PairContentControl.Content>
+            </uccc:PairContentControl>
+            <uccc:PairContentControl
+                Grid.Row="5"
+                Grid.Column="0"
+                d:Content="5±1"
+                PairKeyText="陶瓷"
+                Style="{StaticResource ParamPairContentControlStyle}">
+                <uccc:PairContentControl.Content>
+                    <MultiBinding Converter="{StaticResource StringFormatMultiConverter}" ConverterParameter="{}{0} ± {1}">
+                        <Binding Path="ParameterSource.CCDSpecification_Ceramic" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        <Binding Path="ParameterSource.CCDSpecificationLimit_Ceramic" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                    </MultiBinding>
+                </uccc:PairContentControl.Content>
+            </uccc:PairContentControl>
+            <uccc:PairContentControl
+                Grid.Row="5"
+                Grid.Column="1"
+                d:Content="≤ 0.5"
+                Content="{Binding ParameterSource.CCDSpecificationLimit_Mismatch, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource StringFormatConverter}, ConverterParameter={}≤ {0}}"
+                PairKeyText="A/B错位"
+                Style="{StaticResource ParamPairContentControlStyle}" />
+        </Grid>
+    </GroupBox>
+</UserControl>

@@ -1,4 +1,5 @@
-﻿using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+﻿using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;

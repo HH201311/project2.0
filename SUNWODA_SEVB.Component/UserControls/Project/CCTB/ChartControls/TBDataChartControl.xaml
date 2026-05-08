@@ -18,8 +18,7 @@
 
             <!--  参数文本样式  -->
             <Style x:Key="ParamOptionTextBlockStyle" TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN}" />
-                <Setter Property="FontWeight" Value="Regular" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Regular}" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Foreground" Value="#99FFFFFF" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
@@ -129,7 +128,10 @@
                 Background="Transparent"
                 BorderThickness="0"
                 CornerRadius="5">
-                <Button x:Name="ParamOptionSelected_Btn" Style="{StaticResource MoreButtonStyle}" />
+                <Button
+                    Command="{Binding ParamOptionSelectedCommand, Mode=OneWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding ParamOptionSelectedCommandParameter, Mode=OneWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Style="{StaticResource MoreButtonStyle}" />
             </Border>
         </StackPanel>
 

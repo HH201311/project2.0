@@ -300,7 +300,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
             /// 
             /// </summary>
             /// <param name="value"></param>
-            /// <param name="dataLimitParam"></param>
+            /// <param name="limitDown"></param>
+            /// <param name="limitUp"></param>
             /// <returns></returns>
             private static Brush? ConvertToBackground(object? value, double limitDown, double limitUp)
             {
@@ -318,7 +319,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
             /// 
             /// </summary>
             /// <param name="value"></param>
-            /// <param name="dataLimitParam"></param>
+            /// <param name="limitDown"></param>
+            /// <param name="limitUp"></param>
             /// <returns></returns>
             private static double ConvertToBackOpacity(object? value, double limitDown, double limitUp)
             {
@@ -336,7 +338,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
             /// 
             /// </summary>
             /// <param name="value"></param>
-            /// <param name="dataLimitParam"></param>
+            /// <param name="limitDown"></param>
+            /// <param name="limitUp"></param>
             /// <returns></returns>
             private static Brush? ConvertToForeground(object? value, double limitDown, double limitUp)
             {
@@ -354,7 +357,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
             /// 
             /// </summary>
             /// <param name="value"></param>
-            /// <param name="dataLimitParam"></param>
+            /// <param name="limitDown"></param>
+            /// <param name="limitUp"></param>
             /// <returns></returns>
             private static double ConvertToForeOpacity(object? value, double limitDown, double limitUp)
             {

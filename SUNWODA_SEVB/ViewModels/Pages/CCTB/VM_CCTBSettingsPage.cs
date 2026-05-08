@@ -5,6 +5,7 @@ using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models;
+using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.ViewModels.Pages.HawkEye;
 using System;
 using System.Collections.Concurrent;
@@ -17,7 +18,7 @@ using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
 {
-    [Module("VM_CCTBSettingsPage", "系统设置", Order = 0, Category = "VM_CCTBSettingsPage")]
+    [Module("VM_CCTBSettingsPage", "系统设置", Order = 1, Category = "VM_CCTBSettingsPage")]
     class VM_CCTBSettingsPage : ViewModelBase
     {
         private readonly ILoggerService<VM_CCTBSettingsPage> _logger;
@@ -27,7 +28,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
 
-        private ConcurrentDictionary<string, Page?> _navigationPages = [];
         private Page? _navigationPage;
         private ModuleInfo? _selectedModule;
         private bool _isNavigating;
@@ -88,15 +88,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             _moduleManager = moduleManager;
         }
 
+        /// <summary>
+        /// 初始化
+        /// </summary>
         public override void OnInitialize()
         {
             // 初始化导航
-            _ = InitNavigationAsync();
+            InitNavigation();
 
             base.OnInitialize();
         }
 
-        private async Task InitNavigationAsync()
+        /// <summary>
+        /// 初始化导航
+        /// </summary>
+        private void InitNavigation()
         {
             // 显示加载提示
             IsNavigating = true;
@@ -104,44 +110,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             // 加载模块
             _moduleManager.AutoRegisterModulesByName("VM_ClosedLoopSettingPage", "VM_FunctionSettingPage", "VM_AlarmSettingPage", "VM_CommunicationSettingPage", "VM_PermissionSettingPage");
 
-            InitializeNavigationPages("VM_ClosedLoopSettingPage", "VM_FunctionSettingPage", "VM_AlarmSettingPage", "VM_CommunicationSettingPage", "VM_PermissionSettingPage");
-
-            ClosedLoopSettingCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_ClosedLoopSettingPage"));
-            FunctionSettingCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_FunctionSettingPage"));
-            AlarmSettingCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_AlarmSettingPage"));
-            CommunicationSettingCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CommunicationSettingPage"));
-            PermissionSettingCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_PermissionSettingPage"));
+            ClosedLoopSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_ClosedLoopSettingPage"));
+            FunctionSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_FunctionSettingPage"));
+            AlarmSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_AlarmSettingPage"));
+            CommunicationSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_CommunicationSettingPage"));
+            PermissionSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_PermissionSettingPage"));
 
             IsNavigating = false;
 
-            await NavigateToDefaultAsync();
+            NavigateToDefault();
         }
 
-        private Task NavigateToDefaultAsync()
+        /// <summary>
+        /// 导航到默认界面
+        /// </summary>
+        /// <returns></returns>
+        private void NavigateToDefault()
         {
             var defaultModule = _moduleManager.GetModule("VM_ClosedLoopSettingPage");
-            if (defaultModule != null)
-            {
-                defaultModule.IsSelected = true;
-                SelectedModule = defaultModule;
-            }
-            return Task.CompletedTask;
+            if (defaultModule == null) return;
+
+            defaultModule.IsSelected = true;
+            SelectedModule = defaultModule;
         }
 
-        private void InitializeNavigationPages(params string[] moduleNames)
-        {
-            foreach (var moduleName in moduleNames)
-            {
-                var module = _moduleManager.GetModule(moduleName);
-                if (module == null) continue;
-                if (string.IsNullOrEmpty(module.Name)) continue;
-                if (_navigationPages.ContainsKey(module.Name)) continue;
-
-                NavigationPage = _moduleManager.GetView(module.Name);
-                _navigationPages[module.Name] = NavigationPage;
-            }
-        }
-
+        /// <summary>
+        /// 导航到指定界面-防抖
+        /// </summary>
+        /// <param name="module"></param>
         private async void NavigateToModuleDebounced(ModuleInfo module)
         {
             // 取消之前的导航
@@ -167,6 +163,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             }
         }
 
+        /// <summary>
+        /// 异步导航到指定界面
+        /// </summary>
+        /// <param name="module"></param>
         private async void NavigateToModuleAsync(ModuleInfo module)
         {
             if (string.IsNullOrEmpty(module.Name))
@@ -175,15 +175,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             try
             {
                 IsNavigating = true;
-                if (_navigationPages.TryGetValue(module.Name, out Page? navigationPage) && navigationPage != null)
-                {
-                    NavigationPage = navigationPage;
-                    var viewModel = navigationPage.DataContext as ViewModelBase;
-                    viewModel?.OnNavigatedTo(null);
-                    return;
-                }
                 NavigationPage = _moduleManager.GetView(module.Name);
-                _navigationPages[module.Name] = NavigationPage;
+                var viewModel = NavigationPage?.DataContext as ViewModelBase;
+                viewModel?.OnNavigatedTo(null);
             }
             catch (Exception ex)
             {
@@ -197,23 +191,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             }
         }
 
-        private async void NavigateToSpecialModuleAsync(string moduleName)
+        /// <summary>
+        /// 异步导航到指定界面
+        /// </summary>
+        /// <param name="moduleName"></param>
+        private void NavigateToSpecialModule(string moduleName)
         {
             if (IsNavigating)
                 return;
 
             var module = _moduleManager.GetModule(moduleName);
 
-            if (module != null)
-            {
-                if (SelectedModule != null)
-                    SelectedModule.IsSelected = false;
-                SelectedModule = module;
-            }
+            if (module == null) return;
+
+            if (SelectedModule != null)
+                SelectedModule.IsSelected = false;
+
+            module.IsSelected = true;
+            SelectedModule = module;
         }
 
+        /// <summary>
+        /// 导航完成时触发
+        /// </summary>
+        /// <param name="parameter"></param>
         public override void OnNavigatedTo(object? parameter)
         {
+            NavigateToDefault();
             base.OnNavigatedTo(parameter);
         }
 

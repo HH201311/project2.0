@@ -2,17 +2,19 @@
     x:Class="SUNWODA_SEVB.Views.Dialogs.CCTB.ClosedLoopSettingDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:convert="clr-namespace:SUNWODA_SEVB.Tool.Converter.Project.CCTB;assembly=SUNWODA_SEVB.Tool"
-    xmlns:core="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:hc="https://handyorg.github.io/handycontrol"
-    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.CoatingOPMM"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB;assembly=SUNWODA_SEVB.Component"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls;assembly=SUNWODA_SEVB.Component"
+    Width="Auto"
+    Height="Auto"
     MinWidth="1292"
     MinHeight="410"
-    d:Height="410"
+    d:Height="1050"
     d:Width="1630"
-    Background="Transparent"
+    Background="#FF2B2B2B"
     BorderBrush="#1AFFFFFF"
     BorderThickness="1"
     CornerRadius="10"
@@ -25,6 +27,8 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+            <convert:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
+            <convert:ConfigToVisibilityMultiValueConverter x:Key="ConfigToVisibilityMultiValueConverter" />
 
             <!--  标题样式  -->
             <Style x:Key="TitleTextBlockStyle" TargetType="TextBlock">
@@ -36,365 +40,636 @@
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
+            <Style
+                x:Key="PPairContentControlStyle"
+                BasedOn="{StaticResource ParamPairContentControlStyle}"
+                TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="Width" Value="260" />
+                <Setter Property="PairKeyWidth" Value="Auto" />
+                <Setter Property="PairSeparateWidth" Value="*" />
+                <Setter Property="PairValueWidth" Value="Auto" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            </Style>
+
+            <Style
+                x:Key="PVSimpleToggleButtonStyle"
+                BasedOn="{StaticResource ParamValueSimpleToggleButtonStyle}"
+                TargetType="{x:Type uccc:SimpleToggleButton}">
+                <Setter Property="Width" Value="50" />
+                <Setter Property="HorizontalAlignment" Value="Right" />
+                <Setter Property="CheckedText" Value="是" />
+                <Setter Property="UnCheckedText" Value="否" />
+            </Style>
+
             <!--  关闭按钮  -->
             <Style x:Key="ClosedButtonStyle" TargetType="Button">
-                <Setter Property="Width" Value="14" />
-                <Setter Property="Height" Value="14" />
+                <Setter Property="Width" Value="24" />
+                <Setter Property="Height" Value="24" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Foreground" Value="#CCFFFFFF" />
                 <Setter Property="Opacity" Value="0.8" />
                 <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}" />
                 <Setter Property="Content" Value="&#xe669;" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="2" />
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#2DFFFFFF" />
+                        <Setter Property="FontWeight" Value="Bold" />
+                    </Trigger>
+                </Style.Triggers>
             </Style>
-
-            <!--  功能按钮  -->
-            <Style
-                x:Key="ConfirmButtonStyle"
-                BasedOn="{StaticResource GrowlConfirmButtonStyle}"
-                TargetType="Button" />
-            <Style
-                x:Key="CancleButtonStyle"
-                BasedOn="{StaticResource GrowlCancleButtonStyle}"
-                TargetType="Button" />
         </ResourceDictionary>
     </Border.Resources>
 
-    <Grid Background="#FF2B2B2B">
-        <Grid Margin="20,0,20,0" Background="Transparent">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="60" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="50" />
-            </Grid.RowDefinitions>
+    <Grid Margin="20,0,20,0" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="50" />
+        </Grid.RowDefinitions>
 
-            <!--  标题  -->
-            <DockPanel
-                Grid.Row="0"
-                VerticalAlignment="Center"
-                LastChildFill="False">
-                <TextBlock DockPanel.Dock="Left" Style="{StaticResource TitleTextBlockStyle}">
-                    <TextBlock.Text>
-                        <MultiBinding StringFormat="{}{0}面-{1}闭环算法设置">
-                            <Binding FallbackValue="x" Path="SideType" />
-                            <Binding FallbackValue="xxxx" Path="ClosedLoopType" />
+        <!--  标题  -->
+        <DockPanel
+            Grid.Row="0"
+            VerticalAlignment="Center"
+            LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" Style="{StaticResource TitleTextBlockStyle}">
+                <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0}面-{1}闭环算法设置">
+                        <Binding FallbackValue="x" Path="SideType" />
+                        <Binding FallbackValue="xxxx" Path="ClosedLoopType" />
+                    </MultiBinding>
+                </TextBlock.Text>
+            </TextBlock>
+            <Button
+                Command="{Binding CloseCommand}"
+                DockPanel.Dock="Right"
+                Style="{StaticResource ClosedButtonStyle}" />
+        </DockPanel>
+
+        <!--  内容  -->
+        <ItemsControl Grid.Row="1" Margin="0,0,-20,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <ItemsControl.Items>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="异常数据设置"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                    <x:Static Member="enums:EClosedLoopType.MD" />
+                                    <x:Static Member="enums:EClosedLoopType.TD" />
+                                    <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                </x:Array>
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
                         </MultiBinding>
-                    </TextBlock.Text>
-                </TextBlock>
-                <Button
-                    Command="{Binding CloseCommand}"
-                    DockPanel.Dock="Right"
-                    Style="{StaticResource ClosedButtonStyle}" />
-            </DockPanel>
-
-            <!--  内容  -->
-            <WrapPanel
-                Grid.Row="1"
-                Margin="0,0,-20,0"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch">
-                <Grid
-                    Width="300"
-                    Height="280"
-                    Margin="0,0,20,20"
-                    VerticalAlignment="Stretch">
-                    <Border
-                        Background="#FFFFFF"
-                        CornerRadius="10"
-                        Opacity="0.05" />
-                    <GroupBox
-                        Background="Transparent"
-                        Header="异常数据设置"
-                        Style="{StaticResource SimpleGroupBoxStyle1}">
-                        <StackPanel
-                            Margin="20,0,20,20"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Orientation="Vertical">
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="速度判异-走带速度" />
-                                <TextBox
-                                    d:Text="20"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.Rid_VelocityCondition, Mode=TwoWay}" />
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="阈值判异-剔除规格" />
-                                <TextBox
-                                    d:Text="6"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.Rid_Threshold, Mode=TwoWay}" />
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="阈值判异-判异个数" />
-                                <TextBox
-                                    d:Text="2"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.Rid_Count, Mode=TwoWay}" />
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="间隔个数" />
-                                <TextBox
-                                    d:Text="3"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.Rid_Interval, Mode=TwoWay}" />
-                            </UniformGrid>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
-                <Grid
-                    Width="300"
-                    Height="280"
-                    Margin="0,0,20,20"
-                    VerticalAlignment="Stretch">
-                    <Border
-                        Background="#FFFFFF"
-                        CornerRadius="10"
-                        Opacity="0.05" />
-                    <GroupBox
-                        Background="Transparent"
-                        Header="开机判断设置"
-                        Style="{StaticResource SimpleGroupBoxStyle1}">
-                        <StackPanel
-                            Margin="20,0,20,20"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Orientation="Vertical">
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机判定" />
-                                <UniformGrid Columns="2">
-                                    <RadioButton
-                                        x:Name="dataNumber_RB"
-                                        d:IsChecked="True"
-                                        Command="{Binding SelectBootUpTypeCommand}"
-                                        CommandParameter="{x:Static core:EBootUpType.DataNumber}"
-                                        Content="趟数"
-                                        IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=DataNumber}"
-                                        Style="{StaticResource ParamValueRadioButtonStyle}" />
-                                    <RadioButton
-                                        x:Name="time_RB"
-                                        d:IsChecked="False"
-                                        Command="{Binding SelectBootUpTypeCommand}"
-                                        CommandParameter="{x:Static core:EBootUpType.Time}"
-                                        Content="时间"
-                                        IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Time}"
-                                        Style="{StaticResource ParamValueRadioButtonStyle}" />
-                                </UniformGrid>
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                d:Visibility="Visible"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机判定参数(趟数)" />
-                                <TextBox
-                                    d:Text="3"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.BootUp_ZeroCount, Mode=TwoWay}" />
-                                <UniformGrid.Style>
-                                    <Style TargetType="UniformGrid">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ClosedLoopSettingModel.BootUp_EBootUpType}" Value="{x:Static core:EBootUpType.DataNumber}">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </UniformGrid.Style>
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                d:Visibility="Visible"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机判定参数(时间s)" />
-                                <TextBox
-                                    d:Text="60"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.BootUp_BootTime, Mode=TwoWay}" />
-                                <UniformGrid.Style>
-                                    <Style TargetType="UniformGrid">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ClosedLoopSettingModel.BootUp_EBootUpType}" Value="{x:Static core:EBootUpType.Time}">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </UniformGrid.Style>
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="开机剔除躺数" />
-                                <TextBox
-                                    d:Text="3"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.BootUp_RidCount, Mode=TwoWay}" />
-                            </UniformGrid>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
-                <Grid
-                    Width="300"
-                    Height="280"
-                    Margin="0,0,20,20"
-                    VerticalAlignment="Stretch">
-                    <Border
-                        Background="#FFFFFF"
-                        CornerRadius="10"
-                        Opacity="0.05" />
-                    <GroupBox
-                        Background="Transparent"
-                        Header="算法信息配置"
-                        Style="{StaticResource SimpleGroupBoxStyle1}">
-                        <StackPanel
-                            Margin="20,0,20,20"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Orientation="Vertical">
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="入参躺数" />
-                                <TextBox
-                                    d:Text="7"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.Arithmetic_InputDataCount, Mode=TwoWay}" />
-                            </UniformGrid>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
-                <Grid
-                    Width="300"
-                    Height="280"
-                    Margin="0,0,20,20"
-                    VerticalAlignment="Stretch">
-                    <Border
-                        Background="#FFFFFF"
-                        CornerRadius="10"
-                        Opacity="0.05" />
-                    <GroupBox
-                        Background="Transparent"
-                        Header="调机下发配置"
-                        Style="{StaticResource SimpleGroupBoxStyle1}">
-                        <StackPanel
-                            Margin="20,0,20,20"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Orientation="Vertical">
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="泵速下发系数" />
-                                <TextBox
-                                    d:Text="1"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.SetB_Coefficient, Mode=TwoWay}" />
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="T块下发系数" />
-                                <TextBox
-                                    d:Text="7"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.SetT_Coefficient, Mode=TwoWay}" />
-                            </UniformGrid>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
-                <Grid
-                    Width="300"
-                    Height="280"
-                    Margin="0,0,20,20"
-                    VerticalAlignment="Stretch">
-                    <Border
-                        Background="#FFFFFF"
-                        CornerRadius="10"
-                        Opacity="0.05" />
-                    <GroupBox
-                        Background="Transparent"
-                        Header="目标值设置"
-                        Style="{StaticResource SimpleGroupBoxStyle1}">
-                        <StackPanel
-                            Margin="20,0,20,20"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Orientation="Vertical">
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="使用动态目标值" />
-                                <ToggleButton
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="速度判异-走带速度" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="20"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.Rid_VelocityCondition, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="阈值判异-剔除规格" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="6"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.Rid_Threshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="阈值判异-判异个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="2"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.Rid_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="间隔个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="3"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.Rid_Interval, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="开机判断设置"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                    <x:Static Member="enums:EClosedLoopType.MD" />
+                                    <x:Static Member="enums:EClosedLoopType.TD" />
+                                    <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                </x:Array>
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="开机判定" Style="{StaticResource PPairContentControlStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton
+                                    d:IsChecked="True"
+                                    Command="{Binding SelectBootUpTypeCommand}"
+                                    CommandParameter="{x:Static enums:EBootUpType.DataNumber}"
+                                    Content="趟数"
+                                    IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EBootUpType.DataNumber}}"
+                                    Style="{StaticResource ParamValueRadioButtonStyle}" />
+                                <Rectangle Width="10" />
+                                <RadioButton
                                     d:IsChecked="False"
-                                    IsChecked="{Binding ClosedLoopSettingModel.IsUseDynamicTargetValue, Mode=TwoWay}"
-                                    Style="{StaticResource ParamValueToggleButton}" />
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="净重没目标值设置" />
-                                <TextBox
-                                    d:Text="324"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.TChange, Mode=TwoWay}" />
-                            </UniformGrid>
-                            <UniformGrid
-                                MinHeight="30"
-                                Margin="0,20,0,0"
-                                Columns="2">
-                                <TextBlock Style="{StaticResource ParamNameTextBlockStyle}" Text="目标值偏移量设置" />
-                                <TextBox
-                                    d:Text="0"
-                                    Style="{StaticResource ParamValueTextBoxStyle}"
-                                    Text="{Binding ClosedLoopSettingModel.TOffset, Mode=TwoWay}" />
-                            </UniformGrid>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
-            </WrapPanel>
+                                    Command="{Binding SelectBootUpTypeCommand}"
+                                    CommandParameter="{x:Static enums:EBootUpType.Time}"
+                                    Content="时间"
+                                    IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EBootUpType.Time}}"
+                                    Style="{StaticResource ParamValueRadioButtonStyle}" />
+                            </StackPanel>
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl
+                            d:Visibility="Visible"
+                            PairKeyText="开机判定参数(趟数)"
+                            Style="{StaticResource PPairContentControlStyle}"
+                            Visibility="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter={x:Static enums:EBootUpType.DataNumber}}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="3"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.BootUp_ZeroCount, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl
+                            d:Visibility="Visible"
+                            PairKeyText="开机判定参数(时间s)"
+                            Style="{StaticResource PPairContentControlStyle}"
+                            Visibility="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter={x:Static enums:EBootUpType.Time}}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="60"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.BootUp_BootTime, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="开机剔除躺数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="3"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.BootUp_RidCount, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="算法信息配置"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                    <x:Static Member="enums:EClosedLoopType.MD" />
+                                    <x:Static Member="enums:EClosedLoopType.TD" />
+                                    <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                </x:Array>
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="入参躺数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="7"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.Arithmetic_InputDataCount, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="调机下发配置"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                    <x:Static Member="enums:EClosedLoopType.MD" />
+                                    <x:Static Member="enums:EClosedLoopType.TD" />
+                                    <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                </x:Array>
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl
+                            d:Visibility="Visible"
+                            PairKeyText="泵速下发系数"
+                            Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:PairContentControl.Visibility>
+                                <Binding Converter="{StaticResource EnumToVisibilityConverter}" Path="ClosedLoopType">
+                                    <Binding.ConverterParameter>
+                                        <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                            <x:Static Member="enums:EClosedLoopType.MD" />
+                                            <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                        </x:Array>
+                                    </Binding.ConverterParameter>
+                                </Binding>
+                            </uccc:PairContentControl.Visibility>
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="1"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.SetB_Coefficient, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl
+                            d:Visibility="Visible"
+                            PairKeyText="T块下发系数"
+                            Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:PairContentControl.Visibility>
+                                <Binding Converter="{StaticResource EnumToVisibilityConverter}" Path="ClosedLoopType">
+                                    <Binding.ConverterParameter>
+                                        <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                            <x:Static Member="enums:EClosedLoopType.TD" />
+                                            <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                        </x:Array>
+                                    </Binding.ConverterParameter>
+                                </Binding>
+                            </uccc:PairContentControl.Visibility>
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="7"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.SetT_Coefficient, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="MA运算设置"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="流量趋势计算MA使能" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:SimpleToggleButton
+                                d:IsChecked="True"
+                                IsChecked="{Binding ClosedLoopSettingModel.IsEnableFlowTrendMA, Mode=TwoWay}"
+                                Style="{StaticResource PVSimpleToggleButtonStyle}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="取值个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="7"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.EWMA_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="阈值判定"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="调节阈值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="7"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgThreshold_Threshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="判定范围" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="5"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgThreshold_Range, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="累计个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="3"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgThreshold_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="趋势判定"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="连续个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="5"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgTrend_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="位置判定"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="调节阈值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="0.2"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgPosition_Threshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="连续个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="8"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgPosition_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="比例判定"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="调节阈值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="2"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgRatio_Threshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="判定值" Style="{StaticResource PPairContentControlStyle}">
+                            <Slider
+                                d:Value="0.5"
+                                IsSnapToTickEnabled="True"
+                                LargeChange="0.1"
+                                Maximum="1"
+                                Minimum="0"
+                                SmallChange="0.01"
+                                Style="{StaticResource ParamHorizontalSliderTextStyle}"
+                                TickFrequency="0.01"
+                                Value="{Binding ClosedLoopSettingModel.JudgRatio_Ratio, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="判定范围" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="3"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgRatio_Range, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="累计个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="2"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgRatio_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="动态判定"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="动态判定" Style="{StaticResource PPairContentControlStyle}">
+                            <Slider
+                                d:Value="99"
+                                IsSnapToTickEnabled="True"
+                                LargeChange="10"
+                                Maximum="100"
+                                Minimum="0"
+                                SmallChange="1"
+                                Style="{StaticResource ParamHorizontalSliderTextStyle}"
+                                TickFrequency="1"
+                                Value="{Binding ClosedLoopSettingModel.JudgDynamic_Value, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="流量趋势判定"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="流量趋势判定使能" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:SimpleToggleButton
+                                d:IsChecked="False"
+                                IsChecked="{Binding ClosedLoopSettingModel.JudgFluTrend_IsEnable, Mode=TwoWay}"
+                                Style="{StaticResource PVSimpleToggleButtonStyle}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="连续个数" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="5"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgFluTrend_Count, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="流量趋势变化阈值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="0.5"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgFluTrend_VariationThreshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="上下流量趋势阈值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="0.5"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgFluTrend_BoundaryThreshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="极差拦截"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="极差拦截阈值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="10"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.JudgRange_Threshold, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="泵速拦截"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Static Member="enums:EClosedLoopType.MD" />
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="泵速调节区间" Style="{StaticResource PPairContentControlStyle}">
+                            <Slider
+                                d:Value="0.02"
+                                IsSnapToTickEnabled="True"
+                                LargeChange="0.1"
+                                Maximum="1"
+                                Minimum="0"
+                                SmallChange="0.01"
+                                Style="{StaticResource ParamHorizontalSliderTextStyle}"
+                                TickFrequency="0.01"
+                                Value="{Binding ClosedLoopSettingModel.JudgSpeed_Range, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox
+                    d:Visibility="Visible"
+                    Header="目标值设置"
+                    Style="{StaticResource ParamGroupBoxStyle}">
+                    <GroupBox.Visibility>
+                        <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
+                            <MultiBinding.ConverterParameter>
+                                <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
+                                    <x:Static Member="enums:EClosedLoopType.MD" />
+                                    <x:Static Member="enums:EClosedLoopType.TD" />
+                                    <x:Static Member="enums:EClosedLoopType.MDTD" />
+                                </x:Array>
+                            </MultiBinding.ConverterParameter>
+                            <Binding Path="ClosedLoopType" />
+                        </MultiBinding>
+                    </GroupBox.Visibility>
+                    <StackPanel Margin="20,0,20,20">
+                        <uccc:PairContentControl PairKeyText="使用动态目标值" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:SimpleToggleButton
+                                d:IsChecked="False"
+                                IsChecked="{Binding ClosedLoopSettingModel.IsUseDynamicTargetValue, Mode=TwoWay}"
+                                Style="{StaticResource PVSimpleToggleButtonStyle}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="净重没目标值设置" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="324"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.TChange, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="目标值偏移量设置" Style="{StaticResource PPairContentControlStyle}">
+                            <uccc:AffixedTextBox
+                                Width="100"
+                                d:Text="0"
+                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
+                                Text="{Binding ClosedLoopSettingModel.TOffset, Mode=TwoWay}" />
+                        </uccc:PairContentControl>
+                    </StackPanel>
+                </GroupBox>
+            </ItemsControl.Items>
+        </ItemsControl>
 
-            <!--  功能按钮  -->
-            <StackPanel
-                Grid.Row="2"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                FlowDirection="LeftToRight"
-                Orientation="Horizontal">
-                <Button
-                    Background="#FF3DCC84"
-                    Command="{Binding ConfirmCommand}"
-                    Content="确认"
-                    Style="{StaticResource ConfirmButtonStyle}" />
-                <Button
-                    Background="Transparent"
-                    Command="{Binding CancleCommand}"
-                    Content="取消"
-                    Style="{StaticResource CancleButtonStyle}" />
-            </StackPanel>
-        </Grid>
+        <!--  功能按钮  -->
+        <StackPanel
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            FlowDirection="LeftToRight"
+            Orientation="Horizontal">
+            <Button
+                Command="{Binding ConfirmCommand}"
+                Content="确认"
+                Style="{StaticResource ParamOKButtonStyle}" />
+            <Button
+                Command="{Binding CancleCommand}"
+                Content="取消"
+                Style="{StaticResource ParamCancleButtonStyle}" />
+        </StackPanel>
     </Grid>
 </Border>
 

@@ -5,8 +5,7 @@
     xmlns:hcData="clr-namespace:HandyControl.Data;assembly=HandyControl"
     xmlns:interactivity="clr-namespace:HandyControl.Interactivity;assembly=HandyControl">
 
-
-
+    <!--  关闭按钮（图标：❌️）  -->
     <Style x:Key="GrowlColsedButtonStyle" TargetType="Button">
         <Setter Property="MinWidth" Value="14" />
         <Setter Property="MinHeight" Value="14" />
@@ -45,6 +44,7 @@
         </Setter>
     </Style>
 
+    <!--  确认按钮  -->
     <Style x:Key="GrowlConfirmButtonStyle" TargetType="Button">
         <Setter Property="Width" Value="80" />
         <Setter Property="Height" Value="30" />
@@ -81,6 +81,7 @@
         </Setter>
     </Style>
 
+    <!--  取消按钮  -->
     <Style x:Key="GrowlCancleButtonStyle" TargetType="Button">
         <Setter Property="Width" Value="80" />
         <Setter Property="Height" Value="30" />
@@ -120,6 +121,7 @@
         </Setter>
     </Style>
 
+    <!--  HanControl的Growl控件默认是一个简洁的消息提示框，这里我们通过重写ControlTemplate，打造一个更具工业风格的Growl样式，适合在工业软件中使用。新的样式增加了背景模糊效果、图标和标题显示，并且根据不同的消息类型（成功、信息、警告、错误、致命、询问）自动调整显示内容和按钮。  -->
     <Style x:Key="IndustrialGrowlStyle" TargetType="hc:Growl">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="MinHeight" Value="120" />
@@ -128,16 +130,13 @@
         <Setter Property="Margin" Value="0,0,0,20" />
         <Setter Property="hc:BorderElement.CornerRadius" Value="8" />
         <Setter Property="Background" Value="#FF121212" />
+        <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Foreground" Value="#CCFFFFFF" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="hc:Growl">
-                    <Grid Name="PART_GridMain" RenderTransformOrigin="0.5,0.5">
-                        <Grid.RenderTransform>
-                            <TransformGroup>
-                                <TranslateTransform X="{TemplateBinding MaxWidth}" />
-                            </TransformGroup>
-                        </Grid.RenderTransform>
+                    <Grid Name="PART_GridMain">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition />
@@ -148,12 +147,14 @@
                             Grid.Row="0"
                             Grid.RowSpan="3"
                             Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{Binding Path=(hc:BorderElement.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
-                            <Border Margin="0" Background="#1AFFFFFF">
+                            <Border Background="#1AFFFFFF" Opacity="0.6">
                                 <Border.Effect>
                                     <BlurEffect
                                         KernelType="Gaussian"
-                                        Radius="50"
+                                        Radius="10"
                                         RenderingBias="Performance" />
                                 </Border.Effect>
                             </Border>

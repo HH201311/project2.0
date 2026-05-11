@@ -48,29 +48,73 @@
                         IsEnabled="{Binding IsEnableSetGapLimit}"
                         ToolTip="{Binding ExportPath, UpdateSourceTrigger=PropertyChanged}" />
                 </MenuItem>
-                <MenuItem Header="保存">
+                <MenuItem Header="保存" Visibility="Collapsed">
                     <CheckBox Content="AI增强结果" IsChecked="{Binding IsSaveAIEnhanceResult}" />
                 </MenuItem>
-                <MenuItem Header="Gap标准" IsEnabled="{Binding IsEnableSetGapLimit}">
-                    <DockPanel>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            DockPanel.Dock="Left"
-                            Text="最内层 Gap ≤" />
+                <MenuItem Header="Gap标准">
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
                         <hc:NumericUpDown
                             Margin="10,0"
                             DecimalPlaces="3"
-                            Value="{Binding InnerGapLimit}" />
+                            Value="{Binding InnerGapLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 最内层 Gap ≤" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding InnerGapUpperLimit}" />
                     </DockPanel>
-                    <DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
                         <TextBlock
                             VerticalAlignment="Center"
                             DockPanel.Dock="Left"
-                            Text="五层均值 Gap ≥" />
+                            Text="内五层 Gap 均值的三方向均值 ≤" />
                         <hc:NumericUpDown
                             Margin="10,0"
                             DecimalPlaces="3"
-                            Value="{Binding FiveGapMeanLimit}" />
+                            Value="{Binding InnerFiveMeanMeanUpperLimit}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="中五层 Gap 均值的三方向均值 ≤" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding MiddleFiveMeanMeanUpperLimit}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="外五层 Gap 均值的三方向均值 ≤" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding OutsideFiveMeanMeanUpperLimit}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="4"
+                            Value="{Binding JRGapMeanLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 整个卷芯的 Gap 均值" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding InnerFiveMeanLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 水平方向内五层均值" />
                     </DockPanel>
                 </MenuItem>
             </MenuItem>

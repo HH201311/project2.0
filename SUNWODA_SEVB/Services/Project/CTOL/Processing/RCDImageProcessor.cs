@@ -1,4 +1,4 @@
-﻿#define C06
+﻿#define C01
 
 using System.IO;
 using HalconDotNet;

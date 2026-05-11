@@ -48,8 +48,8 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="1.2*" />
-                <ColumnDefinition Width="1.4*" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1.6*" />
             </Grid.ColumnDefinitions>
 
             <ItemsControl ItemsSource="{Binding Monitors}">
@@ -487,6 +487,7 @@
                                                             hc:VisualElement.HighlightBrush="#2ECC71"
                                                             Command="{Binding ToggleCommand}"
                                                             DockPanel.Dock="Right"
+                                                            IsChecked="{Binding IsRunning, Mode=OneWay}"
                                                             Style="{StaticResource ToggleButtonSwitch.Small}" />
 
                                                         <!--  状态指示器  -->

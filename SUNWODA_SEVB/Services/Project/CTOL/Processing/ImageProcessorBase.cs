@@ -1,4 +1,4 @@
-﻿#define C06
+﻿#define C01
 
 using System.Collections.Concurrent;
 using System.IO;
@@ -49,7 +49,7 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
 #if C06
         protected ZZC6CTModel AI { get; } = new ZZC6CTModel();
 #else
-        protected ZZC1CTModel AI { get } = new ZZC1CTModel();
+        protected ZZC1CTModel AI { get; } = new ZZC1CTModel();
 #endif
 
         protected IPredictor? Model;
@@ -258,24 +258,77 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
         /// </summary>
         private string BuildOutputBarcodeDir(string sourcePath, MonitorTargetOptions? target)
         {
+            //if (target is null || string.IsNullOrWhiteSpace(target.OutputDirectory))
+            //    return Path.GetDirectoryName(sourcePath) ?? ".";
+
+            //var normalizedRoot = Path.GetFullPath(target.RemotePath)
+            //    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            //var relativeSubPath = sourcePath.StartsWith(
+            //    normalizedRoot,
+            //    StringComparison.OrdinalIgnoreCase
+            //)
+            //    ? sourcePath[(normalizedRoot.Length + 1)..]
+            //    : Path.GetFileName(sourcePath);
+
+            //var relativeDir = Path.GetDirectoryName(relativeSubPath) ?? string.Empty;
+            //var outputBase = Path.GetFullPath(target.OutputDirectory);
+            //return string.IsNullOrEmpty(relativeDir)
+            //    ? outputBase
+            //    : Path.Combine(outputBase, relativeDir);
+
             if (target is null || string.IsNullOrWhiteSpace(target.OutputDirectory))
+            {
                 return Path.GetDirectoryName(sourcePath) ?? ".";
+            }
 
-            var normalizedRoot = Path.GetFullPath(target.RemotePath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var sourceFullPath = Path.GetFullPath(sourcePath);
 
-            var relativeSubPath = sourcePath.StartsWith(
-                normalizedRoot,
-                StringComparison.OrdinalIgnoreCase
-            )
-                ? sourcePath[(normalizedRoot.Length + 1)..]
-                : Path.GetFileName(sourcePath);
+            var remoteRoot = string.IsNullOrWhiteSpace(target.RemotePath)
+                ? string.Empty
+                : Path.GetFullPath(target.RemotePath);
 
-            var relativeDir = Path.GetDirectoryName(relativeSubPath) ?? string.Empty;
-            var outputBase = Path.GetFullPath(target.OutputDirectory);
-            return string.IsNullOrEmpty(relativeDir)
-                ? outputBase
-                : Path.Combine(outputBase, relativeDir);
+            var outputRoot = Path.GetFullPath(target.OutputDirectory);
+
+            var relativeDir = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(remoteRoot) &&
+                sourceFullPath.StartsWith(
+                    remoteRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(remoteRoot, sourceFullPath);
+
+                var parts = relativePath
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToList();
+
+                // 目录结构：
+                // 2026-04-25\OH不良\355126226K41300\file.png
+                //
+                // parts[0] = 2026-04-25
+                // parts[1] = OH不良 / OK / 其他结果目录
+                // parts[2] = barcode
+                //
+                // 初始输出统一改到 OK 文件夹下
+                if (parts.Count >= 2)
+                {
+                    parts[1] = "OK";
+                }
+
+                var relativeDirParts = parts
+                    .Take(parts.Count - 1)
+                    .ToArray();
+
+                relativeDir = relativeDirParts.Length == 0
+                    ? string.Empty
+                    : Path.Combine(relativeDirParts);
+            }
+
+            return string.IsNullOrWhiteSpace(relativeDir)
+                ? outputRoot
+                : Path.Combine(outputRoot, relativeDir);
         }
 
         private protected string BuildOutputPath(
@@ -301,23 +354,71 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 return Path.Combine(sourceDir, outputFileName);
             }
 
-            var normalizedRoot = Path.GetFullPath(target.RemotePath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var sourceFullPath = Path.GetFullPath(sourcePath);
 
-            var relativeSubPath = sourcePath.StartsWith(
-                normalizedRoot,
-                StringComparison.OrdinalIgnoreCase
-            )
-                ? sourcePath[(normalizedRoot.Length + 1)..]
-                : Path.GetFileName(sourcePath);
+            var remoteRoot = string.IsNullOrWhiteSpace(target.RemotePath)
+                ? string.Empty
+                : Path.GetFullPath(target.RemotePath);
 
-            var relativeDir = Path.GetDirectoryName(relativeSubPath) ?? string.Empty;
-            var outputBase = Path.GetFullPath(target.OutputDirectory);
-            var outputDir = string.IsNullOrEmpty(relativeDir)
-                ? outputBase
-                : Path.Combine(outputBase, relativeDir);
+            var outputRoot = Path.GetFullPath(target.OutputDirectory);
+
+            string relativeDir = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(remoteRoot) &&
+                sourceFullPath.StartsWith(
+                    remoteRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(remoteRoot, sourceFullPath);
+
+                var parts = relativePath
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToList();
+
+                // 目录结构：
+                // 2026-04-25\OH不良\355126226K41300\file.png
+                //
+                // parts[0] = 2026-04-25
+                // parts[1] = OH不良 / OK
+                // parts[2] = 355126226K41300
+                //
+                // 初始都放到 OK 文件夹下
+                if (parts.Count >= 2)
+                {
+                    parts[1] = "OK";
+                }
+
+                var relativeDirParts = parts
+                    .Take(parts.Count - 1)
+                    .ToArray();
+
+                relativeDir = Path.Combine(relativeDirParts);
+            }
+
+            var outputDir = string.IsNullOrWhiteSpace(relativeDir)
+                ? outputRoot
+                : Path.Combine(outputRoot, relativeDir);
 
             return Path.Combine(outputDir, outputFileName);
+
+            //var normalizedRoot = Path.GetFullPath(target.RemotePath)
+            //    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            //var relativeSubPath = sourcePath.StartsWith(
+            //    normalizedRoot,
+            //    StringComparison.OrdinalIgnoreCase
+            //)
+            //    ? sourcePath[(normalizedRoot.Length + 1)..]
+            //    : Path.GetFileName(sourcePath);
+
+            //var relativeDir = Path.GetDirectoryName(relativeSubPath) ?? string.Empty;
+            //var outputBase = Path.GetFullPath(target.OutputDirectory);
+            //var outputDir = string.IsNullOrEmpty(relativeDir)
+            //    ? outputBase
+            //    : Path.Combine(outputBase, relativeDir);
+
+            //return Path.Combine(outputDir, outputFileName);
         }
 
         ///// <summary>

@@ -63,7 +63,7 @@
                 </Grid.RowDefinitions>
 
                 <!--  左列：标题区域  -->
-                <Border
+                <!--<Border
                     Grid.Column="0"
                     Margin="0,0,0,0"
                     Background="White"
@@ -77,7 +77,7 @@
                             Foreground="#2C3E50"
                             Text="叠片缺陷AI检测" />
                     </StackPanel>
-                </Border>
+                </Border>-->
 
                 <!--  实时检测图 + 进度条  -->
                 <Border
@@ -221,13 +221,14 @@
                     </Grid>
                 </Border>
 
-                <!--  日志区域：DataGrid表格形式  -->
+                <!--  日志区域：ListBox形式，支持自动换行  -->
                 <Border
                     Grid.Row="3"
                     Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Grid}}"
                     Margin="0"
                     BorderBrush="Black"
                     BorderThickness="1">
+
                     <Grid Margin="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -235,79 +236,69 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock
-                            Margin="0,0,0,0"
+                            Margin="5"
                             FontSize="20"
                             FontWeight="Bold"
                             Text="系统日志" />
-                        <DataGrid
-                            x:Name="LogDataGrid"
+
+                        <!--  替换 DataGrid 为 ListBox  -->
+                        <ListBox
+                            x:Name="LogListBox"
                             Grid.Row="1"
-                            AutoGenerateColumns="False"
                             Background="White"
-                            CanUserAddRows="False"
-                            HeadersVisibility="None"
-                            HorizontalScrollBarVisibility="Auto"
-                            IsReadOnly="True"
+                            BorderThickness="0"
                             ItemsSource="{Binding LogTable, Mode=OneWay}"
-                            RowHeaderWidth="0"
-                            RowHeight="24"
-                            VerticalScrollBarVisibility="Auto">
-                            <DataGrid.RowStyle>
-                                <Style TargetType="DataGridRow">
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                            <!--  去除 ListBoxItem 默认的选中蓝色背景，使其更像控制台输出  -->
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Focusable" Value="False" />
+                                    <Setter Property="Padding" Value="5,2" />
+                                    <!--  鼠标悬浮时的背景色微调（可选）  -->
                                     <Style.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="White" />
-                                            <Setter Property="Foreground" Value="Black" />
-                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#F0F0F0" />
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
-                            </DataGrid.RowStyle>
-                            <DataGrid.Columns>
-                                <DataGridTextColumn
-                                    Width="180"
-                                    Binding="{Binding Item1}"
-                                    IsReadOnly="True">
-                                    <DataGridTextColumn.CellStyle>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="Background" Value="White" />
-                                            <Setter Property="Foreground" Value="Black" />
-                                            <Setter Property="FontSize" Value="12" />
-                                            <Setter Property="HorizontalAlignment" Value="Left" />
-                                            <!--  时间居中  -->
-                                        </Style>
-                                    </DataGridTextColumn.CellStyle>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn
-                                    Width="1000"
-                                    Binding="{Binding Item2}"
-                                    IsReadOnly="True">
-                                    <DataGridTextColumn.CellStyle>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="Background" Value="White" />
-                                            <Setter Property="Foreground" Value="Black" />
-                                            <Setter Property="FontSize" Value="12" />
-                                            <Setter Property="HorizontalAlignment" Value="Left" />
-                                            <Setter Property="Padding" Value="5,2" />
-                                            <Setter Property="ToolTip" Value="{Binding Item2}" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="DataGridCell">
-                                                        <TextBlock
-                                                            Padding="{TemplateBinding Padding}"
-                                                            FontSize="{TemplateBinding FontSize}"
-                                                            Foreground="{TemplateBinding Foreground}"
-                                                            Text="{Binding Item2}" />
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </DataGridTextColumn.CellStyle>
-                                </DataGridTextColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                            </ListBox.ItemContainerStyle>
+
+                            <!--  定义每行日志的显示模板  -->
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <!--  时间列：固定宽度  -->
+                                            <ColumnDefinition Width="150" />
+                                            <!--  消息列：占据剩余所有宽度  -->
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!--  Item1: 时间  -->
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            VerticalAlignment="Top"
+                                            FontSize="12"
+                                            Foreground="Gray"
+                                            Text="{Binding Item1}" />
+
+                                        <!--  Item2: 日志内容 (开启自动换行 TextWrapping="Wrap")  -->
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Top"
+                                            FontSize="12"
+                                            Foreground="Black"
+                                            Text="{Binding Item2}"
+                                            TextWrapping="Wrap" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </Grid>
                 </Border>
+
             </Grid>
 
             <!--  右侧：数据/设置面板/状态信息面板  -->
@@ -443,179 +434,7 @@
                                 Grid.ColumnSpan="5"
                                 Margin="0,570,0,0" />
 
-                            <!--<Border
-                                Grid.Row="1"
-                                Grid.ColumnSpan="5"
-                                MaxHeight="400"
-                                Margin="0,5,0,0"
-                                BorderBrush="LightGray"
-                                BorderThickness="1">
-                                <StackPanel Margin="10">
-                                    <TextBlock
-                                        Margin="0,0,0,15"
-                                        HorizontalAlignment="Center"
-                                        FontSize="20"
-                                        FontWeight="Bold"
-                                        Foreground="DarkBlue"
-                                        Text="缺陷检测信息" />
 
-                                    <Border
-                                        HorizontalAlignment="Stretch"
-                                        BorderBrush="Black"
-                                        BorderThickness="1">
-                                        <Grid>
-                                            <Grid.Resources>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="BorderBrush" Value="Black" />
-                                                    <Setter Property="BorderThickness" Value="0,0,1,1" />
-                                                    <Setter Property="Padding" Value="10" />
-                                                </Style>
-                                            </Grid.Resources>
-
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                            -->
-                            <!--  行1  -->
-                            <!--
-                                            <Border Grid.Row="0" Grid.Column="0">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    FontWeight="SemiBold"
-                                                    Text="总检测数" />
-                                            </Border>
-                                            <Border
-                                                Grid.Row="0"
-                                                Grid.Column="1"
-                                                BorderThickness="0,0,0,1">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    FontWeight="SemiBold"
-                                                    Text="OK数" />
-                                            </Border>
-                            -->
-                            <!--  行2  -->
-                            <!--
-                                            <Border Grid.Row="1" Grid.Column="0">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    Text="{Binding TotalNeDetectionCount}" />
-                                            </Border>
-                                            <Border
-                                                Grid.Row="1"
-                                                Grid.Column="1"
-                                                BorderThickness="0,0,0,1">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    Text="{Binding OKCount}" />
-                                            </Border>
-                            -->
-                            <!--  行3  -->
-                            <!--
-                                            <Border Grid.Row="2" Grid.Column="0">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    FontWeight="SemiBold"
-                                                    Text="NG数" />
-                                            </Border>
-                                            <Border
-                                                Grid.Row="2"
-                                                Grid.Column="1"
-                                                BorderThickness="0,0,0,1">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    FontWeight="SemiBold"
-                                                    Text="一次优率" />
-                                            </Border>
-                            -->
-                            <!--  行4  -->
-                            <!--
-                                            <Border
-                                                Grid.Row="3"
-                                                Grid.Column="0"
-                                                BorderThickness="0,0,1,0">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    Text="{Binding NGCount}" />
-                                            </Border>
-                                            <Border
-                                                Grid.Row="3"
-                                                Grid.Column="1"
-                                                BorderThickness="0">
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    Text="{Binding OKRate, StringFormat={}{0:F2}%}" />
-                                            </Border>
-
-                                        </Grid>
-                                    </Border>
-
-                                    <StackPanel
-                                        Margin="0,40,0,0"
-                                        HorizontalAlignment="Center"
-                                        Orientation="Horizontal">
-                                        <Button
-                                            Width="120"
-                                            Height="35"
-                                            Margin="0,0,40,0"
-                                            Background="#F5B0"
-                                            BorderBrush="Gray"
-                                            BorderThickness="1"
-                                            Command="{Binding StopDetectionCommand}"
-                                            Content="停止检测"
-                                            FontSize="16"
-                                            Foreground="Black" />
-
-                                        <Button
-                                            Width="120"
-                                            Height="35"
-                                            Margin="0,0,20,0"
-                                            Background="#F5B041"
-                                            BorderBrush="Gray"
-                                            BorderThickness="1"
-                                            Command="{Binding ClearListCommand}"
-                                            Content="清空列表"
-                                            FontSize="16"
-                                            Foreground="Black" />
-
-                                        <Button
-                                            Width="120"
-                                            Height="35"
-                                            Margin="20,0,0,0"
-                                            Background="#F5B041"
-                                            BorderBrush="Gray"
-                                            BorderThickness="1"
-                                            Command="{Binding ClearStatisticsCommand}"
-                                            Content="统计清零"
-                                            FontSize="16"
-                                            Foreground="Black" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>-->
 
                             <Border
                                 Grid.Row="1"
@@ -954,8 +773,12 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="auto" />
                                 </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="auto" />
+                                    <RowDefinition Height="auto" />
+                                </Grid.RowDefinitions>
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock
@@ -964,15 +787,16 @@
                                         Text="图像检索：" />
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock
+                                            Grid.Row="0"
                                             Grid.Column="0"
                                             Margin="0,0,23,0"
                                             VerticalAlignment="Center"
@@ -983,12 +807,12 @@
                                             Grid.Column="1"
                                             Orientation="Vertical">
                                             <CheckBox
-                                                Content="正极"
-                                                IsChecked="{Binding IsPositive, Mode=TwoWay}"
+                                                Content="A工位"
+                                                IsChecked="{Binding IsStationA, Mode=TwoWay}"
                                                 IsEnabled="{Binding CanOperate}" />
                                             <CheckBox
-                                                Content="负极"
-                                                IsChecked="{Binding IsNegative, Mode=TwoWay}"
+                                                Content="B工位"
+                                                IsChecked="{Binding IsStationB, Mode=TwoWay}"
                                                 IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
                                         <TextBlock
@@ -1022,7 +846,67 @@
                                                 IsEnabled="{Binding CanOperate}" />
                                         </StackPanel>
 
+
                                     </Grid>
+
+
+                                </StackPanel>
+
+                                <StackPanel
+                                    Grid.Row="2"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan=" 2"
+                                    Margin="0,5,0,0"
+                                    Orientation="Horizontal">
+                                    <TextBlock
+                                        Margin="0,0,2,0"
+                                        VerticalAlignment="Center"
+                                        FontSize="25"
+                                        Text="相机：" />
+                                    <StackPanel VerticalAlignment="Center" Orientation="Vertical">
+                                        <StackPanel Orientation="Horizontal">
+                                            <CheckBox
+                                                Content="相机A1"
+                                                IsChecked="{Binding IsCameraA1, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <CheckBox
+                                                Margin="20,0,0,0"
+                                                Content="相机A2"
+                                                IsChecked="{Binding IsCameraA2, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <CheckBox
+                                                Margin="20,0,0,0"
+                                                Content="相机A3"
+                                                IsChecked="{Binding IsCameraA3, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <CheckBox
+                                                Margin="20,0,0,0"
+                                                Content="相机A4"
+                                                IsChecked="{Binding IsCameraA4, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
+                                            <CheckBox
+                                                Content="相机B1"
+                                                IsChecked="{Binding IsCameraB1, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <CheckBox
+                                                Margin="20,0,0,0"
+                                                Content="相机B2"
+                                                IsChecked="{Binding IsCameraB2, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <CheckBox
+                                                Margin="20,0,0,0"
+                                                Content="相机B3"
+                                                IsChecked="{Binding IsCameraB3, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                            <CheckBox
+                                                Margin="20,0,0,0"
+                                                Content="相机B4"
+                                                IsChecked="{Binding IsCameraB4, Mode=TwoWay}"
+                                                IsEnabled="{Binding CanOperate}" />
+                                        </StackPanel>
+                                    </StackPanel>
                                 </StackPanel>
                                 <!--  图像存储  -->
                                 <StackPanel Grid.Column="1">

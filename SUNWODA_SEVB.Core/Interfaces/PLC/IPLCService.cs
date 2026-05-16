@@ -18,7 +18,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.PLC
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        dynamic? GetPLCByName(string name);
+        PLCDevice? GetPLCByName(string name);
 
         /// <summary>
         /// 写入地址信号

@@ -266,13 +266,13 @@ namespace SUNWODA_SEVB.PLC
             return plc;
         }
 
-        public dynamic? GetPLCByName(string name)
+        public PLCDevice? GetPLCByName(string name)
         {
-            if (PLCs != null && PLCs.Values.Any(o => o.Name == name))
+            if (PLCs != null)
             {
-                return PLCs.Values.First(o => o.Name == name);
+                return PLCs.Values.FirstOrDefault(o => o.Name == name);
             }
-            return default(PLCDevice);
+            return null;
         }
 
         /// <summary>

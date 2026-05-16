@@ -127,6 +127,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
         private const int ANOMALY_SAVE_COOLDOWN_SEC = 5;  // 同类异常 5 秒内只存一次
 
         private readonly AI ai = new();
+        private readonly AI aiNew = new AI();
         #endregion
 
         #region 属性
@@ -398,6 +399,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
             }
         }
 
+     
+
         #endregion
 
         #region 检测区域配置
@@ -541,7 +544,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                 SetAnomalyInfo = s => AnomalyInfo3 = s,
                 Detect = mat =>
                 {
-                    ai.PackMislayDetect(mat, misLayDetEngineB!,
+                    aiNew.PackMislayDetect(mat, misLayDetEngineB!,
                                         out Mat result, out var results, out string err);
                     return new DetectResult { ResultMat = result, Results = results, Error = err };
                 }
@@ -622,7 +625,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                     if (isAnomaly)
                     {
                         string anomalyText = string.Join(" | ", fails!.Select(r => $"{r.Name}:{r.Status}"));
-                        //cfg.SetAnomalyInfo(anomalyText);
+                        cfg.SetAnomalyInfo(anomalyText);
                         OnFrameReceived(cfg.AnomalyChannel, displayFrame,anomalyText);
 
                         // 存图防抖：按"相机ID + 异常类型 + 异常描述"作为 key
@@ -635,11 +638,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                             SaveAnomalyImage(cfg.CamId, cfg.AnomalyType, displayFrame, anomalyText);
                         }
                     }
-                    else
-                    {
-                        // OK 时清空文字提示
-                        cfg.SetAnomalyInfo(string.Empty);
-                    }
+                    //else
+                    //{
+                    //    // OK 时清空文字提示
+                    //    cfg.SetAnomalyInfo(string.Empty);
+                    //}
 
                 }
                 catch (OperationCanceledException) { break; }
@@ -1073,7 +1076,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
         {
             try
             {
-                string[] labels = new string[] { "Pack", "Person","Hand" };
+                string[] labels = new string[] { "Pack", "Person","Hand", "Hook" };
                 ai.InitYoLoDetectEngine(Top_Det_Path, labels, true, out topDetEngine, out string errmess);
                 if (topDetEngine == null || !string.IsNullOrEmpty(errmess)) 
                 {
@@ -1139,10 +1142,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
                         // 3. 写入文件
                         string detectTypeForFile = ConvertToSafeFileName(safeDetectType);
-                        string fileName = $"Cam{camId}_{detectTypeForFile}_{DateTime.Now:HHmmss_fff}.jpg";
+                        string fileName = $"Cam{camId}_{detectTypeForFile}_{DateTime.Now:yyyyMMdd_HHmmss_fff}.jpg";
                         string fullPath = Path.Combine(dir, fileName);
 
-                        SaveMatAsJpeg(saveMat, fullPath, 95);
+                        SaveMatAsJpeg(saveMat, fullPath, 100);
 
 
                         // 记录日志（异步）
@@ -1302,7 +1305,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
             {
                 case CoreLogLevel.Info:
                     textColor = Brushes.Black;
-                    _logger?.Info(message, isToDatabase, memberName, filePath, lineNumber);
+                    _logger?.Info(message, true, memberName, filePath, lineNumber);
                     break;
                 case CoreLogLevel.Warn:
                     textColor = Brushes.DarkOrange;

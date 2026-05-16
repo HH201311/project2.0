@@ -93,6 +93,7 @@
     <PackageReference Include="Masuit.Tools.Core" Version="2025.6.4" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.5" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -180,7 +181,7 @@
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
     <Reference Include="YingYanAlgoCore">
-      <HintPath>bin\Debug\net8.0-windows\YingYanAlgoCore.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
     </Reference>
     <Reference Include="Yolo8Core">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Yolo8Core.dll</HintPath>

@@ -1423,7 +1423,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <exception cref="ArgumentException"></exception>
         private async Task<OperateResult> WritePLCAsync(string name, string type, dynamic value)
         {
-            if (!(_plcService.GetPLCByName(JRCWCore.PLCName) is PLC.PLC plc))
+            if (!(_plcService.GetPLCByName(JRCWCore.PLCName) is PLCDevice plc))
                 throw new ArgumentException(nameof(JRCWCore.PLCName), $"未查询到已连接的PLC设备[{JRCWCore.PLCName}]！");
 
             return await plc.WriteAsync(name, type, value);

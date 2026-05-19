@@ -1,6 +1,4 @@
-﻿using DocumentFormat.OpenXml.Bibliography;
-using DocumentFormat.OpenXml.Drawing.Charts;
-using HalconDotNet;
+﻿using HalconDotNet;
 using HandyControl.Controls;
 using HandyControl.Tools.Extension;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +17,9 @@ using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.PLC;
 using SUNWODA_SEVB.Core.Interfaces.Web;
+using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.PTO;
+using SUNWODA_SEVB.Data.Repositories;
 using SUNWODA_SEVB.Tool.Helper;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
@@ -45,7 +45,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Yolo8Core;
 using ZZYingYanAICore;
-using static OpenTK.Graphics.OpenGL.GL;
 using static Yolo8Core.BaseClass;
 using MessageBox = HandyControl.Controls.MessageBox;
 
@@ -186,8 +185,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly ILoggerService<VM_YKDamageDetectionPage> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IPLCService _PLCService;
+      
 
-
+        private const string StatisticsModuleCode = "VM_YKDamageDetection";
+        private static readonly DateTime TotalStatisticsDate = new DateTime(1900, 1, 1);
 
 
         // 输入的新UserID
@@ -401,6 +402,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         AddLog("[启动] A工位监控路径无效，跳过自动启动", CoreLogLevel.Warn);
                     }
                     _isOnlineDetectionEnabledA = false;
+                    if(!IsStationA)__isStationA = true;
                     OnPropertyChanged();
                     return;
                 }
@@ -554,6 +556,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         AddLog("[启动] B工位监控路径无效，跳过自动启动", CoreLogLevel.Warn);
                     }
                     _isOnlineDetectionEnabledB = false;
+                    if(!IsStationB) _isStationB = true;
                     OnPropertyChanged();
                     return;
                 }
@@ -1187,6 +1190,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         object? obj2;
 
         YingYanAI ai = new YingYanAI();
+        YingYanAI aiNew = new YingYanAI();
         /// <summary>
         /// 抓点方法
         /// </summary>
@@ -1399,7 +1403,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 okRate = value;
                 OnPropertyChanged();
-                SaveConfig();
             }
         }
         /// <summary>
@@ -1751,6 +1754,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _PLCService = PLCService ?? throw new ArgumentNullException(nameof(PLCService));
 
+
             //同步初始化
             Settings.License = LicenseType.Community;
             //步骤1: 先初始化所有同步资源（信号量等）
@@ -1778,6 +1782,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     await UpdateUIStateAsync(() =>
                     {
                         LoadDefectInitialData();
+                        EnsureDetectionStatisticsTable();
+                        LoadStatisticsFromDatabaseToUI();
                         AddLog("✅ 所有资源加载完成，软件已就绪");
                     });
                     await StartMonitoringFromConfigAsync();
@@ -1956,8 +1962,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         {
                             string fileName = Path.GetFileNameWithoutExtension(file);
                             var parts = fileName.Split(new[] { "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
-
-                            if (parts.Length != 1)
+                            
+                            if (parts.Length != 1 || !parts[0].Contains("A")|| !parts[0].Contains("B"))
                             {
                                 failCount++;
                                 continue;
@@ -2078,11 +2084,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
 
-                var settingValue = projectSettingRepo.GetSettingValue("PushUserId", "VM_YKDamageDetection") as string;
+                var settingValue = projectSettingRepo.GetSettingValue("PushUserId", StatisticsModuleCode) as string;
                 var savedList = settingValue?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                       .Select(id => id.Trim())
                       .ToList() ?? new List<string>();
 
+                if(savedList.Count > 0)
+                {
+                    AddLog($"加载已保存的用户ID列表: {string.Join(", ", savedList)}");
+                }
                 // 转换为ObservableCollection
                 SavedUserIds = new ObservableCollection<string>(savedList);
             }
@@ -2093,6 +2103,92 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 SavedUserIds = new ObservableCollection<string>();
             }
         }
+
+        private void EnsureDetectionStatisticsTable()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var statisticsRepo = scope.ServiceProvider.GetRequiredService<IDetectionStatisticsRepository>();
+
+                statisticsRepo.EnsureTable();
+
+                AddLog("[统计表初始化]完成");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[统计表初始化失败] {ex.Message}", CoreLogLevel.Error);
+            }
+        }
+
+
+        private void LoadStatisticsFromDatabaseToUI()
+        {
+            try
+            {
+                lock (_statisticsLock)
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var statisticsRepo = scope.ServiceProvider.GetRequiredService<IDetectionStatisticsRepository>();
+
+                    var totalStatistics = statisticsRepo.GetOrCreate(
+                        StatisticsModuleCode,
+                        DetectionStatisticsScope.Total,
+                        TotalStatisticsDate);
+                    ApplyStatisticsToUI(totalStatistics);
+                }        
+                
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[统计加载失败] {ex.Message}", CoreLogLevel.Error);
+            }
+        }
+
+        private void ApplyStatisticsToUI(DetectionStatisticsModel? statistics)
+        {
+            if (statistics == null) return;
+
+            TotalNeDetectionCount = statistics.TotalCount;
+            OKCount = statistics.OKCount;
+            NGCount = statistics.NGCount;
+            OKRate = statistics.TotalCount > 0
+                ? Math.Round((double)statistics.OKCount / statistics.TotalCount * 100, 2)
+                : 0;
+
+            var defectMap = DetectionStatisticsRepository.DeserializeDefectMap(statistics.DefectNGJson);
+
+
+            foreach (var item in DefectDataGrid)
+            {
+                if (string.IsNullOrWhiteSpace(item.DefectName))
+                {
+                    continue;
+                }
+
+                item.NGCount = defectMap.TryGetValue(item.DefectName, out int defectNgCount)
+                    ? defectNgCount
+                    : 0;
+
+                item.YieldRate = statistics.TotalCount > 0
+                    ? Math.Round((double)(statistics.TotalCount - item.NGCount) / statistics.TotalCount * 100, 2)
+                    : 100.00;
+            }
+
+            OnPropertyChanged(nameof(TotalNeDetectionCount));
+            OnPropertyChanged(nameof(OKCount));
+            OnPropertyChanged(nameof(NGCount));
+            OnPropertyChanged(nameof(OKRate));
+        }
+
+
+
+
+
+
+
+
+
 
         /// <summary>
         /// 持久化UserID列表到配置文件
@@ -2106,7 +2202,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
 
-                projectSettingRepo.UpdateSettingValue("PushUserId", "VM_YKDamageDetection", string.Join(",", users));
+                projectSettingRepo.UpdateSettingValue("PushUserId", StatisticsModuleCode, string.Join(",", users));
             }
             catch (Exception ex)
             {
@@ -3564,13 +3660,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 bool alreadyRunning = false;
                 lock (_stationCountLock)
                 {
-                    alreadyRunning = _isAMonitorRunning;
+                    alreadyRunning = _isBMonitorRunning;
                     if (!alreadyRunning)
                     {
                         CurrentMonitoringStation = "B";
                         _isThreadTerminatingB = false;
                         StartRootWatcherB();        // 不涉及UI，锁内安全
-                        _isAMonitorRunning = true;
+                        _isBMonitorRunning = true;
                     }
                 }
 
@@ -3581,7 +3677,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 // ✅ UI更新移到锁外，避免死锁
-                UpdateUIState(() => AddLog($"[在线检测-B] 监控已启动  路径: {SelectedMonitorFolderPathA}"));
+                UpdateUIState(() => AddLog($"[在线检测-B] 监控已启动  路径: {SelectedMonitorFolderPathB}"));
                 StartConcurrentProcessingB();   // 启动队列处理，也在锁外
             });
         }
@@ -3702,57 +3798,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                //if (_onlineMonitorWatcherA != null)
-                //{
-                //    DisposeWatcherA();
-                //}
-
                 // 标记线程终止并透过 CancellationToken 取消处理任务
                 _isThreadTerminatingA = true;
-                StopAllWatchersA();
-
-
-                //_processedFiles.Clear();
-
-                //StopConcurrentProcessingA();
                 _isAMonitorRunning = false;
                 _isThreadRunningA = false;
 
+                StopAllWatchersA();
+
+                lock (_processingLockA)
+                {
+                    _ctsA?.Cancel();
+                    _ctsA?.Dispose();
+                    _ctsA = null;
+                }
+
+                _queueEventA.Set();
                 AddLog("[A工位] 监控已停止");
-
-
-                //// 取消 processing task
-                //lock (_processingLockA)
-                //{
-                //    try
-                //    {
-                //        _ctsA?.Cancel();
-                //    }
-                //    catch { }
-
-                //    // 唤醒可能在等待的线程
-                //    _queueEventA.Set();
-                //}
-
-                //// 清空队列（如果你希望保留未处理项，先注释掉下面两行）
-                //lock (_queueLockA)
-                //{
-                //    _safeDetectQueueA.Clear();
-                //}
-
-                //_isQueueRunningA = false;
-
-                //if (_runningStationsCount > 0)
-                //{
-                //    _runningStationsCount--;
-                //}
-
-                //CheckAndGenerateReport();
-
-                //// 重置运行状态
-                //_isAMonitorRunning = false;
-                //_isThreadRunningA = false;
-                //AddLog("[A工位] 在线监控已停止（StopOnlineMonitoringA 完成）");
             }
         }
         private void StopAllWatchersA()
@@ -3921,6 +3982,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                 {
                                     AddLog($"🔴 [队列严重告警] 队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
                                     Growl.Warning($"检测队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
+                                    PushMessageToFeishu($"[A工位队列严重告警] 检测队列积压 {currentQueueCount} 个文件，超过临界值 {QueueCriticalThreshold}！");
 
                                     lastAlertCount = currentQueueCount;
                                 }
@@ -3997,12 +4059,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             detectionData.ResultImagePath = isResultSaved ? GetResultImagePath(filePath, detectResult, true) : null;
                             detectionData.DetectionResult = detectResult;
                             // 6.6 跨线程更新UI：后台线程不能直接操作UI，需通过Dispatcher切回UI线程
-                            // InvokeAsync：异步执行，避免阻塞检测线程
+                            var totalStatistics = AddDetectionStatisticsToDatabase(detectResult, triggeredList);
                             await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
                                 AddDetectionDataAndEnsureCapacity(detectionData); // 安全添加并清理
                                 UpdateDisplayDataList();// 更新展示用的数据列表
-                                CalculateDetectionStatistics();// 重新计算检测统计（OK数、NG数、OK率等）
+                                ApplyStatisticsToUI(totalStatistics);
                             });
                         }
                         catch (Exception ex)
@@ -4097,44 +4159,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <param name="detectionData"></param>
         private void AddDetectionDataAndEnsureCapacity(dynamic detectionData)
         {
+            var dict = detectionData as IDictionary<string, object>;
+            if (dict != null && dict.TryGetValue("DetectionResult", out var res) && res?.ToString() != "NG")
+            {
+                return; // 如果不是 NG，直接丢弃，不占用内存
+            }
             _fullDetectionDataList.Add(detectionData);
 
-            if (_fullDetectionDataList.Count > 2000)
+            if (_fullDetectionDataList.Count > 200)
             {
-                var itemsToRemove = _fullDetectionDataList.Take(200).ToList();
-
-                int removedTotal = itemsToRemove.Count;
-                int removedOK = itemsToRemove.Count(d =>
-                {
-                    var dict = d as IDictionary<string, object>;
-                    return dict != null && dict.TryGetValue("DetectionResult", out var res) && res?.ToString() == "OK";
-                });
-                int removedNG = removedTotal - removedOK;
-
-                lock (_statisticsLock)
-                {
-                    _historyTotalCount += removedTotal;
-                    _historyOKCount += removedOK;
-                    _historyNGCount += removedNG;
-
-                    foreach (var d in itemsToRemove)
-                    {
-                        var dict = d as IDictionary<string, object>;
-                        if (dict != null && dict.TryGetValue("DetectionResult", out var res) && res?.ToString() == "NG")
-                        {
-                            if (dict.TryGetValue("TriggeredDefects", out var defectsObj) && defectsObj is List<string> defects)
-                            {
-                                foreach (var defect in defects)
-                                {
-                                    if (!_historyDefectNGCount.ContainsKey(defect)) _historyDefectNGCount[defect] = 0;
-                                    _historyDefectNGCount[defect]++;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                _fullDetectionDataList.RemoveRange(0, 200);
+                int removeCount = _fullDetectionDataList.Count - 100;
+                _fullDetectionDataList.RemoveRange(0, removeCount);
             }
         }
 
@@ -4188,11 +4223,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         detectionData.ResultImagePath = isResultSaved ? GetResultImagePath(filePath, detectResult, true) : null;
                         detectionData.DetectionResult = detectResult;
 
+                        var totalStatistics = AddDetectionStatisticsToDatabase(detectResult, triggeredList);
                         await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
                             AddDetectionDataAndEnsureCapacity(detectionData);
                             UpdateDisplayDataList();
-                            CalculateDetectionStatistics();
+                            ApplyStatisticsToUI(totalStatistics);
                         });
                     }
                     catch (Exception ex)
@@ -4330,93 +4366,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        //离线测试时启动并发处理线程
-        private void StartConcurrentProcessing()
-        {
-            // 只要队列有数据，且线程数未达上限，就启动新线程
-            while (_safeDetectQueue.Count > 0 && _semaphore.CurrentCount > 0)
-            {
-                if (!_isQueueRunning)
-                {
-                    _isQueueRunning = true;
-                }
-                _ = ProcessQueueConcurrent(); // 启动新的并发处理任务
-            }
-        }
+     
+  
         #endregion
 
-        #region 离线检测 - 队列处理
-
-        /// <summary>
-        /// 并发处理队列
-        /// </summary>
-        private async Task ProcessQueueConcurrent()
-        {
-            await _semaphore.WaitAsync();
-            try
-            {
-                // 循环处理队列，直到队列空
-                while (_safeDetectQueue.TryDequeue(out string? filePath))
-                {
-                    if (!File.Exists(filePath))
-                    {
-                        AddLog($"[队列处理] {Path.GetFileName(filePath)} 已删除，跳过");
-                        continue;
-                    }
-
-                    try
-                    {
-                        string station = GetStationFromImagePath(filePath, true); // 只获取 "A" 或 "B"
-                        string roiKey = GetRoiKey(filePath, station);
-
-                        dynamic detectionData = new ExpandoObject();
-                        ParsePathToDynamicObject(detectionData, filePath);
-                        string detectResult = DamageDetection(filePath, roiKey, out List<string> triggeredList);
-                        detectionData.TriggeredDefects = triggeredList;
-
-                        if (detectResult.Equals("异常（空图片）", StringComparison.OrdinalIgnoreCase))
-                        {
-                            AddLog($"[检测结果] {Path.GetFileName(filePath)}：空图片，不统计");
-                            continue;
-                        }
-
-                        // 结果保存+CSV
-                        bool isResultSaved = (detectResult == "OK" && IsSaveResultOK) || (detectResult == "NG" && IsSaveResultNG);
-                        detectionData.ResultImagePath = isResultSaved ? GetResultImagePath(filePath, detectResult, true) : null;
-                        detectionData.DetectionResult = detectResult;
-                        WriteToCsv(filePath, detectResult, true);
-
-                        // 异步UI更新，不阻塞检测
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            AddDetectionDataAndEnsureCapacity(detectionData);
-                            UpdateDisplayDataList();
-                            CalculateDetectionStatistics();
-                        });
-
-                        //AddLog($"[检测完成] {Path.GetFileName(filePath)} → {detectResult}（队列剩余：{_safeDetectQueue.Count}）");
-                    }
-                    catch (Exception ex)
-                    {
-                        AddLog($"[检测异常] {Path.GetFileName(filePath)}：{ex.Message}\n堆栈：{ex.StackTrace}");
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            AddLog($"[检测错误] {Path.GetFileName(filePath)}：{ex.Message}");
-                        });
-                    }
-                }
-            }
-            finally
-            {
-                _semaphore.Release(); // 释放并发许可，允许新任务启动
-                if (_safeDetectQueue.Count == 0 && _semaphore.CurrentCount == MaxConcurrent)
-                {
-                    _isQueueRunning = false;
-                    AddLog("[队列处理] 所有任务完成，线程已释放");
-                }
-            }
-        }
-        #endregion
+      
 
 
 
@@ -4706,11 +4660,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     AddLog($"[负极模型初始化警告] {exInfo}");
                 }
 
-
-
-
-
-
                 AddLog("[模型初始化] 成功，获取IPredictor实例");
                 AddLog("\n=== DLL + 模型 初始化全部完成，可执行检测 ===");
             }
@@ -4757,7 +4706,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        
+        /// <summary>
+        /// 算法检测
+        /// </summary>
+        /// <param name="imagePath"></param>
+        /// <param name="station"></param>
+        /// <param name="triggeredDefects"></param>
+        /// <returns></returns>
         private string DamageDetection(string imagePath, string? station, out List<string> triggeredDefects)
         {
             #region 参数定义
@@ -4869,12 +4824,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
                 else
                 {
-                    ai.ModelActionDiePian(StationBmodle, imageMat, Gongwei, delRegion, out defectList, out exInfo);
+                    aiNew.ModelActionDiePian(StationBmodle, imageMat, Gongwei, delRegion, out defectList, out exInfo);
                 }
-                if (!string.IsNullOrEmpty(exInfo))
+                //if (!string.IsNullOrEmpty(exInfo))
+                //{
+                //    AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Warn, isToDatabase: true);
+                //    //SaveDetectionResultToPath(imagePath, imageMat, "检测异常", false);
+                //}
+
+                // 记录 AI 检测结果（包括 exInfo 和 defectList 内容）
+                if (!string.IsNullOrEmpty(exInfo) || (defectList != null && defectList.Count > 0))
                 {
-                    AddLog($"文件：{imagePath};[AI检测警告]: {exInfo}", CoreLogLevel.Warn, isToDatabase: true);
-                    //SaveDetectionResultToPath(imagePath, imageMat, "检测异常", false);
+                    StringBuilder detectionResultLog = new StringBuilder();
+                    detectionResultLog.Append($"文件：{imagePath};[AI检测结果] ");
+
+                    if (!string.IsNullOrEmpty(exInfo))
+                    {
+                        detectionResultLog.Append($"警告信息: {exInfo} | ");
+                    }
+
+                    if (defectList != null && defectList.Count > 0)
+                    {
+                        detectionResultLog.Append($"检测到 {defectList.Count} 个缺陷: ");
+                        var defectSummary = string.Join("; ", defectList.Select(d => $"{d.Name}(Score:{d.Score:F5})"));
+                        detectionResultLog.Append(defectSummary);
+                    }
+                    else
+                    {
+                        detectionResultLog.Append("未检测到缺陷");
+                    }
+
+                    AddLog(detectionResultLog.ToString(), CoreLogLevel.Warn, isToDatabase: true);
                 }
                 #endregion
 
@@ -4920,7 +4900,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         bool widthExceeds = Math.Abs(testWidth) > Math.Abs(thresholdConfig.Width);
                         bool areaExceeds = Math.Abs(testArea) > Math.Abs(thresholdConfig.Area);
 
-                        bool dimensionExceeds = heightExceeds || widthExceeds || areaExceeds;
+                        //bool dimensionExceeds = heightExceeds || widthExceeds || areaExceeds;
+                        bool dimensionExceeds = true;
+
 
                         if (dimensionExceeds)
                         {
@@ -5652,6 +5634,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         //AddLog($"[单张检测] NG图片已加入队列：{Path.GetFileName(filePath)}，当前电芯组进度：{_cellCodeQueue.Count}/{MaxImagesPerReport}");
                     }
 
+                    var totalStatistics = AddDetectionStatisticsToDatabase(detectResult, triggeredList);
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         // 先添加到完整集合
@@ -5661,7 +5644,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         UpdateDisplayDataList();
 
                         // 更新统计数据
-                        CalculateDetectionStatistics();
+                        ApplyStatisticsToUI(totalStatistics);
 
                         // 更新进度条为100%
                         OfflineProgressValue = 100;
@@ -5719,7 +5702,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 //路径提取
                 string station = GetStationFromImagePath(filePath);
                 bool isPolarityMatch = false;
-                if (!IsStationA && !IsStationB)
+                if (!IsStationA && !IsStationB) //默认匹配
                 {
                     isPolarityMatch = true;
                 }
@@ -5816,11 +5799,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             currentBatchCount++;
                             if (currentBatchCount % batchUpdateInterval == 0 || currentBatchCount == totalCount)
                             {
+                                var totalStatistics = AddDetectionStatisticsToDatabase(detectResult, triggeredList);
+
                                 await Application.Current.Dispatcher.InvokeAsync(() =>
                                 {
                                     AddDetectionDataAndEnsureCapacity(detectionData);
                                     UpdateDisplayDataList();
-                                    CalculateDetectionStatistics();
+                                    ApplyStatisticsToUI(totalStatistics);
                                 });
                             }
                             else
@@ -5910,11 +5895,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             // 筛选所有NG数据，按时间倒序取最新50条
             var targetNgList = _fullDetectionDataList
-                .Where(data => data != null
-                            && !string.IsNullOrEmpty(data?.DetectionResult)
-                            && data?.DetectionResult.Equals("NG", StringComparison.OrdinalIgnoreCase))
+                .Where(data => data != null) // 仅做防空保护
                 .OrderByDescending(data => data.DetectionTime)
-                .Take(50)
+                .Take(50) // 界面依然只保留最新的 50 条防止卡顿
                 .ToList();
 
             Application.Current.Dispatcher.BeginInvoke(() =>
@@ -6000,117 +5983,118 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         //计算检测统计数据
         private void CalculateDetectionStatistics()
         {
-            int newTotalVal = 0, newOKVal = 0, newNGVal = 0;
-            double newRateVal = 0;
-            Dictionary<string, int> historyCopy;
-            Dictionary<string, int> currentCopy;
+            /* int newTotalVal = 0, newOKVal = 0, newNGVal = 0;
+             double newRateVal = 0;
+             Dictionary<string, int> historyCopy;
+             Dictionary<string, int> currentCopy;
 
-            lock (_statisticsLock)
-            {
-                //计算 _fullDetectionDataList 中“新检测数据”的统计值
-                var filteredData = _fullDetectionDataList
-                    .Where(data =>
-                    {
-                        // 1. 基础空值检查
-                        if (data == null) return false;
-                        var dataDict = data as IDictionary<string, object>;
-                        if (dataDict == null) return false;
+             lock (_statisticsLock)
+             {
+                 //计算 _fullDetectionDataList 中“新检测数据”的统计值
+                 var filteredData = _fullDetectionDataList
+                     .Where(data =>
+                     {
+                         // 1. 基础空值检查
+                         if (data == null) return false;
+                         var dataDict = data as IDictionary<string, object>;
+                         if (dataDict == null) return false;
 
-                        // 2. 必须包含检测结果和极性信息
-                        if (!dataDict.ContainsKey("DetectionResult")) return false;
-                        if (!dataDict.TryGetValue("PartType", out var partTypeObj) || partTypeObj == null) return false;
+                         // 2. 必须包含检测结果和极性信息
+                         if (!dataDict.ContainsKey("DetectionResult")) return false;
+                         if (!dataDict.TryGetValue("PartType", out var partTypeObj) || partTypeObj == null) return false;
 
-                        string partType = partTypeObj?.ToString() ?? string.Empty;
-                        if (string.IsNullOrEmpty(partType)) return false;
+                         string partType = partTypeObj?.ToString() ?? string.Empty;
+                         if (string.IsNullOrEmpty(partType)) return false;
 
-                        // 3. 核心筛选逻辑                     
-                        //bool matchStationA = IsStationA && partType == "A";
-                        //bool matchStationB = IsStationB && partType == "B";
-                        bool matchStationA = IsStationA && dataDict.TryGetValue("Station", out var sa) && sa?.ToString() == "A";
-                        bool matchStationB = IsStationB && dataDict.TryGetValue("Station", out var sb) && sb?.ToString() == "B";
+                         // 3. 核心筛选逻辑                     
+                         //bool matchStationA = IsStationA && partType == "A";
+                         //bool matchStationB = IsStationB && partType == "B";
+                         bool matchStationA = IsStationA && dataDict.TryGetValue("Station", out var sa) && sa?.ToString() == "A";
+                         bool matchStationB = IsStationB && dataDict.TryGetValue("Station", out var sb) && sb?.ToString() == "B";
 
-                        return matchStationA || matchStationB;
-                    }).ToList();
+                         return matchStationA || matchStationB;
+                     }).ToList();
 
-                //统计新数据中的 OK/NG 数量
-                int newTotalCount = filteredData.Count;
-                int newOKCount = filteredData.Count(data =>
-                {
-                    var dataDict = (IDictionary<string, object>)data;
-                    return dataDict.TryGetValue("DetectionResult", out var resultObj)
-                            && resultObj?.ToString() == "OK";
-                });
-                int newNGCount = newTotalCount - newOKCount;
-
-
-                // 将计算结果存入局部变量
-                newTotalVal = _historyTotalCount + newTotalCount;
-                newOKVal = _historyOKCount + newOKCount;
-                newNGVal = _historyNGCount + newNGCount;
-                newRateVal = newTotalVal > 0 ? Math.Round((double)newOKVal / newTotalVal * 100, 2) : 0;
-
-                //AddLog($"[统计计算] 历史值+新数据值：总={_historyTotalCount}+{newTotalCount}={TotalNeDetectionCount}，OK={_historyOKCount}+{newOKCount}={OKCount}，NG={_historyNGCount}+{newNGCount}={NGCount}");
-
-                // 【核心：计算当前列表中的各类别 NG 数量】
-                var currentDefectNGCounts = new Dictionary<string, int>();
-                foreach (var data in filteredData)
-                {
-                    var dataDict = (IDictionary<string, object>)data;
-                    if (dataDict.TryGetValue("DetectionResult", out var resObj) && resObj?.ToString() == "NG")
-                    {
-                        if (dataDict.TryGetValue("TriggeredDefects", out var defectsObj) && defectsObj is List<string> defects)
-                        {
-                            foreach (var defect in defects)
-                            {
-                                if (!currentDefectNGCounts.ContainsKey(defect)) currentDefectNGCounts[defect] = 0;
-                                currentDefectNGCounts[defect]++;
-                            }
-                        }
-                    }
-                }
-                currentCopy = new Dictionary<string, int>(currentDefectNGCounts);
-                historyCopy = new Dictionary<string, int>(_historyDefectNGCount);
-
-            }
-            Action updateAction = () =>
-            {
-                foreach (var item in DefectDataGrid)
-                {
-                    if (string.IsNullOrEmpty(item.DefectName)) continue;
-
-                    int hist = historyCopy.ContainsKey(item.DefectName) ? historyCopy[item.DefectName] : 0;
-                    int curr = currentCopy.ContainsKey(item.DefectName) ? currentCopy[item.DefectName] : 0;
-
-                    // 同步更新属性
-                    item.NGCount = hist + curr;
-                    item.YieldRate = newTotalVal > 0
-                        ? Math.Round((double)(newTotalVal - item.NGCount) / newTotalVal * 100, 2)
-                        : 100.00;
-                }
-
-                // 赋值核心统计字段
-                TotalNeDetectionCount = newTotalVal;
-                OKCount = newOKVal;
-                NGCount = newNGVal;
-
-                // 【重点】：在这个时刻，上方的 DefectDataGrid 已经完全更新完毕。
-                // 此时再触发 OKRate 的 Set 访问器（进而引发 SaveConfig），抓取到的就是最新的数据。
-                OKRate = newRateVal;
-            };
+                 //统计新数据中的 OK/NG 数量
+                 int newTotalCount = filteredData.Count;
+                 int newOKCount = filteredData.Count(data =>
+                 {
+                     var dataDict = (IDictionary<string, object>)data;
+                     return dataDict.TryGetValue("DetectionResult", out var resultObj)
+                             && resultObj?.ToString() == "OK";
+                 });
+                 int newNGCount = newTotalCount - newOKCount;
 
 
-            // 安全调度：如果在 UI 线程则直接执行，如果不在则阻塞式 Invoke
-            if (Application.Current.Dispatcher.CheckAccess())
-            {
-                updateAction();
-            }
-            else
-            {
-                Application.Current.Dispatcher.Invoke(updateAction);
-            }
+                 // 将计算结果存入局部变量
+                 newTotalVal = _historyTotalCount + newTotalCount;
+                 newOKVal = _historyOKCount + newOKCount;
+                 newNGVal = _historyNGCount + newNGCount;
+                 newRateVal = newTotalVal > 0 ? Math.Round((double)newOKVal / newTotalVal * 100, 2) : 0;
+
+                 //AddLog($"[统计计算] 历史值+新数据值：总={_historyTotalCount}+{newTotalCount}={TotalNeDetectionCount}，OK={_historyOKCount}+{newOKCount}={OKCount}，NG={_historyNGCount}+{newNGCount}={NGCount}");
+
+                 // 【核心：计算当前列表中的各类别 NG 数量】
+                 var currentDefectNGCounts = new Dictionary<string, int>();
+                 foreach (var data in filteredData)
+                 {
+                     var dataDict = (IDictionary<string, object>)data;
+                     if (dataDict.TryGetValue("DetectionResult", out var resObj) && resObj?.ToString() == "NG")
+                     {
+                         if (dataDict.TryGetValue("TriggeredDefects", out var defectsObj) && defectsObj is List<string> defects)
+                         {
+                             foreach (var defect in defects)
+                             {
+                                 if (!currentDefectNGCounts.ContainsKey(defect)) currentDefectNGCounts[defect] = 0;
+                                 currentDefectNGCounts[defect]++;
+                             }
+                         }
+                     }
+                 }
+                 currentCopy = new Dictionary<string, int>(currentDefectNGCounts);
+                 historyCopy = new Dictionary<string, int>(_historyDefectNGCount);
+
+             }
+             Action updateAction = () =>
+             {
+                 foreach (var item in DefectDataGrid)
+                 {
+                     if (string.IsNullOrEmpty(item.DefectName)) continue;
+
+                     int hist = historyCopy.ContainsKey(item.DefectName) ? historyCopy[item.DefectName] : 0;
+                     int curr = currentCopy.ContainsKey(item.DefectName) ? currentCopy[item.DefectName] : 0;
+
+                     // 同步更新属性
+                     item.NGCount = hist + curr;
+                     item.YieldRate = newTotalVal > 0
+                         ? Math.Round((double)(newTotalVal - item.NGCount) / newTotalVal * 100, 2)
+                         : 100.00;
+                 }
+
+                 // 赋值核心统计字段
+                 TotalNeDetectionCount = newTotalVal;
+                 OKCount = newOKVal;
+                 NGCount = newNGVal;
+
+                 // 【重点】：在这个时刻，上方的 DefectDataGrid 已经完全更新完毕。
+                 // 此时再触发 OKRate 的 Set 访问器（进而引发 SaveConfig），抓取到的就是最新的数据。
+                 OKRate = newRateVal;
+             };
+
+
+             // 安全调度：如果在 UI 线程则直接执行，如果不在则阻塞式 Invoke
+             if (Application.Current.Dispatcher.CheckAccess())
+             {
+                 updateAction();
+             }
+             else
+             {
+                 Application.Current.Dispatcher.Invoke(updateAction);
+             }*/
+            LoadStatisticsFromDatabaseToUI();
         }
 
-        //清空列表
+        //清空检测列表
         private void ExecuteClearList()
         {
             MessageBoxResult result = MessageBox.Show(
@@ -6119,32 +6103,52 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Question);
 
-            if (result == MessageBoxResult.OK)
-            {
-                lock (_statisticsLock)
-                {
-                    // 将当前统计值保存到历史变量
-                    _historyTotalCount = TotalNeDetectionCount;
-                    _historyOKCount = OKCount;
-                    _historyNGCount = NGCount;
+            /* if (result == MessageBoxResult.OK)
+             {
+                 lock (_statisticsLock)
+                 {
+                     // 将当前统计值保存到历史变量
+                     _historyTotalCount = TotalNeDetectionCount;
+                     _historyOKCount = OKCount;
+                     _historyNGCount = NGCount;
 
-                    // 清空列表和数据源
-                    foreach (var item in DefectDataGrid)
-                    {
-                        if (string.IsNullOrEmpty(item.DefectName)) continue;
-                        _historyDefectNGCount[item.DefectName] = item.NGCount;
-                    }
-                    _fullDetectionDataList.Clear();
-                    AddLog($"[清空列表] 已保留当前统计值到历史：总={_historyTotalCount}, OK={_historyOKCount}, NG={_historyNGCount}");
-                }
-                DetectionDataList.Clear();
-                _currentCsvFilePath = null;
-                SaveConfig(); // 保存配置,防止重启后丢失
-            }
-            else
+                     // 清空列表和数据源
+                     foreach (var item in DefectDataGrid)
+                     {
+                         if (string.IsNullOrEmpty(item.DefectName)) continue;
+                         _historyDefectNGCount[item.DefectName] = item.NGCount;
+                     }
+                     _fullDetectionDataList.Clear();
+                     AddLog($"[清空列表] 已保留当前统计值到历史：总={_historyTotalCount}, OK={_historyOKCount}, NG={_historyNGCount}");
+                 }
+                 DetectionDataList.Clear();
+                 _currentCsvFilePath = null;
+                 SaveConfig(); // 保存配置,防止重启后丢失
+             }
+             else
+             {
+                 AddLog("[清空列表] 用户取消,操作终止");
+             }*/
+
+            if (result != MessageBoxResult.OK)
             {
-                AddLog("[清空列表] 用户取消,操作终止");
+                AddLog("[清空列表] 用户取消，操作终止");
+                return;
             }
+
+            lock (_statisticsLock)
+            {
+                _fullDetectionDataList.Clear();
+            }
+
+            DetectionDataList.Clear();
+            CurrentResultImagePath = null;
+            SelectedDetectionData = null;
+            _currentCsvFilePath = null;
+
+            LoadStatisticsFromDatabaseToUI();
+
+            AddLog("[清空列表] 已清空界面列表");
         }
 
         //统计清零
@@ -6156,44 +6160,50 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Question);
 
-            if (result == MessageBoxResult.OK)
+            if (result != MessageBoxResult.OK)
+            {
+                AddLog("[统计清零] 用户取消，操作终止");
+                return;
+            }
+
+            try
             {
                 lock (_statisticsLock)
                 {
-                    //重置“历史基础值字段”
-                    _historyTotalCount = 0;
-                    _historyOKCount = 0;
-                    _historyNGCount = 0;
-                    AddLog($"[统计清零] 已重置历史基础值：历史总检测数={_historyTotalCount}，历史OK数={_historyOKCount}，历史NG数={_historyNGCount}", isToDatabase: true);
+                    using var scope = _serviceProvider.CreateScope();
+                    var statisticsRepo = scope.ServiceProvider.GetRequiredService<IDetectionStatisticsRepository>();
 
-                    _fullDetectionDataList.Clear();
-                    _historyDefectNGCount.Clear();
+                    statisticsRepo.ClearTotalAndToday(
+                        StatisticsModuleCode,
+                        DateTime.Today);
+
+                    lock (_statisticsLock)
+                    {
+                        _historyTotalCount = 0;
+                        _historyOKCount = 0;
+                        _historyNGCount = 0;
+                        _historyDefectNGCount.Clear();
+                        _fullDetectionDataList.Clear();
+                    }
+
+                    DetectionDataList.Clear();
+                    CurrentResultImagePath = null;
+                    SelectedDetectionData = null;
+                    _currentCsvFilePath = null;
+
+                    var emptyStatistics = statisticsRepo.GetOrCreate(
+                        StatisticsModuleCode,
+                        DetectionStatisticsScope.Total,
+                        TotalStatisticsDate);
+
+                    ApplyStatisticsToUI(emptyStatistics);
                 }
-
-                DetectionDataList.Clear();
-                TotalNeDetectionCount = 0;
-                OKCount = 0;
-                NGCount = 0;
-                OKRate = 0;
-                _currentCsvFilePath = null;
-
-                foreach (var item in DefectDataGrid)
-                {
-                    item.NGCount = 0;
-                    item.YieldRate = 100;
-                }
-                AddLog($"[统计清零] 已重置当前统计属性：总检测数={TotalNeDetectionCount}，OK数={OKCount}，NG数={NGCount}，OK率={OKRate}%", isToDatabase: true);
-
-                OnPropertyChanged(nameof(TotalNeDetectionCount));
-                OnPropertyChanged(nameof(OKCount));
-                OnPropertyChanged(nameof(NGCount));
-                OnPropertyChanged(nameof(OKRate));
-                SaveConfig();
-                AddLog($"[统计清零] 已保存清零状态到配置文件，下次启动将从0开始统计");
+                AddLog("[统计清零] 已同步清零总统计和当天统计", isToDatabase: true);
             }
-            else
+            catch (Exception ex)
             {
-                AddLog("[统计清零] 用户取消，操作终止");
+                AddLog($"[统计清零失败] {ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"统计清零失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -7769,28 +7779,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 string fileName = Path.GetFileName(imagePath);
 
-                var match = Regex.Match(fileName, @"20\d{8}[-_]?\d{6}");
+                var match = Regex.Match(fileName, @"(20\d{6})([-_])(\d{6})");
                 if (match.Success)
                 {
-                    string timeStr = match.Value;
+                    string dateStr = match.Groups[1].Value;  // 20260518
+                    string separator = match.Groups[2].Value; // -
+                    string timeStr = match.Groups[3].Value;
 
-                    // 移除分隔符，统一为 yyyyMMddHHmmss 格式
-                    string normalizedTimeStr = Regex.Replace(timeStr, @"[-_]", "");
+                    // 提取小时（前两位）
+                    string hourStr = timeStr.Substring(0, 2);
 
-                    // 索引 0-3是年, 4-5是月, 6-7是日, 8-9是时
-                    if (timeStr.Length >= 10)
+                    if (int.TryParse(hourStr, out int hour))
                     {
-                        string hourStr = timeStr.Substring(8, 2);
-
-                        if (int.TryParse(hourStr, out int hour))
-                        {
-                            // 4. 判定班次
-                            // 白班：08:00 - 19:59 (即 hour >= 8 且 hour < 20)
-                            // 晚班：20:00 - 07:59 (即 hour >= 20 或 hour < 8)
-                            string shift = (hour >= 8 && hour < 20) ? "白班" : "晚班";
-                            AddLog($"[班次识别成功] 文件：{fileName}，时间：{normalizedTimeStr}，小时：{hour}，班次：{shift}");
-                            return shift;
-                        }
+                        // 白班：08:00 - 19:59 (即 hour >= 8 且 hour < 20)
+                        // 晚班：20:00 - 07:59 (即 hour >= 20 或 hour < 8)
+                        string shift = (hour >= 8 && hour < 20) ? "白班" : "晚班";
+                        string fullDateTime = $"{dateStr}{separator}{timeStr}";
+                        AddLog($"[班次识别成功] 文件：{fileName}，时间：{fullDateTime}，小时：{hour}，班次：{shift}");
+                        return shift;
                     }
                 }
                 AddLog($"[班次识别警告] 文件名中未找到标准时间格式：{fileName}");
@@ -7935,7 +7941,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                 }
 
-              
+                // 结果保存配置
+                if (dict.TryGetValue("IsSaveResultOK", out var isSaveResultOK) && bool.TryParse(isSaveResultOK?.ToString(), out bool isSaveResultOKVal))
+                    _isSaveResultOK = isSaveResultOKVal;
+
+                if (dict.TryGetValue("IsSaveResultNG", out var isSaveResultNG) && bool.TryParse(isSaveResultNG?.ToString(), out bool isSaveResultNGVal))
+                    _isSaveResultNG = isSaveResultNGVal;
+
+                if (dict.TryGetValue("IsSaveOriginalOK", out var isSaveOriginalOK) && bool.TryParse(isSaveOriginalOK?.ToString(), out bool isSaveOriginalOKVal))
+                    _isSaveOriginalOK = isSaveOriginalOKVal;
+
+                if (dict.TryGetValue("IsSaveOriginalNG", out var isSaveOriginalNG) && bool.TryParse(isSaveOriginalNG?.ToString(), out bool isSaveOriginalNGVal))
+                    _isSaveOriginalNG = isSaveOriginalNGVal;
 
                 // 7. 解析整数类型配置：每份报告最大图片数（添加范围限制，防止非法数值）
                 // Math.Max(1, Math.Min(50, ...))：限制值在1-50之间，避免0/负数/超大值导致业务异常
@@ -7966,6 +7983,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 OnPropertyChanged(nameof(IsCameraA3)); OnPropertyChanged(nameof(IsCameraA4));
                 OnPropertyChanged(nameof(IsCameraB1)); OnPropertyChanged(nameof(IsCameraB2));
                 OnPropertyChanged(nameof(IsCameraB3)); OnPropertyChanged(nameof(IsCameraB4));
+                OnPropertyChanged(nameof(IsSaveResultOK));
+                OnPropertyChanged(nameof(IsSaveResultNG));
+                OnPropertyChanged(nameof(IsSaveOriginalOK));
+                OnPropertyChanged(nameof(IsSaveOriginalNG));
             }
             catch (Exception ex)
             {
@@ -8007,6 +8028,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     IsOnlineDetectionEnabledA,
                     SelectedMonitorFolderPathB,
                     IsOnlineDetectionEnabledB,
+
                     IsStationA,
                     IsStationB,
                     IsCameraA1,
@@ -8017,21 +8039,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     IsCameraB2,
                     IsCameraB3,
                     IsCameraB4,
+
                     IsSaveResultOK,
                     IsSaveResultNG,
                     IsSaveOriginalOK,
                     IsSaveOriginalNG,
+
                     MaxImagesPerReport,
                     ReportTimeoutMinutes,
-                    TotalNeDetectionCount,
-                    OKCount,
-                    NGCount,
-                    OKRate,
                     SelectedMode = _selectedMode.ToString(),
-                    HistoryDefectNGCount = currentTotalDefectNGCount
+                    
                 };
 
-                string json = System.Text.Json.JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
+                string json =JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configFilePath, json);
 
             }
@@ -8256,6 +8276,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _isReportFunctionInited = true;
             AddLog("[报表功能] 初始化完成");
         }
+
+
+
+
+
+
+
 
         /// <summary>
         /// 添加NG图片到队列
@@ -8511,7 +8538,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 int maxIndex = GetMaxReportIndex(finalReportDir);
                 int startIndex = maxIndex + 1;
                 string reportNo = DateTime.Now.ToString("yyyyMMddHHmmss");
-                string baseFileName = $"PTO与行大面缺陷检测报告_{reportNo}.pdf";
+                string baseFileName = $"PTO雅康缺陷检测报告_{reportNo}.pdf";
                 string fileName = $"{startIndex}.{baseFileName}";
                 savePath = Path.Combine(finalReportDir, fileName);
 
@@ -8547,7 +8574,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             {
                                 col.Item().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Row(row =>
                                 {
-                                    row.RelativeItem().AlignCenter().Text("PTO与行大面缺陷检测报告").Style(ReportStyle.Title);
+                                    row.RelativeItem().AlignCenter().Text("PTO雅康缺陷检测报告").Style(ReportStyle.Title);
                                 });
                                 col.Item().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).BorderTop(0).Padding(5).AlignRight().Text($"报表编号：{reportNo}");
                             });
@@ -8572,7 +8599,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                                     table.Cell().Border(1).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2).Padding(5).Text(value);
                                 }
 
-                                AddRow("检测设备：", "与行——大面检测工位");
+                                AddRow("检测设备：", "雅康检测工位");
                                 AddRow("生产日期：", productionDate);
                                 AddRow("生成时间：", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                                 AddRow("检测模式：", _isOfflineMode ? "离线检测" : "在线检测");
@@ -8900,10 +8927,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 if (File.Exists(DefectFilePath))
                 {
-                    string json = File.ReadAllText(DefectFilePath);
+                    string json = File.ReadAllText(DefectFilePath, Encoding.UTF8);
                     var list = JsonSerializer.Deserialize<List<DefectParameter>>(json);
 
-                    if (list != null)
+                    if (list != null && list.Count > 0)
                     {
                         foreach (var item in list)
                         {
@@ -8911,7 +8938,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             item.DefectName = item.DefectName;   // 触发 PropertyChanged
                             DefectDataGrid.Add(item);
                         }
-                        AddLog($"从 {DefectFilePath} 成功加载 {DefectDataGrid.Count} 条缺陷参数");
+                        string defectNames = string.Join("、", list.Select(x => x.DefectName));
+                        AddLog($"从 {DefectFilePath} 成功加载 {DefectDataGrid.Count} 条缺陷参数：{defectNames}");
+
                         CalculateDetectionStatistics();
                         return;
                     }
@@ -9040,6 +9069,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     WriteIndented = true,                    // 美化格式，便于人工查看
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
                     // NumberHandling = JsonNumberHandling.AllowReadingFromString,  // 如果前端可能传字符串数字
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                 };
 
                 string json = JsonSerializer.Serialize(DefectDataGrid.ToList(), options);
@@ -9059,6 +9089,98 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
         #endregion
 
+
+        private DetectionStatisticsModel? AddDetectionStatisticsToDatabase(
+            string detectResult,
+            IEnumerable<string>? triggeredDefects)
+        {
+            if (!string.Equals(detectResult, "OK", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(detectResult, "NG", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            const int MaxRetry = 3;
+            const int BaseDelayMs = 150;
+
+            lock (_statisticsLock)
+            {
+                for (int attempt = 1; attempt <= MaxRetry; attempt++)
+                {
+                    try
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var statisticsRepo = scope.ServiceProvider
+                            .GetRequiredService<IDetectionStatisticsRepository>();
+
+                        return statisticsRepo.Increment(
+                            StatisticsModuleCode,
+                            DateTime.Today,
+                            detectResult,
+                            triggeredDefects);
+                    }
+                    catch (Exception ex) when (
+                        attempt < MaxRetry &&
+                        (ex.Message.Contains("Cannot Open when State is Connecting") ||
+                         ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // 对瞬态连接错误进行指数退避重试
+                        int delay = BaseDelayMs * attempt;
+                        AddLog($"[统计写入重试 {attempt}/{MaxRetry}] 连接状态异常，{delay}ms 后重试：{ex.Message}",
+                            CoreLogLevel.Warn);
+                        Thread.Sleep(delay);
+                    }
+                    catch (Exception ex)
+                    {
+                        AddLog($"[统计写入失败] {ex.Message}", CoreLogLevel.Error);
+                        return null;
+                    }
+                }
+            }
+                
+            
+
+            AddLog($"[统计写入失败] 已重试 {MaxRetry} 次，放弃本次写入", CoreLogLevel.Error);
+            return null;
+        }
+
+
+
+
+
+
+
+        private void PushMessageToFeishu(string message, int retryCount = 2)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            _ = PushMessageAsync(message, retryCount);
+        }
+
+        private async Task PushMessageAsync(string message, int retryCount)
+        {
+            for (int i = 1; i <= retryCount; i++)
+            {
+                try
+                {
+                    var response = await _webApiClient.PushMessageAsync(message);
+                    if (response.Code == 200)
+                    {
+                        _logger.Info($"✅ 飞书消息推送成功");
+                        return;
+                    }
+                    _logger.Warn($"❌ 飞书推送失败：{response.Message}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"❌ 飞书推送异常：{ex.Message}");
+                    if (i < retryCount)
+                        await Task.Delay(1000);
+                }
+            }
+        }
+
         /// <summary>
         /// 资源清理（防止内存泄漏）
         /// </summary>
@@ -9072,4 +9194,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
 
     }
+    //public enum QueueAlertLevel { Normal, Warning, Critical }
+    //public class StationContext
+    //{
+    //    public string? Station { get; set; }               // "A" / "B"
+    //    public object? QueueLock { get; }                   // 独立锁对象
+    //    public ConcurrentQueue<string>? Queue { get; set; } // 独立队列
+    //    public AutoResetEvent? QueueEvent { get; set; }     // 独立信号
+    //    public SemaphoreSlim? Semaphore { get; set; }       // 独立信号量
+    //    public bool IsTerminating { get; set; }
+    //    public bool IsRunning { get; set; }
+    //    public QueueAlertLevel LastAlertLevel { get; set; } = QueueAlertLevel.Normal;
+    //}
 }

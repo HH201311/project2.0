@@ -1,5 +1,6 @@
 ﻿using Dm.util;
 using HandyControl.Controls;
+using HandyControl.Data;
 using HandyControl.Tools.Extension;
 using HslCommunication;
 using Newtonsoft.Json;
@@ -21,6 +22,7 @@ using SUNWODA_SEVB.Core.Models;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.PLC;
 using SUNWODA_SEVB.Core.Models.Project.JRCW;
+using SUNWODA_SEVB.Core.Models.Project.JRCW.ArithmeticModels;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Core;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.Tool.Helper.JRCWHelper;
@@ -119,9 +121,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
         public override void OnNavigatedTo(object? parameter)
         {
-            var messageText = $"开机检测:卷绕极耳错位闭环PLC开关[{213}]未开启，请人工确认！";
-
-            _ = MessageBoxShowDialog(messageText, "警告");
+            base.OnNavigatedTo(parameter);
         }
         #endregion
 
@@ -203,7 +203,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             if (series == null) return;
             series.Points.Add(DateTimeAxis.CreateDataPoint(DateTime.Now, value));
             if (series.Points.Count > 8) series.Points.RemoveAt(0);
-            LineSeriersModel.InvalidatePlot(true);
+            //LineSeriersModel.InvalidatePlot(true);
         }
 
         private void ClearLineSeriersModelPoint(int index)
@@ -212,7 +212,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             var series = LineSeriersModel.Series[index] as OxyPlot.Series.LineSeries;
             if (series == null || series.Points.Count <= 0) return;
             series.Points.Clear();
-            LineSeriersModel.InvalidatePlot(true);
+            //LineSeriersModel.InvalidatePlot(true);
         }
         #endregion
 
@@ -237,6 +237,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 lineNames[i] = string.Empty;
                 ClearLineSeriersModelPoint(i);
             }
+            LineSeriersModel.InvalidatePlot(true);
             for (int i = 0; i < 4; i++)
             {
                 if (!string.IsNullOrEmpty(lineNames[i])) continue;
@@ -286,7 +287,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
                         // 更新PLC地址列表
                         var value = _plcService.RWAddresses.Values.FirstOrDefault(o => o.CategoryId == 1 && o.ParameterName == plcAddressModel.PName)?.MonitorValue?.ToString();
-                        await RunOnUIThreadAsync(() => plcAddressModel.PValue = value);
+                        // 只在值实际发生变化时更新UI
+                        if (plcAddressModel.PValue != value) await RunOnUIThreadAsync(() => plcAddressModel.PValue = value);
 
                         // 更新PLC地址曲线
                         if (!lineNames.Contains(plcAddressModel.PName)) continue;
@@ -294,6 +296,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                         var index = lineNames.IndexOf(plcAddressModel.PName);
                         AddLineSeriersModelPoint(index, valueDouble);
                     }
+
+                    LineSeriersModel.InvalidatePlot(true);
                 }
                 catch (Exception ex)
                 {
@@ -380,6 +384,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <param name="logModel"></param>
         private async void OnLoggerReport(AppLogModel logModel)
         {
+            if (logModel.LogLevel.ToUpper() == "DEBUG") return;
+
             await RunOnUIThreadAsync(() =>
             {
                 AppLogs.Add(logModel);
@@ -528,12 +534,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <summary>
         /// PLC采集数据缓存
         /// </summary>
-        private List<GatherPLCDataModel> gatherPLCDataModels = new();
+        private BlockingCollection<GatherPLCDataModel> gatherPLCDataModels = new();
 
         /// <summary>
         /// CCD采集数据缓存
         /// </summary>
-        private BlockingCollection<GatherCCDDataModel> gatherCCDDataModels = new();
+        private List<GatherCCDDataModel> gatherCCDDataModels = new();
         #endregion
 
         /// <summary>
@@ -577,30 +583,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// </summary>
         private async Task InitializePLCHeartLoopAsync()
         {
-            var count = 0;
-            var plcHeartCache = string.Empty;
+            var parameterName = "闭环心跳信号";
+            var plcAddress = GetPLCAddressModel(parameterName);
             while (true)
             {
                 try
                 {
-                    var value = GetPLCAddressValue("闭环心跳信号");
-                    if (string.IsNullOrEmpty(value)) throw new Exception("PLC心跳读值为空！");
-                    if (plcHeartCache != value)
-                    {
-                        plcHeartCache = value;
-                        count = 0;
-                        continue;
-                    }
+                    if (plcAddress == null)  throw new Exception($"未查询到[{parameterName}]PLC地址配置！");
 
-                    count++;
-                    // -TODO    心跳异常操作
+                    var value = GetPLCAddressValue("闭环心跳信号");
+                    var re = await WritePLCAsync(plcAddress.Address ?? string.Empty, plcAddress.Type ?? string.Empty, value == "0" ? (short)1 : (short)0);
+                    if (!re.IsSuccess) throw new Exception($"PLC心跳信号[{parameterName}]写入异常！原因：{re.Message}");
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error("PLC心跳监听线程异常", ex);
+                    _logger.Error("PLC心跳监听线程异常[60s后重试]", ex);
+                    plcAddress = GetPLCAddressModel(parameterName);
                     await Task.Delay(60000);
                 }
-                finally { await Task.Delay(90000); }
+                finally { await Task.Delay(1500); }
             }
         }
         #endregion
@@ -623,26 +624,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             yieldListener = new ValueListener() { Name = "6h良率80警告", Value = "0" };
             yieldListener.OnValueChangedEven -= OnYieldListenerValueChanged;
             yieldListener.OnValueChangedEven += OnYieldListenerValueChanged;
-            var test = false;
             while (true)
             {
                 try
                 {
-                    //plcDataListener.Value = GetPLCAddressValue(plcDataListener.Name);
-                    //ccdDataListener.Value = GetPLCAddressValue(ccdDataListener.Name);
-                    //yieldListener.Value = GetPLCAddressValue(yieldListener.Name);
-
-                    // test
-                    test = !test;
-                    plcDataListener.Value = test ? "1" : "0";
-                    ccdDataListener.Value = test ? "1" : "0";
-                    await Task.Delay(700);
+                    plcDataListener.Value = GetPLCAddressValue(plcDataListener.Name);
+                    ccdDataListener.Value = GetPLCAddressValue(ccdDataListener.Name);
+                    yieldListener.Value = GetPLCAddressValue(yieldListener.Name);
                 }
                 catch (Exception ex)
                 {
                     _logger.Error("PLC信号监听线程异常", ex);
                 }
-                finally { await Task.Delay(300); }
+                finally { await Task.Delay(100); }
             }
         }
 
@@ -665,37 +659,43 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
             if (args.NewValue == "1")
             {
-                short valueShort;
-                float valueFloat;
-                var plcDataModel = new GatherPLCDataModel();
-                plcDataModel.GatherTime = DateTime.Now;
-                plcDataModel.ZJData_XNM = GetPLCAddressValue("卷针处虚拟码");
-                plcDataModel.ZJData_JZH = short.TryParse(GetPLCAddressValue("卷针处虚拟码"), out valueShort) ? valueShort : (short)0;
-                plcDataModel.MalpositionValueOfPositive = float.TryParse(GetPLCAddressValue("正极错位量"), out valueFloat) ? valueFloat : 0f;
-                plcDataModel.MalpositionValueOfNegative = float.TryParse(GetPLCAddressValue("负极错位量"), out valueFloat) ? valueFloat : 0f;
-                for (int i = 0; i < 35; i++)
-                {
-                    var value = float.TryParse(GetPLCAddressValue($"正极第{i + 1}个极耳错位偏差量"), out valueFloat) ? valueFloat : 0f;
-                    plcDataModel.MalpositionDeviationValueOfPositiveBatteryTab.Add(value);
-                }
-                for (int i = 0; i < 36; i++)
-                {
-                    var value = float.TryParse(GetPLCAddressValue($"负极第{i + 1}个极耳错位偏差量"), out valueFloat) ? valueFloat : 0f;
-                    plcDataModel.MalpositionDeviationValueOfNegativeBatteryTab.Add(value);
-                }
-                plcDataModel.SV_Pos1 = float.TryParse(GetPLCAddressValue("卷针1变径位置"), out valueFloat) ? valueFloat : 0f;
-                plcDataModel.SV_Pos2 = float.TryParse(GetPLCAddressValue("卷针2变径位置"), out valueFloat) ? valueFloat : 0f;
-                plcDataModel.StampingAirPressure = float.TryParse(GetPLCAddressValue("实时压花气压"), out valueFloat) ? valueFloat : 0f;
+                _logger.Debug($"[{listener.Name}]读取数据信号置位1");
 
-                plcDataModel.T1 = ParamSettingModel.T1;
-                plcDataModel.T2 = ParamSettingModel.T2;
-                plcDataModel.T3 = ParamSettingModel.T3;
-                plcDataModel.T4 = ParamSettingModel.T4;
-                plcDataModel.K = ParamSettingModel.K;
-
-                // 保存为CSV
-                _ = RunInBackgroundAsync(() =>
+                _ = RunInBackgroundAsync(async () =>
                 {
+                    await Task.Delay(200);
+                    short valueShort;
+                    float valueFloat;
+                    var plcDataModel = new GatherPLCDataModel();
+                    plcDataModel.GatherTime = DateTime.Now;
+                    plcDataModel.ZJData_XNM = GetPLCAddressValue("卷针处虚拟码");
+                    plcDataModel.ZJData_JZH = short.TryParse(GetPLCAddressValue("卷针号"), out valueShort) ? valueShort : (short)0;
+                    plcDataModel.MalpositionValueOfPositive = float.TryParse(GetPLCAddressValue("正极错位量"), out valueFloat) ? valueFloat : 0f;
+                    plcDataModel.MalpositionValueOfNegative = float.TryParse(GetPLCAddressValue("负极错位量"), out valueFloat) ? valueFloat : 0f;
+                    for (int i = 0; i < 35; i++)
+                    {
+                        var value = float.TryParse(GetPLCAddressValue($"正极第{i + 1}个极耳错位偏差量"), out valueFloat) ? valueFloat : 0f;
+                        plcDataModel.MalpositionDeviationValueOfPositiveBatteryTab.Add(value);
+                    }
+                    for (int i = 0; i < 36; i++)
+                    {
+                        var value = float.TryParse(GetPLCAddressValue($"负极第{i + 1}个极耳错位偏差量"), out valueFloat) ? valueFloat : 0f;
+                        plcDataModel.MalpositionDeviationValueOfNegativeBatteryTab.Add(value);
+                    }
+                    plcDataModel.SV_Pos1 = float.TryParse(GetPLCAddressValue("卷针1变径位置"), out valueFloat) ? valueFloat : 0f;
+                    plcDataModel.SV_Pos2 = float.TryParse(GetPLCAddressValue("卷针2变径位置"), out valueFloat) ? valueFloat : 0f;
+                    plcDataModel.StampingAirPressure = float.TryParse(GetPLCAddressValue("实时压花气压"), out valueFloat) ? valueFloat : 0f;
+
+                    plcDataModel.T1 = ParamSettingModel.T1;
+                    plcDataModel.T2 = ParamSettingModel.T2;
+                    plcDataModel.T3 = ParamSettingModel.T3;
+                    plcDataModel.T4 = ParamSettingModel.T4;
+                    plcDataModel.K = ParamSettingModel.K;
+
+                    // 缓存
+                    gatherPLCDataModels.Add(plcDataModel);
+
+                    // 保存为CSV
                     var savePath = Path.Combine(fileSaveRootPath, $"卷绕错位PLC数据\\{DateTime.Now:yyyyMMdd}");
                     var dic = new Dictionary<string, string>();
                     ToDictionalByDataColumn(plcDataModel, ref dic);
@@ -703,13 +703,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                     lock (JRCWCsvHelper.WriteLocker) JRCWCsvHelper.WriteCSV(savePath, dt);
                     return Task.CompletedTask;
                 });
-
-                // 缓存
-                lock (gatherPLCDataModels)
-                {
-                    gatherPLCDataModels.Add(plcDataModel);
-                    if (gatherPLCDataModels.Count > 40) gatherPLCDataModels.RemoveAt(0);
-                }
                 return;
             }
 
@@ -735,20 +728,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
             if (args.NewValue == "1")
             {
-                float valueFloat;
-                var ccdDataModel = new GatherCCDDataModel();
-                ccdDataModel.GatherTime = DateTime.Now;
-                ccdDataModel.CCD_ScanCode = GetPLCAddressValue("扫码处虚拟码");
-                ccdDataModel.CCD_Barcode = GetPLCAddressValue("Barcode码");
-                ccdDataModel.FeedInletPositionOfPositive = float.TryParse(GetPLCAddressValue("入料位置-正极"), out valueFloat) ? valueFloat : 0f;
-                ccdDataModel.FeedInletPositionOfNegative = float.TryParse(GetPLCAddressValue("入料位置-负极"), out valueFloat) ? valueFloat : 0f;
-                ccdDataModel.FarDistanceOfPositiveBatteryTab = float.TryParse(GetPLCAddressValue("正极极耳远边距"), out valueFloat) ? valueFloat : 0f;
-                ccdDataModel.NearDistanceOfPositiveBatteryTab = float.TryParse(GetPLCAddressValue("正极极耳近边距"), out valueFloat) ? valueFloat : 0f;
-                ccdDataModel.FarDistanceOfNegativeBatteryTab = float.TryParse(GetPLCAddressValue("负极极耳远边距"), out valueFloat) ? valueFloat : 0f;
-                ccdDataModel.NearDistanceOfNegativeBatteryTab = float.TryParse(GetPLCAddressValue("负极极耳近边距"), out valueFloat) ? valueFloat : 0f;
+                _logger.Debug($"[{listener.Name}]读取数据信号置位1");
 
-                // 缓存
-                gatherCCDDataModels.Add(ccdDataModel);
+                _ = RunInBackgroundAsync(async () =>
+                {
+                    await Task.Delay(200);
+                    float valueFloat;
+                    var ccdDataModel = new GatherCCDDataModel();
+                    ccdDataModel.GatherTime = DateTime.Now;
+                    ccdDataModel.CCD_ScanCode = GetPLCAddressValue("扫码处虚拟码");
+                    ccdDataModel.CCD_Barcode = GetPLCAddressValue("Barcode码");
+                    ccdDataModel.FeedInletPositionOfPositive = float.TryParse(GetPLCAddressValue("入料位置-正极"), out valueFloat) ? valueFloat : 0f;
+                    ccdDataModel.FeedInletPositionOfNegative = float.TryParse(GetPLCAddressValue("入料位置-负极"), out valueFloat) ? valueFloat : 0f;
+                    ccdDataModel.FarDistanceOfPositiveBatteryTab = float.TryParse(GetPLCAddressValue("正极极耳远边距"), out valueFloat) ? valueFloat : 0f;
+                    ccdDataModel.NearDistanceOfPositiveBatteryTab = float.TryParse(GetPLCAddressValue("正极极耳近边距"), out valueFloat) ? valueFloat : 0f;
+                    ccdDataModel.FarDistanceOfNegativeBatteryTab = float.TryParse(GetPLCAddressValue("负极极耳远边距"), out valueFloat) ? valueFloat : 0f;
+                    ccdDataModel.NearDistanceOfNegativeBatteryTab = float.TryParse(GetPLCAddressValue("负极极耳近边距"), out valueFloat) ? valueFloat : 0f;
+
+                    // 缓存
+                    lock (gatherCCDDataModels)
+                    {
+                        gatherCCDDataModels.Add(ccdDataModel);
+                        if (gatherCCDDataModels.Count > 40) gatherCCDDataModels.RemoveAt(0);
+                    }
+
+                    // 保存为CSV
+                    var savePath = Path.Combine(fileSaveRootPath, $"卷绕错位CCD数据\\{DateTime.Now:yyyyMMdd}");
+                    var dic = new Dictionary<string, string>();
+                    ToDictionalByDataColumn(ccdDataModel, ref dic);
+                    var dt = JRCWCsvHelper.DicToTable(dic);
+                    lock (JRCWCsvHelper.WriteLocker) JRCWCsvHelper.WriteCSV(savePath, dt);
+                    return Task.CompletedTask;
+                });
                 return;
             }
 
@@ -798,9 +809,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 int jSingleCache = 0, overJNumCache = 0;
                 float j1Cache = 0, j2Cache = 0;
                 var calculateDatasCache = new List<(JRCWCalculateModel, GatherPLCDataModel)>();
-                foreach (var ccdData in gatherCCDDataModels.GetConsumingEnumerable())
+                var ccdData = new GatherCCDDataModel();
+                foreach (var plcData in gatherPLCDataModels.GetConsumingEnumerable())
                 {
                     var calculateModel = new JRCWCalculateModel();
+                    calculateModel.CalculateTime = DateTime.Now;
                     calculateModel.JSingleCache = jSingleCache;
                     calculateModel.OverJNumCache = overJNumCache;
                     calculateModel.J1Cache = j1Cache;
@@ -814,16 +827,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                         if (calculateModel.ChangeOfArithmetic != 0) calculateDatasCache.Clear();
                         #endregion
 
-                        #region 2.PLC数据匹配
-                        var plcData = gatherPLCDataModels.FirstOrDefault(o => o.ZJData_XNM == ccdData.CCD_Barcode);
-                        if (plcData == null)
+                        #region 2.CCD数据匹配
+                        ccdData = gatherCCDDataModels.FirstOrDefault(o => o.CCD_ScanCode == plcData.ZJData_XNM);
+                        if (ccdData == null)
                         {
-                            var msg = $"未查询到[{ccdData.CCD_Barcode}]对应的PLC采集数据，流程结束！";
-                            calculateModel.EndMessage = msg;
-                            _logger.Error(msg);
-                            continue;
+                            _logger.Error($"未查询到[{plcData.ZJData_XNM}]对应的CCD采集数据！");
+                            ccdData = new GatherCCDDataModel();
                         }
-                        lock (gatherPLCDataModels) gatherPLCDataModels.Remove(plcData);
+                        else lock (gatherCCDDataModels) gatherCCDDataModels.Remove(ccdData);
                         calculateDatasCache.add((calculateModel, plcData));
                         // 闭环参数最多12条
                         if (calculateDatasCache.Count > 12) calculateDatasCache.RemoveAt(0);
@@ -854,51 +865,62 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
                         #region 6.错位分类算法
                         var cOfM = ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
-                        calculateModel.CategoryOfPositiveMalposition = cOfM.cOfPM;
-                        calculateModel.CategoryOfNegativeMalposition = cOfM.cOfNM;
-                        // 两个编码是否存在非0值
-                        if (!(cOfM.cOfPM == 0 || cOfM.cOfNM == 0)) continue;
+                        calculateModel.CategoryOfPositiveMalposition = cOfM.COfPM;
+                        calculateModel.CategoryOfNegativeMalposition = cOfM.COfNM;
                         #endregion
 
                         #region 7.错位分解算法
-                        var dOfEC = ExcuteErrorCompensation(mdValuesOfPArr, mdValuesOfNArr);
-                        calculateModel.DeltaCOfPositive = dOfEC.deltaCOfP;
-                        calculateModel.DeltaTCOfPositive = dOfEC.deltaTCOfP;
-                        calculateModel.DeltaCOfNegative = dOfEC.deltaCOfN;
-                        calculateModel.DeltaTCOfNegative = dOfEC.deltaTCOfN;
+                        // 两个编码是否存在非0值：若存在，则执行错位分解算法
+                        if (!(cOfM.COfPM == 0 && cOfM.COfNM == 0))
+                        {
+                            var dOfEC = ExcuteErrorCompensation(mdValuesOfPArr, mdValuesOfNArr);
+                            calculateModel.DeltaCOfPositive = dOfEC.DeltaCOfP;
+                            calculateModel.DeltaTCOfPositive = dOfEC.DeltaTCOfP;
+                            calculateModel.DeltaCOfNegative = dOfEC.DeltaCOfN;
+                            calculateModel.DeltaTCOfNegative = dOfEC.DeltaTCOfN;
+                        }
                         #endregion
 
                         #region 8.闭环算法
                         var data = GetDataOfMisJudge(calculateDatasCache.ToArray());
                         var t = ParamSettingModel.K * (ParamSettingModel.Na + ParamSettingModel.Nb) / 2;
                         var reOfMJ = ExcuteMisJudge(data, ParamSettingModel, calculateModel.ChangeOfArithmetic, t, jSingleCache, overJNumCache);
-                        jSingleCache = reOfMJ.j_signal;
-                        overJNumCache = reOfMJ.over_j_num;
-                        calculateModel.J1 = reOfMJ.j1;
-                        calculateModel.J2 = reOfMJ.j2;
-                        calculateModel.PressJ = reOfMJ.press_j;
-                        calculateModel.Notes = reOfMJ.notes;
-                        calculateModel.Dialog = reOfMJ.dialog;
-                        calculateModel.JSingle = reOfMJ.j_signal;
-                        calculateModel.OverJNum = reOfMJ.over_j_num;
+                        jSingleCache = reOfMJ.J_Signal;
+                        overJNumCache = reOfMJ.Over_J_Num;
+                        calculateModel.J1 = reOfMJ.J1;
+                        calculateModel.J2 = reOfMJ.J2;
+                        calculateModel.PressJ = reOfMJ.Press_J;
+                        calculateModel.Notes = reOfMJ.Notes;
+                        calculateModel.Dialog = reOfMJ.Dialog;
+                        calculateModel.JSingle = reOfMJ.J_Signal;
+                        calculateModel.OverJNum = reOfMJ.Over_J_Num;
                         // 清空数据表data
-                        if (reOfMJ.j1 != 0 || reOfMJ.j2 != 0 || reOfMJ.press_j != 0) calculateDatasCache.clear();
-                        #endregion
-
-                        #region 9.调机下发
-                        var jOfAdjust = await JJPAdjustAsync(plcData.ZJData_JZH, reOfMJ.j1, reOfMJ.j2, reOfMJ.press_j, reOfMJ.dialog, j1Cache, j2Cache);
-                        j1Cache = jOfAdjust.j1Cache;
-                        j2Cache = jOfAdjust.j2Cache;
-                        calculateModel.EndMessage = jOfAdjust.message;
+                        if (reOfMJ.J1 != 0 || reOfMJ.J2 != 0 || reOfMJ.Press_J != 0) calculateDatasCache.clear();
                         #endregion
                     }
                     catch (Exception ex)
                     {
                         calculateModel.EndMessage += ex.Message;
-                        _logger.Error("卷绕极耳错位闭环异常！", ex);
+                        _logger.Error("卷绕极耳错位闭环计算异常！", ex);
                     }
                     finally
                     {
+                        try
+                        {
+                            #region 9.调机下发  闭环执行异常，但有缓存值则依旧下发
+                            var jOfAdjust = await JJPAdjustAsync(plcData.ZJData_JZH, calculateModel.J1, calculateModel.J2, calculateModel.PressJ, calculateModel.Dialog, j1Cache, j2Cache);
+                            // 缓存
+                            j1Cache = jOfAdjust.j1Cache;
+                            j2Cache = jOfAdjust.j2Cache;
+                            calculateModel.EndMessage = jOfAdjust.message;
+                            #endregion
+                        }
+                        catch (Exception ex)
+                        {
+                            calculateModel.EndMessage += ex.Message;
+                            _logger.Error("卷绕极耳错位闭环下发异常！", ex);
+                        }
+
                         // 计算过程模型异步保存CSV
                         _ = RunInBackgroundAsync(() =>
                         {
@@ -943,10 +965,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             if (value == 0) return 0;
             if (value == 1)
             {
-                var re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, 0);
-                if (re.IsSuccess) return 1;
-
-                _logger.Error($"[{parameterName}]PLC地址复位失败:[{re.Message}]");
+                var re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, (short)0);
+                if (re.IsSuccess) _logger.Info($"[{parameterName}]PLC地址复位完成！");
+                else _logger.Error($"[{parameterName}]PLC地址复位失败:[{re.Message}]");
+                return 1;
             }
 
             _logger.Warn($"[{parameterName}]PLC地址数据[{monitorValue}]不为0或1！");
@@ -979,7 +1001,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             // 错位异常警告信号下发&弹窗
             var parameterName = "错位异常偏大警告信号";
             var plcAddress = GetPLCAddressModel(parameterName);
-            var re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, 1);
+            var re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, (short)1);
             if (!re.IsSuccess) _logger.Error($"[{parameterName}]PLC地址写入失败:[{re.Message}]");
 
             // 推荐“变径调节量”，保留一位小数
@@ -993,38 +1015,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         }
 
         #region Python算法相关
-        /// <summary>
-        /// Python算法输出结果类
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        private class PyResoultModel<TInPut, TOutPut>
-        {
-            /// <summary>
-            /// python执行结果
-            /// </summary>
-            public bool IsSuccess { get; set; }
-
-            /// <summary>
-            /// python算法入参
-            /// </summary>
-            public TInPut? PyInPut { get; set; }
-
-            /// <summary>
-            /// python算法出参
-            /// </summary>
-            public dynamic? PyOutPut { get; set; }
-
-            /// <summary>
-            /// python解析后的算法结果
-            /// </summary>
-            public TOutPut? Result { get; set; }
-
-            /// <summary>
-            /// python算法结果信息
-            /// </summary>
-            public string? Message { get; set; }
-        }
-
         #region 错位分类算法
         /// <summary>
         /// 执行错位分类算法
@@ -1032,10 +1022,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <param name="mdValuesOfP"></param>
         /// <param name="mdValuesOfN"></param>
         /// <returns></returns>
-        private (int cOfPM, int cOfNM) ExcuteDisclass(float[] mdValuesOfP, float[] mdValuesOfN)
+        private DisclassOutputModel ExcuteDisclass(float[] mdValuesOfP, float[] mdValuesOfN)
         {
-            var pyResoult = new PyResoultModel<(float[] mdsOfP, float[] mdsOfN), (int cOfPM, int cOfNM)>();
-            pyResoult.PyInPut = (mdValuesOfP, mdValuesOfN);
+            var pyResoult = new PyResultModel<DisclassInputModel, DisclassOutputModel>();
+            pyResoult.PyInPut = new DisclassInputModel();
+            pyResoult.PyInPut.MDValuesOfP = mdValuesOfP;
+            pyResoult.PyInPut.MDValuesOfN = mdValuesOfN;
             var sw = new Stopwatch();
             sw.Start();
             using var mr = new ManualResetEvent(false);
@@ -1047,7 +1039,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             if (pyResoult.IsSuccess)
             {
                 _logger.Info($"'错位分类算法'执行完毕[耗时:{sw.ElapsedMilliseconds}ms]");
-                return pyResoult.Result;
+                return pyResoult.Result ?? new DisclassOutputModel();
             }
 
             throw new Exception($"'错位分类算法'执行异常[耗时:{sw.ElapsedMilliseconds}ms]:[{pyResoult.Message}]\r\n,入参[{JsonConvert.SerializeObject(pyResoult.PyInPut)}]\r\n,出参[{pyResoult.PyOutPut}]");
@@ -1061,7 +1053,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         {
             if (args.Length != 2 ||
                 !(args[0] is ManualResetEvent mr) ||
-                !(args[1] is PyResoultModel<(float[] mdsOfP, float[] mdsOfN), (int cOfPM, int cOfNM)> pyResoult))
+                !(args[1] is PyResultModel<DisclassInputModel, DisclassOutputModel> pyResoult))
             {
                 _logger.Error($"'错位分类算法'参数解析异常[{JsonConvert.SerializeObject(args)}]");
                 throw new ArgumentException(nameof(args), $"参数异常[{JsonConvert.SerializeObject(args)}]");
@@ -1069,18 +1061,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
             try
             {
-                var mdValuesOfP = pyResoult.PyInPut.mdsOfP;
-                var mdValuesOfN = pyResoult.PyInPut.mdsOfN;
+                var inputModel = pyResoult.PyInPut;
+                if (inputModel == null) throw new ArgumentException(nameof(inputModel), $"参数异常[{JsonConvert.SerializeObject(inputModel)}]");
 
                 // 算法导入&执行
                 using var gs = Py.GIL();
                 dynamic pm = PyModule.Import("Disclass");
-                dynamic po = pm.Disclass(mdValuesOfP, mdValuesOfN);
+                dynamic po = pm.Disclass(inputModel.MDValuesOfP, inputModel.MDValuesOfN);
                 dynamic re = po.disclass();
 
                 // 算法结果解析
                 var reTp = PyTuple.AsTuple(re);
-                var pyRes = ((int)reTp[0], (int)reTp[1]);
+                var pyRes = new DisclassOutputModel();
+                pyRes.COfPM = (int)reTp[0];
+                pyRes.COfNM = (int)reTp[1];
 
                 // 返回算法结果
                 pyResoult.IsSuccess = true;
@@ -1105,10 +1099,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <param name="mdValuesOfN"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private (float deltaCOfP, float deltaTCOfP, float deltaCOfN, float deltaTCOfN) ExcuteErrorCompensation(float[] mdValuesOfP, float[] mdValuesOfN)
+        private ErrorCompensationOutputModel ExcuteErrorCompensation(float[] mdValuesOfP, float[] mdValuesOfN)
         {
-            var pyResoult = new PyResoultModel<(float[] mdValuesOfP, float[] mdValuesOfN), (float deltaCOfP, float deltaTCOfP, float deltaCOfN, float deltaTCOfN)>();
-            pyResoult.PyInPut = (mdValuesOfP, mdValuesOfN);
+            var pyResoult = new PyResultModel<ErrorCompensationInputModel, ErrorCompensationOutputModel>();
+            pyResoult.PyInPut = new ErrorCompensationInputModel();
+            pyResoult.PyInPut.MDValuesOfP = mdValuesOfP;
+            pyResoult.PyInPut.MDValuesOfN = mdValuesOfN;
             var sw = new Stopwatch();
             sw.Start();
             using var mr = new ManualResetEvent(false);
@@ -1120,7 +1116,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             if (pyResoult.IsSuccess)
             {
                 _logger.Info($"'错位分解算法'执行完毕[耗时:{sw.ElapsedMilliseconds}ms]");
-                return pyResoult.Result;
+                return pyResoult.Result ?? new ErrorCompensationOutputModel();
             }
 
             throw new Exception($"'错位分解算法'执行异常[耗时:{sw.ElapsedMilliseconds}ms]:[{pyResoult.Message}]\r\n,入参[{JsonConvert.SerializeObject(pyResoult.PyInPut)}]\r\n,出参[{pyResoult.PyOutPut}]");
@@ -1134,7 +1130,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         {
             if (args.Length != 2 ||
               !(args[0] is ManualResetEvent mr) ||
-              !(args[1] is PyResoultModel<(float[] mdValuesOfP, float[] mdValuesOfN), (float deltaCOfP, float deltaTCOfP, float deltaCOfN, float deltaTCOfN)> pyResoult))
+              !(args[1] is PyResultModel<ErrorCompensationInputModel, ErrorCompensationOutputModel> pyResoult))
             {
                 _logger.Error($"'错位分解算法'参数解析异常[{JsonConvert.SerializeObject(args)}]");
                 throw new ArgumentException(nameof(args), $"参数异常[{JsonConvert.SerializeObject(args)}]");
@@ -1142,18 +1138,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
             try
             {
-                var mdValuesOfP = pyResoult.PyInPut.mdValuesOfP;
-                var mdValuesOfN = pyResoult.PyInPut.mdValuesOfN;
+                var inputModel = pyResoult.PyInPut;
+                if (inputModel == null) throw new ArgumentException(nameof(inputModel), $"参数异常[{JsonConvert.SerializeObject(inputModel)}]");
 
                 // 算法导入&执行
                 using var gs = Py.GIL();
                 dynamic pm = PyModule.Import("Error_Compensation");
-                dynamic po = pm.DiamagneticAnalyzer(mdValuesOfP, mdValuesOfN);
+                dynamic po = pm.DiamagneticAnalyzer(inputModel.MDValuesOfP, inputModel.MDValuesOfN);
                 dynamic re = po.analyze();
 
                 // 算法结果解析
                 var reTp = PyTuple.AsTuple(re);
-                var pyRes = ((float)reTp[0], (float)reTp[1], (float)reTp[2], (float)reTp[3]);
+                var pyRes = new ErrorCompensationOutputModel();
+                pyRes.DeltaCOfP = (float)reTp[0];
+                pyRes.DeltaTCOfP = (float)reTp[1];
+                pyRes.DeltaCOfN = (float)reTp[2];
+                pyRes.DeltaTCOfN = (float)reTp[3];
 
                 // 返回算法结果
                 pyResoult.IsSuccess = true;
@@ -1182,10 +1182,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <param name="over_j_num"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private (float j1, float j2, float press_j, string notes, string dialog, int j_signal, int over_j_num) ExcuteMisJudge(string data, JRCWParamSettingModel pm, int change, double t, int j_single, int over_j_num)
+        private MisJudgeOutputModel ExcuteMisJudge(string data, JRCWParamSettingModel pm, int change, double t, int j_single, int over_j_num)
         {
-            var pyResoult = new PyResoultModel<(string data, double p_switch, int change, double t, double p_t, int u_Limit, int j_d, int p_j_d, int j_single, int over_j_num), (float j1, float j2, float press_j, string notes, string dialog, int j_signal, int over_j_num)>();
-            pyResoult.PyInPut = (data, pm.P_Switch, change, t, pm.P_t, pm.U_Limit, pm.J_d, pm.P_j_d, j_single, over_j_num);
+            var pyResoult = new PyResultModel<MisJudgeInputModel, MisJudgeOutputModel>();
+            pyResoult.PyInPut = new MisJudgeInputModel();
+            pyResoult.PyInPut.Data = data;
+            pyResoult.PyInPut.P_Switch = pm.P_Switch;
+            pyResoult.PyInPut.Change = change;
+            pyResoult.PyInPut.T = t;
+            pyResoult.PyInPut.P_t = pm.P_t;
+            pyResoult.PyInPut.U_Limit = pm.U_Limit;
+            pyResoult.PyInPut.J_d = pm.J_d;
+            pyResoult.PyInPut.P_j_d = pm.P_j_d;
+            pyResoult.PyInPut.J_Single = j_single;
+            pyResoult.PyInPut.Over_J_Num = over_j_num;
             var sw = new Stopwatch();
             sw.Start();
             using var mr = new ManualResetEvent(false);
@@ -1197,7 +1207,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             if (pyResoult.IsSuccess)
             {
                 _logger.Info($"'闭环算法'执行完毕[耗时:{sw.ElapsedMilliseconds}ms]");
-                return pyResoult.Result;
+                return pyResoult.Result ?? new MisJudgeOutputModel();
             }
 
             throw new Exception($"'闭环算法'执行异常[耗时:{sw.ElapsedMilliseconds}ms]:[{pyResoult.Message}]\r\n,入参[{JsonConvert.SerializeObject(pyResoult.PyInPut)}]\r\n,出参[{pyResoult.PyOutPut}]");
@@ -1211,7 +1221,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         {
             if (args.Length != 2 ||
               !(args[0] is ManualResetEvent mr) ||
-              !(args[1] is PyResoultModel<(string data, double p_switch, int change, double t, double p_t, int u_Limit, int j_d, int p_j_d, int j_single, int over_j_num), (float j1, float j2, float press_j, string notes, string dialog, int j_signal, int over_j_num)> pyResoult))
+              !(args[1] is PyResultModel<MisJudgeInputModel, MisJudgeOutputModel> pyResoult))
             {
                 _logger.Error($"'闭环算法'参数解析异常[{JsonConvert.SerializeObject(args)}]");
                 throw new ArgumentException(nameof(args), $"参数异常[{JsonConvert.SerializeObject(args)}]");
@@ -1219,26 +1229,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
 
             try
             {
-                var data = pyResoult.PyInPut.data;
-                var p_switch = pyResoult.PyInPut.p_switch;
-                var change = pyResoult.PyInPut.change;
-                var t = pyResoult.PyInPut.t;
-                var p_t = pyResoult.PyInPut.p_t;
-                var u_limit = pyResoult.PyInPut.u_Limit;
-                var j_d = pyResoult.PyInPut.j_d;
-                var p_j_d = pyResoult.PyInPut.p_j_d;
-                var j_single = pyResoult.PyInPut.j_single;
-                var over_j_num = pyResoult.PyInPut.over_j_num;
+                var inputModel = pyResoult.PyInPut;
+                if (inputModel == null) throw new ArgumentException(nameof(inputModel), $"参数异常[{JsonConvert.SerializeObject(inputModel)}]");
 
                 // 算法导入&执行
                 using var gs = Py.GIL();
                 dynamic pm = PyModule.Import("mis_judge");
-                dynamic po = pm.Judge(data, p_switch, change, t, p_t, u_limit, j_d, p_j_d, j_single, over_j_num);
+                dynamic po = pm.Judge(inputModel.Data, inputModel.P_Switch, inputModel.Change, inputModel.T, inputModel.P_t, inputModel.U_Limit, inputModel.J_d, inputModel.P_j_d, inputModel.J_Single, inputModel.Over_J_Num);
                 dynamic re = po.mis_judge();
 
                 // 算法结果解析
                 var reTp = PyTuple.AsTuple(re);
-                var pyRes = ((float)reTp[0], (float)reTp[1], (float)reTp[2], (string)reTp[3], (string)reTp[4], (int)reTp[5], (int)reTp[6]);
+                var pyRes = new MisJudgeOutputModel();
+                pyRes.J1 = (float)reTp[0];
+                pyRes.J2 = (float)reTp[1];
+                pyRes.Press_J = (float)reTp[2];
+                pyRes.Notes = (string)reTp[3];
+                pyRes.Dialog = (string)reTp[4];
+                pyRes.J_Signal = (int)reTp[5];
+                pyRes.Over_J_Num = (int)reTp[6];
 
                 // 返回算法结果
                 pyResoult.IsSuccess = true;
@@ -1308,13 +1317,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <param name="j2Cache"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        private async Task<(float j1Cache, float j2Cache, string message)> JJPAdjustAsync(short jzh, float j1, float j2, float press_j, string dialog, float j1Cache, float j2Cache)
+        private async Task<(float j1Cache, float j2Cache, string message)> JJPAdjustAsync(short jzh, float j1, float j2, float press_j, string? dialog, float j1Cache, float j2Cache)
         {
             if (jzh != 1 && jzh != 2) throw new ArgumentException(nameof(jzh), $"PLC卷针号[{jzh}]信息异常:不为1或2!");
 
             string parameterName, message = "success";
+            var messageSB = new StringBuilder();
             PLCRWAddress? plcAddress;
             OperateResult re;
+            // 算法输出下发值全为0
             if (!(j1 != 0 || j2 != 0 || press_j != 0))
             {
                 if (jzh == 1 && j2Cache != 0)
@@ -1322,9 +1333,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                     // 下发J2Cache
                     parameterName = "卷针2变径位置调整量";
                     plcAddress = GetPLCAddressModel(parameterName);
-                    re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, j2Cache);
+                    re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j2Cache);
 
-                    message = re.IsSuccess ? $"success(J2下发[{j2Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j2Cache}]失败:[{re.Message}]";
+                    messageSB.AppendLine(re.IsSuccess ? $"success(J2下发[{j2Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j2Cache}]失败:[{re.Message}]");
+                    message = messageSB.ToString();
                     if (!re.IsSuccess) _logger.Error(message);
                     return (j1Cache, 0, message);
                 }
@@ -1333,9 +1345,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                     // 下发J1Cache
                     parameterName = "卷针1变径位置调整量";
                     plcAddress = GetPLCAddressModel(parameterName);
-                    re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, j1Cache);
+                    re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j1Cache);
 
-                    message = re.IsSuccess ? $"success(J1下发[{j1Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j1Cache}]失败:[{re.Message}]";
+                    messageSB.AppendLine(re.IsSuccess ? $"success(J1下发[{j1Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j1Cache}]失败:[{re.Message}]");
+                    message = messageSB.ToString();
                     if (!re.IsSuccess) _logger.Error(message);
                     return (0, j2Cache, message);
                 }
@@ -1343,48 +1356,62 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 return (j1Cache, j2Cache, message);
             }
 
-            if (jzh == 1)
+            switch (jzh)
             {
-                j2 += j2Cache;
-                // 下发j2
-                parameterName = "卷针2变径位置调整量";
-                plcAddress = GetPLCAddressModel(parameterName);
-                re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, j2);
+                case 1: // 下发j2
+                    {
+                        j2 += j2Cache;
+                        parameterName = "卷针2变径位置调整量";
+                        plcAddress = GetPLCAddressModel(parameterName);
+                        re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j2);
 
-                message = re.IsSuccess ? $"success(J2下发[{j2}]成功)" : $"[{parameterName}]PLC地址写入[{j2}]失败:[{re.Message}]";
-                if (!re.IsSuccess) _logger.Error(message);
-                j2Cache = 0;
-                j1Cache = j1;
-            }
+                        messageSB.AppendLine(re.IsSuccess ? $"success(J2下发[{j2}]成功)" : $"[{parameterName}]PLC地址写入[{j2}]失败:[{re.Message}]");
+                        message = messageSB.ToString();
+                        if (!re.IsSuccess) _logger.Error(message);
+                        j1Cache += j1;
+                        j2Cache = 0;
+                        break;
+                    }
+                case 2: // 下发j1
+                    {
+                        j1 += j1Cache;
+                        parameterName = "卷针1变径位置调整量";
+                        plcAddress = GetPLCAddressModel(parameterName);
+                        re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j1);
 
-            if (jzh == 2)
-            {
-                j1 += j1Cache;
-                // 下发j1
-                parameterName = "卷针1变径位置调整量";
-                plcAddress = GetPLCAddressModel(parameterName);
-                re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, j1);
-
-                message = re.IsSuccess ? $"success(J1下发[{j1}]成功)" : $"[{parameterName}]PLC地址写入[{j1}]失败:[{re.Message}]";
-                if (!re.IsSuccess) _logger.Error(message);
-                j1Cache = 0;
-                j2Cache = j2;
+                        messageSB.AppendLine(re.IsSuccess ? $"success(J1下发[{j1}]成功)" : $"[{parameterName}]PLC地址写入[{j1}]失败:[{re.Message}]");
+                        message = messageSB.ToString();
+                        if (!re.IsSuccess) _logger.Error(message);
+                        j1Cache = 0;
+                        j2Cache += j2;
+                        break;
+                    }
+                default:
+                    {
+                        messageSB.AppendLine($"false(卷针号[{jzh}]不为1或2，j1、j2不执行下发)");
+                        break;
+                    }
             }
 
             // 下发press_j
-            parameterName = "压花气压调整量";
-            plcAddress = GetPLCAddressModel(parameterName);
-            re = await WritePLCAsync(parameterName, plcAddress?.Type ?? string.Empty, press_j);
-            if (!re.IsSuccess) _logger.Error($"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
+            if (press_j != 0)
+            {
+                parameterName = "压花气压调整量";
+                plcAddress = GetPLCAddressModel(parameterName);
+                re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, press_j);
+                if (!re.IsSuccess) _logger.Error($"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
 
-            message = "、" + (re.IsSuccess ? $"success(PressJ下发[{press_j}]成功)" : $"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
-            if (!re.IsSuccess) _logger.Error(message);
+                messageSB.AppendLine(re.IsSuccess ? $"success(PressJ下发[{press_j}]成功)" : $"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
+                message = messageSB.ToString();
+                if (!re.IsSuccess) _logger.Error(message);
+            }
 
             // 弹窗提示
-            _logger.Info(dialog);
-            var msg = dialog.replace(";", ";\r\n");
+            _logger.Info(dialog ?? string.Empty);
+            var msg = dialog?.replace(";", ";\r\n");
             //_ = MessageBoxShowDialog(msg, "调节提示");
-            MessageBox.Show(msg, "调节提示");
+            Growl.InfoGlobal(msg);
+            //MessageBox.Show(msg, "调节提示");
 
             return (j1Cache, j2Cache, message);
         }
@@ -1421,12 +1448,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <param name="value"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        private async Task<OperateResult> WritePLCAsync(string name, string type, dynamic value)
+        private async Task<OperateResult> WritePLCAsync(string address, string type, dynamic value)
         {
             if (!(_plcService.GetPLCByName(JRCWCore.PLCName) is PLC.PLC plc))
                 throw new ArgumentException(nameof(JRCWCore.PLCName), $"未查询到已连接的PLC设备[{JRCWCore.PLCName}]！");
 
-            return await plc.WriteAsync(name, type, value);
+            var result = await plc.WriteAsync(address, type, value);
+            _logger.Debug($"PLC执行写入:地址[{address}]类型[{type}]值[{value}]，写入结果[{result.Message}]");
+            return result;
         }
         #endregion
 
@@ -1491,7 +1520,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <typeparam name="T"></typeparam>
         /// <param name="obj"></param>
         /// <param name="dic"></param>
-        private static void ToDictionalByDataColumn<T>(T obj, ref Dictionary<string, string> dic) where T : class
+        private static void ToDictionalByDataColumn<T>(T? obj, ref Dictionary<string, string> dic) where T : class
         {
             if (obj == null) return;
             if (dic == null) dic = new Dictionary<string, string>();

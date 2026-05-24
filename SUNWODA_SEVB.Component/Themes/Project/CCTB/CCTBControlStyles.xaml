@@ -470,4 +470,20 @@
         </Setter>
     </Style>
     <!--#endregion-->
+
+
+    <!--#region 文本框样式-->
+    <!--  报错信息提示文本框  -->
+    <Style x:Key="ErrorMessageTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Regular}" />
+        <Setter Property="Foreground" Value="#FF0000" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Visibility" Value="Visible" />
+        <Style.Triggers>
+            <Trigger Property="Text" Value="">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <!--#endregion-->
 </ResourceDictionary>

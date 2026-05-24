@@ -23,6 +23,23 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         /// </summary>
         public const string PLCName = "涂布PLC";
 
+        #region 登录用户信息
+        /// <summary>
+        /// 当前登录用户账号
+        /// </summary>
+        public static string? UserAccount;
+
+        /// <summary>
+        /// 当前登录用户名称
+        /// </summary>
+        public static string? UserName;
+
+        /// <summary>
+        /// 当前登录用户角色
+        /// </summary>
+        public static int UserRoleID;
+        #endregion
+
         #region 涂布项目全局消息通知
         public delegate void MessageEventHandler<T>(object? sender, MessageEventArgs<T> e) where T : class;
 

@@ -17,6 +17,7 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.PLC;
 using SUNWODA_SEVB.Tool.Extension;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -450,10 +451,12 @@ namespace SUNWODA_SEVB.PLC
         /// </summary>
         private async Task ReadCycleAsync(PLC plc, CancellationToken cancellationToken)
         {
+            var sw = new Stopwatch();
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
+                    sw.Restart();
                     await Task.Delay(plc.CycleReadTime, cancellationToken);
 
                     if (!await EnsureConnectedAsync(plc, cancellationToken))
@@ -469,9 +472,16 @@ namespace SUNWODA_SEVB.PLC
                         cancellationToken,
                         async (rwConfig, ct) =>
                         {
+                            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                            cts.CancelAfter(TimeSpan.FromMilliseconds(plc.CycleReadTime));
                             try
                             {
-                                await ReadAddressRangeAsync(plc, rwConfig, ct);
+                                var task = ReadAddressRangeAsync(plc, rwConfig, ct);
+                                await task.WaitAsync(cts.Token);
+                            }
+                            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                            {
+                                _logger.Error($"读取地址段失败[超时(PLC读取循环时间):{plc.CycleReadTime} ms]: {rwConfig.Name}", true);
                             }
                             catch (Exception ex)
                             {
@@ -479,6 +489,10 @@ namespace SUNWODA_SEVB.PLC
                             }
                         }
                     );
+
+                    sw.Stop();
+                    if (sw.ElapsedMilliseconds - plc.CycleReadTime > plc.CycleReadTime)
+                        _logger.Debug($"PLC[{plc.Name}]读取循环耗时: {sw.ElapsedMilliseconds} ms");
                 }
                 catch (OperationCanceledException)
                 {
@@ -519,21 +533,27 @@ namespace SUNWODA_SEVB.PLC
             //    cancellationToken
             //);
 
-            var result = await Task.Run(
-                async () =>
-                    await (
-                        plc.Device is not null
-                            ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
-                            : Task.FromResult(
-                                new OperateResult<byte[]>()
-                                {
-                                    IsSuccess = false,
-                                    Message = "Device属性为空",
-                                }
-                            )
-                    ),
-                cancellationToken
-            );
+            // 不能触发cancellationToken取消操作，修改为下面的方式执行     -By2210120078  -20260522
+            //var result = await Task.Run(
+            //    async () =>
+            //        await (plc.Device is not null
+            //                ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
+            //                : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空", })
+            //        ),
+            //    cancellationToken
+            //);
+
+            // 直接使用WaitAsync等待PLC读取任务完成或超时，避免PLC读取操作无法响应cancellationToken取消的情况     -By2210120078  -20260522
+            //var task = plc.Device is not null
+            //    ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
+            //    : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空" });
+            //var result = await task.WaitAsync(cancellationToken);
+
+            // 替换为同步方法Read，尝试解决ReadAsync偶发读取耗时过长问题     -By2210120078  -20260522
+            var task = plc.Device is not null
+                ? Task.Run(() => plc.Device.Read(address, (ushort)rwConfig.Length))
+                : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空" });
+            var result = await task.WaitAsync(cancellationToken);
 
             plc.IsConnect = result?.IsSuccess ?? false;
             if (plc.IsConnect)
@@ -609,7 +629,7 @@ namespace SUNWODA_SEVB.PLC
                             address.Length
                         );
                         }
-                        
+
                     }
                     catch (Exception ex)
                     {
@@ -769,6 +789,8 @@ namespace SUNWODA_SEVB.PLC
 
             try
             {
+                var sw = new Stopwatch();
+                sw.Start();
                 // 使用带重试的连接
                 var connected = await ConnectWithRetryAsync(plc, 2, cancellationToken);
 
@@ -776,6 +798,9 @@ namespace SUNWODA_SEVB.PLC
                 {
                     _logger.Warn($"无法建立PLC连接: {plc.Name}");
                 }
+
+                sw.Stop();
+                _logger.Debug($"{plc.Name}执行重连[耗时{sw.ElapsedMilliseconds} ms]：{(connected ? "成功" : "失败")}");
 
                 return connected;
             }
@@ -1002,7 +1027,7 @@ namespace SUNWODA_SEVB.PLC
                 default:
                     return default;
             }
-            
+
         }
 
         private static DeviceTcpNet? ConfigureMelsec(PLC plc)

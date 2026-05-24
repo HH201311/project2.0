@@ -44,8 +44,13 @@
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_CCDDataPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_SummaryPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_TBDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBRecords\VM_AdjustmentRecordPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBRecords\VM_AlarmRecordPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBRecords\VM_SystemRecordPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\FunctionSetting\VM_BasicFunctionsPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\FunctionSetting\VM_SpecialFunctionsPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\PermissionSetting\VM_RoleManagementPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\PermissionSetting\VM_UserManagementPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_AlarmSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_CommunicationSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_PermissionSettingPage.cs" />
@@ -59,6 +64,9 @@
     <Compile Include="Views\Pages\CCTB\CCTBMonitoring\SummaryPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecords\AdjustmentRecordPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecords\AlarmRecordPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecords\SystemRecordPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettingsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml.cs" />
@@ -67,6 +75,8 @@
     <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\SpecialFunctionsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\BasicFunctionsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\RoleManagementPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\UserManagementPage.xaml.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -238,6 +248,9 @@
     <Page Include="Views\Pages\CCTB\CCTBMonitoring\SummaryPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecords\AdjustmentRecordPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecords\AlarmRecordPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecords\SystemRecordPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettingsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml" />
@@ -246,6 +259,8 @@
     <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\SpecialFunctionsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\BasicFunctionsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\RoleManagementPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\UserManagementPage.xaml" />
   </ItemGroup>
 
 </Project>

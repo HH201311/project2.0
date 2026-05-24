@@ -78,5 +78,13 @@ namespace SUNWODA_SEVB.Views.Windows.Project
 
             DragMove();
         }
+
+        private void AccountButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            this.contextMenu.PlacementTarget = AccountButton;
+            this.contextMenu.Placement = PlacementMode.Bottom;
+            this.contextMenu.VerticalOffset = 10;
+            this.contextMenu.IsOpen = true;
+        }
     }
 }

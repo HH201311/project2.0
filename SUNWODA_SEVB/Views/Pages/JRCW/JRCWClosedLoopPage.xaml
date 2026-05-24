@@ -186,11 +186,6 @@
                                     </Setter>
                                 </Style>
                             </ListBox.ItemContainerStyle>
-                            <ListBox.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Columns="1" />
-                                </ItemsPanelTemplate>
-                            </ListBox.ItemsPanel>
                         </ListBox>
                     </Border>
                 </Grid>

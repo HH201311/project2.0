@@ -662,10 +662,12 @@
             FlowDirection="LeftToRight"
             Orientation="Horizontal">
             <Button
+                Margin="10,0,0,0"
                 Command="{Binding ConfirmCommand}"
                 Content="确认"
                 Style="{StaticResource ParamOKButtonStyle}" />
             <Button
+                Margin="10,0,0,0"
                 Command="{Binding CancleCommand}"
                 Content="取消"
                 Style="{StaticResource ParamCancleButtonStyle}" />

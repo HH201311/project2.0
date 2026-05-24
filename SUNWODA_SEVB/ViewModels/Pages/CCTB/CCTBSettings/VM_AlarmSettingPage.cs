@@ -14,6 +14,7 @@ using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -38,7 +39,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// <summary>
         /// 保存按钮
         /// </summary>
-        public ICommand? ParamSaveCommand { get; set; }
+        public ICommand? ParamSaveCommand => new RelayCommand(OnParamSaveAsync);
 
         /// <summary>
         /// 构造函数
@@ -63,41 +64,29 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         }
 
         /// <summary>
-        /// 初始化
-        /// </summary>
-        public override void OnInitialize()
-        {
-            ParamSaveCommand = new RelayCommand(OnParamSave);
-            LoadAlarmSettings();
-
-            base.OnInitialize();
-        }
-
-        /// <summary>
         /// 导航结束时触发
         /// </summary>
         /// <param name="parameter"></param>
         public override void OnNavigatedTo(object? parameter)
         {
             LoadAlarmSettings();
-
             base.OnNavigatedTo(parameter);
         }
 
         /// <summary>
         /// 当参数保存时触发
         /// </summary>
-        private void OnParamSave()
+        private async void OnParamSaveAsync()
         {
-            var re = _operationUtil.SaveAlarmConfigsProjectParamrers(AlarmConfigs.ToList());
+            var re = _operationUtil.SaveAlarmConfigProjectParamrers(AlarmConfigs.ToList());
             if (!re)
             {
-                MessageBox.Show("保存失败");
+                await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
                 return;
             }
             re = _operationUtil.SaveAlarmConfigParamProjectParamrers(AlarmConfigParam);
-            if (re) MessageBox.Show("保存成功");
-            else MessageBox.Show("保存失败");
+            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 
         #region 报警配置表格
@@ -127,19 +116,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// </summary>
         private void LoadAlarmSettings()
         {
-            var alarmConfigs = _operationUtil.LoadAlarmConfigsProjectParamrers();
-            foreach (var config in AlarmDefaultConfig.Configs)
-            {
-                if (alarmConfigs.Exists(o => o.Code == config.Key)) continue;
-                var newConfig = config.Value.CopyByJson();
-                if (newConfig == null) continue;
-                alarmConfigs.Add(newConfig);
-            }
+            var configs = _operationUtil.LoadAlarmConfigWithDefault();
 
             RunOnUIThread(() =>
             {
                 AlarmConfigs.Clear();
-                AlarmConfigs.AddRange(alarmConfigs);
+                AlarmConfigs.AddRange(configs);
             });
 
             var alarmConfigParam = _operationUtil.LoadAlarmConfigParamProjectParamrers();

@@ -16,7 +16,10 @@ namespace SUNWODA_SEVB.Core.Models
         public string? PValue
         {
             get => pValue;
-            set => SetProperty(ref pValue, value);
+            set
+            {
+                if (pValue != value) SetProperty(ref pValue, value);
+            }
         }
 
         public ParameterModel(string pName, string pValue)

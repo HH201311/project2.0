@@ -9,6 +9,7 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting;
 using System;
 using System.Collections.Generic;
@@ -36,22 +37,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// <summary>
         /// 界面导航按钮
         /// </summary>
-        public ICommand? ControlPageNavigateCommand { get; set; }
+        public ICommand? ControlPageNavigateCommand => new RelayCommand(OnControlPageNavigateCommand);
 
         /// <summary>
         /// 保存按钮
         /// </summary>
-        public ICommand? ParamSaveCommand { get; set; }
+        public ICommand? ParamSaveCommand => new RelayCommand(OnParamSaveAsync);
 
         /// <summary>
         /// PLC参数保存按钮
         /// </summary>
-        public ICommand? ParamPLCSaveCommand { get; set; }
+        public ICommand? ParamPLCSaveCommand => new RelayCommand(OnParamPLCSave);
 
         /// <summary>
         /// 取消按钮
         /// </summary>
-        public ICommand? ParamCancleCommand { get; set; }
+        public ICommand? ParamCancleCommand => new RelayCommand(OnParamCancle);
 
         /// <summary>
         /// 构造函数
@@ -73,20 +74,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             _moduleManager = moduleManager;
 
             _operationUtil = new OperationUtil(projectSettingRepository);
-        }
-
-        /// <summary>
-        /// 初始化
-        /// </summary>
-        public override void OnInitialize()
-        {
-            ControlPageNavigateCommand = new RelayCommand(OnControlPageNavigateCommand);
-            ParamSaveCommand = new RelayCommand(OnParamSave);
-            ParamPLCSaveCommand = new RelayCommand(OnParamPLCSave);
-            ParamCancleCommand = new RelayCommand(OnParamCancle);
-
-            NavigateToDefault();
-            base.OnInitialize();
         }
 
         /// <summary>
@@ -120,11 +107,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// <summary>
         /// 当参数保存时触发
         /// </summary>
-        private void OnParamSave()
+        private async void OnParamSaveAsync()
         {
             var re = _operationUtil.SaveCommunicationSettingProjectParamrers(CommunicationModel);
-            if (re) MessageBox.Show("保存成功！请重启软件以更新配置！");
-            else MessageBox.Show("保存失败");
+            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！请重启软件以更新配置！", "保存提示");
+            else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 
         /// <summary>

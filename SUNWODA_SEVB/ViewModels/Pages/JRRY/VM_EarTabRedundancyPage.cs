@@ -873,7 +873,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
             SaveSettingsCommand = new RelayCommand(SaveThresholdConfig);
             ResetSettingsCommand = new RelayCommand(ResetThresholds);
             _cts = new CancellationTokenSource();
-            //_logger = logger;
+            //logger = logger;
 
             // 启动每日8点推送统计
             StartDailyPushTask();

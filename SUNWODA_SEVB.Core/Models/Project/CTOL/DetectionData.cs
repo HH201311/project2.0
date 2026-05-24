@@ -6,10 +6,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTOL
     {
         private string? _cellBarCode;
         private string? _detectionResult;
-        private string? _ngDetails;
+        private string? _defectType;
         private string? _station;
-        private DateTime _detectionTime;
-        private string? _resultImagePath;
 
         /// <summary>
         /// 电芯条码
@@ -30,12 +28,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTOL
         }
 
         /// <summary>
-        /// NG信息
+        /// 缺陷类型
         /// </summary>
-        public string? NgDetails
+        public string? DefectType
         {
-            get => _ngDetails;
-            set => SetProperty(ref _ngDetails, value);
+            get => _defectType;
+            set => SetProperty(ref _defectType, value);
         }
 
         /// <summary>
@@ -45,24 +43,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTOL
         {
             get => _station;
             set => SetProperty(ref _station, value);
-        }
-
-        /// <summary>
-        /// 检测时间
-        /// </summary>
-        public DateTime DetectionTime
-        {
-            get => _detectionTime;
-            set => SetProperty(ref _detectionTime, value);
-        }
-
-        /// <summary>
-        /// 结果图路径
-        /// </summary>
-        public string? ResultImagePath
-        {
-            get => _resultImagePath;
-            set => SetProperty(ref _resultImagePath, value);
         }
     }
 }

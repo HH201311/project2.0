@@ -24,15 +24,18 @@
 
   <ItemGroup>
     <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
+    <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="33.1.0" />
+    <PackageReference Include="HslCommunication" Version="12.3.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.7" />
+    <PackageReference Include="OpenCvSharp4.Windows" Version="4.11.0.20250507" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
@@ -85,6 +88,9 @@
     <None Update="Dlls\OpenNetV8.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Dlls\RemoteFileMonitor.Core.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Dlls\XCloudSDK.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -100,8 +106,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Interfaces\Project\HawkEye\" />
-    <Folder Include="Interfaces\Project\CCTB\" />
+    <Folder Include="Interfaces\Project\PTO\" />
   </ItemGroup>
 
 </Project>

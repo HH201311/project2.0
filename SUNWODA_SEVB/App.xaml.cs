@@ -1,14 +1,11 @@
-﻿using System.IO;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NLog;
 using NLog.Config;
 using NLog.Extensions.Logging;
+using RemoteFileMonitor.Data;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
@@ -19,6 +16,7 @@ using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Services.Project;
+using SUNWODA_SEVB.Services.Project.CTOL;
 using SUNWODA_SEVB.Tool.Configuration;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Common;
@@ -27,8 +25,12 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Timers;
+using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace SUNWODA_SEVB
 {
@@ -39,7 +41,11 @@ namespace SUNWODA_SEVB
         private CancellationTokenSource _shutdownCts = new CancellationTokenSource();
         private Mutex? _mutex;
         private const string ServiceName = "WatchDogService";
-        private string WatchDogExePath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WatchDogService\\SUNWODA_SEVB.WatchDogService.exe");
+        private string WatchDogExePath =>
+            Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "WatchDogService\\SUNWODA_SEVB.WatchDogService.exe"
+            );
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -47,7 +53,7 @@ namespace SUNWODA_SEVB
             //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
-                //MonitorAppIsRunning();
+                MonitorAppIsRunning();
                 // 确保配置文件存在且有效
                 ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host
@@ -83,6 +89,8 @@ namespace SUNWODA_SEVB
                 // 步骤9：判断是否启用python线程
                 await InitPythonEnvironment();
 
+                await InitCTOLEnvironment();
+
                 // 步骤10：创建并显示主窗口
                 ShowMainWindow(appLogger);
             }
@@ -113,6 +121,12 @@ namespace SUNWODA_SEVB
                         WinApiHelper.SetForegroundWindow(process.MainWindowHandle);
                     }
                 }
+                // 显示提示信息
+                MessageBox.Show(
+                    "软件已在运行中，请勿重复启动。\n已为您切换到运行中的窗口。",
+                    "提示",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 Shutdown();
                 Environment.Exit(0);
             }
@@ -145,6 +159,13 @@ namespace SUNWODA_SEVB
                             path: $"appsettings.{context.HostingEnvironment.EnvironmentName}.json",
                             optional: true,
                             reloadOnChange: true
+                        );
+
+                        // 添加远程监控文件配置
+                        config.AddJsonFile(
+                            "remote_file_monitor_config.json",
+                            optional: true,
+                            reloadOnChange: false
                         );
 
                         config.AddEnvironmentVariables();
@@ -194,6 +215,9 @@ namespace SUNWODA_SEVB
 
             // 添加MVVM框架服务
             services.AddMvvmFramework();
+
+            // 添加CTOL远程文件监控服务，后续开发（利用 appsettings.json 来决定是否添加）
+            //services.AddCTOLRemoteFileMonitor(configuration);
 
             // 注册项目相关服务(后期合并)
             services.AddProjectServices();
@@ -308,8 +332,6 @@ namespace SUNWODA_SEVB
             }
         }
 
-    
-
         /// <summary>
         /// 初始化应用设置
         /// </summary>
@@ -319,13 +341,19 @@ namespace SUNWODA_SEVB
             {
                 try
                 {
-                    var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+                    var globalSettingRepo =
+                        scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
 
                     // 确保当前用户设置
-                    var currentUser = await globalSettingRepo.GetSettingValueAsync( "CurrentUserAccount");
+                    var currentUser = await globalSettingRepo.GetSettingValueAsync(
+                        "CurrentUserAccount"
+                    );
                     if (currentUser != "guest")
                     {
-                        await globalSettingRepo.UpdateSettingValueAsync("CurrentUserAccount", "guest");
+                        await globalSettingRepo.UpdateSettingValueAsync(
+                            "CurrentUserAccount",
+                            "guest"
+                        );
                         logger.Info("初始化默认用户账户为 guest");
                     }
 
@@ -358,7 +386,7 @@ namespace SUNWODA_SEVB
                     var isEnableWatchDogService = await globalSettingRepo.GetSettingValueAsync(
                         "IsEnableWatchDogService"
                     );
-                    if(isEnableWatchDogService)
+                    if (isEnableWatchDogService)
                     {
                         if (!ServiceHelper.IsServiceInstalled(ServiceName))
                         {
@@ -411,7 +439,7 @@ namespace SUNWODA_SEVB
                 var logger = LogManager.GetLogger("UnhandledException");
                 if (args.ExceptionObject is Exception ex)
                 {
-                    logger.Fatal(ex, "发生未处理的域异常",true);
+                    logger.Fatal(ex, "发生未处理的域异常", true);
                 }
                 else
                 {
@@ -483,7 +511,7 @@ namespace SUNWODA_SEVB
             }
 
             // 设置每天执行的定时任务
-            _logCleanupTimer.Interval = TimeSpan.FromDays(1).TotalMilliseconds;  // 每24小时触发一次
+            _logCleanupTimer.Interval = TimeSpan.FromDays(1).TotalMilliseconds; // 每24小时触发一次
             _logCleanupTimer.Elapsed += LogCleanupElapsed;
             _logCleanupTimer.Start();
 
@@ -556,8 +584,12 @@ namespace SUNWODA_SEVB
                 try
                 {
                     var config = _host.Services.GetRequiredService<IConfiguration>();
-                    var appLogRetentionDays = config.GetValue<int>("LogCleanup:AppLogRetentionDays");
-                    var interfaceLogRetentionDays = config.GetValue<int>("LogCleanup:InterfaceLogRetentionDays");
+                    var appLogRetentionDays = config.GetValue<int>(
+                        "LogCleanup:AppLogRetentionDays"
+                    );
+                    var interfaceLogRetentionDays = config.GetValue<int>(
+                        "LogCleanup:InterfaceLogRetentionDays"
+                    );
                     var maxDatabaseSizeMB = config.GetValue<int>("LogCleanup:MaxDatabaseSizeMB");
 
                     var appLogRepo = scope.ServiceProvider.GetRequiredService<IAppLogRepository>();
@@ -567,7 +599,9 @@ namespace SUNWODA_SEVB
                         scope.ServiceProvider.GetRequiredService<IWebInterfaceLogRepository>();
 
                     // 清理应用日志（7天）
-                    var appLogTimeBasedCount = await appLogRepo.DeleteOldLogsAsync(appLogRetentionDays);
+                    var appLogTimeBasedCount = await appLogRepo.DeleteOldLogsAsync(
+                        appLogRetentionDays
+                    );
 
                     // 检查应用日志数据库大小，如果超过100M则按大小清理
                     var databaseSizeMB = await appLogRepo.GetDatabaseSizeAsync();
@@ -575,16 +609,24 @@ namespace SUNWODA_SEVB
                     if (databaseSizeMB > maxDatabaseSizeMB)
                     {
                         appLogSizeBasedCount = await appLogRepo.DeleteLogsBySize(maxDatabaseSizeMB);
-                        logger?.Info($"应用日志按大小清理完成，删除了 {appLogSizeBasedCount} 条日志，当前数据库大小: {databaseSizeMB:F2}MB");
+                        logger?.Info(
+                            $"应用日志按大小清理完成，删除了 {appLogSizeBasedCount} 条日志，当前数据库大小: {databaseSizeMB:F2}MB"
+                        );
                     }
 
                     // 清理MES日志（30天）
-                    var mesLogCount = await mesLogRepo.DeleteOldLogsAsync(interfaceLogRetentionDays);
+                    var mesLogCount = await mesLogRepo.DeleteOldLogsAsync(
+                        interfaceLogRetentionDays
+                    );
 
                     // 清理Web日志（30天）
-                    var webLogCount = await webLogRepo.DeleteOldLogsAsync(interfaceLogRetentionDays);
+                    var webLogCount = await webLogRepo.DeleteOldLogsAsync(
+                        interfaceLogRetentionDays
+                    );
 
-                    logger?.Info($"数据库日志清理完成 - 应用日志(时间): {appLogTimeBasedCount}条, 应用日志(大小): {appLogSizeBasedCount}条, MES日志: {mesLogCount}条, Web日志: {webLogCount}条");
+                    logger?.Info(
+                        $"数据库日志清理完成 - 应用日志(时间): {appLogTimeBasedCount}条, 应用日志(大小): {appLogSizeBasedCount}条, MES日志: {mesLogCount}条, Web日志: {webLogCount}条"
+                    );
                 }
                 catch (Exception ex)
                 {
@@ -602,11 +644,18 @@ namespace SUNWODA_SEVB
             using var scope = _host!.Services.CreateScope();
             try
             {
-                var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+                var globalSettingRepo =
+                    scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
 
-                var IsInitPythonEnvironment = await globalSettingRepo.GetSettingValueAsync("IsInitPythonEnvironment");
-                var PythonSearchDir = await globalSettingRepo.GetSettingValueAsync("PythonSearchDir");
-                var PythonInstallDir = await globalSettingRepo.GetSettingValueAsync("PythonInstallDir");
+                var IsInitPythonEnvironment = await globalSettingRepo.GetSettingValueAsync(
+                    "IsInitPythonEnvironment"
+                );
+                var PythonSearchDir = await globalSettingRepo.GetSettingValueAsync(
+                    "PythonSearchDir"
+                );
+                var PythonInstallDir = await globalSettingRepo.GetSettingValueAsync(
+                    "PythonInstallDir"
+                );
                 if (IsInitPythonEnvironment == true)
                 {
                     PythonConfigHelper.Start();
@@ -624,7 +673,37 @@ namespace SUNWODA_SEVB
             catch (Exception ex)
             {
                 logger?.Error($"python模块环境初始化失败: {ex.Message}", ex);
-            }            
+            }
+        }
+
+        private async Task InitCTOLEnvironment()
+        {
+            var logger = _host?.Services?.GetService<ILoggerService<App>>();
+            using var scope = _host!.Services.CreateAsyncScope();
+            try
+            {
+                var globalSettingRepo =
+                    scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+                var DefaultProject = await globalSettingRepo.GetSettingValueAsync(
+                    "DefaultProject"
+                );
+                if (!String.IsNullOrEmpty($"{DefaultProject}") && $"{DefaultProject}".Contains("CTOL"))
+                {
+                    // 确保 Watermark 数据库已创建
+                    await scope.ServiceProvider.GetRequiredService<WatermarkDbContext>().Database.EnsureCreatedAsync();
+
+                    // 订阅 BarcodeFinalized 事件，将每个 barcode 结果写入当天分文件数据库
+                    var inspectionService = _host.Services.GetRequiredService<InspectionResultService>();
+                    var groupingService = _host.Services.GetRequiredService<BarcodeGroupingService>();
+                    groupingService.BarcodeFinalized += (monitorId, barcode, category) =>
+                        _ = inspectionService.SaveAsync(monitorId, barcode, category);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.Error($"CTOL环境初始化失败: {ex.Message}", ex);
+            }
+            
         }
 
         /// <summary>
@@ -649,8 +728,9 @@ namespace SUNWODA_SEVB
                         Value = "MainWindow",
                         Type = "string",
                         RoleRank = 2,
-                        Remark = "启动窗口"
-                    });
+                        Remark = "启动窗口",
+                    }
+                );
             }
             appStartMainWindow = globalSettingRepo!.GetSettingValue("AppStartMainWindow");
             if (appStartMainWindow == "MainWindow")
@@ -665,7 +745,9 @@ namespace SUNWODA_SEVB
                 mainWindow.Show();
                 return;
             }
-            throw new Exception($"未能加载[{appStartMainWindow}]程序！请检查[AppStartMainWindow]数据库配置！");
+            throw new Exception(
+                $"未能加载[{appStartMainWindow}]程序！请检查[AppStartMainWindow]数据库配置！"
+            );
         }
 
         /// <summary>
@@ -705,8 +787,6 @@ namespace SUNWODA_SEVB
             public int SizeBasedCount { get; set; }
         }
 
-
-
         protected override async void OnExit(ExitEventArgs e)
         {
             try
@@ -740,7 +820,5 @@ namespace SUNWODA_SEVB
                 base.OnExit(e);
             }
         }
-
-
     }
 }

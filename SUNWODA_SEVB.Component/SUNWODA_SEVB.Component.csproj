@@ -40,7 +40,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NLog.Extensions.Logging" Version="6.0.2" />
     <PackageReference Include="OpenCvSharp4.Windows" Version="4.11.0.20250507" />
-    <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.11.0.20250507" />
+    <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.10.0.20241108" />
     <PackageReference Include="ScottPlot.WPF" Version="5.0.56" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.9" />
     <PackageReference Include="System.Reactive.Linq" Version="6.0.1" />

@@ -6331,7 +6331,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 errorReport = "";
             int imgWidth = 0,
                 imgHeight = 0,
-                neNGflag = 0;
+                neNGflag = 0,
+                neTQFlag = 0;
             List<int> ohAbnormalPositions1 = new List<int>(),
                 ohAbnormalPositions2 = new List<int>();
             double[]? arr1 = null;
@@ -6378,6 +6379,78 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                     // 调用算法模型
                     algorithmStopwatch = new Stopwatch();
                     algorithmStopwatch.Start();
+                    //switch (station)
+                    //{
+                    //    case "LAB":
+                    //        //H246modle = LABmodel;
+                    //        ai.Algorithm_Action(
+                    //            imageFilePath,
+                    //            LABmodel!,
+                    //            out originImg,
+                    //            out recNE,
+                    //            out recPE,
+                    //            out recMiddlePE,
+                    //            out distOHInt,
+                    //            out distOHOut,
+                    //            out _gapMax,
+                    //            out hDNe,
+                    //            out neNGflag,
+                    //            out errorReport
+                    //        );
+                    //        break;
+                    //    case "LCD":
+                    //        //H246modle = LCDmodel;
+                    //        ai.Algorithm_Action(
+                    //            imageFilePath,
+                    //            LCDmodel!,
+                    //            out originImg,
+                    //            out recNE,
+                    //            out recPE,
+                    //            out recMiddlePE,
+                    //            out distOHInt,
+                    //            out distOHOut,
+                    //            out _gapMax,
+                    //            out hDNe,
+                    //            out neNGflag,
+                    //            out errorReport
+                    //        );
+                    //        break;
+                    //    case "RAB":
+                    //        //H246modle = RABmodel;
+                    //        ai.Algorithm_Action(
+                    //            imageFilePath,
+                    //            RABmodel!,
+                    //            out originImg,
+                    //            out recNE,
+                    //            out recPE,
+                    //            out recMiddlePE,
+                    //            out distOHInt,
+                    //            out distOHOut,
+                    //            out _gapMax,
+                    //            out hDNe,
+                    //            out neNGflag,
+                    //            out errorReport
+                    //        );
+                    //        break;
+                    //    case "RCD":
+                    //        //H246modle = RCDmodel;
+                    //        ai.Algorithm_Action(
+                    //            imageFilePath,
+                    //            RCDmodel!,
+                    //            out originImg,
+                    //            out recNE,
+                    //            out recPE,
+                    //            out recMiddlePE,
+                    //            out distOHInt,
+                    //            out distOHOut,
+                    //            out _gapMax,
+                    //            out hDNe,
+                    //            out neNGflag,
+                    //            out errorReport
+                    //        );
+                    //        break;
+                    //}
+
                     switch (station)
                     {
                         case "LAB":
@@ -6394,6 +6467,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 out _gapMax,
                                 out hDNe,
                                 out neNGflag,
+                                out neTQFlag,
                                 out errorReport
                             );
                             break;
@@ -6411,6 +6485,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 out _gapMax,
                                 out hDNe,
                                 out neNGflag,
+                                out neTQFlag,
                                 out errorReport
                             );
                             break;
@@ -6428,6 +6503,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 out _gapMax,
                                 out hDNe,
                                 out neNGflag,
+                                out neTQFlag,
                                 out errorReport
                             );
                             break;
@@ -6445,6 +6521,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                                 out _gapMax,
                                 out hDNe,
                                 out neNGflag,
+                                out neTQFlag,
                                 out errorReport
                             );
                             break;

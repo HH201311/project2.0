@@ -34,6 +34,32 @@ namespace SUNWODA_SEVB.Core.Common.Commands
         public void Execute(object? parameter) => _execute(parameter);
     }
 
+    /// <summary>异步 ICommand 实现，执行中自动禁用按钮防重入。</summary>
+    public sealed class RelayCommandAsync : ICommand
+    {
+        private readonly Func<Task> _execute;
+        private bool _isExecuting;
+
+        public RelayCommandAsync(Func<Task> execute) => _execute = execute;
+
+        public bool CanExecute(object? parameter) => !_isExecuting;
+
+        public event EventHandler? CanExecuteChanged;
+
+        public async void Execute(object? parameter)
+        {
+            if (_isExecuting) return;
+            _isExecuting = true;
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            try { await _execute(); }
+            finally
+            {
+                _isExecuting = false;
+                CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
     /// <summary>
     /// 泛型命令实现
     /// </summary>

@@ -138,6 +138,9 @@ namespace SUNWODA_SEVB.Data
 
             // Web相关仓储
             services.AddScoped<IWebInterfaceLogRepository, WebInterfaceLogRepository>();
+
+            // 数据统计相关仓储
+            services.AddScoped<IDetectionStatisticsRepository, DetectionStatisticsRepository>();
         }
         /// <summary>
         /// 配置SQL日志记录
@@ -318,7 +321,8 @@ namespace SUNWODA_SEVB.Data
                 "GLOBAL_SETTING",
                 "PROJECT_SETTING",
                 "WORKSPACE_PROJECT",
-                "MES_SETTING"
+                "MES_SETTING",
+                "DETECTION_STATISTICS"
             };
 
             return businessTables.Contains(tableName.ToUpper());

@@ -1,7 +1,11 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using RemoteFileMonitor.Extensions;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Services.Project.CTOL;
+using SUNWODA_SEVB.Services.Project.CTOL.Processing;
 
 namespace SUNWODA_SEVB.Services
 {
@@ -92,6 +96,35 @@ namespace SUNWODA_SEVB.Services
                     services.AddSingleton(viewType);
                 }
             }
+            return services;
+        }
+
+        public static IServiceCollection AddCTOLRemoteFileMonitor(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddRemoteFileMonitor(configuration);
+            services.Configure<BarcodeGroupingOptions>(configuration.GetSection("BarcodeGrouping"));
+            //services.AddFileProcessor<LABImageProcessor>();
+            //services.AddFileProcessor<LCDImageProcessor>();
+            //services.AddFileProcessor<RABImageProcessor>();
+            //services.AddFileProcessor<RCDImageProcessor>();
+            services.AddSingletonFileProcessor<LABImageProcessor>();
+            services.AddSingletonFileProcessor<LCDImageProcessor>();
+            services.AddSingletonFileProcessor<RABImageProcessor>();
+            services.AddSingletonFileProcessor<RCDImageProcessor>();
+            services.AddSingleton<RemoteFileMonitorConfigService>();
+            services.AddSingleton<GapThresholdService>();
+            services.AddSingleton<BarcodeGroupingService>();
+            services.AddSingleton<InspectionResultService>();
+            services.AddSingleton<ProcessingResultService>();
+            services.AddHostedService(sp => sp.GetRequiredService<BarcodeGroupingService>());
+            services.AddSingleton<GapCsvService>();        // 间隙值 CSV 按天写入服务
+            services.AddHostedService<ResultImageCleanupService>(); // 结果图定期清理（超过 20 天的日期文件夹）
+
+            // 每日上传服务
+            services.Configure<DailyUploadOptions>(configuration.GetSection("DailyUpload"));
+            services.AddSingleton<DailyUploadService>();
+            services.AddHostedService(sp => sp.GetRequiredService<DailyUploadService>());
+
             return services;
         }
     }

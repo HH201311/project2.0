@@ -56,7 +56,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             SaveCommand = new RelayCommand(Save);
             DeleteCommand = new RelayCommand(Delete);
             AddCommand = new RelayCommand(Add);
-            LoadCalibrationConfigCommand = new RelayCommand(LoadCalibrationConfig);            
+            LoadCalibrationConfigCommand = new RelayCommand(LoadCalibrationConfig);
 
             // 更新行列
             CameraConfig.CollectionChanged += ((s, e) =>
@@ -145,13 +145,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                 return;
             }
             cm.HostIP = ip.ToString();
-            
+
             Task.Run(async () =>
             {
-                //var re = await _webApiClient.AddCameraAsync([cm]);
+                var re = await _webApiClient.AddCameraAsync([cm]);
 
-                //if (re.IsSuccess || re.Code == 200)
-                //{
+                if (re.IsSuccess || re.Code == 200)
+                {
                     _logger.Info($"相机配置更新成功！");
                     VM_MachineDamageMonitoringPage.SetCameras(cm);
                     HandyControl.Controls.MessageBox.Show
@@ -160,10 +160,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                         "信息确认",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information
-                    );                    
-                //}
-                //else
-                //    _logger.Error($"相机配置更新失败：[{re.Message}]");
+                    );
+                }
+                else
+                    _logger.Error($"相机配置更新失败：[{re.Message}]");
             });
         }
 
@@ -191,7 +191,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
                     MessageBoxImage.Information
                 );
             }
-            
+
         }
 
         /// <summary>

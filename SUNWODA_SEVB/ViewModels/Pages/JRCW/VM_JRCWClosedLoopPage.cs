@@ -589,19 +589,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             {
                 try
                 {
-                    if (plcAddress == null)  throw new Exception($"未查询到[{parameterName}]PLC地址配置！");
+                    if (plcAddress == null) plcAddress = GetPLCAddressModel(parameterName);
+                    if (plcAddress == null) throw new Exception($"未查询到[{parameterName}]PLC地址配置！");
 
                     var value = GetPLCAddressValue("闭环心跳信号");
                     var re = await WritePLCAsync(plcAddress.Address ?? string.Empty, plcAddress.Type ?? string.Empty, value == "0" ? (short)1 : (short)0);
                     if (!re.IsSuccess) throw new Exception($"PLC心跳信号[{parameterName}]写入异常！原因：{re.Message}");
+                    await Task.Delay(1500);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error("PLC心跳监听线程异常[60s后重试]", ex);
-                    plcAddress = GetPLCAddressModel(parameterName);
+                    _logger.Error($"PLC心跳监听线程异常[60s后重试]", ex);
                     await Task.Delay(60000);
                 }
-                finally { await Task.Delay(1500); }
             }
         }
         #endregion

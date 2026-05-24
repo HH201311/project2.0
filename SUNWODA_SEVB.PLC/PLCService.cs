@@ -163,24 +163,6 @@ namespace SUNWODA_SEVB.PLC
                     foreach (var rwConfig in rwConfigs)
                     {
                         _rwConfigs[rwConfig.ID] = rwConfig;
-
-                        var rwBaseAddress = new PLCRWAddress(
-                            rwConfig.ID,        // 使用配置ID作为地址ID
-                            rwConfig.PLCID,
-                            rwConfig.ID,
-                            1,                  // CategoryID 默认为1
-                            rwConfig.AreaName,      // 使用配置名称作为参数名
-                            rwConfig.RWMode,           
-                            (ushort)rwConfig.Length,
-                            rwConfig.StartAddress,
-                            "",
-                            rwConfig.Name ?? "",
-                            0,                  // 偏移量为0
-                            0                   // 位偏移为0
-                        );
-
-                        // 确保不重复添加
-                        _rwAddresses[rwConfig.ID] = rwBaseAddress;
                     }
 
                     // 加载地址配置

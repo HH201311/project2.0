@@ -130,7 +130,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         private bool isSelectingStart = true;
 
         // 时间选择
-        private DateTime? startDate, endDate;
+        private DateTime? startDate = null, endDate = null;
         private int startHour = 0, startMinute = 0;
         private int endHour = 23, endMinute = 59;
         #endregion
@@ -146,12 +146,12 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             for (int i = 0; i < 24; i++) Hours.Add(i);
             for (int i = 0; i < 60; i++) Minutes.Add(i);
 
-            StartHourCB.SelectedIndex = 0;
-            StartMinuteCB.SelectedIndex = 0;
-            EndHourCB.SelectedIndex = 23;
-            EndMinuteCB.SelectedIndex = 59;
+            StartHourCB.SelectedIndex = startHour;
+            StartMinuteCB.SelectedIndex = startMinute;
+            EndHourCB.SelectedIndex = endHour;
+            EndMinuteCB.SelectedIndex = endMinute;
 
-            // 默认显示当前月和下月
+            // 默认显示当上月和当月
             leftMonth = DateTime.Now.AddMonths(-1);
             rightMonth = DateTime.Now;
             LeftMonthTitle.Text = leftMonth.ToString("yyyy年MM月");
@@ -245,6 +245,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             }
         }
 
+        /// <summary>
+        /// 是否是选择的日期
+        /// </summary>
+        /// <param name="date"></param>
+        /// <returns></returns>
         private bool IsDateSelected(DateTime date)
         {
             if (startDate.HasValue && date.Date == startDate.Value.Date) return true;
@@ -252,6 +257,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             return false;
         }
 
+        /// <summary>
+        /// 是否在选择的日期范围内
+        /// </summary>
+        /// <param name="date"></param>
+        /// <returns></returns>
         private bool IsDateInRange(DateTime date)
         {
             if (!startDate.HasValue || !endDate.HasValue) return false;
@@ -259,16 +269,39 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             return date.Date > startDate.Value.Date && date.Date < endDate.Value.Date;
         }
 
+        /// <summary>
+        /// 是否是选择范围的开始日期
+        /// </summary>
+        /// <param name="date"></param>
+        /// <returns></returns>
         private bool IsRangeStart(DateTime date)
         {
             return startDate.HasValue && date.Date == startDate.Value.Date;
         }
 
+        /// <summary>
+        /// 是否是选择范围的结束日期
+        /// </summary>
+        /// <param name="date"></param>
+        /// <returns></returns>
         private bool IsRangeEnd(DateTime date)
         {
             return endDate.HasValue && date.Date == endDate.Value.Date;
         }
 
+        /// <summary>
+        /// 是否是同一天
+        /// </summary>
+        /// <param name="date"></param>
+        /// <param name="other"></param>
+        /// <returns></returns>
+        private bool IsSameDay(DateTime? date, DateTime? other)
+        {
+            if (date == null || other == null)
+                return false;
+
+            return date.Value.Date == other.Value.Date;
+        }
         #endregion
 
         #region 交互命令
@@ -291,8 +324,27 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
 
                 if (newEndDate < startDate)
                 {
-                    endDate = startDate;
-                    startDate = newEndDate;
+                    if (IsSameDay(startDate, newEndDate))
+                    {
+                        var tempHour = startHour;
+                        startHour = endHour;
+                        endHour = tempHour;
+                        StartHourCB.SelectedIndex = startHour;
+                        EndHourCB.SelectedIndex = endHour;
+                        startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
+
+                        var tempMinute = startMinute;
+                        startMinute = endMinute;
+                        endMinute = tempMinute;
+                        StartMinuteCB.SelectedIndex = startMinute;
+                        EndMinuteCB.SelectedIndex = endMinute;
+                        newEndDate = day.Date.Add(new TimeSpan(startHour, startMinute, 0));
+                    }
+                    else
+                    {
+                        endDate = startDate;
+                        startDate = newEndDate;
+                    }
                 }
                 else
                 {
@@ -472,16 +524,16 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
 
             if (!IsOpen) return;
 
-            if (!startDate.HasValue && !endDate.HasValue)
+            if (!StartDate.HasValue && !EndDate.HasValue)
             {
                 leftMonth = DateTime.Now.AddMonths(-1);
                 rightMonth = DateTime.Now;
             }
-            else if (!startDate.HasValue)
+            else if (!StartDate.HasValue)
             {
                 leftMonth = rightMonth.AddMonths(-1);
             }
-            else if (!endDate.HasValue)
+            else if (!EndDate.HasValue)
             {
                 rightMonth = leftMonth.AddMonths(1);
             }
@@ -514,49 +566,29 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         {
             if (!(sender is ComboBox cb)) return;
 
-            if (cb == StartHourCB)
-            {
-                startHour = (int)cb.SelectedItem;
-                if (startDate.HasValue)
-                {
-                    startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
-                    GenerateDays();
-                }
-                return;
-            }
+            var isSamDay = IsSameDay(startDate, endDate);
 
-            if (cb == StartMinuteCB)
+            if (isSamDay)
             {
-                startMinute = (int)cb.SelectedItem;
-                if (startDate.HasValue)
-                {
-                    startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
-                    GenerateDays();
-                }
-                return;
-            }
+                var newStartHour = startHour;
+                var newStartMinute = startMinute;
+                var newEndHour = endHour;
+                var newEndMinute = endMinute;
 
-            if (cb == EndHourCB)
-            {
-                endHour = (int)cb.SelectedItem;
-                if (endDate.HasValue)
-                {
-                    endDate = endDate.Value.Date.Add(new TimeSpan(endHour, endMinute, 0));
-                    GenerateDays();
-                }
-                return;
-            }
+                if (cb == StartHourCB) newStartHour = (int)cb.SelectedItem;
+                if (cb == StartMinuteCB) newStartMinute = (int)cb.SelectedItem;
+                if (cb == EndHourCB) newEndHour = (int)cb.SelectedItem;
+                if (cb == EndMinuteCB) newEndMinute = (int)cb.SelectedItem;
 
-            if (cb == EndMinuteCB)
-            {
-                endMinute = (int)cb.SelectedItem;
-                if (endDate.HasValue)
-                {
-                    endDate = endDate.Value.Date.Add(new TimeSpan(endHour, endMinute, 0));
-                    GenerateDays();
-                }
-                return;
+                var newStartTime = new DateTime().AddHours(newStartHour).AddMinutes(newStartMinute);
+                var endStartTime = new DateTime().AddHours(newEndHour).AddMinutes(newEndMinute);
+
+                if (newStartTime > endStartTime) return;
             }
+            if (cb == StartHourCB) startHour = (int)cb.SelectedItem;
+            if (cb == StartMinuteCB) startMinute = (int)cb.SelectedItem;
+            if (cb == EndHourCB) endHour = (int)cb.SelectedItem;
+            if (cb == EndMinuteCB) endMinute = (int)cb.SelectedItem;
         }
     }
 

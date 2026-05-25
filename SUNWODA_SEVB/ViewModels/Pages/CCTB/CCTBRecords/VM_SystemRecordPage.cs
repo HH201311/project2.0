@@ -1,6 +1,5 @@
 ﻿using DnsClient.Protocol;
 using DocumentFormat.OpenXml.Bibliography;
-using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HandyControl.Controls;
 using Masuit.Tools;
@@ -18,18 +17,22 @@ using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.RecordModels;
 using SUNWODA_SEVB.Data.Repositories;
 using SUNWODA_SEVB.Tool.Extension;
+using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
@@ -106,13 +109,58 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         private async void OnQueryAsync()
         {
             LoadRecords();
+            startDateCache = StartDate;
+            endDateCache = EndDate;
         }
 
+        private CancellationTokenSource? cts = null;
         /// <summary>
         /// 当导出当前页按钮点击时触发
         /// </summary>
         private async void OnExportCurrentPageAsync()
         {
+            if (cts != null)
+            {
+                var result = await VM_CCTBMessageBoxDialog.ShowAsync("[系统操作记录]正在导出中，是否取消？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (result != MessageBoxResult.Yes) return;
+                cts.Cancel();
+            }
+
+            cts = new CancellationTokenSource();
+            try
+            {
+                var fileName = $"SystemRecords_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                var fullPath = Path.Combine(desktopPath, "系统操作记录");
+                if (!Directory.Exists(fullPath)) Directory.CreateDirectory(fullPath);
+                var filePath = Path.Combine(fullPath, fileName);
+
+                if (File.Exists(filePath))
+                {
+                    var result = await VM_CCTBMessageBoxDialog.ShowAsync($"[{filePath}]文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (result != MessageBoxResult.Yes) return;
+                }
+
+                var task = CsvSaveHelper.WriteToFileAsync(filePath, Records); ;
+                await task.WaitAsync(cts.Token);
+                await VM_CCTBMessageBoxDialog.SuccessAsync($"已成功导出{Records.Count}条[系统操作记录]，导出路径[{filePath}]!", "导出完成");
+            }
+            catch (Exception ex) when (ex is OperationCanceledException)
+            {
+                _logger.UserInfo("用户取消了导出操作[系统操作记录]。");
+            }
+            catch (Exception ex)
+            {
+                _logger.UserError($"[系统操作记录]导出过程中发生错误: {ex.Message}");
+                await VM_CCTBMessageBoxDialog.ErrorAsync($"导出失败[系统操作记录]: {ex.Message}", "错误");
+            }
+            finally
+            {
+                cts.Dispose();
+                cts = null;
+            }
+
+            return;
             var message = "点击报警信息中的'点击异常复位'按钮";
             _logger.UserTrace(message);
             _logger.UserDebug(message);
@@ -127,7 +175,63 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// </summary>
         private async void OnExportCurrentQueryAsync()
         {
+            if (cts != null)
+            {
+                var result = await VM_CCTBMessageBoxDialog.ShowAsync("[系统操作记录]正在导出中，是否取消？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (result != MessageBoxResult.Yes) return;
+                cts?.Cancel();
+                cts = null;
+            }
 
+            cts = new CancellationTokenSource();
+            try
+            {
+                var fileName = $"SystemRecords_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                var fullPath = Path.Combine(desktopPath, "系统操作记录");
+                if (!Directory.Exists(fullPath)) Directory.CreateDirectory(fullPath);
+                var filePath = Path.Combine(fullPath, fileName);
+
+                if (File.Exists(filePath))
+                {
+                    var result = await VM_CCTBMessageBoxDialog.ShowAsync($"[{filePath}]文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (result != MessageBoxResult.Yes) return;
+                    File.Delete(filePath);
+                }
+
+                var rows = new List<Dictionary<string, string>>();
+                var count = await _appLogRepository.GetUserRecordsCountAsync(startDateCache, endDateCache);
+                var pageCount = (count + PageSize - 1) / PageSize;
+                for (int i = 0; i < pageCount; i++)
+                {
+                    rows.Clear();
+                    var records = await _appLogRepository.GetUserRecordsPagedAsync(i + 1, PageSize, startDateCache, endDateCache);
+                    for (int j = 0; j < records.Items.Count; j++)
+                    {
+                        var record = ConvertToRecord(records.Items[j]);
+                        record.ID = i * PageSize + j + 1;
+                        rows.Add(ConvertToDic(record));
+                    }
+                    var task = Task.Run(() => CCTBCsvHelper.WriteCSV(filePath, CCTBCsvHelper.DicToTable(rows.ToArray())));
+                    await task.WaitAsync(cts.Token);
+                }
+
+                await VM_CCTBMessageBoxDialog.SuccessAsync($"已成功导出{count}条[系统操作记录]，导出路径[{filePath}]!", "导出完成");
+            }
+            catch (Exception ex) when (ex is OperationCanceledException)
+            {
+                _logger.UserInfo("用户取消了导出操作[系统操作记录]。");
+            }
+            catch (Exception ex)
+            {
+                _logger.UserError($"[系统操作记录]导出过程中发生错误: {ex.Message}");
+                await VM_CCTBMessageBoxDialog.ErrorAsync($"导出失败[系统操作记录]: {ex.Message}", "错误");
+            }
+            finally
+            {
+                cts.Dispose();
+                cts = null;
+            }
         }
 
         /// <summary>
@@ -144,13 +248,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// <summary>
         /// 每页条数
         /// </summary>
-        private const int PerPageCount = 20;
+        private const int PageSize = 20;
 
-        private DateTime? startDate;
-        private DateTime? endDate;
-        private int totalCount;
-        private int pageCount;
-        private int currentPageNumber;
+        /// <summary>
+        /// 缓存：用于导出使用
+        /// </summary>
+        private DateTime? startDateCache, endDateCache;
+
+        private DateTime? startDate, endDate;
+        private int totalCount, pageCount, currentPageNumber;
 
         /// <summary>
         /// 查询起始时间
@@ -188,38 +294,64 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// <param name="pageNumber"></param>
         private void LoadRecords(int pageNumber = 1)
         {
-            var records = _appLogRepository.GetUserRecordsPaged(pageNumber, PerPageCount, StartDate, EndDate);
+            var records = _appLogRepository.GetUserRecordsPaged(pageNumber, PageSize, StartDate, EndDate);
 
             RunOnUIThread(() =>
             {
                 Records.Clear();
                 TotalCount = records.Total;
-                PageCount = records.Total % PerPageCount == 0 ? records.Total / PerPageCount : (records.Total / PerPageCount + 1);
+                PageCount = (records.Total + PageSize - 1) / PageSize;
                 CurrentPageNumber = pageNumber;
 
                 for (int i = 0; i < records.Items.Count; i++)
                 {
-                    SystemRecordModel? record;
-                    try
-                    {
-                        record = JsonConvert.DeserializeObject<SystemRecordModel>(records.Items[i].Message);
-                    }
-                    catch
-                    {
-                        record = null;
-                    }
-
-                    if (record == null)
-                    {
-                        record = new SystemRecordModel();
-                        record.Message = records.Items[i].Message;
-                    }
-                    record.ID = (pageNumber - 1) * PerPageCount + i + 1;
-                    record.RecordLevel = records.Items[i].LogLevel;
-                    record.RecordTime = records.Items[i].LogTime;
+                    var record = ConvertToRecord(records.Items[i]);
+                    record.ID = (pageNumber - 1) * PageSize + i + 1;
                     Records.Add(record);
                 }
             });
+        }
+
+        private SystemRecordModel ConvertToRecord(AppLogModel log)
+        {
+            SystemRecordModel? record;
+            try
+            {
+                record = JsonConvert.DeserializeObject<SystemRecordModel>(log.Message);
+            }
+            catch
+            {
+                record = null;
+            }
+
+            if (record == null)
+            {
+                record = new SystemRecordModel();
+                record.Message = log.Message;
+            }
+            record.RecordLevel = log.LogLevel;
+            record.RecordTime = log.LogTime;
+
+            return record;
+        }
+
+        /// <summary>
+        /// 装换为字典
+        /// </summary>
+        /// <param name="record"></param>
+        /// <returns></returns>
+        private Dictionary<string, string> ConvertToDic(SystemRecordModel record)
+        {
+            var result = new Dictionary<string, string>();
+            result["排序"] = record.ID.ToString();
+            result["用户姓名"] = record.Name?.ToString() ?? string.Empty;
+            result["账号"] = record.Account?.ToString() ?? string.Empty;
+            result["角色"] = record.Role?.ToString() ?? string.Empty;
+            result["操作记录"] = record.Message?.ToString() ?? string.Empty;
+            result["等级"] = record.RecordLevel?.ToString() ?? string.Empty;
+            result["操作时间"] = record.RecordTime?.ToString() ?? string.Empty;
+
+            return result;
         }
         #endregion
     }

@@ -140,7 +140,9 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         private static void OnCurrentPageNumberChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as PaginationControl;
-            if (uc != null && e.NewValue is int newValue && e.OldValue is int oldValue && newValue != oldValue)
+            if (uc == null) return;
+
+            if (e.NewValue is int newValue && e.OldValue is int oldValue && newValue != oldValue)
             {
                 uc.UpdatePageDisplay(newValue);
             }

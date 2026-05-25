@@ -472,17 +472,19 @@ namespace SUNWODA_SEVB.PLC
                         cancellationToken,
                         async (rwConfig, ct) =>
                         {
-                            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                            cts.CancelAfter(TimeSpan.FromMilliseconds(plc.CycleReadTime));
+                            //using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                            //cts.CancelAfter(TimeSpan.FromMilliseconds(plc.CycleReadTime));
                             try
                             {
-                                var task = ReadAddressRangeAsync(plc, rwConfig, ct);
-                                await task.WaitAsync(cts.Token);
+                                //var task = ReadAddressRangeAsync(plc, rwConfig, ct);
+                                //await task.WaitAsync(cts.Token);
+
+                                await ReadAddressRangeAsync(plc, rwConfig, ct);
                             }
-                            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                            {
-                                _logger.Error($"读取地址段失败[超时(PLC读取循环时间):{plc.CycleReadTime} ms]: {rwConfig.Name}", true);
-                            }
+                            //catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                            //{
+                            //    _logger.Error($"读取地址段失败[超时(PLC读取循环时间):{plc.CycleReadTime} ms]: {rwConfig.Name}", true);
+                            //}
                             catch (Exception ex)
                             {
                                 _logger.Error($"读取地址段失败: {rwConfig.Name}", ex, true);

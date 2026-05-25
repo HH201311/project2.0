@@ -234,35 +234,53 @@
                                                 <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="#C0C4CC" />
                                                     <Setter TargetName="CellLabel" Property="Cursor" Value="Arrow" />
+                                                    <Setter TargetName="CellLabel" Property="IsHitTestVisible" Value="False" />
                                                 </DataTrigger>
                                                 <!--  今天：蓝色加粗  -->
-                                                <DataTrigger Binding="{Binding IsToday}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsToday}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="#1890FF" />
                                                     <Setter TargetName="CellLabel" Property="FontWeight" Value="Bold" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  范围中间：浅蓝背景，蓝字  -->
-                                                <DataTrigger Binding="{Binding IsInRange}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsInRange}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Background" Value="#E6F7FF" />
                                                     <Setter TargetName="CellLabel" Property="hc:BorderElement.CornerRadius" Value="0" />
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="#1890FF" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  范围开始：左侧圆角  -->
-                                                <DataTrigger Binding="{Binding IsRangeStart}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsRangeStart}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Background" Value="#1890FF" />
                                                     <Setter TargetName="CellLabel" Property="hc:BorderElement.CornerRadius" Value="16,0,0,16" />
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="White" />
                                                     <Setter TargetName="CellLabel" Property="FontWeight" Value="Medium" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  范围结束：右侧圆角  -->
-                                                <DataTrigger Binding="{Binding IsRangeEnd}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsRangeEnd}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Background" Value="#1890FF" />
                                                     <Setter TargetName="CellLabel" Property="hc:BorderElement.CornerRadius" Value="0,16,16,0" />
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="White" />
                                                     <Setter TargetName="CellLabel" Property="FontWeight" Value="Medium" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  单日选中（开始结束同一天）：全圆角  -->
                                                 <MultiDataTrigger>
                                                     <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
                                                         <Condition Binding="{Binding IsRangeStart}" Value="True" />
                                                         <Condition Binding="{Binding IsRangeEnd}" Value="True" />
                                                     </MultiDataTrigger.Conditions>
@@ -271,6 +289,7 @@
                                                 <!--  悬停效果（仅在非选中/非范围内时生效）  -->
                                                 <MultiDataTrigger>
                                                     <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
                                                         <Condition Binding="{Binding IsRangeStart}" Value="False" />
                                                         <Condition Binding="{Binding IsRangeEnd}" Value="False" />
                                                         <Condition Binding="{Binding IsInRange}" Value="False" />
@@ -342,35 +361,53 @@
                                                 <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="#C0C4CC" />
                                                     <Setter TargetName="CellLabel" Property="Cursor" Value="Arrow" />
+                                                    <Setter TargetName="CellLabel" Property="IsHitTestVisible" Value="False" />
                                                 </DataTrigger>
                                                 <!--  今天：蓝色加粗  -->
-                                                <DataTrigger Binding="{Binding IsToday}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsToday}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="#1890FF" />
                                                     <Setter TargetName="CellLabel" Property="FontWeight" Value="Bold" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  范围中间：浅蓝背景，蓝字  -->
-                                                <DataTrigger Binding="{Binding IsInRange}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsInRange}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Background" Value="#E6F7FF" />
                                                     <Setter TargetName="CellLabel" Property="hc:BorderElement.CornerRadius" Value="0" />
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="#1890FF" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  范围开始：左侧圆角  -->
-                                                <DataTrigger Binding="{Binding IsRangeStart}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsRangeStart}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Background" Value="#1890FF" />
                                                     <Setter TargetName="CellLabel" Property="hc:BorderElement.CornerRadius" Value="16,0,0,16" />
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="White" />
                                                     <Setter TargetName="CellLabel" Property="FontWeight" Value="Medium" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  范围结束：右侧圆角  -->
-                                                <DataTrigger Binding="{Binding IsRangeEnd}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
+                                                        <Condition Binding="{Binding IsRangeEnd}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="CellLabel" Property="Background" Value="#1890FF" />
                                                     <Setter TargetName="CellLabel" Property="hc:BorderElement.CornerRadius" Value="0,16,16,0" />
                                                     <Setter TargetName="CellLabel" Property="Foreground" Value="White" />
                                                     <Setter TargetName="CellLabel" Property="FontWeight" Value="Medium" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                                 <!--  单日选中（开始结束同一天）：全圆角  -->
                                                 <MultiDataTrigger>
                                                     <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
                                                         <Condition Binding="{Binding IsRangeStart}" Value="True" />
                                                         <Condition Binding="{Binding IsRangeEnd}" Value="True" />
                                                     </MultiDataTrigger.Conditions>
@@ -379,6 +416,7 @@
                                                 <!--  悬停效果（仅在非选中/非范围内时生效）  -->
                                                 <MultiDataTrigger>
                                                     <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsCurrentMonth}" Value="True" />
                                                         <Condition Binding="{Binding IsRangeStart}" Value="False" />
                                                         <Condition Binding="{Binding IsRangeEnd}" Value="False" />
                                                         <Condition Binding="{Binding IsInRange}" Value="False" />

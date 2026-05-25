@@ -226,8 +226,9 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
                 days.Add(day);
             }
 
-            // 下月日期，补齐6行（42个）
-            var remaining = 42 - days.Count;
+            // 下月日期，补齐
+            var remaining = 7 - (int)days.Last().Date.DayOfWeek;
+            if (remaining == 7) remaining = 0;
             var nextMonth = firstDay.AddMonths(1);
             for (int i = 1; i <= remaining; i++)
             {
@@ -320,6 +321,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             }
             else if (!isSelectingStart)
             {
+                startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
                 var newEndDate = day.Date.Add(new TimeSpan(endHour, endMinute, 0));
 
                 if (newEndDate < startDate)
@@ -331,14 +333,16 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
                         endHour = tempHour;
                         StartHourCB.SelectedIndex = startHour;
                         EndHourCB.SelectedIndex = endHour;
-                        startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
 
                         var tempMinute = startMinute;
                         startMinute = endMinute;
                         endMinute = tempMinute;
                         StartMinuteCB.SelectedIndex = startMinute;
                         EndMinuteCB.SelectedIndex = endMinute;
+
+                        startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
                         newEndDate = day.Date.Add(new TimeSpan(startHour, startMinute, 0));
+                        endDate = newEndDate;
                     }
                     else
                     {
@@ -372,7 +376,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             {
                 rightMonth = rightMonth.AddMonths(-1);
                 RightMonthTitle.Text = rightMonth.ToString("yyyy年MM月");
-                if (leftMonth >= rightMonth)
+                if (leftMonth.Date >= rightMonth.Date)
                 {
                     leftMonth = rightMonth.AddMonths(-1);
                     LeftMonthTitle.Text = leftMonth.ToString("yyyy年MM月");
@@ -394,7 +398,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             {
                 leftMonth = leftMonth.AddMonths(1);
                 LeftMonthTitle.Text = leftMonth.ToString("yyyy年MM月");
-                if (leftMonth >= rightMonth)
+                if (leftMonth.Date >= rightMonth.Date)
                 {
                     rightMonth = leftMonth.AddMonths(1);
                     RightMonthTitle.Text = rightMonth.ToString("yyyy年MM月");
@@ -428,6 +432,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
 
             IsOpen = false;
 
+            // 默认显示当上月和当月
+            leftMonth = DateTime.Now.AddMonths(-1);
+            rightMonth = DateTime.Now;
+            LeftMonthTitle.Text = leftMonth.ToString("yyyy年MM月");
+            RightMonthTitle.Text = rightMonth.ToString("yyyy年MM月");
             // 刷新选中状态
             GenerateDays();
             UpdateDisplayText();
@@ -526,6 +535,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
 
             if (!StartDate.HasValue && !EndDate.HasValue)
             {
+                startDate = null;
+                endDate = null;
                 leftMonth = DateTime.Now.AddMonths(-1);
                 rightMonth = DateTime.Now;
             }
@@ -536,6 +547,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             else if (!EndDate.HasValue)
             {
                 rightMonth = leftMonth.AddMonths(1);
+            }
+            else
+            {
+                leftMonth = StartDate.Value.Date;
+                rightMonth = IsSameDay(StartDate, EndDate) ? leftMonth.AddMonths(1) : EndDate.Value.Date;
             }
             LeftMonthTitle.Text = leftMonth.ToString("yyyy年MM月");
             RightMonthTitle.Text = rightMonth.ToString("yyyy年MM月");
@@ -557,6 +573,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
             DayClickCommand?.Execute(day);
         }
 
+        private bool _isUpdatingComboBox = false;
         /// <summary>
         /// 当时间选择时触发
         /// </summary>
@@ -565,6 +582,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         private void OnTimeClick(object sender, SelectionChangedEventArgs e)
         {
             if (!(sender is ComboBox cb)) return;
+
+            if (_isUpdatingComboBox) return;
 
             var isSamDay = IsSameDay(startDate, endDate);
 
@@ -583,12 +602,24 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
                 var newStartTime = new DateTime().AddHours(newStartHour).AddMinutes(newStartMinute);
                 var endStartTime = new DateTime().AddHours(newEndHour).AddMinutes(newEndMinute);
 
-                if (newStartTime > endStartTime) return;
+                if (newStartTime > endStartTime)
+                {
+                    _isUpdatingComboBox = true;
+                    if (cb == StartHourCB) cb.SelectedIndex = startHour;
+                    if (cb == StartMinuteCB) cb.SelectedIndex = startMinute;
+                    if (cb == EndHourCB) cb.SelectedIndex = endHour;
+                    if (cb == EndMinuteCB) cb.SelectedIndex = endMinute;
+                    _isUpdatingComboBox = false;
+                    return;
+                }
             }
             if (cb == StartHourCB) startHour = (int)cb.SelectedItem;
             if (cb == StartMinuteCB) startMinute = (int)cb.SelectedItem;
             if (cb == EndHourCB) endHour = (int)cb.SelectedItem;
             if (cb == EndMinuteCB) endMinute = (int)cb.SelectedItem;
+
+            if (startDate.HasValue) startDate = startDate.Value.Date.Add(new TimeSpan(startHour, startMinute, 0));
+            if (endDate.HasValue) endDate = endDate.Value.Date.Add(new TimeSpan(endHour, endMinute, 0));
         }
     }
 

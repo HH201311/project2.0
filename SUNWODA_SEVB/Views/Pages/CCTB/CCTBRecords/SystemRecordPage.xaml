@@ -208,10 +208,10 @@
                     Height="40"
                     Margin="0,20,0,20">
                     <uccc:PaginationControl
-                        CurrentPageNumber="{Binding CurrentPageNumber}"
+                        CurrentPageNumber="{Binding CurrentPageNumber, Mode=TwoWay}"
                         GotoPageCommand="{Binding GotoPageCommand}"
-                        PageCount="{Binding PageCount}"
-                        TotalCount="{Binding TotalCount}" />
+                        PageCount="{Binding PageCount, Mode=TwoWay}"
+                        TotalCount="{Binding TotalCount, Mode=TwoWay}" />
                 </Border>
             </Grid>
         </Border>

@@ -1,123 +1,52 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using SUNWODA_SEVB.Core.Interfaces;
+﻿using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 using SUNWODA_SEVB.Core.Interfaces.MES;
-using SUNWODA_SEVB.MES.Client;
-using SUNWODA_SEVB.MES.Services;
 using SUNWODA_SEVB.Core.Models.MES;
+using SUNWODA_SEVB.MES.Client;
 using SUNWODA_SEVB.MES.Providers;
-using System.Net.Http;
+using SUNWODA_SEVB.MES.Services;
 
-namespace SUNWODA_SEVB.MES.Extensions
+namespace SUNWODA_SEVB.MES
 {
     /// <summary>
     /// MES服务依赖注入扩展
     /// </summary>
     public static class MesServiceExtensions
     {
-        /// <summary>
-        /// 添加MES服务（支持数据库配置自动检查）
-        /// </summary>
         public static IServiceCollection AddMesServices(this IServiceCollection services)
         {
-            // 注册核心MES服务
-            AddMesServicesCore(services);
-
-            // 注册MES初始化托管服务（支持数据库配置检查）
-            services.AddHostedService<MesInitializationHostedService>();
-
-            return services;
-        }
-
-        /// <summary>
-        /// 添加MES服务（不自动初始化版本，用于需要手动控制初始化时机的场景）
-        /// </summary>
-        public static IServiceCollection AddMesServicesWithoutAutoInit(this IServiceCollection services)
-        {
-            return AddMesServicesCore(services);
-        }
-
-        private static IServiceCollection AddMesServicesCore(IServiceCollection services)
-        {
-            // 1. 注册MES配置提供者（单例，负责从数据库加载配置）
+            // 1. MES 配置提供者（单例，负责数据库加载与缓存）
             services.AddSingleton<IMesConfigurationProvider, MesConfigurationProvider>();
 
-            // 2. 注册MES配置（作用域，每次请求时从提供者获取）
-            services.AddScoped(provider =>
+            // 2. MES 配置快照（单例，启动后由托管服务填充，此处返回缓存值或默认配置）
+            services.AddSingleton(sp =>
             {
-                var configProvider = provider.GetRequiredService<IMesConfigurationProvider>();
-                try
-                {
-                    var configTask = configProvider.GetConfigurationAsync();
-                    return configTask.ConfigureAwait(false).GetAwaiter().GetResult() ?? new MesApiConfiguration();
-                }
-                catch (Exception ex)
-                {
-                    var logger = provider.GetService<ILoggerService<MesApiConfiguration>>();
-                    logger?.Error($"获取MES配置失败，使用默认配置: {ex.Message}", ex);
-                    return new MesApiConfiguration();
-                }
+                var provider = sp.GetRequiredService<IMesConfigurationProvider>();
+                return provider.CurrentConfiguration ?? new MesApiConfiguration();
             });
 
-            // 3. 注册HTTP客户端管理器（单例）
-            services.AddSingleton<IMesHttpClientManager, MesHttpClientManager>();
-
-            // 4. 注册HttpClient和MES API客户端
-            services.AddHttpClient<IMesApiClient, MesApiClient>((provider, client) =>
+            // 3. 注册类型化 HttpClient，配置主消息处理器，然后添加弹性策略
+            services.AddHttpClient<IMesApiClient, MesApiClient>(client =>
             {
-                try
-                {
-                    var config = provider.GetRequiredService<MesApiConfiguration>();
-                    client.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds);
-
-                    // 设置headers
-                    client.DefaultRequestHeaders.Accept.Clear();
-                    client.DefaultRequestHeaders.Accept.ParseAdd("*/*");
-                    client.DefaultRequestHeaders.UserAgent.Clear();
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Apifox/1.0.0 (https://apifox.com)");
-                    client.DefaultRequestHeaders.ExpectContinue = false;
-                }
-                catch
-                {
-                    // 如果配置获取失败，使用默认设置
-                    client.Timeout = TimeSpan.FromSeconds(30);
-                    client.DefaultRequestHeaders.Accept.Clear();
-                    client.DefaultRequestHeaders.Accept.ParseAdd("*/*");
-                    client.DefaultRequestHeaders.UserAgent.Clear();
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("SUNWODA-SEVB-MES/1.0");
-                }
+                client.DefaultRequestHeaders.Accept.ParseAdd("*/*");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("SUNWODA-SEVB-MES/1.0");
             })
-            .ConfigurePrimaryHttpMessageHandler(() =>
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
-                return new HttpClientHandler
-                {
-                    UseProxy = false,
-                    AllowAutoRedirect = false,
-                    MaxConnectionsPerServer = 10
-                };
-            });
+                UseProxy = false,
+                AllowAutoRedirect = false,
+                MaxConnectionsPerServer = 10
+            })
+            .AddStandardResilienceHandler(); 
 
-            // 5. 注册MES主服务（单例）
-            services.AddSingleton<IMesService, MesService>();
-
-            // 6. 注册具体的业务服务（作用域）
+            // 4. 业务服务注册为 Scoped
+            services.AddScoped<IMesService, MesService>();
             services.AddScoped<IOfflineDataUploadService, OfflineDataUploadService>();
             services.AddScoped<IMarkingDataUploadService, MarkingDataUploadService>();
+            services.AddScoped<ITestDataService, TestDataService>();
 
-            // 7. 注册MES服务工厂
-            services.AddScoped<Func<string, IMesService>>(provider =>
-            {
-                return serviceName =>
-                {
-                    return serviceName.ToLower() switch
-                    {
-                        "offlinedataupload" => provider.GetRequiredService<IOfflineDataUploadService>(),
-                        "increasemarking" => provider.GetRequiredService<IMarkingDataUploadService>(),
-                        _ => provider.GetRequiredService<IMesService>()
-                    };
-                };
-            });
+            // 5. 托管服务：启动时自动初始化所有 MES 服务
+            services.AddHostedService<MesInitializationHostedService>();
 
             return services;
         }

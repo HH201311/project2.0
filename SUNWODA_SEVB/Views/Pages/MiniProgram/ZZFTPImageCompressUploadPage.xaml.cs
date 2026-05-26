@@ -12,7 +12,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using iText.Kernel.XMP.Impl;
 using SUNWODA_SEVB.ViewModels.Pages.MiniProgram;
 using static SUNWODA_SEVB.ViewModels.Pages.MiniProgram.VM_ZZFTPImageCompressUploadPage;
 

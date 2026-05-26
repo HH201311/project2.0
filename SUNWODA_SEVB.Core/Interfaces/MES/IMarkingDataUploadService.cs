@@ -13,8 +13,8 @@ namespace SUNWODA_SEVB.Core.Interfaces.MES
         /// <param name="serialNumber">序列号</param>
         /// <param name="markingData">Marking数据</param>
         /// <returns>上传结果</returns>
-        Task<bool> UploadMarkingDataAsync(string serialNumber, string markingData);
+        //Task<bool> UploadMarkingDataAsync(string serialNumber, string markingData);
 
-
+        Task<IncreaseMarkingResponse> UploadAsync(string productSn, List<string>? defectList = null, CancellationToken cancellationToken = default);
     }
 }

@@ -211,6 +211,7 @@ namespace SUNWODA_SEVB.Data
                 new GlobalSetting { Name = "IsUseWeb", Value = "false", Type = "bool", Remark = "是否启用WEB服务", RoleRank = 2 },
                 new GlobalSetting { Name ="isEnableHeartbeat",Value="false",Type ="bool",Remark = "是否启用web心跳",RoleRank =2 },
                 new GlobalSetting { Name ="isEnableMachineErrorLog",Value="false",Type ="bool",Remark = "是否启用上位机预警飞书推送",RoleRank =2 },
+                new GlobalSetting { Name ="MesProfile",Value="test",Type ="string",Remark = "MES环境：生产/测试",RoleRank =2 },
             };
             foreach (var setting in settings)
             {
@@ -390,10 +391,10 @@ namespace SUNWODA_SEVB.Data
                 new MESSetting {ProfileName ="test",Key = "TimeoutSeconds",Value ="30",Type = "int", Remark = "超时时间(秒)"},
                 new MESSetting { ProfileName ="test",Key = "EnableRetry",Value ="false",Type = "bool", Remark = "是否启用重试"},
                 new MESSetting { ProfileName ="test",Key = "MaxRetryCount",Value ="3",Type = "int", Remark = "重试次数"},
-        
+
             };
 
-            foreach(var setting in mesSettings)
+            foreach (var setting in mesSettings)
             {
                 if (!_db.Queryable<MESSetting>().Any(it => it.ProfileName == setting.ProfileName && it.Key == setting.Key))
                 {

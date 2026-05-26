@@ -1,9 +1,11 @@
-﻿using SqlSugar;
+﻿using Mapster;
+using SqlSugar;
 using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Data.Models;
-using Mapster;
-using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Data.Models;
+using SUNWODA_SEVB.Tool.Extension;
+using System.Text.RegularExpressions;
 
 namespace SUNWODA_SEVB.Data.Repositories
 {
@@ -34,7 +36,7 @@ namespace SUNWODA_SEVB.Data.Repositories
             catch (Exception ex)
             {
                 // 记录错误但不抛出，避免影响应用运行
-                    _logger.Error( $"批量插入日志失败，日志数量：{logs.Count}", ex);
+                _logger.Error($"批量插入日志失败，日志数量：{logs.Count}", ex);
                 return false;
             }
         }
@@ -50,7 +52,7 @@ namespace SUNWODA_SEVB.Data.Repositories
             }
             catch (Exception ex)
             {
-                _logger.Error("删除过期日志失败",ex);
+                _logger.Error("删除过期日志失败", ex);
                 return 0;
             }
         }
@@ -142,7 +144,70 @@ namespace SUNWODA_SEVB.Data.Repositories
             return totalDeleted;
         }
 
-      
+        /// <summary>
+        /// 获取 用户/系统操作 日志记录个数（支持时间过滤）
+        /// </summary>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public async Task<int> GetUserRecordsCountAsync(DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.UserLog}.";
+            return await CountAsync(model => model.Logger.StartsWith(header)
+                                  && (startTime == null || model.LogTime >= startTime)
+                                  && (endTime == null || model.LogTime <= endTime));
+        }
 
+        /// <summary>
+        /// 获取 用户/系统操作 日志记录个数（支持时间过滤）
+        /// </summary>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public int GetUserRecordsCount(DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.UserLog}.";
+            return Count(model => model.Logger.StartsWith(header)
+                         && (startTime == null || model.LogTime >= startTime)
+                         && (endTime == null || model.LogTime <= endTime));
+        }
+
+        /// <summary>
+        /// 用户记录分页查询（支持时间过滤）
+        /// </summary>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public (List<AppLogModel> Items, int Total) GetUserRecordsPaged(int pageIndex, int pageSize, DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.UserLog}.";
+            return GetPaged(model => model.Logger.StartsWith(header)
+                            && (startTime == null || model.LogTime >= startTime)
+                            && (endTime == null || model.LogTime <= endTime),
+                            pageIndex,
+                            pageSize,
+                            model => model.LogTime, true);
+        }
+
+        /// <summary>
+        /// 用户记录分页查询（支持时间过滤）
+        /// </summary>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public async Task<(List<AppLogModel> Items, int Total)> GetUserRecordsPagedAsync(int pageIndex, int pageSize, DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.UserLog}.";
+            return await GetPagedAsync(model => model.Logger.StartsWith(header)
+                                       && (startTime == null || model.LogTime >= startTime)
+                                       && (endTime == null || model.LogTime <= endTime),
+                                       pageIndex,
+                                       pageSize,
+                                       model => model.LogTime, true);
+        }
     }
 }

@@ -2,6 +2,7 @@
     x:Class="SUNWODA_SEVB.Views.Pages.CCTB.CCTBRecordingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -10,5 +11,52 @@
     d:DesignWidth="800"
     mc:Ignorable="d">
 
-    <Grid Background="DarkBlue" />
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Background="Transparent">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="150" />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        <Border
+            Grid.Column="0"
+            Background="#0DFFFFFF"
+            BorderThickness="0"
+            CornerRadius="10">
+            <StackPanel Orientation="Vertical">
+                <RadioButton
+                    d:IsChecked="True"
+                    Command="{Binding SystemRecordCommand}"
+                    Content="系统操作"
+                    IsChecked="{Binding SelectedModule.Name, Mode=OneWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='VM_SystemRecordPage'}"
+                    Style="{StaticResource SubNavigationRadioButtonStyle}" />
+                <RadioButton
+                    d:IsChecked="False"
+                    Command="{Binding AdjustmentRecordCommand}"
+                    Content="调机记录"
+                    IsChecked="{Binding SelectedModule.Name, Mode=OneWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='VM_AdjustmentRecordPage'}"
+                    Style="{StaticResource SubNavigationRadioButtonStyle}" />
+                <RadioButton
+                    d:IsChecked="False"
+                    Command="{Binding AlarmRecordCommand}"
+                    Content="报警记录"
+                    IsChecked="{Binding SelectedModule.Name, Mode=OneWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='VM_AlarmRecordPage'}"
+                    Style="{StaticResource SubNavigationRadioButtonStyle}" />
+            </StackPanel>
+        </Border>
+
+        <Frame
+            Grid.Column="1"
+            Margin="20,0,0,0"
+            BorderThickness="0"
+            Content="{Binding NavigationPage}" />
+    </Grid>
 </Page>

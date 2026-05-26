@@ -115,7 +115,10 @@
             VerticalAlignment="Top"
             IsEnabled="{Binding IsArithmeticEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}">
             <Border Background="#0DFFFFFF" CornerRadius="0,10,0,50" />
-            <Path Data="M42.0 13.12                         s-4.0 1.3 -8.67 6.5                         a50.4 50.4 0 0 0 -7.0 9.26                         A23.15 23.15 0 0 0 16.99 20.58                         l3.5 -3.25                         a18.84 18.84 0 0 1 5.34 6.01                         A36.4 36.4 0 0 1 42.0 11.0                         z" Fill="#3DCC84" />
+            <Path
+                Margin="17,11,8,21"
+                Data="M25,2.11s-4,1.3-8.666,6.493a50.363,50.363,0,0,0-7,9.254A23.154,23.154,0,0,0,0,9.578L3.5,6.331a18.832,18.832,0,0,1,5.334,6.006A36.406,36.406,0,0,1,25,0Z"
+                Fill="#FF3DCC84" />
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Style.Triggers>

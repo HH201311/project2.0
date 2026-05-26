@@ -17,6 +17,7 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.PLC;
 using SUNWODA_SEVB.Tool.Extension;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -32,7 +33,7 @@ namespace SUNWODA_SEVB.PLC
         private readonly IPLCAddressConfigRepository _plcAddressConfigRepository;
         private readonly IGlobalSettingRepository _globalSettingRepository;
 
-        private readonly ConcurrentDictionary<int, PLC> _plcs = new();
+        private readonly ConcurrentDictionary<int, PLCDevice> _plcs = new();
         private readonly ConcurrentDictionary<int, PLCRWConfigModel> _rwConfigs = new();
         private readonly ConcurrentDictionary<int, PLCRWAddress> _rwAddresses = new();
         private readonly ConcurrentDictionary<string, ConnectInfo> _connectionStatus = new();
@@ -53,7 +54,7 @@ namespace SUNWODA_SEVB.PLC
         );
 
         public bool IsInitialized => _isInitialized;
-        public IReadOnlyDictionary<int, PLC> PLCs => _plcs;
+        public IReadOnlyDictionary<int, PLCDevice> PLCs => _plcs;
         public IReadOnlyDictionary<string, ConnectInfo> ConnectionStatus => _connectionStatus;
         public IReadOnlyDictionary<int, PLCRWAddress> RWAddresses => _rwAddresses;
 
@@ -228,12 +229,12 @@ namespace SUNWODA_SEVB.PLC
         /// <summary>
         /// 创建PLC设备
         /// </summary>
-        private PLC CreatePLC(PLCConfigModel plcConfig)
+        private PLCDevice CreatePLC(PLCConfigModel plcConfig)
         {
             var brandProtocol = ParsePLCBrandProtocol(plcConfig.BrandSpecificationProtocal);
             var dataSortRule = ParseDataSortRule(plcConfig.DataSortRule);
 
-            var plc = new PLC(
+            var plc = new PLCDevice(
                 plcConfig.ID,
                 plcConfig.Name,
                 brandProtocol,
@@ -248,19 +249,19 @@ namespace SUNWODA_SEVB.PLC
             return plc;
         }
 
-        public dynamic? GetPLCByName(string name)
+        public PLCDevice? GetPLCByName(string name)
         {
-            if (PLCs != null && PLCs.Values.Any(o => o.Name == name))
+            if (PLCs != null)
             {
-                return PLCs.Values.First(o => o.Name == name);
+                return PLCs.Values.FirstOrDefault(o => o.Name == name);
             }
-            return default(PLC);
+            return null;
         }
 
         /// <summary>
         /// 配置设备连接
         /// </summary>
-        private void ConfigureDeviceConnection(PLC plc)
+        private void ConfigureDeviceConnection(PLCDevice plc)
         {
             plc.Device = plc.BrandSpecificationProtocal switch
             {
@@ -352,7 +353,7 @@ namespace SUNWODA_SEVB.PLC
         /// 带重试的连接方法
         /// </summary>
         private async Task<bool> ConnectWithRetryAsync(
-            PLC plc,
+            PLCDevice plc,
             int maxRetries,
             CancellationToken cancellationToken
         )
@@ -448,12 +449,14 @@ namespace SUNWODA_SEVB.PLC
         /// <summary>
         /// 读取循环
         /// </summary>
-        private async Task ReadCycleAsync(PLC plc, CancellationToken cancellationToken)
+        private async Task ReadCycleAsync(PLCDevice plc, CancellationToken cancellationToken)
         {
+            var sw = new Stopwatch();
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
+                    sw.Restart();
                     await Task.Delay(plc.CycleReadTime, cancellationToken);
 
                     if (!await EnsureConnectedAsync(plc, cancellationToken))
@@ -469,16 +472,29 @@ namespace SUNWODA_SEVB.PLC
                         cancellationToken,
                         async (rwConfig, ct) =>
                         {
+                            //using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                            //cts.CancelAfter(TimeSpan.FromMilliseconds(plc.CycleReadTime));
                             try
                             {
+                                //var task = ReadAddressRangeAsync(plc, rwConfig, ct);
+                                //await task.WaitAsync(cts.Token);
+
                                 await ReadAddressRangeAsync(plc, rwConfig, ct);
                             }
+                            //catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                            //{
+                            //    _logger.Error($"读取地址段失败[超时(PLC读取循环时间):{plc.CycleReadTime} ms]: {rwConfig.Name}", true);
+                            //}
                             catch (Exception ex)
                             {
                                 _logger.Error($"读取地址段失败: {rwConfig.Name}", ex, true);
                             }
                         }
                     );
+
+                    sw.Stop();
+                    if (sw.ElapsedMilliseconds - plc.CycleReadTime > plc.CycleReadTime)
+                        _logger.Debug($"PLC[{plc.Name}]读取循环耗时: {sw.ElapsedMilliseconds} ms");
                 }
                 catch (OperationCanceledException)
                 {
@@ -496,7 +512,7 @@ namespace SUNWODA_SEVB.PLC
         /// 读取地址范围
         /// </summary>
         private async Task ReadAddressRangeAsync(
-            PLC plc,
+            PLCDevice plc,
             PLCRWConfigModel rwConfig,
             CancellationToken cancellationToken
         )
@@ -519,21 +535,27 @@ namespace SUNWODA_SEVB.PLC
             //    cancellationToken
             //);
 
-            var result = await Task.Run(
-                async () =>
-                    await (
-                        plc.Device is not null
-                            ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
-                            : Task.FromResult(
-                                new OperateResult<byte[]>()
-                                {
-                                    IsSuccess = false,
-                                    Message = "Device属性为空",
-                                }
-                            )
-                    ),
-                cancellationToken
-            );
+            // 不能触发cancellationToken取消操作，修改为下面的方式执行     -By2210120078  -20260522
+            //var result = await Task.Run(
+            //    async () =>
+            //        await (plc.Device is not null
+            //                ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
+            //                : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空", })
+            //        ),
+            //    cancellationToken
+            //);
+
+            // 直接使用WaitAsync等待PLC读取任务完成或超时，避免PLC读取操作无法响应cancellationToken取消的情况     -By2210120078  -20260522
+            //var task = plc.Device is not null
+            //    ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
+            //    : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空" });
+            //var result = await task.WaitAsync(cancellationToken);
+
+            // 替换为同步方法Read，尝试解决ReadAsync偶发读取耗时过长问题     -By2210120078  -20260522
+            var task = plc.Device is not null
+                ? Task.Run(() => plc.Device.Read(address, (ushort)rwConfig.Length))
+                : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空" });
+            var result = await task.WaitAsync(cancellationToken);
 
             plc.IsConnect = result?.IsSuccess ?? false;
             if (plc.IsConnect)
@@ -546,7 +568,7 @@ namespace SUNWODA_SEVB.PLC
             }
         }
 
-        public async Task<bool> ReadAddressAsync(PLC plc, PLCRWAddress address, int bitIndex)
+        public async Task<bool> ReadAddressAsync(PLCDevice plc, PLCRWAddress address, int bitIndex)
         {
             var result = await plc.ReadAsync(address.Address!, address.Length);
 
@@ -582,7 +604,7 @@ namespace SUNWODA_SEVB.PLC
         /// <summary>
         /// 更新地址值
         /// </summary>
-        private void UpdateAddressValues(PLC plc, PLCRWConfigModel rwConfig, byte[] data)
+        private void UpdateAddressValues(PLCDevice plc, PLCRWConfigModel rwConfig, byte[] data)
         {
             var addresses = _rwAddresses.Values.Where(a => a.AddressRangeId == rwConfig.ID);
 
@@ -609,7 +631,7 @@ namespace SUNWODA_SEVB.PLC
                             address.Length
                         );
                         }
-                        
+
                     }
                     catch (Exception ex)
                     {
@@ -622,7 +644,7 @@ namespace SUNWODA_SEVB.PLC
         /// <summary>
         /// 写入循环
         /// </summary>
-        private async Task WriteCycleAsync(PLC plc, CancellationToken cancellationToken)
+        private async Task WriteCycleAsync(PLCDevice plc, CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -681,7 +703,7 @@ namespace SUNWODA_SEVB.PLC
         /// 写入地址
         /// </summary>
         private async Task WriteAddressAsync(
-            PLC plc,
+            PLCDevice plc,
             PLCRWAddress address,
             CancellationToken cancellationToken
         )
@@ -710,7 +732,7 @@ namespace SUNWODA_SEVB.PLC
         /// <param name="plc"></param>
         /// <param name="address"></param>
         /// <returns></returns>
-        public async Task WriteAddressAsync(PLC plc, PLCRWAddress address)
+        public async Task WriteAddressAsync(PLCDevice plc, PLCRWAddress address)
         {
             if (address.MonitorValue == null)
                 return;
@@ -762,13 +784,15 @@ namespace SUNWODA_SEVB.PLC
         /// <summary>
         /// 确保连接
         /// </summary>
-        private async Task<bool> EnsureConnectedAsync(PLC plc, CancellationToken cancellationToken)
+        private async Task<bool> EnsureConnectedAsync(PLCDevice plc, CancellationToken cancellationToken)
         {
             if (plc.IsConnect)
                 return true;
 
             try
             {
+                var sw = new Stopwatch();
+                sw.Start();
                 // 使用带重试的连接
                 var connected = await ConnectWithRetryAsync(plc, 2, cancellationToken);
 
@@ -776,6 +800,9 @@ namespace SUNWODA_SEVB.PLC
                 {
                     _logger.Warn($"无法建立PLC连接: {plc.Name}");
                 }
+
+                sw.Stop();
+                _logger.Debug($"{plc.Name}执行重连[耗时{sw.ElapsedMilliseconds} ms]：{(connected ? "成功" : "失败")}");
 
                 return connected;
             }
@@ -958,7 +985,7 @@ namespace SUNWODA_SEVB.PLC
 
         // 设备配置方法
         private static DeviceTcpNet ConfigureSiemens(
-            PLC plc,
+            PLCDevice plc,
             SiemensPLCS type,
             byte rack = 0,
             byte slot = 0
@@ -977,7 +1004,7 @@ namespace SUNWODA_SEVB.PLC
             return siemens;
         }
 
-        private static DeviceTcpNet? ConfigureOmron(PLC plc)
+        private static DeviceTcpNet? ConfigureOmron(PLCDevice plc)
         {
             switch (plc.BrandSpecificationProtocal)
             {
@@ -1002,10 +1029,10 @@ namespace SUNWODA_SEVB.PLC
                 default:
                     return default;
             }
-            
+
         }
 
-        private static DeviceTcpNet? ConfigureMelsec(PLC plc)
+        private static DeviceTcpNet? ConfigureMelsec(PLCDevice plc)
         {
             switch (plc.BrandSpecificationProtocal)
             {
@@ -1040,7 +1067,7 @@ namespace SUNWODA_SEVB.PLC
             }
         }
 
-        private static DeviceTcpNet ConfigurePanasonic(PLC plc)
+        private static DeviceTcpNet ConfigurePanasonic(PLCDevice plc)
         {
             var panasonic = new PanasonicMewtocolOverTcp(plc.IP, plc.Port);
             //panasonic.ByteTransform.IsStringReverseByteWord = false;
@@ -1049,7 +1076,7 @@ namespace SUNWODA_SEVB.PLC
             return panasonic;
         }
 
-        private static DeviceTcpNet? ConfigureKeyence(PLC plc)
+        private static DeviceTcpNet? ConfigureKeyence(PLCDevice plc)
         {
             switch (plc.BrandSpecificationProtocal)
             {
@@ -1076,7 +1103,7 @@ namespace SUNWODA_SEVB.PLC
             }
         }
 
-        private static DeviceTcpNet ConfigureInovance(PLC plc, InovanceSeries inovanceSeries)
+        private static DeviceTcpNet ConfigureInovance(PLCDevice plc, InovanceSeries inovanceSeries)
         {
             var inovance = new InovanceTcpNet(plc.IP, plc.Port);
             inovance.Series = inovanceSeries;
@@ -1087,7 +1114,7 @@ namespace SUNWODA_SEVB.PLC
             return inovance;
         }
 
-        private static DeviceTcpNet ConfigureModbus(PLC plc)
+        private static DeviceTcpNet ConfigureModbus(PLCDevice plc)
         {
             var modbus = new ModbusTcpNet(plc.IP, plc.Port);
             if (plc.ByteDataFormat is not null)
@@ -1095,6 +1122,34 @@ namespace SUNWODA_SEVB.PLC
             plc.ByteTransform = modbus.ByteTransform;
             plc.AddressWordLength = 2;
             return modbus;
+        }
+
+        /// <summary>
+        /// 确保PLC已连接（尝试重连）
+        /// </summary>
+        /// <param name="plc"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task<bool> EnsurePLCConnectedAsync(PLCDevice plc, CancellationToken cancellationToken = default)
+        {
+            if (plc == null) return false;
+            if (plc.IsConnect) return true;
+            return await EnsureConnectedAsync(plc, cancellationToken);
+        }
+
+        /// <summary>
+        /// 根据地址ID获取关联的PLC ID
+        /// </summary>
+        public int? GetPLCIdForAddress(int addressId)
+        {
+            if (_rwAddresses.TryGetValue(addressId, out var address))
+            {
+                if (_rwConfigs.TryGetValue(address.AddressRangeId, out var config))
+                {
+                    return config.PLCID;
+                }
+            }
+            return null;
         }
 
         // 资源清理

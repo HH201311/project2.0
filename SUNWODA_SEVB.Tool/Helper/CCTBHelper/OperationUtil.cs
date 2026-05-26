@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
 using SUNWODA_SEVB.Core.Interfaces;
@@ -7,11 +8,14 @@ using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
+using SUNWODA_SEVB.Tool.Extension;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
@@ -308,14 +312,32 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
 
         #region AlarmConfigs参数
         /// <summary>
-        /// 加载涂布闭环报警信息配置，参数名称为"AlarmConfigs"
+        /// 加载涂布闭环报警信息配置，参数名称为"AlarmConfig"，如果没有配置则加载默认配置
+        /// </summary>
+        /// <returns></returns>
+        public List<AlarmConfigModel> LoadAlarmConfigWithDefault()
+        {
+            var configs = LoadAlarmConfigProjectParamrers();
+            foreach (var config in AlarmDefaultConfig.Configs)
+            {
+                if (configs.Exists(o => o.Code == config.Key)) continue;
+                var newConfig = config.Value.CopyByJson();
+                if (newConfig == null) continue;
+                configs.Add(newConfig);
+            }
+
+            return configs;
+        }
+
+        /// <summary>
+        /// 加载涂布闭环报警信息配置，参数名称为"AlarmConfig"
         /// </summary>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public List<AlarmConfigModel> LoadAlarmConfigsProjectParamrers()
+        public List<AlarmConfigModel> LoadAlarmConfigProjectParamrers()
         {
             if (_projectSettingRepository == null) throw new ArgumentNullException(nameof(_projectSettingRepository));
-            var paramName = $"AlarmConfigs";
+            var paramName = $"AlarmConfig";
 
             var model = new List<AlarmConfigModel>();
             if (!_projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
@@ -341,10 +363,10 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
         /// <param name="value"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public bool SaveAlarmConfigsProjectParamrers(List<AlarmConfigModel> value)
+        public bool SaveAlarmConfigProjectParamrers(List<AlarmConfigModel> value)
         {
             if (_projectSettingRepository == null) throw new ArgumentNullException(nameof(_projectSettingRepository));
-            var paramName = $"AlarmConfigs";
+            var paramName = $"AlarmConfig";
             return SaveProjectParametersAsJson(paramName, value);
         }
         #endregion
@@ -433,6 +455,67 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
         }
         #endregion
 
+        #region RoleManagementConfig参数
+        /// <summary>
+        /// 加载涂布闭环角色管理信息配置，参数名称为"RoleManagementConfig"，如果没有配置则加载默认配置
+        /// </summary>
+        /// <returns></returns>
+        public List<RoleManagementModel> LoadRoleManagementConfigWithDefault()
+        {
+            var configs = LoadRoleManagementConfigProjectParamrers();
+            foreach (var config in RoleManagementDefaultConfig.Configs)
+            {
+                if (configs.Exists(o => o.Code == config.Key)) continue;
+                var newConfig = config.Value.CopyByJson();
+                if (newConfig == null) continue;
+                configs.Add(newConfig);
+            }
+
+            return configs;
+        }
+
+        /// <summary>
+        /// 加载涂布闭环角色管理信息配置，参数名称为"RoleManagementConfig"
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public List<RoleManagementModel> LoadRoleManagementConfigProjectParamrers()
+        {
+            if (_projectSettingRepository == null) throw new ArgumentNullException(nameof(_projectSettingRepository));
+            var paramName = $"RoleManagementConfig";
+
+            var model = new List<RoleManagementModel>();
+            if (!_projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonConvert.SerializeObject(model), "string", 4)
+                    {
+                        Remark = "涂布闭环角色管理信息配置"
+                    }
+                );
+            }
+
+            var paramValues = new List<RoleManagementModel>();
+            var paramModel = _projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel == null) return paramValues;
+            paramValues = JsonConvert.DeserializeObject<List<RoleManagementModel>>(paramModel?.Value ?? "");
+            return paramValues ?? new List<RoleManagementModel>();
+        }
+
+        /// <summary>
+        /// 保存涂布闭环角色管理信息配置
+        /// </summary>
+        /// <param name="values"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool SaveRoleManagementConfigProjectParamrers(List<RoleManagementModel> value)
+        {
+            if (_projectSettingRepository == null) throw new ArgumentNullException(nameof(_projectSettingRepository));
+            var paramName = $"RoleManagementConfig";
+            return SaveProjectParametersAsJson(paramName, value);
+        }
+        #endregion
+
         #region 通用Json方式保存参数
         /// <summary>
         /// 保存为Json字符串的参数，适用于复杂对象的保存，调用时需要保证value对象是可序列化的
@@ -448,6 +531,66 @@ namespace SUNWODA_SEVB.Tool.Helper.CCTBHelper
             return _projectSettingRepository.Update(paramrer);
         }
         #endregion
+        #endregion
+
+        #region 公共静态方法
+        /// <summary>
+        /// 用户角色枚举转换字符串
+        /// </summary>
+        /// <param name="userRole"></param>
+        /// <returns></returns>
+        public static string RoleIDToString(UserRole role)
+        {
+            return RoleIDToString((int)role);
+        }
+
+        /// <summary>
+        /// 用户角色枚举转换字符串
+        /// </summary>
+        /// <param name="userRole"></param>
+        /// <returns></returns>
+        public static string RoleIDToString(int id)
+        {
+            return id switch
+            {
+                (int)UserRole.Guest => "操作员",
+                (int)UserRole.Engineer => "工程师",
+                (int)UserRole.Admin => "管理员",
+                (int)UserRole.SuperAdmin => "超级管理员",
+                _ => "操作员",
+            };
+        }
+
+        /// <summary>
+        /// 用户角色字符串转换枚举
+        /// </summary>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        public static int StringToRoleID(string role)
+        {
+            return role switch
+            {
+                "操作员" => (int)UserRole.Guest,
+                "工程师" => (int)UserRole.Engineer,
+                "管理员" => (int)UserRole.Admin,
+                "超级管理员" => (int)UserRole.SuperAdmin,
+                _ => (int)UserRole.Guest,
+            };
+        }
+
+        /// <summary>
+        /// 账号校验(仅包含数字&字母)
+        /// </summary>
+        /// <param name="account"></param>
+        /// <returns></returns>
+        public static bool IsValidAccount(string? account)
+        {
+            if (string.IsNullOrWhiteSpace(account))
+                return false;
+
+            // ^[a-zA-Z0-9]+$ 表示：从头到尾只能是字母和数字
+            return Regex.IsMatch(account, @"^[a-zA-Z0-9]+$");
+        }
         #endregion
     }
 }

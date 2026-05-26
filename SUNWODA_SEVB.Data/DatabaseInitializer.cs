@@ -143,7 +143,9 @@ namespace SUNWODA_SEVB.Data
                             && t.IsClass
                             && !t.IsAbstract
                             && !t.IsInterface
-                            && !t.IsGenericType);
+                            && !t.IsGenericType
+                            // 排除项目专用统计表，不参与全局默认建表
+                            && t != typeof(DetectionStatistics));
 
                     modelTypes.AddRange(types);
                 }

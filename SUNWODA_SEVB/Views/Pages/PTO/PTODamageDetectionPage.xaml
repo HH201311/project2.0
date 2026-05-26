@@ -1060,26 +1060,41 @@
                                         </StackPanel>
                                     </Grid>
                                 </StackPanel>
-                                <!--  存储缓存刷新  -->
-                                <StackPanel
-                                    Grid.Column="2"
-                                    Margin="0,20,0,0"
-                                    Orientation="Horizontal">
+                                <!--  存储管理和报警设置  -->
+                                <StackPanel Grid.Column="2">
+                                    <!--  存储管理  -->
                                     <TextBlock
-                                        VerticalAlignment="Center"
+                                        Margin="0,0,0,10"
                                         FontWeight="Bold"
-                                        Text="存储管理:" />
-                                    <Button
-                                        Width="100"
-                                        Height="30"
-                                        Margin="10,0,0,0"
-                                        Background="#E74C3C"
-                                        BorderThickness="0"
-                                        Command="{Binding InvalidateStorageCacheCommand}"
-                                        Content="刷新存储"
-                                        Foreground="White"
-                                        IsEnabled="{Binding CanOperate}"
-                                        ToolTip="清理磁盘后点击，立即重新检测可用盘符并重置告警状态" />
+                                        Text="辅助功能：" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Margin="0,0,0,10" Text="存储：" />
+                                        <Button
+                                            Width="120"
+                                            Height="35"
+                                            Margin="0,0,0,20"
+                                            Background="#5DADE2"
+                                            BorderThickness="0"
+                                            Command="{Binding InvalidateStorageCacheCommand}"
+                                            Content="刷新存储"
+                                            FontSize="14"
+                                            Foreground="White"
+                                            IsEnabled="{Binding CanOperate}"
+                                            ToolTip="清理磁盘后点击，立即重新检测可用盘符并重置告警状态" />
+                                    </StackPanel>
+                                    <!--  报警设置  -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Margin="0,0,0,10" Text="报警设置：" />
+                                        <CheckBox
+                                            Content="启用PLC报警"
+                                            FontSize="14"
+                                            IsChecked="{Binding IsAlarmEnabled}"
+                                            IsEnabled="{Binding CanOperate}"
+                                            ToolTip="开启后，检测到NG时将触发PLC报警信号" />
+                                    </StackPanel>
+
+
+
                                 </StackPanel>
                             </Grid>
 
@@ -1904,7 +1919,7 @@
             -->
             <mah:Flyout
                 x:Name="DrawRoiFlyout"
-                Width="950"
+                Width="1050"
                 Height="650"
                 AnimateOpacity="True"
                 Background="White"
@@ -1982,18 +1997,15 @@
                                     <!--  画笔样式设置：红色（#E74C3C）、4px宽高、平滑曲线  -->
                                     <InkCanvas.DefaultDrawingAttributes>
                                         <DrawingAttributes
-                                            Width="4"
-                                            Height="4"
+                                            Width="3"
+                                            Height="3"
                                             FitToCurve="True"
                                             Color="#E74C3C" />
 
                                         <!--  画布背景：绑定VM的CurrentRoiImageSource，显示待处理图片  -->
                                     </InkCanvas.DefaultDrawingAttributes>
                                     <InkCanvas.Background>
-                                        <ImageBrush
-                                            ImageSource="{Binding CurrentRoiImageSource}"
-                                            Opacity="0.95"
-                                            Stretch="Uniform" />
+                                        <ImageBrush ImageSource="{Binding CurrentRoiImageSource}" Stretch="Uniform" />
                                     </InkCanvas.Background>
                                 </InkCanvas>
                             </Grid>

@@ -1,15 +1,25 @@
-﻿using SUNWODA_SEVB.Core.Common;
+﻿using HandyControl.Controls;
+using HandyControl.Tools.Extension;
+using Microsoft.VisualBasic.ApplicationServices;
+using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Services;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation;
+using SUNWODA_SEVB.ViewModels.Dialogs.Common;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace SUNWODA_SEVB.ViewModels.Windows.Project
@@ -20,6 +30,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         private readonly INavigationService _navigationService;
         private readonly IModuleManager _moduleManager;
         private readonly IGlobalSettingRepository _globalSettingRepository;
+        private readonly IUsersRepository _usersRepository;
 
         private Page? _navigationPage;
         private ModuleInfo? _selectedModule;
@@ -56,43 +67,33 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             set => SetProperty(ref _isNavigating, value);
         }
 
-        public ICommand? DeviceSwitchoverCommand { get; set; }
-        public ICommand? ControlSwitchoverCommand { get; set; }
-        public ICommand? MonitoringCommand { get; set; }
-        public ICommand? SettingsCommand { get; set; }
-        public ICommand? RecordingsCommand { get; set; }
+        public ICommand? ChangeAccountCommand => new RelayCommand(OnChangeAccountAsync);
+        public ICommand? ChangePasswordCommand => new RelayCommand(OnChangePasswordCommandAsync);
+        public ICommand? LogoutCommand => new RelayCommand(OnLogoutAsync);
+
+        public ICommand? DeviceSwitchoverCommand => new RelayCommand(() => { });
+        public ICommand? ControlSwitchoverCommand => new RelayCommand(() => { });
+        public ICommand? MonitoringCommand => new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBMonitoringPage"));
+        public ICommand? SettingsCommand => new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBSettingsPage"));
+        public ICommand? RecordingsCommand => new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBRecordingsPage"));
 
         public VM_CCTBMainWindow(
             ILoggerService<VM_CCTBMainWindow> logger,
             INavigationService navigationService,
             IModuleManager moduleManager,
-            IGlobalSettingRepository globalSettingRepository
+            IGlobalSettingRepository globalSettingRepository,
+            IUsersRepository usersRepository
         )
         {
             _logger = logger;
             _navigationService = navigationService;
             _moduleManager = moduleManager;
             _globalSettingRepository = globalSettingRepository;
-        }
+            _usersRepository = usersRepository;
 
-        /// <summary>
-        /// 初始化
-        /// </summary>
-        public override void OnInitialize()
-        {
-            DeviceSwitchoverCommand = new RelayCommand(() => { });
-            ControlSwitchoverCommand = new RelayCommand(() => { });
-
-            base.OnInitialize();
-        }
-
-        /// <summary>
-        /// 异步初始化
-        /// </summary>
-        /// <returns></returns>
-        protected override async Task OnInitializeAsync()
-        {
-            await base.OnInitializeAsync();
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
+            OnUserStateChanged("guest");
         }
 
         /// <summary>
@@ -103,11 +104,6 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         {
             // 显示加载提示
             IsNavigating = true;
-
-            // 初始化导航
-            MonitoringCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBMonitoringPage"));
-            SettingsCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBSettingsPage"));
-            RecordingsCommand = new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBRecordingsPage"));
 
             // 加载模块
             _moduleManager.AutoRegisterModulesByName("VM_CCTBMonitoringPage", "VM_CCTBSettingsPage", "VM_CCTBRecordingsPage");
@@ -220,5 +216,167 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
 
             await base.OnCleanupAsync();
         }
+
+        #region 用户
+        private string? userName;
+        private string? userIcon;
+        private Visibility changePasswordVisibility = Visibility.Collapsed;
+        private Visibility logoutVisibility = Visibility.Collapsed;
+
+        public string? UserName { get => userName; set => SetProperty(ref userName, value); }
+        public string? UserIcon { get => userIcon; set => SetProperty(ref userIcon, value); }
+        public Visibility ChangePasswordVisibility { get => changePasswordVisibility; set => SetProperty(ref changePasswordVisibility, value); }
+        public Visibility LogoutVisibility { get => logoutVisibility; set => SetProperty(ref logoutVisibility, value); }
+
+
+        /// <summary>
+        /// 更新用户显示信息
+        /// </summary>
+        /// <param name="userAccount"></param>
+        private void OnUserStateChanged(string userAccount)
+        {
+            var role = _usersRepository.GetByUserAccount(userAccount);
+            UserName = string.IsNullOrEmpty(role?.UserName) ? "*****" : role?.UserName;
+            UserIcon = string.IsNullOrEmpty(role?.UserAccount) ? "*" :
+                role?.UserAccount switch
+                {
+                    "guest" => "访",
+                    "engineer" => "工",
+                    "admin" => "管",
+                    "sadmin" => "超",
+                    _ => string.IsNullOrEmpty(role?.UserName) ? "*" : role?.UserName.Last().ToString(),
+                };
+
+            ChangePasswordVisibility = role?.RoleId < (int)UserRole.Engineer ? Visibility.Collapsed : Visibility.Visible;
+            LogoutVisibility = userAccount == "guest" ? Visibility.Collapsed : Visibility.Visible;
+
+            CCTBCore.UserAccount = role?.UserAccount;
+            CCTBCore.UserName = role?.UserName;
+            CCTBCore.UserRoleID = role?.RoleId ?? -1;
+        }
+
+        /// <summary>
+        /// 档切换用户登录时触发
+        /// </summary>
+        private async void OnChangeAccountAsync()
+        {
+            var userModel = new UserManagementModel();
+            var password = string.Empty;
+            await Dialog
+                  .Show(new VM_UserLoginDialog().UIElement)
+                  .Initialize<VM_UserLoginDialog>(vm =>
+                  {
+                      vm.UserModel = userModel;
+                  })
+                  .GetResultAsync<string?>()
+                  .ContinueWith(um =>
+                  {
+                      password = um.Result;
+                  });
+            if (string.IsNullOrEmpty(password)) return;
+
+            (bool isLoggedIn, UsersModel? user) = await LoginAsync(userModel?.Account, password);
+            if (isLoggedIn)
+            {
+                await _usersRepository.UpdateAsync(user!);
+                await _globalSettingRepository.UpdateSettingValueAsync(
+                    "CurrentUserAccount",
+                    user!.UserAccount
+                );
+                UserStateChangedEvent.Raise(user.UserAccount);
+                _logger.Info($"{user.UserAccount} 在 {user.LastLoginTime:yyyy-MM-dd HH:mm:ss} 登录成功");
+                Growl.SuccessGlobal("登录成功");
+            }
+            else
+            {
+                _logger.Warn($"账号: {userModel?.Account}, 账号或密码错误", true);
+                Growl.WarningGlobal("账号或密码错误");
+            }
+        }
+
+        /// <summary>
+        /// 登录验证
+        /// </summary>
+        /// <param name="userAccount"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
+        private async Task<(bool, UsersModel?)> LoginAsync(string? userAccount, string? password)
+        {
+            if (userAccount == null)
+                return (false, null);
+
+            var user = await _usersRepository.GetByUserAccountAsync(userAccount);
+            if (user == null)
+                return (false, user);
+
+            if (BCrypt.Net.BCrypt.Verify(password, user.Password))
+                return (true, user);
+            return (false, user);
+        }
+
+        /// <summary>
+        /// 当退出登录时触发
+        /// </summary>
+        private async void OnLogoutAsync()
+        {
+            // 获取当前用户角色
+            var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
+            var role = _usersRepository.GetByUserAccount(userAccount);
+            if (role == null) return;
+
+            var result = await VM_CCTBMessageBoxDialog.ShowAsync($"注销用户 '{role.UserName}({role.UserAccount})' ?", "是否注销", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+
+            _logger.Info($"{userAccount} 在 {DateTime.Now:yyyy-MM-dd HH:mm:ss} 退出登录");
+            await _globalSettingRepository.UpdateSettingValueAsync("CurrentUserAccount", "guest");
+            UserStateChangedEvent.Raise("guest");
+            Growl.SuccessGlobal("退出登录");
+        }
+
+        /// <summary>
+        /// 当修改密码时触发
+        /// </summary>
+        private async void OnChangePasswordCommandAsync()
+        {
+            // 获取当前用户角色
+            var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
+            //var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
+
+            var user = await _usersRepository.GetByUserAccountAsync(userAccount);
+            if (user != null)
+            {
+                string? newPassword = null;
+                await Dialog
+                    .Show(new VM_UserChangePasswordDialog().UIElement)
+                    .Initialize<VM_UserChangePasswordDialog>(vm =>
+                    {
+                        vm.OldPassword = user.Password;
+                    })
+                    .GetResultAsync<string?>()
+                    .ContinueWith(um => newPassword = um.Result);
+                if (newPassword != null)
+                {
+                    user.Password = newPassword;
+                    if (await _usersRepository.UpdateAsync(user))
+                    {
+                        _logger.Warn($"修改 {user.UserAccount} 账号密码成功！");
+                        Growl.SuccessGlobal($"修改 {user.UserAccount} 账号密码成功！");
+                        //RefreshUsersAsync();
+                        return;
+                    }
+                    else
+                    {
+                        _logger.Warn($"修改 {user.UserAccount} 账号密码失败！", true);
+                        Growl.WarningGlobal($"修改 {user.UserAccount} 账号密码失败！");
+                    }
+                }
+            }
+            else
+            {
+                _logger.Warn($"{userAccount} 账号未找到！", true);
+                Growl.WarningGlobal($"{userAccount} 账号未找到！");
+            }
+        }
+        #endregion
     }
 }

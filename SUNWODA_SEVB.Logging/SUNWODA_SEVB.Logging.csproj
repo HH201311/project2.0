@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <PackageReference Include="MySql.Data" Version="9.4.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NLog" Version="6.0.2" />
     <PackageReference Include="NLog.Extensions.Logging" Version="6.0.2" />
   </ItemGroup>

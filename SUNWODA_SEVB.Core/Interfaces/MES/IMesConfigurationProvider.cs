@@ -20,6 +20,6 @@ namespace SUNWODA_SEVB.Core.Interfaces.MES
         /// <summary>
         /// 获取当前配置
         /// </summary>
-        MesApiConfiguration? CurrentConfiguration { get; }
+        MesApiConfiguration? CurrentConfiguration { get; }        
     }
 }

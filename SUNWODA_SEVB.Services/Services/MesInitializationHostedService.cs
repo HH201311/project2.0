@@ -10,67 +10,87 @@ namespace SUNWODA_SEVB.MES.Services
     /// </summary>
     public class MesInitializationHostedService : IHostedService
     {
-        private readonly IMesService _mesService;
-        private readonly IMesConfigurationProvider _configProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILoggerService<MesInitializationHostedService> _logger;
-        private Timer? _statusCheckTimer;
+        private Timer? _healthCheckTimer;
 
-        public MesInitializationHostedService(
-            IMesService mesService,
-            IMesConfigurationProvider configProvider,
-            ILoggerService<MesInitializationHostedService> logger)
+        public bool IsInitialized { get; private set; }
+        public string? StatusMessage { get; private set; }
+
+        public MesInitializationHostedService(IServiceScopeFactory scopeFactory, ILoggerService<MesInitializationHostedService> logger)
         {
-            _mesService = mesService ?? throw new ArgumentNullException(nameof(mesService));
-            _configProvider = configProvider ?? throw new ArgumentNullException(nameof(configProvider));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _scopeFactory = scopeFactory;
+            _logger = logger;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             try
             {
-                _logger.Info("========== MES初始化服务启动 ==========");
-
-                // 1. 预加载MES配置（确保配置提供者初始化）
-                var config = await _configProvider.GetConfigurationAsync();
-                if (config == null)
+                _logger.Info("MES初始化托管服务启动...");
+                await InitializeMesServicesAsync(cancellationToken);
+                if (IsInitialized)
                 {
-                    _logger.Warn("未找到有效MES配置或MES服务已禁用，跳过MES主服务初始化");
-                    _logger.Info("========== MES初始化服务完成 ==========");
-                    return;
+                    _healthCheckTimer = new Timer(_ => CheckHealth(), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5));
                 }
-
-                // 2. 初始化主MES服务
-                _logger.Info($"成功预加载MES配置: Profile={config.ProfileName}");
-                var result = await _mesService.InitializeAsync();
-                if (result)
-                {
-                    _logger.Info($"MES主服务初始化成功 (启用状态: {_mesService.IsEnabled})");
-                }
-                else
-                {
-                    _logger.Warn("MES主服务初始化失败或未启用");
-                }
-
-                _logger.Info("========== MES初始化服务完成 ==========");
+                _logger.Info($"MES初始化完成：{StatusMessage}");
             }
             catch (Exception ex)
             {
-                _logger.Error("MES初始化服务启动失败", ex);
-                // 不抛出异常，避免影响应用程序启动
+                StatusMessage = $"初始化异常: {ex.Message}";
+                _logger.Error("MES初始化失败", ex);
             }
         }
 
-     
-      
+        private async Task InitializeMesServicesAsync(CancellationToken cancellationToken, int maxRetries = 3)
+        {
+            for (int i = 1; i <= maxRetries; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using var scope = _scopeFactory.CreateScope();
+                var configProvider = scope.ServiceProvider.GetRequiredService<IMesConfigurationProvider>();
+                var config = await configProvider.GetConfigurationAsync();
+                if (config == null)
+                {
+                    StatusMessage = "MES未启用或无配置";
+                    _logger.Info(StatusMessage);
+                    return;
+                }
+
+                // 初始化所有 IMesService 实现
+                var services = scope.ServiceProvider.GetServices<IMesService>();
+                bool allOk = true;
+                foreach (var svc in services)
+                {
+                    var result = await svc.InitializeAsync();
+                    allOk &= result;
+                }
+
+                if (allOk)
+                {
+                    IsInitialized = true;
+                    StatusMessage = "所有MES服务初始化成功";
+                    _logger.Info(StatusMessage);
+                    return;
+                }
+
+                StatusMessage = $"初始化失败，重试 {i}/{maxRetries}";
+                _logger.Warn(StatusMessage);
+                if (i < maxRetries)
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, i)), cancellationToken);
+            }
+            StatusMessage = "初始化达到最大重试次数";
+            _logger.Error(StatusMessage);
+        }
+
+        private void CheckHealth()
+        {
+            _logger.Debug($"MES健康检查：已初始化={IsInitialized}，状态={StatusMessage}");
+        }
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            _logger.Info("MES服务托管服务正在停止...");
-
-            _statusCheckTimer?.Dispose();
-            _statusCheckTimer = null;
-
+            _healthCheckTimer?.Dispose();
             return Task.CompletedTask;
         }
     }

@@ -1,45 +1,91 @@
-﻿
+﻿using System.Text.Json.Serialization;
+
 namespace SUNWODA_SEVB.Core.Models.MES
 {
     /// <summary>
-    /// 测试数据模型
+    /// 离线测试数据模型
     /// </summary>
     public class OfflineTestData
     {
-        public string paramCode { get; set; } = string.Empty;
-        public string paramName { get; set; } = string.Empty;
-        public string paramValue { get; set; } = string.Empty;
-        public string paramResult { get; set; } = string.Empty;
-        public string paramUnit { get; set; } = string.Empty;
+        /// <summary>
+        /// 参数代码
+        /// </summary>
+        [JsonPropertyName("paramCode")]
+        public string ParamCode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 参数名称
+        /// </summary>
+        [JsonPropertyName("paramName")]
+        public string ParamName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 参数值
+        /// </summary>
+        [JsonPropertyName("paramValue")]
+        public string ParamValue { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 参数结果
+        /// </summary>
+        [JsonPropertyName("paramResult")]
+        public string ParamResult { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 参数单位
+        /// </summary>
+        [JsonPropertyName("paramUnit")]
+        public string ParamUnit { get; set; } = string.Empty;
     }
 
-    /// <summary>
-    /// 环境数据模型
-    /// </summary>
     public class EnvironmentData
     {
         /// <summary>
         /// 参数代码
         /// </summary>
-        public string paramCode { get; set; }= string.Empty;
+        [JsonPropertyName("paramCode")]
+        public string ParamCode { get; set; } = string.Empty;
+
         /// <summary>
-        /// 参数项名称
+        /// 参数名称
         /// </summary>
-        public string paramName { get; set; } = string.Empty;
+        [JsonPropertyName("paramName")]
+        public string ParamName { get; set; } = string.Empty;
+
         /// <summary>
-        /// 参数项值
+        /// 参数值
         /// </summary>
-        public string paramValue { get; set; } = string.Empty;
+        [JsonPropertyName("paramValue")]
+        public string ParamValue { get; set; } = string.Empty;
+
         /// <summary>
-        /// 参数项结果
+        /// 参数结果
         /// </summary>
-        public string paramResult { get; set; } = string.Empty;
+        [JsonPropertyName("paramResult")]
+        public string ParamResult { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// 步骤数据模型
+    /// </summary>
     public class StepData
     {
+        /// <summary>
+        /// 步骤名称
+        /// </summary>
+        [JsonPropertyName("stepName")]
         public string StepName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 参数值
+        /// </summary>
+        [JsonPropertyName("value")]
         public double Value { get; set; }
+
+        /// <summary>
+        /// 时间戳
+        /// </summary>
+        [JsonPropertyName("timestamp")]
         public DateTime Timestamp { get; set; }
-       
     }
 }

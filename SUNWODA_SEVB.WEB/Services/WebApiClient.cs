@@ -1,13 +1,10 @@
-﻿using Newtonsoft.Json;
-using SUNWODA_SEVB.Core.Interfaces;
+﻿using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 
 namespace SUNWODA_SEVB.WEB.Services
@@ -849,6 +846,15 @@ namespace SUNWODA_SEVB.WEB.Services
             try
             {
                 var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new TrajectoryDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
                 var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new TtrajectoryDataRequest

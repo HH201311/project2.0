@@ -45,6 +45,6 @@ namespace SUNWODA_SEVB.Core.Interfaces.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        Task<List<MESSettingModel>> GetByValueAsync(string value);
+        Task<List<MESSettingModel>> GetByValueAsync(string value);        
     }
 }

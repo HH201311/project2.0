@@ -21,7 +21,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 Timeout = TimeSpan.FromSeconds(120)
             };
         }
-
+       
         public byte[] IMEWebPost(string url, string jsonData, Dictionary<string, string>? headers = null)
         {
             return IMEWebPost(url, jsonData, "application/json", headers);
@@ -267,7 +267,15 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
-
+        /// <summary>
+        /// 支持单文件上传的接口，fileBytes 参数为文件的字节数组，fileType 参数为文件的 MIME 类型，format 参数为文件扩展名（如 "jpg"、"mp4" 等），用于自动生成文件名
+        /// </summary>
+        /// <param name="jsonString"></param>
+        /// <param name="fileBytes"></param>
+        /// <param name="url"></param>
+        /// <param name="fileType"></param>
+        /// <param name="format"></param>
+        /// <returns></returns>
         public async Task<byte[]> HttpWebPostBytesAsync(string jsonString, byte[]? fileBytes, string url, string fileType, string format)
         {
             using var form = new MultipartFormDataContent();
@@ -300,6 +308,13 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+        /// <summary>
+        /// 支持多文件上传的接口，files 参数为一个列表，每个元素包含文件字节数组、文件类型、文件名和文件扩展名
+        /// </summary>
+        /// <param name="jsonString"></param>
+        /// <param name="files"></param>
+        /// <param name="url"></param>
+        /// <returns></returns>
         public async Task<byte[]> HttpWebPostMultiFilesAsync
         (
             string jsonString,

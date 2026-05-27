@@ -12,7 +12,6 @@ using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Data;
 using SUNWODA_SEVB.Logging;
 using SUNWODA_SEVB.Logging.Targets;
-using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Services.Project;
@@ -31,6 +30,7 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using SUNWODA_SEVB.MES;
 
 namespace SUNWODA_SEVB
 {

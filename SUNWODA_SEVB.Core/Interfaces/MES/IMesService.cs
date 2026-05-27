@@ -1,5 +1,4 @@
-﻿
-namespace SUNWODA_SEVB.Core.Interfaces
+﻿namespace SUNWODA_SEVB.Core.Interfaces.MES
 {
     /// <summary>
     /// MES服务基础接口
@@ -10,12 +9,7 @@ namespace SUNWODA_SEVB.Core.Interfaces
         /// 服务名称
         /// </summary>
         string ServiceName { get; }
-
-        ///// <summary>
-        ///// 服务版本
-        ///// </summary>
-        //string GetVersion();
-
+        
         /// <summary>
         /// 服务是否已启用
         /// </summary>
@@ -30,6 +24,7 @@ namespace SUNWODA_SEVB.Core.Interfaces
         /// 重置服务
         /// </summary>
         Task ResetAsync();
+
         /// <summary>
         /// 动态更新MES启用状态
         /// </summary>

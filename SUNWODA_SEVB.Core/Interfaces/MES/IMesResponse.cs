@@ -16,6 +16,6 @@ namespace SUNWODA_SEVB.Core.Interfaces.MES
     /// </summary>
     public interface IMesResponse<T> : IMesResponse
     {
-        T Data { get; set; }
+        T? Data { get; set; }
     }
 }

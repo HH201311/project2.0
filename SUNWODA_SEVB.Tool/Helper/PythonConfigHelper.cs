@@ -1,13 +1,5 @@
 ﻿using Python.Runtime;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace SUNWODA_SEVB.Tool.Helper
@@ -16,8 +8,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     {
         private static Thread? PythonThread;
         public static bool IsWorking { get; private set; } = false;
-        private static Queue<(Action<object[]>, object[])> actions =
-            new Queue<(Action<object[]>, object[])>();
+        private static readonly Queue<(Action<object[]>, object[])> actions =new();
 
         /// <summary>
         /// 是否已经初始化配置python环境
@@ -32,7 +23,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (!IsInitConfig)
             {
-                AddAction((InitConfig, new object[] { pyInstallPath }));
+                AddAction((InitConfig, [pyInstallPath]));
             }
         }
 
@@ -45,7 +36,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (!IsInitConfig)
             {
-                AddAction((InitConfig, new object[] { pyInstallPath, pySearchPaths }));
+                AddAction((InitConfig, [pyInstallPath, pySearchPaths]));
             }
         }
 
@@ -170,9 +161,11 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (!IsWorking)
             {
-                PythonThread = new Thread(DoAction);
-                PythonThread.IsBackground = true;
-                PythonThread.Name = "PythonThread";
+                PythonThread = new Thread(DoAction)
+                {
+                    IsBackground = true,
+                    Name = "PythonThread"
+                };
                 IsWorking = true;
                 PythonThread.Start();
             }

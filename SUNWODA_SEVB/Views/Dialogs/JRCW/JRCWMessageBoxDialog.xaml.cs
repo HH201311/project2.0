@@ -16,11 +16,11 @@ using System.Windows.Shapes;
 namespace SUNWODA_SEVB.Views.Dialogs.JRCW
 {
     /// <summary>
-    /// MessageBoxDialog.xaml 的交互逻辑
+    /// JRCWMessageBoxDialog.xaml 的交互逻辑
     /// </summary>
-    public partial class MessageBoxDialog : Border
+    public partial class JRCWMessageBoxDialog : Border
     {
-        public MessageBoxDialog()
+        public JRCWMessageBoxDialog()
         {
             InitializeComponent();
         }

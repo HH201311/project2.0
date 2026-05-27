@@ -129,7 +129,9 @@
         <ScrollViewer
             Grid.Row="1"
             Grid.Column="1"
+            Grid.ColumnSpan="2"
             MaxHeight="300"
+            Padding="0,0,20,0"
             VerticalScrollBarVisibility="Auto">
             <TextBlock d:Text="删除用户“林小小2603270042”？" Text="{Binding Message}">
                 <TextBlock.Style>

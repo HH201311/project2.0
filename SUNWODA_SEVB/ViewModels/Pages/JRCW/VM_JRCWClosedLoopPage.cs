@@ -98,9 +98,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <returns></returns>
         public override void OnInitialize()
         {
-            SelectionChangedCommand = new RelayCommand(OnSelectionChanged);
             InitializeLineSeriersModel();
             InitializeJRCWParamProjectSettings();
+
+            //var mdValuesOfPLis = new List<float>() { -2.137134f, -0.8065236f, -1.1558688f, -1.5345021f, -1.593727f, -1.8542415f, -1.8153977f, -1.7504096f, -1.863073f, -1.8487477f, -1.8338695f, -1.8966379f, -1.7773713f, -1.9196755f, -1.8516003f, -1.9684861f, -2.0063298f, -2.125726f, -2.0839593f, -1.8234645f, -2.0256083f, -2.1196222f, -2.047932f, -2.1428692f, -2.0984135f, -1.969963f, -2.0946927f, -1.6220043f, -1.8600519f, -1.8689973f, -2.2271605f, -2.0347984f, -2.0744624f, -1.469502f, -1.5658348f };
+            //var mdValuesOfNLis = new List<float>() { -0.77716064f, -1.7596405f, -4.4269776f, -4.776448f, -5.0802784f, -5.0367136f, -5.0928802f, -5.0987782f, -5.180695f, -5.212035f, -5.243376f, -4.7549167f, -5.305808f, -5.363608f, -5.4217186f, -5.3730526f, -5.485018f, -5.516668f, -5.710203f, -5.552573f, -5.6667137f, -5.2026143f, -5.7022495f, -5.5395336f, -5.626597f, -5.798724f, -5.60376f, -5.577058f, -5.492151f, -5.4649878f, -5.4075627f, -5.291801f, -5.0557394f, -1.556534f, -1.624161f, -1.6619664f };
+            //var mdValuesOfPArr = mdValuesOfPLis.Take(35).Skip(2).Take(mdValuesOfPLis.Count - 4).ToArray();
+            //var mdValuesOfNArr = mdValuesOfNLis.Take(36).Skip(2).Take(mdValuesOfNLis.Count - 4).ToArray();
+            ////var data = GetDataOfMisJudge(calculateDatasCache.ToArray());
+
+            //Task.Run(async () =>
+            //{
+            //    //while (true)
+            //    {
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //         ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
+            //        //var dOfEC = ExcuteErrorCompensation(mdValuesOfPArr, mdValuesOfNArr);
+            //        //var t = ParamSettingModel.K * (ParamSettingModel.Na + ParamSettingModel.Nb) / 2;
+            //        //var reOfMJ = ExcuteMisJudge(data, ParamSettingModel, 1, t, 0, 0);
+            //        await Task.Delay(100);
+            //    }
+            //});
+
+
             base.OnInitialize();
         }
 
@@ -219,7 +249,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         #region PLC地址列表
         private List<string> lineNames = new List<string>() { "", "", "", "" };
         public ObservableCollection<ParameterModel> PLCAddressModels { get; set; } = [];
-        public ICommand? SelectionChangedCommand { get; set; }
+        public ICommand? SelectionChangedCommand => new RelayCommand(OnSelectionChanged);
 
         private void OnSelectionChanged(object? arg)
         {
@@ -1024,6 +1054,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <returns></returns>
         private DisclassOutputModel ExcuteDisclass(float[] mdValuesOfP, float[] mdValuesOfN)
         {
+            Thread.Sleep(100);
             var pyResoult = new PyResultModel<DisclassInputModel, DisclassOutputModel>();
             pyResoult.PyInPut = new DisclassInputModel();
             pyResoult.PyInPut.MDValuesOfP = mdValuesOfP;
@@ -1058,7 +1089,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 _logger.Error($"'错位分类算法'参数解析异常[{JsonConvert.SerializeObject(args)}]");
                 throw new ArgumentException(nameof(args), $"参数异常[{JsonConvert.SerializeObject(args)}]");
             }
-
             try
             {
                 var inputModel = pyResoult.PyInPut;

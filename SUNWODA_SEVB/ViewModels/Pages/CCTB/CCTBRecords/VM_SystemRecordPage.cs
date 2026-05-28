@@ -70,6 +70,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         public ICommand? GotoPageCommand => new RelayCommand(OnGotoPageAsync);
 
         /// <summary>
+        /// 展示信息
+        /// </summary>
+        public ICommand? ShowMessageCommand => new RelayCommand(OnShowMessageAsync);
+
+        /// <summary>
         /// 构造函数
         /// </summary>
         public VM_SystemRecordPage(
@@ -108,7 +113,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// </summary>
         private async void OnQueryAsync()
         {
-            LoadRecords();
+            var records = await _appLogRepository.GetUserRecordsPagedAsync(1, PageSize, StartDate, EndDate);
+            _ = VM_CCTBMessageBoxDialog.InfoAsync($"已查询到[{records.Total}]条数据！", "提示");
+            RefreshRecordInfo(1, records);
             startDateCache = StartDate;
             endDateCache = EndDate;
         }
@@ -129,6 +136,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
             cts = new CancellationTokenSource();
             try
             {
+                if (Records.Count == 0)
+                {
+                    await VM_CCTBMessageBoxDialog.InfoAsync("查询到0条数据，已停止导出！", "提示");
+                    return;
+                }
+
+                var re1 = await VM_CCTBMessageBoxDialog.ShowAsync($"已查询到[{Records.Count}]条数据，是否确认导出？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (re1 != MessageBoxResult.Yes) return;
+
                 var fileName = $"SystemRecords_{DateTime.Now:yyyyMMddHHmmss}.csv";
                 var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
                 var fullPath = Path.Combine(desktopPath, "系统操作记录");
@@ -137,8 +153,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
 
                 if (File.Exists(filePath))
                 {
-                    var result = await VM_CCTBMessageBoxDialog.ShowAsync($"[{filePath}]文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (result != MessageBoxResult.Yes) return;
+                    var re2 = await VM_CCTBMessageBoxDialog.ShowAsync($"[{filePath}]文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (re2 != MessageBoxResult.Yes) return;
                 }
 
                 var task = CsvSaveHelper.WriteToFileAsync(filePath, Records); ;
@@ -159,15 +175,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
                 cts.Dispose();
                 cts = null;
             }
-
-            return;
-            var message = "点击报警信息中的'点击异常复位'按钮";
-            _logger.UserTrace(message);
-            _logger.UserDebug(message);
-            _logger.UserInfo(message);
-            _logger.UserWarn(message);
-            _logger.UserError(message);
-            _logger.UserFatal(message);
         }
 
         /// <summary>
@@ -189,18 +196,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
                 var fileName = $"SystemRecords_{DateTime.Now:yyyyMMddHHmmss}.csv";
                 var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
                 var fullPath = Path.Combine(desktopPath, "系统操作记录");
-                if (!Directory.Exists(fullPath)) Directory.CreateDirectory(fullPath);
                 var filePath = Path.Combine(fullPath, fileName);
 
                 if (File.Exists(filePath))
                 {
-                    var result = await VM_CCTBMessageBoxDialog.ShowAsync($"[{filePath}]文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (result != MessageBoxResult.Yes) return;
+                    var re1 = await VM_CCTBMessageBoxDialog.ShowAsync($"[{filePath}]文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (re1 != MessageBoxResult.Yes) return;
                     File.Delete(filePath);
                 }
 
-                var rows = new List<Dictionary<string, string>>();
                 var count = await _appLogRepository.GetUserRecordsCountAsync(startDateCache, endDateCache);
+                if (count == 0)
+                {
+                    await VM_CCTBMessageBoxDialog.InfoAsync("查询到0条数据，已停止导出！", "提示");
+                    return;
+                }
+
+                var re2 = await VM_CCTBMessageBoxDialog.ShowAsync($"已查询到[{count}]条数据，是否确认导出？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (re2 != MessageBoxResult.Yes) return;
+
+                var rows = new List<Dictionary<string, string>>();
                 var pageCount = (count + PageSize - 1) / PageSize;
                 for (int i = 0; i < pageCount; i++)
                 {
@@ -244,6 +259,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
             LoadRecords(pageNumber);
         }
 
+        /// <summary>
+        /// 当点击信息时触发
+        /// </summary>
+        /// <param name="arg"></param>
+        private async void OnShowMessageAsync(object? arg)
+        {
+            if (!(arg is string message)) return;
+            if (string.IsNullOrEmpty(message)) return;
+
+            await VM_CCTBMessageBoxDialog.InfoAsync(message, "系统操作记录");
+        }
+
         #region 系统操作日志记录
         /// <summary>
         /// 每页条数
@@ -257,6 +284,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
 
         private DateTime? startDate, endDate;
         private int totalCount, pageCount, currentPageNumber;
+        private SystemRecordModel? selectedRecord;
 
         /// <summary>
         /// 查询起始时间
@@ -289,27 +317,40 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         public ObservableCollection<SystemRecordModel> Records { get; set; } = [];
 
         /// <summary>
+        /// 当前选中的记录
+        /// </summary>
+        public SystemRecordModel? SelectedRecord { get => selectedRecord; set => SetProperty(ref selectedRecord, value); }
+
+        /// <summary>
         /// 加载日志记录
         /// </summary>
         /// <param name="pageNumber"></param>
         private void LoadRecords(int pageNumber = 1)
         {
             var records = _appLogRepository.GetUserRecordsPaged(pageNumber, PageSize, StartDate, EndDate);
+            RefreshRecordInfo(pageNumber, records);
+        }
 
-            RunOnUIThread(() =>
+        /// <summary>
+        /// 更新记录信息
+        /// </summary>
+        /// <param name="pageNumber"></param>
+        /// <param name="records"></param>
+        private void RefreshRecordInfo(int pageNumber, (List<AppLogModel> Items, int Total) records)
+        {
+            Records.Clear();
+            TotalCount = records.Total;
+            PageCount = (records.Total + PageSize - 1) / PageSize;
+            CurrentPageNumber = pageNumber;
+
+            for (int i = 0; i < records.Items.Count; i++)
             {
-                Records.Clear();
-                TotalCount = records.Total;
-                PageCount = (records.Total + PageSize - 1) / PageSize;
-                CurrentPageNumber = pageNumber;
+                var record = ConvertToRecord(records.Items[i]);
+                record.ID = (pageNumber - 1) * PageSize + i + 1;
+                Records.Add(record);
+            }
 
-                for (int i = 0; i < records.Items.Count; i++)
-                {
-                    var record = ConvertToRecord(records.Items[i]);
-                    record.ID = (pageNumber - 1) * PageSize + i + 1;
-                    Records.Add(record);
-                }
-            });
+            SelectedRecord = Records.FirstOrDefault();
         }
 
         private SystemRecordModel ConvertToRecord(AppLogModel log)

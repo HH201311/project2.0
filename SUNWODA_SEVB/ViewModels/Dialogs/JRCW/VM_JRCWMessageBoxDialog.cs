@@ -7,7 +7,7 @@ using SUNWODA_SEVB.Core.Common.Commands;
 
 namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW
 {
-    public class VM_MessageBoxDialog : DialogViewModelBase, IDialogResultable<bool>
+    public class VM_JRCWMessageBoxDialog : DialogViewModelBase, IDialogResultable<bool>
     {
         private string? messageText;
         private string? caption;

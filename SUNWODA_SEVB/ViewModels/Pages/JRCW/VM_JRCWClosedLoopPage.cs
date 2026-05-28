@@ -796,7 +796,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         #endregion
 
         #region 闭环计算
-        private VM_MessageBoxDialog mb = new VM_MessageBoxDialog();
+        private VM_JRCWMessageBoxDialog mb = new VM_JRCWMessageBoxDialog();
         /// <summary>
         /// 卷绕极耳错位闭环计算逻辑
         /// </summary>
@@ -1474,8 +1474,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
             {
                 try
                 {
-                    var mb = new VM_MessageBoxDialog();
-                    var re = await Dialog.Show(mb.UIElement, "DialogMainWindow").Initialize<VM_MessageBoxDialog>(vm =>
+                    var mb = new VM_JRCWMessageBoxDialog();
+                    var re = await Dialog.Show(mb.UIElement, "DialogMainWindow").Initialize<VM_JRCWMessageBoxDialog>(vm =>
                      {
                          vm.MessageText = messageText;
                          vm.Caption = caption;

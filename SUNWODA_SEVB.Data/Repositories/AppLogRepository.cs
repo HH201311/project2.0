@@ -144,6 +144,7 @@ namespace SUNWODA_SEVB.Data.Repositories
             return totalDeleted;
         }
 
+        #region 用户记录查询
         /// <summary>
         /// 获取 用户/系统操作 日志记录个数（支持时间过滤）
         /// </summary>
@@ -209,5 +210,142 @@ namespace SUNWODA_SEVB.Data.Repositories
                                        pageSize,
                                        model => model.LogTime, true);
         }
+        #endregion
+
+        #region 调机记录查询
+        /// <summary>
+        /// 获取 调机 日志记录个数（支持时间过滤）
+        /// </summary>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public async Task<int> GetAdjustmentRecordsCountAsync(DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AdjustmentLog}.";
+            return await CountAsync(model => model.Logger.StartsWith(header)
+                                  && (startTime == null || model.LogTime >= startTime)
+                                  && (endTime == null || model.LogTime <= endTime));
+        }
+
+        /// <summary>
+        /// 获取 调机 日志记录个数（支持时间过滤）
+        /// </summary>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public int GetAdjustmentRecordsCount(DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AdjustmentLog}.";
+            return Count(model => model.Logger.StartsWith(header)
+                         && (startTime == null || model.LogTime >= startTime)
+                         && (endTime == null || model.LogTime <= endTime));
+        }
+
+        /// <summary>
+        /// 调机记录分页查询（支持时间过滤）
+        /// </summary>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public (List<AppLogModel> Items, int Total) GetAdjustmentRecordsPaged(int pageIndex, int pageSize, DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AdjustmentLog}.";
+            return GetPaged(model => model.Logger.StartsWith(header)
+                            && (startTime == null || model.LogTime >= startTime)
+                            && (endTime == null || model.LogTime <= endTime),
+                            pageIndex,
+                            pageSize,
+                            model => model.LogTime, true);
+        }
+
+        /// <summary>
+        /// 调机记录分页查询（支持时间过滤）
+        /// </summary>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public async Task<(List<AppLogModel> Items, int Total)> GetAdjustmentRecordsPagedAsync(int pageIndex, int pageSize, DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AdjustmentLog}.";
+            return await GetPagedAsync(model => model.Logger.StartsWith(header)
+                                       && (startTime == null || model.LogTime >= startTime)
+                                       && (endTime == null || model.LogTime <= endTime),
+                                       pageIndex,
+                                       pageSize,
+                                       model => model.LogTime, true);
+        }
+        #endregion
+
+        #region 报警记录查询
+        /// <summary>
+        /// 获取 报警 日志记录个数（支持时间过滤）
+        /// </summary>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public async Task<int> GetAlarmRecordsCountAsync(DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AlarmLog}.";
+            return await CountAsync(model => model.Logger.StartsWith(header)
+                                  && (startTime == null || model.LogTime >= startTime)
+                                  && (endTime == null || model.LogTime <= endTime));
+        }
+
+        /// <summary>
+        /// 获取 报警 日志记录个数（支持时间过滤）
+        /// </summary>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public int GetAlarmRecordsCount(DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AlarmLog}.";
+            return Count(model => model.Logger.StartsWith(header)
+                         && (startTime == null || model.LogTime >= startTime)
+                         && (endTime == null || model.LogTime <= endTime));
+        }
+
+        /// <summary>
+        /// 报警记录分页查询（支持时间过滤）
+        /// </summary>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public (List<AppLogModel> Items, int Total) GetAlarmRecordsPaged(int pageIndex, int pageSize, DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AlarmLog}.";
+            return GetPaged(model => model.Logger.StartsWith(header)
+                            && (startTime == null || model.LogTime >= startTime)
+                            && (endTime == null || model.LogTime <= endTime),
+                            pageIndex,
+                            pageSize,
+                            model => model.LogTime, true);
+        }
+
+        /// <summary>
+        /// 报警记录分页查询（支持时间过滤）
+        /// </summary>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public async Task<(List<AppLogModel> Items, int Total)> GetAlarmRecordsPagedAsync(int pageIndex, int pageSize, DateTime? startTime = null, DateTime? endTime = null)
+        {
+            var header = $"SpecialFile.{LoggerExtension.AlarmLog}.";
+            return await GetPagedAsync(model => model.Logger.StartsWith(header)
+                                       && (startTime == null || model.LogTime >= startTime)
+                                       && (endTime == null || model.LogTime <= endTime),
+                                       pageIndex,
+                                       pageSize,
+                                       model => model.LogTime, true);
+        }
+        #endregion
     }
 }

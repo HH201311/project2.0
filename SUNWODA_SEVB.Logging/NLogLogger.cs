@@ -460,7 +460,7 @@ namespace SUNWODA_SEVB.Logging
                 return null;
 
             // 尝试从错误消息中提取错误代码
-            // 假设格式为 "[ERROR_CODE] message" 或 "Error Code: ERROR_CODE"
+            // 假设格式为 "[ERROR_CODE] Message" 或 "Error Code: ERROR_CODE"
             var patterns = new[]
             {
                 @"\[([A-Z0-9_]+)\]",

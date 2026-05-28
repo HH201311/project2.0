@@ -68,7 +68,7 @@ namespace SUNWODA_SEVB.Data.Repositories
                 var sql = @"
                 SELECT 
                     ROUND(
-                        (SUM(LENGTH(loglever) + LENGTH(logger) + LENGTH(message) + 
+                        (SUM(LENGTH(loglever) + LENGTH(logger) + LENGTH(Message) + 
                              IFNULL(LENGTH(exception), 0)) + COUNT(*) * 50) / 1024.0 / 1024.0, 2
                     ) as SizeMB
                 FROM app_logs";

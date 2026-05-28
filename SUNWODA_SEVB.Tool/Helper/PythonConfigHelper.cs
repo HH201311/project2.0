@@ -7,11 +7,12 @@ namespace SUNWODA_SEVB.Tool.Helper
     public static class PythonConfigHelper
     {
         private static Thread? PythonThread;
-        
-        private static volatile bool isWorking = false;          
+        private static AutoResetEvent ar = new AutoResetEvent(false);
+
+        private static volatile bool isWorking = false;
         public static bool IsWorking => isWorking;
 
-        private static readonly Queue<(Action<object[]>, object[])> actions =new();
+        private static readonly Queue<(Action<object[]>, object[])> actions = new();
         private static readonly object queueLock = new();
 
         /// <summary>
@@ -107,7 +108,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     {
                         searchPaths.AddRange(customPaths);
                     }
-                }                
+                }
 
                 searchPaths.Add("./PythonScripts");
                 PythonEngine.PythonPath = string.Join(";", searchPaths);
@@ -160,7 +161,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return false;
             }
         }
-        
+
         /// <summary>
         /// 启动PythonThread
         /// </summary>
@@ -212,10 +213,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 try
                 {
                     // 释放 Python 资源
-                    PythonEngine.Shutdown();   
+                    PythonEngine.Shutdown();
                 }
                 catch (Exception ex)
-                {                    
+                {
                     MessageBox.Show($"PythonEngine.Shutdown 失败: {ex.Message}");
                 }
                 IsInitConfig = false;
@@ -230,8 +231,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         private static void DoAction()
         {
             // 每次循环检查标志
-            while (isWorking)   
+            while (isWorking)
             {
+                ar.WaitOne(); // 等待新任务通知
                 (Action<object[]> action, object[] args)? item = null;
                 try
                 {
@@ -248,17 +250,12 @@ namespace SUNWODA_SEVB.Tool.Helper
                     {
                         item.Value.action(item.Value.args);
                     }
-                    else
-                    {
-                        // 队列为空，短暂休眠避免 CPU 空转
-                        Thread.Sleep(100);
-                    }
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Python 任务执行出错: {ex.Message}");
                 }
-            }            
+            }
         }
 
         /// <summary>
@@ -274,9 +271,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                     lock (queueLock)
                     {
                         actions.Enqueue(action);
+                        ar.Set(); // 通知工作线程有新任务
                     }
                 });
             }
-        }               
+        }
     }
 }

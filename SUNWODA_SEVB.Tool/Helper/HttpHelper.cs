@@ -141,14 +141,14 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                     File.WriteAllBytes(fullPath, fileBytes);
 
-                    return "{\"code\":\"200\",\"message\":\"下载成功\"}";
+                    return "{\"code\":\"200\",\"Message\":\"下载成功\"}";
                 }
 
-                return $"{{\"code\":\"{(int)response.StatusCode}\",\"message\":\"下载失败: {response.ReasonPhrase}\"}}";
+                return $"{{\"code\":\"{(int)response.StatusCode}\",\"Message\":\"下载失败: {response.ReasonPhrase}\"}}";
             }
             catch (Exception ex)
             {
-                return $"{{\"code\":\"500\",\"message\":\"下载失败: {ex.Message}\"}}";
+                return $"{{\"code\":\"500\",\"Message\":\"下载失败: {ex.Message}\"}}";
             }
         }
 
@@ -160,7 +160,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 // 检查文件是否存在
                 if (!File.Exists(filePath))
                 {
-                    return $"{{\"code\":\"404\",\"message\":\"文件不存在: {filePath}\"}}";
+                    return $"{{\"code\":\"404\",\"Message\":\"文件不存在: {filePath}\"}}";
                 }
 
                 // 临时设置超时时间
@@ -199,11 +199,11 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
             catch (OperationCanceledException)
             {
-                return $"{{\"code\":\"408\",\"message\":\"请求超时\"}}";
+                return $"{{\"code\":\"408\",\"Message\":\"请求超时\"}}";
             }
             catch (Exception ex)
             {
-                return $"{{\"code\":\"500\",\"message\":\"上传失败: {ex.Message}\"}}";
+                return $"{{\"code\":\"500\",\"Message\":\"上传失败: {ex.Message}\"}}";
             }
         }
 

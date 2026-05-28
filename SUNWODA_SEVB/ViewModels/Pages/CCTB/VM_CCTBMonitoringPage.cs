@@ -784,14 +784,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        var re = VarietySelectedVerity(varietyName.Replace('.', 'd'));
     //                        if (!re.isSuccess)
     //                        {
-    //                            _logger.Error($"初始化PID：[{re.message}", type: eType, projectName: eProjectName, level: eLevel);
-    //                            throw new Exception($"{re.message}");
+    //                            _logger.Error($"初始化PID：[{re.Message}", type: eType, projectName: eProjectName, level: eLevel);
+    //                            throw new Exception($"{re.Message}");
     //                        }
     //                    }
     //                }
     //            }
 
-    //            _logger.Info($"初始化PID：[{re.message}", false);
+    //            _logger.Info($"初始化PID：[{re.Message}", false);
     //            return Task.CompletedTask;
     //        }
 
@@ -816,59 +816,59 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //            return arithmeticModel;
     //        }
 
-    //        private async Task<bool> RefreshAndCheckTBPydConfig(ESideType sideType, ArithmeticModel arithmeticModel, string url, out string message)
+    //        private async Task<bool> RefreshAndCheckTBPydConfig(ESideType sideType, ArithmeticModel arithmeticModel, string url, out string Message)
     //        {
     //            var arithmeticType = arithmeticModel.ArithmeticType;
     //            if (!arithmeticModel.IsEnable)
     //            {
-    //                message = $"[{sideType}面未开启{arithmeticType}算法功能！";
+    //                Message = $"[{sideType}面未开启{arithmeticType}算法功能！";
     //                return true;
     //            }
 
     //            var arithmeticName = arithmeticModel.ArithmeticName;
     //            var reVersion = WebInterfaceClient.WebClient.selFileVersion(url, arithmeticName);
     //            // 获取版本信息失败
-    //            if (!(reVersion != null && (reVersion.success || reVersion.code == "200")))
+    //            if (!(reVersion != null && (reVersion.Success || reVersion.code == "200")))
     //            {
-    //                message = $"获取{arithmeticType}算法版本信息失败：url:[{url}] pythonCode:[{arithmeticName}]-code[{reVersion?.code}]-message[{reVersion?.message}]";
+    //                Message = $"获取{arithmeticType}算法版本信息失败：url:[{url}] pythonCode:[{arithmeticName}]-code[{reVersion?.code}]-Message[{reVersion?.Message}]";
     //                return false;
     //            }
 
     //            // url、版本一致，则不需要更新
     //            if (PidFileInfoDic.ContainsKey(arithmeticName) && PidFileInfoDic[arithmeticName].url == url && PidFileInfoDic[arithmeticName].version == reVersion.data)
     //            {
-    //                message = $"{arithmeticType}算法文件无需更新！";
+    //                Message = $"{arithmeticType}算法文件无需更新！";
     //                return true;
     //            }
 
     //            // 获取PID算法文件
     //            var xmlPublicKey = RasHelper.ToXmlPublicKey(ArithmeticModel.PublicKey);
-    //            var signature = RasHelper.RSAEncrypt(xmlPublicKey, ArithmeticModel.AppKey);
-    //            var reFile = await _webApiClient.DownloadSysCenterFileAsync(ArithmeticModel.AppKey, signature, arithmeticName, ArithmeticModel.ExecuteType);
+    //            var Signature = RasHelper.RSAEncrypt(xmlPublicKey, ArithmeticModel.AppKey);
+    //            var reFile = await _webApiClient.DownloadSysCenterFileAsync(ArithmeticModel.AppKey, Signature, arithmeticName, ArithmeticModel.ExecuteType);
     //            if (!(reFile.DataStr is byte[] fileBuffer && fileBuffer.Length > 0))
     //            {
-    //                message = $"获取{arithmeticType}算法文件信息失败：url:[{url}] pythonCode:[{arithmeticName}]-message[{reFile?.message}]";
+    //                Message = $"获取{arithmeticType}算法文件信息失败：url:[{url}] pythonCode:[{arithmeticName}]-Message[{reFile?.Message}]";
     //                return false;
     //            }
 
     //            var path = $"{PythonPydPath}\\{reVersion.data}";
     //            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
     //            var fullPath = Path.Combine(path, $"{arithmeticName}.pyd");
-    //            if (!File.Exists(fullPath)) File.WriteAllBytes(fullPath, reFile.dataStr);
+    //            if (!File.Exists(fullPath)) File.WriteAllBytes(fullPath, reFile.DataStr);
 
     //            var arithmeticCode = GetArithmeticCode(arithmeticType, $"{reVersion.data}.{arithmeticName}");
     //            // PID算法文件验证
     //            var isSuccess = CheckTBPythonAction(arithmeticModel, arithmeticCode, out string msg);
     //            if (!isSuccess)
     //            {
-    //                message = $"[{sideType}面{arithmeticType}算法文件验证失败:url:[{url}]-pythonCode[{arithmeticName}]-版本[{reVersion.data}]-描述[{reFile?.message}]！异常:{msg}";
+    //                Message = $"[{sideType}面{arithmeticType}算法文件验证失败:url:[{url}]-pythonCode[{arithmeticName}]-版本[{reVersion.data}]-描述[{reFile?.Message}]！异常:{msg}";
     //                return false;
     //            }
 
     //            // 更新算法信息
     //            lock (PidFileInfoDic) PidFileInfoDic[arithmeticName] = (url, reVersion.data, arithmeticCode);
-    //            message = msg;
-    //            _logger.Info($"获取[{sideType}面{arithmeticType}算法文件信息完成 url:[{url}]-[{reVersion.data}]-[{reFile?.message}]", false);
+    //            Message = msg;
+    //            _logger.Info($"获取[{sideType}面{arithmeticType}算法文件信息完成 url:[{url}]-[{reVersion.data}]-[{reFile?.Message}]", false);
     //            return true;
     //        }
 
@@ -969,9 +969,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        /// <param name="arithmeticType"></param>
     //        /// <param name="arithmeticName"></param>
     //        /// <param name="arithmeticCode"></param>
-    //        /// <param name="message"></param>
+    //        /// <param name="Message"></param>
     //        /// <returns></returns>
-    //        private bool CheckTBPythonAction(ArithmeticModel arithmeticModel, string arithmeticCode, out string message)
+    //        private bool CheckTBPythonAction(ArithmeticModel arithmeticModel, string arithmeticCode, out string Message)
     //        {
     //            try
     //            {
@@ -990,14 +990,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        "\r\n134.7638889,127.4444444,1.6989,189.8,190.012,44.74,43.56" +
     //                        "\r\n134.7361111,127.3333333,1.5889,189.8,189.993,44.74,43.56";
     //                    var reJJ = AddExcuteFluPIDpyAction(arithmeticName, arithmeticCode, (20, 21), data, 3, 3f, 0.25, 0.14, 5, 0, null, null);
-    //                    message = "success";
+    //                    Message = "Success";
     //                    return true;
     //                }
     //                else if (arithmeticType == EArithmeticType.专家PID)
     //                {
     //                    var pidTest = new PIDModel() { T = 0.05f, P = 0.005f, I = 0.001f, D = 0.001f, };
     //                    var reJJ = AddExcuteExpertPIDpyAction(arithmeticName, arithmeticCode, pidTest, 301, 302, 303, 304, (20, 21), (0, 0), (0, 0), 0.1, null);
-    //                    message = "success";
+    //                    Message = "Success";
     //                    return true;
     //                }
     //                else if (arithmeticType == EArithmeticType.TDControl)
@@ -1012,7 +1012,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        "\r\n2024/8/30 11:42:33,0,699.916,699.621,701.308,700.997,699.481,700.283,699.291,698.261,698.997,702.221,0,0,0,701.887,703.129,703.393,702.023,701.251,699.295,700.013,699.236,699.38,700.257,0,1,0,1044,410,1317,1375,1028,1050,1198,857,620,979,0,0,10,1305,766,895,635,730,647,1155,954,1005,663,0,[],[],[20321,20323],[20423],[],[],[],[],[],[],[],[],[],[],[21523],[],[],[],[],[],[],[],[],[],[],0,476,637,455,427,440,394,434,431,319,347,0,17,0,315,0,323,67,167,178,288,213,351,183,0,395,1949,2000,1939,1952,1970,1920,1722,1961,1575,1652,285,270,353,1720,1425,1724,1572,1689,1595,1808,1729,1704,1539,360" +
     //                        "\r\n2024/8/30 11:42:27,0,698.986,698.259,701.678,701.498,701.218,700.962,700.641,699.055,699.687,701.491,0,0,0,700.329,702.149,704.384,703.922,703.133,700.749,700.195,699.521,699.23,699.51,0,1,0,1044,411,1317,1375,1028,1050,1197,857,620,979,0,0,9,1305,766,895,635,730,646,1155,954,1006,663,0,[],[],[20321,20323],[20423],[],[],[],[],[],[],[],[],[],[],[21523],[],[],[],[],[],[],[],[],[],[],0,476,637,455,427,440,394,434,431,319,347,0,17,0,315,0,323,67,167,178,288,213,351,183,0,395,1949,2000,1939,1952,1970,1920,1722,1961,1575,1652,285,270,353,1720,1425,1724,1572,1689,1595,1808,1729,1704,1539,360";
     //                    var reJJ = AddExcuteTDControlpyAction(arithmeticName, arithmeticCode, data);
-    //                    message = "success";
+    //                    Message = "Success";
     //                    return true;
     //                }
     //                else if (arithmeticType == EArithmeticType.MDTDControl)
@@ -1030,7 +1030,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        "\r\n376,4,20,1,0,372.691,376.577,377.5,376.134,375.958,375.508,375.66,376.352,376.051,373.897,0,0,0,376.002,377.36,376.363,376.073,376.087,376.747,376.371,376.631,376.817,376.768,0,0,101,572,1021,420,455,609,650,650,512,646,36,0,166,876,550,850,676,774,867,739,606,731,355,7,0,0,342,724,154,218,344,372,434,236,287,0,5,0,355,253,450,372,437,458,332,268,330,187,0,334,1586,1837,2000,1310,1441,1573,1516,1519,1397,1520,81,649,330,1523,1518,1903,1890,1914,1826,1712,2000,1605,1712,344,[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]" +
     //                        "\r\n376,4,20,1,0,373.371,376.66,376.119,375.512,376.293,375.612,375.551,376.816,375.345,374.293,0,0,0,375.976,377.538,376.571,376.607,375.978,376.182,376.44,375.637,377.549,376.862,0,0,101,573,1019,419,451,609,650,649,511,646,35,0,166,875,550,849,677,775,869,743,608,734,359,7,0,0,342,724,154,218,344,372,434,236,287,0,5,0,355,253,450,372,437,458,332,268,330,187,0,334,1586,1837,2000,1310,1441,1573,1516,1519,1397,1520,81,649,330,1523,1518,1903,1890,1914,1826,1712,2000,1605,1712,344,[],[20221],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]";
     //                    var reJJ = AddExcuteMDTDControlpyAction(arithmeticName, arithmeticCode, data);
-    //                    message = "success";
+    //                    Message = "Success";
     //                    return true;
     //                }
     //                else if (arithmeticType == EArithmeticType.MULTIMDTDControl)
@@ -1048,18 +1048,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        "\r\n2025-06-18 01:32:44,6337,354.3,3.6,1,46.41,1,46.42,-1,46.43,0,46.44,4,0,0,0,350.4521,353.7188,354.298,354.508,354.8096,354.3292,0,0,0,0,353.479,355.7556,355.5136,355.5592,355.4652,354.0384,0,0,0,0,353.9165,353.8592,354.3468,354.5372,354.5076,354.1112,0,0,0,0,354.009,354.406,353.4832,355.092,354.2224,354.3856,0,0,0,1,2,0,6,669,124,444,281,406,0,0,0,1,325,407,314,385,337,348,1,-1,1,-38,334,330,347,376,273,152,4,0,0,1,-38,334,330,347,376,273,0,4,0,0,-38,334,330,347,376,273,152,0,4,0,0,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]" +
     //                        "\r\n2025-06-18 01:32:53,6338,354.3,3.6,1,46.41,1,46.42,-1,46.43,0,46.44,4,0,0,0,349.9886,354.0836,354.3388,354.2464,354.28,353.958,0,0,0,0,352.8443,355.1572,354.8992,355.1584,355.3448,354.0664,0,0,0,0,353.7,352.9328,353.4172,353.1792,354.4396,355.5012,0,0,0,0,353.2936,354.3244,353.5924,354.9792,354.6996,354.9212,0,0,0,1,2,0,7,667,123,444,281,406,0,0,0,1,325,406,314,385,336,348,0,-1,1,-38,334,330,347,376,273,152,4,0,0,1,-38,334,330,347,376,273,0,4,0,0,-38,334,330,347,376,273,152,0,4,0,0,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,-300,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,1100,[],[20221],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]";
     //                    var reJJ = AddExcuteMULTIMDTDControlpyAction(arithmeticName, arithmeticCode, data);
-    //                    message = "success";
+    //                    Message = "Success";
     //                    return true;
     //                }
     //                else
     //                {
-    //                    message = $"未实现[{arithmeticType}]算法！";
+    //                    Message = $"未实现[{arithmeticType}]算法！";
     //                    return false;
     //                }
     //            }
     //            catch (Exception ex)
     //            {
-    //                message = ex.Message;
+    //                Message = ex.Message;
     //                return false;
     //            }
     //        }
@@ -1077,10 +1077,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                sw.Start();
     //                var pythonCode = obj[1] as string;
     //                var pyCodeStr = obj[2] as string;
-    //                var dataStr = obj[3] is string ? obj[3] as string : JsonConvert.SerializeObject(obj[3]);
+    //                var DataStr = obj[3] is string ? obj[3] as string : JsonConvert.SerializeObject(obj[3]);
     //                var func = obj[4] as Func<dynamic, object, object>;
     //                _logger.Info($"算法执行开始，入参[算法模型:{pythonCode}-" +
-    //                    $"数据:{dataStr}]", false);
+    //                    $"数据:{DataStr}]", false);
     //                object pyResult;
     //                using (var gs = Py.GIL())
     //                {
@@ -1121,7 +1121,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                if (!arithmeticModel.IsEnable) return default;
 
     //                var arithmeticName = arithmeticModel.ArithmeticName;
-    //                var message = string.Empty;
+    //                var Message = string.Empty;
     //                if (PidFileInfoDic.ContainsKey(arithmeticName) && WebUrls.Exists(o => o == PidFileInfoDic[arithmeticName].url))
     //                {
     //                    WebUrls.Remove(PidFileInfoDic[arithmeticName].url);
@@ -1133,14 +1133,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                    // a.不需更新；b.更新成功
     //                    if (RefreshAndCheckTBPydConfig(sideType, arithmeticModel, webUrl, out string msg))
     //                    {
-    //                        message = msg;
+    //                        Message = msg;
     //                        return func.Invoke(arithmeticName);
     //                    }
-    //                    message += msg;
+    //                    Message += msg;
     //                }
 
     //                // 更新失败
-    //                _logger.Error($"{arithmeticModel.ArithmeticType}算法文件[{arithmeticName}]更新/检验算法文件异常，将使用版本[{PidFileInfoDic[arithmeticName].version}(url:{PidFileInfoDic[arithmeticName].url})]！Error:{message}"l);
+    //                _logger.Error($"{arithmeticModel.ArithmeticType}算法文件[{arithmeticName}]更新/检验算法文件异常，将使用版本[{PidFileInfoDic[arithmeticName].version}(url:{PidFileInfoDic[arithmeticName].url})]！Error:{Message}"l);
     //                return func.Invoke(arithmeticName);
     //            }
     //            catch (Exception ex)
@@ -2206,46 +2206,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        /// <summary>
     //        /// 产品品种验证
     //        /// </summary>
-    //        private (bool isSuccess, string message) VarietySelectedVerity(string varietyName)
+    //        private (bool isSuccess, string Message) VarietySelectedVerity(string varietyName)
     //        {
-    //            var message = "";
+    //            var Message = "";
     //            try
     //            {
     //                // A面专家PID算法验证
-    //                if (!CheckTBPydConfig(EArithmeticType.专家PID, CCTBConfig.BasicConfiguration_MD.SideConfigA, varietyName, out message))
+    //                if (!CheckTBPydConfig(EArithmeticType.专家PID, CCTBConfig.BasicConfiguration_MD.SideConfigA, varietyName, out Message))
     //                {
-    //                    message = $"品种[{varietyName}]失败：[{message}";
-    //                    return (false, message);
+    //                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                    return (false, Message);
     //                }
     //                // B面专家PID算法验证
-    //                if (!CheckTBPydConfig(EArithmeticType.专家PID, CCTBConfig.BasicConfiguration_MD.SideConfigB, varietyName, out message))
+    //                if (!CheckTBPydConfig(EArithmeticType.专家PID, CCTBConfig.BasicConfiguration_MD.SideConfigB, varietyName, out Message))
     //                {
-    //                    message = $"品种[{varietyName}]失败：[{message}";
-    //                    return (false, message);
+    //                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                    return (false, Message);
     //                }
     //                // A面流量PID算法验证
-    //                if (!CheckTBPydConfig(EArithmeticType.流量PID, CCTBConfig.BasicConfiguration_MD.SideConfigA, varietyName, out message))
+    //                if (!CheckTBPydConfig(EArithmeticType.流量PID, CCTBConfig.BasicConfiguration_MD.SideConfigA, varietyName, out Message))
     //                {
-    //                    message = $"品种[{varietyName}]失败：[{message}";
-    //                    return (false, message);
+    //                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                    return (false, Message);
     //                }
     //                // B面流量PID算法验证
-    //                if (!CheckTBPydConfig(EArithmeticType.流量PID, CCTBConfig.BasicConfiguration_MD.SideConfigB, varietyName, out message))
+    //                if (!CheckTBPydConfig(EArithmeticType.流量PID, CCTBConfig.BasicConfiguration_MD.SideConfigB, varietyName, out Message))
     //                {
-    //                    message = $"品种[{varietyName}]失败：[{message}";
-    //                    return (false, message);
+    //                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                    return (false, Message);
     //                }
     //                // A面TDControl算法验证
-    //                if (!CheckTBPydConfig(EArithmeticType.TDControl, CCTBConfig.BasicConfiguration_TD.SideConfigA, varietyName, out message))
+    //                if (!CheckTBPydConfig(EArithmeticType.TDControl, CCTBConfig.BasicConfiguration_TD.SideConfigA, varietyName, out Message))
     //                {
-    //                    message = $"品种[{varietyName}]失败：[{message}";
-    //                    return (false, message);
+    //                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                    return (false, Message);
     //                }
     //                // B面TDControl算法验证
-    //                if (!CheckTBPydConfig(EArithmeticType.TDControl, CCTBConfig.BasicConfiguration_TD.SideConfigB, varietyName, out message))
+    //                if (!CheckTBPydConfig(EArithmeticType.TDControl, CCTBConfig.BasicConfiguration_TD.SideConfigB, varietyName, out Message))
     //                {
-    //                    message = $"品种[{varietyName}]失败：[{message}";
-    //                    return (false, message);
+    //                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                    return (false, Message);
     //                }
     //                var pIDObtainA = CCTBConfig.BasicConfiguration_MDTD.SideConfigA.PIDObtain;
     //                if (pIDObtainA?.IsEnable_PID ?? false)
@@ -2257,23 +2257,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        {
     //                            case "MDTD":
     //                                // A面MDTDControl算法验证
-    //                                if (!CheckTBPydConfig(EArithmeticType.MDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigA, varietyName, out message))
+    //                                if (!CheckTBPydConfig(EArithmeticType.MDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigA, varietyName, out Message))
     //                                {
-    //                                    message = $"品种[{varietyName}]失败：[{message}";
-    //                                    return (false, message);
+    //                                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                                    return (false, Message);
     //                                }
     //                                break;
     //                            case "MULTIMDTD":
     //                                // A面MULTIMDTDControl算法验证
-    //                                if (!CheckTBPydConfig(EArithmeticType.MULTIMDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigA, varietyName, out message))
+    //                                if (!CheckTBPydConfig(EArithmeticType.MULTIMDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigA, varietyName, out Message))
     //                                {
-    //                                    message = $"品种[{varietyName}]失败：[{message}";
-    //                                    return (false, message);
+    //                                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                                    return (false, Message);
     //                                }
     //                                break;
     //                            default:
-    //                                message = $"未实现[{controlType}]类别算法！";
-    //                                return (false, message);
+    //                                Message = $"未实现[{controlType}]类别算法！";
+    //                                return (false, Message);
     //                        }
     //                    }
     //                    catch (Exception ex)
@@ -2291,23 +2291,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        {
     //                            case "MDTD":
     //                                // B面MDTDControl算法验证
-    //                                if (!CheckTBPydConfig(EArithmeticType.MDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigB, varietyName, out message))
+    //                                if (!CheckTBPydConfig(EArithmeticType.MDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigB, varietyName, out Message))
     //                                {
-    //                                    message = $"品种[{varietyName}]失败：[{message}";
-    //                                    return (false, message);
+    //                                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                                    return (false, Message);
     //                                }
     //                                break;
     //                            case "MULTIMDTD":
     //                                // B面MULTIMDTDControl算法验证
-    //                                if (!CheckTBPydConfig(EArithmeticType.MULTIMDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigB, varietyName, out message))
+    //                                if (!CheckTBPydConfig(EArithmeticType.MULTIMDTDControl, CCTBConfig.BasicConfiguration_MDTD.SideConfigB, varietyName, out Message))
     //                                {
-    //                                    message = $"品种[{varietyName}]失败：[{message}";
-    //                                    return (false, message);
+    //                                    Message = $"品种[{varietyName}]失败：[{Message}";
+    //                                    return (false, Message);
     //                                }
     //                                break;
     //                            default:
-    //                                message = $"未实现[{controlType}]类别算法！";
-    //                                return (false, message);
+    //                                Message = $"未实现[{controlType}]类别算法！";
+    //                                return (false, Message);
     //                        }
     //                    }
     //                    catch (Exception ex)
@@ -2315,13 +2315,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                        throw new Exception($"算法名称[{pIDObtainB?.PythonCode}]配置异常:[{ex.Message}]");
     //                    }
     //                }
-    //                message = $"品种[{varietyName}]验证成功：[{message}]";
-    //                return (true, message);
+    //                Message = $"品种[{varietyName}]验证成功：[{Message}]";
+    //                return (true, Message);
     //            }
     //            catch (Exception ex)
     //            {
-    //                message = $"产品品种[{varietyName}]验证异常[{ex}]！";
-    //                return (false, message);
+    //                Message = $"产品品种[{varietyName}]验证异常[{ex}]！";
+    //                return (false, Message);
     //            }
     //        }
     //        #endregion
@@ -2664,27 +2664,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //            return (long)timeSpan.TotalMilliseconds;
     //        }
 
-    //        private static void ShowGrowl(InfoType type, string message)
+    //        private static void ShowGrowl(InfoType type, string Message)
     //        {
     //            switch (type)
     //            {
     //                case InfoType.Ask:
-    //                    Growl.AskGlobal(new GrowlInfo() { Message = message, WaitTime = 60, IsCustom = true });
+    //                    Growl.AskGlobal(new GrowlInfo() { Message = Message, WaitTime = 60, IsCustom = true });
     //                    break;
     //                case InfoType.Info:
-    //                    Growl.InfoGlobal(new GrowlInfo() { Message = message, WaitTime = 5, IsCustom = true });
+    //                    Growl.InfoGlobal(new GrowlInfo() { Message = Message, WaitTime = 5, IsCustom = true });
     //                    break;
     //                case InfoType.Warning:
-    //                    Growl.WarningGlobal(new GrowlInfo() { Message = message, WaitTime = 60, IsCustom = true });
+    //                    Growl.WarningGlobal(new GrowlInfo() { Message = Message, WaitTime = 60, IsCustom = true });
     //                    break;
     //                case InfoType.Error:
-    //                    Growl.ErrorGlobal(new GrowlInfo() { Message = message, WaitTime = 60, IsCustom = true });
+    //                    Growl.ErrorGlobal(new GrowlInfo() { Message = Message, WaitTime = 60, IsCustom = true });
     //                    break;
     //                case InfoType.Fatal:
-    //                    Growl.FatalGlobal(new GrowlInfo() { Message = message, WaitTime = 60, IsCustom = true });
+    //                    Growl.FatalGlobal(new GrowlInfo() { Message = Message, WaitTime = 60, IsCustom = true });
     //                    break;
     //                case InfoType.Success:
-    //                    Growl.SuccessGlobal(new GrowlInfo() { Message = message, WaitTime = 5, IsCustom = true });
+    //                    Growl.SuccessGlobal(new GrowlInfo() { Message = Message, WaitTime = 5, IsCustom = true });
     //                    break;
     //            }
     //        }
@@ -2895,7 +2895,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        /// <param name="messageTagStr"></param>
     //        /// <param name="weight"></param>
     //        /// <exception cref="Exception"></exception>
-    //        private void CCDMessageParse_HBMessageData(DateTime gatherTime, HBMessageData message, CCTBCCDQUEST quest)
+    //        private void CCDMessageParse_HBMessageData(DateTime gatherTime, HBMessageData Message, CCTBCCDQUEST quest)
     //        {
     //            var dateTime = ToLocalDateTime(quest?.Ts ?? 0).ToString("yyyy-MM-dd HH:mm:ss.fff");
     //            _logger.Info($"正在处理CCD心跳数据[设备ID{quest?.Sid}]心跳 消息类型:{quest?.MsgType} 设备侧时间[{dateTime}]", false);
@@ -2908,7 +2908,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        /// <param name="messageTagStr"></param>
     //        /// <param name="weight"></param>
     //        /// <exception cref="Exception"></exception>
-    //        private void CCDMessageParse_WeightMessageData(DateTime gatherTime, WeightMessageData message, CCTBCCDQUEST quest)
+    //        private void CCDMessageParse_WeightMessageData(DateTime gatherTime, WeightMessageData Message, CCTBCCDQUEST quest)
     //        {
     //            var dateTime = ToLocalDateTime(quest?.Ts ?? 0).ToString("yyyy-MM-dd HH:mm:ss.fff");
     //            _logger.Info($"正在处理CCD重量数据[设备ID:{quest?.Sid} 消息类型:{quest?.MsgType} 设备侧时间:{dateTime}]！", false);
@@ -2920,16 +2920,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //            dicDep[$"压缩格式"] = quest?.Z;
     //            dicDep[$"检测码"] = quest?.Sig;
 
-    //            dicDep.Add("总膜区宽度", message.CoatingTotalWidth.ToString());
-    //            foreach (var data in message?.TabWidth ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.CilWidth ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.CoatingWidth ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.Misalign ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.JudgeRes ?? new List<JudgeResult>()) dicDep[$"{data?.Zone}"] = data?.Result;
-    //            foreach (var data in message?.TabSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.CilSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.CoatingSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
-    //            foreach (var data in message?.MisalignSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            dicDep.Add("总膜区宽度", Message.CoatingTotalWidth.ToString());
+    //            foreach (var data in Message?.TabWidth ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.CilWidth ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.CoatingWidth ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.Misalign ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.JudgeRes ?? new List<JudgeResult>()) dicDep[$"{data?.Zone}"] = data?.Result;
+    //            foreach (var data in Message?.TabSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.CilSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.CoatingSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
+    //            foreach (var data in Message?.MisalignSpecification ?? new List<ParaData>()) dicDep[$"{data?.PName}"] = data?.PValue;
 
     //            var filePath = UserDefineVariableInfo.DicVariables["productionDataSavePath1"].ToString() + $"\\涂布CCD数据\\" + DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     //            GetFilmSn(out string filmSn);
@@ -2948,7 +2948,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        /// <param name="messageTagStr"></param>
     //        /// <param name="weight"></param>
     //        /// <exception cref="Exception"></exception>
-    //        private void CCDMessageParse_AlarmMessageData(DateTime gatherTime, AlarmMessageData message, CCTBCCDQUEST quest)
+    //        private void CCDMessageParse_AlarmMessageData(DateTime gatherTime, AlarmMessageData Message, CCTBCCDQUEST quest)
     //        {
     //            var dateTime = ToLocalDateTime(quest?.Ts ?? 0).ToString("yyyy-MM-dd HH:mm:ss.fff");
     //            _logger.Info($"正在处理CCD报警数据[设备ID:{quest?.Sid} 消息类型:{quest?.MsgType} 设备侧时间:{dateTime}]", false);
@@ -2959,8 +2959,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //            dicDep[$"设备侧时间"] = dateTime;
     //            dicDep[$"压缩格式"] = quest?.Z;
     //            dicDep[$"检测码"] = quest?.Sig;
-    //            dicDep[$"报警膜区"] = message?.Zone;
-    //            dicDep[$"报警信息"] = message?.Info;
+    //            dicDep[$"报警膜区"] = Message?.Zone;
+    //            dicDep[$"报警信息"] = Message?.Info;
     //            var filePath = UserDefineVariableInfo.DicVariables["productionDataSavePath1"].ToString() + $"\\涂布CCD数据\\" + DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     //            GetFilmSn(out string filmSn);
 
@@ -3854,9 +3854,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        {
     //            try
     //            {
-    //                var dataStr = string.Join(",", data).Replace("1000000", "0");
-    //                _logger.Info($"[{MethodInfo.GetCurrentMethod().Name}]报文：机架号[{messageTag}] —— 数据：[{dataStr}]", false);
-    //                var dataArray = dataStr.Split(',');
+    //                var DataStr = string.Join(",", data).Replace("1000000", "0");
+    //                _logger.Info($"[{MethodInfo.GetCurrentMethod().Name}]报文：机架号[{messageTag}] —— 数据：[{DataStr}]", false);
+    //                var dataArray = DataStr.Split(',');
     //                var dataFloat = dataArray.Select(x => Convert.ToSingle(x)).ToArray();
     //                var re = GetFilmSn(out string filmSn);
 
@@ -6108,12 +6108,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                if (newBTTuple.result == 0 || newBTTuple.result == -1)
     //                {
     //                    cCTBModel.JudgTrigger = "N";
-    //                    cCTBModel.Judg_HandelResults = $"拦截判定:{newBTTuple.result}-{newBTTuple.message}";
+    //                    cCTBModel.Judg_HandelResults = $"拦截判定:{newBTTuple.result}-{newBTTuple.Message}";
     //                    cCTBModel.NewBT_MDTD = newBTTuple;
     //                    return (false, false);
     //                }
     //                cCTBModel.JudgTrigger = "Y";
-    //                cCTBModel.Judg_HandelResults = $"{newBTTuple.result}-{newBTTuple.message}";
+    //                cCTBModel.Judg_HandelResults = $"{newBTTuple.result}-{newBTTuple.Message}";
     //                cCTBModel.NewBT_MDTD = newBTTuple;
     //                return (true, true);
     //            }
@@ -6145,14 +6145,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //        /// <summary>
     //        /// MDTDControl算法获取T块调机量
     //        /// </summary>
-    //        private (int result, string message, float newB, Dictionary<string, int> newT) GetMDTDControlNewBT(SideConfigMDTD sideConfig, List<CCTBMDTDModel> dataLis, int dataCount, ref CCTBMDTDModel cCTBModel)
+    //        private (int result, string Message, float newB, Dictionary<string, int> newT) GetMDTDControlNewBT(SideConfigMDTD sideConfig, List<CCTBMDTDModel> dataLis, int dataCount, ref CCTBMDTDModel cCTBModel)
     //        {
     //            var eTBPython = EArithmeticType.MDTDControl;
     //            var sw = new Stopwatch();
     //            sw.Start();
     //            var jj = (-1, "Python算法执行异常！", 0f, new Dictionary<string, int>());
     //            // 算法执行
-    //            var func = new Func<string, (int result, string message, float newB, Dictionary<string, int> newT)?>((pythonCode) =>
+    //            var func = new Func<string, (int result, string Message, float newB, Dictionary<string, int> newT)?>((pythonCode) =>
     //            {
     //                try
     //                {
@@ -6216,7 +6216,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
     //                }
     //            });
     //            // 算法获取
-    //            var re = RefreshAndExcuteTBPydAction<(int result, string message, float newB, Dictionary<string, int> newT)?>(eTBPython, sideConfig, cCTBModel.VarietyName, func);
+    //            var re = RefreshAndExcuteTBPydAction<(int result, string Message, float newB, Dictionary<string, int> newT)?>(eTBPython, sideConfig, cCTBModel.VarietyName, func);
     //            if (re != null) jj = ((int, string, float, Dictionary<string, int>))re;
     //            sw.Stop();
     //            _logger.Info($"{sideConfig.SideType}-{eTBPython}算法计算耗时[{sw.ElapsedMilliseconds}]", false);

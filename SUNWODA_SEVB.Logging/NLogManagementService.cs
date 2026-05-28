@@ -277,7 +277,7 @@ namespace SUNWODA_SEVB.Logging
                     fileTarget.FileName = Path.Combine(configuration.LogDirectory ?? "logs", "${date:format=yyyy-MM-dd}", "${processname}.log");
                     fileTarget.ArchiveAboveSize = configuration.MaxFileSizeInMB * 1024 * 1024;
                     fileTarget.MaxArchiveFiles = configuration.MaxBackupFiles;
-                    fileTarget.Layout = "${longdate} ${level:uppercase=true} ${logger} ${message} ${exception:format=ToString}";
+                    fileTarget.Layout = "${longdate} ${level:uppercase=true} ${logger} ${Message} ${exception:format=ToString}";
                     fileTarget.ArchiveEvery = FileArchivePeriod.Day;
 
 
@@ -295,7 +295,7 @@ namespace SUNWODA_SEVB.Logging
                 if (configuration.EnableConsoleOutput)
                 {
                     var consoleTarget = nlogConfig.AllTargets.OfType<ConsoleTarget>().FirstOrDefault() ?? new ConsoleTarget("console");
-                    consoleTarget.Layout = "${longdate} ${level:uppercase=true} ${logger} ${message} ${exception:format=ToString}";
+                    consoleTarget.Layout = "${longdate} ${level:uppercase=true} ${logger} ${Message} ${exception:format=ToString}";
 
                     if (!nlogConfig.AllTargets.Contains(consoleTarget))
                     {

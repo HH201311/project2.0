@@ -1014,7 +1014,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         /// <returns></returns>
         private async Task<(bool result, double m, string message)> CheckOfMalpositionValueAsync(float mvOfP, float mvOfN, JRCWParamSettingModel pm)
         {
-            var msg = "success";
+            var msg = "Success";
 
             // 正/负极错位量绝对值>t4
             var mAbsOfP = Math.Abs(mvOfP);
@@ -1110,7 +1110,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 pyResoult.IsSuccess = true;
                 pyResoult.PyOutPut = re;
                 pyResoult.Result = pyRes;
-                pyResoult.Message = "success";
+                pyResoult.Message = "Success";
             }
             catch (Exception ex)
             {
@@ -1189,7 +1189,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 pyResoult.IsSuccess = true;
                 pyResoult.PyOutPut = re;
                 pyResoult.Result = pyRes;
-                pyResoult.Message = "success";
+                pyResoult.Message = "Success";
             }
             catch (Exception ex)
             {
@@ -1283,7 +1283,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 pyResoult.IsSuccess = true;
                 pyResoult.PyOutPut = re;
                 pyResoult.Result = pyRes;
-                pyResoult.Message = "success";
+                pyResoult.Message = "Success";
             }
             catch (Exception ex)
             {
@@ -1351,7 +1351,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
         {
             if (jzh != 1 && jzh != 2) throw new ArgumentException(nameof(jzh), $"PLC卷针号[{jzh}]信息异常:不为1或2!");
 
-            string parameterName, message = "success";
+            string parameterName, message = "Success";
             var messageSB = new StringBuilder();
             PLCRWAddress? plcAddress;
             OperateResult re;
@@ -1365,7 +1365,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                     plcAddress = GetPLCAddressModel(parameterName);
                     re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j2Cache);
 
-                    messageSB.AppendLine(re.IsSuccess ? $"success(J2下发[{j2Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j2Cache}]失败:[{re.Message}]");
+                    messageSB.AppendLine(re.IsSuccess ? $"Success(J2下发[{j2Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j2Cache}]失败:[{re.Message}]");
                     message = messageSB.ToString();
                     if (!re.IsSuccess) _logger.Error(message);
                     return (j1Cache, 0, message);
@@ -1377,12 +1377,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                     plcAddress = GetPLCAddressModel(parameterName);
                     re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j1Cache);
 
-                    messageSB.AppendLine(re.IsSuccess ? $"success(J1下发[{j1Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j1Cache}]失败:[{re.Message}]");
+                    messageSB.AppendLine(re.IsSuccess ? $"Success(J1下发[{j1Cache}]成功)" : $"[{parameterName}]PLC地址写入[{j1Cache}]失败:[{re.Message}]");
                     message = messageSB.ToString();
                     if (!re.IsSuccess) _logger.Error(message);
                     return (0, j2Cache, message);
                 }
-                message = "success(不执行下发操作)";
+                message = "Success(不执行下发操作)";
                 return (j1Cache, j2Cache, message);
             }
 
@@ -1395,7 +1395,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                         plcAddress = GetPLCAddressModel(parameterName);
                         re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j2);
 
-                        messageSB.AppendLine(re.IsSuccess ? $"success(J2下发[{j2}]成功)" : $"[{parameterName}]PLC地址写入[{j2}]失败:[{re.Message}]");
+                        messageSB.AppendLine(re.IsSuccess ? $"Success(J2下发[{j2}]成功)" : $"[{parameterName}]PLC地址写入[{j2}]失败:[{re.Message}]");
                         message = messageSB.ToString();
                         if (!re.IsSuccess) _logger.Error(message);
                         j1Cache += j1;
@@ -1409,7 +1409,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                         plcAddress = GetPLCAddressModel(parameterName);
                         re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, j1);
 
-                        messageSB.AppendLine(re.IsSuccess ? $"success(J1下发[{j1}]成功)" : $"[{parameterName}]PLC地址写入[{j1}]失败:[{re.Message}]");
+                        messageSB.AppendLine(re.IsSuccess ? $"Success(J1下发[{j1}]成功)" : $"[{parameterName}]PLC地址写入[{j1}]失败:[{re.Message}]");
                         message = messageSB.ToString();
                         if (!re.IsSuccess) _logger.Error(message);
                         j1Cache = 0;
@@ -1431,7 +1431,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRCW
                 re = await WritePLCAsync(plcAddress?.Address ?? string.Empty, plcAddress?.Type ?? string.Empty, press_j);
                 if (!re.IsSuccess) _logger.Error($"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
 
-                messageSB.AppendLine(re.IsSuccess ? $"success(PressJ下发[{press_j}]成功)" : $"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
+                messageSB.AppendLine(re.IsSuccess ? $"Success(PressJ下发[{press_j}]成功)" : $"[{parameterName}]PLC地址写入[{press_j}]失败:[{re.Message}]");
                 message = messageSB.ToString();
                 if (!re.IsSuccess) _logger.Error(message);
             }

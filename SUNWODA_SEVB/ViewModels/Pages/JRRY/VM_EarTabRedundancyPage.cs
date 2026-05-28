@@ -1001,24 +1001,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     }
 
                     // Web下载DLL
-                    var dllReFile = WebHelper1.downloadFile1(appKey, dllSignature, dllPythonCode, dllExecuteType);
-                    if (dllReFile == null || !dllReFile.success || dllReFile.dataStr == null || dllReFile.dataStr.Length == 0)
+                    var dllReFile = WebHelper1.DownloadFile1(appKey, dllSignature, dllPythonCode, dllExecuteType);
+                    if (dllReFile == null || !dllReFile.Success || dllReFile.DataStr == null || dllReFile.DataStr.Length == 0)
                     {
-                        string errorMsg = dllReFile?.message ?? "下载响应为空";
+                        string errorMsg = dllReFile?.Message ?? "下载响应为空";
                         AddLog($"[DLL加载] Web下载失败：{errorMsg}");
                         throw new Exception($"从Web获取DLL失败：{errorMsg}");
                     }
-                    AddLog($"[DLL加载] Web下载成功，大小：{dllReFile.dataStr.Length} 字节");
+                    AddLog($"[DLL加载] Web下载成功，大小：{dllReFile.DataStr.Length} 字节");
 
                     // 验证DLL有效性
-                    if (dllReFile.dataStr.Length < 2 || dllReFile.dataStr[0] != 0x4D || dllReFile.dataStr[1] != 0x5A)
+                    if (dllReFile.DataStr.Length < 2 || dllReFile.DataStr[0] != 0x4D || dllReFile.DataStr[1] != 0x5A)
                     {
                         AddLog("[DLL加载] 下载的不是有效DLL（缺少MZ标识）");
                         throw new Exception("下载的文件不是有效DLL");
                     }
 
                     // 加载内存DLL
-                    targetAssembly = Assembly.Load(dllReFile.dataStr);
+                    targetAssembly = Assembly.Load(dllReFile.DataStr);
                     AddLog($"[DLL加载] 内存DLL加载成功，程序集：{targetAssembly.FullName}");
                 }
 
@@ -1082,10 +1082,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     }
 
                     // 调用WebHelper1下载模型
-                    var modelReFile = WebHelper1.downloadFile1(appKey, modelSignature, modelPythonCode, modelExecuteType);
-                    if (modelReFile == null || !modelReFile.success || modelReFile.dataStr == null || modelReFile.dataStr.Length == 0)
+                    var modelReFile = WebHelper1.DownloadFile1(appKey, modelSignature, modelPythonCode, modelExecuteType);
+                    if (modelReFile == null || !modelReFile.Success || modelReFile.DataStr == null || modelReFile.DataStr.Length == 0)
                     {
-                        string errorMsg = modelReFile?.message ?? "下载响应为空";
+                        string errorMsg = modelReFile?.Message ?? "下载响应为空";
                         AddLog($"[模型下载] Web下载失败：{errorMsg}");
                         // 弹出程序目录，方便用户手动放置模型
                         Process.Start("explorer.exe", AppDomain.CurrentDomain.BaseDirectory);
@@ -1093,15 +1093,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JRRY
                     }
 
                     // 验证模型文件有效性
-                    if (modelReFile.dataStr.Length < 1024 * 10) // 10KB阈值
+                    if (modelReFile.DataStr.Length < 1024 * 10) // 10KB阈值
                     {
-                        AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.dataStr.Length} 字节），视为无效");
+                        AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.DataStr.Length} 字节），视为无效");
                         throw new Exception("下载的模型文件无效（体积过小）");
                     }
 
                     // 保存模型到本地目录
-                    File.WriteAllBytes(modelSavePath, modelReFile.dataStr);
-                    AddLog($"[模型下载成功]大小：{modelReFile.dataStr.Length} 字节");
+                    File.WriteAllBytes(modelSavePath, modelReFile.DataStr);
+                    AddLog($"[模型下载成功]大小：{modelReFile.DataStr.Length} 字节");
                 }
                 // 准备ModelInit参数
                 string Gongwei = "尺寸测量";

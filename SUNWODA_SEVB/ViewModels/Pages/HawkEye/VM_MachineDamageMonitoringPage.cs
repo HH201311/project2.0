@@ -2224,7 +2224,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var reFile = await _webApiClient.DownloadDllAsync(appKey, signature, pythonCode, executeType);
             if (!(reFile != null && reFile.DataStr != null))
             {
-                var message = $"获取AI算法onnx模型文件失败：pythonCode:[{pythonCode}]-message[{reFile?.Message}]";
+                var message = $"获取AI算法onnx模型文件失败：pythonCode:[{pythonCode}]-Message[{reFile?.Message}]";
                 _logger.Error(message);
                 throw new Exception(message);
             }
@@ -2249,7 +2249,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var reFile = await _webApiClient.DownloadDllAsync(appKey, signature, pythonCode, executeType);
             if (!(reFile != null && reFile.DataStr != null))
             {
-                var message = $"获取AI算法dll文件信息失败：pythonCode:[{pythonCode}]-message[{reFile?.Message}]";
+                var message = $"获取AI算法dll文件信息失败：pythonCode:[{pythonCode}]-Message[{reFile?.Message}]";
                 _logger.Error(message);
                 throw new Exception(message);
             }

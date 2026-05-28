@@ -16,10 +16,7 @@ namespace SUNWODA_SEVB.MES.Services
         public string ServiceName => "GetTestData";
         public bool IsEnabled { get; private set; }
 
-        public TestDataService(
-            IMesApiClient apiClient,
-            IMesConfigurationProvider configProvider,
-            ILoggerService<TestDataService> logger)
+        public TestDataService(IMesApiClient apiClient, IMesConfigurationProvider configProvider, ILoggerService<TestDataService> logger)
         {
             _apiClient = apiClient;
             _configProvider = configProvider;

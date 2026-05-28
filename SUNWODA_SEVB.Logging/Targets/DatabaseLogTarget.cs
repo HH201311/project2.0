@@ -51,7 +51,7 @@ namespace SUNWODA_SEVB.Logging.Targets
         public DatabaseLogTarget()
         {
             // 设置默认布局
-            Layout = "${longdate} | ${level:uppercase=true} | ${logger} | ${message} ${exception:format=tostring}";
+            Layout = "${longdate} | ${level:uppercase=true} | ${logger} | ${Message} ${exception:format=tostring}";
         }
 
         /// <summary>

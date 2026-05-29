@@ -48,14 +48,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
 
         // ---- 检测区域 (顶部相机) ----
-        //private static readonly List<OpenCvSharp.Point> DefaultSpecifiedZone = new()
-        //{
-        //    new OpenCvSharp.Point(680, 300),
-        //    new OpenCvSharp.Point(1580, 300),
-        //    new OpenCvSharp.Point(1580, 860),
-        //    new OpenCvSharp.Point(680, 860)
-        //};
         private List<OpenCvSharp.Point> _specifiedZone = new();
+
+        private static readonly string[] CameraTypes = { "顶部", "左部", "右部" };
+        private readonly ConcurrentDictionary<int, (string RtspUrl, string Type)> _cameraRecordInfo = new();
+
+        private static readonly string[] VIDEO_FILE_PATTERNS =
+        {
+            "*.mkv",
+            "*.mp4",
+            "*.ts"
+        };
+
+        private System.Threading.Timer? _recordWatchdog;
+        private const int RECORD_STALL_SECONDS = 90;
 
         public List<OpenCvSharp.Point> SpecifiedZone
         {
@@ -128,6 +134,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
         private readonly AI ai = new();
         private readonly AI aiNew = new AI();
+
+        // FFmpeg 进度心跳（基于 stderr 的 time= 递增判断存活）
+        private readonly ConcurrentDictionary<int, DateTime> _lastFfmpegHeartbeat = new();
+        private readonly ConcurrentDictionary<int, string> _lastFfmpegProgress = new();
+        // 每相机启动锁，串行化启动/重启，避免重复进程
+        private readonly ConcurrentDictionary<int, object> _camStartLocks = new();
+
+        private object GetCamLock(int camId) => _camStartLocks.GetOrAdd(camId, _ => new object());
         #endregion
 
         #region 属性
@@ -241,7 +255,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
             _logger = logger;
             _webApiClient = webApiClient?? throw new ArgumentNullException(nameof(webApiClient));
             _serviceProvider = serviceProvider?? throw new ArgumentNullException(nameof(serviceProvider));
-
             _dispatcher = Application.Current.Dispatcher;
 
             StartMonitoringCommand = new RelayCommand(async _ => await StartMonitoringAsync(), _ => !IsProcessing);
@@ -276,14 +289,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                 var token = _monitoringCts.Token;
 
                 // 2. 启动3路RTSP实时流
-                StatusMessage = "正在连接摄像机...";
+                StatusMessage = "正在连接摄像机并启动实时流...";
                 StartDiskMaintenance();
                 StartLiveStreams(token);
                 StartCameraPipelines(token);
 
                 // 3. 启动检测循环
                 StatusMessage = "监控运行中";
-                AddLog("系统启动，3路摄像机监控已开启");
+                AddLog("系统启动，摄像机监控已开启");
             }
             catch (Exception ex)
             {
@@ -548,7 +561,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                                         out Mat result, out var results, out string err);
                     return new DetectResult { ResultMat = result, Results = results, Error = err };
                 }
-            },
+            }
         };
 
         private async Task CaptureLoopAsync(CameraConfig cfg, LatestFrameChannel detectCh, CancellationToken token)
@@ -657,7 +670,60 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
 
         #endregion
+        #region 看门狗
+        private void StartRecordWatchdog(CancellationToken token)
+        {
+            _recordWatchdog = new System.Threading.Timer(_ =>
+            {
+                if (token.IsCancellationRequested || _disposed) return;
+                try { CheckRecordingHealth(token); } catch { }
+            }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(30));
+        }
 
+        private void CheckRecordingHealth(CancellationToken token)
+        {
+            foreach (var kvp in _cameraRecordInfo.ToArray())
+            {
+                if (token.IsCancellationRequested || _disposed) return;
+                int camId = kvp.Key;
+                var (rtspUrl, type) = kvp.Value;
+                try
+                {
+                    if (!_ffmpegProcesses.TryGetValue(camId, out var proc) || proc == null)
+                    {
+                        AddLog($"看门狗:相机 {camId} 无录制进程,触发重启", CoreLogLevel.Warn);
+                        StartRecording(camId, rtspUrl, type, token);
+                        continue;
+                    }
+
+                    bool exited = false;
+                    try { exited = proc.HasExited; } catch { }
+                    if (exited) continue; // 由 Exited 事件负责重启
+
+                    // 进程刚启动给足初始化时间（首条 stats 行可能稍晚出现）
+                    try { if ((DateTime.Now - proc.StartTime).TotalSeconds < RECORD_STALL_SECONDS) continue; }
+                    catch { }
+
+                    // ★ 用 FFmpeg 进度心跳判断存活：time= 在 RECORD_STALL_SECONDS 内未递增 → 真卡死
+                    if (_lastFfmpegHeartbeat.TryGetValue(camId, out var lastBeat))
+                    {
+                        double idle = (DateTime.Now - lastBeat).TotalSeconds;
+                        if (idle > RECORD_STALL_SECONDS)
+                        {
+                            AddLog($"看门狗: 相机 {camId} FFmpeg 已 {idle:F0}s 无进度推进，判定卡死，强制重启", CoreLogLevel.Error);
+                            try { proc.Kill(); } catch { } // 触发 Exited → 自动重启
+                        }
+                    }
+                    else
+                    {
+                        AddLog($"看门狗: 相机 {camId} 无心跳记录，强制重启", CoreLogLevel.Warn);
+                        try { proc.Kill(); } catch { }
+                    }
+                }
+                catch (Exception ex) { AddLog($"看门狗检查相机 {camId} 异常: {ex.Message}", CoreLogLevel.Warn); }
+            }
+        }
+        #endregion
 
         #region ======== 磁盘管理（30 天保留）========
         private void StartDiskMaintenance()
@@ -678,12 +744,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
         {
             try
             {
-                foreach (var root in new[] { VIDEO_RECORD_ROOT, ANOMALY_IMAGE_ROOT })
-                    foreach (var date in new[] { DateTime.Today, DateTime.Today.AddDays(1) })
+                foreach (var date in new[] { DateTime.Today, DateTime.Today.AddDays(1) })
+                {
+                    string d = date.ToString("yyyy-MM-dd");
+
+                    string imgDir = Path.Combine(ANOMALY_IMAGE_ROOT, d);
+                    if (!Directory.Exists(imgDir)) Directory.CreateDirectory(imgDir);
+
+                    foreach (var type in CameraTypes)   // 必须建到类型子目录这一层
                     {
-                        string dir = Path.Combine(root, date.ToString("yyyy-MM-dd"));
-                        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                        string vidDir = Path.Combine(VIDEO_RECORD_ROOT, d, type);
+                        if (!Directory.Exists(vidDir)) Directory.CreateDirectory(vidDir);
                     }
+                }
             }
             catch (Exception ex) { AddLog($"维护文件夹异常: {ex.Message}", CoreLogLevel.Warn); }
         }
@@ -697,14 +770,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
                 dirs += CleanupByDateFolder(VIDEO_RECORD_ROOT, cutoff);
                 dirs += CleanupByDateFolder(ANOMALY_IMAGE_ROOT, cutoff);
-                files += CleanupOrphanFiles(VIDEO_RECORD_ROOT, cutoff, "*.mp4");
+
+                foreach (var pattern in VIDEO_FILE_PATTERNS)
+                {
+                    files += CleanupOrphanFiles(VIDEO_RECORD_ROOT, cutoff, pattern);
+                }
+
                 files += CleanupOrphanFiles(ANOMALY_IMAGE_ROOT, cutoff, "*.jpg");
 
                 if (dirs > 0 || files > 0)
                     AddLog($"磁盘清理：删除过期目录 {dirs} 个，孤立文件 {files} 个");
             }
-            catch (Exception ex) { AddLog($"磁盘清理异常: {ex.Message}", CoreLogLevel.Error); }
+            catch (Exception ex)
+            {
+                AddLog($"磁盘清理异常: {ex.Message}", CoreLogLevel.Error);
+            }
         }
+
 
         private int CleanupByDateFolder(string root, DateTime cutoff)
         {
@@ -840,104 +922,158 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
             StartRecording(1, RTSP_URL_CAM1,"顶部", token);
             StartRecording(2, RTSP_URL_CAM2, "左部", token);
             StartRecording(3, RTSP_URL_CAM3, "右部", token);
-
+            StartRecordWatchdog(token);
         }
+
         public void StartRecording(int camId, string rtspUrl, string type, CancellationToken token)
         {
             if (token.IsCancellationRequested || _disposed) return;
+
             if (string.IsNullOrWhiteSpace(rtspUrl))
             {
-                _logger?.Error($"相机 {camId} RTSP 地址为空");
+                _logger?.Error($"相机 {camId} 录像绑定的 RTSP 地址为空，取消录制。");
                 return;
             }
 
-            if (!CheckDiskSpace(VIDEO_RECORD_ROOT,10))
+            // 串行化同一相机的启动/重启，杜绝并发产生孤儿进程
+            lock (GetCamLock(camId))
             {
-                AddLog($"相机 {camId} 磁盘空间不足，无法启动录制", CoreLogLevel.Error);
-                Growl.Error($"相机 {camId} 磁盘空间不足，无法启动录制");
-                return;
-            }
+                if (token.IsCancellationRequested || _disposed) return;
 
-            string safeType = ConvertToSafeTypeName(string.IsNullOrWhiteSpace(type) ? "Default" : type);
-            CreateRequiredDirectories(VIDEO_RECORD_ROOT, safeType);
-            string outPattern = Path.Combine(VIDEO_RECORD_ROOT, "%Y-%m-%d", safeType, $"Cam{camId}_%H-%M-%S.mkv");
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = "ffmpeg",
-                Arguments = $"-loglevel warning -y -fflags +genpts -rtsp_transport tcp -i \"{rtspUrl}\" -an -c:v copy " +
-                           $"-f segment -segment_time 3600 -segment_atclocktime 1 -reset_timestamps 1 -strftime 1 " +
-                           $"\"{outPattern}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = true,
-                RedirectStandardError = true
-            };
-
-            var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-
-            process.ErrorDataReceived += (s, e) =>
-            {
-                if (string.IsNullOrWhiteSpace(e.Data)) return;
-                var line = e.Data;
-
-                // 进度行兜底过滤
-                if (line.StartsWith("frame=") || line.StartsWith("size=")
-                    || line.Contains("bitrate=") || line.StartsWith("Press [q]"))
-                    return;
-
-                switch (ClassifyFfmpegLog(line))
+                // 启动前先清理该相机已登记的旧进程（先从字典移除，使其 Exited 不再触发重启）
+                if (_ffmpegProcesses.TryRemove(camId, out var old) && old != null)
                 {
-                    case CoreLogLevel.Error:
-                        _logger?.Error($"[FFmpeg-Cam{camId}] {line}");
-                        break;
-                    case CoreLogLevel.Warn:
-                        _logger?.Warn($"[FFmpeg-Cam{camId}] {line}");
-                        break;
-                        // 其他级别丢弃
+                    try { if (!old.HasExited) old.Kill(); } catch { }
+                    try { old.Dispose(); } catch { }
                 }
-            };
 
-            process.Exited += (s, e) =>
-            {
-                var p = (Process)s!;
-                int exitCode = -1;
-                try { exitCode = p.ExitCode; } catch { }
+                string safeType = ConvertToSafeTypeName(string.IsNullOrWhiteSpace(type) ? "Default" : type);
+                _cameraRecordInfo[camId] = (rtspUrl, type);
 
-                _ffmpegProcesses.TryRemove(camId, out _);
-                try { p.Dispose(); } catch { }
-
-                if (_disposed || token.IsCancellationRequested) return;
-
-                AddLog($"相机 {camId} FFmpeg 退出 (ExitCode={exitCode})，3秒后重启", CoreLogLevel.Warn);
-
-                _ = Task.Run(async () =>
+                if (!CheckDiskSpace(VIDEO_RECORD_ROOT, 10))
                 {
-                    try
-                    {
-                        await Task.Delay(3000, token);
-                        if (!token.IsCancellationRequested && !_disposed)
-                            StartRecording(camId, rtspUrl, type, token);
-                    }
-                    catch (OperationCanceledException) { }
-                    catch (Exception ex) { AddLog($"相机 {camId} 重启失败: {ex.Message}", CoreLogLevel.Error); }
-                });
-            };
+                    AddLog($"相机 {camId} 磁盘空间不足,60 秒后重试", CoreLogLevel.Error);
+                    Growl.Error("磁盘空间不足，无法启动录像，请及时清理磁盘空间");
+                    PushMessageToFeishu("磁盘空间不足，无法启动录像，请及时清理磁盘空间");
+                    ScheduleRestart(camId, rtspUrl, type, token, 60000); // 磁盘不足 60s 后重试
+                    return;
+                }
 
-            try
-            {
-                process.Start();
-                process.BeginErrorReadLine();
-                _ffmpegProcesses.TryAdd(camId, process);
-                AddLog($"相机 {camId} 后台整点切片录制已启动");
-            }
-            catch (Exception ex)
-            {
-                AddLog($"相机 {camId} FFmpeg 启动失败: {ex.Message}", CoreLogLevel.Error);
-                try { process.Dispose(); } catch { }
+                EnsureDirectoriesExist();
+                string outPattern = Path.Combine(VIDEO_RECORD_ROOT, "%Y-%m-%d", safeType, $"Cam{camId}_%H-%M-%S.ts");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe"),
+                    // 显式 -stats，确保 stderr 持续输出进度行供看门狗心跳使用
+                    Arguments = $"-loglevel warning -stats -y -fflags +genpts -rtsp_transport udp -i \"{rtspUrl}\" -an -c:v copy  -muxdelay 0 -muxpreload 0 " +
+                                $"-f segment -segment_time 3600 -segment_atclocktime 1 -reset_timestamps 1 -strftime 1 " +
+                                $"\"{outPattern}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardInput = true,
+                    RedirectStandardError = true,
+                    StandardErrorEncoding = System.Text.Encoding.UTF8
+                };
+
+                var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+
+                process.ErrorDataReceived += (s, e) =>
+                {
+                    if (e.Data == null) return;
+                    var line = e.Data;
+
+                    // —— 心跳：只在 time= 真正递增时刷新，既能识别"无输出"也能识别"画面冻结" ——
+                    string? t = ExtractFfmpegTime(line);
+                    if (t != null)
+                    {
+                        if (!_lastFfmpegProgress.TryGetValue(camId, out var prev) || prev != t)
+                        {
+                            _lastFfmpegProgress[camId] = t;
+                            _lastFfmpegHeartbeat[camId] = DateTime.Now;
+                        }
+                    }
+
+                    // —— 原有日志过滤 ——
+                    if (string.IsNullOrWhiteSpace(line)) return;
+                    if (line.StartsWith("frame=") || line.StartsWith("size=")
+                        || line.Contains("bitrate=") || line.StartsWith("Press [q]")) return;
+
+                    switch (ClassifyFfmpegLog(line))
+                    {
+                        case CoreLogLevel.Error: _logger?.Error($"[FFmpeg-Cam{camId}] {line}"); break;
+                        case CoreLogLevel.Warn: _logger?.Warn($"[FFmpeg-Cam{camId}] {line}"); break;
+                    }
+                };
+
+                process.Exited += (s, e) =>
+                {
+                    var p = (Process)s!;
+                    int exitCode = -1;
+                    try { exitCode = p.ExitCode; } catch { }
+
+                    // 关键：只有退出的进程仍是"当前登记进程"才视为意外退出并重启；
+                    // 被主动替换/清理的旧进程 TryRemove 返回 false，不重启，避免重复进程。
+                    bool wasCurrent = _ffmpegProcesses.TryRemove(new KeyValuePair<int, Process>(camId, p));
+                    try { p.Dispose(); } catch { }
+
+                    if (_disposed || token.IsCancellationRequested) return;
+                    if (!wasCurrent) return;
+
+                    _lastFfmpegHeartbeat.TryRemove(camId, out _);
+                    _lastFfmpegProgress.TryRemove(camId, out _);
+
+                    AddLog($"相机 {camId} FFmpeg 退出 (ExitCode={exitCode}),3秒后重启", CoreLogLevel.Warn);
+                    ScheduleRestart(camId, rtspUrl, type, token, 3000);
+                };
+
+                try
+                {
+                    _ffmpegProcesses[camId] = process;     // 先登记，消除 Start 与 Exited 竞态
+                    process.Start();
+                    ChildProcessTracker.AddProcess(process); // ★ 绑定 Job：父进程一死，子进程必死
+                    process.BeginErrorReadLine();
+
+                    _lastFfmpegHeartbeat[camId] = DateTime.Now; // 心跳种子
+                    _lastFfmpegProgress[camId] = string.Empty;
+
+                    AddLog($"相机 {camId} 后台切片录制进程已成功创建并在后台运行");
+                }
+                catch (Exception ex)
+                {
+                    _ffmpegProcesses.TryRemove(new KeyValuePair<int, Process>(camId, process));
+                    try { process.Dispose(); } catch { }
+                    AddLog($"相机 {camId} FFmpeg 启动失败: {ex.Message},3秒后重试", CoreLogLevel.Error);
+                    ScheduleRestart(camId, rtspUrl, type, token, 3000);
+                }
             }
         }
 
+        /// <summary>从 FFmpeg stderr 进度行中提取 time= 的值（如 00:01:23.45），用于心跳递增判断</summary>
+        private static string? ExtractFfmpegTime(string line)
+        {
+            int idx = line.IndexOf("time=", StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return null;
+            idx += 5;
+            int end = idx;
+            while (end < line.Length && !char.IsWhiteSpace(line[end])) end++;
+            return end > idx ? line.Substring(idx, end - idx) : null;
+        }
+
+        private void ScheduleRestart(int camId, string rtspUrl, string type, CancellationToken token, int delayMs)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(delayMs, token);
+                    if (!token.IsCancellationRequested && !_disposed)
+                        StartRecording(camId, rtspUrl, type, token);
+                }
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { AddLog($"相机 {camId} 重启调度失败: {ex.Message}", CoreLogLevel.Error); }
+            });
+        }
         private static CoreLogLevel ClassifyFfmpegLog(string line)
         {
             if (line.IndexOf("error", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -959,6 +1095,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
         private void StopLiveStreams()
         {
+            _recordWatchdog?.Dispose();
+            _recordWatchdog = null;
+
             foreach (var kvp in _ffmpegProcesses.ToArray())
             {
                 int camId = kvp.Key;
@@ -972,20 +1111,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                         try
                         {
                             process.StandardInput.WriteLine("q");
+                            process.StandardInput.Flush();
                             process.StandardInput.Close();
                         }
                         catch (IOException) { /* stdin 已关 */ }
                         catch (InvalidOperationException) { /* 进程已退出 */ }
 
-                        if (!process.WaitForExit(5000))
+                        if (!process.WaitForExit(2000))
                         {
+                            _logger?.Warn($"相机 {camId} 后台视频录制关闭超时，采取强制Kill。");
                             try { process.Kill(); } catch { }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    AddLog($"关闭相机 {camId} 进程异常: {ex.Message}", CoreLogLevel.Warn);
+                    _logger?.Error($"释放并关闭相机 {camId} 录制进程遇到异常: {ex.Message}");
                 }
                 finally
                 {
@@ -993,6 +1134,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
                 }
             }
             _ffmpegProcesses.Clear();
+            _recordWatchdog?.Dispose();
+            _recordWatchdog = null; 
+            _cameraRecordInfo.Clear();
+            _lastFfmpegHeartbeat.Clear();   
+            _lastFfmpegProgress.Clear();
             AddLog("所有后台视频录制已停止");
         }
 
@@ -1261,7 +1407,36 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
         #endregion
 
+        private void PushMessageToFeishu(string message, int retryCount = 2)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return;
 
+            _ = PushMessageAsync(message, retryCount);
+        }
+
+        private async Task PushMessageAsync(string message, int retryCount)
+        {
+            for (int i = 1; i <= retryCount; i++)
+            {
+                try
+                {
+                    var response = await _webApiClient.PushMessageAsync(message);
+                    if (response.Code == 200)
+                    {
+                        _logger.Info($"✅ 飞书消息推送成功");
+                        return;
+                    }
+                    _logger.Warn($"❌ 飞书推送失败：{response.Message}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"❌ 飞书推送异常：{ex.Message}");
+                    if (i < retryCount)
+                        await Task.Delay(1000);
+                }
+            }
+        }
 
         public void Dispose()
         {
@@ -1323,7 +1498,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PCD
 
             var newLog = new LogItemModel
             {
-                Message = $"[{DateTime.Now:HH:mm:ss.fff}] [{level}] {message}",
+                Message = $"[{DateTime.Now:MM/dd HH:mm:ss}] [{level}] {message}",
                 LogColor = textColor
             };
 

@@ -8420,7 +8420,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     if (_cellCodeQueue.Count >= MaxImagesPerReport)
                     {
                         AddLog($"[条件触发] 电芯编码数量达到阈值 {MaxImagesPerReport}，处理当前电芯组");
-                        //GenerateReport().Wait();
                         _ = Task.Run(async () =>
                         {
                             try

@@ -53,8 +53,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
     /// <summary>
     /// 雅康叠片机损
     /// </summary>
-    [Module("VM_YKDamageDetectionPage","雅康叠片机损AI检测系统v1.0")]
-    public class VM_YKDamageDetectionPage:ViewModelBase
+    [Module("VM_YKDamageDetectionPage", "雅康叠片机损AI检测系统v1.0")]
+    public class VM_YKDamageDetectionPage : ViewModelBase
     {
         private IPredictor? StationAmodle;
         private IPredictor? StationBmodle;
@@ -196,7 +196,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         // 缓存：路径 → 极性
         private readonly ConcurrentDictionary<string, string> _polarityCache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
- 
+
         // 缓存待写入CSV的数据（线程安全队列）
         private readonly ConcurrentQueue<string[]> _csvCacheQueue = new ConcurrentQueue<string[]>();
         //离线缓存路径
@@ -221,9 +221,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly ILoggerService<VM_YKDamageDetectionPage> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IPLCService _PLCService;
-      
 
-        private string StatisticsModuleCode = "" ;
+
+        private string StatisticsModuleCode = "";
         private static readonly DateTime TotalStatisticsDate = new DateTime(1900, 1, 1);
 
 
@@ -553,8 +553,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 // 如果当前是第一个启动的在线工位，且队列完全为空，在这里确保报表时钟和环境准备就绪
                 if (_runningStationsCount == 0 && _cellCodeQueue.Count == 0)
                 {
-                    InitReportFunction(); 
-                    _reportTimer?.Stop(); 
+                    InitReportFunction();
+                    _reportTimer?.Stop();
                 }
             }
 
@@ -1091,22 +1091,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         // A工位相机1-4的ROI状态
         private bool _hasRoiA1;
-        public bool HasRoiA1 { get => _hasRoiA1; set { _hasRoiA1 = value; OnPropertyChanged(); }}
-        private bool _hasRoiA2; 
+        public bool HasRoiA1 { get => _hasRoiA1; set { _hasRoiA1 = value; OnPropertyChanged(); } }
+        private bool _hasRoiA2;
         public bool HasRoiA2 { get => _hasRoiA2; set { _hasRoiA2 = value; OnPropertyChanged(); } }
         private bool _hasRoiA3;
         public bool HasRoiA3 { get => _hasRoiA3; set { _hasRoiA3 = value; OnPropertyChanged(); } }
-        private bool _hasRoiA4; 
+        private bool _hasRoiA4;
         public bool HasRoiA4 { get => _hasRoiA4; set { _hasRoiA4 = value; OnPropertyChanged(); } }
 
         // B工位相机状态
         private bool _hasRoiB1;
         public bool HasRoiB1 { get => _hasRoiB1; set { _hasRoiB1 = value; OnPropertyChanged(); } }
-        private bool _hasRoiB2; 
+        private bool _hasRoiB2;
         public bool HasRoiB2 { get => _hasRoiB2; set { _hasRoiB2 = value; OnPropertyChanged(); } }
-        private bool _hasRoiB3; 
+        private bool _hasRoiB3;
         public bool HasRoiB3 { get => _hasRoiB3; set { _hasRoiB3 = value; OnPropertyChanged(); } }
-        private bool _hasRoiB4; 
+        private bool _hasRoiB4;
         public bool HasRoiB4 { get => _hasRoiB4; set { _hasRoiB4 = value; OnPropertyChanged(); } }
 
 
@@ -1202,7 +1202,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public bool IsFileSelectEnabled
         {
             get => _isFileSelectEnabled;
-            private set  
+            private set
             {
                 _isFileSelectEnabled = value;
                 OnPropertyChanged();
@@ -1440,7 +1440,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public bool IsCameraA1
         {
             get => _isCameraA1;
-            set { _isCameraA1 = value; OnPropertyChanged(); SaveConfig();
+            set
+            {
+                _isCameraA1 = value; OnPropertyChanged(); SaveConfig();
                 if (!value && !IsCameraA2 && !IsCameraA3 && !IsCameraA4 && IsStationA)
                     IsStationA = false;
             }
@@ -1451,7 +1453,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public bool IsCameraA2
         {
             get => _isCameraA2;
-            set { _isCameraA2 = value; OnPropertyChanged(); SaveConfig(); 
+            set
+            {
+                _isCameraA2 = value; OnPropertyChanged(); SaveConfig();
                 if (!value && !IsCameraA2 && !IsCameraA3 && !IsCameraA4 && IsStationA)
                     IsStationA = false;
             }
@@ -1462,7 +1466,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public bool IsCameraA3
         {
             get => _isCameraA3;
-            set { _isCameraA3 = value; OnPropertyChanged(); SaveConfig();
+            set
+            {
+                _isCameraA3 = value; OnPropertyChanged(); SaveConfig();
                 if (!value && !IsCameraA2 && !IsCameraA3 && !IsCameraA4 && IsStationA)
                     IsStationA = false;
             }
@@ -1473,7 +1479,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         public bool IsCameraA4
         {
             get => _isCameraA4;
-            set { _isCameraA4 = value; OnPropertyChanged(); SaveConfig();
+            set
+            {
+                _isCameraA4 = value; OnPropertyChanged(); SaveConfig();
                 if (!value && !IsCameraA2 && !IsCameraA3 && !IsCameraA4 && IsStationA)
                     IsStationA = false;
             }
@@ -1592,7 +1600,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private string? _detectionResult;
         private string? _imagePath;
         private string? _resultImagePath;
-      
+
         //private Dictionary<string, int> _historyDefectNGCount = new Dictionary<string, int>();  // 历史各缺陷NG数
         private readonly object _statisticsLock = new object(); //统计锁
         private static readonly HashSet<string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -2077,7 +2085,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"[批量检测拒绝] {warningMsg}", CoreLogLevel.Warn);
                 return;
             }
-    
+
             var allowedExtensions = new HashSet<string> { ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".webp" };
 
             try
@@ -2221,7 +2229,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ResetOfflineProgress();//重置离线检测进度状态
         }
 
-       
+
 
         /// <summary>
         /// 初始化所有命令（从构造函数中抽取）
@@ -2351,7 +2359,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             });
         }
 
-       
+
 
         /// <summary>
         /// 保存新UserID（验证+去重+持久化）
@@ -2423,15 +2431,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 using var scope = _serviceProvider.CreateScope();
                 var globalSettingRepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
-                StatisticsModuleCode = await globalSettingRepo.GetSettingValueAsync<string>("CurrentVMName","Default");
+                StatisticsModuleCode = await globalSettingRepo.GetSettingValueAsync<string>("CurrentVMName", "Default");
 
 
-                var settingValue =await projectSettingRepo.GetSettingValueAsync("PushUserId", StatisticsModuleCode) as string;
+                var settingValue = await projectSettingRepo.GetSettingValueAsync("PushUserId", StatisticsModuleCode) as string;
                 var savedList = settingValue?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                       .Select(id => id.Trim())
                       .ToList() ?? new List<string>();
 
-                if(savedList.Count > 0)
+                if (savedList.Count > 0)
                 {
                     AddLog($"加载已保存的用户ID列表: {string.Join(", ", savedList)}");
                 }
@@ -2478,8 +2486,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         DetectionStatisticsScope.Total,
                         TotalStatisticsDate);
                     ApplyStatisticsToUI(totalStatistics);
-                }        
-                
+                }
+
             }
             catch (Exception ex)
             {
@@ -3163,7 +3171,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 MessageBox.Show($"加载ROI失败：{ex.Message}", "错误");
                 AddLog($"[查看ROI异常] {roiKey}：{ex.Message}", CoreLogLevel.Error);
             }
-           
+
         }
 
 
@@ -3305,8 +3313,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             });
         }
 
-      
-     
+
+
         #endregion
         #region 辅助方法
         /// <summary>
@@ -3413,7 +3421,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         #endregion
 
         #region 双工位启动监控
-       
+
 
         /// <summary>
         /// 在所有资源加载完成后，根据配置启动监控
@@ -3500,8 +3508,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     processedFiles.TryRemove(filePath, out _);
                     return;
                 }
-                
-                if (!File.Exists(filePath) )
+
+                if (!File.Exists(filePath))
                 {
                     processedFiles.TryRemove(filePath, out _);
                     return;
@@ -3512,7 +3520,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     DetectionMode.OK => @"\OK\",
                     DetectionMode.NG => @"\NG\",
                     DetectionMode.全检 => @"\原图\",
-                    _ => @"\原图\" 
+                    _ => @"\原图\"
                 };
 
                 if (!filePath.Contains(expectedFolder))
@@ -3636,7 +3644,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
 
         #region 双工位队列处理
-      
+
 
 
         public void EnqueueTask(string filePath, string stationName)
@@ -3730,7 +3738,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             for (int i = pathParts.Length - 1; i >= 0; i--)
             {
-                var part = pathParts[i];            
+                var part = pathParts[i];
                 if (part.Contains("负极") || part.Contains("正极"))
                 {
                     var match = Regex.Match(part, @"\d+$");
@@ -3741,7 +3749,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             return string.Empty;
         }
 
-      
+
         #endregion
         #endregion
 
@@ -4357,7 +4365,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                     if (IsSaveResultOK)
                     {
-                        SaveDetectionResultToPath(imagePath, imageMat, finalResult, true);               
+                        SaveDetectionResultToPath(imagePath, imageMat, finalResult, true);
                     }
                 }
                 else // finalResult == "NG"
@@ -4413,7 +4421,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         string title = "缺陷列表        置信度   宽(mm)    高(mm)   面积(mm²)";
 
                         // 标题行
-                        PutTextChinese(drawMat, title,                   
+                        PutTextChinese(drawMat, title,
                             new OpenCvSharp.Point(startX, startY),
                             listFontScale, new Scalar(255, 0, 0));
 
@@ -4456,7 +4464,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         AddLog($"准备保存 NG 图：drawMat 尺寸 {drawMat.Width}x{drawMat.Height}，是否为空：{drawMat.Empty()}");
 
                         SaveDetectionResultToPath(imagePath, drawMat, finalResult, true);
-                        
+
 
                         // 发送信号进行设备报警 (使用弃元 _ 接收Task，使其在后台执行，不阻塞当前视觉检测流程)
                         //_ = TriggerPLCAlarmAsync(station ?? "未知");
@@ -5782,10 +5790,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 //DirectoryInfo currentDir = new DirectoryInfo(dirPath);
-                
+
                 data.Camerainformation = GetRoiKey(filePath, GetStationFromImagePath(filePath, isOnline));
                 //data.Polarity = GetStationFromImagePath(filePath, isOnline);
-                data.Polarity = filePath.Contains(@"\负极\")?"负极":"正极";
+                data.Polarity = filePath.Contains(@"\负极\") ? "负极" : "正极";
                 data.PartType = data.Polarity;
             }
             catch (Exception ex)
@@ -5793,7 +5801,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 AddLog($"路径解析异常：{ex.Message}，路径：{filePath}");
             }
         }
-      
+
 
         // 生成保存路径
         /// <summary>
@@ -5855,9 +5863,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     dateFolder = DateTime.Now.ToString("yyyyMMdd");
                 }
-                if(dateFolder != currentDate)
+                if (dateFolder != currentDate)
                 {
-                    dateFolder =  isOffline? $"{currentDate}_{dateFolder}":dateFolder;
+                    dateFolder = isOffline ? $"{currentDate}_{dateFolder}" : dateFolder;
                     AddLog($"[日期提取] 从路径提取的日期文件夹 '{dateFolder}' 与当前日期 '{currentDate}' 不匹配，已使用当前日期作为兜底");
                 }
 
@@ -5867,7 +5875,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                 string cellName = GetCellNameFromPath(imagePath);// 电芯编码
                 if (string.IsNullOrEmpty(cellName)) cellName = "未知电芯";
-                
+
                 // 提取原始文件的名称和扩展名（兜底处理）
                 string fileName = Path.GetFileNameWithoutExtension(imagePath);// 无扩展名的文件名
                 if (string.IsNullOrEmpty(fileName)) fileName = "未知文件";
@@ -5935,7 +5943,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             // 1. 优先检查列表
             //string[] preferredDrives = { "D:", "E:", "F:" };
-            string[] preferredDrives = {  "E:", "F:" };
+            string[] preferredDrives = { "E:", "F:" };
             string? selectedDir = null;
 
             foreach (var driveName in preferredDrives)
@@ -6117,7 +6125,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// <param name="result">检测结果（OK / NG）</param>
         /// <param name="isResultImage">true = 结果图，false = 原图</param>
         /// <param name="target">保存目标目录</param>
-        private void SaveDetectionResultToPath(string originalImagePath, Mat? imageMat,string result, bool isResultImage)
+        private void SaveDetectionResultToPath(string originalImagePath, Mat? imageMat, string result, bool isResultImage)
         {
             try
             {
@@ -6997,7 +7005,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-    
+
 
         private bool _isLoadingConfig = false;
 
@@ -7023,7 +7031,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (dict.TryGetValue("SelectedMonitorFolderPathB", out var pathB))
                     SelectedMonitorFolderPathB = pathB?.ToString() ?? string.Empty;
 
-                if ( dict.TryGetValue("IsOnlineDetectionEnabledA", out var enableA)
+                if (dict.TryGetValue("IsOnlineDetectionEnabledA", out var enableA)
                     && bool.TryParse(enableA?.ToString(), out bool isEnabledA))
                 {
                     _isOnlineDetectionEnabledA = isEnabledA;
@@ -7052,7 +7060,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (dict.TryGetValue("IsCameraB4", out var cb4) && bool.TryParse(cb4?.ToString(), out bool cb4v)) _isCameraB4 = cb4v;
 
                 // 5. 解析加载解析模式
-                if ( dict.TryGetValue("SelectedMode", out var modeValue))
+                if (dict.TryGetValue("SelectedMode", out var modeValue))
                 {
                     // 将字符串解析为枚举
                     if (Enum.TryParse<DetectionMode>(modeValue?.ToString(), out var parsedMode))
@@ -7096,7 +7104,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         ReportTimeoutMinutes = Math.Max(1, Math.Min(1440, timeoutValue));
                     }
                 }
-             
+
                 // ✅ 加载完成后统一通知UI更新（此时不会触发监控启动）
                 OnPropertyChanged(nameof(SelectedMonitorFolderPathA));
                 OnPropertyChanged(nameof(SelectedMonitorFolderPathB));
@@ -7154,9 +7162,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     SelectedMonitorFolderPathB,
                     IsOnlineDetectionEnabledB,
 
-                    IsStationA,IsStationB,
-                    IsCameraA1,IsCameraA2,IsCameraA3,IsCameraA4,
-                    IsCameraB1,IsCameraB2,IsCameraB3,IsCameraB4,
+                    IsStationA,
+                    IsStationB,
+                    IsCameraA1,
+                    IsCameraA2,
+                    IsCameraA3,
+                    IsCameraA4,
+                    IsCameraB1,
+                    IsCameraB2,
+                    IsCameraB3,
+                    IsCameraB4,
 
                     IsSaveResultOK,
                     IsSaveResultNG,
@@ -7166,10 +7181,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     MaxImagesPerReport,
                     ReportTimeoutMinutes,
                     SelectedMode = _selectedMode.ToString(),
-                    
+
                 };
 
-                string json =JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
+                string json = JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configFilePath, json);
 
             }
@@ -7351,10 +7366,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             {
                                 AddLog($"[报表生成异常] {ex.Message}", CoreLogLevel.Error);
                             }
-                        });                   
+                        });
                     }
                 }
-               
+
                 // 5. 如果是NG图片，添加到NG字典中
                 if (isNG)
                 {
@@ -8129,8 +8144,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
                 }
             }
-                
-            
+
+
 
             AddLog($"[统计写入失败] 已重试 {MaxRetry} 次，放弃本次写入", CoreLogLevel.Error);
             return null;
@@ -8176,5 +8191,5 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
     }
-   
+
 }

@@ -532,26 +532,11 @@ namespace SUNWODA_SEVB.PLC
             {
                 address = $"{rwConfig.AreaName}{rwConfig.StartAddress}";
             }
-            //var result = await Task.Run(
-            //    () => plc.Device?.Read(address, (ushort)rwConfig.Length),
-            //    cancellationToken
-            //);
 
-            var result = await Task.Run(
-                async () =>
-                    await (
-                        plc.Device is not null
-                            ? plc.Device.ReadAsync(address, (ushort)rwConfig.Length)
-                            : Task.FromResult(
-                                new OperateResult<byte[]>()
-                                {
-                                    IsSuccess = false,
-                                    Message = "Device属性为空",
-                                }
-                            )
-                    ),
-                cancellationToken
-            );
+            var task = plc.Device is not null
+                ? Task.Run(() => plc.Device.Read(address, (ushort)rwConfig.Length))
+                : Task.FromResult(new OperateResult<byte[]>() { IsSuccess = false, Message = "Device属性为空" });
+            var result = await task.WaitAsync(cancellationToken);
 
             plc.IsConnect = result?.IsSuccess ?? false;
             if (plc.IsConnect)

@@ -154,13 +154,13 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
                 // 日期目录名格式不固定，通过 LastWriteTime.Date 匹配目标日期
                 // 结构：{OutputDirectory}/{日期目录(任意名)}/{缺陷类型}/{barcodeId}/
                 var dateDirs = Directory.EnumerateDirectories(outputRoot)
-                    .Where(d => DateOnly.FromDateTime(new DirectoryInfo(d).LastWriteTime) == date)
+                    .Where(d => DateOnly.FromDateTime(new DirectoryInfo(d).CreationTime) == date)
                     .ToList();
 
                 if (dateDirs.Count == 0)
                 {
                     _logger.Info(
-                        "[DailyUpload] 工位 {target.Id} 未找到 {date} 对应的日期目录，跳过。");
+                        $"[DailyUpload] 工位 {target.Id} 未找到 {date} 对应的日期目录，跳过。");
                     continue;
                 }
 
@@ -205,13 +205,13 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error("[DailyUpload] 上传失败 {target.Id}/{dateDirName}/{defectType}", ex);
+                            _logger.Error($"[DailyUpload] 上传失败 {target.Id}/{dateDirName}/{defectType}", ex);
                         }
                     }
                 }
             }
 
-            _logger.Info("[DailyUpload] {date} 全部工位上传完成。");
+            _logger.Info($"[DailyUpload] {date} 全部工位上传完成。");
         }
 
         // ==================== 辅助方法 ====================

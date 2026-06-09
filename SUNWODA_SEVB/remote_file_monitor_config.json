@@ -8,8 +8,8 @@
                 "OutputDirectory": "E:\\IMEResult\\LAB",
                 "Filter": "*origin.png",
                 "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
+                "PollingIntervalSeconds": 60,
+                "PollingOverlapSeconds": 60,
                 "WatcherBufferSizeBytes": 65536,
                 "AutoStart": false
             },
@@ -19,8 +19,8 @@
                 "OutputDirectory": "E:\\IMEResult\\LCD",
                 "Filter": "*origin.png",
                 "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
+                "PollingIntervalSeconds": 60,
+                "PollingOverlapSeconds": 60,
                 "WatcherBufferSizeBytes": 65536,
                 "AutoStart": false
             },
@@ -30,8 +30,8 @@
                 "OutputDirectory": "E:\\IMEResult\\RAB",
                 "Filter": "*origin.png",
                 "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
+                "PollingIntervalSeconds": 60,
+                "PollingOverlapSeconds": 60,
                 "WatcherBufferSizeBytes": 65536,
                 "AutoStart": false
             },
@@ -41,8 +41,8 @@
                 "OutputDirectory": "E:\\IMEResult\\RCD",
                 "Filter": "*origin.png",
                 "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
+                "PollingIntervalSeconds": 60,
+                "PollingOverlapSeconds": 60,
                 "WatcherBufferSizeBytes": 65536,
                 "AutoStart": false
             }

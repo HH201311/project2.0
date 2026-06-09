@@ -166,9 +166,6 @@
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>
     </Reference>
-    <Reference Include="NJCT">
-      <HintPath>..\SUNWODA_SEVB.Core\Dlls\NJCT.dll</HintPath>
-    </Reference>
     <Reference Include="RemoteFileMonitor.Core">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\RemoteFileMonitor.Core.dll</HintPath>
     </Reference>

@@ -167,6 +167,12 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             var target = FindTarget(file.MonitorId);
             ApplyThresholds(); // 运行前将界面配置的阈值写入本实例字段
 
+            if (!IsOKDir(file.FilePath, target))
+            {
+                Logger.Warn($"[{file.MonitorId}] 非OK文件下图片，跳过：{file.FilePath}");
+                return;
+            }
+
             // outputBarcodeDir 在 ProcessImage 之前确定，确保算法异常时也能正确聚合
             var outputBarcodeDir = BuildOutputBarcodeDir(file.FilePath, target);
 
@@ -232,6 +238,58 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 algorithmError ? null : gapValues,
                 ct
             );
+        }
+
+        private protected bool IsOKDir(string sourcePath, MonitorTargetOptions? target)
+        {
+            if (target is null || string.IsNullOrWhiteSpace(target.OutputDirectory))
+            {
+                return false;
+            }
+
+            var sourceFullPath = Path.GetFullPath(sourcePath);
+
+            var remoteRoot = string.IsNullOrWhiteSpace(target.RemotePath)
+                ? string.Empty
+                : Path.GetFullPath(target.RemotePath);
+
+            var outputRoot = Path.GetFullPath(target.OutputDirectory);
+
+            var relativeDir = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(remoteRoot) &&
+                sourceFullPath.StartsWith(
+                    remoteRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(remoteRoot, sourceFullPath);
+
+                var parts = relativePath
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToList();
+
+                // 目录结构：
+                // 2026-04-25\OH不良\355126226K41300\file.png
+                //
+                // parts[0] = 2026-04-25
+                // parts[1] = OH不良 / OK / 其他结果目录
+                // parts[2] = barcode
+                //
+                // 判定是否是OK文件夹
+                if (parts.Count >= 2)
+                {
+                    return parts[1] == "OK";
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
         }
 
         // ==================== 子类扩展点 ====================

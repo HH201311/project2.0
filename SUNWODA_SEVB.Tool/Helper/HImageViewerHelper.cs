@@ -398,5 +398,51 @@ namespace SUNWODA_SEVB.Tool.Helper
             );
             return mainRectangle.ConcatObj(rectangle1).ConcatObj(rectangle2).ConcatObj(rectangle3).ConcatObj(rectangle4);
         }
+
+        public static HObject GenFillCTStar(HTuple centerRow, HTuple centerColumn, HTuple centerPhi, HTuple halfLength)
+        {
+            HOperatorSet.GenRectangle2(
+                out HObject mainRectangle,
+                centerRow,
+                centerColumn,
+                centerPhi,
+                halfLength,
+                halfLength
+            );
+            var outHalfLength = Math.Floor(halfLength.I / 3.0);
+            HOperatorSet.GenRectangle2(
+                out HObject rectangle1,
+                centerRow - halfLength - 1,
+                centerColumn,
+                centerPhi,
+                outHalfLength,
+                outHalfLength
+            );
+            HOperatorSet.GenRectangle2(
+                out HObject rectangle2,
+                centerRow,
+                centerColumn + halfLength + 1,
+                centerPhi,
+                outHalfLength,
+                outHalfLength
+            );
+            HOperatorSet.GenRectangle2(
+                out HObject rectangle3,
+                centerRow + halfLength + 1,
+                centerColumn,
+                centerPhi,
+                outHalfLength,
+                outHalfLength
+            );
+            HOperatorSet.GenRectangle2(
+                out HObject rectangle4,
+                centerRow,
+                centerColumn - halfLength - 1,
+                centerPhi,
+                outHalfLength,
+                outHalfLength
+            );
+            return mainRectangle.ConcatObj(rectangle1).ConcatObj(rectangle2).ConcatObj(rectangle3).ConcatObj(rectangle4);
+        }
     }
 }

@@ -58,7 +58,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         /// </summary>
         public static readonly DependencyProperty WatermarkProperty =
             DependencyProperty.Register("Watermark", typeof(string), typeof(DateRangePicker),
-                new PropertyMetadata("全部操作时间"));
+                new FrameworkPropertyMetadata("全部操作时间", FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnWatermarkPropertyChanged));
 
         /// <summary>
         /// 弹出状态
@@ -98,6 +98,33 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         /// 是否打开
         /// </summary>
         public bool IsOpen { get => (bool)GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
+        #endregion
+
+        #region 属性变更回调
+        /// <summary>
+        /// 当起止日期修改时触发
+        /// </summary>
+        /// <param name="d"></param>
+        /// <param name="e"></param>
+        private static void OnDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var picker = (DateRangePicker)d;
+
+            picker.startDate = picker.StartDate;
+            picker.endDate = picker.EndDate;
+            picker.GenerateDays();
+        }
+
+        /// <summary>
+        /// 当水印文字修改时触发
+        /// </summary>
+        /// <param name="d"></param>
+        /// <param name="e"></param>
+        private static void OnWatermarkPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (!(d is DateRangePicker picker)) return;
+            picker.UpdateDisplayText();
+        }
         #endregion
 
         #region 日历数据
@@ -488,21 +515,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
 
         #region 辅助方法
         /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="d"></param>
-        /// <param name="e"></param>
-        private static void OnDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            var picker = (DateRangePicker)d;
-
-            picker.startDate = picker.StartDate;
-            picker.endDate = picker.EndDate;
-            picker.GenerateDays();
-        }
-
-        /// <summary>
-        /// 
+        /// 更新水印文本
         /// </summary>
         private void UpdateDisplayText()
         {

@@ -22,12 +22,15 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
         private readonly IMessageHandler _messageHandler;
         private readonly ISocketOptionsLoader _optionsLoader;
         private readonly SocketServerOptions _defaultOptions;
-        private readonly SynchronizationContext? _synchronizationContext;     
+        private readonly SynchronizationContext? _synchronizationContext;
 
         // 当前生效的配置
         private SocketServerOptions _activeOptions;
         private IFrameParser? _frameParser;
 
+        public bool IsBuiltInHeartbeatEnabled { get; set; } = true;
+        public bool IsBuiltInAutoReplyEnabled { get; set; } = true;
+        public SocketServerOptions ActiveOptions => _activeOptions;
         public bool IsRunning { get; private set; }
         public int Port { get; private set; }
         public int ConnectedClientCount => _clients.Count(c => c.Value.IsConnected);
@@ -51,7 +54,7 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             _synchronizationContext = SynchronizationContext.Current;
         }
 
-        public async Task<bool> StartAsync(int port, string moduleName, string? ip,CancellationToken cancellationToken = default)
+        public async Task<bool> StartAsync(int port, string moduleName, string? ip, CancellationToken cancellationToken = default)
         {
             if (IsRunning)
             {
@@ -61,19 +64,19 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             try
             {
                 // 从数据库加载配置
-                _activeOptions = await _optionsLoader.LoadOptionsAsync(moduleName);
+                _activeOptions = await _optionsLoader.LoadServerOptionsAsync(moduleName);
                 _frameParser = new FrameParser(_activeOptions.Protocol);
                 // 如果传入端口为0，使用配置中的端口
                 var actualPort = port > 0 ? port : _activeOptions.DefaultPort;
                 lock (_lockObj)
                 {
-                    
+
                     _serverCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
                     _listenerSocket = new System.Net.Sockets.Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     _listenerSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
-                    var listenAddress = !string.IsNullOrWhiteSpace(ip) && IPAddress.TryParse(ip, out var parsedIp) ? parsedIp: IPAddress.Any;
+                    var listenAddress = !string.IsNullOrWhiteSpace(ip) && IPAddress.TryParse(ip, out var parsedIp) ? parsedIp : IPAddress.Any;
                     var endPoint = new IPEndPoint(listenAddress, actualPort);
                     _listenerSocket.Bind(endPoint);
                     _listenerSocket.Listen(_activeOptions.Backlog);
@@ -90,12 +93,12 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
             {
-                _logger.Error($"端口 {port} 已被占用", ex,true);
+                _logger.Error($"端口 {port} 已被占用", ex, true);
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.Error($"启动服务失败: {ex.Message}", ex,true);
+                _logger.Error($"启动服务失败: {ex.Message}", ex, true);
                 await CleanupAsync();
                 return false;
             }
@@ -155,7 +158,7 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             var session = FindClientByEndPoint(clientEndPoint);
             if (session == null)
             {
-                _logger.Error($"客户端 {clientEndPoint} 不存在",true);
+                _logger.Error($"客户端 {clientEndPoint} 不存在", true);
                 return false;
             }
 
@@ -231,7 +234,7 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
 
         private async Task AcceptClientsLoopAsync(CancellationToken cancellationToken)
         {
-            while (!cancellationToken.IsCancellationRequested && IsRunning )
+            while (!cancellationToken.IsCancellationRequested && IsRunning)
             {
                 try
                 {
@@ -266,7 +269,7 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
                 {
                     if (IsRunning)
                     {
-                        _logger.Error( $"接受客户端连接时发生错误", ex,true);
+                        _logger.Error($"接受客户端连接时发生错误", ex, true);
                         RaiseErrorOccurred(ex, "接受客户端连接时发生错误");
                     }
                 }
@@ -352,13 +355,13 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             }
             catch (Exception ex)
             {
-                _logger.Warn($"发送心跳响应失败: {ex.Message}",true);
+                _logger.Warn($"发送心跳响应失败: {ex.Message}", true);
             }
         }
 
-        private async Task ProcessReceivedData(SocketClientSession session,byte[] buffer,int bytesRead,MemoryStream memoryStream,CancellationToken cancellationToken)
+        private async Task ProcessReceivedData(SocketClientSession session, byte[] buffer, int bytesRead, MemoryStream memoryStream, CancellationToken cancellationToken)
         {
-            _logger.Info($"接收到 {bytesRead} 字节数据",true);
+            _logger.Info($"接收到 {bytesRead} 字节数据", true);
             ////var receivedHex = BitConverter.ToString(buffer, 0, bytesRead);
             //var receivedText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             //_logger.Info($"接收到 {bytesRead} 字节: TEXT=[{receivedText}]", true);
@@ -400,7 +403,7 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
         {
             var message = Encoding.UTF8.GetString(messageBytes, 0, messageBytes.Length).Trim();
 
-            if (IsHeartbeatMessage(message))
+            if (IsBuiltInHeartbeatEnabled && IsHeartbeatMessage(message))
             {
                 await SendHeartbeatResponseAsync(session, cancellationToken);
                 return;
@@ -409,25 +412,39 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             // 消息传递给业务层处理
             RaiseDataReceived(session, messageBytes);
 
+            if (!IsBuiltInAutoReplyEnabled) return;
             try
             {
                 var response = await _messageHandler.HandleMessageAsync(message, session.EndPoint);
 
                 if (!await SendResponseAsync(session.EndPoint, response, cancellationToken))
                 {
-                    _logger.Warn($"向客户端 {session.EndPoint} 发送响应失败", true);                 
+                    _logger.Warn($"向客户端 {session.EndPoint} 发送响应失败", true);
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error("处理消息失败",ex);
+                _logger.Error("处理消息失败", ex);
                 RaiseErrorOccurred(ex, "处理消息失败", session.EndPoint);
                 var errorResponse = SocketResponse.Error($"消息处理失败: {ex.Message}");
                 await SendResponseAsync(session.EndPoint, errorResponse, cancellationToken);
             }
         }
 
-
+        /// <summary>
+        /// 在同步上下文（UI线程）上执行
+        /// </summary>
+        private void InvokeOnSyncContext(Action action)
+        {
+            if (_synchronizationContext != null)
+            {
+                _synchronizationContext.Post(_ => action(), null);
+            }
+            else
+            {
+                action();
+            }
+        }
 
         private void RaiseDataReceived(SocketClientSession session, byte[] data)
         {
@@ -468,21 +485,6 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             InvokeOnSyncContext(() => ClientDisconnected?.Invoke(this, args));
         }
 
-        /// <summary>
-        /// 在同步上下文（UI线程）上执行
-        /// </summary>
-        private void InvokeOnSyncContext(Action action)
-        {
-            if (_synchronizationContext != null)
-            {
-                _synchronizationContext.Post(_ => action(), null);
-            }
-            else
-            {
-                action();
-            }
-        }
-
         private void RaiseErrorOccurred(Exception exception, string message, string? clientEndPoint = null)
         {
             var args = new ServerErrorEventArgs
@@ -501,8 +503,8 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             _disposed = true;
 
             await StopAsync();
+
+            _logger.Info($"SocketServer disposed: {Port}");
         }
-
-
     }
 }

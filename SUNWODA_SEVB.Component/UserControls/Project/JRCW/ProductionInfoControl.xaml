@@ -1,0 +1,132 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.JRCW.ProductionInfoControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.JRCW"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <!--  设备状态控件样式  -->
+            <Style x:Key="DeviceStatusContentControlStyle" TargetType="ContentControl">
+                <Setter Property="Margin" Value="10,0" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="Black" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Tag" Value="xx通信状态" />
+                <Setter Property="Content" Value="未启用" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock
+                                    Margin="0,0,10,0"
+                                    VerticalAlignment="{TemplateBinding VerticalAlignment}"
+                                    FontFamily="{TemplateBinding FontFamily}"
+                                    FontSize="{TemplateBinding FontSize}"
+                                    Foreground="Black"
+                                    Text="{TemplateBinding Tag}" />
+                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="{TemplateBinding VerticalAlignment}" />
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="Content" Value="已连接">
+                                    <Setter Property="Foreground" Value="Blue" />
+                                </Trigger>
+                                <Trigger Property="Content" Value="离线">
+                                    <Setter Property="Foreground" Value="Red" />
+                                </Trigger>
+                                <Trigger Property="Content" Value="未启用">
+                                    <Setter Property="Foreground" Value="Gray" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  参数名称样式  -->
+            <Style x:Key="ParamNameTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="TextAlignment" Value="Right" />
+            </Style>
+
+            <Style TargetType="ContentControl">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="2*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Grid.Column="0"
+                                    Margin="0,0,10,0"
+                                    Style="{StaticResource ParamNameTextBlockStyle}"
+                                    Text="{TemplateBinding Tag}" />
+                                <ContentPresenter
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    d:Content="——"
+                                    Content="{TemplateBinding Content}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <Border Background="WhiteSmoke" CornerRadius="20">
+            <Grid Margin="20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <UniformGrid HorizontalAlignment="Right" Columns="3">
+                    <ContentControl
+                        Margin="10,0"
+                        d:Content="已连接"
+                        Content="{Binding ItemSource.PLCConnectStatus, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource DeviceStatusContentControlStyle}"
+                        Tag="PLC通信状态" />
+                    <ContentControl
+                        Margin="10,0"
+                        d:Content="离线"
+                        Content="{Binding ItemSource.MESConnectStatus, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource DeviceStatusContentControlStyle}"
+                        Tag="MES通信状态" />
+                    <ContentControl
+                        Margin="10,0"
+                        d:Content="未启用"
+                        Content="{Binding ItemSource.WEBConnectStatus, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource DeviceStatusContentControlStyle}"
+                        Tag="WEB通信状态" />
+                </UniformGrid>
+                <UniformGrid
+                    Grid.Row="1"
+                    Margin="0,20,0,0"
+                    Columns="2">
+                    <ContentControl Content="{Binding ItemSource.DeviceSn, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="设备编号:" />
+                    <ContentControl Content="{Binding ItemSource.DeviceName, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="设备名称:" />
+                    <ContentControl Content="{Binding ItemSource.LineName, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="拉线名称:" />
+                    <ContentControl Content="{Binding ItemSource.ProductionOrder, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="制令单:" />
+                    <ContentControl Content="{Binding ItemSource.ProcessCode, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="工序代码:" />
+                    <ContentControl Content="{Binding ItemSource.MaterialsInfo, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="物料信息:" />
+                    <ContentControl Content="{Binding ItemSource.OperationSheet, RelativeSource={RelativeSource AncestorType=UserControl}}" Tag="操作单:" />
+                </UniformGrid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

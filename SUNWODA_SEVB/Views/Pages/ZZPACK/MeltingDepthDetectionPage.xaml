@@ -323,9 +323,9 @@
                             Orientation="Horizontal">
                             <Button
                                 Padding="8,2"
-                                Command="{Binding ClearLogsCommand}"
                                 Background="Transparent"
                                 BorderThickness="0"
+                                Command="{Binding ClearLogsCommand}"
                                 Content="清空日志"
                                 Cursor="Hand"
                                 FontSize="11"

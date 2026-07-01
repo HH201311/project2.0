@@ -82,7 +82,9 @@
                                             <csc:WMCommunicationControl
                                                 CancleCommand="{Binding ParamCancleCommand}"
                                                 ItemSource="{Binding CommunicationModel, Mode=TwoWay}"
-                                                SaveCommand="{Binding ParamSaveCommand}" />
+                                                SaveCommand="{Binding ParamSaveCommand}"
+                                                SocketClientConfigCommand="{Binding SocketClientConfigCommand}"
+                                                SocketServerConfigCommand="{Binding SocketServerConfigCommand}" />
                                         </Border>
                                     </DataTemplate>
                                 </Setter.Value>
@@ -106,33 +108,15 @@
                             <Setter Property="ContentTemplate">
                                 <Setter.Value>
                                     <DataTemplate>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="20" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border
-                                                Grid.Column="0"
-                                                Background="#0DFFFFFF"
-                                                CornerRadius="10">
-                                                <csc:DHCommunicationControl
-                                                    CancleCommand="{Binding ParamCancleCommand}"
-                                                    ItemSource="{Binding CommunicationModel, Mode=TwoWay}"
-                                                    SaveCommand="{Binding ParamSaveCommand}"
-                                                    SideType="{x:Static enums:ESideType.A}" />
-                                            </Border>
-                                            <Border
-                                                Grid.Column="2"
-                                                Background="#0DFFFFFF"
-                                                CornerRadius="10">
-                                                <csc:DHCommunicationControl
-                                                    CancleCommand="{Binding ParamCancleCommand}"
-                                                    ItemSource="{Binding CommunicationModel, Mode=TwoWay}"
-                                                    SaveCommand="{Binding ParamSaveCommand}"
-                                                    SideType="{x:Static enums:ESideType.B}" />
-                                            </Border>
-                                        </Grid>
+                                        <Border Background="#0DFFFFFF" CornerRadius="10">
+                                            <csc:DHCommunicationControl
+                                                CancleCommand="{Binding ParamCancleCommand}"
+                                                ItemSource="{Binding CommunicationModel, Mode=TwoWay}"
+                                                MqttClientConfigCommand="{Binding MqttClientConfigCommand}"
+                                                SaveCommand="{Binding ParamSaveCommand}"
+                                                SocketClientConfigCommand="{Binding SocketClientConfigCommand}"
+                                                SocketServerConfigCommand="{Binding SocketServerConfigCommand}" />
+                                        </Border>
                                     </DataTemplate>
                                 </Setter.Value>
                             </Setter>
@@ -145,7 +129,9 @@
                                             <csc:CCDCommunicationControl
                                                 CancleCommand="{Binding ParamCancleCommand}"
                                                 ItemSource="{Binding CommunicationModel, Mode=TwoWay}"
-                                                SaveCommand="{Binding ParamSaveCommand}" />
+                                                SaveCommand="{Binding ParamSaveCommand}"
+                                                SocketClientConfigCommand="{Binding SocketClientConfigCommand}"
+                                                SocketServerConfigCommand="{Binding SocketServerConfigCommand}" />
                                         </Border>
                                     </DataTemplate>
                                 </Setter.Value>

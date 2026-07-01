@@ -33,17 +33,15 @@
                         IsChecked="{Binding ItemSource.IsUseCollectFunctionOfPLCData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率" />
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率（文件保存）" />
                 <uccc:PairContentControl PairKeyText="PLC采集频率(s/次)" Style="{StaticResource PPairContentControlStyle}">
                     <TextBox
                         d:Text="1"
                         Style="{StaticResource PValueTextBoxStyle}"
                         Text="{Binding ItemSource.CollectFrequencyOfPLCData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                 </uccc:PairContentControl>
-
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
                 <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据保存" />

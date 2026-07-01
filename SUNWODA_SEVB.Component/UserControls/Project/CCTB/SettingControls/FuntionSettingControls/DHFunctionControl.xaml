@@ -42,13 +42,7 @@
 
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率" />
-                <uccc:PairContentControl PairKeyText="模头面密度采集频率(s/次)" Style="{StaticResource PPairContentControlStyle}">
-                    <TextBox
-                        d:Text="1"
-                        Style="{StaticResource PValueTextBoxStyle}"
-                        Text="{Binding ItemSource.CollectFrequencyOfDHWeightData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                </uccc:PairContentControl>
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率（客户端）" />
                 <uccc:PairContentControl PairKeyText="T块数据采集频率(s/次)" Style="{StaticResource PPairContentControlStyle}">
                     <TextBox
                         d:Text="7"

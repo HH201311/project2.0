@@ -9,8 +9,9 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB
     /// <summary>
     /// 算法模型类型
     /// </summary>
-    public enum EArithmeticType
+    public enum EAlgorithmType
     {
+        Unknown,
         专家PID,
         流量PID,
         MDControl,

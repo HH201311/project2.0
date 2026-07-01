@@ -13,6 +13,7 @@ using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
+using SUNWODA_SEVB.Tool.Extension;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +32,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         private string? controlPageName;
         public string? ControlPageName { get => controlPageName; set => SetProperty(ref controlPageName, value); }
@@ -79,8 +79,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         /// <summary>
@@ -116,7 +114,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// </summary>
         private async void OnParamSaveAsync()
         {
-            var re = _operationUtil.SaveBasicFunctionSettingProjectParamrers(FunctionModel);
+            var re = _projectSettingRepository.SaveBasicFunctionSettingProjectParameters(FunctionModel);
             if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
@@ -149,7 +147,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <returns></returns>
         private void LoadFunctionSettingModel()
         {
-            var settingModel = _operationUtil.LoadBasicFunctionSettingProjectParamrers();
+            var settingModel = _projectSettingRepository.LoadBasicFunctionSettingProjectParameters();
             if (settingModel == null) return;
 
             FunctionModel = settingModel;

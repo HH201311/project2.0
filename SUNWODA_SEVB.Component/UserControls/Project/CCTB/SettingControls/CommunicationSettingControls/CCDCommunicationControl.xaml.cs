@@ -49,6 +49,46 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Commu
         }
         #endregion
 
+        #region SocketClientConfigCommand
+        public ICommand SocketClientConfigCommand
+        {
+            get { return (ICommand)GetValue(SocketClientConfigCommandProperty); }
+            set { SetValue(SocketClientConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty SocketClientConfigCommandProperty = DependencyProperty.Register(
+            "SocketClientConfigCommand",
+            typeof(ICommand),
+            typeof(CCDCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnSocketClientConfigCommandChanged))
+        );
+
+        private static void OnSocketClientConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as CCDCommunicationControl;
+        }
+        #endregion
+
+        #region SocketServerConfigCommand
+        public ICommand SocketServerConfigCommand
+        {
+            get { return (ICommand)GetValue(SocketServerConfigCommandProperty); }
+            set { SetValue(SocketServerConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty SocketServerConfigCommandProperty = DependencyProperty.Register(
+            "SocketServerConfigCommand",
+            typeof(ICommand),
+            typeof(CCDCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnSocketServerConfigCommandChanged))
+        );
+
+        private static void OnSocketServerConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as CCDCommunicationControl;
+        }
+        #endregion
+
         #region SaveCommand
         public ICommand SaveCommand
         {

@@ -147,9 +147,28 @@ namespace SUNWODA_SEVB.Core.Models.Web
     /// </summary>
     public class DownloadDllRequest
     {
+        /// <summary>
+        /// 请求调用的接口用户Key，由Web组提供
+        /// </summary>
+        [JsonPropertyName("appKey")]
         public string? AppKey { get; set; }
+
+        /// <summary>
+        /// 请求签名（加密串），由Web组提供
+        /// </summary>
+        [JsonPropertyName("signature")]
         public string? Signature { get; set; }
+
+        /// <summary>
+        /// Python脚本配置的编码，前期由Web组提供
+        /// </summary>
+        [JsonPropertyName("pythonCode")]
         public string? PythonCode { get; set; }
+
+        /// <summary>
+        /// 运行模型类型:PRED或TRAIN，由Web组提供，保留用于兼容
+        /// </summary>
+        [JsonPropertyName("executeType")]
         public string? ExecuteType { get; set; }
     }
 
@@ -626,7 +645,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
     #region 容量预测项目
 
     public class CapacityPredictionRequest
-    {        
+    {
         /// <summary>
         /// 拉线
         /// </summary>
@@ -669,7 +688,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         [JsonPropertyName("dataList")]
         public CapacityPredictionData[]? DataList { get; set; }
     }
-    
+
     public class CapacityPredictionData
     {
         /// <summary>

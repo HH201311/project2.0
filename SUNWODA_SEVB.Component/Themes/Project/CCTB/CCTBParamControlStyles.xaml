@@ -111,8 +111,24 @@
         </Setter>
     </Style>
 
+    <!--  简单文本按钮样式  -->
+    <Style
+        x:Key="TextButtonStyle"
+        BasedOn="{StaticResource HCButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="#FF3DCC84" />
+    </Style>
+
     <!--#region 图片功能按钮-->
-    <!--  编辑按钮样式  -->
+    <!--  编辑图标按钮样式  -->
     <Style x:Key="ParamEditButtonStyle" TargetType="Button">
         <Setter Property="MinWidth" Value="14" />
         <Setter Property="MinHeight" Value="14" />
@@ -128,6 +144,46 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Opacity" Value="0.8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  关闭图标按钮样式  -->
+    <Style x:Key="IconClosedButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="Opacity" Value="0.8" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}" />
+        <Setter Property="Content" Value="&#xe669;" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{Binding (hc:BorderElement.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                        <ContentPresenter
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Opacity="{TemplateBinding Opacity}"
+                            TextElement.FontFamily="{TemplateBinding FontFamily}"
+                            TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="1" />
+                            <Setter Property="Background" Value="#1DFFFFFF" />
+                            <Setter Property="FontWeight" Value="Bold" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -186,6 +242,7 @@
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="IsReadOnly" Value="False" />
         <Setter Property="CaretBrush" Value="#FFFFFFFF" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
@@ -193,16 +250,8 @@
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="5">
-                        <ScrollViewer
-                            x:Name="PART_ContentHost"
-                            Grid.Column="1"
-                            Margin="5,0"
-                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                            VerticalAlignment="{TemplateBinding VerticalAlignment}"
-                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                            Background="Transparent" />
+                        CornerRadius="{Binding (hc:BorderElement.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="5,0" />
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
@@ -225,6 +274,7 @@
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="IsReadOnly" Value="False" />
         <Setter Property="CaretBrush" Value="#FFFFFFFF" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type uccc:AffixedTextBox}">
@@ -233,7 +283,7 @@
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="5">
+                        CornerRadius="{Binding (hc:BorderElement.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
                         <Grid Margin="5,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -253,12 +303,7 @@
                             <ScrollViewer
                                 x:Name="PART_ContentHost"
                                 Grid.Column="1"
-                                Margin="5,0"
-                                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}"
-                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                Background="Transparent" />
+                                Margin="5,0" />
                             <TextBlock
                                 Grid.Column="2"
                                 HorizontalAlignment="Right"
@@ -727,6 +772,60 @@
         </Style.Triggers>
     </Style>
 
+    <!--  基于 HandyControl 的下拉框样式  -->
+    <Style
+        x:Key="HCParamComboBoxStyle"
+        BasedOn="{StaticResource ComboBoxExtend}"
+        TargetType="ComboBox">
+        <Style.Resources>
+            <ResourceDictionary>
+                <SolidColorBrush x:Key="RegionBrush" Color="#FF2B2B2B" />
+                <SolidColorBrush x:Key="BorderBrush" Color="#1AFFFFFF" />
+                <SolidColorBrush x:Key="SecondaryBorderBrush" Color="#3AFFFFFF" />
+                <SolidColorBrush x:Key="PrimaryBrush" Color="#4AFFFFFF" />
+                <SolidColorBrush x:Key="PrimaryTextBrush" Color="#CCFFFFFF" />
+                <SolidColorBrush x:Key="SecondaryTextBrush" Color="#99FFFFFF" />
+            </ResourceDictionary>
+        </Style.Resources>
+        <Setter Property="Width" Value="360" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
+        <Setter Property="hc:InfoElement.TitleWidth" Value="180" />
+        <Setter Property="hc:InfoElement.TitlePlacement" Value="Left" />
+        <Setter Property="hc:InfoElement.Symbol" Value="*" />
+        <Setter Property="hc:InfoElement.Necessary" Value="True" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="#0DFFFFFF" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="ComboBoxItem">
+                    <Setter Property="Padding" Value="10,5" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="#CCFFFFFF" />
+                    <Setter Property="HorizontalContentAlignment" Value="Left" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#2AFFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#1AFFFFFF" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="ParamValueRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
         <Setter Property="FontSize" Value="14" />
@@ -794,8 +893,6 @@
 
     <Style x:Key="ParamGroupBoxStyle" TargetType="GroupBox">
         <Setter Property="Margin" Value="0,0,20,20" />
-        <Setter Property="MinWidth" Value="300" />
-        <Setter Property="MinHeight" Value="280" />
         <Setter Property="Background" Value="#0DFFFFFF" />
         <Setter Property="Foreground" Value="#CCFFFFFF" />
         <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
@@ -846,8 +943,9 @@
         <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Height" Value="30" />
+        <Setter Property="PairKeyWidth" Value="80" />
         <Setter Property="Foreground" Value="#CCFFFFFF" />
-        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -857,11 +955,7 @@
                     <Grid Width="{TemplateBinding Width}" Background="{TemplateBinding Background}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{TemplateBinding PairKeyWidth}" />
-                            <ColumnDefinition Width="{TemplateBinding PairSeparateWidth}" MinWidth="10" />
-                            <ColumnDefinition
-                                Width="{TemplateBinding PairValueWidth}"
-                                MinWidth="{TemplateBinding PairValueMinWidth}"
-                                MaxWidth="{TemplateBinding PairValueMaxWidth}" />
+                            <ColumnDefinition />
                         </Grid.ColumnDefinitions>
                         <TextBlock
                             Grid.Column="0"
@@ -870,7 +964,7 @@
                             Style="{StaticResource ParamNameTextBlockStyle}"
                             Text="{TemplateBinding PairKeyText}" />
                         <ContentPresenter
-                            Grid.Column="2"
+                            Grid.Column="1"
                             HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                             VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                             ContentStringFormat="{TemplateBinding ContentStringFormat}" />

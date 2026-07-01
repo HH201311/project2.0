@@ -45,13 +45,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         public ICommand? UserAddCommand => new RelayCommand(OnUserAddAsync);
         public ICommand? UserDeleteInBatchesCommand => new RelayCommand(OnUserDeleteInBatchesAsync);
         public ICommand? UserSelectAllCommand => new RelayCommand(OnUserSelectAllAsync);
-        public ICommand? UserResetPasswordCommand => new RelayCommand(OnUserModifyAsync);
-        public ICommand? UserModifyCommand => new RelayCommand(OnUserResetPasswordAsync);
+        public ICommand? UserResetPasswordCommand => new RelayCommand(OnUserResetPasswordAsync);
+        public ICommand? UserModifyCommand => new RelayCommand(OnUserModifyAsync);
         public ICommand? UserDeleteCommand => new RelayCommand(OnUserDeleteAsync);
 
         /// <summary>
@@ -74,8 +73,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         /// <summary>
@@ -113,7 +110,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                             UserAccount = userModel.Account!,
                             UserName = userModel.Name!,
                             Password = BCrypt.Net.BCrypt.HashPassword("123456"),
-                            RoleId = OperationUtil.StringToRoleID(userModel.Role!),
+                            RoleId = CCTBCore.StringToRoleID(userModel.Role!),
                             CreatedTime = userModel.CreatedDateTime,
                         }
                     );
@@ -263,7 +260,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             if (user != null)
             {
                 user.UserName = userModel.Name!;
-                user.RoleId = OperationUtil.StringToRoleID(userModel.Role!);
+                user.RoleId = CCTBCore.StringToRoleID(userModel.Role!);
                 if (await _usersRepository.UpdateAsync(user))
                 {
                     _logger.Warn($"修改 {user.UserAccount} 账号信息成功！");
@@ -318,7 +315,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         public ObservableCollection<ComboboxItemModel<UserRole>> UserRoleSource { get; private set; } =
                  new ObservableCollection<ComboboxItemModel<UserRole>>(
                  Enum.GetValues(typeof(UserRole)).Cast<UserRole>()
-                 .Select(v => new ComboboxItemModel<UserRole>() { ItemValue = v, DisplayName = OperationUtil.RoleIDToString((int)v) }));
+                 .Select(v => new ComboboxItemModel<UserRole>() { ItemValue = v, DisplayName = CCTBCore.RoleIDToString((int)v) }));
 
         public ObservableCollection<UserAccountModel> UserAccounts { get; set; } = [];
 
@@ -345,7 +342,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                  Account = item.UserAccount,
                  Name = item.UserName,
                  UserRole = (UserRole)item.RoleId,
-                 Role = OperationUtil.RoleIDToString(item.RoleId),
+                 Role = CCTBCore.RoleIDToString(item.RoleId),
                  CreatedDateTime = item.CreatedTime,
                  LastLoginDateTime = item.LastLoginTime,
              }));

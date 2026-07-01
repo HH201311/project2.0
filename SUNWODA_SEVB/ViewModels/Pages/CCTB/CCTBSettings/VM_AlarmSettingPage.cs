@@ -34,7 +34,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         /// <summary>
         /// 保存按钮
@@ -59,8 +58,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         /// <summary>
@@ -78,13 +75,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// </summary>
         private async void OnParamSaveAsync()
         {
-            var re = _operationUtil.SaveAlarmConfigProjectParamrers(AlarmConfigs.ToList());
+            var re = _projectSettingRepository.SaveAlarmConfigProjectParameters(AlarmConfigs.ToList());
             if (!re)
             {
                 await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
                 return;
             }
-            re = _operationUtil.SaveAlarmConfigParamProjectParamrers(AlarmConfigParam);
+            re = _projectSettingRepository.SaveAlarmConfigParamProjectParameters(AlarmConfigParam);
             if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
@@ -116,7 +113,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// </summary>
         private void LoadAlarmSettings()
         {
-            var configs = _operationUtil.LoadAlarmConfigWithDefault();
+            var configs = _projectSettingRepository.LoadAlarmConfigWithDefault();
 
             RunOnUIThread(() =>
             {
@@ -124,7 +121,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 AlarmConfigs.AddRange(configs);
             });
 
-            var alarmConfigParam = _operationUtil.LoadAlarmConfigParamProjectParamrers();
+            var alarmConfigParam = _projectSettingRepository.LoadAlarmConfigParamProjectParameters();
             if (alarmConfigParam == null) return;
             RunOnUIThread(() =>
             {

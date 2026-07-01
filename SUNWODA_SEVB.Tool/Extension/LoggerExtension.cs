@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Enumerations.Logging;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.RecordModels;
@@ -10,6 +11,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 
 namespace SUNWODA_SEVB.Tool.Extension
 {
@@ -26,7 +28,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             var record = new SystemRecordModel();
             record.Name = CCTBCore.UserName;
             record.Account = CCTBCore.UserAccount;
-            record.Role = OperationUtil.RoleIDToString(CCTBCore.UserRoleID);
+            record.Role = CCTBCore.RoleIDToString(CCTBCore.UserRoleID);
             record.Message = message;
             var msg = JsonConvert.SerializeObject(record);
             logger.LogToSpecialFile(UserLog, msg, CoreLogLevel.Trace, isToDatabase, memberName, filePath, lineNumber);
@@ -40,7 +42,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             var record = new SystemRecordModel();
             record.Name = CCTBCore.UserName;
             record.Account = CCTBCore.UserAccount;
-            record.Role = OperationUtil.RoleIDToString(CCTBCore.UserRoleID);
+            record.Role = CCTBCore.RoleIDToString(CCTBCore.UserRoleID);
             record.Message = message;
             var msg = JsonConvert.SerializeObject(record);
             logger.LogToSpecialFile(UserLog, msg, CoreLogLevel.Debug, isToDatabase, memberName, filePath, lineNumber);
@@ -54,7 +56,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             var record = new SystemRecordModel();
             record.Name = CCTBCore.UserName;
             record.Account = CCTBCore.UserAccount;
-            record.Role = OperationUtil.RoleIDToString(CCTBCore.UserRoleID);
+            record.Role = CCTBCore.RoleIDToString(CCTBCore.UserRoleID);
             record.Message = message;
             var msg = JsonConvert.SerializeObject(record);
             logger.LogToSpecialFile(UserLog, msg, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
@@ -68,7 +70,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             var record = new SystemRecordModel();
             record.Name = CCTBCore.UserName;
             record.Account = CCTBCore.UserAccount;
-            record.Role = OperationUtil.RoleIDToString(CCTBCore.UserRoleID);
+            record.Role = CCTBCore.RoleIDToString(CCTBCore.UserRoleID);
             record.Message = message;
             var msg = JsonConvert.SerializeObject(record);
             logger.LogToSpecialFile(UserLog, msg, CoreLogLevel.Warn, isToDatabase, memberName, filePath, lineNumber);
@@ -82,7 +84,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             var record = new SystemRecordModel();
             record.Name = CCTBCore.UserName;
             record.Account = CCTBCore.UserAccount;
-            record.Role = OperationUtil.RoleIDToString(CCTBCore.UserRoleID);
+            record.Role = CCTBCore.RoleIDToString(CCTBCore.UserRoleID);
             record.Message = message;
             var msg = JsonConvert.SerializeObject(record);
             logger.LogToSpecialFile(UserLog, msg, CoreLogLevel.Error, isToDatabase, memberName, filePath, lineNumber);
@@ -96,7 +98,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             var record = new SystemRecordModel();
             record.Name = CCTBCore.UserName;
             record.Account = CCTBCore.UserAccount;
-            record.Role = OperationUtil.RoleIDToString(CCTBCore.UserRoleID);
+            record.Role = CCTBCore.RoleIDToString(CCTBCore.UserRoleID);
             record.Message = message;
             var msg = JsonConvert.SerializeObject(record);
             logger.LogToSpecialFile(UserLog, msg, CoreLogLevel.Fatal, isToDatabase, memberName, filePath, lineNumber);
@@ -106,22 +108,6 @@ namespace SUNWODA_SEVB.Tool.Extension
         #region 调机动作日志记录扩展
         public const string AdjustmentLog = "AdjustmentLog";
 
-        public static void AdjustmentTrace<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Trace, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AdjustmentDebug<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Debug, isToDatabase, memberName, filePath, lineNumber);
-        }
-
         public static void AdjustmentInfo<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
@@ -130,28 +116,31 @@ namespace SUNWODA_SEVB.Tool.Extension
             logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
         }
 
-        public static void AdjustmentWarn<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
+        public static void AdjustmentInfo<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            string adjustMode,
+            int passCount,
+            List<float> tPositions,
+            List<float> tAdjustOffsets,
+            List<float> bPositions,
+            List<float> bAdjustOffsets,
+            bool isToDatabase = true,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Warn, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AdjustmentError<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Error, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AdjustmentFatal<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Fatal, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AdjustmentRecordModel()
+            {
+                SideType = sideType,
+                AdjustMode = adjustMode,
+                PassCount = passCount,
+                TPositions = tPositions,
+                TAdjustOffsets = tAdjustOffsets,
+                BPositions = bPositions,
+                BAdjustOffsets = bAdjustOffsets
+            };
+            var message = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
         }
         #endregion
 
@@ -163,7 +152,10 @@ namespace SUNWODA_SEVB.Tool.Extension
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AlarmLog, message, CoreLogLevel.Trace, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AlarmRecordModel();
+            record.AlarmMessage = message;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Trace, isToDatabase, memberName, filePath, lineNumber);
         }
 
         public static void AlarmDebug<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
@@ -171,7 +163,10 @@ namespace SUNWODA_SEVB.Tool.Extension
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AlarmLog, message, CoreLogLevel.Debug, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AlarmRecordModel();
+            record.AlarmMessage = message;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Debug, isToDatabase, memberName, filePath, lineNumber);
         }
 
         public static void AlarmInfo<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
@@ -179,7 +174,10 @@ namespace SUNWODA_SEVB.Tool.Extension
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AlarmLog, message, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AlarmRecordModel();
+            record.AlarmMessage = message;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
         }
 
         public static void AlarmWarn<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
@@ -187,7 +185,10 @@ namespace SUNWODA_SEVB.Tool.Extension
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AlarmLog, message, CoreLogLevel.Warn, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AlarmRecordModel();
+            record.AlarmMessage = message;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Warn, isToDatabase, memberName, filePath, lineNumber);
         }
 
         public static void AlarmError<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
@@ -195,7 +196,10 @@ namespace SUNWODA_SEVB.Tool.Extension
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AlarmLog, message, CoreLogLevel.Error, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AlarmRecordModel();
+            record.AlarmMessage = message;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Error, isToDatabase, memberName, filePath, lineNumber);
         }
 
         public static void AlarmFatal<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
@@ -203,7 +207,10 @@ namespace SUNWODA_SEVB.Tool.Extension
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            logger.LogToSpecialFile(AlarmLog, message, CoreLogLevel.Fatal, isToDatabase, memberName, filePath, lineNumber);
+            var record = new AlarmRecordModel();
+            record.AlarmMessage = message;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Fatal, isToDatabase, memberName, filePath, lineNumber);
         }
         #endregion
     }

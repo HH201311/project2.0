@@ -96,6 +96,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 #region 设置对应python搜索路径
                 string[] pyPaths = { "DLLs", "Lib", "Lib/site-packages" };
                 List<string> searchPaths = [pythonInstallDir];
+                searchPaths.Add(Path.Combine(pythonInstallDir, "..", "Dlls"));
                 foreach (string p in pyPaths)
                 {
                     searchPaths.Add(Path.Combine(pythonInstallDir, p));

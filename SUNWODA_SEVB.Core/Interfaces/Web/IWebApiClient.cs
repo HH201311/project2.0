@@ -49,5 +49,9 @@ namespace SUNWODA_SEVB.Core.Interfaces.Web
         Task<WebApiSendResponse> PushMessageAsync(string messageContent);
         Task<WebApiSendResponse> PushFileAsync(string filePath);
 
+        // 自定义接口
+        Task<DownloadDllResponse> DownloadDllAsync(string url, string appKey, string signature, string pythonCode, string executeType);
+        Task<FileVersionResponse> GetFileVersionAsync(string url, string pythonCode);
+
     }
 }

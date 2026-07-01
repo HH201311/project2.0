@@ -54,20 +54,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 
         public override void OnInitialize()
         {
-            DryFilmChangedACommand = new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.A, true));
-            WetFilmChangedACommand = new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.A, false));
-            DryFilmChangedBCommand = new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.B, true));
-            WetFilmChangedBCommand = new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.B, false));
-
-            base.OnInitialize();
-        }
-
-        protected override async Task OnInitializeAsync()
-        {
             CCTBCore.CCDMessageNotificationEvent -= OnCCDMessageNotificationAsync;
             CCTBCore.CCDMessageNotificationEvent += OnCCDMessageNotificationAsync;
 
-            await base.OnInitializeAsync();
+            base.OnInitialize();
         }
 
         /// <summary>
@@ -80,14 +70,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             if (e.Message == null) return;
             if (e.Message.Data == null) return;
 
-            // 更新CCD尺寸数据基材值
-            await RefreshFilmBaseMaterialAsync(e.Message.SideType, new Random().NextDouble() * 100);
             // 更新CCD尺寸数据示意图
-            await RefreshFilmChartAsync(e.Message.SideType, e.Message.IsDryFilmData, e.Message.Data.CopyByJson());
+            RefreshFilmChartAsync(e.Message.SideType, e.Message.IsDryFilmData, e.Message.Data.CopyByJson());
+            // 更新CCD尺寸数据基材值
+            RefreshFilmBaseMaterialAsync(e.Message.SideType, new Random().NextDouble() * 100);
             // 更新CCD尺寸数据表格
-            await RefreshFilmDatasAsync(e.Message.SideType, e.Message.IsDryFilmData, e.Message.Data.CopyByJson());
+            RefreshFilmDatasAsync(e.Message.SideType, e.Message.IsDryFilmData, e.Message.Data.CopyByJson());
             // 更新按钮使能
-            await RefreshFilmEnableAsync(e.Message.SideType, e.Message.IsDryFilmData);
+            RefreshFilmEnableAsync(e.Message.SideType, e.Message.IsDryFilmData);
         }
 
         #region A/B面尺寸数据示意图
@@ -107,7 +97,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <param name="sideType"></param>
         /// <param name="baseMaterialValue"></param>
         /// <returns></returns>
-        private async Task RefreshFilmBaseMaterialAsync(ESideType sideType, double baseMaterialValue)
+        private async void RefreshFilmBaseMaterialAsync(ESideType sideType, double baseMaterialValue)
         {
             if (sideType == ESideType.A)
             {
@@ -128,7 +118,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <param name="isDry"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        public async Task RefreshFilmChartAsync(ESideType sideType, bool isDry, CCDModel? data)
+        public async void RefreshFilmChartAsync(ESideType sideType, bool isDry, CCDModel? data)
         {
             if (data == null) return;
 
@@ -167,10 +157,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         public ObservableCollection<CCDModel> DryFilmDatasB { get; set; } = [];
         public ObservableCollection<CCDModel> WetFilmDatasB { get; set; } = [];
 
-        public ICommand? DryFilmChangedACommand { get; set; }
-        public ICommand? WetFilmChangedACommand { get; set; }
-        public ICommand? DryFilmChangedBCommand { get; set; }
-        public ICommand? WetFilmChangedBCommand { get; set; }
+        public ICommand? DryFilmChangedACommand => new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.A, true));
+        public ICommand? WetFilmChangedACommand => new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.A, false));
+        public ICommand? DryFilmChangedBCommand => new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.B, true));
+        public ICommand? WetFilmChangedBCommand => new RelayCommand((obj) => OnFilmDataChanged(obj, ESideType.B, false));
 
         /// <summary>
         /// 更新按钮开关：有数据则使能
@@ -178,7 +168,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <param name="sideType"></param>
         /// <param name="isDry"></param>
         /// <returns></returns>
-        private async Task RefreshFilmEnableAsync(ESideType sideType, bool isDry)
+        private async void RefreshFilmEnableAsync(ESideType sideType, bool isDry)
         {
             if (sideType == ESideType.A && isDry && !DryFilmEnableA)
             {
@@ -208,7 +198,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <param name="sideType"></param>
         /// <param name="isDry"></param>
         /// <returns></returns>
-        private async Task RefreshFilmDatasAsync(ESideType sideType, bool isDry, CCDModel? data)
+        private async void RefreshFilmDatasAsync(ESideType sideType, bool isDry, CCDModel? data)
         {
             if (data == null) return;
 
@@ -224,7 +214,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 
             await RunOnUIThreadAsync(() =>
             {
-                filmDatas.Add(data); 
+                filmDatas.Add(data);
                 while (filmDatas.Count > 20) filmDatas.RemoveAt(0);
             });
         }

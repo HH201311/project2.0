@@ -353,8 +353,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var mainWindow = GetFreshMainWindow(ctViewerProcess);
             await PrepareNewProjectAsync(settings, ctViewerProcess, mainWindow, cancellationToken, progress).ConfigureAwait(false);
             mainWindow = GetFreshMainWindow(ctViewerProcess);
-            await OpenQuickImportAsync(settings, ctViewerProcess, cancellationToken, progress).ConfigureAwait(false);
-            await QuickImportFillAndOpenAsync(settings, ctViewerProcess, vglPath, cancellationToken, progress)
+            var quickImportDialog = await OpenQuickImportAsync(settings, ctViewerProcess, cancellationToken, progress)
+                .ConfigureAwait(false);
+            await QuickImportFillAndOpenAsync(
+                    settings,
+                    ctViewerProcess,
+                    quickImportDialog,
+                    vglPath,
+                    cancellationToken,
+                    progress)
                 .ConfigureAwait(false);
             await ConfirmFileSelectionAsync(settings, ctViewerProcess, vglPath, cancellationToken, progress)
                 .ConfigureAwait(false);
@@ -728,6 +735,27 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return UIAutomationHelper.FindMainWindow(ctViewerProcess.MainWindowHandle);
         }
 
+        /// <summary>
+        /// 仅刷新主窗口句柄，不最大化、不抢焦点（用于弹窗轮询检测）。
+        /// </summary>
+        private static AutomationElement? TryGetMainWindowElement(Process ctViewerProcess)
+        {
+            try
+            {
+                ctViewerProcess.Refresh();
+                if (ctViewerProcess.MainWindowHandle == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                return UIAutomationHelper.FindMainWindow(ctViewerProcess.MainWindowHandle);
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+        }
+
         private static IReadOnlyList<string> GetVglFiles(string folder)
         {
             if (!Directory.Exists(folder))
@@ -801,15 +829,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 图一：Ctrl+F+I 打开「快速导入...」对话框并确认出现。
+        /// 图一：Ctrl+F+I 打开「快速导入...」，一旦检测到弹窗立即返回（不再二次等待）。
         /// </summary>
-        private async Task OpenQuickImportAsync(
+        private async Task<AutomationElement> OpenQuickImportAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
-            await ExecuteStepWithRetryAsync(
+            var foundDialog = await ExecuteStepWithRetryAsync(
                     "打开快速导入",
                     async attempt =>
                     {
@@ -820,10 +848,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         _logger.Info($"Ctrl+F+I 打开快速导入，第 {attempt} 次");
                         await InvokeOnVgUiThreadAsync(ctViewerProcess, SimulateCtrlFi).ConfigureAwait(false);
 
-                        // 图一：检查「快速导入...」弹窗是否出现
+                        // 图一：弹窗一出现即返回。仅在 VG 窗口范围内查找，检测时不最大化、不抢焦点。
                         return await UIAutomationHelper.WaitForElementAsync(
-                                () => FindQuickImportDialog()
-                                    ?? FindQuickImportDialog(GetFreshMainWindow(ctViewerProcess)),
+                                () =>
+                                {
+                                    var mainWindow = TryGetMainWindowElement(ctViewerProcess);
+                                    return mainWindow == null
+                                        ? null
+                                        : FindQuickImportDialog(mainWindow);
+                                },
                                 TimeSpan.FromMilliseconds(settings.QuickImportDialogWaitTime),
                                 cancellationToken,
                                 UiPollIntervalMs)
@@ -835,34 +868,37 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("已检测到「快速导入...」对话框");
-            _logger.Info("已检测到「快速导入...」对话框（图一）");
+            progress?.Report("已检测到「快速导入...」，立即输入路径");
+            _logger.Info("已检测到「快速导入...」对话框（图一），立即进入输入");
+            return foundDialog
+                ?? throw new InvalidOperationException("快速导入对话框未打开（图一）");
         }
 
         /// <summary>
-        /// 图二 + 图三：点击「文件名(N):」输入路径，再点击「打开(O)」。
-        /// 图四（文件选择向导）由 ConfirmFileSelectionAsync 处理，本方法不介入。
+        /// 图二 + 图三：对已出现的「快速导入」对话框，立即点击「文件名(N):」输入路径并点「打开(O)」。
+        /// 图四由 ConfirmFileSelectionAsync 处理。
         /// </summary>
         private async Task QuickImportFillAndOpenAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
+            AutomationElement quickImportDialog,
             string vglPath,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
             var importFilePath = Path.GetFullPath(vglPath);
-            var quickImportDialog = await WaitForQuickImportDialogAsync(
-                    ctViewerProcess,
-                    settings,
-                    cancellationToken)
-                .ConfigureAwait(false);
 
-            // 图二：点击「文件名(N):」编辑框并输入路径
-            var fileNameEdit = FindQuickImportFileNameEdit(quickImportDialog)
+            // 图二：对话框已在上一步检出，直接找输入框并写入（不再二次等待弹窗）
+            var fileNameEdit = await UIAutomationHelper.WaitForElementAsync(
+                    () => FindQuickImportFileNameEdit(quickImportDialog),
+                    TimeSpan.FromMilliseconds(Math.Min(settings.QuickImportDialogWaitTime, 3000)),
+                    cancellationToken,
+                    UiPollIntervalMs)
+                .ConfigureAwait(false)
                 ?? throw new InvalidOperationException("未找到快速导入「文件名(N):」输入框（图二）");
 
             progress?.Report($"点击「文件名(N):」并输入路径：{importFilePath}");
-            _logger.Info($"快速导入（图二）点击输入框并写入路径：{importFilePath}");
+            _logger.Info($"快速导入（图二）立即写入路径：{importFilePath}");
             await FillQuickImportFileNameByClickAsync(
                     quickImportDialog,
                     fileNameEdit,
@@ -882,8 +918,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             // 等待「快速导入」对话框关闭，交由图四逻辑继续
             var dialogClosed = await WaitUntilDisappearedAsync(
-                    () => FindQuickImportDialog()
-                        ?? FindQuickImportDialog(GetFreshMainWindow(ctViewerProcess)),
+                    () =>
+                    {
+                        var mw = TryGetMainWindowElement(ctViewerProcess);
+                        return mw == null ? null : FindQuickImportDialog(mw);
+                    },
                     settings.FileSelectionDialogWaitTime,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -898,23 +937,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger.Info("「快速导入」对话框已关闭，准备检查图四文件选择向导");
         }
 
-        private async Task<AutomationElement> WaitForQuickImportDialogAsync(
-            Process ctViewerProcess,
-            CTAutoSlicerSettings settings,
-            CancellationToken cancellationToken)
-        {
-            var dialog = await UIAutomationHelper.WaitForElementAsync(
-                    () => FindQuickImportDialog() ?? FindQuickImportDialog(GetFreshMainWindow(ctViewerProcess)),
-                    TimeSpan.FromMilliseconds(settings.QuickImportDialogWaitTime),
-                    cancellationToken,
-                    UiPollIntervalMs)
-                .ConfigureAwait(false);
-
-            return dialog ?? throw new InvalidOperationException("快速导入对话框未打开（图一）");
-        }
-
         /// <summary>
         /// 图二：先点击「文件名(N):」，再写入路径（ValuePattern 失败则键盘输入）。
+        /// 仅置前对话框，不最大化。
         /// </summary>
         private async Task FillQuickImportFileNameByClickAsync(
             AutomationElement quickImportDialog,
@@ -926,12 +951,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             Unlock();
             try
             {
-                EnsureAutomationForeground(quickImportDialog);
-                await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+                BringAutomationElementToFront(quickImportDialog);
 
                 // 按标定流程：先点击图二输入框获得焦点
                 await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
-                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
 
                 if (UIAutomationHelper.TrySetEditValueSafe(fileNameEdit, path)
                     && await WaitForInputPathAsync(fileNameEdit, path, 2000, cancellationToken).ConfigureAwait(false))
@@ -964,8 +987,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             AutomationElement openButton,
             CancellationToken cancellationToken)
         {
-            EnsureAutomationForeground(quickImportDialog);
-            await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+            BringAutomationElementToFront(quickImportDialog);
 
             if (UIAutomationHelper.TryInvokeButton(openButton))
             {
@@ -981,7 +1003,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         /// 文件选择向导内写入路径（图四 ConfirmFileSelectionAsync 复用）。
         /// </summary>
         private async Task FillQuickImportFileNameAsync(
-            AutomationElement quickImportDialog,
+            AutomationElement dialog,
             AutomationElement fileNameEdit,
             string path,
             CancellationToken cancellationToken,
@@ -990,8 +1012,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             Unlock();
             try
             {
-                EnsureAutomationForeground(quickImportDialog);
-                await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+                BringAutomationElementToFront(dialog);
 
                 if (UIAutomationHelper.TrySetEditValueSafe(fileNameEdit, path)
                     && await WaitForInputPathAsync(fileNameEdit, path, 2000, cancellationToken).ConfigureAwait(false))
@@ -1003,7 +1024,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress?.Report("ValuePattern 未生效，使用 Alt+N 聚焦后键盘输入");
                 _logger.Info("ValuePattern 未生效，改用 Alt+N + 键盘输入");
                 await InvokeOnUiThreadAsync(SimulateAltN).ConfigureAwait(false);
-                await Task.Delay(120, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
                 await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
                 await TypeTextIntoFocusedControlAsync(path).ConfigureAwait(false);
 
@@ -1095,7 +1116,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             await Task.Delay(80, cancellationToken).ConfigureAwait(false);
         }
 
-        private static void EnsureAutomationForeground(AutomationElement element)
+        /// <summary>
+        /// 将控件所在窗口置前。仅 SetForeground，不最大化（对话框输入无需放大）。
+        /// </summary>
+        private static void BringAutomationElementToFront(AutomationElement element)
         {
             var hwnd = ResolveNativeWindowHandle(element);
             if (hwnd == IntPtr.Zero)
@@ -1103,17 +1127,21 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            WinAPIHelper.ShowWindowAsync(hwnd, 3);
             WinAPIHelper.SetForegroundWindow(hwnd);
         }
+
+        /// <summary>
+        /// 兼容旧调用：置前即可。历史实现曾 ShowWindow(3) 最大化，已改为不放大。
+        /// </summary>
+        private static void EnsureAutomationForeground(AutomationElement element) =>
+            BringAutomationElementToFront(element);
 
         private async Task InvokeOnAutomationForegroundAsync(AutomationElement foregroundScope, Action action)
         {
             Unlock();
             try
             {
-                EnsureAutomationForeground(foregroundScope);
-                await Task.Delay(80).ConfigureAwait(false);
+                BringAutomationElementToFront(foregroundScope);
                 await InvokeOnUiThreadAsync(action).ConfigureAwait(false);
             }
             finally
@@ -1844,33 +1872,114 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 if (mainWindow != null)
                 {
-                    var fromMain = UIAutomationHelper.FindDescendantWindowByNameKeyword(
+                    // 1) 主窗口直接子窗口（标准「打开文件」对话框，毫秒级）
+                    var amongChildren = FindNamedWindowAmong(
+                        mainWindow,
+                        TreeScope.Children,
+                        QuickImportDialogNamePrefix);
+                    if (amongChildren != null)
+                    {
+                        return amongChildren;
+                    }
+
+                    // 2) 主窗口子树（仍不扫桌面）
+                    var amongDescendants = FindNamedWindowAmong(
                             mainWindow,
-                            QuickImportDialogNamePrefix,
-                            QuickImportOpenButtonNameFallback)
+                            TreeScope.Descendants,
+                            QuickImportDialogNamePrefix)
                         ?? UIAutomationHelper.FindWindowByName(
                             mainWindow,
                             QuickImportDialogNamePrefix,
                             nameStartsWith: true);
-                    if (fromMain != null)
+                    if (amongDescendants != null)
                     {
-                        return fromMain;
+                        return amongDescendants;
+                    }
+
+                    // 3) 同进程顶层窗口（TreeScope.Children，避免 Root Descendants 全桌面扫描）
+                    var processId = mainWindow.Current.ProcessId;
+                    if (processId > 0)
+                    {
+                        var sameProcessTopLevel = FindNamedWindowOnDesktopByProcess(
+                            processId,
+                            QuickImportDialogNamePrefix);
+                        if (sameProcessTopLevel != null)
+                        {
+                            return sameProcessTopLevel;
+                        }
                     }
                 }
 
-                return UIAutomationHelper.FindDescendantWindowByNameKeyword(
-                        AutomationElement.RootElement,
-                        QuickImportDialogNamePrefix,
-                        QuickImportOpenButtonNameFallback)
-                    ?? UIAutomationHelper.FindWindowByName(
-                        AutomationElement.RootElement,
-                        QuickImportDialogNamePrefix,
-                        nameStartsWith: true);
+                // 无主窗口时：仅扫桌面顶层窗口（Children），禁止 Root.FindAll(Descendants)
+                return FindNamedWindowAmong(
+                    AutomationElement.RootElement,
+                    TreeScope.Children,
+                    QuickImportDialogNamePrefix);
             }
             catch (ElementNotAvailableException)
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 在指定范围内按 Name 前缀查找可见 Window/Pane（不做全桌面 Descendants）。
+        /// </summary>
+        private static AutomationElement? FindNamedWindowAmong(
+            AutomationElement root,
+            TreeScope scope,
+            string namePrefix)
+        {
+            foreach (var controlType in new[] { ControlType.Window, ControlType.Pane })
+            {
+                var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, controlType);
+                var elements = root.FindAll(scope, condition);
+                foreach (AutomationElement element in elements)
+                {
+                    var name = element.Current.Name ?? string.Empty;
+                    if (!name.StartsWith(namePrefix, StringComparison.Ordinal)
+                        && !name.Contains(namePrefix, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var rect = element.Current.BoundingRectangle;
+                    if (rect.Width > 0 && rect.Height > 0)
+                    {
+                        return element;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 按进程 ID 在桌面顶层窗口中查找（仅 Children，不会遍历整棵 UIA 树）。
+        /// </summary>
+        private static AutomationElement? FindNamedWindowOnDesktopByProcess(int processId, string namePrefix)
+        {
+            var condition = new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window),
+                new PropertyCondition(AutomationElement.ProcessIdProperty, processId));
+            var elements = AutomationElement.RootElement.FindAll(TreeScope.Children, condition);
+            foreach (AutomationElement element in elements)
+            {
+                var name = element.Current.Name ?? string.Empty;
+                if (!name.StartsWith(namePrefix, StringComparison.Ordinal)
+                    && !name.Contains(namePrefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var rect = element.Current.BoundingRectangle;
+                if (rect.Width > 0 && rect.Height > 0)
+                {
+                    return element;
+                }
+            }
+
+            return null;
         }
 
         private static AutomationElement? FindFileSelectionWizardDialog(AutomationElement mainWindow)

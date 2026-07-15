@@ -18,15 +18,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string SaveDialogNoButtonName = "否(N)";
         private const string AutoSaveRecoveryDialogWindowName = "自动保存恢复";
         private const string AutoSaveRecoverySkipButtonName = "跳过";
-        private const int AutoSaveRecoveryScanIntervalMs = 300;
-        /// <summary>VG 启动后「自动保存恢复」弹窗可能延迟出现，持续扫描并点击「跳过」的上限（毫秒）</summary>
-        private const int AutoSaveRecoveryDismissTimeoutMs = 15000;
+        /// <summary>启动阶段轮询「自动保存恢复」/「文件(F)」的间隔</summary>
+        private const int VgStartupPollIntervalMs = 500;
+        /// <summary>导入等步骤中的通用轮询间隔</summary>
+        private const int VgReadyPollIntervalMs = 1000;
         private const string QuickImportDialogNamePrefix = "快速导入";
         private const string QuickImportEditName = "文件名(N):";
         private const string QuickImportOpenButtonName = "打开(O)";
         private const string QuickImportOpenButtonNameFallback = "打开";
         private const string FileMenuItemName = "文件(F)";
-        private const int VgReadyPollIntervalMs = 1000;
         private const string QuickImportMenuItemKeyword = "快速导入";
         private const string FileSelectionFinishButtonName = "完成(F)";
         private const string ImportProgressWindowName = "请耐心等待...";
@@ -55,6 +55,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private readonly ILoggerService<VGAutomationService> _logger;
         private readonly IAngleAlgorithmService _angleAlgorithmService;
         private readonly EventSimulator _simulator;
+        /// <summary>
+        /// 可能于任意时刻弹出的中断窗口队列。步骤异常/失败时先 Drain，处理后重试该步骤。
+        /// 后续可继续 Register 其它弹窗（保存提示等）。
+        /// </summary>
+        private readonly List<InterruptDialogHandler> _interruptDialogQueue = new();
+        private Process? _activeVgProcess;
 
         public VGAutomationService(
             ILoggerService<VGAutomationService> logger,
@@ -63,6 +69,25 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger = logger;
             _angleAlgorithmService = angleAlgorithmService;
             _simulator = new EventSimulator();
+            RegisterDefaultInterruptDialogs();
+        }
+
+        /// <summary>中断弹窗处理器：查找 + 关闭动作。</summary>
+        private sealed class InterruptDialogHandler
+        {
+            public required string Name { get; init; }
+            public required Func<Process, AutomationElement?> Find { get; init; }
+            public required Func<Process, AutomationElement, CancellationToken, IProgress<string>?, Task<bool>> HandleAsync { get; init; }
+        }
+
+        private void RegisterDefaultInterruptDialogs()
+        {
+            _interruptDialogQueue.Add(new InterruptDialogHandler
+            {
+                Name = AutoSaveRecoveryDialogWindowName,
+                Find = FindAutoSaveRecoveryDialog,
+                HandleAsync = HandleAutoSaveRecoveryDialogAsync
+            });
         }
 
         private static Task<bool> WaitUntilAsync(
@@ -203,24 +228,23 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger.Info("流程开始");
 
             progress?.Report("连接/启动 VG 应用...");
-            var ctViewerProcess = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+            var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+            _activeVgProcess = ctViewerProcess;
             await WaitForProcessMainWindowAsync(ctViewerProcess, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-
-            progress?.Report("检查「自动保存恢复」弹窗...");
-            await DismissAutoSaveRecoveryDialogAsync(ctViewerProcess, cancellationToken, progress)
-                .ConfigureAwait(false);
-
-            progress?.Report("VG 主窗口置前...");
-            _logger.Info("VG 主窗口置前");
-            await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
 
             Lock();
             try
             {
-                await EnsureVgReadyAsync(ctViewerProcess, settings, cancellationToken, progress).ConfigureAwait(false);
-                await DismissAutoSaveRecoveryDialogAsync(ctViewerProcess, cancellationToken, progress)
+                // 第一步：等待软件打开；启动期间若出现队列中的弹窗（如自动保存恢复）则处理
+                await WaitForVgOpenAsync(
+                        ctViewerProcess,
+                        settings,
+                        cancellationToken,
+                        progress)
                     .ConfigureAwait(false);
+
+                // TODO: 后续重写导入及之后步骤；当前先沿用既有导入逻辑便于联调第一步
                 await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
 
                 var vglFiles = GetVglFiles(settings.CTFileFolder);
@@ -294,7 +318,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             catch (Exception ex)
             {
-                progress?.Report($"{ex.Message}");
+                var message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? ex.GetType().Name
+                    : ex.Message;
+                progress?.Report($"CT 导入流程异常：{message}");
                 _logger.Error("CT 导入流程异常", ex);
             }
             finally
@@ -309,6 +336,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
 
                 Unlock();
+                _activeVgProcess = null;
             }
         }
 
@@ -319,6 +347,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
+            _activeVgProcess = ctViewerProcess;
+            await TryDrainInterruptDialogQueueAsync(ctViewerProcess, cancellationToken, progress)
+                .ConfigureAwait(false);
             await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
             var mainWindow = GetFreshMainWindow(ctViewerProcess);
             await PrepareNewProjectAsync(settings, ctViewerProcess, mainWindow, cancellationToken, progress).ConfigureAwait(false);
@@ -360,7 +391,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ConfigureAwait(false);
         }
 
-        private async Task EnsureVgReadyAsync(
+        /// <summary>
+        /// 第一步：等待 VG 打开。
+        /// 判定已打开：轮询到「文件(F)」菜单，或队列中的中断弹窗（如「自动保存恢复」）。
+        /// 延迟弹出的中断窗不在此死等，由后续步骤异常时 Drain 队列处理。
+        /// </summary>
+        private async Task WaitForVgOpenAsync(
             Process ctViewerProcess,
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
@@ -369,33 +405,140 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var waitMs = ResolveVgOpenWaitTime(settings, progress);
             var deadline = DateTime.UtcNow.AddMilliseconds(waitMs);
             var startUtc = DateTime.UtcNow;
+            DateTime? lastStartupProgressUtc = null;
 
             progress?.Report(
-                $"等待 VG 启动完成：每秒检测「文件(F)」菜单是否可点击，最大等待 {waitMs}ms");
-            _logger.Info($"等待 VG 启动完成，最大等待 {waitMs}ms，轮询间隔 {VgReadyPollIntervalMs}ms");
+                $"等待 VG 打开：轮询中断弹窗队列或「文件(F)」菜单，最大等待 {waitMs}ms");
+            _logger.Info($"等待 VG 打开，最大等待 {waitMs}ms，轮询间隔 {VgStartupPollIntervalMs}ms");
+
             while (DateTime.UtcNow < deadline)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 EnsureVgForeground(ctViewerProcess);
-                await TryDismissAutoSaveRecoveryDialogAsync(cancellationToken, progress)
-                    .ConfigureAwait(false);
-                var fileMenu = UIAutomationHelper.FindFileMenuForProcess(ctViewerProcess, FileMenuItemName);
-                if (fileMenu != null)
+
+                // 启动过程中若已出现队列弹窗，先处理（不等后续步骤异常）
+                if (await TryDrainInterruptDialogQueueAsync(
+                            ctViewerProcess,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false))
+                {
+                    await Task.Delay(VgStartupPollIntervalMs, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (TryIsFileMenuReady(ctViewerProcess))
                 {
                     var elapsedMs = (int)(DateTime.UtcNow - startUtc).TotalMilliseconds;
-                    progress?.Report(
-                        $"VG 已就绪（「文件(F)」菜单可点击，耗时 {elapsedMs}ms），开始导入流程");
-                    _logger.Info($"VG 已就绪，文件菜单可交互，耗时 {elapsedMs}ms");
+                    progress?.Report($"VG 已打开（检测到「文件(F)」菜单，耗时 {elapsedMs}ms）");
+                    _logger.Info($"VG 已打开，文件菜单可交互，耗时 {elapsedMs}ms");
                     return;
                 }
 
                 var waitedMs = (int)(DateTime.UtcNow - startUtc).TotalMilliseconds;
-                progress?.Report($"VG 仍在加载中（已等待 {waitedMs}/{waitMs}ms），继续检测...");
-                await Task.Delay(VgReadyPollIntervalMs, cancellationToken).ConfigureAwait(false);
+                var shouldReportStartup =
+                    lastStartupProgressUtc == null
+                    || (DateTime.UtcNow - lastStartupProgressUtc.Value).TotalMilliseconds >= 2000;
+                if (shouldReportStartup)
+                {
+                    lastStartupProgressUtc = DateTime.UtcNow;
+                    progress?.Report($"VG 仍在启动中（已等待 {waitedMs}/{waitMs}ms）...");
+                }
+
+                await Task.Delay(VgStartupPollIntervalMs, cancellationToken).ConfigureAwait(false);
             }
 
             throw new TimeoutException(
-                $"VG 在 {waitMs}ms 内未完成启动（未检测到可点击的「文件(F)」菜单），请增大「VG启动就绪最大等待」后重试");
+                $"VG 在 {waitMs}ms 内未打开（未检测到中断弹窗，也未检测到「文件(F)」菜单），请增大「VG启动就绪最大等待」后重试");
+        }
+
+        /// <summary>
+        /// 扫描中断弹窗队列：若存在则依次执行对应关闭步骤。
+        /// 返回 true 表示本轮至少成功处理了一个弹窗。
+        /// </summary>
+        private async Task<bool> TryDrainInterruptDialogQueueAsync(
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var handledAny = false;
+
+            foreach (var handler in _interruptDialogQueue)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                AutomationElement? dialog;
+                try
+                {
+                    dialog = handler.Find(ctViewerProcess);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"查找中断弹窗「{handler.Name}」失败：{ex.Message}");
+                    continue;
+                }
+
+                if (dialog == null)
+                {
+                    continue;
+                }
+
+                progress?.Report($"检测到中断弹窗「{handler.Name}」，执行队列步骤...");
+                _logger.Info($"中断弹窗队列命中：「{handler.Name}」");
+
+                try
+                {
+                    var handled = await handler
+                        .HandleAsync(ctViewerProcess, dialog, cancellationToken, progress)
+                        .ConfigureAwait(false);
+                    if (handled)
+                    {
+                        handledAny = true;
+                        progress?.Report($"中断弹窗「{handler.Name}」已处理");
+                        _logger.Info($"中断弹窗「{handler.Name}」处理完成");
+                    }
+                    else
+                    {
+                        progress?.Report($"中断弹窗「{handler.Name}」处理未成功，稍后可能重试");
+                        _logger.Warn($"中断弹窗「{handler.Name}」Handle 返回 false");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"处理中断弹窗「{handler.Name}」异常：{ex.Message}");
+                    progress?.Report($"处理中断弹窗「{handler.Name}」异常：{ex.Message}");
+                }
+            }
+
+            return handledAny;
+        }
+
+        /// <summary>队列步骤：关闭「自动保存恢复」——点击「跳过」并等待窗口消失。</summary>
+        private async Task<bool> HandleAutoSaveRecoveryDialogAsync(
+            Process ctViewerProcess,
+            AutomationElement recoveryDialog,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            progress?.Report("正在点击「自动保存恢复」→「跳过」...");
+            if (!await TryClickAutoSaveSkipButtonAsync(recoveryDialog, cancellationToken).ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            progress?.Report("已点击「跳过」");
+            await WaitUntilAsync(
+                    () => FindAutoSaveRecoveryDialog(ctViewerProcess) == null,
+                    10000,
+                    cancellationToken,
+                    VgStartupPollIntervalMs)
+                .ConfigureAwait(false);
+
+            return FindAutoSaveRecoveryDialog(ctViewerProcess) == null;
         }
 
         private int ResolveVgOpenWaitTime(CTAutoSlicerSettings settings, IProgress<string>? progress)
@@ -410,6 +553,168 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             return settings.VGOpenWaitTime;
+        }
+
+        /// <summary>
+        /// 按 Accessibility Insights 树查找「自动保存恢复」：
+        /// 优先在 VG 主窗口子级查找（图一位于主窗下），再查本进程其它顶级窗口。
+        /// </summary>
+        private static AutomationElement? FindAutoSaveRecoveryDialog(Process ctViewerProcess)
+        {
+            try
+            {
+                ctViewerProcess.Refresh();
+                if (ctViewerProcess.MainWindowHandle != IntPtr.Zero)
+                {
+                    var mainWindow = AutomationElement.FromHandle(ctViewerProcess.MainWindowHandle);
+                    var underMain = FindNamedWindowAmongChildren(mainWindow, AutoSaveRecoveryDialogWindowName);
+                    if (underMain != null)
+                    {
+                        return underMain;
+                    }
+                }
+
+                var windowCondition = new PropertyCondition(
+                    AutomationElement.ControlTypeProperty,
+                    ControlType.Window);
+                var topWindows = AutomationElement.RootElement.FindAll(TreeScope.Children, windowCondition);
+                foreach (AutomationElement topWindow in topWindows)
+                {
+                    try
+                    {
+                        if (topWindow.Current.ProcessId != ctViewerProcess.Id)
+                        {
+                            continue;
+                        }
+
+                        var name = topWindow.Current.Name ?? string.Empty;
+                        if (name == AutoSaveRecoveryDialogWindowName)
+                        {
+                            return topWindow;
+                        }
+
+                        var nested = FindNamedWindowAmongChildren(topWindow, AutoSaveRecoveryDialogWindowName);
+                        if (nested != null)
+                        {
+                            return nested;
+                        }
+                    }
+                    catch (ElementNotAvailableException)
+                    {
+                        // 窗口正在关闭
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // UIA 临时不可用
+                    }
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        private static AutomationElement? FindNamedWindowAmongChildren(AutomationElement parent, string windowName)
+        {
+            try
+            {
+                var windowCondition = new PropertyCondition(
+                    AutomationElement.ControlTypeProperty,
+                    ControlType.Window);
+                var children = parent.FindAll(TreeScope.Children, windowCondition);
+                foreach (AutomationElement child in children)
+                {
+                    try
+                    {
+                        if ((child.Current.Name ?? string.Empty) == windowName)
+                        {
+                            return child;
+                        }
+                    }
+                    catch (ElementNotAvailableException)
+                    {
+                        // 子窗口瞬时失效
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 点击「跳过」（图二：Button Name=跳过，具备 InvokePattern；失败则 Win32 点击）。
+        /// 点击前短暂解除 BlockInput，避免仿真鼠标被挡住。
+        /// </summary>
+        private async Task<bool> TryClickAutoSaveSkipButtonAsync(
+            AutomationElement recoveryDialog,
+            CancellationToken cancellationToken)
+        {
+            Unlock();
+            try
+            {
+                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+
+                if (UIAutomationHelper.TryInvokeButtonByName(recoveryDialog, AutoSaveRecoverySkipButtonName))
+                {
+                    return true;
+                }
+
+                var skipButton = UIAutomationHelper.FindButtonByName(
+                    recoveryDialog,
+                    AutoSaveRecoverySkipButtonName);
+                if (skipButton == null)
+                {
+                    return false;
+                }
+
+                if (UIAutomationHelper.TryInvokeButton(skipButton))
+                {
+                    return true;
+                }
+
+                var rect = skipButton.Current.BoundingRectangle;
+                if (rect.Width <= 0 || rect.Height <= 0)
+                {
+                    return false;
+                }
+
+                await InvokeOnUiThreadAsync(() =>
+                        WinAPIHelper.ClickScreen(
+                            (int)(rect.Left + rect.Width / 2),
+                            (int)(rect.Top + rect.Height / 2)))
+                    .ConfigureAwait(false);
+                return true;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            finally
+            {
+                Lock();
+            }
         }
 
         private static AutomationElement GetFreshMainWindow(Process ctViewerProcess)
@@ -465,89 +770,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 _logger.Info("未在超时内检测到保存提示框，继续流程");
             }
-        }
-
-        /// <summary>
-        /// 在限定时间内轮询「自动保存恢复」弹窗；若出现则点击「跳过」并等待窗口关闭。
-        /// </summary>
-        private async Task DismissAutoSaveRecoveryDialogAsync(
-            Process ctViewerProcess,
-            CancellationToken cancellationToken,
-            IProgress<string>? progress,
-            int timeoutMs = AutoSaveRecoveryDismissTimeoutMs)
-        {
-            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-
-            while (DateTime.UtcNow < deadline)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                EnsureVgForeground(ctViewerProcess);
-
-                if (FindAutoSaveRecoveryDialog() == null)
-                {
-                    return;
-                }
-
-                if (!await TryDismissAutoSaveRecoveryDialogAsync(cancellationToken, progress).ConfigureAwait(false))
-                {
-                    await Task.Delay(AutoSaveRecoveryScanIntervalMs, cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                progress?.Report("检测到「自动保存恢复」弹窗，已点击「跳过」");
-                _logger.Info("已自动点击「自动保存恢复」弹窗的「跳过」按钮");
-                await WaitUntilDisappearedAsync(
-                        FindAutoSaveRecoveryDialog,
-                        AutoSaveRecoveryScanIntervalMs * 5,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                progress?.Report("「自动保存恢复」弹窗已关闭");
-                _logger.Info("「自动保存恢复」弹窗已关闭");
-                return;
-            }
-
-            if (FindAutoSaveRecoveryDialog() != null)
-            {
-                _logger.Warn($"在 {timeoutMs}ms 内未能关闭「自动保存恢复」弹窗");
-                progress?.Report("警告：「自动保存恢复」弹窗仍存在，请人工点击「跳过」后继续");
-            }
-        }
-
-        private static AutomationElement? FindAutoSaveRecoveryDialog() =>
-            UIAutomationHelper.FindWindowByName(
-                AutomationElement.RootElement,
-                AutoSaveRecoveryDialogWindowName);
-
-        /// <summary>
-        /// 若「自动保存恢复」弹窗可见，则点击「跳过」。返回是否执行了跳过操作。
-        /// </summary>
-        private async Task<bool> TryDismissAutoSaveRecoveryDialogAsync(
-            CancellationToken cancellationToken,
-            IProgress<string>? progress = null)
-        {
-            var recoveryDialog = FindAutoSaveRecoveryDialog();
-            if (recoveryDialog == null)
-            {
-                return false;
-            }
-
-            progress?.Report("检测到「自动保存恢复」弹窗，正在点击「跳过」...");
-            _logger.Info("检测到「自动保存恢复」弹窗");
-
-            if (UIAutomationHelper.TryInvokeButtonByName(recoveryDialog, AutoSaveRecoverySkipButtonName))
-            {
-                return true;
-            }
-
-            var skipButton = UIAutomationHelper.FindButtonByName(recoveryDialog, AutoSaveRecoverySkipButtonName);
-            if (skipButton != null)
-            {
-                await NativeClickElementAsync(skipButton, cancellationToken).ConfigureAwait(false);
-                return true;
-            }
-
-            _logger.Warn("找到「自动保存恢复」窗口但未找到可点击的「跳过」按钮");
-            return false;
         }
 
         private async Task HandleSaveDialogAsync(
@@ -1538,6 +1760,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     await Task.Delay(settings.StepRetryIntervalMs, cancellationToken).ConfigureAwait(false);
                 }
 
+                // 步骤开始前先清一次队列，避免已知中断窗挡住本步
+                if (_activeVgProcess != null)
+                {
+                    await TryDrainInterruptDialogQueueAsync(
+                            _activeVgProcess,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
+                }
+
                 try
                 {
                     var result = await attemptAction(attempt).ConfigureAwait(false);
@@ -1547,6 +1779,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
 
                     _logger.Warn($"{stepName} 第 {attempt} 次未满足完成条件");
+
+                    // 未达标时：若是队列弹窗导致，处理后进入下一轮重试
+                    if (_activeVgProcess != null
+                        && await TryDrainInterruptDialogQueueAsync(
+                                _activeVgProcess,
+                                cancellationToken,
+                                progress)
+                            .ConfigureAwait(false))
+                    {
+                        progress?.Report($"{stepName} 未完成，已处理中断弹窗，将重试该步骤");
+                        _logger.Info($"{stepName} 未完成且命中中断弹窗队列，准备重试");
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -1556,6 +1800,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 {
                     lastException = ex;
                     _logger.Warn($"{stepName} 第 {attempt} 次异常：{ex.Message}");
+
+                    // 异常后：优先检查是否为队列中的中断弹窗，处理后再重试本步骤
+                    if (_activeVgProcess != null
+                        && await TryDrainInterruptDialogQueueAsync(
+                                _activeVgProcess,
+                                cancellationToken,
+                                progress)
+                            .ConfigureAwait(false))
+                    {
+                        progress?.Report($"{stepName} 异常后已处理中断弹窗，将重试该步骤");
+                        _logger.Info($"{stepName} 异常后命中中断弹窗队列，准备重试。原异常：{ex.Message}");
+                        lastException = null;
+                    }
                 }
             }
 
@@ -1854,7 +2111,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             WinAPIHelper.ShowWindowAsync(ctViewerProcess.MainWindowHandle, 3);
             WinAPIHelper.SetForegroundWindow(ctViewerProcess.MainWindowHandle);
-            await TryDismissAutoSaveRecoveryDialogAsync(cancellationToken).ConfigureAwait(false);
             await WaitForFileMenuReadyAsync(ctViewerProcess, settings.VGShowFrontWaitTime, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1960,7 +2216,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress?.Report("厚板测试：三象限依次设置（请确保 VG 已导入体积且已应用 LUT 预设）");
                 _logger.Info("厚板三象限测试开始");
 
-                var ctViewerProcess = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                _activeVgProcess = ctViewerProcess;
                 EnsureVgForeground(ctViewerProcess);
                 var mainWindow = GetFreshMainWindow(ctViewerProcess);
 
@@ -1978,6 +2235,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             finally
             {
                 Unlock();
+                _activeVgProcess = null;
             }
         }
 
@@ -3188,7 +3446,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress?.Report($"切片导出单步测试：请确保 VG 已导入体积、已应用预设并完成厚板设置；命名参考 {Path.GetFileName(vglPath)}");
                 _logger.Info($"切片导出单步测试开始，参考文件 {vglPath}");
 
-                var ctViewerProcess = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                _activeVgProcess = ctViewerProcess;
                 EnsureVgForeground(ctViewerProcess);
 
                 await ExportImageStackSlicesAsync(
@@ -3205,6 +3464,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             finally
             {
                 Unlock();
+                _activeVgProcess = null;
             }
         }
 
@@ -3230,7 +3490,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress?.Report("渲染预设单步测试：请确保 VG 中已导入体积");
                 _logger.Info($"渲染预设单步测试开始，目标预设「{presetName}」");
 
-                var ctViewerProcess = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                _activeVgProcess = ctViewerProcess;
                 var mainWindow = GetFreshMainWindow(ctViewerProcess);
                 await ApplyRenderingPresetAsync(
                         settings,
@@ -3246,10 +3507,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             finally
             {
                 Unlock();
+                _activeVgProcess = null;
             }
         }
 
-        public async Task<Process> GetCTViewerProcess(CTAutoSlicerSettings settings, CancellationToken cancellationToken = default)
+        public async Task<(Process Process, bool IsColdStart)> GetCTViewerProcess(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken = default)
         {
             var processName = Path.GetFileNameWithoutExtension(settings.VGAppPath);
             if (string.IsNullOrWhiteSpace(processName))
@@ -3260,13 +3524,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var processes = Process.GetProcessesByName(processName);
             if (processes.Length > 0)
             {
-                return processes[0];
+                return (processes[0], IsColdStart: false);
             }
 
-            return Process.Start(new ProcessStartInfo(settings.VGAppPath)
+            var started = Process.Start(new ProcessStartInfo(settings.VGAppPath)
             {
                 UseShellExecute = true
             }) ?? throw new InvalidOperationException($"无法启动 VG 应用：{settings.VGAppPath}");
+            return (started, IsColdStart: true);
         }
 
         public void Lock()

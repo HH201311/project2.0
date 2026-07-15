@@ -31,22 +31,17 @@
 ```mermaid
 flowchart TD
     Start[流程开始] --> Launch[连接/启动 VG 进程]
-    Launch --> Ready[EnsureVgReadyAsync<br/>每秒检测「文件(F)」可点击]
-    Ready --> Front[ActivateVgWindowAsync 置前]
-    Front --> Scan[扫描文件夹直接子级 *.vgl<br/>按 CreationTimeUtc 升序]
-    Scan --> Loop{还有文件?}
-    Loop -->|是| Import[ImportSingleVglAsync]
-    Import --> Preset[ApplyRenderingPresetAsync<br/>等待后选渲染预设]
-    Preset --> Thick[ApplyThickPlateForQuadrantsAsync<br/>象限 1→2→3 厚板+平均值]
-    Thick --> Success{成功?}
-    Success -->|是| Post[PostImport 待接入<br/>对齐→切片]
-    Success -->|否| Fail[记录失败日志 跳过继续]
-    Post --> OnOk[OnImportSucceededAsync 占位<br/>暂不删文件]
-    OnOk --> Loop
-    Fail --> Loop
-    Loop -->|否| Clear[批次结束 Ctrl+N 清空]
-    Clear --> End[输出成功/失败统计]
+    Launch --> Step1[WaitForVgOpen<br/>轮询队列弹窗或「文件(F)」]
+    Step1 -->|命中队列「自动保存恢复」| Skip[Drain：点「跳过」]
+    Skip --> Step1
+    Step1 -->|「文件(F)」可点| Front[后续步骤]
+    Front --> StepN[ExecuteStepWithRetry]
+    StepN -->|异常/失败| Drain[Drain 中断弹窗队列]
+    Drain -->|已处理| StepN
+    Drain -->|无弹窗| Fail[抛出步骤失败]
 ```
+
+另：延迟出现的「自动保存恢复」不靠固定等待；登记在 `_interruptDialogQueue`，任意步骤异常或未达标时先 Drain 再重试。
 
 另提供独立按钮：
 
@@ -141,7 +136,7 @@ flowchart TD
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ApplyThickPlateForQuadrantsAsync` | **阶段三**：象限 1→2→3 厚板 + 平均值 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `TestRenderingPresetAsync` | 单步测试预设（无需重跑导入） |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `TestThickPlateAsync` | 单步测试厚板三象限（无需重跑导入） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `EnsureVgReadyAsync` | 「文件(F)」轮询就绪 |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `WaitForVgOpenAsync` + `_interruptDialogQueue` | **第一步**：轮询打开；「自动保存恢复」登记在中断队列，步骤异常时 Drain 后重试 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ExecuteStepWithRetryAsync` | 通用步骤重试 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `OnImportSucceededAsync` | **占位**：仅打日志，不删文件 |
 
@@ -411,7 +406,7 @@ await ExportImageStackSlicesAsync(settings, ctViewerProcess, mainWindow, cancell
 |------|------|
 | 冷启动 7s 就超时、不触发 Ctrl+I | DB 旧值 7000；代码 `ResolveVgOpenWaitTime` + 页面加载自动升级 |
 | 后缀 `.vgi` → 实测为 `.vgl` | `VglFileExtension` |
-| 首次点击只开 VG 不导入 | `EnsureVgReadyAsync` 单阶段轮询「文件(F)」 |
+| 首次点击只开 VG 不导入 | 旧逻辑已移除；启动段重写为 `WaitForVgOpenAndDismissAutoSaveAsync`（弹窗按主窗**子窗口**查找，对齐 Insights 树） |
 | NuGet NU1102（`System.ServiceModel.Security`） | 与 CTAutoSlicer 无关；需加 nuget.org 源 |
 | `TestOffset` 中「导入菜单」仍用 2024 Qtitan Ribbon | 主流程已不用；测试按钮待 2022 更新或删除 |
 | Qt 预设下拉 `Select` 仅高亮、不应用 | `SelectionItemPattern.Select` 后须 Win32 `ClickScreen`；点击前短暂 `Unlock` |
@@ -426,7 +421,7 @@ await ExportImageStackSlicesAsync(settings, ctViewerProcess, mainWindow, cancell
 ### 阶段一回归
 
 - [ ] 页面「VG启动就绪最大等待」显示 **180000**（或用户自定义 ≥30000）
-- [ ] 冷启动 VG，一次「流程模拟」日志出现：`VG 已就绪（「文件(F)」菜单可点击...）`
+- [ ] 冷启动：`文件(F)` 就绪后即使晚几秒才出「自动保存恢复」，后续步骤异常日志应出现「检测到中断弹窗」→「已点击跳过」→ 重试成功
 - [ ] 自动 `Ctrl+I` → 快速导入 → 文件选择 → `请耐心等待` 消失
 - [ ] 文件夹内 2+ `.vgl` 按创建时间顺序处理
 - [ ] 故意损坏一个文件路径，验证失败跳过且批次继续

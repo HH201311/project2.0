@@ -33,7 +33,20 @@ namespace SUNWODA_SEVB.Tool.Helper
             var elements = root.FindAll(TreeScope.Descendants, condition);
             foreach (AutomationElement element in elements)
             {
-                var elementName = element.Current.Name ?? string.Empty;
+                string elementName;
+                try
+                {
+                    elementName = element.Current.Name ?? string.Empty;
+                }
+                catch (ElementNotAvailableException)
+                {
+                    continue;
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
                 if (nameStartsWith && elementName.StartsWith(name, StringComparison.Ordinal))
                 {
                     return element;
@@ -512,10 +525,21 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return false;
             }
 
-            return menuItem.Current.IsEnabled
-                && !menuItem.Current.IsOffscreen
-                && menuItem.Current.BoundingRectangle.Width > 0
-                && menuItem.Current.BoundingRectangle.Height > 0;
+            try
+            {
+                return menuItem.Current.IsEnabled
+                    && !menuItem.Current.IsOffscreen
+                    && menuItem.Current.BoundingRectangle.Width > 0
+                    && menuItem.Current.BoundingRectangle.Height > 0;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         public static AutomationElement? FindFileMenuForProcess(Process process, string menuItemName)
@@ -542,15 +566,26 @@ namespace SUNWODA_SEVB.Tool.Helper
             var windows = AutomationElement.RootElement.FindAll(TreeScope.Children, windowCondition);
             foreach (AutomationElement window in windows)
             {
-                if (window.Current.ProcessId != process.Id)
+                try
                 {
-                    continue;
-                }
+                    if (window.Current.ProcessId != process.Id)
+                    {
+                        continue;
+                    }
 
-                var menuItem = FindDescendantByName(window, ControlType.MenuItem, menuItemName);
-                if (IsMenuItemInteractive(menuItem))
+                    var menuItem = FindDescendantByName(window, ControlType.MenuItem, menuItemName);
+                    if (IsMenuItemInteractive(menuItem))
+                    {
+                        return menuItem;
+                    }
+                }
+                catch (ElementNotAvailableException)
                 {
-                    return menuItem;
+                    // 窗口正在关闭或 UIA 树抖动
+                }
+                catch (InvalidOperationException)
+                {
+                    // UIA 临时不可用
                 }
             }
 

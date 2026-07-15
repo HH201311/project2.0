@@ -27,7 +27,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string QuickImportOpenButtonName = "打开(O)";
         private const string QuickImportOpenButtonNameFallback = "打开";
         private const string FileMenuItemName = "文件(F)";
-        private const string QuickImportMenuItemKeyword = "快速导入";
         private const string FileSelectionFinishButtonName = "完成(F)";
         private const string ImportProgressWindowName = "请耐心等待...";
         private const string RenderingPanelWindowName = "渲染";
@@ -801,6 +800,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// 图一：Ctrl+F+I 打开「快速导入...」对话框并确认出现。
+        /// </summary>
         private async Task OpenQuickImportAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
@@ -811,21 +813,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     "打开快速导入",
                     async attempt =>
                     {
-                        var mainWindow = GetFreshMainWindow(ctViewerProcess);
-                        if (attempt == 1)
-                        {
-                            progress?.Report("Ctrl+I 打开快速导入");
-                            _logger.Info("Ctrl+I 打开快速导入");
-                            await InvokeOnVgUiThreadAsync(ctViewerProcess, SimulateCtrlI).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            progress?.Report($"打开快速导入失败，第 {attempt} 次尝试菜单 Plan B");
-                            _logger.Info($"打开快速导入第 {attempt} 次尝试菜单 Plan B");
-                            await OpenQuickImportViaMenuPlanBAsync(ctViewerProcess, mainWindow, cancellationToken)
-                                .ConfigureAwait(false);
-                        }
+                        progress?.Report(
+                            attempt == 1
+                                ? "Ctrl+F+I 打开快速导入"
+                                : $"Ctrl+F+I 打开快速导入（第 {attempt} 次重试）");
+                        _logger.Info($"Ctrl+F+I 打开快速导入，第 {attempt} 次");
+                        await InvokeOnVgUiThreadAsync(ctViewerProcess, SimulateCtrlFi).ConfigureAwait(false);
 
+                        // 图一：检查「快速导入...」弹窗是否出现
                         return await UIAutomationHelper.WaitForElementAsync(
                                 () => FindQuickImportDialog()
                                     ?? FindQuickImportDialog(GetFreshMainWindow(ctViewerProcess)),
@@ -839,44 +834,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken,
                     progress)
                 .ConfigureAwait(false);
+
+            progress?.Report("已检测到「快速导入...」对话框");
+            _logger.Info("已检测到「快速导入...」对话框（图一）");
         }
 
-        private async Task OpenQuickImportViaMenuPlanBAsync(
-            Process ctViewerProcess,
-            AutomationElement mainWindow,
-            CancellationToken cancellationToken)
-        {
-            var fileMenuItem = UIAutomationHelper.FindDescendantByName(mainWindow, ControlType.MenuItem, FileMenuItemName)
-                ?? throw new InvalidOperationException("未找到文件菜单");
-
-            if (!UIAutomationHelper.TryExpandMenuItem(fileMenuItem))
-            {
-                await InvokeOnVgUiThreadAsync(ctViewerProcess, SimulateAltF).ConfigureAwait(false);
-                await UIAutomationHelper.WaitForElementAsync(
-                        () => UIAutomationHelper.FindDescendantByName(
-                            mainWindow,
-                            ControlType.MenuItem,
-                            QuickImportMenuItemKeyword,
-                            nameContains: true),
-                        TimeSpan.FromMilliseconds(5000),
-                        cancellationToken,
-                        UiPollIntervalMs)
-                    .ConfigureAwait(false);
-            }
-
-            var quickImportMenuItem = UIAutomationHelper.FindDescendantByName(
-                    mainWindow,
-                    ControlType.MenuItem,
-                    QuickImportMenuItemKeyword,
-                    nameContains: true)
-                ?? throw new InvalidOperationException("未找到快速导入菜单项");
-
-            if (!UIAutomationHelper.TryInvokeButton(quickImportMenuItem))
-            {
-                throw new InvalidOperationException("无法触发快速导入菜单项");
-            }
-        }
-
+        /// <summary>
+        /// 图二 + 图三：点击「文件名(N):」输入路径，再点击「打开(O)」。
+        /// 图四（文件选择向导）由 ConfirmFileSelectionAsync 处理，本方法不介入。
+        /// </summary>
         private async Task QuickImportFillAndOpenAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
@@ -891,12 +857,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken)
                 .ConfigureAwait(false);
 
+            // 图二：点击「文件名(N):」编辑框并输入路径
             var fileNameEdit = FindQuickImportFileNameEdit(quickImportDialog)
-                ?? throw new InvalidOperationException("未找到快速导入「文件名(N):」输入框");
+                ?? throw new InvalidOperationException("未找到快速导入「文件名(N):」输入框（图二）");
 
-            progress?.Report($"输入 .vgl 文件路径：{importFilePath}");
-            _logger.Info($"快速导入输入 .vgl 路径：{importFilePath}");
-            await FillQuickImportFileNameAsync(
+            progress?.Report($"点击「文件名(N):」并输入路径：{importFilePath}");
+            _logger.Info($"快速导入（图二）点击输入框并写入路径：{importFilePath}");
+            await FillQuickImportFileNameByClickAsync(
                     quickImportDialog,
                     fileNameEdit,
                     importFilePath,
@@ -904,49 +871,31 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("Alt+O 打开文件");
-            _logger.Info("Alt+O 打开文件");
-            await InvokeOnAutomationForegroundAsync(quickImportDialog, SimulateAltO).ConfigureAwait(false);
+            // 图三：点击「打开(O)」按钮
+            var openButton = FindQuickImportOpenButton(quickImportDialog)
+                ?? throw new InvalidOperationException("未找到快速导入「打开(O)」按钮（图三）");
 
-            var finishButton = await UIAutomationHelper.WaitForElementAsync(
-                    () => FindEnabledFinishButton(GetFreshMainWindow(ctViewerProcess)),
-                    TimeSpan.FromMilliseconds(settings.FileSelectionDialogWaitTime),
-                    cancellationToken,
-                    UiPollIntervalMs)
+            progress?.Report("点击「打开(O)」按钮");
+            _logger.Info("快速导入（图三）点击「打开(O)」");
+            await ClickQuickImportOpenButtonAsync(quickImportDialog, openButton, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (finishButton != null)
-            {
-                return;
-            }
+            // 等待「快速导入」对话框关闭，交由图四逻辑继续
+            var dialogClosed = await WaitUntilDisappearedAsync(
+                    () => FindQuickImportDialog()
+                        ?? FindQuickImportDialog(GetFreshMainWindow(ctViewerProcess)),
+                    settings.FileSelectionDialogWaitTime,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
-            var stillOpenDialog = FindQuickImportDialog()
-                ?? FindQuickImportDialog(GetFreshMainWindow(ctViewerProcess));
-            if (stillOpenDialog != null)
-            {
-                progress?.Report("Alt+O 未进入文件选择向导，尝试点击「打开(O)」");
-                _logger.Info("Alt+O 未进入文件选择向导，尝试点击「打开(O)」");
-                var openButton = FindQuickImportOpenButton(stillOpenDialog)
-                    ?? throw new InvalidOperationException("快速导入打开失败：未找到「打开(O)」按钮");
-
-                if (!UIAutomationHelper.TryInvokeButton(openButton))
-                {
-                    await NativeClickElementAsync(openButton, cancellationToken).ConfigureAwait(false);
-                }
-
-                finishButton = await UIAutomationHelper.WaitForElementAsync(
-                        () => FindEnabledFinishButton(GetFreshMainWindow(ctViewerProcess)),
-                        TimeSpan.FromMilliseconds(settings.FileSelectionDialogWaitTime),
-                        cancellationToken,
-                        UiPollIntervalMs)
-                    .ConfigureAwait(false);
-            }
-
-            if (finishButton == null)
+            if (!dialogClosed)
             {
                 throw new InvalidOperationException(
-                    $"Alt+O 后未在 {settings.FileSelectionDialogWaitTime}ms 内出现可点击的「{FileSelectionFinishButtonName}」按钮");
+                    $"点击「打开(O)」后，「快速导入」对话框在 {settings.FileSelectionDialogWaitTime}ms 内未关闭");
             }
+
+            progress?.Report("「快速导入」对话框已关闭，等待文件选择向导");
+            _logger.Info("「快速导入」对话框已关闭，准备检查图四文件选择向导");
         }
 
         private async Task<AutomationElement> WaitForQuickImportDialogAsync(
@@ -961,9 +910,76 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     UiPollIntervalMs)
                 .ConfigureAwait(false);
 
-            return dialog ?? throw new InvalidOperationException("快速导入对话框未打开");
+            return dialog ?? throw new InvalidOperationException("快速导入对话框未打开（图一）");
         }
 
+        /// <summary>
+        /// 图二：先点击「文件名(N):」，再写入路径（ValuePattern 失败则键盘输入）。
+        /// </summary>
+        private async Task FillQuickImportFileNameByClickAsync(
+            AutomationElement quickImportDialog,
+            AutomationElement fileNameEdit,
+            string path,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            Unlock();
+            try
+            {
+                EnsureAutomationForeground(quickImportDialog);
+                await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+
+                // 按标定流程：先点击图二输入框获得焦点
+                await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+
+                if (UIAutomationHelper.TrySetEditValueSafe(fileNameEdit, path)
+                    && await WaitForInputPathAsync(fileNameEdit, path, 2000, cancellationToken).ConfigureAwait(false))
+                {
+                    _logger.Info("快速导入路径已通过 ValuePattern 写入");
+                    return;
+                }
+
+                progress?.Report("ValuePattern 未生效，改用键盘输入路径");
+                _logger.Info("快速导入 ValuePattern 未生效，改用键盘输入");
+                await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
+                await TypeTextIntoFocusedControlAsync(path).ConfigureAwait(false);
+
+                if (!await WaitForInputPathAsync(fileNameEdit, path, 3000, cancellationToken).ConfigureAwait(false))
+                {
+                    var actual = UIAutomationHelper.TryGetInputValue(fileNameEdit) ?? "(空)";
+                    throw new InvalidOperationException(
+                        $"快速导入路径写入失败，期望「{path}」，读回「{actual}」");
+                }
+            }
+            finally
+            {
+                Lock();
+            }
+        }
+
+        /// <summary>图三：Invoke「打开(O)」，失败则 Win32 点击。</summary>
+        private async Task ClickQuickImportOpenButtonAsync(
+            AutomationElement quickImportDialog,
+            AutomationElement openButton,
+            CancellationToken cancellationToken)
+        {
+            EnsureAutomationForeground(quickImportDialog);
+            await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+
+            if (UIAutomationHelper.TryInvokeButton(openButton))
+            {
+                _logger.Info("「打开(O)」已通过 InvokePattern 触发");
+                return;
+            }
+
+            _logger.Info("Invoke「打开(O)」失败，改用 Win32 点击");
+            await NativeClickElementAsync(openButton, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 文件选择向导内写入路径（图四 ConfirmFileSelectionAsync 复用）。
+        /// </summary>
         private async Task FillQuickImportFileNameAsync(
             AutomationElement quickImportDialog,
             AutomationElement fileNameEdit,
@@ -980,12 +996,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 if (UIAutomationHelper.TrySetEditValueSafe(fileNameEdit, path)
                     && await WaitForInputPathAsync(fileNameEdit, path, 2000, cancellationToken).ConfigureAwait(false))
                 {
-                    _logger.Info("快速导入路径已通过 ValuePattern 写入");
+                    _logger.Info("路径已通过 ValuePattern 写入");
                     return;
                 }
 
                 progress?.Report("ValuePattern 未生效，使用 Alt+N 聚焦后键盘输入");
-                _logger.Info("快速导入 ValuePattern 未生效，改用 Alt+N + 键盘输入");
+                _logger.Info("ValuePattern 未生效，改用 Alt+N + 键盘输入");
                 await InvokeOnUiThreadAsync(SimulateAltN).ConfigureAwait(false);
                 await Task.Delay(120, cancellationToken).ConfigureAwait(false);
                 await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
@@ -995,7 +1011,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 {
                     var actual = UIAutomationHelper.TryGetInputValue(fileNameEdit) ?? "(空)";
                     throw new InvalidOperationException(
-                        $"快速导入路径写入失败，期望「{path}」，读回「{actual}」");
+                        $"路径写入失败，期望「{path}」，读回「{actual}」");
                 }
             }
             finally
@@ -2123,9 +2139,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _simulator.SimulateKeyRelease(KeyCode.VcLeftControl);
         }
 
-        private void SimulateCtrlI()
+        /// <summary>
+        /// 快速导入快捷键 Ctrl+F+I：按住 Ctrl，依次按 F、I（与真机标定一致）。
+        /// </summary>
+        private void SimulateCtrlFi()
         {
             _simulator.SimulateKeyPress(KeyCode.VcLeftControl);
+            _simulator.SimulateKeyPress(KeyCode.VcF);
+            _simulator.SimulateKeyRelease(KeyCode.VcF);
             _simulator.SimulateKeyPress(KeyCode.VcI);
             _simulator.SimulateKeyRelease(KeyCode.VcI);
             _simulator.SimulateKeyRelease(KeyCode.VcLeftControl);
@@ -2136,14 +2157,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _simulator.SimulateKeyPress(KeyCode.VcLeftAlt);
             _simulator.SimulateKeyPress(KeyCode.VcN);
             _simulator.SimulateKeyRelease(KeyCode.VcN);
-            _simulator.SimulateKeyRelease(KeyCode.VcLeftAlt);
-        }
-
-        private void SimulateAltO()
-        {
-            _simulator.SimulateKeyPress(KeyCode.VcLeftAlt);
-            _simulator.SimulateKeyPress(KeyCode.VcO);
-            _simulator.SimulateKeyRelease(KeyCode.VcO);
             _simulator.SimulateKeyRelease(KeyCode.VcLeftAlt);
         }
 

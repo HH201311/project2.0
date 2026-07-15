@@ -1,0 +1,508 @@
+<Page
+    x:Class="SUNWODA_SEVB.Views.Pages.CTAutoSlicer.CTAutoSlicerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="CTAutoSlicerPage"
+    mc:Ignorable="d">
+    <Grid>
+        <ScrollViewer Margin="5">
+            <StackPanel>
+                <Expander Margin="5" Header="应用参数">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="VG应用路径"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VGAppPath" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:NoBlankTextRule />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button Width="40" Command="{Binding OpenVGAppPathCommand}">
+                                    <Image Width="18" RenderTransformOrigin="0.5,0.5">
+                                        <Image.RenderTransform>
+                                            <TransformGroup>
+                                                <ScaleTransform ScaleY="-1" />
+                                            </TransformGroup>
+                                        </Image.RenderTransform>
+                                        <Image.Source>
+                                            <DrawingImage>
+                                                <DrawingImage.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="Black" Geometry="M768 97.92v-97.92h-640v896h384v-256h256v-35.84c24.73-14.631 45.845-32.282 63.738-52.813l0.262 152.653-256 256h-512v-1024h768v97.92zM576 896l192-192h-192v192zM945.92 145.92l-122.88 122.88c-5.725 5.447-12.859 9.465-20.798 11.452 18.665 29.336 29.953 65.126 29.953 103.553 0 106.039-85.961 192-192 192s-192-85.961-192-192c0-106.039 85.961-192 192-192 38.427 0 74.217 11.289 104.235 30.73 1.305-8.716 5.323-15.85 10.789-21.595l122.862-122.86c8.549-7.982 20.063-12.883 32.723-12.883 26.51 0 48 21.49 48 48 0 12.659-4.901 24.174-12.908 32.751zM640 256c-70.692 0-128 57.308-128 128s57.308 128 128 128c70.692 0 128-57.308 128-128s-57.308-128-128-128z" />
+                                                    </DrawingGroup>
+                                                </DrawingImage.Drawing>
+                                            </DrawingImage>
+                                        </Image.Source>
+                                    </Image>
+                                </Button>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="VG启动就绪最大等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VGOpenWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
+                <Expander Margin="5" Header="导入参数">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="CT体素文件夹"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="CTFileFolder" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:NoBlankTextRule />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button Width="40" Command="{Binding OpenCTFileFolderCommand}">
+                                    <Image Width="18">
+                                        <Image.Source>
+                                            <DrawingImage>
+                                                <DrawingImage.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                    </DrawingGroup>
+                                                </DrawingImage.Drawing>
+                                            </DrawingImage>
+                                        </Image.Source>
+                                    </Image>
+                                </Button>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="快速导入等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="QuickImportDialogWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="新建工程等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="NewProjectDialogWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="文件选择等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="FileSelectionDialogWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="导入超时(分钟)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="ImportTimeoutMinutes" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="导入后稳定等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PostImportWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="步骤重试次数"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="StepRetryCount" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="步骤重试间隔(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="StepRetryIntervalMs" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
+                <Expander Margin="5" Header="渲染与厚板参数">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="渲染预设名称"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="RenderingPresetName" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="应用预设前等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PresetApplyWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="预设下拉等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PresetDropdownWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="厚板菜单偏移X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="相对右键点的像素偏移，真机标定默认 90, 127">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="ThickPlateMenuOffsetX" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="Int" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    hc:InfoElement.Title="厚板菜单偏移Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="真机标定默认 127">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="ThickPlateMenuOffsetY" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="Int" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    hc:InfoElement.Title="视口右键Y偏移"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="相对视口中心的垂直偏移，避开顶栏时可设负值">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="ViewportClickOffsetY" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="Int" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
+                <Expander Margin="5" Header="切片导出参数">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="切片导出目录"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceExportFolder" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button Width="40" Command="{Binding OpenSliceExportFolderCommand}">
+                                    <Image Width="18">
+                                        <Image.Source>
+                                            <DrawingImage>
+                                                <DrawingImage.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="Black" Geometry="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm96,240H160a16,16,0,0,1,0-32H352a16,16,0,0,1,0,32Z" />
+                                                    </DrawingGroup>
+                                                </DrawingImage.Drawing>
+                                            </DrawingImage>
+                                        </Image.Source>
+                                    </Image>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="图像宽度"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="导出对话框「图像大小-宽」，默认 3000">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceExportImageWidth" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="导出数量(局部)"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="非 QJ 文件默认 100；QJ 文件运行时自动改为 150">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceExportQuantity" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="导出数量(QJ)"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="文件名含 QJ 时使用，并同步更新「导出数量(局部)」显示">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceExportQuantityQj" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    hc:InfoElement.Title="导出对话框等待(ms)"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceExportDialogWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    hc:InfoElement.Title="写入超时(ms)"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="等待「请耐心等待.../正在写入图像」进度框消失，默认 60000（1 分钟）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceExportWriteTimeoutMs" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="切片范围开始(mm)"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="TODO: 待视觉算法返回，当前默认 20">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceRangeStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    hc:InfoElement.Title="切片范围结束(mm)"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="TODO: 待视觉算法返回，当前默认 70">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceRangeEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <StackPanel Margin="5" HorizontalAlignment="Center" Orientation="Horizontal">
+                    <Button
+                        Margin="0,0,10,0"
+                        Command="{Binding RunSimulationCommand}"
+                        Content="流程模拟"
+                        IsEnabled="{Binding IsEnableSimulationBtn}" />
+                    <Button
+                        Margin="0,0,10,0"
+                        Command="{Binding TestRenderingPresetCommand}"
+                        Content="测试应用渲染预设"
+                        IsEnabled="{Binding IsEnableSimulationBtn}" />
+                    <Button
+                        Margin="0,0,10,0"
+                        Command="{Binding TestThickPlateCommand}"
+                        Content="测试厚板设置(三象限)"
+                        IsEnabled="{Binding IsEnableSimulationBtn}" />
+                    <Button
+                        Margin="0,0,10,0"
+                        Command="{Binding TestSliceExportCommand}"
+                        Content="测试切片导出(三视图)"
+                        IsEnabled="{Binding IsEnableSimulationBtn}" />
+                </StackPanel>
+                <TextBlock
+                    Margin="5"
+                    HorizontalAlignment="Center"
+                    Foreground="Gray"
+                    Text="「测试应用渲染预设」「测试厚板设置(三象限)」「测试切片导出(三视图)」需在 VG 中完成对应前置步骤；QJ 文件导出时数量自动改为 150 并同步 UI"
+                    TextWrapping="Wrap" />
+                <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
+
+                <Expander Margin="5" Header="流程日志">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel Margin="10">
+                            <Button
+                                Width="100"
+                                Margin="0,0,0,5"
+                                HorizontalAlignment="Left"
+                                Command="{Binding ClearImportLogCommand}"
+                                Content="清除日志" />
+                            <TextBox
+                                x:Name="ImportLogTextBox"
+                                Height="200"
+                                FontFamily="Consolas"
+                                IsReadOnly="True"
+                                Text="{Binding ImportLogText, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                VerticalScrollBarVisibility="Auto" />
+                        </StackPanel>
+                    </Border>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

@@ -1,0 +1,943 @@
+using Microsoft.WindowsAPICodePack.Dialogs;
+using System.IO;
+using System.Windows;
+using System.Windows.Input;
+using Microsoft.Win32;
+using SUNWODA_SEVB.Core.Attributes;
+using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Services.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Tool.Helper;
+
+namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
+{
+    [Module("VM_CTAutoSlicerPage", "CT自动化切片")]
+    public class VM_CTAutoSlicerPage : ViewModelBase
+    {
+        private const string VmName = "VM_CTAutoSlicerPage";
+
+        private readonly ILoggerService<VM_CTAutoSlicerPage> _logger;
+        private readonly IProjectSettingRepository _projectSettingRepository;
+        private readonly ICTAutoSlicerService _ctAutoSlicerService;
+        private readonly IAngleAlgorithmService _angleAlgorithmService;
+        private readonly CTFolderMonitorService _folderMonitorService;
+        private readonly CTAutoSlicerInputHookService _inputHookService;
+        private readonly ProcessMonitorService _processMonitorService;
+        private CancellationTokenSource? _simulationCts;
+
+        private string _messageShower = "CT自动化切片模块已加载";
+        private bool _isEnableSimulationBtn = true;
+        private string _vgAppPath = @"D:\App\VG\vgstudiomax20241.exe";
+        private int _vgOpenWaitTime = CTAutoSlicerSettings.DefaultVGOpenWaitTime;
+        private int _vgShowFrontWaitTime = 2000;
+        private string _ctFileFolder = string.Empty;
+        private int _quickImportDialogWaitTime = 10000;
+        private int _newProjectDialogWaitTime = 5000;
+        private int _fileSelectionDialogWaitTime = 15000;
+        private int _importTimeoutMinutes = 30;
+        private int _postImportWaitTime = 3000;
+        private int _stepRetryCount = 3;
+        private int _stepRetryIntervalMs = 2000;
+        private string _importLogText = string.Empty;
+        private bool _isUserScrolledUp;
+        private string? _lastFlowLogMessage;
+        private string _renderingPresetName = "testlut";
+        private int _presetApplyWaitTime = 2000;
+        private int _presetDropdownWaitTime = 5000;
+        private string _dllDownloadBaseUrl = CTAutoSlicerSettings.DefaultDllDownloadBaseUrl;
+        private int _thickPlateMenuOffsetX;
+        private int _thickPlateMenuOffsetY = 28;
+        private int _viewportClickOffsetY;
+        private string _sliceExportFolder = string.Empty;
+        private int _sliceExportImageWidth = 3000;
+        private int _sliceExportQuantity = 100;
+        private int _sliceExportQuantityQj = 150;
+        private double _sliceRangeStartMm = 20;
+        private double _sliceRangeEndMm = 70;
+        private int _sliceExportDialogWaitTime = 8000;
+        private int _sliceExportWriteTimeoutMs = 60000;
+        private int _thickPlateStepDelayMs = 500;
+        private int _thickPlateDialogWaitTime = 3000;
+        private int _thickPlateDropdownWaitTime = 3000;
+        private int _viewportQuadrant3ClickOffsetY = -100;
+        private int _viewportMinWidth = 400;
+        private int _viewportMinHeight = 300;
+        private int _thickPlateStepRetryCount = 1;
+        private int _thickPlateMenuAfterRightClickDelayMs = 200;
+
+        public string MessageShower
+        {
+            get => _messageShower;
+            set => SetProperty(ref _messageShower, value);
+        }
+
+        public bool IsEnableSimulationBtn
+        {
+            get => _isEnableSimulationBtn;
+            set => SetProperty(ref _isEnableSimulationBtn, value);
+        }
+
+        public string VGAppPath
+        {
+            get => _vgAppPath;
+            set
+            {
+                if (SetProperty(ref _vgAppPath, value))
+                {
+                    SaveSetting(nameof(VGAppPath), value);
+                }
+            }
+        }
+
+        public int VGOpenWaitTime
+        {
+            get => _vgOpenWaitTime;
+            set
+            {
+                if (SetProperty(ref _vgOpenWaitTime, value))
+                {
+                    SaveSetting(nameof(VGOpenWaitTime), value);
+                }
+            }
+        }
+
+        public string CTFileFolder
+        {
+            get => _ctFileFolder;
+            set
+            {
+                if (SetProperty(ref _ctFileFolder, value))
+                {
+                    SaveSetting(nameof(CTFileFolder), value);
+                }
+            }
+        }
+
+        public int QuickImportDialogWaitTime
+        {
+            get => _quickImportDialogWaitTime;
+            set
+            {
+                if (SetProperty(ref _quickImportDialogWaitTime, value))
+                {
+                    SaveSetting(nameof(QuickImportDialogWaitTime), value);
+                }
+            }
+        }
+
+        public int NewProjectDialogWaitTime
+        {
+            get => _newProjectDialogWaitTime;
+            set
+            {
+                if (SetProperty(ref _newProjectDialogWaitTime, value))
+                {
+                    SaveSetting(nameof(NewProjectDialogWaitTime), value);
+                }
+            }
+        }
+
+        public int FileSelectionDialogWaitTime
+        {
+            get => _fileSelectionDialogWaitTime;
+            set
+            {
+                if (SetProperty(ref _fileSelectionDialogWaitTime, value))
+                {
+                    SaveSetting(nameof(FileSelectionDialogWaitTime), value);
+                }
+            }
+        }
+
+        public int ImportTimeoutMinutes
+        {
+            get => _importTimeoutMinutes;
+            set
+            {
+                if (SetProperty(ref _importTimeoutMinutes, value))
+                {
+                    SaveSetting(nameof(ImportTimeoutMinutes), value);
+                }
+            }
+        }
+
+        public int PostImportWaitTime
+        {
+            get => _postImportWaitTime;
+            set
+            {
+                if (SetProperty(ref _postImportWaitTime, value))
+                {
+                    SaveSetting(nameof(PostImportWaitTime), value);
+                }
+            }
+        }
+
+        public int StepRetryCount
+        {
+            get => _stepRetryCount;
+            set
+            {
+                if (SetProperty(ref _stepRetryCount, value))
+                {
+                    SaveSetting(nameof(StepRetryCount), value);
+                }
+            }
+        }
+
+        public int StepRetryIntervalMs
+        {
+            get => _stepRetryIntervalMs;
+            set
+            {
+                if (SetProperty(ref _stepRetryIntervalMs, value))
+                {
+                    SaveSetting(nameof(StepRetryIntervalMs), value);
+                }
+            }
+        }
+
+        public string ImportLogText
+        {
+            get => _importLogText;
+            private set => SetProperty(ref _importLogText, value);
+        }
+
+        public string RenderingPresetName
+        {
+            get => _renderingPresetName;
+            set
+            {
+                if (SetProperty(ref _renderingPresetName, value))
+                {
+                    SaveSetting(nameof(RenderingPresetName), value);
+                }
+            }
+        }
+
+        public int PresetApplyWaitTime
+        {
+            get => _presetApplyWaitTime;
+            set
+            {
+                if (SetProperty(ref _presetApplyWaitTime, value))
+                {
+                    SaveSetting(nameof(PresetApplyWaitTime), value);
+                }
+            }
+        }
+
+        public int PresetDropdownWaitTime
+        {
+            get => _presetDropdownWaitTime;
+            set
+            {
+                if (SetProperty(ref _presetDropdownWaitTime, value))
+                {
+                    SaveSetting(nameof(PresetDropdownWaitTime), value);
+                }
+            }
+        }
+
+        public int ThickPlateMenuOffsetX
+        {
+            get => _thickPlateMenuOffsetX;
+            set
+            {
+                if (SetProperty(ref _thickPlateMenuOffsetX, value))
+                {
+                    SaveSetting(nameof(ThickPlateMenuOffsetX), value);
+                }
+            }
+        }
+
+        public int ThickPlateMenuOffsetY
+        {
+            get => _thickPlateMenuOffsetY;
+            set
+            {
+                if (SetProperty(ref _thickPlateMenuOffsetY, value))
+                {
+                    SaveSetting(nameof(ThickPlateMenuOffsetY), value);
+                }
+            }
+        }
+
+        public int ViewportClickOffsetY
+        {
+            get => _viewportClickOffsetY;
+            set
+            {
+                if (SetProperty(ref _viewportClickOffsetY, value))
+                {
+                    SaveSetting(nameof(ViewportClickOffsetY), value);
+                }
+            }
+        }
+
+        public string SliceExportFolder
+        {
+            get => _sliceExportFolder;
+            set
+            {
+                if (SetProperty(ref _sliceExportFolder, value))
+                {
+                    SaveSetting(nameof(SliceExportFolder), value);
+                }
+            }
+        }
+
+        public int SliceExportImageWidth
+        {
+            get => _sliceExportImageWidth;
+            set
+            {
+                if (SetProperty(ref _sliceExportImageWidth, value))
+                {
+                    SaveSetting(nameof(SliceExportImageWidth), value);
+                }
+            }
+        }
+
+        public int SliceExportQuantity
+        {
+            get => _sliceExportQuantity;
+            set
+            {
+                if (SetProperty(ref _sliceExportQuantity, value))
+                {
+                    SaveSetting(nameof(SliceExportQuantity), value);
+                }
+            }
+        }
+
+        public int SliceExportQuantityQj
+        {
+            get => _sliceExportQuantityQj;
+            set
+            {
+                if (SetProperty(ref _sliceExportQuantityQj, value))
+                {
+                    SaveSetting(nameof(SliceExportQuantityQj), value);
+                }
+            }
+        }
+
+        public double SliceRangeStartMm
+        {
+            get => _sliceRangeStartMm;
+            set
+            {
+                if (SetProperty(ref _sliceRangeStartMm, value))
+                {
+                    SaveSetting(nameof(SliceRangeStartMm), value);
+                }
+            }
+        }
+
+        public double SliceRangeEndMm
+        {
+            get => _sliceRangeEndMm;
+            set
+            {
+                if (SetProperty(ref _sliceRangeEndMm, value))
+                {
+                    SaveSetting(nameof(SliceRangeEndMm), value);
+                }
+            }
+        }
+
+        public int SliceExportDialogWaitTime
+        {
+            get => _sliceExportDialogWaitTime;
+            set
+            {
+                if (SetProperty(ref _sliceExportDialogWaitTime, value))
+                {
+                    SaveSetting(nameof(SliceExportDialogWaitTime), value);
+                }
+            }
+        }
+
+        public int SliceExportWriteTimeoutMs
+        {
+            get => _sliceExportWriteTimeoutMs;
+            set
+            {
+                if (SetProperty(ref _sliceExportWriteTimeoutMs, value))
+                {
+                    SaveSetting(nameof(SliceExportWriteTimeoutMs), value);
+                }
+            }
+        }
+
+        public ICommand OpenVGAppPathCommand { get; }
+        public ICommand OpenCTFileFolderCommand { get; }
+        public ICommand OpenSliceExportFolderCommand { get; }
+        public ICommand TestRenderingPresetCommand { get; }
+        public ICommand TestThickPlateCommand { get; }
+        public ICommand TestSliceExportCommand { get; }
+        public ICommand RunSimulationCommand { get; }
+        public ICommand ClearImportLogCommand { get; }
+
+        public event EventHandler? ImportLogScrollToEndRequested;
+
+        public VM_CTAutoSlicerPage(
+            ILoggerService<VM_CTAutoSlicerPage> logger,
+            IProjectSettingRepository projectSettingRepository,
+            ICTAutoSlicerService ctAutoSlicerService,
+            IAngleAlgorithmService angleAlgorithmService,
+            CTFolderMonitorService folderMonitorService,
+            CTAutoSlicerInputHookService inputHookService,
+            ProcessMonitorService processMonitorService)
+        {
+            _logger = logger;
+            _projectSettingRepository = projectSettingRepository;
+            _ctAutoSlicerService = ctAutoSlicerService;
+            _angleAlgorithmService = angleAlgorithmService;
+            _folderMonitorService = folderMonitorService;
+            _inputHookService = inputHookService;
+            _processMonitorService = processMonitorService;
+
+            OpenVGAppPathCommand = new RelayCommand(OpenVGAppPath);
+            OpenCTFileFolderCommand = new RelayCommand(OpenCTFileFolder);
+            OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
+            TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
+            TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
+            TestSliceExportCommand = new RelayCommandAsync(ExecuteTestSliceExportAsync);
+            RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
+            ClearImportLogCommand = new RelayCommand(ClearImportLog);
+        }
+
+        public void NotifyImportLogScrollChanged(bool isAtBottom)
+        {
+            _isUserScrolledUp = !isAtBottom;
+        }
+
+        public override async void OnInitialize()
+        {
+            LoadSettings();
+            _processMonitorService.StartIfNotRunning();
+            try
+            {
+                await _angleAlgorithmService.InitializeAsync(_dllDownloadBaseUrl).ConfigureAwait(false);
+                await Dispatcher.InvokeAsync(() => MessageShower = "CT自动化切片模块初始化完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("CT 角度算法初始化失败", ex);
+                await Dispatcher.InvokeAsync(() => MessageShower = $"角度算法初始化失败：{ex.Message}");
+            }
+
+            base.OnInitialize();
+        }
+
+        public override void OnNavigatedTo(object? parameter)
+        {
+            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed);
+            _folderMonitorService.Start(CTFileFolder);
+            base.OnNavigatedTo(parameter);
+        }
+
+        public override void OnNavigatedFrom()
+        {
+            _inputHookService.Stop();
+            _ctAutoSlicerService.Cancel();
+            base.OnNavigatedFrom();
+        }
+
+        public override void OnCleanup()
+        {
+            _inputHookService.Dispose();
+            _folderMonitorService.Dispose();
+            _simulationCts?.Cancel();
+            _simulationCts?.Dispose();
+            base.OnCleanup();
+        }
+
+        private bool _isLoadingSettings;
+
+        private void LoadSettings()
+        {
+            _isLoadingSettings = true;
+            VGAppPath = LoadStringSetting(nameof(VGAppPath), @"D:\App\VG\vgstudiomax20241.exe");
+            VGOpenWaitTime = LoadIntSetting(nameof(VGOpenWaitTime), CTAutoSlicerSettings.DefaultVGOpenWaitTime);
+            if (VGOpenWaitTime <= CTAutoSlicerSettings.LegacyVGOpenWaitTimeThreshold)
+            {
+                _logger.Info(
+                    $"检测到旧版 VGOpenWaitTime={VGOpenWaitTime}ms，自动升级为 {CTAutoSlicerSettings.DefaultVGOpenWaitTime}ms");
+                _projectSettingRepository.UpdateSettingValue(
+                    nameof(VGOpenWaitTime),
+                    VmName,
+                    CTAutoSlicerSettings.DefaultVGOpenWaitTime);
+                VGOpenWaitTime = CTAutoSlicerSettings.DefaultVGOpenWaitTime;
+            }
+            _vgShowFrontWaitTime = LoadIntSetting("VGShowFrontWaitTime", 2000);
+            CTFileFolder = LoadStringSetting(nameof(CTFileFolder), string.Empty);
+            QuickImportDialogWaitTime = LoadIntSetting(nameof(QuickImportDialogWaitTime), 10000);
+            NewProjectDialogWaitTime = LoadIntSetting(nameof(NewProjectDialogWaitTime), 5000);
+            FileSelectionDialogWaitTime = LoadIntSetting(nameof(FileSelectionDialogWaitTime), 15000);
+            ImportTimeoutMinutes = LoadIntSetting(nameof(ImportTimeoutMinutes), 30);
+            PostImportWaitTime = LoadIntSetting(nameof(PostImportWaitTime), 3000);
+            StepRetryCount = LoadIntSetting(nameof(StepRetryCount), 3);
+            StepRetryIntervalMs = LoadIntSetting(nameof(StepRetryIntervalMs), 2000);
+            RenderingPresetName = LoadStringSetting(nameof(RenderingPresetName), "testlut");
+            PresetApplyWaitTime = LoadIntSetting(nameof(PresetApplyWaitTime), 2000);
+            PresetDropdownWaitTime = LoadIntSetting(nameof(PresetDropdownWaitTime), 5000);
+            ThickPlateMenuOffsetX = LoadIntSetting(nameof(ThickPlateMenuOffsetX), 90);
+            ThickPlateMenuOffsetY = LoadIntSetting(nameof(ThickPlateMenuOffsetY), 127);
+            ViewportClickOffsetY = LoadIntSetting(nameof(ViewportClickOffsetY), 0);
+            _thickPlateStepDelayMs = LoadIntSetting("ThickPlateStepDelayMs", 500);
+            _thickPlateDialogWaitTime = LoadIntSetting("ThickPlateDialogWaitTime", 3000);
+            _thickPlateDropdownWaitTime = LoadIntSetting("ThickPlateDropdownWaitTime", 3000);
+            _viewportQuadrant3ClickOffsetY = LoadIntSetting("ViewportQuadrant3ClickOffsetY", -100);
+            _viewportMinWidth = LoadIntSetting("ViewportMinWidth", 400);
+            _viewportMinHeight = LoadIntSetting("ViewportMinHeight", 300);
+            _thickPlateStepRetryCount = LoadIntSetting("ThickPlateStepRetryCount", 1);
+            _thickPlateMenuAfterRightClickDelayMs = LoadIntSetting("ThickPlateMenuAfterRightClickDelayMs", 200);
+            SliceExportFolder = LoadStringSetting(nameof(SliceExportFolder), string.Empty);
+            SliceExportImageWidth = LoadIntSetting(nameof(SliceExportImageWidth), 3000);
+            SliceExportQuantity = LoadIntSetting(nameof(SliceExportQuantity), 100);
+            SliceExportQuantityQj = LoadIntSetting(nameof(SliceExportQuantityQj), 150);
+            SliceRangeStartMm = LoadDoubleSetting(nameof(SliceRangeStartMm), 20);
+            SliceRangeEndMm = LoadDoubleSetting(nameof(SliceRangeEndMm), 70);
+            SliceExportDialogWaitTime = LoadIntSetting(nameof(SliceExportDialogWaitTime), 8000);
+            SliceExportWriteTimeoutMs = LoadIntSetting(nameof(SliceExportWriteTimeoutMs), 60000);
+            _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
+            _isLoadingSettings = false;
+        }
+
+        private string LoadStringSetting(string name, string defaultValue)
+        {
+            EnsureSettingExists(name, defaultValue, "string", name);
+            var value = _projectSettingRepository.GetSettingValue(name, VmName);
+            return value?.ToString() ?? defaultValue;
+        }
+
+        private int LoadIntSetting(string name, int defaultValue)
+        {
+            EnsureSettingExists(name, defaultValue, "int", name);
+            var value = _projectSettingRepository.GetSettingValue(name, VmName);
+            return value == null ? defaultValue : Convert.ToInt32(value);
+        }
+
+        private double LoadDoubleSetting(string name, double defaultValue)
+        {
+            EnsureSettingExists(name, defaultValue, "double", name);
+            var value = _projectSettingRepository.GetSettingValue(name, VmName);
+            return value == null ? defaultValue : Convert.ToDouble(value);
+        }
+
+        private void EnsureSettingExists(string name, object defaultValue, string type, string remark)
+        {
+            if (!_projectSettingRepository.Exists(model => model.Name == name && model.BelongToVM == VmName))
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(name, VmName, $"{defaultValue}", type, 1) { Remark = remark }
+                );
+            }
+        }
+
+        private void SaveSetting(string name, object value)
+        {
+            if (_isLoadingSettings)
+            {
+                return;
+            }
+
+            if (_projectSettingRepository.Exists(model => model.Name == name && model.BelongToVM == VmName))
+            {
+                _projectSettingRepository.UpdateSettingValue(name, VmName, value);
+            }
+        }
+
+        private CTAutoSlicerSettings BuildSettings()
+        {
+            return new CTAutoSlicerSettings
+            {
+                VGAppPath = VGAppPath,
+                VGOpenWaitTime = VGOpenWaitTime,
+                VGShowFrontWaitTime = _vgShowFrontWaitTime,
+                CTFileFolder = CTFileFolder,
+                QuickImportDialogWaitTime = QuickImportDialogWaitTime,
+                NewProjectDialogWaitTime = NewProjectDialogWaitTime,
+                FileSelectionDialogWaitTime = FileSelectionDialogWaitTime,
+                ImportTimeoutMinutes = ImportTimeoutMinutes,
+                PostImportWaitTime = PostImportWaitTime,
+                StepRetryCount = StepRetryCount,
+                StepRetryIntervalMs = StepRetryIntervalMs,
+                RenderingPresetName = RenderingPresetName,
+                PresetApplyWaitTime = PresetApplyWaitTime,
+                PresetDropdownWaitTime = PresetDropdownWaitTime,
+                ThickPlateMenuOffsetX = ThickPlateMenuOffsetX,
+                ThickPlateMenuOffsetY = ThickPlateMenuOffsetY,
+                ViewportClickOffsetY = ViewportClickOffsetY,
+                ThickPlateStepDelayMs = _thickPlateStepDelayMs,
+                ThickPlateDialogWaitTime = _thickPlateDialogWaitTime,
+                ThickPlateDropdownWaitTime = _thickPlateDropdownWaitTime,
+                ViewportQuadrant3ClickOffsetY = _viewportQuadrant3ClickOffsetY,
+                ViewportMinWidth = _viewportMinWidth,
+                ViewportMinHeight = _viewportMinHeight,
+                ThickPlateStepRetryCount = _thickPlateStepRetryCount,
+                ThickPlateMenuAfterRightClickDelayMs = _thickPlateMenuAfterRightClickDelayMs,
+                SliceExportFolder = SliceExportFolder,
+                SliceExportImageWidth = SliceExportImageWidth,
+                SliceExportQuantity = SliceExportQuantity,
+                SliceExportQuantityQj = SliceExportQuantityQj,
+                SliceRangeStartMm = SliceRangeStartMm,
+                SliceRangeEndMm = SliceRangeEndMm,
+                SliceExportDialogWaitTime = SliceExportDialogWaitTime,
+                SliceExportWriteTimeoutMs = SliceExportWriteTimeoutMs,
+                DllDownloadBaseUrl = _dllDownloadBaseUrl,
+            };
+        }
+
+        private void SetSliceExportQuantityRuntime(int quantity)
+        {
+            if (_sliceExportQuantity == quantity)
+            {
+                return;
+            }
+
+            _sliceExportQuantity = quantity;
+            OnPropertyChanged(nameof(SliceExportQuantity));
+        }
+
+        private void OpenVGAppPath(object? _)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "获取VG应用",
+                Filter = "应用 (*.exe)|*.exe",
+                RestoreDirectory = true,
+            };
+            if (!string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                var fileInfo = new FileInfo(VGAppPath);
+                if (fileInfo.Directory?.Exists == true)
+                {
+                    dialog.InitialDirectory = fileInfo.Directory.FullName;
+                }
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                VGAppPath = dialog.FileName;
+            }
+        }
+
+        private void OpenCTFileFolder(object? _)
+        {
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = string.IsNullOrWhiteSpace(CTFileFolder) ? null : CTFileFolder,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                CTFileFolder = dialog.FileName;
+            }
+        }
+
+        private void OpenSliceExportFolder(object? _)
+        {
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = string.IsNullOrWhiteSpace(SliceExportFolder) ? null : SliceExportFolder,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                SliceExportFolder = dialog.FileName;
+            }
+        }
+
+        private async Task ExecuteTestRenderingPresetAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(RenderingPresetName))
+            {
+                MessageShower = "请先填写渲染预设名称";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 渲染预设单步测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                await _ctAutoSlicerService
+                    .TestRenderingPresetAsync(BuildSettings(), CancellationToken.None, progress);
+                AppendFlowLog("——— 渲染预设单步测试结束 ———");
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"渲染预设测试失败：{ex.Message}");
+                _logger.Error("渲染预设单步测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteTestThickPlateAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 厚板三象限测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                await _ctAutoSlicerService.TestThickPlateAsync(
+                    BuildSettings(),
+                    CancellationToken.None,
+                    progress);
+                AppendFlowLog("——— 厚板三象限测试结束 ———");
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"厚板测试失败：{ex.Message}");
+                _logger.Error("厚板三象限测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteTestSliceExportAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SliceExportFolder))
+            {
+                MessageShower = "请先配置切片导出目录";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CTFileFolder) || !Directory.Exists(CTFileFolder))
+            {
+                MessageShower = "请先选择有效的 CT 体素文件夹（用于命名规则）";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 切片导出三视图测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                await _ctAutoSlicerService.TestSliceExportAsync(
+                    BuildSettings(),
+                    CancellationToken.None,
+                    progress);
+                AppendFlowLog("——— 切片导出三视图测试结束 ———");
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"切片导出测试失败：{ex.Message}");
+                _logger.Error("切片导出单步测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteRunSimulationAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CTFileFolder) || !Directory.Exists(CTFileFolder))
+            {
+                MessageShower = "请先选择有效的 CT 体素文件夹";
+                return;
+            }
+
+            var vglCount = Directory
+                .EnumerateFiles(CTFileFolder, $"*{CTAutoSlicerSettings.VglFileExtension}")
+                .Count();
+            if (vglCount == 0)
+            {
+                MessageShower = "所选文件夹内未找到 .vgl 文件";
+                return;
+            }
+
+            _simulationCts?.Cancel();
+            _simulationCts?.Dispose();
+            _simulationCts = new CancellationTokenSource();
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 新批次开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                await _ctAutoSlicerService
+                    .RunSimulationAsync(BuildSettings(), _simulationCts.Token, progress);
+            }
+            catch (OperationCanceledException)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    MessageShower = "流程已取消";
+                    AppendFlowLog("流程已取消");
+                });
+                _logger.Info("CT 切片流程已取消");
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.InvokeAsync(() => MessageShower = ex.Message);
+                _logger.Error("CT 切片流程异常", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private void HandleSimulationProgress(string message)
+        {
+            if (message.StartsWith("@@SLICE_QTY@@", StringComparison.Ordinal))
+            {
+                var qtyText = message["@@SLICE_QTY@@".Length..];
+                if (int.TryParse(qtyText, out var quantity))
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        SetSliceExportQuantityRuntime(quantity);
+                        MessageShower = $"检测到 QJ 全局图像，导出数量已同步为 {quantity}";
+                    });
+                }
+
+                return;
+            }
+
+            if (message.StartsWith("@@IMPORT_FAIL@@", StringComparison.Ordinal))
+            {
+                var payload = message["@@IMPORT_FAIL@@".Length..];
+                var separatorIndex = payload.IndexOf('|', StringComparison.Ordinal);
+                var fileName = separatorIndex >= 0 ? payload[..separatorIndex] : payload;
+                var reason = separatorIndex >= 0 ? payload[(separatorIndex + 1)..] : "未知原因";
+                Dispatcher.Invoke(() =>
+                {
+                    MessageShower = $"导入失败：{fileName}";
+                    AppendFlowLog($"{fileName} — {reason}", isFailure: true);
+                });
+                return;
+            }
+
+            Dispatcher.Invoke(() =>
+            {
+                MessageShower = message;
+                AppendFlowLog(message);
+            });
+        }
+
+        private void AppendFlowLog(string message, bool isFailure = false)
+        {
+            if (!isFailure && message == _lastFlowLogMessage)
+            {
+                return;
+            }
+
+            _lastFlowLogMessage = message;
+            var prefix = isFailure ? "失败" : "信息";
+            var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {prefix}：{message}";
+            var lines = string.IsNullOrWhiteSpace(ImportLogText)
+                ? new List<string>()
+                : ImportLogText.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            lines.Add(line);
+            if (lines.Count > 200)
+            {
+                lines = lines.Skip(lines.Count - 200).ToList();
+            }
+
+            ImportLogText = string.Join(Environment.NewLine, lines);
+            WriteFlowLogToFile(line);
+            _logger.Info($"[CT导入] {message}");
+
+            if (!_isUserScrolledUp)
+            {
+                ImportLogScrollToEndRequested?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private void ClearImportLog(object? _)
+        {
+            ImportLogText = string.Empty;
+            _lastFlowLogMessage = null;
+        }
+
+        private static void WriteFlowLogToFile(string line)
+        {
+            var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "CTAutoSlicer");
+            Directory.CreateDirectory(logDirectory);
+            var logPath = Path.Combine(logDirectory, "import_log.txt");
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+
+        private void OnDoubleEscPressed()
+        {
+            _ctAutoSlicerService.Cancel();
+            _simulationCts?.Cancel();
+            Dispatcher.Invoke(() =>
+            {
+                IsEnableSimulationBtn = true;
+                MessageShower = "流程已通过 Esc 中断";
+                AppendFlowLog("流程已通过 Esc 中断");
+            });
+        }
+
+        private void OnSingleEscPressed()
+        {
+            Dispatcher.Invoke(() => WinAPIHelper.BlockInput(true));
+        }
+    }
+}

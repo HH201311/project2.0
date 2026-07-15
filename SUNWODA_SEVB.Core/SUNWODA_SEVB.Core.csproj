@@ -25,6 +25,8 @@
   <ItemGroup>
     <Compile Include="Interfaces\Project\CCTB\IAlgorithmService.cs" />
     <Compile Include="Interfaces\Project\CCTB\ICommunicationService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\IAngleAlgorithmService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\ICTAutoSlicerService.cs" />
     <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
     <Compile Include="Interfaces\Project\JECW\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\JECW\IMonitorService.cs" />
@@ -97,6 +99,9 @@
     </None>
     <None Update="Dlls\XCloudSDK.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Dlls\V.NJ.L246.01.01.03.240924.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Dlls\YingYanAlgoCore.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

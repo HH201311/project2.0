@@ -6,12 +6,14 @@ using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Mqtt;
 using SUNWODA_SEVB.Core.Interfaces.Project;
 using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
+using SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Core.Interfaces.Project.JECW;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Models.Mqtt;
 using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Services.Project;
 using SUNWODA_SEVB.Services.Project.CCTB;
+using SUNWODA_SEVB.Services.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Services.Project.JRCW.Business;
 using SUNWODA_SEVB.Tool.Services.Mqtt;
 using SUNWODA_SEVB.Tool.Services.Socket;
@@ -43,6 +45,9 @@ namespace SUNWODA_SEVB.Services
 
             // 添加JRCW项目服务
             services.AddJRCWServices();
+
+            // 添加 CT 自动化切片服务
+            services.AddCTAutoSlicerServices();
 
             return services;
         }
@@ -164,6 +169,20 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<BusinessServiceFactory>();
             services.AddSingleton<BusinessServiceManager>();
 
+            return services;
+        }
+
+        /// <summary>
+        /// 添加 CT 自动化切片项目服务
+        /// </summary>
+        public static IServiceCollection AddCTAutoSlicerServices(this IServiceCollection services)
+        {
+            services.AddSingleton<VGAutomationService>();
+            services.AddSingleton<IAngleAlgorithmService, AngleAlgorithmService>();
+            services.AddSingleton<ICTAutoSlicerService, CTAutoSlicerService>();
+            services.AddSingleton<CTFolderMonitorService>();
+            services.AddSingleton<CTAutoSlicerInputHookService>();
+            services.AddSingleton<ProcessMonitorService>();
             return services;
         }
     }

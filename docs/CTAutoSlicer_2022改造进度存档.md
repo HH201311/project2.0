@@ -1,7 +1,7 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-10（厚板三象限自动化真机验证通过）  
-> **状态**：阶段一（多文件 `.vgl` 导入）**已在真机验证通过**；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**  
+> **文档版本**：2026-07-16（渲染预设：去掉 ValuePattern 串联等待，Qt 下拉 Win32 点击 + 下拉关闭判成败）  
+> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
 
@@ -13,7 +13,7 @@
 
 | 维度 | 改造前（2024 流程） | 改造后（2022 流程，当前） |
 |------|---------------------|---------------------------|
-| VG 版本 | VGSTUDIO MAX 2024，`Alt+F` → Ribbon 后台导入 | VGSTUDIO MAX **2022.3**，`Ctrl+I` 快速导入 |
+| VG 版本 | VGSTUDIO MAX 2024，`Alt+F` → Ribbon 后台导入 | VGSTUDIO MAX **2022.3**，**`Ctrl+F+I`** 快速导入（按住 Ctrl，依次按 F、I；真机标定） |
 | 输入数据 | 单个 **DICOM 文件夹**（`CTFileFolder` 填目录路径） | 文件夹内多个 **`.vgl` 工程文件**（直接子级） |
 | 单次点击处理量 | 1 个 DICOM 体数据 | N 个 `.vgl`，按创建时间升序循环 |
 | 导入后步骤 | 体积渲染等待 → 灰度直方图拖拽 → 简单对齐 → 双视图截图算角旋转 | 导入完成 → **渲染 LUT 预设** ✅ → 四象限厚板/对齐/切片（见 §7） |
@@ -54,9 +54,9 @@ flowchart TD
 |------|------|-----------------|
 | 1 | `Ctrl+N` 新建/清空工程 | 固定等待 `NewProjectDialogWaitTime` |
 | 2 | 处理保存提示 | 窗口 `VGSTUDIO MAX 问题` → `否(N)` / Enter |
-| 3 | `Ctrl+I` 打开快速导入 | 失败则 Plan B：`文件(F)` → `快速导入` |
-| 4 | 快速导入对话框输入路径 | Edit `文件名(N):` → `Alt+O` / Invoke `打开` |
-| 5 | 等待文件选择向导 | Button `完成(F)` 且 Enabled |
+| 3 | **`Ctrl+F+I`** 打开快速导入（图一） | 轮询 `快速导入...` 出现即返回；见 §15 |
+| 4 | 点击 Edit `文件名(N):` 输入路径（图二）→ 点击 `打开(O)`（图三） | 不再用 `Alt+O` 为主路径；对话框关闭后交图四 |
+| 5 | 等待文件选择向导（图四） | Button `完成(F)` 且 Enabled（**原逻辑保留**） |
 | 6 | 向导内 Edit 再输入同一路径 | ValuePattern 或键盘 fallback |
 | 7 | `Alt+F` 完成文件选择 | 向导消失 |
 | 8 | 等待 `请耐心等待...` 出现 | 确认导入已开始 |
@@ -67,6 +67,8 @@ flowchart TD
 
 **失败策略**：单文件任意步骤超时/异常 → `@@IMPORT_FAIL@@文件名|原因` → **跳过继续**下一个文件。
 
+> **2026-07-15 起**：图一～图三已按 Accessibility Insights 重写；图四 `ConfirmFileSelectionAsync` 保持原操作。细节与 Q&A 见 **§15**。
+
 ### 2.2 渲染预设应用子流程（`ApplyRenderingPresetAsync`）— 阶段二 ✅
 
 | 步骤 | 动作 | 完成判定 / 备注 |
@@ -74,14 +76,16 @@ flowchart TD
 | 1 | `PresetApplyWaitTime` 等待 | 默认 2000ms（导入进度消失 + `PostImportWaitTime` 之后） |
 | 2 | `ActivateVgWindowAsync` 置前 VG | 与导入阶段一致 |
 | 3 | 定位「渲染」窗口 + ComboBox | Automation：`Window「渲染」` → `ControlType.ComboBox` |
-| 4 | 打开下拉 | `ExpandCollapsePattern` → `Alt+Down` → 点击组合框；以子 `List` 可见为准，避免重复点击关下拉 |
-| 5 | 查找 `ListItem`（Name = 预设名） | 优先在 `ComboBox → List` 内找可见项 |
-| 6 | `SelectionItemPattern.Select` + Win32 鼠标点击确认 | Qt 下拉：`Select` 仅高亮，需 `SetCursorPos` + `mouse_event` 左键点击才真正应用 |
-| 7 | 校验组合框当前值 | `ValuePattern` 或子 `Edit` 文本等于 `RenderingPresetName` |
+| 4 | 打开下拉 | **Expand**（每步最多 800ms）→ **Alt+Down** → 点击组合框；任一步检测到子 `List` 可见即继续，不再每步耗满 `PresetDropdownWaitTime` |
+| 5 | 查找 `ListItem`（Name = 预设名） | `ComboBox → List` → 渲染面板 → 同进程顶层；100ms 轮询 |
+| 6 | Win32 点击 + Enter 确认 | Qt：`Select` 仅高亮；**立即** Win32 点击 + 回车 |
+| 7 | 完成判定 | **下拉已关闭** 或 ValuePattern 读数匹配；读数滞后时不失败（仅 UIA 诊断日志） |
+
+**等待策略（预设，2026-07-16）**：跳过 `TrySetComboBoxValue` + 5s 读数等待（Qt 常误报成功却读数不变）；打开下拉每步最多 **800ms**；选中后以**下拉关闭**为主判据，与厚板组合模式一致。
 
 **单步测试**：`TestRenderingPresetAsync` / 页面按钮「测试应用渲染预设」（不执行导入）。
 
-**实现说明**：2022 真机验证后，灰度调整改为 **直接应用已保存的 LUT 预设**（如 `testlut`），不再拖拽直方图；页面参数「渲染预设名称」填 Insights 中 `ListItem` 的 Name。
+**实现说明**：2022 真机验证后，灰度调整改为 **直接应用已保存的 LUT 预设**（如 `testlut`），不再拖拽直方图；页面参数「渲染预设名称」填 Insights 中 `ListItem` 的 Name。若 ValuePattern 已是目标预设名则**跳过**打开下拉。
 
 ### 2.3 三象限厚板设置子流程（`ApplyThickPlateForQuadrantsAsync`）— 阶段三 ✅
 
@@ -106,8 +110,8 @@ flowchart TD
 | 场景 | 窗口/控件 Name | 触发方式 |
 |------|----------------|----------|
 | 保存提示 | `VGSTUDIO MAX 问题` / `否(N)` | Enter 或 Invoke |
-| 快速导入 | `快速导入...` / `文件名(N):` / `打开` | Ctrl+I；Alt+O |
-| 文件选择向导 | `完成(F)` | Alt+F |
+| **快速导入（图一～三，2026-07-15）** | 对话框 `快速导入...`；Edit `文件名(N):`（`Edit(50004)` / 亦可为 ComboBox 内 Edit）；Button `打开(O)`（AccessKey Alt+O） | **`Ctrl+F+I`**；点击输入框写路径；**点击「打开(O)」**（Invoke → Win32 点击） |
+| 文件选择向导（图四） | 窗口 Name 含 `来自 .vgl 文件的体积`；内文「文件选择」；`完成(F)` / `下一步(N)` 等 | 检查窗口存在后按原 `ConfirmFileSelectionAsync`（向导内再输路径 → `Alt+F`） |
 | 导入进度 | `请耐心等待...`（内文「正在导入体积」/「正在写入图像」） | 出现→**可见**进度框消失后再继续；仅离屏 UIA 残留可忽略 |
 | 渲染预设下拉 | `渲染` 窗口 / `ComboBox` / `List` / `ListItem` Name=预设名 | Expand 或 Alt+Down；选中用 SelectionItem + Win32 点击 |
 | 象限视口 | 四宫格 `Group`/`Pane`，按中心点划分 Q1～Q4 | 右键菜单「厚板」用相对偏移点击；Q3 右键点上移 100px |
@@ -116,8 +120,7 @@ flowchart TD
 | 保存图像对话框 | 嵌套 `对话框 保存图像...` / Edit `文件名:`（Alt+N）/ Button `保存(S)` | 保存后弹出 |
 | JPEG 质量对话框 | 嵌套 `窗口 JPEG 质量` / Button `确定`（AccessKey **Enter**） | Invoke → Win32 点击 → Enter |
 | 导出写入进度 | 嵌套 `窗口 请耐心等待...` / Text `正在写入图像` | 消失后再导出下一视图；默认超时 60s |
-| 保存切片（待标定） | `Alt+F` → `T` →「保存影片/图像堆栈」对话框 | 三视图依次选参与导出 |
-| 菜单 Plan B | `文件(F)` / `快速导入(I) Ctrl+I` | Expand + Invoke |
+| ~~菜单 Plan B~~ | ~~`文件(F)` / `快速导入(I) Ctrl+I`~~ | **2026-07-15 已从主路径删除**（曾作为 Ctrl+I 失败后备） |
 | VG 启动就绪 | `文件(F)` MenuItem 可交互 | `IsEnabled` + 非离屏 + 有尺寸 |
 
 ---
@@ -132,6 +135,8 @@ flowchart TD
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/CTAutoSlicerService.cs` | `RunSimulationAsync` | 门面；管理 `IsRunning` / Cancel |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `RunSimulationAsync` | **核心**：启动→就绪→循环导入 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ImportSingleVglAsync` | 单文件导入 + 预设 + 厚板 |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `OpenQuickImportAsync` / `QuickImportFillAndOpenAsync` / `FindQuickImportDialog` | **图一～三**（2026-07-15 重写，见 §15） |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ConfirmFileSelectionAsync` | **图四**（文件选择向导，原逻辑保留） |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ApplyRenderingPresetAsync` | **阶段二**：渲染 LUT 预设选择与应用 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ApplyThickPlateForQuadrantsAsync` | **阶段三**：象限 1→2→3 厚板 + 平均值 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `TestRenderingPresetAsync` | 单步测试预设（无需重跑导入） |
@@ -187,7 +192,7 @@ flowchart TD
 | `VGOpenWaitTime` | 180000 ms | 「文件(F)」就绪检测上限；每秒轮询 |
 | `VGShowFrontWaitTime` | 2000 ms | 置前后等待（厚板单测已改用 `EnsureVgForeground`，不重复等 2s） |
 | `CTFileFolder` | 用户选择 | 扫描 `.vgl` 的文件夹 |
-| `QuickImportDialogWaitTime` | 10000 ms | Ctrl+I 后等对话框 |
+| `QuickImportDialogWaitTime` | 10000 ms | **Ctrl+F+I** 后轮询「快速导入...」出现的上限（找到即继续） |
 | `NewProjectDialogWaitTime` | 5000 ms | Ctrl+N 后等保存框 |
 | `FileSelectionDialogWaitTime` | 15000 ms | 等「完成(F)」/ 进度框出现 |
 | `ImportTimeoutMinutes` | 30 | 单文件导入进度框消失超时 |
@@ -230,7 +235,7 @@ flowchart TD
 | `SelectCTFileFolderWaitTime` | 2024 DICOM 选目录等待 | 2022 导入后若不用可隐藏或复用 |
 | `ImportFinishWaitTime` | 2024 导入完成等待 | 可能被 `PostImportWaitTime` 替代 |
 | `VolumeRenderWaitTime` | 2024 体积渲染完成等待 | **2022 未使用**；无独立渲染等待，导入后直接应用 LUT 预设 |
-| `ImportMenuItemOffset` | 2024 Ribbon 导入菜单 Y 偏移 | Plan B 已改菜单 Invoke，可能废弃 |
+| `ImportMenuItemOffset` | 2024 Ribbon 导入菜单 Y 偏移 | 菜单 Plan B 已删除；可废弃 |
 | `StartMenuXOffset` / `StartMenuYOffset` | 2024 开始菜单位置 | 待确认 2022 是否仍需要 |
 | `GrayScaleGraphAnchor*Offset` | 2024 灰度直方图拖拽锚点 | **已由渲染预设替代**；UI 保留，可后续隐藏 |
 | `RotationRadius` | 视图旋转拖拽半径 | **阶段四**对齐方向（视觉给出角度后）使用 |
@@ -245,7 +250,7 @@ flowchart TD
 VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完成** 的目标顺序如下（与早期文档中「仅前/右双视图截图算角」的 2024 描述不同，以本节为准）：
 
 ```text
-✅ 1. 导入 .vgl 体积（Ctrl+I 快速导入）
+✅ 1. 导入 .vgl 体积（Ctrl+F+I 快速导入 → 图一～四，见 §15）
 ✅ 2. 应用渲染 LUT 预设（「渲染」面板 ComboBox）
 
 ✅ 3. 第一、二、三象限：各视口右键 → 选择「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定
@@ -285,7 +290,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 锁定/解锁输入
 ✅ 启动/附着 VG 进程
 ✅ 「文件(F)」就绪检测（替代盲目固定等待）
-✅ 多 .vgl 顺序导入（Ctrl+I 快速导入 →「请耐心等待」消失）
+✅ 多 .vgl 顺序导入（Ctrl+F+I 快速导入 →「请耐心等待」消失；检测禁止桌面整树扫描）
 ✅ 导入后短暂稳定等待（PostImportWaitTime，默认 3000ms）
 ✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 →「渲染」面板 ComboBox 选 RenderingPresetName）
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
@@ -404,7 +409,11 @@ await ExportImageStackSlicesAsync(settings, ctViewerProcess, mainWindow, cancell
 
 | 问题 | 处理 |
 |------|------|
-| 冷启动 7s 就超时、不触发 Ctrl+I | DB 旧值 7000；代码 `ResolveVgOpenWaitTime` + 页面加载自动升级 |
+| 冷启动 7s 就超时、不触发导入快捷键 | DB 旧值 7000；代码 `ResolveVgOpenWaitTime` + 页面加载自动升级 |
+| 快速导入弹窗已开却空等 ~6～9s 才输入 | 旧 `FindQuickImportDialog` 对 `RootElement` 做 `FindAll(Descendants)`；已改为 VG 主窗 Children / 同进程顶层；见 §15 |
+| 预设/厚板/导出步骤体感略卡 | 阶段二～四仍有多处 `RootElement.FindAll(Descendants)` 兜底；**2026-07-16** 已统一为 `Find*Scoped` |
+| 预设步骤日志空等 ~15s（打开下拉→找到列表项） | 旧逻辑：`TrySetComboBoxValue` 后 `WaitForPresetApplied` 5s + 打开下拉每步 5s + 等 ListItem 5s；**2026-07-16** 已改为跳过 ValuePattern、打开每步 800ms、Win32 点击后以**下拉关闭**判成败 |
+| 输入路径前无故放大快速导入窗 | 旧 `EnsureAutomationForeground` 调用 `ShowWindow(3)=SW_MAXIMIZE`；已改为仅 `SetForegroundWindow`；见 §15 |
 | 后缀 `.vgi` → 实测为 `.vgl` | `VglFileExtension` |
 | 首次点击只开 VG 不导入 | 旧逻辑已移除；启动段重写为 `WaitForVgOpenAndDismissAutoSaveAsync`（弹窗按主窗**子窗口**查找，对齐 Insights 树） |
 | NuGet NU1102（`System.ServiceModel.Security`） | 与 CTAutoSlicer 无关；需加 nuget.org 源 |
@@ -422,7 +431,8 @@ await ExportImageStackSlicesAsync(settings, ctViewerProcess, mainWindow, cancell
 
 - [ ] 页面「VG启动就绪最大等待」显示 **180000**（或用户自定义 ≥30000）
 - [ ] 冷启动：`文件(F)` 就绪后即使晚几秒才出「自动保存恢复」，后续步骤异常日志应出现「检测到中断弹窗」→「已点击跳过」→ 重试成功
-- [ ] 自动 `Ctrl+I` → 快速导入 → 文件选择 → `请耐心等待` 消失
+- [ ] 自动 **`Ctrl+F+I`** → 检测到「快速导入...」后**立即**输入路径（日志上 Ctrl+F+I 与「已检测到」应接近，不应空等数秒）→ 点击「打开(O)」→ 文件选择向导 → `请耐心等待` 消失
+- [ ] 输入路径时**不应**最大化「快速导入」对话框（仅置前即可）
 - [ ] 文件夹内 2+ `.vgl` 按创建时间顺序处理
 - [ ] 故意损坏一个文件路径，验证失败跳过且批次继续
 - [ ] 流程日志 + `import_log.txt` 有完整步骤
@@ -457,7 +467,7 @@ await ExportImageStackSlicesAsync(settings, ctViewerProcess, mainWindow, cancell
 
 ---
 
-## 12. 相关文件速查（Git 未提交状态截至 2026-07-10）
+## 12. 相关文件速查（Git 未提交状态截至 2026-07-15）
 
 ```
 SUNWODA_SEVB.Core/Interfaces/Project/CTAutoSlicer/
@@ -467,7 +477,7 @@ SUNWODA_SEVB.Core/Models/Project/CTAutoSlicer/
   CTAutoSlicerSettings.cs
 SUNWODA_SEVB/Services/Project/CTAutoSlicer/
   CTAutoSlicerService.cs
-  VGAutomationService.cs          ← 主战场（阶段三～五：厚板 / 切片导出；阶段四等视觉）
+  VGAutomationService.cs          ← 主战场（快速导入 §15；阶段三～五：厚板 / 切片导出；阶段四等视觉）
   AngleAlgorithmService.cs
   CTFolderMonitorService.cs
   CTAutoSlicerInputHookService.cs
@@ -494,14 +504,126 @@ docs/
 
 ## 13. 给下一上下文的阅读顺序
 
-1. **本文档** — 知道做到哪、还差什么（§7.1 四象限真机流程为准）  
-2. `VGAutomationService.RunSimulationAsync` + `ImportSingleVglAsync` + `ApplyRenderingPresetAsync` + `ApplyThickPlateForQuadrantsAsync` — 当前主链  
-3. `VGAutomationService.TestRenderingPresetAsync` / `TestThickPlateAsync` — 单步测预设 / 厚板  
-4. `AngleAlgorithmService.cs` — 对齐方向步骤可能复用（阶段四，视觉就绪后）  
-5. `docs/CTAutoSlicer迁移说明.md` §6 调用链 — 页面生命周期  
+1. **本文档** — 知道做到哪、还差什么（§7.1 四象限真机流程为准；导入细节看 **§15**）  
+2. `VGAutomationService.OpenQuickImportAsync` + `QuickImportFillAndOpenAsync` + `ConfirmFileSelectionAsync` — 图一～四  
+3. `VGAutomationService.RunSimulationAsync` + `ImportSingleVglAsync` + `ApplyRenderingPresetAsync` + `ApplyThickPlateForQuadrantsAsync` — 当前主链  
+4. `VGAutomationService.TestRenderingPresetAsync` / `TestThickPlateAsync` — 单步测预设 / 厚板  
+5. `AngleAlgorithmService.cs` — 对齐方向步骤可能复用（阶段四，视觉就绪后）  
+6. `docs/CTAutoSlicer迁移说明.md` §6 调用链 — 页面生命周期  
 
 ---
 
 ## 14. 一句话总结
 
-**阶段一、二、三、五已完成：2022 多 `.vgl` 导入 + 渲染 LUT 预设 + 三象限厚板 + 三视图切片导出（Alt+F+T）。阶段四（第四象限选面、对齐方向、三切面范围视觉值）仍阻塞；切片范围暂用默认 20~70 mm。下一优先：真机联调导出细节与阶段四视觉接入。**
+**阶段一、二、三、五已完成：2022 多 `.vgl` 导入（2026-07-15 起快捷键 `Ctrl+F+I` + 点击「打开(O)」）+ 渲染 LUT 预设 + 三象限厚板 + 三视图切片导出（Alt+F+T）。阶段四（第四象限选面、对齐方向、三切面范围视觉值）仍阻塞；切片范围暂用默认 20～70 mm。下一优先：导入步骤真机体感回归（检测延迟）与阶段四视觉接入。**
+
+---
+
+## 15. 2026-07-15 快速导入（图一～三）重写与 Q&A
+
+> 目标：按 Accessibility Insights 真机标定重写「打开快速导入 → 输入路径 → 点打开」；图四文件选择向导 **`ConfirmFileSelectionAsync` 不删，按原操作保留**。  
+> 主战场：`VGAutomationService.cs`（`OpenQuickImportAsync` / `QuickImportFillAndOpenAsync` / `FindQuickImportDialog` / `BringAutomationElementToFront` / `SimulateCtrlFi`）。
+
+### 15.1 标定流程（与人工操作一致）
+
+```text
+前置：VG 已打开，「文件(F)」可交互（含中断弹窗 Drain）
+  → Ctrl+F+I（按住 Ctrl，依次按 F、I）
+  → 图一：检查对话框「快速导入...」是否出现
+  → 图二：点击 Edit「文件名(N):」，写入 .vgl 全路径
+  → 图三：点击按钮「打开(O)」（Invoke，失败则 Win32 点击）
+  → 等待「快速导入」对话框关闭
+  → 图四：ConfirmFileSelectionAsync（原逻辑：等「完成(F)」→ 向导内再输路径 → Alt+F）
+  → WaitForImportCompleteAsync …
+```
+
+Insights 要点：
+
+| 图 | Name / ControlType | 备注 |
+|----|-------------------|------|
+| 图一 | Window `快速导入...` | 父窗常见为 `新建项目 - VGSTUDIO MAX 2022.3 64 bit` |
+| 图二 | Edit `文件名(N):`（亦可为 ComboBox 内 Edit） | AccessKey Alt+N；须先点击再写入 |
+| 图三 | Button `打开(O)` | AccessKey Alt+O；主路径改为点击按钮，不再以 Alt+O 为主 |
+| 图四 | Window Name 含 `来自 .vgl 文件的体积`；标题区「文件选择」 | 保留原确认/完成逻辑 |
+
+### 15.2 相对旧实现删除 / 变更清单
+
+| 项 | 旧 | 新（2026-07-15） |
+|----|----|------------------|
+| 打开快捷键 | `Ctrl+I`；失败 Plan B 菜单 | **`Ctrl+F+I`**（`SimulateCtrlFi`）；**删除**菜单 Plan B / `OpenQuickImportViaMenuPlanBAsync` |
+| 打开文件 | 优先 `Alt+O`，失败再点「打开」 | **优先点击「打开(O)」**；删除对 Alt+O 主路径依赖 |
+| 图三与图四耦合 | `QuickImportFillAndOpen` 内等待「完成(F)」 | 图三只等「快速导入」关闭；图四单独 `ConfirmFileSelectionAsync` |
+| 二次等待弹窗 | Open 已找到后 Fill 再 `WaitForQuickImportDialog` | Open **返回**对话框句柄，Fill **不再二次等弹窗** |
+| 置前 | `ShowWindow(hwnd, 3)` 最大化 | **仅 `SetForegroundWindow`**（`BringAutomationElementToFront`） |
+| 查找范围 | 常先扫 `AutomationElement.RootElement` + `TreeScope.Descendants` | **VG 主窗 Children → Descendants → 同进程桌面顶层 Children**；禁止 Root 整树 Descendants（**含**预设 ListItem、厚板对话框/组合模式、导出对话框/另存为/JPEG 质量窗，2026-07-16） |
+| 检测时取主窗 | `GetFreshMainWindow`（内含最大化主窗 + 抢焦点） | 轮询用 **`TryGetMainWindowElement`**（只取句柄，不最大化、不抢焦点） |
+
+### 15.3 查找 / 轮询 / 失败策略（Q&A 固化）
+
+**Q1：何时进行查找？**  
+A：`OpenQuickImportAsync` 内 **先发送 `Ctrl+F+I`，立即**用 `WaitForElementAsync` 轮询 `FindQuickImportDialog`。找到即返回并立刻进入输入，不是固定干等满超时。
+
+**Q2：轮询多久？多少次？**  
+
+| 层级 | 参数 | 默认值 | 说明 |
+|------|------|--------|------|
+| 单次轮询上限 | `QuickImportDialogWaitTime` | **10000 ms** | 找到提前结束 |
+| 轮询间隔 | `UiPollIntervalMs`（=`DefaultConditionPollIntervalMs`） | **100 ms** | 代码常量，非 DB 项 |
+| 单次理论轮询次数 | — | 约 **≤100 次**（10s/100ms） | 实际以找到为准 |
+| 步骤重试次数 | `StepRetryCount` | **3** | `ExecuteStepWithRetryAsync` |
+| 重试间隔 | `StepRetryIntervalMs` | **2000 ms** | 第 2、3 次前等待 |
+| 每次重试动作 | — | 再发 `Ctrl+F+I` + 再轮询最多 10s | — |
+
+最坏约：`3 × 10s + 2 × 2s ≈ 34s`（另加中断弹窗 Drain）。
+
+图二「文件名」控件另有短等：`min(QuickImportDialogWaitTime, 3000)`，间隔仍 100 ms。
+
+**Q3：查找不到怎么办？**  
+A：单次 10s 返回 `null` → 本轮未达标 → 间隔 2s 后重试（最多 3 次）。全部失败抛：`打开快速导入 在 3 次尝试后仍未完成` → 该 `.vgl` `@@IMPORT_FAIL@@` **跳过继续**下一批文件。
+
+**Q4：为什么以前输入路径前要放大快速导入窗口？不放大能不能输入？**  
+A：**放大不是输入前提**。旧代码 `EnsureAutomationForeground` 误用 `ShowWindowAsync(hwnd, 3)`（`SW_MAXIMIZE`），把对话框最大化。输入只需窗口置前并可点；已改为只 `SetForegroundWindow`。
+
+**Q5：弹窗已经出现，为什么还空等好几秒才输入？是不是没检测「快速导入」？**  
+A：**有检测，但旧检测极慢**。旧 `FindQuickImportDialog()` 在无主窗时（或兜底路径）对整个桌面 `RootElement.FindAll(TreeScope.Descendants)` 扫所有 Window/Pane，再校验按钮，单次查找可卡 **6～9 秒**。日志表现如：
+
+```text
+10:38:37  Ctrl+F+I 打开快速导入
+10:38:46  已检测到「快速导入...」，立即输入路径   ← 空等约 9s = UIA 全桌面扫描
+```
+
+对话框视觉上已开，UIA 还在扫桌面。修复：只在 VG 范围内查找；Open 成功后把对话框传入 Fill，立即点「文件名」写入。
+
+**Q6：检测时为何不能调用 `GetFreshMainWindow`？**  
+A：`GetFreshMainWindow` 会 `EnsureVgForeground` → 主窗 `ShowWindow(3)` 最大化并抢焦点，可能干扰刚弹出的对话框。检测轮询改用 `TryGetMainWindowElement`。
+
+### 15.4 代码落点速查
+
+| 方法 | 职责 |
+|------|------|
+| `SimulateCtrlFi` | 按住 Ctrl，依次 F、I |
+| `OpenQuickImportAsync` | 图一：发快捷键 + 轮询返回对话框 |
+| `QuickImportFillAndOpenAsync` | 图二+三：点输入框、写路径、点打开、等对话框关 |
+| `FillQuickImportFileNameByClickAsync` | 先点击再 ValuePattern / 键盘 |
+| `ClickQuickImportOpenButtonAsync` | Invoke「打开(O)」→ Win32 |
+| `FindQuickImportDialog` | 窄范围查找（见 §15.2） |
+| `BringAutomationElementToFront` | 仅置前，不最大化 |
+| `ConfirmFileSelectionAsync` | 图四（未改语义） |
+
+### 15.5 建议回归日志特征
+
+成功且体感正常时，相邻两条日志时间应接近（亚秒～一两秒内，视 VG 响应）：
+
+```text
+Ctrl+F+I 打开快速导入
+已检测到「快速导入...」，立即输入路径
+点击「文件名(N):」并输入路径：…
+点击「打开(O)」按钮
+「快速导入」对话框已关闭，等待文件选择向导
+文件选择向导已出现，输入路径
+Alt+F 完成文件选择
+```
+
+若「Ctrl+F+I」与「已检测到」再次相差数秒，优先怀疑查找范围又扫到桌面整树，或主窗句柄/子窗层级与 Insights 不一致。
+
+---

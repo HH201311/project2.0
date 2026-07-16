@@ -13,22 +13,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private DateTime _prePressedEscTime;
         private Action? _onDoubleEsc;
         private Action? _onSingleEsc;
+        private Action? _onCtrlX;
 
         public CTAutoSlicerInputHookService(ILoggerService<CTAutoSlicerInputHookService> logger)
         {
             _logger = logger;
         }
 
-        public void Start(Action onDoubleEsc, Action onSingleEsc)
+        public void Start(Action onDoubleEsc, Action onSingleEsc, Action onCtrlX)
         {
             Stop();
             _onDoubleEsc = onDoubleEsc;
             _onSingleEsc = onSingleEsc;
+            _onCtrlX = onCtrlX;
             _hook = new TaskPoolGlobalHook();
             _hook.KeyPressed += OnKeyPressed;
             _hookThread = new Thread(() => _hook.Run()) { IsBackground = true };
             _hookThread.Start();
-            _logger.Info("CT 自动化切片全局按键 Hook 已启动");
+            _logger.Info("CT 自动化切片全局按键 Hook 已启动（Esc 锁输入/双击中断，Ctrl+X 中断流程）");
         }
 
         public void Stop()
@@ -42,10 +44,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _hookThread = null;
             _onDoubleEsc = null;
             _onSingleEsc = null;
+            _onCtrlX = null;
         }
 
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {
+            if (IsCtrlXPressed(e))
+            {
+                WinAPIHelper.BlockInput(false);
+                _onCtrlX?.Invoke();
+                return;
+            }
+
             if (e.Data.KeyCode != KeyCode.VcEscape)
             {
                 return;
@@ -64,6 +74,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             _prePressedEscTime = currentPressedEscTime;
         }
+
+        private static bool IsCtrlXPressed(KeyboardHookEventArgs e) =>
+            e.Data.KeyCode == KeyCode.VcX && e.RawEvent.Mask.HasCtrl();
 
         public void Dispose()
         {

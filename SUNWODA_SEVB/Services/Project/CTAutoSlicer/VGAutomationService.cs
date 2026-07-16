@@ -50,6 +50,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const int UiPollIntervalMs = UIAutomationHelper.DefaultConditionPollIntervalMs;
         private const int OffscreenProgressBypassMs = 2000;
         private const int ProcessMainWindowTimeoutMs = 10000;
+        /// <summary>Qt 预设下拉：每种打开方式的最大等待，失败立即试下一方式（避免每步耗满 PresetDropdownWaitTime）。</summary>
+        private const int PresetDropdownOpenStepWaitMs = 800;
+        private const int PresetListItemPollIntervalMs = 100;
+        /// <summary>Win32 点击列表项后等待下拉关闭的上限。</summary>
+        private const int PresetDropdownCloseWaitMs = 1500;
+        /// <summary>切片导出：单字段 Enter 提交后等待 VG/Qt 消化读数（Custom 框 UIA 常滞后）。</summary>
+        private const int SliceExportFieldCommitDelayMs = 300;
 
         private readonly ILoggerService<VGAutomationService> _logger;
         private readonly IAngleAlgorithmService _angleAlgorithmService;
@@ -174,13 +181,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken) =>
             WaitUntilAsync(() => IsRenderingWorkspaceReady(mainWindow, settings), timeoutMs, cancellationToken);
 
-        private Task<bool> WaitForPresetAppliedAsync(
-            AutomationElement comboBox,
-            string presetName,
-            int timeoutMs,
-            CancellationToken cancellationToken) =>
-            WaitUntilAsync(() => IsPresetApplied(comboBox, presetName), timeoutMs, cancellationToken);
-
         private Task<bool> WaitForComboDropdownOpenAsync(
             AutomationElement comboBox,
             int timeoutMs,
@@ -188,7 +188,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             WaitUntilAsync(
                 () => UIAutomationHelper.IsRenderingPresetDropdownOpen(comboBox),
                 timeoutMs,
-                cancellationToken);
+                cancellationToken,
+                PresetListItemPollIntervalMs);
+
+        private Task<bool> WaitForComboDropdownClosedAsync(
+            AutomationElement comboBox,
+            int timeoutMs,
+            CancellationToken cancellationToken) =>
+            WaitUntilAsync(
+                () => !UIAutomationHelper.IsRenderingPresetDropdownOpen(comboBox),
+                timeoutMs,
+                cancellationToken,
+                PresetListItemPollIntervalMs);
 
         private Task<bool> WaitForViewportQuadrantsReadyAsync(
             AutomationElement mainWindow,
@@ -205,11 +216,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 cancellationToken);
 
         private static AutomationElement? FindSavePromptDialog(AutomationElement mainWindow) =>
-            UIAutomationHelper.FindWindowByName(mainWindow, SaveDialogWindowName)
-            ?? UIAutomationHelper.FindDescendantByName(
-                AutomationElement.RootElement,
-                ControlType.Window,
-                SaveDialogWindowName);
+            FindWindowByNameScoped(mainWindow, SaveDialogWindowName);
 
         public async Task RunSimulationAsync(
             CTAutoSlicerSettings settings,
@@ -1379,21 +1386,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                         if (IsPresetApplied(comboBox, presetName))
                         {
-                            _logger.Info($"ValuePattern 读数已是「{presetName}」，仍打开下拉确认应用");
-                        }
-
-                        if (UIAutomationHelper.TrySetComboBoxValue(comboBox, presetName))
-                        {
-                            if (await WaitForPresetAppliedAsync(
-                                        comboBox,
-                                        presetName,
-                                        settings.PresetDropdownWaitTime,
-                                        cancellationToken)
-                                    .ConfigureAwait(false))
-                            {
-                                _logger.Info($"通过 ValuePattern 直接设置预设「{presetName}」成功");
-                                return true;
-                            }
+                            _logger.Info($"组合框 ValuePattern 已是「{presetName}」，跳过打开下拉");
+                            progress?.Report($"渲染预设「{presetName}」已应用（无需重复选择）");
+                            return true;
                         }
 
                         await OpenRenderingPresetComboBoxAsync(
@@ -1411,7 +1406,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                                 () => FindPresetListItem(comboBox, renderingPanel, presetName),
                                 TimeSpan.FromMilliseconds(settings.PresetDropdownWaitTime),
                                 cancellationToken,
-                                pollIntervalMs: 200)
+                                pollIntervalMs: PresetListItemPollIntervalMs)
                             .ConfigureAwait(false);
 
                         if (listItem == null)
@@ -1431,17 +1426,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                                 cancellationToken)
                             .ConfigureAwait(false);
 
-                        var afterValue = UIAutomationHelper.GetComboBoxDisplayText(comboBox);
-                        _logger.Info($"应用后组合框值：「{afterValue}」");
-
-                        if (!IsPresetApplied(comboBox, presetName))
+                        if (IsPresetApplied(comboBox, presetName)
+                            || !UIAutomationHelper.IsRenderingPresetDropdownOpen(comboBox))
                         {
-                            throw new InvalidOperationException(
-                                $"未能选中预设「{presetName}」，应用前「{beforeValue}」应用后「{afterValue}」");
+                            LogPresetComboUiaState(comboBox, presetName, "应用完成");
+                            progress?.Report($"渲染预设「{presetName}」已应用");
+                            return true;
                         }
 
-                        progress?.Report($"渲染预设「{presetName}」已应用");
-                        return true;
+                        var afterValue = UIAutomationHelper.GetComboBoxDisplayText(comboBox);
+                        throw new InvalidOperationException(
+                            $"未能应用预设「{presetName}」，应用前「{beforeValue}」应用后「{afterValue}」，下拉仍展开");
                     },
                     success => success,
                     settings,
@@ -1473,7 +1468,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         private async Task OpenRenderingPresetComboBoxAsync(
             AutomationElement comboBox,
-            int timeoutMs,
+            int totalTimeoutMs,
             CancellationToken cancellationToken)
         {
             if (UIAutomationHelper.IsRenderingPresetDropdownOpen(comboBox))
@@ -1481,69 +1476,138 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
+            var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(totalTimeoutMs);
             comboBox.SetFocus();
-            if (await WaitForComboDropdownOpenAsync(comboBox, timeoutMs, cancellationToken).ConfigureAwait(false))
+
+            async Task<bool> TryOpenStepAsync(string stepName, Func<Task> action)
+            {
+                var remainingMs = (int)Math.Max(200, (deadline - DateTime.UtcNow).TotalMilliseconds);
+                if (remainingMs <= 0)
+                {
+                    return false;
+                }
+
+                var stepWaitMs = Math.Min(PresetDropdownOpenStepWaitMs, remainingMs);
+                await action().ConfigureAwait(false);
+                if (await WaitForComboDropdownOpenAsync(comboBox, stepWaitMs, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    _logger.Info($"渲染预设下拉已通过{stepName}打开");
+                    return true;
+                }
+
+                _logger.Info($"渲染预设下拉：{stepName} 在 {stepWaitMs}ms 内未检测到展开，尝试下一方式");
+                return false;
+            }
+
+            if (await TryOpenStepAsync(
+                    "Expand",
+                    () =>
+                    {
+                        UIAutomationHelper.TryExpandComboBox(comboBox);
+                        return Task.CompletedTask;
+                    })
+                .ConfigureAwait(false))
             {
                 return;
             }
 
-            if (UIAutomationHelper.TryExpandComboBox(comboBox)
-                && await WaitForComboDropdownOpenAsync(comboBox, timeoutMs, cancellationToken).ConfigureAwait(false))
+            if (await TryOpenStepAsync(
+                    "Alt+Down",
+                    () => InvokeOnUiThreadAsync(SimulateAltDown))
+                .ConfigureAwait(false))
             {
                 return;
             }
 
-            await InvokeOnUiThreadAsync(SimulateAltDown).ConfigureAwait(false);
-            if (await WaitForComboDropdownOpenAsync(comboBox, timeoutMs, cancellationToken).ConfigureAwait(false))
+            if (await TryOpenStepAsync(
+                    "点击组合框",
+                    () => ClickElementCenterAsync(comboBox))
+                .ConfigureAwait(false))
             {
                 return;
             }
 
-            await ClickElementCenterAsync(comboBox).ConfigureAwait(false);
-            if (!await WaitForComboDropdownOpenAsync(comboBox, timeoutMs, cancellationToken).ConfigureAwait(false))
-            {
-                throw new InvalidOperationException("渲染预设下拉在超时内未能打开");
-            }
+            throw new InvalidOperationException("渲染预设下拉在超时内未能打开");
         }
 
+        /// <summary>
+        /// Qt 预设下拉：Win32 点击确认；可选回车提交。
+        /// 导出对话框内禁止回车（「保存...」常为默认按钮，Enter 会误触系统另存为）。
+        /// </summary>
         private async Task SelectPresetListItemAsync(
             AutomationElement listItem,
             AutomationElement comboBox,
             string presetName,
             int timeoutMs,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool confirmWithEnter = true)
         {
             listItem.SetFocus();
             UIAutomationHelper.TryScrollListItemIntoView(listItem);
-
-            // Select 只会让 Qt 列表高亮到目标项（光标移过去），不等于已应用预设。
             UIAutomationHelper.TrySelectListItem(listItem);
-            UIAutomationHelper.TryInvokeElement(listItem);
 
+            var closeWaitMs = Math.Min(PresetDropdownCloseWaitMs, timeoutMs);
+
+            async Task<bool> ConfirmByClickAsync(string stage)
+            {
+                if (confirmWithEnter)
+                {
+                    _logger.Info($"{stage}：Win32 点击并回车确认列表项「{presetName}」");
+                }
+                else
+                {
+                    _logger.Info($"{stage}：Win32 点击确认列表项「{presetName}」（导出对话框禁用 Enter）");
+                }
+
+                await NativeClickElementAsync(listItem, cancellationToken).ConfigureAwait(false);
+                if (confirmWithEnter)
+                {
+                    await InvokeOnUiThreadAsync(SimulateEnter).ConfigureAwait(false);
+                }
+
+                if (await WaitForComboDropdownClosedAsync(comboBox, closeWaitMs, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    return true;
+                }
+
+                return IsPresetApplied(comboBox, presetName);
+            }
+
+            if (await ConfirmByClickAsync("首次").ConfigureAwait(false))
+            {
+                LogPresetComboUiaState(comboBox, presetName, "点击确认后");
+                return;
+            }
+
+            if (await ConfirmByClickAsync("再次").ConfigureAwait(false))
+            {
+                LogPresetComboUiaState(comboBox, presetName, "二次点击后");
+                return;
+            }
+
+            if (!confirmWithEnter)
+            {
+                LogPresetComboUiaState(comboBox, presetName, "仅点击后（未回车）");
+                return;
+            }
+
+            _logger.Info($"下拉仍开，尝试键盘输入预设名「{presetName}」并回车");
+            await SelectPresetByKeyboardAsync(presetName, cancellationToken).ConfigureAwait(false);
+            await WaitForComboDropdownClosedAsync(comboBox, closeWaitMs, cancellationToken)
+                .ConfigureAwait(false);
+            LogPresetComboUiaState(comboBox, presetName, "键盘输入后");
+        }
+
+        private void LogPresetComboUiaState(AutomationElement comboBox, string presetName, string stage)
+        {
+            var displayText = UIAutomationHelper.GetComboBoxDisplayText(comboBox);
+            var uiaApplied = IsPresetApplied(comboBox, presetName);
+            var expanded = UIAutomationHelper.IsRenderingPresetDropdownOpen(comboBox);
             _logger.Info(
-                $"列表项高亮后组合框值：「{UIAutomationHelper.GetComboBoxDisplayText(comboBox)}」");
-
-            if (!await WaitForPresetAppliedAsync(comboBox, presetName, timeoutMs, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                _logger.Info($"使用 Win32 鼠标点击确认列表项「{presetName}」");
-                await NativeClickElementAsync(listItem, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (!await WaitForPresetAppliedAsync(comboBox, presetName, timeoutMs, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                _logger.Info($"再次 Win32 点击列表项「{presetName}」并回车确认");
-                await NativeClickElementAsync(listItem, cancellationToken).ConfigureAwait(false);
-                await InvokeOnUiThreadAsync(SimulateEnter).ConfigureAwait(false);
-            }
-
-            if (!await WaitForPresetAppliedAsync(comboBox, presetName, timeoutMs, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                _logger.Info($"尝试键盘输入预设名「{presetName}」并回车");
-                await SelectPresetByKeyboardAsync(presetName, cancellationToken).ConfigureAwait(false);
-            }
+                $"渲染预设 UIA 诊断（{stage}）：读数「{displayText}」展开={expanded} " +
+                $"ValuePattern匹配={uiaApplied}（目标「{presetName}」）");
         }
 
         private async Task SelectPresetByKeyboardAsync(
@@ -1657,29 +1721,21 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             AutomationElement renderingPanel,
             string presetName)
         {
-            var list = UIAutomationHelper.FindFirstDescendantByControlType(comboBox, ControlType.List);
-            if (list != null)
+            int? processId = null;
+            try
             {
-                var itemInList = UIAutomationHelper.FindVisibleDescendantByName(list, ControlType.ListItem, presetName);
-                if (itemInList != null)
-                {
-                    return itemInList;
-                }
+                processId = renderingPanel.Current.ProcessId;
+            }
+            catch (ElementNotAvailableException)
+            {
+                // 忽略，后续仅在已传入根内查找
             }
 
-            var itemInPanel = UIAutomationHelper.FindVisibleDescendantByName(
-                renderingPanel,
-                ControlType.ListItem,
-                presetName);
-            if (itemInPanel != null)
-            {
-                return itemInPanel;
-            }
-
-            return UIAutomationHelper.FindVisibleDescendantByName(
-                AutomationElement.RootElement,
-                ControlType.ListItem,
-                presetName);
+            return FindVisibleListItemScoped(
+                presetName,
+                processId,
+                comboBox,
+                renderingPanel);
         }
 
         private static bool IsPresetListItemSelected(AutomationElement listItem)
@@ -1959,11 +2015,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         /// </summary>
         private static AutomationElement? FindNamedWindowOnDesktopByProcess(int processId, string namePrefix)
         {
-            var condition = new AndCondition(
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window),
-                new PropertyCondition(AutomationElement.ProcessIdProperty, processId));
-            var elements = AutomationElement.RootElement.FindAll(TreeScope.Children, condition);
-            foreach (AutomationElement element in elements)
+            foreach (AutomationElement element in EnumerateSameProcessTopLevelWindows(processId))
             {
                 var name = element.Current.Name ?? string.Empty;
                 if (!name.StartsWith(namePrefix, StringComparison.Ordinal)
@@ -1982,10 +2034,379 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return null;
         }
 
+        /// <summary>
+        /// 枚举同进程桌面顶层 Window（Root.Children，禁止 Descendants）。
+        /// </summary>
+        private static IEnumerable<AutomationElement> EnumerateSameProcessTopLevelWindows(int processId)
+        {
+            if (processId <= 0)
+            {
+                yield break;
+            }
+
+            AutomationElementCollection? elements;
+            try
+            {
+                var condition = new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window),
+                    new PropertyCondition(AutomationElement.ProcessIdProperty, processId));
+                elements = AutomationElement.RootElement.FindAll(TreeScope.Children, condition);
+            }
+            catch (ElementNotAvailableException)
+            {
+                yield break;
+            }
+
+            foreach (AutomationElement element in elements)
+            {
+                yield return element;
+            }
+        }
+
+        /// <summary>
+        /// 枚举桌面顶层 Window（仅 Children）。用于系统「另存为」等可能不在 VG 进程内的对话框。
+        /// </summary>
+        private static IEnumerable<AutomationElement> EnumerateDesktopTopLevelWindows()
+        {
+            AutomationElementCollection? elements;
+            try
+            {
+                var condition = new PropertyCondition(
+                    AutomationElement.ControlTypeProperty,
+                    ControlType.Window);
+                elements = AutomationElement.RootElement.FindAll(TreeScope.Children, condition);
+            }
+            catch (ElementNotAvailableException)
+            {
+                yield break;
+            }
+
+            foreach (AutomationElement element in elements)
+            {
+                yield return element;
+            }
+        }
+
+        /// <summary>
+        /// 主窗子树 → 同进程顶层窗口：按 Name 找 Window/Pane（禁止 Root Descendants）。
+        /// </summary>
+        private static AutomationElement? FindWindowByNameScoped(
+            AutomationElement mainWindow,
+            string windowName,
+            bool nameStartsWith = false)
+        {
+            try
+            {
+                var inMain = UIAutomationHelper.FindWindowByName(mainWindow, windowName, nameStartsWith);
+                if (inMain != null)
+                {
+                    return inMain;
+                }
+
+                var processId = mainWindow.Current.ProcessId;
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId))
+                {
+                    var name = topWindow.Current.Name ?? string.Empty;
+                    var matched = nameStartsWith
+                        ? name.StartsWith(windowName, StringComparison.Ordinal)
+                        : name.Equals(windowName, StringComparison.Ordinal)
+                          || name.Contains(windowName, StringComparison.Ordinal);
+                    if (!matched)
+                    {
+                        continue;
+                    }
+
+                    if (UIAutomationHelper.IsElementInteractable(topWindow)
+                        || (topWindow.Current.BoundingRectangle is { Width: > 0, Height: > 0 }))
+                    {
+                        return topWindow;
+                    }
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 在优先根 → 同进程顶层窗口子树中查找可见 ListItem（禁止 Root Descendants）。
+        /// Qt 下拉常挂在 ComboBox/面板或同进程浮动窗下。
+        /// </summary>
+        private static AutomationElement? FindVisibleListItemScoped(
+            string itemName,
+            int? processId,
+            params AutomationElement?[] preferRoots)
+        {
+            foreach (var root in preferRoots)
+            {
+                if (root == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    // ComboBox 内先找 List 再找项，范围更窄
+                    var list = UIAutomationHelper.FindFirstDescendantByControlType(root, ControlType.List);
+                    if (list != null)
+                    {
+                        var inList = UIAutomationHelper.FindVisibleDescendantByName(
+                            list,
+                            ControlType.ListItem,
+                            itemName);
+                        if (inList != null)
+                        {
+                            return inList;
+                        }
+                    }
+
+                    var inRoot = UIAutomationHelper.FindVisibleDescendantByName(
+                        root,
+                        ControlType.ListItem,
+                        itemName);
+                    if (inRoot != null)
+                    {
+                        return inRoot;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 继续下一根
+                }
+            }
+
+            if (processId is not > 0)
+            {
+                return null;
+            }
+
+            foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId.Value))
+            {
+                try
+                {
+                    var item = UIAutomationHelper.FindVisibleDescendantByName(
+                        topWindow,
+                        ControlType.ListItem,
+                        itemName);
+                    if (item != null)
+                    {
+                        return item;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 继续
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 优先根 → 同进程顶层 → 桌面顶层：查找「文件名」Edit（禁止 Root Descendants）。
+        /// </summary>
+        private static AutomationElement? FindVisibleFileNameEditScoped(
+            int? processId,
+            params AutomationElement?[] preferRoots)
+        {
+            foreach (var root in preferRoots)
+            {
+                if (root == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var edit = UIAutomationHelper.FindVisibleFileNameEdit(root);
+                    if (edit != null)
+                    {
+                        return edit;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 继续
+                }
+            }
+
+            if (processId is > 0)
+            {
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId.Value))
+                {
+                    try
+                    {
+                        var edit = UIAutomationHelper.FindVisibleFileNameEdit(topWindow);
+                        if (edit != null)
+                        {
+                            return edit;
+                        }
+                    }
+                    catch (ElementNotAvailableException)
+                    {
+                        // 继续
+                    }
+                }
+            }
+
+            // 系统另存为可能不在 VG 进程：仅扫桌面顶层窗口子树
+            foreach (var topWindow in EnumerateDesktopTopLevelWindows())
+            {
+                try
+                {
+                    if (processId is > 0 && topWindow.Current.ProcessId == processId.Value)
+                    {
+                        continue; // 已扫过
+                    }
+
+                    var edit = UIAutomationHelper.FindVisibleFileNameEdit(topWindow);
+                    if (edit != null)
+                    {
+                        return edit;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 继续
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 主窗 → 同进程顶层：按 Name 前缀找可见导出对话框（禁止 Root Descendants）。
+        /// </summary>
+        private static AutomationElement? FindVisibleWindowByNamePrefixScoped(
+            AutomationElement mainWindow,
+            string namePrefix,
+            bool requireImageKeyword = false)
+        {
+            try
+            {
+                var inMain = UIAutomationHelper.FindVisibleWindowByNamePrefix(
+                    mainWindow,
+                    namePrefix,
+                    requireImageKeyword);
+                if (inMain != null)
+                {
+                    return inMain;
+                }
+
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(mainWindow.Current.ProcessId))
+                {
+                    var name = topWindow.Current.Name ?? string.Empty;
+                    if (!name.StartsWith(namePrefix, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (requireImageKeyword
+                        && !name.Contains("图像", StringComparison.Ordinal)
+                        && !name.Contains("影片", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (UIAutomationHelper.IsElementInteractable(topWindow))
+                    {
+                        return topWindow;
+                    }
+
+                    // 顶层窗本身是对话框外壳时，再在其子树找一次
+                    var nested = UIAutomationHelper.FindVisibleWindowByNamePrefix(
+                        topWindow,
+                        namePrefix,
+                        requireImageKeyword);
+                    if (nested != null)
+                    {
+                        return nested;
+                    }
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 在优先根 / 同进程顶层中按关键字找嵌套对话框（禁止 Root Descendants）。
+        /// </summary>
+        private static AutomationElement? FindDescendantWindowByNameKeywordScoped(
+            string nameKeyword,
+            string? requireButtonName,
+            int? processId,
+            params AutomationElement?[] preferRoots)
+        {
+            foreach (var root in preferRoots)
+            {
+                if (root == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var found = UIAutomationHelper.FindDescendantWindowByNameKeyword(
+                        root,
+                        nameKeyword,
+                        requireButtonName);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 继续
+                }
+            }
+
+            if (processId is not > 0)
+            {
+                return null;
+            }
+
+            foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId.Value))
+            {
+                try
+                {
+                    var name = topWindow.Current.Name ?? string.Empty;
+                    if (name.Contains(nameKeyword, StringComparison.Ordinal)
+                        && UIAutomationHelper.IsElementInteractable(topWindow)
+                        && (string.IsNullOrWhiteSpace(requireButtonName)
+                            || UIAutomationHelper.FindButtonByName(topWindow, requireButtonName) != null))
+                    {
+                        return topWindow;
+                    }
+
+                    var nested = UIAutomationHelper.FindDescendantWindowByNameKeyword(
+                        topWindow,
+                        nameKeyword,
+                        requireButtonName);
+                    if (nested != null)
+                    {
+                        return nested;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 继续
+                }
+            }
+
+            return null;
+        }
+
         private static AutomationElement? FindFileSelectionWizardDialog(AutomationElement mainWindow)
         {
-            var finishButton = FindEnabledFinishButton(mainWindow)
-                ?? FindEnabledFinishButton(AutomationElement.RootElement);
+            var finishButton = FindEnabledFinishButton(mainWindow);
             if (finishButton == null)
             {
                 return null;
@@ -1999,11 +2420,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             try
             {
-                var button = UIAutomationHelper.FindButtonByName(mainWindow, FileSelectionFinishButtonName)
-                    ?? UIAutomationHelper.FindButtonByName(
-                        AutomationElement.RootElement,
-                        FileSelectionFinishButtonName);
-                return button is { Current.IsEnabled: true } ? button : null;
+                var button = UIAutomationHelper.FindButtonByName(mainWindow, FileSelectionFinishButtonName);
+                if (button is { Current.IsEnabled: true })
+                {
+                    return button;
+                }
+
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(mainWindow.Current.ProcessId))
+                {
+                    button = UIAutomationHelper.FindButtonByName(topWindow, FileSelectionFinishButtonName);
+                    if (button is { Current.IsEnabled: true })
+                    {
+                        return button;
+                    }
+                }
+
+                return null;
             }
             catch (ElementNotAvailableException)
             {
@@ -2015,26 +2447,51 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             try
             {
-                return UIAutomationHelper.FindVisibleDescendantByName(
-                           mainWindow,
-                           ControlType.Window,
-                           ImportProgressWindowName,
-                           exactMatch: true)
-                       ?? UIAutomationHelper.FindVisibleDescendantByName(
-                           mainWindow,
-                           ControlType.Pane,
-                           ImportProgressWindowName,
-                           exactMatch: true)
-                       ?? UIAutomationHelper.FindVisibleDescendantByName(
-                           AutomationElement.RootElement,
-                           ControlType.Window,
-                           ImportProgressWindowName,
-                           exactMatch: true)
-                       ?? UIAutomationHelper.FindVisibleDescendantByName(
-                           AutomationElement.RootElement,
-                           ControlType.Pane,
-                           ImportProgressWindowName,
-                           exactMatch: true);
+                var inMain = UIAutomationHelper.FindVisibleDescendantByName(
+                                 mainWindow,
+                                 ControlType.Window,
+                                 ImportProgressWindowName,
+                                 exactMatch: true)
+                             ?? UIAutomationHelper.FindVisibleDescendantByName(
+                                 mainWindow,
+                                 ControlType.Pane,
+                                 ImportProgressWindowName,
+                                 exactMatch: true);
+                if (inMain != null)
+                {
+                    return inMain;
+                }
+
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(mainWindow.Current.ProcessId))
+                {
+                    var name = topWindow.Current.Name ?? string.Empty;
+                    if (!name.Equals(ImportProgressWindowName, StringComparison.Ordinal))
+                    {
+                        var nested = UIAutomationHelper.FindVisibleDescendantByName(
+                                         topWindow,
+                                         ControlType.Window,
+                                         ImportProgressWindowName,
+                                         exactMatch: true)
+                                     ?? UIAutomationHelper.FindVisibleDescendantByName(
+                                         topWindow,
+                                         ControlType.Pane,
+                                         ImportProgressWindowName,
+                                         exactMatch: true);
+                        if (nested != null)
+                        {
+                            return nested;
+                        }
+
+                        continue;
+                    }
+
+                    if (UIAutomationHelper.IsElementInteractable(topWindow))
+                    {
+                        return topWindow;
+                    }
+                }
+
+                return null;
             }
             catch (ElementNotAvailableException)
             {
@@ -2679,11 +3136,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             var listItem = await UIAutomationHelper.WaitForElementAsync(
-                    () => UIAutomationHelper.FindVisibleDescendantByName(dialog, ControlType.ListItem, modeName)
-                        ?? UIAutomationHelper.FindVisibleDescendantByName(
-                            AutomationElement.RootElement,
-                            ControlType.ListItem,
-                            modeName),
+                    () =>
+                    {
+                        int? processId = null;
+                        try
+                        {
+                            processId = dialog.Current.ProcessId;
+                        }
+                        catch (ElementNotAvailableException)
+                        {
+                        }
+
+                        return FindVisibleListItemScoped(modeName, processId, dialog);
+                    },
                     TimeSpan.FromMilliseconds(settings.ThickPlateDropdownWaitTime),
                     cancellationToken,
                     pollIntervalMs: 100)
@@ -2725,11 +3190,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger.Info($"厚板组合模式：Win32 点击并回车确认「{modeName}」");
             await NativeClickElementAsync(listItem, cancellationToken).ConfigureAwait(false);
             await InvokeOnUiThreadAsync(SimulateEnter).ConfigureAwait(false);
+
+            int? processId = null;
+            try
+            {
+                processId = dialog.Current.ProcessId;
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+
             await WaitUntilDisappearedAsync(
-                    () => UIAutomationHelper.FindVisibleDescendantByName(
-                        AutomationElement.RootElement,
-                        ControlType.ListItem,
-                        modeName),
+                    () => FindVisibleListItemScoped(modeName, processId, dialog),
                     settings.ThickPlateDropdownWaitTime,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -2752,10 +3224,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             var displayText = UIAutomationHelper.GetComboBoxDisplayText(comboBox);
             var expanded = UIAutomationHelper.IsComboBoxExpanded(comboBox);
-            var visibleItem = UIAutomationHelper.FindVisibleDescendantByName(
-                AutomationElement.RootElement,
-                ControlType.ListItem,
-                modeName);
+            int? processId = null;
+            try
+            {
+                processId = dialog.Current.ProcessId;
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+
+            var visibleItem = FindVisibleListItemScoped(modeName, processId, dialog);
             _logger.Info(
                 $"厚板组合模式 UIA 诊断：读数「{displayText}」展开={expanded} " +
                 $"可见列表项={(visibleItem != null ? "是" : "否")}（目标「{modeName}」）");
@@ -2802,8 +3280,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         private static AutomationElement? FindThickPlateDialog(AutomationElement mainWindow, string dialogName)
         {
-            return UIAutomationHelper.FindWindowByName(mainWindow, dialogName)
-                ?? UIAutomationHelper.FindWindowByName(AutomationElement.RootElement, dialogName);
+            return FindWindowByNameScoped(mainWindow, dialogName);
         }
 
         private async Task ExportImageStackSlicesAsync(
@@ -2963,14 +3440,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         private static AutomationElement? FindSliceExportDialog(AutomationElement mainWindow)
         {
-            return UIAutomationHelper.FindVisibleWindowByNamePrefix(
-                       mainWindow,
-                       SliceExportDialogNamePrefix,
-                       requireImageKeyword: true)
-                   ?? UIAutomationHelper.FindVisibleWindowByNamePrefix(
-                       AutomationElement.RootElement,
-                       SliceExportDialogNamePrefix,
-                       requireImageKeyword: true);
+            return FindVisibleWindowByNamePrefixScoped(
+                mainWindow,
+                SliceExportDialogNamePrefix,
+                requireImageKeyword: true);
         }
 
         private async Task SelectSliceExportViewAsync(
@@ -3021,14 +3494,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     comboBox,
                     viewListItemName,
                     settings.PresetDropdownWaitTime,
-                    cancellationToken)
+                    cancellationToken,
+                    confirmWithEnter: false)
                 .ConfigureAwait(false);
-            await WaitForPresetAppliedAsync(
-                    comboBox,
-                    viewListItemName,
-                    settings.ThickPlateStepDelayMs,
-                    cancellationToken)
-                .ConfigureAwait(false);
+
+            if (!IsPresetApplied(comboBox, viewListItemName)
+                && UIAutomationHelper.IsRenderingPresetDropdownOpen(comboBox))
+            {
+                throw new InvalidOperationException($"未能选择 2D 视图「{viewListItemName}」");
+            }
         }
 
         private async Task FillSliceExportFormAsync(
@@ -3045,17 +3519,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             var widthValue = settings.SliceExportImageWidth.ToString();
-            if (!await SetEditValueWithFallbackAsync(
+            // 导出对话框「保存...」常为默认按钮：禁止 Enter，改用 Tab 失焦提交
+            if (!await SetSliceExportFieldValueAsync(
                     imageSizeEdits[0],
                     widthValue,
-                    cancellationToken,
-                    commitWithEnter: false).ConfigureAwait(false))
+                    cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidOperationException($"未能设置图像宽度为 {widthValue}");
             }
 
             progress?.Report($"已设置图像宽度 {widthValue}");
             _logger.Info($"已设置图像宽度 {widthValue}");
+            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
 
             var quantityEdit = UIAutomationHelper.FindEditAdjacentToLabel(
                 exportDialog,
@@ -3068,17 +3543,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             var quantityValue = quantity.ToString();
-            if (!await SetEditValueWithFallbackAsync(
+            if (!await SetSliceExportFieldValueAsync(
                     quantityEdit,
                     quantityValue,
-                    cancellationToken,
-                    commitWithEnter: true).ConfigureAwait(false))
+                    cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidOperationException($"未能设置导出数量为 {quantityValue}");
             }
 
             progress?.Report($"已设置导出数量 {quantityValue}");
             _logger.Info($"已设置导出数量 {quantityValue}");
+            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
 
             // TODO: 待视觉算法返回切片范围，当前使用配置默认值
             var startEdit = UIAutomationHelper.FindEditAdjacentToLabel(
@@ -3096,29 +3571,30 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             var startValue = settings.SliceRangeStartMm.ToString("0.##");
             var endValue = settings.SliceRangeEndMm.ToString("0.##");
-            if (!await SetEditValueWithFallbackAsync(
+            if (!await SetSliceExportFieldValueAsync(
                     startEdit,
                     startValue,
-                    cancellationToken,
-                    commitWithEnter: true).ConfigureAwait(false)
-                || !await SetEditValueWithFallbackAsync(
+                    cancellationToken).ConfigureAwait(false)
+                || !await SetSliceExportFieldValueAsync(
                     endEdit,
                     endValue,
-                    cancellationToken,
-                    commitWithEnter: true).ConfigureAwait(false))
+                    cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidOperationException($"未能设置切片范围 {startValue} ~ {endValue} mm");
             }
 
             progress?.Report($"已设置切片范围 {startValue} ~ {endValue} mm（TODO: 待视觉算法）");
             _logger.Info($"已设置切片范围 {startValue} ~ {endValue} mm");
+            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<bool> SetEditValueWithFallbackAsync(
+        /// <summary>
+        /// 导出对话框专用填值：禁止 Enter（避免触发默认「保存...」），输入后用 Tab 失焦提交。
+        /// </summary>
+        private async Task<bool> SetSliceExportFieldValueAsync(
             AutomationElement edit,
             string value,
-            CancellationToken cancellationToken,
-            bool commitWithEnter = false)
+            CancellationToken cancellationToken)
         {
             var isCustom = edit.Current.ControlType == ControlType.Custom;
 
@@ -3126,11 +3602,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 && UIAutomationHelper.TrySetEditValueSafe(edit, value)
                 && InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value))
             {
+                await CommitEditWithTabAsync(edit, cancellationToken).ConfigureAwait(false);
                 return true;
             }
 
-            await SetEditValueWithKeyboardFallbackAsync(edit, value, cancellationToken, commitWithEnter)
+            await SetEditValueWithKeyboardFallbackAsync(
+                    edit,
+                    value,
+                    cancellationToken,
+                    commitWithEnter: false)
                 .ConfigureAwait(false);
+            await CommitEditWithTabAsync(edit, cancellationToken).ConfigureAwait(false);
+
             if (await WaitUntilAsync(
                         () => InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value),
                         2000,
@@ -3145,8 +3628,123 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return true;
             }
 
-            // VG Custom 数值框常无法通过 UIA 读回，完成双击+全选+输入+Enter 后视为已提交
-            return isCustom && commitWithEnter;
+            // Custom 框常无法 UIA 读回；键盘+Tab 后视为已提交
+            return isCustom;
+        }
+
+        private static Task DelaySliceExportStepAsync(CTAutoSlicerSettings settings, CancellationToken cancellationToken)
+        {
+            var delayMs = settings.ThickPlateStepDelayMs;
+            return delayMs > 0
+                ? Task.Delay(delayMs, cancellationToken)
+                : Task.CompletedTask;
+        }
+
+        private async Task CommitEditWithTabAsync(
+            AutomationElement edit,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                edit.SetFocus();
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+
+            await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+            Unlock();
+            try
+            {
+                await InvokeOnUiThreadAsync(SimulateTab).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task CommitEditWithEnterAsync(
+            AutomationElement edit,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                edit.SetFocus();
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+
+            await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+            Unlock();
+            try
+            {
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    _simulator.SimulateKeyPress(KeyCode.VcEnter);
+                    _simulator.SimulateKeyRelease(KeyCode.VcEnter);
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task<bool> SetEditValueWithFallbackAsync(
+            AutomationElement edit,
+            string value,
+            CancellationToken cancellationToken,
+            bool commitWithEnter = false)
+        {
+            var isCustom = edit.Current.ControlType == ControlType.Custom;
+
+            if (!isCustom
+                && UIAutomationHelper.TrySetEditValueSafe(edit, value)
+                && InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value))
+            {
+                if (commitWithEnter)
+                {
+                    await CommitEditWithEnterAsync(edit, cancellationToken).ConfigureAwait(false);
+                }
+
+                return true;
+            }
+
+            await SetEditValueWithKeyboardFallbackAsync(edit, value, cancellationToken, commitWithEnter)
+                .ConfigureAwait(false);
+            if (commitWithEnter)
+            {
+                await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (await WaitUntilAsync(
+                        () => InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value),
+                        2000,
+                        cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            if (InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value))
+            {
+                return true;
+            }
+
+            // VG Custom 数值框常无法通过 UIA 读回；键盘+Enter 后再等一拍，避免未输完就点「保存...」
+            if (isCustom && commitWithEnter)
+            {
+                await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+
+            return false;
         }
 
         private async Task ConfirmSliceSaveAsync(
@@ -3165,8 +3763,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report("已点击保存，等待系统保存对话框");
             _logger.Info("已点击保存，等待系统保存对话框");
 
+            int? processId = null;
+            try
+            {
+                processId = exportDialog.Current.ProcessId;
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+
             var fileEdit = await UIAutomationHelper.WaitForElementAsync(
-                    () => UIAutomationHelper.FindVisibleFileNameEdit(AutomationElement.RootElement),
+                    () => FindVisibleFileNameEditScoped(processId, exportDialog),
                     TimeSpan.FromMilliseconds(settings.SliceExportDialogWaitTime),
                     cancellationToken,
                     UiPollIntervalMs)
@@ -3177,13 +3784,27 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException("未在超时内检测到系统保存对话框");
             }
 
-            await FillSystemSaveDialogAsync(settings, exportSavePathWithoutExt, cancellationToken, progress)
+            await FillSystemSaveDialogAsync(
+                    settings,
+                    exportDialog,
+                    processId,
+                    exportSavePathWithoutExt,
+                    cancellationToken,
+                    progress)
                 .ConfigureAwait(false);
-            await DismissImageQualityDialogAsync(settings, cancellationToken, progress).ConfigureAwait(false);
+            await DismissImageQualityDialogAsync(
+                    settings,
+                    exportDialog,
+                    processId,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
         }
 
         private async Task FillSystemSaveDialogAsync(
             CTAutoSlicerSettings settings,
+            AutomationElement exportDialog,
+            int? processId,
             string fullPathWithoutExtension,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
@@ -3195,7 +3816,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     "填写系统保存对话框",
                     async _ =>
                     {
-                        var fileEdit = UIAutomationHelper.FindVisibleFileNameEdit(AutomationElement.RootElement);
+                        var fileEdit = FindVisibleFileNameEditScoped(processId, exportDialog);
                         if (fileEdit == null)
                         {
                             return false;
@@ -3226,7 +3847,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         }
 
                         return await WaitUntilDisappearedAsync(
-                                () => UIAutomationHelper.FindVisibleFileNameEdit(AutomationElement.RootElement),
+                                () => FindVisibleFileNameEditScoped(processId, exportDialog),
                                 settings.SliceExportDialogWaitTime,
                                 cancellationToken)
                             .ConfigureAwait(false);
@@ -3281,24 +3902,37 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
-        private static AutomationElement? FindSystemSaveDialog()
+        private static AutomationElement? FindImageQualityDialogScoped(
+            int? processId,
+            params AutomationElement?[] preferRoots)
         {
-            var fileEdit = UIAutomationHelper.FindVisibleFileNameEdit(AutomationElement.RootElement);
-            return fileEdit == null
-                ? null
-                : UIAutomationHelper.FindAncestorDialogOrWindow(fileEdit);
+            return FindDescendantWindowByNameKeywordScoped(
+                    SliceExportJpegQualityWindowName,
+                    SliceExportQualityConfirmButtonName,
+                    processId,
+                    preferRoots)
+                ?? FindDescendantWindowByNameKeywordScoped(
+                    "JPEG",
+                    SliceExportQualityConfirmButtonName,
+                    processId,
+                    preferRoots);
         }
 
         private async Task DismissImageQualityDialogAsync(
             CTAutoSlicerSettings settings,
+            AutomationElement exportDialog,
+            int? processId,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
             progress?.Report("等待 JPEG 质量对话框");
             _logger.Info("等待 JPEG 质量对话框");
 
+            AutomationElement? FindQualityDialog() =>
+                FindImageQualityDialogScoped(processId, exportDialog);
+
             var qualityDialog = await UIAutomationHelper.WaitForElementAsync(
-                    FindImageQualityDialog,
+                    FindQualityDialog,
                     TimeSpan.FromMilliseconds(settings.SliceExportDialogWaitTime),
                     cancellationToken,
                     pollIntervalMs: 300)
@@ -3310,12 +3944,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            await ConfirmJpegQualityDialogAsync(settings, qualityDialog, cancellationToken, progress).ConfigureAwait(false);
+            await ConfirmJpegQualityDialogAsync(
+                    settings,
+                    qualityDialog,
+                    FindQualityDialog,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
         }
 
         private async Task ConfirmJpegQualityDialogAsync(
             CTAutoSlicerSettings settings,
             AutomationElement qualityDialog,
+            Func<AutomationElement?> findQualityDialog,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
@@ -3333,7 +3974,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress?.Report("JPEG 质量：Invoke「确定」");
                 _logger.Info("JPEG 质量：Invoke「确定」");
                 if (await WaitUntilDisappearedAsync(
-                            FindImageQualityDialog,
+                            findQualityDialog,
                             settings.SliceExportDialogWaitTime,
                             cancellationToken)
                         .ConfigureAwait(false))
@@ -3350,7 +3991,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 _logger.Info("JPEG 质量：Invoke 无效，Win32 点击「确定」");
                 await NativeClickElementAsync(okButton, cancellationToken).ConfigureAwait(false);
                 if (await WaitUntilDisappearedAsync(
-                            FindImageQualityDialog,
+                            findQualityDialog,
                             settings.SliceExportDialogWaitTime,
                             cancellationToken)
                         .ConfigureAwait(false))
@@ -3367,7 +4008,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             await InvokeOnUiThreadAsync(SimulateEnter).ConfigureAwait(false);
 
             if (!await WaitUntilDisappearedAsync(
-                        FindImageQualityDialog,
+                        findQualityDialog,
                         settings.SliceExportDialogWaitTime,
                         cancellationToken)
                     .ConfigureAwait(false))
@@ -3417,18 +4058,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     1000,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-
-        private static AutomationElement? FindImageQualityDialog()
-        {
-            return UIAutomationHelper.FindDescendantWindowByNameKeyword(
-                    AutomationElement.RootElement,
-                    SliceExportJpegQualityWindowName,
-                    requireButtonName: SliceExportQualityConfirmButtonName)
-                ?? UIAutomationHelper.FindDescendantWindowByNameKeyword(
-                    AutomationElement.RootElement,
-                    "JPEG",
-                    requireButtonName: SliceExportQualityConfirmButtonName);
         }
 
         private static AutomationElement? FindVisibleExportWriteProgressWindow(AutomationElement mainWindow)

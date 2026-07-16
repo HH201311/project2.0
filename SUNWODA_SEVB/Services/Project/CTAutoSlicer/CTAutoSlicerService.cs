@@ -15,67 +15,67 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public bool IsRunning => _runCts != null;
 
-        public async Task RunSimulationAsync(
+        public Task RunSimulationAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
-            IProgress<string>? progress = null)
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.RunSimulationAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "切片流程正在运行中");
+
+        public Task TestRenderingPresetAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.TestRenderingPresetAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "切片流程正在运行中，请稍后再试");
+
+        public Task TestThickPlateAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.TestThickPlateAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "切片流程正在运行中，请稍后再试");
+
+        public Task TestSliceExportAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.TestSliceExportAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "切片流程正在运行中，请稍后再试");
+
+        private async Task ExecuteExclusiveAsync(
+            Func<CancellationToken, IProgress<string>?, Task> action,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress,
+            string busyMessage)
         {
             if (IsRunning)
             {
-                throw new InvalidOperationException("切片流程正在运行中");
+                throw new InvalidOperationException(busyMessage);
             }
 
             _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             try
             {
-                await _vgAutomationService
-                    .RunSimulationAsync(settings, _runCts.Token, progress)
-                    .ConfigureAwait(false);
+                await action(_runCts.Token, progress).ConfigureAwait(false);
             }
             finally
             {
                 _runCts.Dispose();
                 _runCts = null;
             }
-        }
-
-        public Task TestRenderingPresetAsync(
-            CTAutoSlicerSettings settings,
-            CancellationToken cancellationToken,
-            IProgress<string>? progress = null)
-        {
-            if (IsRunning)
-            {
-                throw new InvalidOperationException("切片流程正在运行中，请稍后再试");
-            }
-
-            return _vgAutomationService.TestRenderingPresetAsync(settings, cancellationToken, progress);
-        }
-
-        public Task TestThickPlateAsync(
-            CTAutoSlicerSettings settings,
-            CancellationToken cancellationToken,
-            IProgress<string>? progress = null)
-        {
-            if (IsRunning)
-            {
-                throw new InvalidOperationException("切片流程正在运行中，请稍后再试");
-            }
-
-            return _vgAutomationService.TestThickPlateAsync(settings, cancellationToken, progress);
-        }
-
-        public Task TestSliceExportAsync(
-            CTAutoSlicerSettings settings,
-            CancellationToken cancellationToken,
-            IProgress<string>? progress = null)
-        {
-            if (IsRunning)
-            {
-                throw new InvalidOperationException("切片流程正在运行中，请稍后再试");
-            }
-
-            return _vgAutomationService.TestSliceExportAsync(settings, cancellationToken, progress);
         }
 
         public void Cancel()

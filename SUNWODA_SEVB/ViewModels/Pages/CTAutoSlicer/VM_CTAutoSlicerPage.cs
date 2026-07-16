@@ -28,7 +28,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private readonly CTFolderMonitorService _folderMonitorService;
         private readonly CTAutoSlicerInputHookService _inputHookService;
         private readonly ProcessMonitorService _processMonitorService;
-        private CancellationTokenSource? _simulationCts;
+        private CancellationTokenSource? _activeFlowCts;
 
         private string _messageShower = "CT自动化切片模块已加载";
         private bool _isEnableSimulationBtn = true;
@@ -439,7 +439,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         public override void OnNavigatedTo(object? parameter)
         {
-            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed);
+            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed, OnCtrlXPressed);
             _folderMonitorService.Start(CTFileFolder);
             base.OnNavigatedTo(parameter);
         }
@@ -455,8 +455,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             _inputHookService.Dispose();
             _folderMonitorService.Dispose();
-            _simulationCts?.Cancel();
-            _simulationCts?.Dispose();
+            _activeFlowCts?.Cancel();
+            _activeFlowCts?.Dispose();
             base.OnCleanup();
         }
 
@@ -684,9 +684,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 渲染预设单步测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService
-                    .TestRenderingPresetAsync(BuildSettings(), CancellationToken.None, progress);
+                    .TestRenderingPresetAsync(BuildSettings(), flowToken, progress);
                 AppendFlowLog("——— 渲染预设单步测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -719,11 +724,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 厚板三象限测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestThickPlateAsync(
                     BuildSettings(),
-                    CancellationToken.None,
+                    flowToken,
                     progress);
                 AppendFlowLog("——— 厚板三象限测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -768,11 +778,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 切片导出三视图测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestSliceExportAsync(
                     BuildSettings(),
-                    CancellationToken.None,
+                    flowToken,
                     progress);
                 AppendFlowLog("——— 切片导出三视图测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -808,9 +823,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            _simulationCts?.Cancel();
-            _simulationCts?.Dispose();
-            _simulationCts = new CancellationTokenSource();
+            var flowToken = BeginActiveFlow();
 
             try
             {
@@ -819,16 +832,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 AppendFlowLog("——— 新批次开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 await _ctAutoSlicerService
-                    .RunSimulationAsync(BuildSettings(), _simulationCts.Token, progress);
+                    .RunSimulationAsync(BuildSettings(), flowToken, progress);
             }
             catch (OperationCanceledException)
             {
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    MessageShower = "流程已取消";
-                    AppendFlowLog("流程已取消");
-                });
-                _logger.Info("CT 切片流程已取消");
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -923,16 +931,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             File.AppendAllText(logPath, line + Environment.NewLine);
         }
 
-        private void OnDoubleEscPressed()
+        private CancellationToken BeginActiveFlow()
+        {
+            _activeFlowCts?.Cancel();
+            _activeFlowCts?.Dispose();
+            _activeFlowCts = new CancellationTokenSource();
+            return _activeFlowCts.Token;
+        }
+
+        private async Task HandleFlowCanceledAsync()
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                MessageShower = "流程已取消";
+                AppendFlowLog("流程已取消");
+            });
+            _logger.Info("CT 切片流程已取消");
+        }
+
+        private void InterruptActiveFlow(string trigger)
         {
             _ctAutoSlicerService.Cancel();
-            _simulationCts?.Cancel();
+            _activeFlowCts?.Cancel();
             Dispatcher.Invoke(() =>
             {
+                WinAPIHelper.BlockInput(false);
                 IsEnableSimulationBtn = true;
-                MessageShower = "流程已通过 Esc 中断";
-                AppendFlowLog("流程已通过 Esc 中断");
+                MessageShower = $"流程已通过 {trigger} 中断";
+                AppendFlowLog($"流程已通过 {trigger} 中断");
             });
+        }
+
+        private void OnDoubleEscPressed()
+        {
+            InterruptActiveFlow("Esc");
+        }
+
+        private void OnCtrlXPressed()
+        {
+            InterruptActiveFlow("Ctrl+X");
         }
 
         private void OnSingleEscPressed()

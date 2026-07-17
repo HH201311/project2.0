@@ -1,7 +1,7 @@
 namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 {
     /// <summary>
-    /// 直方图 ROI 截图、红线检测与掩膜优化结果（屏幕坐标为物理像素）。
+    /// 直方图 ROI 截图、红线检测、掩膜优化与峰谷分析结果（屏幕坐标为物理像素）。
     /// </summary>
     public sealed class HistogramCaptureResult
     {
@@ -15,7 +15,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             int? redLineScreenX,
             int dragScreenY,
             string? compareImagePath = null,
-            int maskPixelCount = 0)
+            string? peaksImagePath = null,
+            int maskPixelCount = 0,
+            bool peaksSuccess = false,
+            string? peaksFailReason = null,
+            int leftPeakX = 0,
+            int valleyX = 0,
+            int rightPeakX = 0,
+            int targetX = 0,
+            int? targetScreenX = null)
         {
             FilePath = filePath;
             RoiX = roiX;
@@ -26,7 +34,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             RedLineScreenX = redLineScreenX;
             DragScreenY = dragScreenY;
             CompareImagePath = compareImagePath;
+            PeaksImagePath = peaksImagePath;
             MaskPixelCount = maskPixelCount;
+            PeaksSuccess = peaksSuccess;
+            PeaksFailReason = peaksFailReason;
+            LeftPeakX = leftPeakX;
+            ValleyX = valleyX;
+            RightPeakX = rightPeakX;
+            TargetX = targetX;
+            TargetScreenX = targetScreenX;
         }
 
         public string FilePath { get; }
@@ -34,14 +50,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int RoiY { get; }
         public int RoiWidth { get; }
         public int RoiHeight { get; }
-        /// <summary>相对 ROI 左缘的红线列；未检测到为 null</summary>
         public int? RedLineColumn { get; }
-        /// <summary>红线屏幕绝对 X</summary>
         public int? RedLineScreenX { get; }
-        /// <summary>建议拖拽使用的屏幕 Y（ROI 垂直中线）</summary>
         public int DragScreenY { get; }
-        /// <summary>优化前/后左右对比图路径</summary>
         public string? CompareImagePath { get; }
+        public string? PeaksImagePath { get; }
         public int MaskPixelCount { get; }
+        public bool PeaksSuccess { get; }
+        public string? PeaksFailReason { get; }
+        public int LeftPeakX { get; }
+        public int ValleyX { get; }
+        public int RightPeakX { get; }
+        public int TargetX { get; }
+        public int? TargetScreenX { get; }
     }
 }

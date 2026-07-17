@@ -1,7 +1,7 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-17（直方图 ROI：全屏遮罩框选标定 + 按坐标截图 + 红线初始定位；峰谷/拖拽待续）  
-> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**；**直方图灰度阈值** 🟡 截图标定与红线定位已接入（未进主流程）  
+> **文档版本**：2026-07-17（直方图：峰谷半坡 + 红线拖拽单步可测；主流程未接入）  
+> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**；**直方图灰度阈值** 🟡 截图/掩膜/峰谷/拖拽单步可测（未进主流程）  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
 
@@ -18,9 +18,10 @@
 |------|------|------|
 | ROI 框选标定 | 🟡 UI 已实现 | 「截图标定」→ 上位机最小化 → 全屏灰遮罩框选 → ✓提交 / ✕重选 / Esc 取消；坐标写入 DB |
 | 掩膜取色 | 🟡 UI 已实现 | 「取色」→ 9×9 放大格 + HEX/RGB → 左键填入 `HistogramMaskColor`（默认 `#6E6E6E`） |
-| 按坐标截图 + 掩膜优化 | 🟡 单步可测 | `#RRGGBB` 容差掩膜 → 自底连续柱高 → 去针/中值 → **左右对比图** `histogram_compare_*.png` |
-| 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 = 红线屏幕 X + ROI 垂直中线 Y |
-| 峰谷 / 半坡 / 拖拽 | ❌ | 下一阶段 |
+| 按坐标截图 + 掩膜优化 | 🟡 单步可测 | 容差掩膜 → **去近全宽横条** → 柱高/去针 → 对比图 `histogram_compare_*.png` |
+| 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
+| 峰谷 / 半坡 | 🟡 单步可测 | L/V/R + \(T^*=(V+R)/2\)；调试图 `histogram_peaks_*.png` |
+| 拖拽红线 | 🟡 单步可测 | `MouseDragPressMoveRelease` 水平拖到 T* |
 | 接入主流程 | ❌ | 预定：`ApplyRenderingPresetAsync` 之后、厚板之前 |
 
 **关键入口**：
@@ -29,11 +30,11 @@
 |------|------|
 | `ScreenColorPickerOverlayWindow` | 全屏取色（先截虚拟屏再采样，避免取到预览窗） |
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
-| `HistogramGrayScaleAnalyzer` | 绝对色掩膜 + 去针 + 前后对比图 |
-| `VGAutomationService.CaptureHistogramRoiAsync` | 原图 + compare 图 + 红线 |
+| `HistogramGrayScaleAnalyzer` | 掩膜清洗 + 峰谷半坡 + 对比/峰谷调试图 |
+| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖拽 |
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录 | |
 
-**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 打开 `histogram_compare_*.png` 核对右侧是否只剩柱体。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中 L/V/R/T* → 观察红线是否拖到半坡。
 
 ---
 

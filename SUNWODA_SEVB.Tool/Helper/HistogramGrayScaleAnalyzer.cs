@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 直方图绝对色掩膜优化：去红/蓝/文字与峰顶同色针，生成前后对比图。
+    /// 直方图绝对色掩膜优化、峰谷/半坡检测与调试图输出。
     /// </summary>
     public static class HistogramGrayScaleAnalyzer
     {
@@ -44,7 +44,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             Bitmap source,
             Color maskColor,
             int tolerance,
-            string? compareSavePath = null)
+            string? compareSavePath = null,
+            string? peaksSavePath = null)
         {
             ArgumentNullException.ThrowIfNull(source);
             tolerance = Math.Clamp(tolerance, 0, 64);
@@ -52,7 +53,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             var width = source.Width;
             var height = source.Height;
             var mask = new bool[width, height];
-            var maskPixelCount = 0;
+            var rawMaskPixels = 0;
 
             for (var y = 0; y < height; y++)
             {
@@ -62,38 +63,227 @@ namespace SUNWODA_SEVB.Tool.Helper
                     if (IsNear(p, maskColor, tolerance))
                     {
                         mask[x, y] = true;
-                        maskPixelCount++;
+                        rawMaskPixels++;
                     }
                 }
             }
 
-            var heights = BuildColumnHeightsByMaskCount(mask, width, height);
+            // 去掉渐变等亮度带造成的「近全宽横条」，否则柱高被抬平、峰谷难辨
+            RemoveNearFullWidthBands(mask, width, height, fillRatio: 0.72);
+
+            var maskPixelCount = CountMask(mask, width, height);
+            var heights = BuildColumnHeightsFromBottom(mask, width, height);
             DespikeColumnHeights(heights);
             MedianFilterInPlace(heights, radius: 2);
+            GaussianSmoothInPlace(heights, radius: 3);
 
-            // 对比图右侧：直接显示掩膜像素（保留直方图色，去掉红/蓝/文字/渐变）
-            using var cleaned = RenderMaskImage(source, mask, maskColor);
+            var peaks = FindBimodalHalfSlope(heights);
+
+            using var cleaned = RenderMaskImage(mask, maskColor);
             using var compare = BuildSideBySideCompare(source, cleaned);
+            if (peaks.Success)
+            {
+                AnnotatePeaksOnAfterPanel(compare, source.Width, peaks);
+            }
 
-            string? savedPath = null;
+            string? savedCompare = null;
             if (!string.IsNullOrWhiteSpace(compareSavePath))
             {
-                var dir = Path.GetDirectoryName(compareSavePath);
-                if (!string.IsNullOrEmpty(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-
+                EnsureParentDir(compareSavePath);
                 compare.Save(compareSavePath, ImageFormat.Png);
-                savedPath = compareSavePath;
+                savedCompare = compareSavePath;
+            }
+
+            string? savedPeaks = null;
+            if (!string.IsNullOrWhiteSpace(peaksSavePath))
+            {
+                using var peaksImg = BuildPeaksDebugImage(source, cleaned, heights, peaks);
+                EnsureParentDir(peaksSavePath);
+                peaksImg.Save(peaksSavePath, ImageFormat.Png);
+                savedPeaks = peaksSavePath;
             }
 
             return new HistogramOptimizeResult(
                 heights,
                 maskPixelCount,
-                savedPath,
+                rawMaskPixels,
+                savedCompare,
+                savedPeaks,
                 ToHex(maskColor),
-                tolerance);
+                tolerance,
+                peaks);
+        }
+
+        /// <summary>
+        /// 在平滑柱高曲线上找左峰、右峰、中间波谷，半坡目标 = (谷+右峰)/2。
+        /// </summary>
+        public static HistogramPeakAnalysis FindBimodalHalfSlope(int[] heights)
+        {
+            if (heights == null || heights.Length < 16)
+            {
+                return HistogramPeakAnalysis.Fail("柱高序列过短");
+            }
+
+            var n = heights.Length;
+            var maxH = heights.Max();
+            if (maxH <= 0)
+            {
+                return HistogramPeakAnalysis.Fail("柱高全为 0");
+            }
+
+            var minPeakH = Math.Max(3, (int)(maxH * 0.12));
+            var minSep = Math.Max(8, n / 12);
+            var candidates = new List<int>();
+
+            for (var i = 2; i < n - 2; i++)
+            {
+                if (heights[i] < minPeakH)
+                {
+                    continue;
+                }
+
+                if (heights[i] >= heights[i - 1]
+                    && heights[i] >= heights[i + 1]
+                    && heights[i] >= heights[i - 2]
+                    && heights[i] >= heights[i + 2])
+                {
+                    candidates.Add(i);
+                }
+            }
+
+            // 合并过近的局部峰，保留更高者
+            candidates = MergeNearbyPeaks(candidates, heights, minSep / 2);
+            if (candidates.Count < 2)
+            {
+                // 兜底：全局最高 + 其右侧次高显著峰
+                var left = Array.IndexOf(heights, maxH);
+                var right = -1;
+                var rightBest = 0;
+                for (var i = left + minSep; i < n - 2; i++)
+                {
+                    if (heights[i] < minPeakH)
+                    {
+                        continue;
+                    }
+
+                    if (heights[i] >= heights[i - 1]
+                        && heights[i] >= heights[i + 1]
+                        && heights[i] > rightBest)
+                    {
+                        rightBest = heights[i];
+                        right = i;
+                    }
+                }
+
+                if (right < 0)
+                {
+                    return HistogramPeakAnalysis.Fail($"显著峰不足（候选 {candidates.Count}）");
+                }
+
+                candidates = [left, right];
+            }
+
+            // 按 X 排序后取「左侧主峰」与「右侧主峰」：在左半/右半各取最高，若都在一侧则取最高与次高且间距够
+            candidates.Sort();
+            int leftPeak;
+            int rightPeak;
+            PickLeftAndRightPeaks(candidates, heights, minSep, out leftPeak, out rightPeak);
+
+            if (rightPeak <= leftPeak)
+            {
+                return HistogramPeakAnalysis.Fail("未能区分左右峰");
+            }
+
+            var valley = leftPeak;
+            var valleyH = heights[leftPeak];
+            for (var i = leftPeak; i <= rightPeak; i++)
+            {
+                if (heights[i] < valleyH)
+                {
+                    valleyH = heights[i];
+                    valley = i;
+                }
+            }
+
+            var target = (valley + rightPeak) / 2;
+            return new HistogramPeakAnalysis(
+                true,
+                null,
+                leftPeak,
+                heights[leftPeak],
+                valley,
+                valleyH,
+                rightPeak,
+                heights[rightPeak],
+                target);
+        }
+
+        private static void PickLeftAndRightPeaks(
+            List<int> candidates,
+            int[] heights,
+            int minSep,
+            out int leftPeak,
+            out int rightPeak)
+        {
+            // 在所有候选对中选：间距够大，且两峰高度之和最大
+            leftPeak = candidates[0];
+            rightPeak = candidates[^1];
+            var bestScore = -1;
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                for (var j = i + 1; j < candidates.Count; j++)
+                {
+                    var a = candidates[i];
+                    var b = candidates[j];
+                    if (b - a < minSep)
+                    {
+                        continue;
+                    }
+
+                    var score = heights[a] + heights[b];
+                    // 略微偏好「左峰更高」的双峰（CT 常见背景峰更高）
+                    if (heights[a] >= heights[b] * 0.85)
+                    {
+                        score += heights[a] / 10;
+                    }
+
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        leftPeak = a;
+                        rightPeak = b;
+                    }
+                }
+            }
+        }
+
+        private static List<int> MergeNearbyPeaks(List<int> peaks, int[] heights, int mergeDist)
+        {
+            if (peaks.Count == 0)
+            {
+                return peaks;
+            }
+
+            var sorted = peaks.OrderBy(p => p).ToList();
+            var merged = new List<int> { sorted[0] };
+            for (var i = 1; i < sorted.Count; i++)
+            {
+                var prev = merged[^1];
+                var cur = sorted[i];
+                if (cur - prev <= mergeDist)
+                {
+                    if (heights[cur] > heights[prev])
+                    {
+                        merged[^1] = cur;
+                    }
+                }
+                else
+                {
+                    merged.Add(cur);
+                }
+            }
+
+            return merged;
         }
 
         private static bool IsNear(Color a, Color b, int tolerance)
@@ -103,21 +293,74 @@ namespace SUNWODA_SEVB.Tool.Helper
                 && Math.Abs(a.B - b.B) <= tolerance;
         }
 
+        private static int CountMask(bool[,] mask, int width, int height)
+        {
+            var n = 0;
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    if (mask[x, y])
+                    {
+                        n++;
+                    }
+                }
+            }
+
+            return n;
+        }
+
         /// <summary>
-        /// 每列掩膜像素计数作为柱高；峰顶同色竖针会使该列略增高，由去针处理。
+        /// 删除横向填充比例过高的行（渐变等亮度带），避免抬平柱高。
         /// </summary>
-        private static int[] BuildColumnHeightsByMaskCount(bool[,] mask, int width, int height)
+        private static void RemoveNearFullWidthBands(bool[,] mask, int width, int height, double fillRatio)
+        {
+            var threshold = (int)(width * fillRatio);
+            for (var y = 0; y < height; y++)
+            {
+                var count = 0;
+                for (var x = 0; x < width; x++)
+                {
+                    if (mask[x, y])
+                    {
+                        count++;
+                    }
+                }
+
+                if (count < threshold)
+                {
+                    continue;
+                }
+
+                for (var x = 0; x < width; x++)
+                {
+                    mask[x, y] = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 自底向上连续命中长度；跳过底部空洞，遇间隙停止（削弱峰顶同色竖针影响需配合去针）。
+        /// </summary>
+        private static int[] BuildColumnHeightsFromBottom(bool[,] mask, int width, int height)
         {
             var heights = new int[width];
             for (var x = 0; x < width; x++)
             {
                 var h = 0;
-                for (var y = 0; y < height; y++)
+                for (var y = height - 1; y >= 0; y--)
                 {
-                    if (mask[x, y])
+                    if (!mask[x, y])
                     {
-                        h++;
+                        if (h > 0)
+                        {
+                            break;
+                        }
+
+                        continue;
                     }
+
+                    h++;
                 }
 
                 heights[x] = h;
@@ -169,13 +412,46 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
         }
 
-        /// <summary>
-        /// 优化后可视化：黑底上仅保留掩膜命中像素（用掩膜色填充，便于核对去杂线效果）。
-        /// </summary>
-        private static Bitmap RenderMaskImage(Bitmap source, bool[,] mask, Color fill)
+        private static void GaussianSmoothInPlace(int[] data, int radius)
         {
-            var width = source.Width;
-            var height = source.Height;
+            if (data.Length == 0 || radius <= 0)
+            {
+                return;
+            }
+
+            var src = (int[])data.Clone();
+            var sigma = radius / 2.0;
+            var kernel = new double[radius * 2 + 1];
+            double sumK = 0;
+            for (var i = -radius; i <= radius; i++)
+            {
+                var v = Math.Exp(-(i * i) / (2 * sigma * sigma));
+                kernel[i + radius] = v;
+                sumK += v;
+            }
+
+            for (var i = 0; i < kernel.Length; i++)
+            {
+                kernel[i] /= sumK;
+            }
+
+            for (var i = 0; i < data.Length; i++)
+            {
+                double acc = 0;
+                for (var k = -radius; k <= radius; k++)
+                {
+                    var idx = Math.Clamp(i + k, 0, src.Length - 1);
+                    acc += src[idx] * kernel[k + radius];
+                }
+
+                data[i] = (int)Math.Round(acc);
+            }
+        }
+
+        private static Bitmap RenderMaskImage(bool[,] mask, Color fill)
+        {
+            var width = mask.GetLength(0);
+            var height = mask.GetLength(1);
             var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
             using var g = Graphics.FromImage(bmp);
             g.Clear(Color.Black);
@@ -224,6 +500,158 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             return bmp;
         }
+
+        private static void AnnotatePeaksOnAfterPanel(Bitmap compare, int panelWidth, HistogramPeakAnalysis peaks)
+        {
+            const int gap = 16;
+            const int labelH = 36;
+            const int pad = 12;
+            var yImg = pad + labelH;
+            var x0 = pad + panelWidth + gap;
+
+            using var g = Graphics.FromImage(compare);
+            DrawPeakMarkers(g, x0, yImg, compare.Height - yImg - pad, peaks);
+        }
+
+        private static Bitmap BuildPeaksDebugImage(
+            Bitmap original,
+            Bitmap cleaned,
+            int[] heights,
+            HistogramPeakAnalysis peaks)
+        {
+            const int pad = 12;
+            const int labelH = 28;
+            const int curveH = 120;
+            const int gap = 12;
+            var w = original.Width;
+            var h = original.Height;
+            var outW = pad * 2 + w;
+            var outH = pad * 2 + labelH + h + gap + curveH + labelH;
+
+            var bmp = new Bitmap(outW, outH, PixelFormat.Format32bppArgb);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.FromArgb(255, 24, 24, 24));
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            using var titleFont = new Font("Microsoft YaHei UI", 11f, FontStyle.Bold);
+            using var smallFont = new Font("Consolas", 9f);
+            using var white = new SolidBrush(Color.White);
+
+            g.DrawString("峰谷/半坡标注（掩膜图）", titleFont, white, pad, pad);
+            var yImg = pad + labelH;
+            g.DrawImage(cleaned, pad, yImg, w, h);
+            DrawPeakMarkers(g, pad, yImg, h, peaks);
+
+            var yCurve = yImg + h + gap;
+            g.DrawString(
+                peaks.Success
+                    ? $"L={peaks.LeftPeakX} V={peaks.ValleyX} R={peaks.RightPeakX} T*={peaks.TargetX}  (谷+右峰)/2"
+                    : $"峰谷失败：{peaks.FailReason}",
+                smallFont,
+                white,
+                pad,
+                yCurve);
+
+            yCurve += labelH;
+            DrawHeightCurve(g, pad, yCurve, w, curveH, heights, peaks);
+            return bmp;
+        }
+
+        private static void DrawPeakMarkers(Graphics g, int x0, int y0, int panelH, HistogramPeakAnalysis peaks)
+        {
+            if (!peaks.Success)
+            {
+                return;
+            }
+
+            void VLine(int col, Color color, string tag)
+            {
+                using var pen = new Pen(color, 2);
+                g.DrawLine(pen, x0 + col, y0, x0 + col, y0 + panelH - 1);
+                using var brush = new SolidBrush(color);
+                using var font = new Font("Consolas", 9f, FontStyle.Bold);
+                g.DrawString(tag, font, brush, x0 + col + 2, y0 + 4);
+            }
+
+            VLine(peaks.LeftPeakX, Color.Lime, "L");
+            VLine(peaks.ValleyX, Color.Yellow, "V");
+            VLine(peaks.RightPeakX, Color.Cyan, "R");
+            VLine(peaks.TargetX, Color.Magenta, "T*");
+        }
+
+        private static void DrawHeightCurve(
+            Graphics g,
+            int x0,
+            int y0,
+            int width,
+            int height,
+            int[] heights,
+            HistogramPeakAnalysis peaks)
+        {
+            using var bg = new SolidBrush(Color.FromArgb(255, 40, 40, 40));
+            g.FillRectangle(bg, x0, y0, width, height);
+            var maxH = Math.Max(1, heights.Max());
+            using var pen = new Pen(Color.LightGray, 1);
+            for (var i = 1; i < heights.Length; i++)
+            {
+                var x1 = x0 + (i - 1) * width / Math.Max(1, heights.Length - 1);
+                var x2 = x0 + i * width / Math.Max(1, heights.Length - 1);
+                var y1 = y0 + height - 1 - heights[i - 1] * (height - 2) / maxH;
+                var y2 = y0 + height - 1 - heights[i] * (height - 2) / maxH;
+                g.DrawLine(pen, x1, y1, x2, y2);
+            }
+
+            if (peaks.Success)
+            {
+                void Mark(int col, Color c)
+                {
+                    var x = x0 + col * width / Math.Max(1, heights.Length - 1);
+                    using var p = new Pen(c, 1);
+                    g.DrawLine(p, x, y0, x, y0 + height - 1);
+                }
+
+                Mark(peaks.LeftPeakX, Color.Lime);
+                Mark(peaks.ValleyX, Color.Yellow);
+                Mark(peaks.RightPeakX, Color.Cyan);
+                Mark(peaks.TargetX, Color.Magenta);
+            }
+        }
+
+        private static void EnsureParentDir(string path)
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+        }
+
+        /// <summary>
+        /// 水平拖拽路径（含起终点）。
+        /// </summary>
+        public static List<(short x, short y)> BuildHorizontalDragPath(short startX, short y, short endX)
+        {
+            var path = new List<(short x, short y)>();
+            if (startX == endX)
+            {
+                path.Add((startX, y));
+                path.Add((endX, y));
+                return path;
+            }
+
+            var step = endX > startX ? (short)1 : (short)-1;
+            for (short x = startX; ; x = (short)(x + step))
+            {
+                path.Add((x, y));
+                if (x == endX)
+                {
+                    break;
+                }
+            }
+
+            return path;
+        }
     }
 
     public sealed class HistogramOptimizeResult
@@ -231,21 +659,69 @@ namespace SUNWODA_SEVB.Tool.Helper
         public HistogramOptimizeResult(
             int[] columnHeights,
             int maskPixelCount,
+            int rawMaskPixelCount,
             string? compareImagePath,
+            string? peaksImagePath,
             string maskColorHex,
-            int tolerance)
+            int tolerance,
+            HistogramPeakAnalysis peaks)
         {
             ColumnHeights = columnHeights;
             MaskPixelCount = maskPixelCount;
+            RawMaskPixelCount = rawMaskPixelCount;
             CompareImagePath = compareImagePath;
+            PeaksImagePath = peaksImagePath;
             MaskColorHex = maskColorHex;
             Tolerance = tolerance;
+            Peaks = peaks;
         }
 
         public int[] ColumnHeights { get; }
         public int MaskPixelCount { get; }
+        public int RawMaskPixelCount { get; }
         public string? CompareImagePath { get; }
+        public string? PeaksImagePath { get; }
         public string MaskColorHex { get; }
         public int Tolerance { get; }
+        public HistogramPeakAnalysis Peaks { get; }
+    }
+
+    public sealed class HistogramPeakAnalysis
+    {
+        public HistogramPeakAnalysis(
+            bool success,
+            string? failReason,
+            int leftPeakX,
+            int leftPeakHeight,
+            int valleyX,
+            int valleyHeight,
+            int rightPeakX,
+            int rightPeakHeight,
+            int targetX)
+        {
+            Success = success;
+            FailReason = failReason;
+            LeftPeakX = leftPeakX;
+            LeftPeakHeight = leftPeakHeight;
+            ValleyX = valleyX;
+            ValleyHeight = valleyHeight;
+            RightPeakX = rightPeakX;
+            RightPeakHeight = rightPeakHeight;
+            TargetX = targetX;
+        }
+
+        public static HistogramPeakAnalysis Fail(string reason) =>
+            new(false, reason, 0, 0, 0, 0, 0, 0, 0);
+
+        public bool Success { get; }
+        public string? FailReason { get; }
+        public int LeftPeakX { get; }
+        public int LeftPeakHeight { get; }
+        public int ValleyX { get; }
+        public int ValleyHeight { get; }
+        public int RightPeakX { get; }
+        public int RightPeakHeight { get; }
+        /// <summary>半坡目标列：(ValleyX + RightPeakX) / 2</summary>
+        public int TargetX { get; }
     }
 }

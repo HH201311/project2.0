@@ -607,7 +607,7 @@
                         Command="{Binding TestHistogramGrayScaleCommand}"
                         Content="测试直方图灰度调整"
                         IsEnabled="{Binding IsEnableSimulationBtn}"
-                        ToolTip="需已标定 ROI；当前：截图+红线定位；峰谷/拖拽下一阶段" />
+                        ToolTip="需已标定 ROI：截图→掩膜→峰谷半坡→拖红线" />
                     <Button
                         Margin="0,0,10,0"
                         Command="{Binding TestThickPlateCommand}"
@@ -623,7 +623,7 @@
                     Margin="5"
                     HorizontalAlignment="Center"
                     Foreground="Gray"
-                    Text="「截图标定」框选直方图；「测试直方图灰度调整」按标定坐标截图并定位红线。预设/厚板/切片单测需完成对应前置步骤。"
+                    Text="「测试直方图灰度调整」：截图+掩膜+峰谷半坡+拖红线；调试图见截图目录 histogram_compare_/peaks_。预设/厚板/切片单测需完成对应前置步骤。"
                     TextWrapping="Wrap" />
                 <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
 

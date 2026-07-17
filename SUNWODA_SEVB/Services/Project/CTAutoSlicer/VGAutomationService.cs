@@ -4263,7 +4263,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 单步测试：标定 ROI 截图 → 红线初始位置 →（峰谷/拖拽待下一阶段接入）。
+        /// 单步测试：截图 → 掩膜优化 → 峰谷半坡 → 拖拽红线到位。
         /// </summary>
         public async Task TestHistogramGrayScaleAdjustAsync(
             CTAutoSlicerSettings settings,
@@ -4302,15 +4302,32 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress?.Report($"优化对比图：{capture.CompareImagePath}（掩膜像素 {capture.MaskPixelCount}）");
                 }
 
+                if (!string.IsNullOrWhiteSpace(capture.PeaksImagePath))
+                {
+                    progress?.Report($"峰谷调试图：{capture.PeaksImagePath}");
+                }
+
                 progress?.Report(
                     $"红线初始位置：相对列={capture.RedLineColumn?.ToString() ?? "未检测到"}，" +
                     $"屏幕X={capture.RedLineScreenX?.ToString() ?? "-"}，拖拽Y={capture.DragScreenY}");
-                _logger.Info(
-                    $"红线检测：column={capture.RedLineColumn}, screenX={capture.RedLineScreenX}, " +
-                    $"dragY={capture.DragScreenY}, file={capture.FilePath}, compare={capture.CompareImagePath}");
 
-                progress?.Report("截图优化与红线定位完成（峰谷/拖拽下一阶段接入）");
-                _logger.Info("直方图灰度单步测试完成（截图+掩膜优化+红线）");
+                if (!capture.PeaksSuccess)
+                {
+                    throw new InvalidOperationException(
+                        $"峰谷分析失败：{capture.PeaksFailReason ?? "未知原因"}");
+                }
+
+                progress?.Report(
+                    $"峰谷结果：L={capture.LeftPeakX}, V={capture.ValleyX}, R={capture.RightPeakX}, " +
+                    $"半坡T*={capture.TargetX}（屏幕X={capture.TargetScreenX}）");
+                _logger.Info(
+                    $"峰谷：L={capture.LeftPeakX} V={capture.ValleyX} R={capture.RightPeakX} T={capture.TargetX}, " +
+                    $"red={capture.RedLineColumn}, compare={capture.CompareImagePath}, peaks={capture.PeaksImagePath}");
+
+                await DragRedLineToTargetAsync(capture, cancellationToken, progress).ConfigureAwait(false);
+
+                progress?.Report("直方图灰度调整单步测试完成（截图+峰谷+拖拽）");
+                _logger.Info("直方图灰度单步测试完成");
             }
             finally
             {
@@ -4320,7 +4337,60 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 按已标定屏幕坐标截取直方图 ROI，保存原图与优化前后对比图，并检测红色阈值竖线列。
+        /// 将红线从当前位置拖到半坡目标列。
+        /// </summary>
+        private async Task DragRedLineToTargetAsync(
+            HistogramCaptureResult capture,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (capture.TargetScreenX is not int targetX)
+            {
+                throw new InvalidOperationException("半坡目标屏幕坐标无效");
+            }
+
+            var startX = capture.RedLineScreenX
+                ?? (capture.RoiX + Math.Max(1, capture.RoiWidth / 4));
+            var y = (short)Math.Clamp(capture.DragScreenY, short.MinValue, short.MaxValue);
+            var sx = (short)Math.Clamp(startX, short.MinValue, short.MaxValue);
+            var ex = (short)Math.Clamp(targetX, short.MinValue, short.MaxValue);
+
+            if (Math.Abs(ex - sx) < 2)
+            {
+                progress?.Report($"红线已接近目标（ΔX={ex - sx}），跳过拖拽");
+                _logger.Info($"红线拖拽跳过：start={sx} end={ex}");
+                return;
+            }
+
+            var path = HistogramGrayScaleAnalyzer.BuildHorizontalDragPath(sx, y, ex);
+            progress?.Report($"拖拽红线：({sx},{y}) → ({ex},{y})，路径点 {path.Count}");
+            _logger.Info($"拖拽红线：({sx},{y}) → ({ex},{y})");
+
+            // BlockInput 下 SharpHook 仍可模拟；短暂 Unlock 提高部分环境跟手性
+            Unlock();
+            try
+            {
+                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    MouseSimulationHelper.MouseDragPressMoveRelease(
+                        _simulator,
+                        MouseButton.Button1,
+                        path,
+                        stepDelayMs: 4);
+                }).ConfigureAwait(false);
+                await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            progress?.Report("红线拖拽完成");
+        }
+
+        /// <summary>
+        /// 按已标定屏幕坐标截取直方图 ROI，保存原图/对比图/峰谷图，并检测红线与半坡目标。
         /// </summary>
         public Task<HistogramCaptureResult> CaptureHistogramRoiAsync(
             CTAutoSlicerSettings settings,
@@ -4349,6 +4419,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
             var filePath = Path.Combine(dir, $"histogram_{stamp}.png");
             var comparePath = Path.Combine(dir, $"histogram_compare_{stamp}.png");
+            var peaksPath = Path.Combine(dir, $"histogram_peaks_{stamp}.png");
 
             progress?.Report($"截取直方图 ROI ({roiX},{roiY},{roiW}x{roiH})");
             _logger.Info($"截取直方图 ROI → {filePath}");
@@ -4356,26 +4427,28 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             ScreenCaptureHelper.CaptureRegionAndSave(filePath, roiX, roiY, roiW, roiH);
 
             int? redColumn;
-            int maskPixels;
-            string? savedCompare;
+            HistogramOptimizeResult optimize;
             using (var bmp = new System.Drawing.Bitmap(filePath))
             {
                 redColumn = HistogramRedLineDetector.FindRedLineColumn(bmp);
                 progress?.Report(
                     $"掩膜优化：颜色 {HistogramGrayScaleAnalyzer.ToHex(maskColor)}，容差 {settings.HistogramMaskTolerance}");
-                var optimize = HistogramGrayScaleAnalyzer.Optimize(
+                optimize = HistogramGrayScaleAnalyzer.Optimize(
                     bmp,
                     maskColor,
                     settings.HistogramMaskTolerance,
-                    comparePath);
-                maskPixels = optimize.MaskPixelCount;
-                savedCompare = optimize.CompareImagePath;
+                    comparePath,
+                    peaksPath);
                 _logger.Info(
-                    $"直方图掩膜完成：pixels={maskPixels}, compare={savedCompare}");
+                    $"直方图掩膜完成：raw={optimize.RawMaskPixelCount}, cleaned={optimize.MaskPixelCount}, " +
+                    $"peaksOk={optimize.Peaks.Success}, compare={optimize.CompareImagePath}");
             }
 
             int? redScreenX = redColumn.HasValue ? roiX + redColumn.Value : null;
             var dragY = roiY + Math.Max(1, roiH / 2);
+            int? targetScreenX = optimize.Peaks.Success
+                ? roiX + optimize.Peaks.TargetX
+                : null;
 
             return Task.FromResult(new HistogramCaptureResult(
                 filePath,
@@ -4386,8 +4459,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 redColumn,
                 redScreenX,
                 dragY,
-                savedCompare,
-                maskPixels));
+                optimize.CompareImagePath,
+                optimize.PeaksImagePath,
+                optimize.MaskPixelCount,
+                optimize.Peaks.Success,
+                optimize.Peaks.FailReason,
+                optimize.Peaks.LeftPeakX,
+                optimize.Peaks.ValleyX,
+                optimize.Peaks.RightPeakX,
+                optimize.Peaks.TargetX,
+                targetScreenX));
         }
 
         public async Task<(Process Process, bool IsColdStart)> GetCTViewerProcess(

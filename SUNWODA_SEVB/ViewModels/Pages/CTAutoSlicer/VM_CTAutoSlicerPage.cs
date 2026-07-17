@@ -77,7 +77,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _histogramRoiHeight;
         private string _histogramCaptureDir = string.Empty;
         private string _histogramMaskColor = "#6E6E6E";
-        private int _histogramMaskTolerance = 12;
+        private int _histogramMaskTolerance = 2;
         private string _histogramRoiDisplayText = "未标定";
         private System.Windows.Media.Brush _histogramMaskColorBrush =
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6E, 0x6E, 0x6E));
@@ -641,7 +641,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(HistogramRoiHeight));
             HistogramCaptureDir = LoadStringSetting(nameof(HistogramCaptureDir), string.Empty);
             HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
-            HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 12);
+            HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 2);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
             RefreshHistogramRoiDisplay();
             RefreshMaskColorBrush();

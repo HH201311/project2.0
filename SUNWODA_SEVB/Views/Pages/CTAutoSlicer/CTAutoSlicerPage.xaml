@@ -392,7 +392,7 @@
                                     Margin="0,0,10,0"
                                     hc:InfoElement.Title="截图目录"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="空则默认 程序目录\logs\histogram">
+                                    ToolTip="空则默认 程序目录\logs\histogram；实际保存到其下 yyyy-MM-dd 子目录，默认仅保留 3 天">
                                     <hc:TextBox.Text>
                                         <Binding Path="HistogramCaptureDir" UpdateSourceTrigger="PropertyChanged" />
                                     </hc:TextBox.Text>
@@ -445,7 +445,7 @@
                                     Width="120"
                                     hc:InfoElement.Title="容差"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="每通道颜色容差 0～64，抗锯齿建议 8～16">
+                                    ToolTip="每通道颜色容差 0～64。替换为纯绿时建议 0～4；过大易把面板渐变一并染绿">
                                     <hc:TextBox.Text>
                                         <Binding Path="HistogramMaskTolerance" UpdateSourceTrigger="PropertyChanged">
                                             <Binding.ValidationRules>
@@ -458,7 +458,7 @@
                             <TextBlock
                                 Margin="10,0,10,10"
                                 Foreground="Gray"
-                                Text="标定前请把 VG 直方图露在屏幕上。取色请对准直方图填充区（非红线/蓝 LUT）。单步测试会生成「优化前|优化后」对比图到截图目录。"
+                                Text="标定前请把 VG 直方图露在屏幕上。取色请对准直方图填充区（非红线/蓝 LUT）。单步测试会生成原图/对比图/峰谷图到「截图目录\当天日期」；超过 3 天的日期文件夹会自动删除。"
                                 TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
@@ -607,7 +607,7 @@
                         Command="{Binding TestHistogramGrayScaleCommand}"
                         Content="测试直方图灰度调整"
                         IsEnabled="{Binding IsEnableSimulationBtn}"
-                        ToolTip="需已标定 ROI：截图→掩膜→峰谷半坡→拖红线" />
+                        ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线" />
                     <Button
                         Margin="0,0,10,0"
                         Command="{Binding TestThickPlateCommand}"
@@ -623,7 +623,7 @@
                     Margin="5"
                     HorizontalAlignment="Center"
                     Foreground="Gray"
-                    Text="「测试直方图灰度调整」：截图+掩膜+峰谷半坡+拖红线；调试图见截图目录 histogram_compare_/peaks_。预设/厚板/切片单测需完成对应前置步骤。"
+                    Text="「测试直方图灰度调整」：截图+目标色换纯绿+峰谷+拖红线；调试图保存在截图目录\yyyy-MM-dd\ 下，默认仅保留 3 天。"
                     TextWrapping="Wrap" />
                 <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
 

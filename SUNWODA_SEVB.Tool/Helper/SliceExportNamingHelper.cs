@@ -9,6 +9,9 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// </summary>
     public static class SliceExportNamingHelper
     {
+        /// <summary>命名不合规时的默认型号前缀。</summary>
+        public const string DefaultModelCode = "0000";
+
         // 示例：0657-FD 2026-7-12 15-35-16.vgl / 0987-QJ 2026-7-13 8-10-19.vgl
         private static readonly Regex VglNamePattern = new(
             @"^(?<model>\d{4})-(?<type>FD|QJ)\s+\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}-\d{1,2}-\d{1,2}$",
@@ -23,26 +26,41 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         /// <summary>
         /// 保留「型号-类型」前缀，日期段替换为当前时间（用作导出文件夹名）。
+        /// 不符合规则时回退默认名（0000-FD/QJ + 当前时间），不抛异常，避免卡住流程。
         /// </summary>
-        public static string BuildExportBaseName(string vglFileName, DateTime? now = null)
+        public static string BuildExportBaseName(string vglFileName, DateTime? now = null) =>
+            BuildExportBaseName(vglFileName, now, out _);
+
+        /// <summary>
+        /// 同 <see cref="BuildExportBaseName(string, DateTime?)"/>；
+        /// <paramref name="usedDefaultName"/> 为 true 表示已回退默认命名。
+        /// </summary>
+        public static string BuildExportBaseName(
+            string vglFileName,
+            DateTime? now,
+            out bool usedDefaultName)
         {
-            var nameWithoutExt = Path.GetFileNameWithoutExtension(vglFileName);
+            usedDefaultName = false;
+            var timestamp = FormatExportTimestamp(now ?? DateTime.Now);
+            var nameWithoutExt = Path.GetFileNameWithoutExtension(vglFileName ?? string.Empty);
+
             if (string.IsNullOrWhiteSpace(nameWithoutExt))
             {
-                throw new InvalidOperationException($"无法解析 .vgl 文件名：{vglFileName}");
+                usedDefaultName = true;
+                return $"{DefaultModelCode}-FD {timestamp}";
             }
 
-            var match = VglNamePattern.Match(nameWithoutExt);
+            var match = VglNamePattern.Match(nameWithoutExt.Trim());
             if (!match.Success)
             {
-                throw new InvalidOperationException(
-                    $"导入文件名不符合命名规则（期望如 0657-FD 2026-7-12 15-35-16.vgl）：{vglFileName}");
+                usedDefaultName = true;
+                var type = IsGlobalImage(vglFileName ?? string.Empty) ? "QJ" : "FD";
+                return $"{DefaultModelCode}-{type} {timestamp}";
             }
 
             var model = match.Groups["model"].Value;
-            var type = match.Groups["type"].Value.ToUpperInvariant();
-            var timestamp = FormatExportTimestamp(now ?? DateTime.Now);
-            return $"{model}-{type} {timestamp}";
+            var matchedType = match.Groups["type"].Value.ToUpperInvariant();
+            return $"{model}-{matchedType} {timestamp}";
         }
 
         /// <summary>图像堆栈导出时保存对话框中的基础文件名（VG 将依次导出为 1、2、3…）。</summary>

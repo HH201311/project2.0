@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
@@ -122,6 +123,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int HistogramRoiHeight { get; set; }
         /// <summary>直方图截图落盘目录（空则使用程序目录 logs/histogram）</summary>
         public string HistogramCaptureDir { get; set; } = string.Empty;
+        /// <summary>直方图截图保留天数（按日文件夹，超过则整夹删除）</summary>
+        public int HistogramCaptureKeepDays { get; set; } = 3;
         /// <summary>直方图填充绝对色（#RRGGBB），取色或手填</summary>
         public string HistogramMaskColor { get; set; } = "#6E6E6E";
         /// <summary>掩膜颜色容差（每通道 0～64）</summary>
@@ -138,6 +141,94 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             }
 
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "histogram");
+        }
+
+        /// <summary>
+        /// 确保根目录与当日子目录存在，返回当日保存目录（yyyy-MM-dd）。
+        /// </summary>
+        public string EnsureHistogramCaptureDayDir(DateTime? now = null)
+        {
+            var root = ResolveHistogramCaptureDir();
+            Directory.CreateDirectory(root);
+            var dayName = (now ?? DateTime.Now).ToString("yyyy-MM-dd");
+            var dayDir = Path.Combine(root, dayName);
+            Directory.CreateDirectory(dayDir);
+            return dayDir;
+        }
+
+        /// <summary>
+        /// 删除超过保留天数的按日文件夹，以及根目录下过期的散落截图文件。
+        /// </summary>
+        /// <returns>删除的目录数 + 散落文件数</returns>
+        public (int DeletedDirs, int DeletedFiles) CleanupExpiredHistogramCaptures(int? keepDays = null)
+        {
+            var days = keepDays ?? HistogramCaptureKeepDays;
+            if (days < 1)
+            {
+                days = 1;
+            }
+
+            var root = ResolveHistogramCaptureDir();
+            if (!Directory.Exists(root))
+            {
+                return (0, 0);
+            }
+
+            var today = DateTime.Today;
+            var deletedDirs = 0;
+            var deletedFiles = 0;
+
+            foreach (var dir in Directory.EnumerateDirectories(root))
+            {
+                var name = Path.GetFileName(dir);
+                if (!DateTime.TryParseExact(
+                        name,
+                        "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out var folderDate))
+                {
+                    continue;
+                }
+
+                var ageDays = (today - folderDate.Date).Days;
+                if (ageDays < days)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Directory.Delete(dir, recursive: true);
+                    deletedDirs++;
+                }
+                catch
+                {
+                    // 占用中则跳过，下次再清
+                }
+            }
+
+            // 兼容旧版：根目录下直接放的 histogram_*.png
+            foreach (var file in Directory.EnumerateFiles(root, "histogram*.png"))
+            {
+                try
+                {
+                    var ageDays = (today - File.GetLastWriteTime(file).Date).Days;
+                    if (ageDays < days)
+                    {
+                        continue;
+                    }
+
+                    File.Delete(file);
+                    deletedFiles++;
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            return (deletedDirs, deletedFiles);
         }
 
         public bool IsInputComplete()

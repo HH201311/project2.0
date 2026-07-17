@@ -1,7 +1,7 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-17（直方图：峰谷半坡 + 红线拖拽单步可测；主流程未接入）  
-> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**；**直方图灰度阈值** 🟡 截图/掩膜/峰谷/拖拽单步可测（未进主流程）  
+> **文档版本**：2026-07-17（直方图灰度阈值已接入主流程：预设后 → 截图/峰谷/拖红线 → 厚板）  
+> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**；**直方图灰度阈值** ✅ 已接入主流程（未标定 ROI 时跳过）  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
 
@@ -12,17 +12,17 @@
 ## 0. 直方图灰度阈值（2026-07-17 起）
 
 > 背景：LUT 预设不保存直方图中间红色阈值竖线位置，需截图分析后拖拽。  
-> 半坡目标约定：\(x^* = (x_{valley} + x_{rightPeak}) / 2\)。
+> 半坡目标约定：取**高度最高的两个尖峰**；左线=两峰间波谷，右线=右侧尖峰，中线=\((左线+右线)/2\)（红线拖到中线）。
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | ROI 框选标定 | 🟡 UI 已实现 | 「截图标定」→ 上位机最小化 → 全屏灰遮罩框选 → ✓提交 / ✕重选 / Esc 取消；坐标写入 DB |
 | 掩膜取色 | 🟡 UI 已实现 | 「取色」→ 9×9 放大格 + HEX/RGB → 左键填入 `HistogramMaskColor`（默认 `#6E6E6E`） |
-| 按坐标截图 + 掩膜优化 | 🟡 单步可测 | 容差掩膜 → **去近全宽横条** → 柱高/去针 → 对比图 `histogram_compare_*.png` |
+| 按坐标截图 + 颜色替换 | 🟡 单步可测 | 目标色→纯绿 → **去全宽绿带 + 下填接回** → 峰谷 → `histogram_compare_*.png` |
 | 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
-| 峰谷 / 半坡 | 🟡 单步可测 | L/V/R + \(T^*=(V+R)/2\)；调试图 `histogram_peaks_*.png` |
-| 拖拽红线 | 🟡 单步可测 | `MouseDragPressMoveRelease` 水平拖到 T* |
-| 接入主流程 | ❌ | 预定：`ApplyRenderingPresetAsync` 之后、厚板之前 |
+| 峰谷 / 半坡 | 🟡 单步可测 | 两最高尖峰 → 左线=谷、右线=右尖、中线=(左+右)/2；调试图 `histogram_peaks_*.png` |
+| 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T* |
+| 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过 |
 
 **关键入口**：
 
@@ -30,11 +30,11 @@
 |------|------|
 | `ScreenColorPickerOverlayWindow` | 全屏取色（先截虚拟屏再采样，避免取到预览窗） |
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
-| `HistogramGrayScaleAnalyzer` | 掩膜清洗 + 峰谷半坡 + 对比/峰谷调试图 |
+| `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图 |
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖拽 |
-| Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录 | |
+| Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，保留 3 天） | |
 
-**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中 L/V/R/T* → 观察红线是否拖到半坡。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/中」线 → 观察红线是否拖到中线。
 
 ---
 
@@ -92,6 +92,7 @@ flowchart TD
 | 9 | 轮询进度框消失 | 超时上限 `ImportTimeoutMinutes` |
 | 10 | `PostImportWaitTime` 稳定等待 | 默认 3000ms |
 | 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 打开「渲染」面板 ComboBox → 选中 `RenderingPresetName` 列表项 |
+| 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线；未标定则跳过 |
 | 12 | `ApplyThickPlateForQuadrantsAsync` | 象限 1→2→3：视口右键 →「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定 |
 
 **失败策略**：单文件任意步骤超时/异常 → `@@IMPORT_FAIL@@文件名|原因` → **跳过继续**下一个文件。
@@ -322,6 +323,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 多 .vgl 顺序导入（Ctrl+F+I 快速导入 →「请耐心等待」消失；检测禁止桌面整树扫描）
 ✅ 导入后短暂稳定等待（PostImportWaitTime，默认 3000ms）
 ✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 →「渲染」面板 ComboBox 选 RenderingPresetName）
+✅ 直方图灰度阈值（预设后：截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
 ✅ 三视图切片导出（`ExportImageStackSlicesAsync`，前/右/上 + 命名/QJ 数量）
 ✅ 「测试应用渲染预设」单步按钮（已导入体积前提下单独测预设，不重跑导入）

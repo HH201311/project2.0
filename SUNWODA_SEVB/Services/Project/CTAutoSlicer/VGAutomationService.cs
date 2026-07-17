@@ -4262,6 +4262,109 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
+        /// <summary>
+        /// 单步测试：标定 ROI 截图 → 红线初始位置 →（峰谷/拖拽待下一阶段接入）。
+        /// </summary>
+        public async Task TestHistogramGrayScaleAdjustAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null)
+        {
+            Lock();
+            try
+            {
+                if (!settings.HasHistogramRoi)
+                {
+                    throw new InvalidOperationException("尚未标定直方图区域，请先点击「截图标定」框选 ROI");
+                }
+
+                if (string.IsNullOrWhiteSpace(settings.VGAppPath))
+                {
+                    throw new InvalidOperationException("请先配置 VG 应用路径");
+                }
+
+                progress?.Report("直方图灰度单步测试：请确保 VG 中已显示直方图");
+                _logger.Info(
+                    $"直方图灰度单步测试开始，ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
+                    $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight})");
+
+                var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                _activeVgProcess = ctViewerProcess;
+                await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+
+                var capture = await CaptureHistogramRoiAsync(settings, cancellationToken, progress)
+                    .ConfigureAwait(false);
+
+                progress?.Report($"截图已保存：{capture.FilePath}");
+                progress?.Report(
+                    $"红线初始位置：相对列={capture.RedLineColumn?.ToString() ?? "未检测到"}，" +
+                    $"屏幕X={capture.RedLineScreenX?.ToString() ?? "-"}，拖拽Y={capture.DragScreenY}");
+                _logger.Info(
+                    $"红线检测：column={capture.RedLineColumn}, screenX={capture.RedLineScreenX}, " +
+                    $"dragY={capture.DragScreenY}, file={capture.FilePath}");
+
+                // 峰谷分析与拖拽：下一阶段接入；本阶段验证截图坐标与红线起点定位。
+                progress?.Report("截图与红线定位完成（峰谷分析/拖拽下一阶段接入）");
+                _logger.Info("直方图灰度单步测试完成（截图+红线）");
+            }
+            finally
+            {
+                Unlock();
+                _activeVgProcess = null;
+            }
+        }
+
+        /// <summary>
+        /// 按已标定屏幕坐标截取直方图 ROI，保存 PNG，并检测红色阈值竖线列。
+        /// </summary>
+        public Task<HistogramCaptureResult> CaptureHistogramRoiAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!settings.HasHistogramRoi)
+            {
+                throw new InvalidOperationException("尚未标定直方图截图区域");
+            }
+
+            var roiX = settings.HistogramRoiX;
+            var roiY = settings.HistogramRoiY;
+            var roiW = settings.HistogramRoiWidth;
+            var roiH = settings.HistogramRoiHeight;
+
+            var dir = settings.ResolveHistogramCaptureDir();
+            Directory.CreateDirectory(dir);
+            var fileName = $"histogram_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
+            var filePath = Path.Combine(dir, fileName);
+
+            progress?.Report($"截取直方图 ROI ({roiX},{roiY},{roiW}x{roiH})");
+            _logger.Info($"截取直方图 ROI → {filePath}");
+
+            // BlockInput 期间 CopyFromScreen 仍可用；截图不依赖鼠标。
+            ScreenCaptureHelper.CaptureRegionAndSave(filePath, roiX, roiY, roiW, roiH);
+
+            int? redColumn;
+            using (var bmp = new System.Drawing.Bitmap(filePath))
+            {
+                redColumn = HistogramRedLineDetector.FindRedLineColumn(bmp);
+            }
+
+            int? redScreenX = redColumn.HasValue ? roiX + redColumn.Value : null;
+            var dragY = roiY + Math.Max(1, roiH / 2);
+
+            return Task.FromResult(new HistogramCaptureResult(
+                filePath,
+                roiX,
+                roiY,
+                roiW,
+                roiH,
+                redColumn,
+                redScreenX,
+                dragY));
+        }
+
         public async Task<(Process Process, bool IsColdStart)> GetCTViewerProcess(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken = default)

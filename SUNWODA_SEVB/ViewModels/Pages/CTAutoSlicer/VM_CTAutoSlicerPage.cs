@@ -1,5 +1,6 @@
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
@@ -13,6 +14,7 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Services.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Tool.Helper;
+using SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 {
@@ -69,6 +71,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _viewportMinHeight = 300;
         private int _thickPlateStepRetryCount = 1;
         private int _thickPlateMenuAfterRightClickDelayMs = 200;
+        private int _histogramRoiX;
+        private int _histogramRoiY;
+        private int _histogramRoiWidth;
+        private int _histogramRoiHeight;
+        private string _histogramCaptureDir = string.Empty;
+        private string _histogramRoiDisplayText = "未标定";
 
         public string MessageShower
         {
@@ -376,12 +384,85 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        public int HistogramRoiX
+        {
+            get => _histogramRoiX;
+            set
+            {
+                if (SetProperty(ref _histogramRoiX, value))
+                {
+                    SaveSetting(nameof(HistogramRoiX), value);
+                    RefreshHistogramRoiDisplay();
+                }
+            }
+        }
+
+        public int HistogramRoiY
+        {
+            get => _histogramRoiY;
+            set
+            {
+                if (SetProperty(ref _histogramRoiY, value))
+                {
+                    SaveSetting(nameof(HistogramRoiY), value);
+                    RefreshHistogramRoiDisplay();
+                }
+            }
+        }
+
+        public int HistogramRoiWidth
+        {
+            get => _histogramRoiWidth;
+            set
+            {
+                if (SetProperty(ref _histogramRoiWidth, value))
+                {
+                    SaveSetting(nameof(HistogramRoiWidth), value);
+                    RefreshHistogramRoiDisplay();
+                }
+            }
+        }
+
+        public int HistogramRoiHeight
+        {
+            get => _histogramRoiHeight;
+            set
+            {
+                if (SetProperty(ref _histogramRoiHeight, value))
+                {
+                    SaveSetting(nameof(HistogramRoiHeight), value);
+                    RefreshHistogramRoiDisplay();
+                }
+            }
+        }
+
+        public string HistogramCaptureDir
+        {
+            get => _histogramCaptureDir;
+            set
+            {
+                if (SetProperty(ref _histogramCaptureDir, value))
+                {
+                    SaveSetting(nameof(HistogramCaptureDir), value);
+                }
+            }
+        }
+
+        public string HistogramRoiDisplayText
+        {
+            get => _histogramRoiDisplayText;
+            private set => SetProperty(ref _histogramRoiDisplayText, value);
+        }
+
         public ICommand OpenVGAppPathCommand { get; }
         public ICommand OpenCTFileFolderCommand { get; }
         public ICommand OpenSliceExportFolderCommand { get; }
+        public ICommand OpenHistogramCaptureDirCommand { get; }
+        public ICommand CalibrateHistogramRoiCommand { get; }
         public ICommand TestRenderingPresetCommand { get; }
         public ICommand TestThickPlateCommand { get; }
         public ICommand TestSliceExportCommand { get; }
+        public ICommand TestHistogramGrayScaleCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
 
@@ -407,9 +488,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenVGAppPathCommand = new RelayCommand(OpenVGAppPath);
             OpenCTFileFolderCommand = new RelayCommand(OpenCTFileFolder);
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
+            OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
+            CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
             TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
             TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
             TestSliceExportCommand = new RelayCommandAsync(ExecuteTestSliceExportAsync);
+            TestHistogramGrayScaleCommand = new RelayCommandAsync(ExecuteTestHistogramGrayScaleAsync);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
         }
@@ -508,7 +592,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             SliceRangeEndMm = LoadDoubleSetting(nameof(SliceRangeEndMm), 70);
             SliceExportDialogWaitTime = LoadIntSetting(nameof(SliceExportDialogWaitTime), 8000);
             SliceExportWriteTimeoutMs = LoadIntSetting(nameof(SliceExportWriteTimeoutMs), 60000);
+            _histogramRoiX = LoadIntSetting(nameof(HistogramRoiX), 0);
+            _histogramRoiY = LoadIntSetting(nameof(HistogramRoiY), 0);
+            _histogramRoiWidth = LoadIntSetting(nameof(HistogramRoiWidth), 0);
+            _histogramRoiHeight = LoadIntSetting(nameof(HistogramRoiHeight), 0);
+            OnPropertyChanged(nameof(HistogramRoiX));
+            OnPropertyChanged(nameof(HistogramRoiY));
+            OnPropertyChanged(nameof(HistogramRoiWidth));
+            OnPropertyChanged(nameof(HistogramRoiHeight));
+            HistogramCaptureDir = LoadStringSetting(nameof(HistogramCaptureDir), string.Empty);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
+            RefreshHistogramRoiDisplay();
             _isLoadingSettings = false;
         }
 
@@ -593,8 +687,95 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 SliceRangeEndMm = SliceRangeEndMm,
                 SliceExportDialogWaitTime = SliceExportDialogWaitTime,
                 SliceExportWriteTimeoutMs = SliceExportWriteTimeoutMs,
+                HistogramRoiX = HistogramRoiX,
+                HistogramRoiY = HistogramRoiY,
+                HistogramRoiWidth = HistogramRoiWidth,
+                HistogramRoiHeight = HistogramRoiHeight,
+                HistogramCaptureDir = HistogramCaptureDir,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
             };
+        }
+
+        private void RefreshHistogramRoiDisplay()
+        {
+            HistogramRoiDisplayText = _histogramRoiWidth > 0 && _histogramRoiHeight > 0
+                ? $"X={_histogramRoiX}, Y={_histogramRoiY}, W={_histogramRoiWidth}, H={_histogramRoiHeight}"
+                : "未标定";
+        }
+
+        private void ExecuteCalibrateHistogramRoi(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                // 标定需手动框选，必须解除 BlockInput
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                HistogramRoiCalibrationOverlayWindow? overlay = null;
+                try
+                {
+                    // 稍等主窗口最小化完成，避免遮罩盖住上位机而非 VG
+                    Thread.Sleep(250);
+                    overlay = new HistogramRoiCalibrationOverlayWindow();
+                    var ok = overlay.ShowDialog() == true;
+                    if (!ok || overlay.SelectedScreenRect is not { } rect)
+                    {
+                        MessageShower = "已取消直方图 ROI 标定";
+                        AppendFlowLog("直方图 ROI 标定已取消");
+                        return;
+                    }
+
+                    _isLoadingSettings = true;
+                    _histogramRoiX = rect.X;
+                    _histogramRoiY = rect.Y;
+                    _histogramRoiWidth = rect.Width;
+                    _histogramRoiHeight = rect.Height;
+                    OnPropertyChanged(nameof(HistogramRoiX));
+                    OnPropertyChanged(nameof(HistogramRoiY));
+                    OnPropertyChanged(nameof(HistogramRoiWidth));
+                    OnPropertyChanged(nameof(HistogramRoiHeight));
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(HistogramRoiX), rect.X);
+                    SaveSetting(nameof(HistogramRoiY), rect.Y);
+                    SaveSetting(nameof(HistogramRoiWidth), rect.Width);
+                    SaveSetting(nameof(HistogramRoiHeight), rect.Height);
+                    RefreshHistogramRoiDisplay();
+
+                    var msg =
+                        $"直方图 ROI 已标定：X={rect.X}, Y={rect.Y}, W={rect.Width}, H={rect.Height}";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"直方图 ROI 标定失败：{ex.Message}";
+                AppendFlowLog(MessageShower);
+                _logger.Error("直方图 ROI 标定失败", ex);
+            }
         }
 
         private void SetSliceExportQuantityRuntime(int quantity)
@@ -656,6 +837,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
             {
                 SliceExportFolder = dialog.FileName;
+            }
+        }
+
+        private void OpenHistogramCaptureDir(object? _)
+        {
+            var initial = HistogramCaptureDir;
+            if (string.IsNullOrWhiteSpace(initial))
+            {
+                initial = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "histogram");
+            }
+
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = Directory.Exists(initial) ? initial : null,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                HistogramCaptureDir = dialog.FileName;
             }
         }
 
@@ -794,6 +995,54 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MessageShower = ex.Message;
                 AppendFlowLog($"切片导出测试失败：{ex.Message}");
                 _logger.Error("切片导出单步测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteTestHistogramGrayScaleAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (_histogramRoiWidth <= 0 || _histogramRoiHeight <= 0)
+            {
+                MessageShower = "请先点击「截图标定」框选直方图区域";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 直方图灰度调整测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.TestHistogramGrayScaleAdjustAsync(
+                    BuildSettings(),
+                    flowToken,
+                    progress);
+                AppendFlowLog("——— 直方图灰度调整测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"直方图灰度测试失败：{ex.Message}");
+                _logger.Error("直方图灰度单步测试失败", ex);
             }
             finally
             {

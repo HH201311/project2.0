@@ -1,11 +1,37 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-16（渲染预设：去掉 ValuePattern 串联等待，Qt 下拉 Win32 点击 + 下拉关闭判成败）  
-> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**  
+> **文档版本**：2026-07-17（直方图 ROI：全屏遮罩框选标定 + 按坐标截图 + 红线初始定位；峰谷/拖拽待续）  
+> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**（2026-07-15 重写图一～图三）；阶段二之 **渲染预设应用** **已在真机验证通过**；阶段三之 **三象限厚板 + 平均值** **已在真机验证通过**；**直方图灰度阈值** 🟡 截图标定与红线定位已接入（未进主流程）  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
 
 **进度图例**：✅ 已接入主流程　🟡 下一步可开发（UI 可标定）　⏸ 阻塞（依赖视觉算法）　❌ 未开始
+
+---
+
+## 0. 直方图灰度阈值（2026-07-17 起）
+
+> 背景：LUT 预设不保存直方图中间红色阈值竖线位置，需截图分析后拖拽。  
+> 半坡目标约定：\(x^* = (x_{valley} + x_{rightPeak}) / 2\)。
+
+| 阶段 | 状态 | 说明 |
+|------|------|------|
+| ROI 框选标定 | 🟡 UI 已实现 | 「截图标定」→ 上位机最小化 → 全屏灰遮罩框选 → ✓提交 / ✕重选 / Esc 取消；坐标写入 DB |
+| 按坐标截图 | 🟡 单步可测 | `CaptureHistogramRoiAsync` → `logs/histogram/*.png` |
+| 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector.FindRedLineColumn`；拖拽起点 = 红线屏幕 X + ROI 垂直中线 Y |
+| 峰谷 / 半坡 / 拖拽 | ❌ | 下一阶段；单步按钮已预留「测试直方图灰度调整」 |
+| 接入主流程 | ❌ | 预定：`ApplyRenderingPresetAsync` 之后、厚板之前 |
+
+**关键入口**：
+
+| 文件 | 说明 |
+|------|------|
+| `Views/Windows/Project/CTAutoSlicer/HistogramRoiCalibrationOverlayWindow` | 全屏标定遮罩 |
+| `VM_CTAutoSlicerPage`：`CalibrateHistogramRoiCommand` / `TestHistogramGrayScaleCommand` | UI |
+| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图 + 红线 |
+| Settings：`HistogramRoiX/Y/Width/Height`、`HistogramCaptureDir` | 物理屏幕像素 |
+
+**真机标定步骤**：VG 露出直方图 → 点「截图标定」→ 框选柱状图区域（含红线）→ ✓ → 看页面坐标 → 「测试直方图灰度调整」核对 PNG 与日志中的红线列。
 
 ---
 

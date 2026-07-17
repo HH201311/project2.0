@@ -322,6 +322,107 @@
                     </Border>
                 </Expander>
 
+                <Expander Margin="5" Header="直方图灰度阈值（截图标定）">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="当前标定坐标：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding HistogramRoiDisplayText}" />
+                            </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramRoiX" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramRoiY" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="W"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramRoiWidth" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    hc:InfoElement.Title="H"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramRoiHeight" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <Button
+                                    Margin="0,0,10,0"
+                                    Command="{Binding CalibrateHistogramRoiCommand}"
+                                    Content="截图标定"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="隐藏上位机 → 全屏遮罩框选直方图 → ✓提交 / ✕重选" />
+                                <hc:TextBox
+                                    Width="380"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="截图目录"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="空则默认 程序目录\logs\histogram">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramCaptureDir" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="40"
+                                    Command="{Binding OpenHistogramCaptureDirCommand}"
+                                    ToolTip="选择直方图截图保存文件夹">
+                                    <Image Width="18">
+                                        <Image.Source>
+                                            <DrawingImage>
+                                                <DrawingImage.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                    </DrawingGroup>
+                                                </DrawingImage.Drawing>
+                                            </DrawingImage>
+                                        </Image.Source>
+                                    </Image>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock
+                                Margin="10,0,10,10"
+                                Foreground="Gray"
+                                Text="标定前请把 VG 直方图露在屏幕上。提交后坐标写入数据库；流程/单步测试按该坐标截图。"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
                 <Expander Margin="5" Header="切片导出参数">
                     <Border
                         BorderBrush="LightGray"
@@ -462,6 +563,12 @@
                         IsEnabled="{Binding IsEnableSimulationBtn}" />
                     <Button
                         Margin="0,0,10,0"
+                        Command="{Binding TestHistogramGrayScaleCommand}"
+                        Content="测试直方图灰度调整"
+                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                        ToolTip="需已标定 ROI；当前：截图+红线定位；峰谷/拖拽下一阶段" />
+                    <Button
+                        Margin="0,0,10,0"
                         Command="{Binding TestThickPlateCommand}"
                         Content="测试厚板设置(三象限)"
                         IsEnabled="{Binding IsEnableSimulationBtn}" />
@@ -475,7 +582,7 @@
                     Margin="5"
                     HorizontalAlignment="Center"
                     Foreground="Gray"
-                    Text="「测试应用渲染预设」「测试厚板设置(三象限)」「测试切片导出(三视图)」需在 VG 中完成对应前置步骤；QJ 文件导出时数量自动改为 150 并同步 UI"
+                    Text="「截图标定」框选直方图；「测试直方图灰度调整」按标定坐标截图并定位红线。预设/厚板/切片单测需完成对应前置步骤。"
                     TextWrapping="Wrap" />
                 <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
 

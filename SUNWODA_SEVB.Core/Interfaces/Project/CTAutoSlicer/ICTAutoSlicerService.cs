@@ -1,3 +1,4 @@
+using SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
@@ -34,6 +35,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// 单步测试：在 VG 已导入体积且已应用预设并完成厚板的前提下，执行三视图切片导出。
         /// </summary>
         Task TestSliceExportAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：按已标定直方图 ROI 截图 → 定位红线 →（后续）峰谷分析与拖拽。
+        /// </summary>
+        Task TestHistogramGrayScaleAdjustAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
             IProgress<string>? progress = null

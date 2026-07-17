@@ -112,6 +112,30 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>2D 视图下拉项 Name（上视图）</summary>
         public string SliceExportViewTopName { get; set; } = "上 1";
 
+        /// <summary>直方图 ROI 屏幕 X（物理像素，框选标定）</summary>
+        public int HistogramRoiX { get; set; }
+        /// <summary>直方图 ROI 屏幕 Y（物理像素，框选标定）</summary>
+        public int HistogramRoiY { get; set; }
+        /// <summary>直方图 ROI 宽度（物理像素）</summary>
+        public int HistogramRoiWidth { get; set; }
+        /// <summary>直方图 ROI 高度（物理像素）</summary>
+        public int HistogramRoiHeight { get; set; }
+        /// <summary>直方图截图落盘目录（空则使用程序目录 logs/histogram）</summary>
+        public string HistogramCaptureDir { get; set; } = string.Empty;
+
+        /// <summary>直方图 ROI 是否已完成框选标定</summary>
+        public bool HasHistogramRoi => HistogramRoiWidth > 0 && HistogramRoiHeight > 0;
+
+        public string ResolveHistogramCaptureDir()
+        {
+            if (!string.IsNullOrWhiteSpace(HistogramCaptureDir))
+            {
+                return HistogramCaptureDir.Trim();
+            }
+
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "histogram");
+        }
+
         public bool IsInputComplete()
         {
             return !string.IsNullOrWhiteSpace(VGAppPath)

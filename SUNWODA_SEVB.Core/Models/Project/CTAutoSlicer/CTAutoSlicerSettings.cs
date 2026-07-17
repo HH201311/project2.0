@@ -122,6 +122,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int HistogramRoiHeight { get; set; }
         /// <summary>直方图截图落盘目录（空则使用程序目录 logs/histogram）</summary>
         public string HistogramCaptureDir { get; set; } = string.Empty;
+        /// <summary>直方图填充绝对色（#RRGGBB），取色或手填</summary>
+        public string HistogramMaskColor { get; set; } = "#6E6E6E";
+        /// <summary>掩膜颜色容差（每通道 0～64）</summary>
+        public int HistogramMaskTolerance { get; set; } = 12;
 
         /// <summary>直方图 ROI 是否已完成框选标定</summary>
         public bool HasHistogramRoi => HistogramRoiWidth > 0 && HistogramRoiHeight > 0;

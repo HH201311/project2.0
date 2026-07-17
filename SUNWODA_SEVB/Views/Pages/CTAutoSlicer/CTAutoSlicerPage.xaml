@@ -414,10 +414,51 @@
                                     </Image>
                                 </Button>
                             </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <Border
+                                    Width="28"
+                                    Height="28"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{Binding HistogramMaskColorBrush}"
+                                    BorderBrush="Gray"
+                                    BorderThickness="1"
+                                    CornerRadius="3"
+                                    ToolTip="当前掩膜颜色预览" />
+                                <hc:TextBox
+                                    Width="160"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="掩膜颜色"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="直方图填充色 #RRGGBB，可用取色填充">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramMaskColor" UpdateSourceTrigger="LostFocus" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Margin="0,0,10,0"
+                                    Command="{Binding PickHistogramMaskColorCommand}"
+                                    Content="取色"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="屏幕取色：9×9 放大预览，左键确认填入掩膜颜色" />
+                                <hc:TextBox
+                                    Width="120"
+                                    hc:InfoElement.Title="容差"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="每通道颜色容差 0～64，抗锯齿建议 8～16">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="HistogramMaskTolerance" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="Int" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
                             <TextBlock
                                 Margin="10,0,10,10"
                                 Foreground="Gray"
-                                Text="标定前请把 VG 直方图露在屏幕上。提交后坐标写入数据库；流程/单步测试按该坐标截图。"
+                                Text="标定前请把 VG 直方图露在屏幕上。取色请对准直方图填充区（非红线/蓝 LUT）。单步测试会生成「优化前|优化后」对比图到截图目录。"
                                 TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>

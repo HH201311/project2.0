@@ -4297,16 +4297,20 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     .ConfigureAwait(false);
 
                 progress?.Report($"截图已保存：{capture.FilePath}");
+                if (!string.IsNullOrWhiteSpace(capture.CompareImagePath))
+                {
+                    progress?.Report($"优化对比图：{capture.CompareImagePath}（掩膜像素 {capture.MaskPixelCount}）");
+                }
+
                 progress?.Report(
                     $"红线初始位置：相对列={capture.RedLineColumn?.ToString() ?? "未检测到"}，" +
                     $"屏幕X={capture.RedLineScreenX?.ToString() ?? "-"}，拖拽Y={capture.DragScreenY}");
                 _logger.Info(
                     $"红线检测：column={capture.RedLineColumn}, screenX={capture.RedLineScreenX}, " +
-                    $"dragY={capture.DragScreenY}, file={capture.FilePath}");
+                    $"dragY={capture.DragScreenY}, file={capture.FilePath}, compare={capture.CompareImagePath}");
 
-                // 峰谷分析与拖拽：下一阶段接入；本阶段验证截图坐标与红线起点定位。
-                progress?.Report("截图与红线定位完成（峰谷分析/拖拽下一阶段接入）");
-                _logger.Info("直方图灰度单步测试完成（截图+红线）");
+                progress?.Report("截图优化与红线定位完成（峰谷/拖拽下一阶段接入）");
+                _logger.Info("直方图灰度单步测试完成（截图+掩膜优化+红线）");
             }
             finally
             {
@@ -4316,7 +4320,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 按已标定屏幕坐标截取直方图 ROI，保存 PNG，并检测红色阈值竖线列。
+        /// 按已标定屏幕坐标截取直方图 ROI，保存原图与优化前后对比图，并检测红色阈值竖线列。
         /// </summary>
         public Task<HistogramCaptureResult> CaptureHistogramRoiAsync(
             CTAutoSlicerSettings settings,
@@ -4329,6 +4333,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException("尚未标定直方图截图区域");
             }
 
+            if (!HistogramGrayScaleAnalyzer.TryParseHexColor(settings.HistogramMaskColor, out var maskColor))
+            {
+                throw new InvalidOperationException(
+                    $"直方图掩膜颜色无效「{settings.HistogramMaskColor}」，请取色或填写 #RRGGBB");
+            }
+
             var roiX = settings.HistogramRoiX;
             var roiY = settings.HistogramRoiY;
             var roiW = settings.HistogramRoiWidth;
@@ -4336,19 +4346,32 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             var dir = settings.ResolveHistogramCaptureDir();
             Directory.CreateDirectory(dir);
-            var fileName = $"histogram_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
-            var filePath = Path.Combine(dir, fileName);
+            var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            var filePath = Path.Combine(dir, $"histogram_{stamp}.png");
+            var comparePath = Path.Combine(dir, $"histogram_compare_{stamp}.png");
 
             progress?.Report($"截取直方图 ROI ({roiX},{roiY},{roiW}x{roiH})");
             _logger.Info($"截取直方图 ROI → {filePath}");
 
-            // BlockInput 期间 CopyFromScreen 仍可用；截图不依赖鼠标。
             ScreenCaptureHelper.CaptureRegionAndSave(filePath, roiX, roiY, roiW, roiH);
 
             int? redColumn;
+            int maskPixels;
+            string? savedCompare;
             using (var bmp = new System.Drawing.Bitmap(filePath))
             {
                 redColumn = HistogramRedLineDetector.FindRedLineColumn(bmp);
+                progress?.Report(
+                    $"掩膜优化：颜色 {HistogramGrayScaleAnalyzer.ToHex(maskColor)}，容差 {settings.HistogramMaskTolerance}");
+                var optimize = HistogramGrayScaleAnalyzer.Optimize(
+                    bmp,
+                    maskColor,
+                    settings.HistogramMaskTolerance,
+                    comparePath);
+                maskPixels = optimize.MaskPixelCount;
+                savedCompare = optimize.CompareImagePath;
+                _logger.Info(
+                    $"直方图掩膜完成：pixels={maskPixels}, compare={savedCompare}");
             }
 
             int? redScreenX = redColumn.HasValue ? roiX + redColumn.Value : null;
@@ -4362,7 +4385,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 roiH,
                 redColumn,
                 redScreenX,
-                dragY));
+                dragY,
+                savedCompare,
+                maskPixels));
         }
 
         public async Task<(Process Process, bool IsColdStart)> GetCTViewerProcess(

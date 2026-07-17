@@ -76,7 +76,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _histogramRoiWidth;
         private int _histogramRoiHeight;
         private string _histogramCaptureDir = string.Empty;
+        private string _histogramMaskColor = "#6E6E6E";
+        private int _histogramMaskTolerance = 12;
         private string _histogramRoiDisplayText = "未标定";
+        private System.Windows.Media.Brush _histogramMaskColorBrush =
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6E, 0x6E, 0x6E));
 
         public string MessageShower
         {
@@ -448,6 +452,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        public string HistogramMaskColor
+        {
+            get => _histogramMaskColor;
+            set
+            {
+                var normalized = NormalizeMaskColor(value);
+                if (SetProperty(ref _histogramMaskColor, normalized))
+                {
+                    SaveSetting(nameof(HistogramMaskColor), normalized);
+                    RefreshMaskColorBrush();
+                }
+            }
+        }
+
+        public int HistogramMaskTolerance
+        {
+            get => _histogramMaskTolerance;
+            set
+            {
+                var clamped = Math.Clamp(value, 0, 64);
+                if (SetProperty(ref _histogramMaskTolerance, clamped))
+                {
+                    SaveSetting(nameof(HistogramMaskTolerance), clamped);
+                }
+            }
+        }
+
+        public System.Windows.Media.Brush HistogramMaskColorBrush
+        {
+            get => _histogramMaskColorBrush;
+            private set => SetProperty(ref _histogramMaskColorBrush, value);
+        }
+
         public string HistogramRoiDisplayText
         {
             get => _histogramRoiDisplayText;
@@ -459,6 +496,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenSliceExportFolderCommand { get; }
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand CalibrateHistogramRoiCommand { get; }
+        public ICommand PickHistogramMaskColorCommand { get; }
         public ICommand TestRenderingPresetCommand { get; }
         public ICommand TestThickPlateCommand { get; }
         public ICommand TestSliceExportCommand { get; }
@@ -490,6 +528,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
+            PickHistogramMaskColorCommand = new RelayCommand(ExecutePickHistogramMaskColor);
             TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
             TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
             TestSliceExportCommand = new RelayCommandAsync(ExecuteTestSliceExportAsync);
@@ -601,8 +640,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(HistogramRoiWidth));
             OnPropertyChanged(nameof(HistogramRoiHeight));
             HistogramCaptureDir = LoadStringSetting(nameof(HistogramCaptureDir), string.Empty);
+            HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
+            HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 12);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
             RefreshHistogramRoiDisplay();
+            RefreshMaskColorBrush();
             _isLoadingSettings = false;
         }
 
@@ -692,6 +734,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 HistogramRoiWidth = HistogramRoiWidth,
                 HistogramRoiHeight = HistogramRoiHeight,
                 HistogramCaptureDir = HistogramCaptureDir,
+                HistogramMaskColor = HistogramMaskColor,
+                HistogramMaskTolerance = HistogramMaskTolerance,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
             };
         }
@@ -701,6 +745,80 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             HistogramRoiDisplayText = _histogramRoiWidth > 0 && _histogramRoiHeight > 0
                 ? $"X={_histogramRoiX}, Y={_histogramRoiY}, W={_histogramRoiWidth}, H={_histogramRoiHeight}"
                 : "未标定";
+        }
+
+        private static string NormalizeMaskColor(string? value)
+        {
+            if (HistogramGrayScaleAnalyzer.TryParseHexColor(value, out var c))
+            {
+                return HistogramGrayScaleAnalyzer.ToHex(c);
+            }
+
+            return string.IsNullOrWhiteSpace(value) ? "#6E6E6E" : value.Trim();
+        }
+
+        private void RefreshMaskColorBrush()
+        {
+            if (HistogramGrayScaleAnalyzer.TryParseHexColor(_histogramMaskColor, out var c))
+            {
+                HistogramMaskColorBrush = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(c.R, c.G, c.B));
+            }
+        }
+
+        private void ExecutePickHistogramMaskColor(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再取色";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var picker = new ScreenColorPickerOverlayWindow();
+                    var ok = picker.ShowDialog() == true;
+                    if (!ok || string.IsNullOrWhiteSpace(picker.SelectedHex))
+                    {
+                        MessageShower = "已取消掩膜取色";
+                        AppendFlowLog("直方图掩膜取色已取消");
+                        return;
+                    }
+
+                    HistogramMaskColor = picker.SelectedHex;
+                    var msg = $"直方图掩膜颜色已取色：{HistogramMaskColor}";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"掩膜取色失败：{ex.Message}";
+                AppendFlowLog(MessageShower);
+                _logger.Error("直方图掩膜取色失败", ex);
+            }
         }
 
         private void ExecuteCalibrateHistogramRoi(object? _)

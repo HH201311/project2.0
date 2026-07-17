@@ -1,7 +1,7 @@
 namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 {
     /// <summary>
-    /// 直方图 ROI 截图与红线检测结果（屏幕坐标为物理像素）。
+    /// 直方图 ROI 截图、红线检测与掩膜优化结果（屏幕坐标为物理像素）。
     /// </summary>
     public sealed class HistogramCaptureResult
     {
@@ -13,7 +13,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             int roiHeight,
             int? redLineColumn,
             int? redLineScreenX,
-            int dragScreenY)
+            int dragScreenY,
+            string? compareImagePath = null,
+            int maskPixelCount = 0)
         {
             FilePath = filePath;
             RoiX = roiX;
@@ -23,6 +25,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             RedLineColumn = redLineColumn;
             RedLineScreenX = redLineScreenX;
             DragScreenY = dragScreenY;
+            CompareImagePath = compareImagePath;
+            MaskPixelCount = maskPixelCount;
         }
 
         public string FilePath { get; }
@@ -36,5 +40,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int? RedLineScreenX { get; }
         /// <summary>建议拖拽使用的屏幕 Y（ROI 垂直中线）</summary>
         public int DragScreenY { get; }
+        /// <summary>优化前/后左右对比图路径</summary>
+        public string? CompareImagePath { get; }
+        public int MaskPixelCount { get; }
     }
 }

@@ -17,21 +17,23 @@
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | ROI 框选标定 | 🟡 UI 已实现 | 「截图标定」→ 上位机最小化 → 全屏灰遮罩框选 → ✓提交 / ✕重选 / Esc 取消；坐标写入 DB |
-| 按坐标截图 | 🟡 单步可测 | `CaptureHistogramRoiAsync` → `logs/histogram/*.png` |
-| 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector.FindRedLineColumn`；拖拽起点 = 红线屏幕 X + ROI 垂直中线 Y |
-| 峰谷 / 半坡 / 拖拽 | ❌ | 下一阶段；单步按钮已预留「测试直方图灰度调整」 |
+| 掩膜取色 | 🟡 UI 已实现 | 「取色」→ 9×9 放大格 + HEX/RGB → 左键填入 `HistogramMaskColor`（默认 `#6E6E6E`） |
+| 按坐标截图 + 掩膜优化 | 🟡 单步可测 | `#RRGGBB` 容差掩膜 → 自底连续柱高 → 去针/中值 → **左右对比图** `histogram_compare_*.png` |
+| 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 = 红线屏幕 X + ROI 垂直中线 Y |
+| 峰谷 / 半坡 / 拖拽 | ❌ | 下一阶段 |
 | 接入主流程 | ❌ | 预定：`ApplyRenderingPresetAsync` 之后、厚板之前 |
 
 **关键入口**：
 
 | 文件 | 说明 |
 |------|------|
-| `Views/Windows/Project/CTAutoSlicer/HistogramRoiCalibrationOverlayWindow` | 全屏标定遮罩 |
-| `VM_CTAutoSlicerPage`：`CalibrateHistogramRoiCommand` / `TestHistogramGrayScaleCommand` | UI |
-| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图 + 红线 |
-| Settings：`HistogramRoiX/Y/Width/Height`、`HistogramCaptureDir` | 物理屏幕像素 |
+| `ScreenColorPickerOverlayWindow` | 全屏取色（先截虚拟屏再采样，避免取到预览窗） |
+| `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
+| `HistogramGrayScaleAnalyzer` | 绝对色掩膜 + 去针 + 前后对比图 |
+| `VGAutomationService.CaptureHistogramRoiAsync` | 原图 + compare 图 + 红线 |
+| Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录 | |
 
-**真机标定步骤**：VG 露出直方图 → 点「截图标定」→ 框选柱状图区域（含红线）→ ✓ → 看页面坐标 → 「测试直方图灰度调整」核对 PNG 与日志中的红线列。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 打开 `histogram_compare_*.png` 核对右侧是否只剩柱体。
 
 ---
 

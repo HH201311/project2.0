@@ -464,6 +464,151 @@
                     </Border>
                 </Expander>
 
+                <Expander Margin="5" Header="阶段四视觉对齐（3D /「上」视图截图标定）">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <TextBlock
+                                Margin="10,10,10,0"
+                                FontWeight="SemiBold"
+                                Text="① 第四象限 3D 视图 ROI" />
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="当前标定坐标：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding Vision3dRoiDisplayText}" />
+                            </StackPanel>
+                            <StackPanel Margin="10,0,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="3D 截图区域左上角屏幕 X（相对坐标换算起点）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Vision3dRoiX" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="3D 截图区域左上角屏幕 Y（相对坐标换算起点）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Vision3dRoiY" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="W"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Vision3dRoiWidth" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="H"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Vision3dRoiHeight" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Command="{Binding CalibrateVision3dRoiCommand}"
+                                    Content="标定 3D 区域"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="隐藏上位机 → 全屏遮罩框选第四象限 3D 视图 → ✓提交 / ✕重选" />
+                            </StackPanel>
+
+                            <TextBlock
+                                Margin="10,16,10,0"
+                                FontWeight="SemiBold"
+                                Text="② 第二象限「上」视图 ROI" />
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="当前标定坐标：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding VisionTopViewRoiDisplayText}" />
+                            </StackPanel>
+                            <StackPanel Margin="10,0,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="「上」视图截图区域左上角屏幕 X（相对坐标换算起点）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionTopViewRoiX" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="「上」视图截图区域左上角屏幕 Y（相对坐标换算起点）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionTopViewRoiY" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="W"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionTopViewRoiWidth" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="H"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionTopViewRoiHeight" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Command="{Binding CalibrateVisionTopViewRoiCommand}"
+                                    Content="标定「上」视图区域"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="隐藏上位机 → 全屏遮罩框选第二象限「上」视图 → ✓提交 / ✕重选" />
+                            </StackPanel>
+
+                            <TextBlock
+                                Margin="10,8,10,10"
+                                Foreground="Gray"
+                                Text="标定前请露出 VG 对应视口。保存的 X/Y 为截图区域左上角物理像素；DLL 返回相对像素后，点击位置 = (X+相对x, Y+相对y)。两区域需分别标定。"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
                 <Expander Margin="5" Header="切片导出参数">
                     <Border
                         BorderBrush="LightGray"

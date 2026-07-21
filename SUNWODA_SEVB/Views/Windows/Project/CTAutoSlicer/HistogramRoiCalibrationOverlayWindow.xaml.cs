@@ -8,7 +8,8 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 {
     /// <summary>
     /// 全屏半透明遮罩：拖拽框选屏幕 ROI，框下方 ✓ 提交 / ✕ 重选。
-    /// 返回的矩形为物理屏幕像素（供 GDI CopyFromScreen 使用）。
+    /// 返回的矩形为物理屏幕像素（供 GDI CopyFromScreen / 视觉点击换算使用）。
+    /// 可用于直方图、3D 视图、「上」视图等任意 ROI 标定。
     /// </summary>
     public partial class HistogramRoiCalibrationOverlayWindow : Window
     {
@@ -20,9 +21,24 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         public Drawing.Rectangle? SelectedScreenRect { get; private set; }
 
+        /// <summary>默认：直方图 ROI 标定文案。</summary>
         public HistogramRoiCalibrationOverlayWindow()
+            : this(
+                windowTitle: "直方图 ROI 标定",
+                hintText: "拖拽框选直方图区域；框下方 ✓ 提交 / ✕ 重选；Esc 取消标定",
+                confirmBarText: "确认框选直方图区域")
+        {
+        }
+
+        /// <summary>
+        /// 自定义提示文案的 ROI 标定遮罩（阶段四 3D / 「上」视图等复用）。
+        /// </summary>
+        public HistogramRoiCalibrationOverlayWindow(string windowTitle, string hintText, string confirmBarText)
         {
             InitializeComponent();
+            Title = windowTitle;
+            HintText.Text = hintText;
+            ConfirmHintText.Text = confirmBarText;
             Loaded += OnLoaded;
             KeyDown += OnKeyDown;
             MaskCanvas.MouseLeftButtonDown += OnMouseLeftButtonDown;

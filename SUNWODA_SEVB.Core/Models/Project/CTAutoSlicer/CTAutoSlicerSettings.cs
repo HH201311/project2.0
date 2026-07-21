@@ -133,6 +133,41 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>直方图 ROI 是否已完成框选标定</summary>
         public bool HasHistogramRoi => HistogramRoiWidth > 0 && HistogramRoiHeight > 0;
 
+        /// <summary>阶段四：第四象限 3D 视图截图 ROI — 屏幕 X（物理像素，框选标定起始坐标）</summary>
+        public int Vision3dRoiX { get; set; }
+        /// <summary>阶段四：3D 视图 ROI — 屏幕 Y</summary>
+        public int Vision3dRoiY { get; set; }
+        /// <summary>阶段四：3D 视图 ROI — 宽度</summary>
+        public int Vision3dRoiWidth { get; set; }
+        /// <summary>阶段四：3D 视图 ROI — 高度</summary>
+        public int Vision3dRoiHeight { get; set; }
+
+        /// <summary>阶段四：第二象限「上」视图截图 ROI — 屏幕 X（物理像素，框选标定起始坐标）</summary>
+        public int VisionTopViewRoiX { get; set; }
+        /// <summary>阶段四：「上」视图 ROI — 屏幕 Y</summary>
+        public int VisionTopViewRoiY { get; set; }
+        /// <summary>阶段四：「上」视图 ROI — 宽度</summary>
+        public int VisionTopViewRoiWidth { get; set; }
+        /// <summary>阶段四：「上」视图 ROI — 高度</summary>
+        public int VisionTopViewRoiHeight { get; set; }
+
+        /// <summary>3D 视图 ROI 是否已标定</summary>
+        public bool HasVision3dRoi => Vision3dRoiWidth > 0 && Vision3dRoiHeight > 0;
+
+        /// <summary>「上」视图 ROI 是否已标定</summary>
+        public bool HasVisionTopViewRoi => VisionTopViewRoiWidth > 0 && VisionTopViewRoiHeight > 0;
+
+        /// <summary>
+        /// 将算法返回的相对像素坐标换算为屏幕物理像素点击位置。
+        /// screen = (roiX + relativeX, roiY + relativeY)
+        /// </summary>
+        public static (int ScreenX, int ScreenY) ToScreenPoint(
+            int roiX,
+            int roiY,
+            int relativeX,
+            int relativeY) =>
+            (roiX + relativeX, roiY + relativeY);
+
         public string ResolveHistogramCaptureDir()
         {
             if (!string.IsNullOrWhiteSpace(HistogramCaptureDir))

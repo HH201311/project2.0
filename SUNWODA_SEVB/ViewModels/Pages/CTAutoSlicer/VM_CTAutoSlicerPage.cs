@@ -81,6 +81,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _histogramRoiDisplayText = "未标定";
         private System.Windows.Media.Brush _histogramMaskColorBrush =
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6E, 0x6E, 0x6E));
+        private int _vision3dRoiX;
+        private int _vision3dRoiY;
+        private int _vision3dRoiWidth;
+        private int _vision3dRoiHeight;
+        private string _vision3dRoiDisplayText = "未标定";
+        private int _visionTopViewRoiX;
+        private int _visionTopViewRoiY;
+        private int _visionTopViewRoiWidth;
+        private int _visionTopViewRoiHeight;
+        private string _visionTopViewRoiDisplayText = "未标定";
 
         public string MessageShower
         {
@@ -491,11 +501,129 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _histogramRoiDisplayText, value);
         }
 
+        public int Vision3dRoiX
+        {
+            get => _vision3dRoiX;
+            set
+            {
+                if (SetProperty(ref _vision3dRoiX, value))
+                {
+                    SaveSetting(nameof(Vision3dRoiX), value);
+                    RefreshVision3dRoiDisplay();
+                }
+            }
+        }
+
+        public int Vision3dRoiY
+        {
+            get => _vision3dRoiY;
+            set
+            {
+                if (SetProperty(ref _vision3dRoiY, value))
+                {
+                    SaveSetting(nameof(Vision3dRoiY), value);
+                    RefreshVision3dRoiDisplay();
+                }
+            }
+        }
+
+        public int Vision3dRoiWidth
+        {
+            get => _vision3dRoiWidth;
+            set
+            {
+                if (SetProperty(ref _vision3dRoiWidth, value))
+                {
+                    SaveSetting(nameof(Vision3dRoiWidth), value);
+                    RefreshVision3dRoiDisplay();
+                }
+            }
+        }
+
+        public int Vision3dRoiHeight
+        {
+            get => _vision3dRoiHeight;
+            set
+            {
+                if (SetProperty(ref _vision3dRoiHeight, value))
+                {
+                    SaveSetting(nameof(Vision3dRoiHeight), value);
+                    RefreshVision3dRoiDisplay();
+                }
+            }
+        }
+
+        public string Vision3dRoiDisplayText
+        {
+            get => _vision3dRoiDisplayText;
+            private set => SetProperty(ref _vision3dRoiDisplayText, value);
+        }
+
+        public int VisionTopViewRoiX
+        {
+            get => _visionTopViewRoiX;
+            set
+            {
+                if (SetProperty(ref _visionTopViewRoiX, value))
+                {
+                    SaveSetting(nameof(VisionTopViewRoiX), value);
+                    RefreshVisionTopViewRoiDisplay();
+                }
+            }
+        }
+
+        public int VisionTopViewRoiY
+        {
+            get => _visionTopViewRoiY;
+            set
+            {
+                if (SetProperty(ref _visionTopViewRoiY, value))
+                {
+                    SaveSetting(nameof(VisionTopViewRoiY), value);
+                    RefreshVisionTopViewRoiDisplay();
+                }
+            }
+        }
+
+        public int VisionTopViewRoiWidth
+        {
+            get => _visionTopViewRoiWidth;
+            set
+            {
+                if (SetProperty(ref _visionTopViewRoiWidth, value))
+                {
+                    SaveSetting(nameof(VisionTopViewRoiWidth), value);
+                    RefreshVisionTopViewRoiDisplay();
+                }
+            }
+        }
+
+        public int VisionTopViewRoiHeight
+        {
+            get => _visionTopViewRoiHeight;
+            set
+            {
+                if (SetProperty(ref _visionTopViewRoiHeight, value))
+                {
+                    SaveSetting(nameof(VisionTopViewRoiHeight), value);
+                    RefreshVisionTopViewRoiDisplay();
+                }
+            }
+        }
+
+        public string VisionTopViewRoiDisplayText
+        {
+            get => _visionTopViewRoiDisplayText;
+            private set => SetProperty(ref _visionTopViewRoiDisplayText, value);
+        }
+
         public ICommand OpenVGAppPathCommand { get; }
         public ICommand OpenCTFileFolderCommand { get; }
         public ICommand OpenSliceExportFolderCommand { get; }
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand CalibrateHistogramRoiCommand { get; }
+        public ICommand CalibrateVision3dRoiCommand { get; }
+        public ICommand CalibrateVisionTopViewRoiCommand { get; }
         public ICommand PickHistogramMaskColorCommand { get; }
         public ICommand TestRenderingPresetCommand { get; }
         public ICommand TestThickPlateCommand { get; }
@@ -528,6 +656,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
+            CalibrateVision3dRoiCommand = new RelayCommand(ExecuteCalibrateVision3dRoi);
+            CalibrateVisionTopViewRoiCommand = new RelayCommand(ExecuteCalibrateVisionTopViewRoi);
             PickHistogramMaskColorCommand = new RelayCommand(ExecutePickHistogramMaskColor);
             TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
             TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
@@ -645,6 +775,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
             RefreshHistogramRoiDisplay();
             RefreshMaskColorBrush();
+
+            _vision3dRoiX = LoadIntSetting(nameof(Vision3dRoiX), 0);
+            _vision3dRoiY = LoadIntSetting(nameof(Vision3dRoiY), 0);
+            _vision3dRoiWidth = LoadIntSetting(nameof(Vision3dRoiWidth), 0);
+            _vision3dRoiHeight = LoadIntSetting(nameof(Vision3dRoiHeight), 0);
+            OnPropertyChanged(nameof(Vision3dRoiX));
+            OnPropertyChanged(nameof(Vision3dRoiY));
+            OnPropertyChanged(nameof(Vision3dRoiWidth));
+            OnPropertyChanged(nameof(Vision3dRoiHeight));
+            RefreshVision3dRoiDisplay();
+
+            _visionTopViewRoiX = LoadIntSetting(nameof(VisionTopViewRoiX), 0);
+            _visionTopViewRoiY = LoadIntSetting(nameof(VisionTopViewRoiY), 0);
+            _visionTopViewRoiWidth = LoadIntSetting(nameof(VisionTopViewRoiWidth), 0);
+            _visionTopViewRoiHeight = LoadIntSetting(nameof(VisionTopViewRoiHeight), 0);
+            OnPropertyChanged(nameof(VisionTopViewRoiX));
+            OnPropertyChanged(nameof(VisionTopViewRoiY));
+            OnPropertyChanged(nameof(VisionTopViewRoiWidth));
+            OnPropertyChanged(nameof(VisionTopViewRoiHeight));
+            RefreshVisionTopViewRoiDisplay();
+
             _isLoadingSettings = false;
         }
 
@@ -736,6 +887,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 HistogramCaptureDir = HistogramCaptureDir,
                 HistogramMaskColor = HistogramMaskColor,
                 HistogramMaskTolerance = HistogramMaskTolerance,
+                Vision3dRoiX = Vision3dRoiX,
+                Vision3dRoiY = Vision3dRoiY,
+                Vision3dRoiWidth = Vision3dRoiWidth,
+                Vision3dRoiHeight = Vision3dRoiHeight,
+                VisionTopViewRoiX = VisionTopViewRoiX,
+                VisionTopViewRoiY = VisionTopViewRoiY,
+                VisionTopViewRoiWidth = VisionTopViewRoiWidth,
+                VisionTopViewRoiHeight = VisionTopViewRoiHeight,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
             };
         }
@@ -744,6 +903,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             HistogramRoiDisplayText = _histogramRoiWidth > 0 && _histogramRoiHeight > 0
                 ? $"X={_histogramRoiX}, Y={_histogramRoiY}, W={_histogramRoiWidth}, H={_histogramRoiHeight}"
+                : "未标定";
+        }
+
+        private void RefreshVision3dRoiDisplay()
+        {
+            Vision3dRoiDisplayText = _vision3dRoiWidth > 0 && _vision3dRoiHeight > 0
+                ? $"X={_vision3dRoiX}, Y={_vision3dRoiY}, W={_vision3dRoiWidth}, H={_vision3dRoiHeight}"
+                : "未标定";
+        }
+
+        private void RefreshVisionTopViewRoiDisplay()
+        {
+            VisionTopViewRoiDisplayText = _visionTopViewRoiWidth > 0 && _visionTopViewRoiHeight > 0
+                ? $"X={_visionTopViewRoiX}, Y={_visionTopViewRoiY}, W={_visionTopViewRoiWidth}, H={_visionTopViewRoiHeight}"
                 : "未标定";
         }
 
@@ -823,6 +996,100 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         private void ExecuteCalibrateHistogramRoi(object? _)
         {
+            ExecuteCalibrateScreenRoi(
+                regionName: "直方图 ROI",
+                windowTitle: "直方图 ROI 标定",
+                hintText: "拖拽框选直方图区域；框下方 ✓ 提交 / ✕ 重选；Esc 取消标定",
+                confirmBarText: "确认框选直方图区域",
+                applyRect: rect =>
+                {
+                    _histogramRoiX = rect.X;
+                    _histogramRoiY = rect.Y;
+                    _histogramRoiWidth = rect.Width;
+                    _histogramRoiHeight = rect.Height;
+                    OnPropertyChanged(nameof(HistogramRoiX));
+                    OnPropertyChanged(nameof(HistogramRoiY));
+                    OnPropertyChanged(nameof(HistogramRoiWidth));
+                    OnPropertyChanged(nameof(HistogramRoiHeight));
+                    RefreshHistogramRoiDisplay();
+                },
+                persistRect: rect =>
+                {
+                    SaveSetting(nameof(HistogramRoiX), rect.X);
+                    SaveSetting(nameof(HistogramRoiY), rect.Y);
+                    SaveSetting(nameof(HistogramRoiWidth), rect.Width);
+                    SaveSetting(nameof(HistogramRoiHeight), rect.Height);
+                });
+        }
+
+        private void ExecuteCalibrateVision3dRoi(object? _)
+        {
+            ExecuteCalibrateScreenRoi(
+                regionName: "3D 视图 ROI",
+                windowTitle: "3D 视图 ROI 标定",
+                hintText: "拖拽框选第四象限 3D 视图截图区域；框下方 ✓ 提交 / ✕ 重选；Esc 取消标定",
+                confirmBarText: "确认框选 3D 视图区域",
+                applyRect: rect =>
+                {
+                    _vision3dRoiX = rect.X;
+                    _vision3dRoiY = rect.Y;
+                    _vision3dRoiWidth = rect.Width;
+                    _vision3dRoiHeight = rect.Height;
+                    OnPropertyChanged(nameof(Vision3dRoiX));
+                    OnPropertyChanged(nameof(Vision3dRoiY));
+                    OnPropertyChanged(nameof(Vision3dRoiWidth));
+                    OnPropertyChanged(nameof(Vision3dRoiHeight));
+                    RefreshVision3dRoiDisplay();
+                },
+                persistRect: rect =>
+                {
+                    SaveSetting(nameof(Vision3dRoiX), rect.X);
+                    SaveSetting(nameof(Vision3dRoiY), rect.Y);
+                    SaveSetting(nameof(Vision3dRoiWidth), rect.Width);
+                    SaveSetting(nameof(Vision3dRoiHeight), rect.Height);
+                });
+        }
+
+        private void ExecuteCalibrateVisionTopViewRoi(object? _)
+        {
+            ExecuteCalibrateScreenRoi(
+                regionName: "「上」视图 ROI",
+                windowTitle: "「上」视图 ROI 标定",
+                hintText: "拖拽框选第二象限「上」视图截图区域；框下方 ✓ 提交 / ✕ 重选；Esc 取消标定",
+                confirmBarText: "确认框选「上」视图区域",
+                applyRect: rect =>
+                {
+                    _visionTopViewRoiX = rect.X;
+                    _visionTopViewRoiY = rect.Y;
+                    _visionTopViewRoiWidth = rect.Width;
+                    _visionTopViewRoiHeight = rect.Height;
+                    OnPropertyChanged(nameof(VisionTopViewRoiX));
+                    OnPropertyChanged(nameof(VisionTopViewRoiY));
+                    OnPropertyChanged(nameof(VisionTopViewRoiWidth));
+                    OnPropertyChanged(nameof(VisionTopViewRoiHeight));
+                    RefreshVisionTopViewRoiDisplay();
+                },
+                persistRect: rect =>
+                {
+                    SaveSetting(nameof(VisionTopViewRoiX), rect.X);
+                    SaveSetting(nameof(VisionTopViewRoiY), rect.Y);
+                    SaveSetting(nameof(VisionTopViewRoiWidth), rect.Width);
+                    SaveSetting(nameof(VisionTopViewRoiHeight), rect.Height);
+                });
+        }
+
+        /// <summary>
+        /// 通用屏幕 ROI 框选标定：最小化上位机 → 全屏遮罩拖拽 → 写入 DB。
+        /// 标定得到的 (X,Y) 为截图区域左上角物理像素，供 DLL 相对坐标换算：screen = ROI起点 + 相对点。
+        /// </summary>
+        private void ExecuteCalibrateScreenRoi(
+            string regionName,
+            string windowTitle,
+            string hintText,
+            string confirmBarText,
+            Action<System.Drawing.Rectangle> applyRect,
+            Action<System.Drawing.Rectangle> persistRect)
+        {
             if (_ctAutoSlicerService.IsRunning)
             {
                 MessageShower = "流程运行中，请先结束后再标定";
@@ -847,34 +1114,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 {
                     // 稍等主窗口最小化完成，避免遮罩盖住上位机而非 VG
                     Thread.Sleep(250);
-                    overlay = new HistogramRoiCalibrationOverlayWindow();
+                    overlay = new HistogramRoiCalibrationOverlayWindow(windowTitle, hintText, confirmBarText);
                     var ok = overlay.ShowDialog() == true;
                     if (!ok || overlay.SelectedScreenRect is not { } rect)
                     {
-                        MessageShower = "已取消直方图 ROI 标定";
-                        AppendFlowLog("直方图 ROI 标定已取消");
+                        MessageShower = $"已取消{regionName}标定";
+                        AppendFlowLog($"{regionName}标定已取消");
                         return;
                     }
 
                     _isLoadingSettings = true;
-                    _histogramRoiX = rect.X;
-                    _histogramRoiY = rect.Y;
-                    _histogramRoiWidth = rect.Width;
-                    _histogramRoiHeight = rect.Height;
-                    OnPropertyChanged(nameof(HistogramRoiX));
-                    OnPropertyChanged(nameof(HistogramRoiY));
-                    OnPropertyChanged(nameof(HistogramRoiWidth));
-                    OnPropertyChanged(nameof(HistogramRoiHeight));
+                    applyRect(rect);
                     _isLoadingSettings = false;
-
-                    SaveSetting(nameof(HistogramRoiX), rect.X);
-                    SaveSetting(nameof(HistogramRoiY), rect.Y);
-                    SaveSetting(nameof(HistogramRoiWidth), rect.Width);
-                    SaveSetting(nameof(HistogramRoiHeight), rect.Height);
-                    RefreshHistogramRoiDisplay();
+                    persistRect(rect);
 
                     var msg =
-                        $"直方图 ROI 已标定：X={rect.X}, Y={rect.Y}, W={rect.Width}, H={rect.Height}";
+                        $"{regionName}已标定：X={rect.X}, Y={rect.Y}, W={rect.Width}, H={rect.Height}（起点用于相对坐标换算）";
                     MessageShower = msg;
                     AppendFlowLog(msg);
                     _logger.Info(msg);
@@ -890,9 +1145,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             catch (Exception ex)
             {
-                MessageShower = $"直方图 ROI 标定失败：{ex.Message}";
+                MessageShower = $"{regionName}标定失败：{ex.Message}";
                 AppendFlowLog(MessageShower);
-                _logger.Error("直方图 ROI 标定失败", ex);
+                _logger.Error($"{regionName}标定失败", ex);
             }
         }
 

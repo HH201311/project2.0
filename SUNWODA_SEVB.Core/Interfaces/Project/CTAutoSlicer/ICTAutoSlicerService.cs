@@ -49,6 +49,16 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
             IProgress<string>? progress = null
         );
 
+        /// <summary>
+        /// 单步测试：阶段四 · 简单 3-2-1 对齐（需已标定 3D ROI）。
+        /// 截 3D → DLL 四点 → 打开对齐 → Ctrl+点击四点 → 完成。
+        /// </summary>
+        Task TestSimple321AlignmentAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
         void Cancel();
     }
 }

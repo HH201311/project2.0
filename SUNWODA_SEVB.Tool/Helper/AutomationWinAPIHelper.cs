@@ -43,6 +43,18 @@ namespace SUNWODA_SEVB.Tool.Helper
             mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
         }
 
+        /// <summary>
+        /// Ctrl + 左键单击（用于 VG「简单 3-2-1 对齐」选点）。调用方负责按下/释放 Ctrl。
+        /// </summary>
+        public static void LeftClickAt(int x, int y)
+        {
+            SetCursorPos(x, y);
+            Thread.Sleep(50);
+            mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+            Thread.Sleep(40);
+            mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+        }
+
         public static void DoubleClickScreen(int x, int y)
         {
             SetCursorPos(x, y);

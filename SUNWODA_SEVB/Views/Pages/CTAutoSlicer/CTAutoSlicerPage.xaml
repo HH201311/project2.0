@@ -392,7 +392,7 @@
                                     Margin="0,0,10,0"
                                     hc:InfoElement.Title="截图目录"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="空则默认 程序目录\logs\histogram；实际保存到其下 yyyy-MM-dd 子目录，默认仅保留 3 天">
+                                    ToolTip="空则默认 程序目录\logs\histogram；实际保存到其下 yyyy-MM-dd 子目录，仅保留 7 天（一周前自动删除）">
                                     <hc:TextBox.Text>
                                         <Binding Path="HistogramCaptureDir" UpdateSourceTrigger="PropertyChanged" />
                                     </hc:TextBox.Text>
@@ -458,13 +458,13 @@
                             <TextBlock
                                 Margin="10,0,10,10"
                                 Foreground="Gray"
-                                Text="标定前请把 VG 直方图露在屏幕上。取色请对准直方图填充区（非红线/蓝 LUT）。单步测试会生成原图/对比图/峰谷图到「截图目录\当天日期」；超过 3 天的日期文件夹会自动删除。"
+                                Text="标定前请把 VG 直方图露在屏幕上。取色请对准直方图填充区（非红线/蓝 LUT）。单步测试会生成原图/对比图/峰谷图到「截图目录\当天日期」；超过 7 天的日期文件夹会自动删除。"
                                 TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="阶段四视觉对齐（3D /「上」视图截图标定）">
+                <Expander Margin="5" Header="阶段四视觉对齐（3D /「上」视图 / 简单对齐下拉）">
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -601,10 +601,91 @@
                             </StackPanel>
 
                             <TextBlock
+                                Margin="10,16,10,0"
+                                FontWeight="SemiBold"
+                                Text="③ 「简单对齐」下拉点击位置（绝对坐标）" />
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="当前标定坐标：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding Simple321ToolbarClickDisplayText}" />
+                            </StackPanel>
+                            <StackPanel Margin="10,0,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="「简单对齐」下拉按钮中心屏幕 X（物理像素）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Simple321ToolbarClickX" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="「简单对齐」下拉按钮中心屏幕 Y（物理像素）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Simple321ToolbarClickY" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Command="{Binding CalibrateSimple321ToolbarClickCommand}"
+                                    Content="标定下拉点击位置"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="隐藏上位机 → 对准 VG 测量工具栏「简单对齐」下拉中心左键确认；Qt 下拉 UIA 不可靠，必须绝对定位" />
+                            </StackPanel>
+
+                            <StackPanel Margin="10,16,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="420"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="视觉截图目录"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="3D/标注图保存目录；默认 C:\AutoSlice\cutpicture\jietu；实际保存到其下 yyyy-MM-dd 子目录，仅保留 7 天">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionCaptureDir" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="40"
+                                    Command="{Binding OpenVisionCaptureDirCommand}"
+                                    ToolTip="选择视觉对齐截图保存文件夹">
+                                    <Image Width="18">
+                                        <Image.Source>
+                                            <DrawingImage>
+                                                <DrawingImage.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                    </DrawingGroup>
+                                                </DrawingImage.Drawing>
+                                            </DrawingImage>
+                                        </Image.Source>
+                                    </Image>
+                                </Button>
+                            </StackPanel>
+
+                            <TextBlock
                                 Margin="10,8,10,10"
                                 Foreground="Gray"
-                                Text="标定前请露出 VG 对应视口。保存的 X/Y 为截图区域左上角物理像素；DLL 返回相对像素后，点击位置 = (X+相对x, Y+相对y)。两区域需分别标定。"
+                                Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。算法四点会标注到截图（*_points.png）并保存到「视觉截图目录\当天日期」；超过 7 天的日期文件夹会自动删除。"
                                 TextWrapping="Wrap" />
+                            <StackPanel Margin="10,0,10,10" Orientation="Horizontal">
+                                <Button
+                                    Command="{Binding TestSimple321AlignmentCommand}"
+                                    Content="测试简单3-2-1对齐"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="需已标定 3D ROI + 下拉点击位置：截图→DLL四点→标注落盘→绝对点击下拉→选菜单→Ctrl+点击→完成" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Expander>
@@ -760,6 +841,12 @@
                         IsEnabled="{Binding IsEnableSimulationBtn}" />
                     <Button
                         Margin="0,0,10,0"
+                        Command="{Binding TestSimple321AlignmentCommand}"
+                        Content="测试简单3-2-1对齐"
+                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                        ToolTip="需已标定 3D ROI +「简单对齐」下拉点击位置" />
+                    <Button
+                        Margin="0,0,10,0"
                         Command="{Binding TestSliceExportCommand}"
                         Content="测试切片导出(三视图)"
                         IsEnabled="{Binding IsEnableSimulationBtn}" />
@@ -768,7 +855,7 @@
                     Margin="5"
                     HorizontalAlignment="Center"
                     Foreground="Gray"
-                    Text="「测试直方图灰度调整」：截图+目标色换纯绿+峰谷+拖红线；调试图保存在截图目录\yyyy-MM-dd\ 下，默认仅保留 3 天。"
+                    Text="「测试直方图灰度调整」：截图+目标色换纯绿+峰谷+拖红线。「测试简单3-2-1对齐」：需先标定 3D 区域与「简单对齐」下拉点击位置。"
                     TextWrapping="Wrap" />
                 <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
 

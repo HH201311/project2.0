@@ -47,6 +47,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string SliceExportQtyProgressPrefix = "@@SLICE_QTY@@";
         private const string SystemSaveFileEditName = "文件名:";
 
+        private const string Simple321MenuItemName = "简单 3-2-1 对齐(S)...";
+        private const string Simple321MenuItemNameContains = "简单 3-2-1 对齐";
+        private const string Simple321DialogNamePrefix = "简单 3-2-1 对齐";
+        private const string Simple321FinishButtonName = "完成(F)";
+        /// <summary>标点前先重置，避免残留对齐状态（Insights：Name = 重置(R)，AccessKey Alt+R）</summary>
+        private const string Simple321ResetButtonName = "重置(R)";
+        /// <summary>对齐完成后可能弹出的确认窗（Insights：Name = VGSTUDIO MAX 警告）</summary>
+        private const string VgAlignedWarningDialogName = "VGSTUDIO MAX 警告";
+        /// <summary>警告窗「是」按钮（Insights：Name = 是(Y)，AccessKey Alt+Y）</summary>
+        private const string VgAlignedWarningYesButtonName = "是(Y)";
+
         private const int UiPollIntervalMs = UIAutomationHelper.DefaultConditionPollIntervalMs;
         private const int OffscreenProgressBypassMs = 2000;
         private const int ProcessMainWindowTimeoutMs = 10000;
@@ -60,6 +71,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         private readonly ILoggerService<VGAutomationService> _logger;
         private readonly IAngleAlgorithmService _angleAlgorithmService;
+        private readonly ICutImgAlgorithmService _cutImgAlgorithmService;
         private readonly EventSimulator _simulator;
         /// <summary>
         /// 可能于任意时刻弹出的中断窗口队列。步骤异常/失败时先 Drain，处理后重试该步骤。
@@ -70,10 +82,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public VGAutomationService(
             ILoggerService<VGAutomationService> logger,
-            IAngleAlgorithmService angleAlgorithmService)
+            IAngleAlgorithmService angleAlgorithmService,
+            ICutImgAlgorithmService cutImgAlgorithmService)
         {
             _logger = logger;
             _angleAlgorithmService = angleAlgorithmService;
+            _cutImgAlgorithmService = cutImgAlgorithmService;
             _simulator = new EventSimulator();
             RegisterDefaultInterruptDialogs();
         }
@@ -4327,6 +4341,490 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 Unlock();
                 _activeVgProcess = null;
             }
+        }
+
+        /// <summary>
+        /// 单步测试：3D 截图 → DLL 四点 → 打开「简单 3-2-1 对齐」→ Ctrl+点击四点 → 完成。
+        /// </summary>
+        public async Task TestSimple321AlignmentAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null)
+        {
+            Lock();
+            try
+            {
+                if (!settings.HasVision3dRoi)
+                {
+                    throw new InvalidOperationException("尚未标定 3D 视图区域，请先在「阶段四视觉对齐」中标定 3D 区域");
+                }
+
+                if (!settings.HasSimple321ToolbarClick)
+                {
+                    throw new InvalidOperationException(
+                        "尚未标定「简单对齐」下拉点击位置，请先在「阶段四视觉对齐」中标定下拉框");
+                }
+
+                if (string.IsNullOrWhiteSpace(settings.VGAppPath))
+                {
+                    throw new InvalidOperationException("请先配置 VG 应用路径");
+                }
+
+                if (!_cutImgAlgorithmService.IsInitialized)
+                {
+                    throw new InvalidOperationException("切图算法 DLL 尚未初始化");
+                }
+
+                progress?.Report("简单 3-2-1 对齐测试：请确保 VG 已导入体积且第四象限 3D 可见");
+                _logger.Info(
+                    $"简单 3-2-1 对齐测试开始，3D ROI=({settings.Vision3dRoiX},{settings.Vision3dRoiY}," +
+                    $"{settings.Vision3dRoiWidth}x{settings.Vision3dRoiHeight})，" +
+                    $"下拉点击=({settings.Simple321ToolbarClickX},{settings.Simple321ToolbarClickY})");
+
+                var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                _activeVgProcess = ctViewerProcess;
+                EnsureVgForeground(ctViewerProcess);
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+
+                await RunSimple321AlignmentAsync(
+                        settings,
+                        ctViewerProcess,
+                        mainWindow,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                progress?.Report("简单 3-2-1 对齐测试完成");
+                _logger.Info("简单 3-2-1 对齐测试完成");
+            }
+            finally
+            {
+                Unlock();
+                _activeVgProcess = null;
+            }
+        }
+
+        /// <summary>
+        /// 阶段四 · 4a：截 3D → GetSectionReferencePoints → 打开对齐 → Ctrl+点四点 → 完成。
+        /// </summary>
+        private async Task RunSimple321AlignmentAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            progress?.Report("截取第四象限 3D 视图 ROI…");
+            var capturePath = CaptureVision3dRoiToFile(settings);
+            progress?.Report($"3D 截图已保存：{capturePath}");
+            _logger.Info($"3D ROI 截图：{capturePath}");
+
+            progress?.Report("调用 GetSectionReferencePoints…");
+            var relativePoints = _cutImgAlgorithmService.GetSectionReferencePoints(capturePath);
+            var screenPoints = new (int X, int Y, string Label)[4];
+            var annotatePoints = new (int X, int Y, string Label)[4];
+            for (var i = 0; i < 4; i++)
+            {
+                var (sx, sy) = CTAutoSlicerSettings.ToScreenPoint(
+                    settings.Vision3dRoiX,
+                    settings.Vision3dRoiY,
+                    relativePoints[i].X,
+                    relativePoints[i].Y);
+                var label = i < 3 ? $"上盖点{i + 1}" : "原点";
+                screenPoints[i] = (sx, sy, label);
+                annotatePoints[i] = (relativePoints[i].X, relativePoints[i].Y, label);
+                progress?.Report(
+                    $"{label}：相对=({relativePoints[i].X},{relativePoints[i].Y}) → 屏幕=({sx},{sy})");
+                _logger.Info(
+                    $"{label}：相对=({relativePoints[i].X},{relativePoints[i].Y}) → 屏幕=({sx},{sy})");
+            }
+
+            try
+            {
+                var annotatedPath = Path.Combine(
+                    Path.GetDirectoryName(capturePath)!,
+                    Path.GetFileNameWithoutExtension(capturePath) + "_points.png");
+                ScreenCaptureHelper.SaveAnnotatedPointsImage(capturePath, annotatedPath, annotatePoints);
+                progress?.Report($"四点标注图已保存：{annotatedPath}");
+                _logger.Info($"3D 四点标注图：{annotatedPath}");
+            }
+            catch (Exception annotateEx)
+            {
+                progress?.Report($"四点标注图保存失败（继续流程）：{annotateEx.Message}");
+                _logger.Warn($"3D 四点标注图保存失败：{annotateEx.Message}");
+            }
+
+            progress?.Report("打开「简单 3-2-1 对齐」…");
+            await OpenSimple321AlignmentAsync(
+                    settings,
+                    ctViewerProcess,
+                    mainWindow,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
+            progress?.Report("Ctrl+左键依次点击四点（三点定平面 + 原点）…");
+            foreach (var point in screenPoints)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Ctrl+点击 {point.Label} @({point.X},{point.Y})");
+                await CtrlClickScreenAsync(point.X, point.Y, cancellationToken).ConfigureAwait(false);
+                var interval = Math.Max(100, settings.VisionClickIntervalMs);
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+            }
+
+            progress?.Report("点击「完成(F)」…");
+            await ClickSimple321FinishAsync(settings, mainWindow, cancellationToken, progress)
+                .ConfigureAwait(false);
+
+            await TryDismissAlignedContinueWarningAsync(
+                    settings,
+                    mainWindow,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
+            progress?.Report("简单 3-2-1 对齐流程完成");
+        }
+
+        private string CaptureVision3dRoiToFile(CTAutoSlicerSettings settings)
+        {
+            var dayDir = settings.EnsureVisionCaptureDayDir();
+            var cleanup = settings.CleanupExpiredVisionCaptures();
+            if (cleanup.DeletedDirs > 0 || cleanup.DeletedFiles > 0)
+            {
+                _logger.Info(
+                    $"视觉截图清理：删除目录 {cleanup.DeletedDirs}、文件 {cleanup.DeletedFiles}" +
+                    $"（保留 {settings.VisionCaptureKeepDays} 天）");
+            }
+
+            var filePath = Path.Combine(dayDir, $"vision_3d_{DateTime.Now:HHmmss_fff}.png");
+            ScreenCaptureHelper.CaptureRegionAndSave(
+                filePath,
+                settings.Vision3dRoiX,
+                settings.Vision3dRoiY,
+                settings.Vision3dRoiWidth,
+                settings.Vision3dRoiHeight);
+            return filePath;
+        }
+
+        /// <summary>
+        /// 按标定绝对坐标点击测量工具栏「简单对齐」下拉 → 选菜单项 → 等待对话框。
+        /// 下拉控件为 Qt，UIA 常无法识别，故第一步必须用屏幕坐标点击。
+        /// </summary>
+        private async Task OpenSimple321AlignmentAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (!settings.HasSimple321ToolbarClick)
+            {
+                throw new InvalidOperationException(
+                    "尚未标定「简单对齐」下拉点击位置，请先在「阶段四视觉对齐」中标定下拉框");
+            }
+
+            var clickX = settings.Simple321ToolbarClickX;
+            var clickY = settings.Simple321ToolbarClickY;
+            progress?.Report($"按标定坐标点击「简单对齐」下拉 @({clickX},{clickY})");
+            _logger.Info($"简单 3-2-1：绝对定位点击下拉 ({clickX},{clickY})");
+            await NativeClickScreenAsync(settings, clickX, clickY, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(Math.Max(100, settings.VisionClickIntervalMs), cancellationToken).ConfigureAwait(false);
+
+            var menuItem = await UIAutomationHelper.WaitForElementAsync(
+                    () => FindSimple321MenuItem(mainWindow, ctViewerProcess),
+                    TimeSpan.FromMilliseconds(settings.VisionAlignmentDialogWaitTime),
+                    cancellationToken,
+                    UiPollIntervalMs)
+                .ConfigureAwait(false);
+
+            if (menuItem == null)
+            {
+                throw new InvalidOperationException(
+                    $"未在 {settings.VisionAlignmentDialogWaitTime}ms 内出现菜单项「{Simple321MenuItemName}」" +
+                    "（请确认下拉标定坐标准确，且点击后菜单已展开）");
+            }
+
+            progress?.Report($"选择菜单「{menuItem.Current.Name}」");
+            if (!UIAutomationHelper.TryInvokeElement(menuItem))
+            {
+                await NativeClickElementAsync(menuItem, cancellationToken).ConfigureAwait(false);
+            }
+
+            var dialog = await UIAutomationHelper.WaitForElementAsync(
+                    () => FindWindowByNameScoped(mainWindow, Simple321DialogNamePrefix, nameStartsWith: true),
+                    TimeSpan.FromMilliseconds(settings.VisionAlignmentDialogWaitTime),
+                    cancellationToken,
+                    UiPollIntervalMs)
+                .ConfigureAwait(false);
+
+            if (dialog == null)
+            {
+                throw new InvalidOperationException(
+                    $"未在 {settings.VisionAlignmentDialogWaitTime}ms 内出现「{Simple321DialogNamePrefix}...」对话框");
+            }
+
+            progress?.Report("已打开「简单 3-2-1 对齐」对话框");
+            _logger.Info("简单 3-2-1 对齐对话框已打开");
+
+            // 标点前先重置，清掉上次残留对齐状态，避免异常
+            await ClickSimple321ResetAsync(dialog, cancellationToken, progress).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 在「简单 3-2-1 对齐」对话框内点击「重置(R)」（Insights AccessKey Alt+R）。
+        /// </summary>
+        private async Task ClickSimple321ResetAsync(
+            AutomationElement alignmentDialog,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            progress?.Report($"点击「{Simple321ResetButtonName}」…");
+            _logger.Info($"简单 3-2-1：点击「{Simple321ResetButtonName}」后再标点");
+
+            var resetButton = UIAutomationHelper.FindButtonByName(alignmentDialog, Simple321ResetButtonName)
+                ?? UIAutomationHelper.FindDescendantByName(
+                    alignmentDialog,
+                    ControlType.Button,
+                    "重置",
+                    nameContains: true)
+                ?? throw new InvalidOperationException(
+                    $"未找到按钮「{Simple321ResetButtonName}」，请确认「简单 3-2-1 对齐」对话框已完全加载");
+
+            if (!UIAutomationHelper.TryInvokeButton(resetButton))
+            {
+                await NativeClickElementAsync(resetButton, cancellationToken).ConfigureAwait(false);
+            }
+
+            await Task.Delay(Math.Max(150, UiPollIntervalMs), cancellationToken).ConfigureAwait(false);
+            progress?.Report($"「{Simple321ResetButtonName}」已点击，开始标点");
+        }
+
+        private static AutomationElement? FindSimple321MenuItem(
+            AutomationElement mainWindow,
+            Process ctViewerProcess)
+        {
+            var inMain = UIAutomationHelper.FindDescendantByName(
+                    mainWindow,
+                    ControlType.MenuItem,
+                    Simple321MenuItemName)
+                ?? UIAutomationHelper.FindDescendantByName(
+                    mainWindow,
+                    ControlType.MenuItem,
+                    Simple321MenuItemNameContains,
+                    nameContains: true);
+            if (inMain != null)
+            {
+                return inMain;
+            }
+
+            try
+            {
+                var processId = ctViewerProcess.Id;
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId))
+                {
+                    var item = UIAutomationHelper.FindDescendantByName(
+                            topWindow,
+                            ControlType.MenuItem,
+                            Simple321MenuItemName)
+                        ?? UIAutomationHelper.FindDescendantByName(
+                            topWindow,
+                            ControlType.MenuItem,
+                            Simple321MenuItemNameContains,
+                            nameContains: true);
+                    if (item != null)
+                    {
+                        return item;
+                    }
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        private async Task ClickSimple321FinishAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var dialog = FindWindowByNameScoped(mainWindow, Simple321DialogNamePrefix, nameStartsWith: true)
+                ?? throw new InvalidOperationException("未找到「简单 3-2-1 对齐」对话框，无法点击完成");
+
+            var finishButton = UIAutomationHelper.FindButtonByName(dialog, Simple321FinishButtonName)
+                ?? UIAutomationHelper.FindDescendantByName(
+                    dialog,
+                    ControlType.Button,
+                    "完成",
+                    nameContains: true);
+
+            if (finishButton == null)
+            {
+                throw new InvalidOperationException($"未找到按钮「{Simple321FinishButtonName}」");
+            }
+
+            if (!UIAutomationHelper.TryInvokeButton(finishButton))
+            {
+                await NativeClickElementAsync(finishButton, cancellationToken).ConfigureAwait(false);
+            }
+
+            // 「完成」后常立刻弹出「VGSTUDIO MAX 警告」；若不先点「是」，对齐对话框不会关闭，会卡在消失等待。
+            await WaitSimple321DialogClosedHandlingWarningAsync(
+                    settings,
+                    mainWindow,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
+            progress?.Report("「完成」已点击，对齐对话框已关闭");
+        }
+
+        /// <summary>
+        /// 等待「简单 3-2-1 对齐」关闭；期间若出现「VGSTUDIO MAX 警告」则点「是(Y)」。
+        /// </summary>
+        private async Task WaitSimple321DialogClosedHandlingWarningAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var timeout = TimeSpan.FromMilliseconds(Math.Max(settings.VisionAlignmentDialogWaitTime, 8000));
+            var deadline = DateTime.UtcNow + timeout;
+            var warningHandled = false;
+
+            while (DateTime.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var warning = FindWindowByNameScoped(mainWindow, VgAlignedWarningDialogName);
+                if (warning != null)
+                {
+                    progress?.Report(
+                        $"检测到「{VgAlignedWarningDialogName}」，点击「{VgAlignedWarningYesButtonName}」…");
+                    _logger.Info($"简单 3-2-1：对齐完成确认警告，点击「{VgAlignedWarningYesButtonName}」");
+                    await ClickAlignedWarningYesAsync(warning, cancellationToken).ConfigureAwait(false);
+                    warningHandled = true;
+                    await Task.Delay(UiPollIntervalMs, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                var alignmentDialog = FindWindowByNameScoped(
+                    mainWindow,
+                    Simple321DialogNamePrefix,
+                    nameStartsWith: true);
+                if (alignmentDialog == null)
+                {
+                    if (!warningHandled)
+                    {
+                        // 对齐窗已关、警告未出现：再短等一下，避免漏掉晚弹出的警告
+                        var lateWarning = await UIAutomationHelper.WaitForElementAsync(
+                                () => FindWindowByNameScoped(mainWindow, VgAlignedWarningDialogName),
+                                TimeSpan.FromMilliseconds(800),
+                                cancellationToken,
+                                UiPollIntervalMs)
+                            .ConfigureAwait(false);
+                        if (lateWarning != null)
+                        {
+                            progress?.Report(
+                                $"对齐窗关闭后出现「{VgAlignedWarningDialogName}」，点击「{VgAlignedWarningYesButtonName}」…");
+                            await ClickAlignedWarningYesAsync(lateWarning, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                    }
+
+                    return;
+                }
+
+                progress?.Report("等待「简单 3-2-1 对齐」对话框关闭（若有警告将先点「是」）...");
+                await Task.Delay(UiPollIntervalMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            throw new TimeoutException(
+                $"等待「简单 3-2-1 对齐」关闭超时（{timeout.TotalMinutes:0.#} 分钟）。" +
+                $"若一直停在「{VgAlignedWarningDialogName}」，请确认「{VgAlignedWarningYesButtonName}」可被识别。");
+        }
+
+        private async Task ClickAlignedWarningYesAsync(
+            AutomationElement warningDialog,
+            CancellationToken cancellationToken)
+        {
+            var yesButton = UIAutomationHelper.FindButtonByName(warningDialog, VgAlignedWarningYesButtonName)
+                ?? UIAutomationHelper.FindDescendantByName(
+                    warningDialog,
+                    ControlType.Button,
+                    "是",
+                    nameContains: true)
+                ?? throw new InvalidOperationException(
+                    $"已出现「{VgAlignedWarningDialogName}」，但未找到按钮「{VgAlignedWarningYesButtonName}」");
+
+            if (!UIAutomationHelper.TryInvokeButton(yesButton))
+            {
+                await NativeClickElementAsync(yesButton, cancellationToken).ConfigureAwait(false);
+            }
+
+            // 给模态框一点关闭时间；外层循环会继续轮询
+            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 「完成」后可选弹窗兜底（对齐窗已关、警告稍晚出现时）。
+        /// </summary>
+        private async Task TryDismissAlignedContinueWarningAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var waitMs = Math.Clamp(settings.VisionAlignmentDialogWaitTime, 800, 2000);
+            progress?.Report($"再次确认是否仍有「{VgAlignedWarningDialogName}」（最多 {waitMs}ms）…");
+
+            var warning = await UIAutomationHelper.WaitForElementAsync(
+                    () => FindWindowByNameScoped(mainWindow, VgAlignedWarningDialogName),
+                    TimeSpan.FromMilliseconds(waitMs),
+                    cancellationToken,
+                    UiPollIntervalMs)
+                .ConfigureAwait(false);
+
+            if (warning == null)
+            {
+                progress?.Report($"无残留「{VgAlignedWarningDialogName}」");
+                return;
+            }
+
+            progress?.Report($"仍有「{VgAlignedWarningDialogName}」，点击「{VgAlignedWarningYesButtonName}」…");
+            await ClickAlignedWarningYesAsync(warning, cancellationToken).ConfigureAwait(false);
+            progress?.Report($"已点击「{VgAlignedWarningYesButtonName}」");
+            _logger.Info($"简单 3-2-1：兜底关闭警告窗「{VgAlignedWarningDialogName}」");
+        }
+
+        /// <summary>按住 Ctrl 左键点击屏幕坐标（3-2-1 选点）。</summary>
+        private async Task CtrlClickScreenAsync(int x, int y, CancellationToken cancellationToken)
+        {
+            Unlock();
+            try
+            {
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    WinAPIHelper.SetCursorPos(x, y);
+                    Thread.Sleep(60);
+                    _simulator.SimulateKeyPress(KeyCode.VcLeftControl);
+                    Thread.Sleep(40);
+                    WinAPIHelper.LeftClickAt(x, y);
+                    Thread.Sleep(40);
+                    _simulator.SimulateKeyRelease(KeyCode.VcLeftControl);
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            await Task.Delay(50, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

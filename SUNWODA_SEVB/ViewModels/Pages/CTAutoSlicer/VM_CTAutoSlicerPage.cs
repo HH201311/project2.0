@@ -27,6 +27,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly ICTAutoSlicerService _ctAutoSlicerService;
         private readonly IAngleAlgorithmService _angleAlgorithmService;
+        private readonly ICutImgAlgorithmService _cutImgAlgorithmService;
         private readonly CTFolderMonitorService _folderMonitorService;
         private readonly CTAutoSlicerInputHookService _inputHookService;
         private readonly ProcessMonitorService _processMonitorService;
@@ -76,6 +77,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _histogramRoiWidth;
         private int _histogramRoiHeight;
         private string _histogramCaptureDir = string.Empty;
+        private string _visionCaptureDir = CTAutoSlicerSettings.DefaultVisionCaptureDir;
         private string _histogramMaskColor = "#6E6E6E";
         private int _histogramMaskTolerance = 2;
         private string _histogramRoiDisplayText = "未标定";
@@ -91,6 +93,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _visionTopViewRoiWidth;
         private int _visionTopViewRoiHeight;
         private string _visionTopViewRoiDisplayText = "未标定";
+        private int _simple321ToolbarClickX;
+        private int _simple321ToolbarClickY;
+        private bool _simple321ToolbarClickCalibrated;
+        private string _simple321ToolbarClickDisplayText = "未标定";
 
         public string MessageShower
         {
@@ -462,6 +468,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        public string VisionCaptureDir
+        {
+            get => _visionCaptureDir;
+            set
+            {
+                if (SetProperty(ref _visionCaptureDir, value))
+                {
+                    SaveSetting(nameof(VisionCaptureDir), value);
+                }
+            }
+        }
+
         public string HistogramMaskColor
         {
             get => _histogramMaskColor;
@@ -617,18 +635,53 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _visionTopViewRoiDisplayText, value);
         }
 
+        public int Simple321ToolbarClickX
+        {
+            get => _simple321ToolbarClickX;
+            set
+            {
+                if (SetProperty(ref _simple321ToolbarClickX, value))
+                {
+                    SaveSetting(nameof(Simple321ToolbarClickX), value);
+                    RefreshSimple321ToolbarClickDisplay();
+                }
+            }
+        }
+
+        public int Simple321ToolbarClickY
+        {
+            get => _simple321ToolbarClickY;
+            set
+            {
+                if (SetProperty(ref _simple321ToolbarClickY, value))
+                {
+                    SaveSetting(nameof(Simple321ToolbarClickY), value);
+                    RefreshSimple321ToolbarClickDisplay();
+                }
+            }
+        }
+
+        public string Simple321ToolbarClickDisplayText
+        {
+            get => _simple321ToolbarClickDisplayText;
+            private set => SetProperty(ref _simple321ToolbarClickDisplayText, value);
+        }
+
         public ICommand OpenVGAppPathCommand { get; }
         public ICommand OpenCTFileFolderCommand { get; }
         public ICommand OpenSliceExportFolderCommand { get; }
         public ICommand OpenHistogramCaptureDirCommand { get; }
+        public ICommand OpenVisionCaptureDirCommand { get; }
         public ICommand CalibrateHistogramRoiCommand { get; }
         public ICommand CalibrateVision3dRoiCommand { get; }
         public ICommand CalibrateVisionTopViewRoiCommand { get; }
+        public ICommand CalibrateSimple321ToolbarClickCommand { get; }
         public ICommand PickHistogramMaskColorCommand { get; }
         public ICommand TestRenderingPresetCommand { get; }
         public ICommand TestThickPlateCommand { get; }
         public ICommand TestSliceExportCommand { get; }
         public ICommand TestHistogramGrayScaleCommand { get; }
+        public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
 
@@ -639,6 +692,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             IProjectSettingRepository projectSettingRepository,
             ICTAutoSlicerService ctAutoSlicerService,
             IAngleAlgorithmService angleAlgorithmService,
+            ICutImgAlgorithmService cutImgAlgorithmService,
             CTFolderMonitorService folderMonitorService,
             CTAutoSlicerInputHookService inputHookService,
             ProcessMonitorService processMonitorService)
@@ -647,6 +701,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _projectSettingRepository = projectSettingRepository;
             _ctAutoSlicerService = ctAutoSlicerService;
             _angleAlgorithmService = angleAlgorithmService;
+            _cutImgAlgorithmService = cutImgAlgorithmService;
             _folderMonitorService = folderMonitorService;
             _inputHookService = inputHookService;
             _processMonitorService = processMonitorService;
@@ -655,14 +710,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenCTFileFolderCommand = new RelayCommand(OpenCTFileFolder);
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
+            OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
             CalibrateVision3dRoiCommand = new RelayCommand(ExecuteCalibrateVision3dRoi);
             CalibrateVisionTopViewRoiCommand = new RelayCommand(ExecuteCalibrateVisionTopViewRoi);
+            CalibrateSimple321ToolbarClickCommand = new RelayCommand(ExecuteCalibrateSimple321ToolbarClick);
             PickHistogramMaskColorCommand = new RelayCommand(ExecutePickHistogramMaskColor);
             TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
             TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
             TestSliceExportCommand = new RelayCommandAsync(ExecuteTestSliceExportAsync);
             TestHistogramGrayScaleCommand = new RelayCommandAsync(ExecuteTestHistogramGrayScaleAsync);
+            TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
         }
@@ -679,6 +737,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             try
             {
                 await _angleAlgorithmService.InitializeAsync(_dllDownloadBaseUrl).ConfigureAwait(false);
+                try
+                {
+                    _cutImgAlgorithmService.Initialize();
+                }
+                catch (Exception cutEx)
+                {
+                    _logger.Error("CT 切图算法初始化失败", cutEx);
+                    await Dispatcher.InvokeAsync(() =>
+                        MessageShower = $"切图算法初始化失败：{cutEx.Message}（阶段四单测将不可用）");
+                }
+
                 await Dispatcher.InvokeAsync(() => MessageShower = "CT自动化切片模块初始化完成");
             }
             catch (Exception ex)
@@ -770,6 +839,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(HistogramRoiWidth));
             OnPropertyChanged(nameof(HistogramRoiHeight));
             HistogramCaptureDir = LoadStringSetting(nameof(HistogramCaptureDir), string.Empty);
+            VisionCaptureDir = LoadStringSetting(
+                nameof(VisionCaptureDir),
+                CTAutoSlicerSettings.DefaultVisionCaptureDir);
             HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
             HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 2);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
@@ -795,6 +867,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(VisionTopViewRoiWidth));
             OnPropertyChanged(nameof(VisionTopViewRoiHeight));
             RefreshVisionTopViewRoiDisplay();
+
+            _simple321ToolbarClickX = LoadIntSetting(nameof(Simple321ToolbarClickX), 0);
+            _simple321ToolbarClickY = LoadIntSetting(nameof(Simple321ToolbarClickY), 0);
+            _simple321ToolbarClickCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.Simple321ToolbarClickCalibrated), 0) != 0;
+            OnPropertyChanged(nameof(Simple321ToolbarClickX));
+            OnPropertyChanged(nameof(Simple321ToolbarClickY));
+            RefreshSimple321ToolbarClickDisplay();
 
             _isLoadingSettings = false;
         }
@@ -885,8 +965,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 HistogramRoiWidth = HistogramRoiWidth,
                 HistogramRoiHeight = HistogramRoiHeight,
                 HistogramCaptureDir = HistogramCaptureDir,
+                HistogramCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 HistogramMaskColor = HistogramMaskColor,
                 HistogramMaskTolerance = HistogramMaskTolerance,
+                VisionCaptureDir = VisionCaptureDir,
+                VisionCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 Vision3dRoiX = Vision3dRoiX,
                 Vision3dRoiY = Vision3dRoiY,
                 Vision3dRoiWidth = Vision3dRoiWidth,
@@ -895,6 +978,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 VisionTopViewRoiY = VisionTopViewRoiY,
                 VisionTopViewRoiWidth = VisionTopViewRoiWidth,
                 VisionTopViewRoiHeight = VisionTopViewRoiHeight,
+                Simple321ToolbarClickX = Simple321ToolbarClickX,
+                Simple321ToolbarClickY = Simple321ToolbarClickY,
+                Simple321ToolbarClickCalibrated = _simple321ToolbarClickCalibrated,
+                VisionClickIntervalMs = 300,
+                VisionAlignmentDialogWaitTime = 8000,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
             };
         }
@@ -917,6 +1005,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             VisionTopViewRoiDisplayText = _visionTopViewRoiWidth > 0 && _visionTopViewRoiHeight > 0
                 ? $"X={_visionTopViewRoiX}, Y={_visionTopViewRoiY}, W={_visionTopViewRoiWidth}, H={_visionTopViewRoiHeight}"
+                : "未标定";
+        }
+
+        private void RefreshSimple321ToolbarClickDisplay()
+        {
+            Simple321ToolbarClickDisplayText = _simple321ToolbarClickCalibrated
+                ? $"X={_simple321ToolbarClickX}, Y={_simple321ToolbarClickY}"
                 : "未标定";
         }
 
@@ -1079,6 +1174,85 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
+        /// 标定测量工具栏「简单对齐」下拉的屏幕绝对点击位置（Qt 控件 UIA 不可靠）。
+        /// </summary>
+        private void ExecuteCalibrateSimple321ToolbarClick(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var picker = new ScreenPointPickerOverlayWindow(
+                        "请将十字准星对准 VG 测量工具栏「简单对齐」下拉按钮中心，左键确认；右键/Esc 取消");
+                    var ok = picker.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消「简单对齐」下拉标定";
+                        AppendFlowLog("「简单对齐」下拉点击标定已取消");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(Simple321ToolbarClickX), 0, "int", nameof(Simple321ToolbarClickX));
+                    EnsureSettingExists(nameof(Simple321ToolbarClickY), 0, "int", nameof(Simple321ToolbarClickY));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.Simple321ToolbarClickCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.Simple321ToolbarClickCalibrated));
+
+                    _isLoadingSettings = true;
+                    _simple321ToolbarClickX = picker.SelectedX;
+                    _simple321ToolbarClickY = picker.SelectedY;
+                    _simple321ToolbarClickCalibrated = true;
+                    OnPropertyChanged(nameof(Simple321ToolbarClickX));
+                    OnPropertyChanged(nameof(Simple321ToolbarClickY));
+                    RefreshSimple321ToolbarClickDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(Simple321ToolbarClickX), picker.SelectedX);
+                    SaveSetting(nameof(Simple321ToolbarClickY), picker.SelectedY);
+                    SaveSetting(nameof(CTAutoSlicerSettings.Simple321ToolbarClickCalibrated), 1);
+
+                    var msg =
+                        $"「简单对齐」下拉已标定：X={picker.SelectedX}, Y={picker.SelectedY}";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"「简单对齐」下拉标定失败：{ex.Message}";
+                _logger.Error("「简单对齐」下拉点击标定失败", ex);
+            }
+        }
+
+        /// <summary>
         /// 通用屏幕 ROI 框选标定：最小化上位机 → 全屏遮罩拖拽 → 写入 DB。
         /// 标定得到的 (X,Y) 为截图区域左上角物理像素，供 DLL 相对坐标换算：screen = ROI起点 + 相对点。
         /// </summary>
@@ -1230,6 +1404,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
             {
                 HistogramCaptureDir = dialog.FileName;
+            }
+        }
+
+        private void OpenVisionCaptureDir(object? _)
+        {
+            var initial = VisionCaptureDir;
+            if (string.IsNullOrWhiteSpace(initial))
+            {
+                initial = CTAutoSlicerSettings.DefaultVisionCaptureDir;
+            }
+
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = Directory.Exists(initial) ? initial : null,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                VisionCaptureDir = dialog.FileName;
             }
         }
 
@@ -1416,6 +1610,74 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MessageShower = ex.Message;
                 AppendFlowLog($"直方图灰度测试失败：{ex.Message}");
                 _logger.Error("直方图灰度单步测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteTestSimple321AlignmentAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (_vision3dRoiWidth <= 0 || _vision3dRoiHeight <= 0)
+            {
+                MessageShower = "尚未标定 3D 视图区域，请先在「阶段四视觉对齐」中标定 3D 区域";
+                return;
+            }
+
+            if (!_simple321ToolbarClickCalibrated)
+            {
+                MessageShower = "尚未标定「简单对齐」下拉点击位置，请先在「阶段四视觉对齐」中标定下拉框";
+                return;
+            }
+
+            if (!_cutImgAlgorithmService.IsInitialized)
+            {
+                try
+                {
+                    _cutImgAlgorithmService.Initialize();
+                }
+                catch (Exception initEx)
+                {
+                    MessageShower =
+                        $"切图算法 DLL 初始化失败：{initEx.Message}";
+                    return;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 简单 3-2-1 对齐测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.TestSimple321AlignmentAsync(
+                    BuildSettings(),
+                    flowToken,
+                    progress);
+                AppendFlowLog("——— 简单 3-2-1 对齐测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"简单 3-2-1 对齐测试失败：{ex.Message}");
+                _logger.Error("简单 3-2-1 对齐测试失败", ex);
             }
             finally
             {

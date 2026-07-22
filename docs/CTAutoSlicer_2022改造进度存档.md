@@ -1,7 +1,7 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-21（阶段四流程已按视觉 `CTAutoCutImg.dll` 接口重写细化；直方图灰度阈值已接入主流程）  
-> **状态**：阶段一（多文件 `.vgl` 导入）**流程可跑通**；阶段二 **渲染预设** ✅；阶段三 **三象限厚板** ✅；直方图灰度阈值 ✅；阶段五 **三视图切片导出** ✅（范围暂用默认）；**阶段四视觉对齐** 🟡 算法 DLL 已交付，流程文档已明确，**代码尚未接入**  
+> **文档版本**：2026-07-22（阶段四 4a 单测已联通；直方图截图保留 7 天）  
+> **状态**：阶段一～三、直方图、阶段五 ✅；**阶段四·4a** ✅ 单测可跑通；**4b / `EnableVisionAlignmentSteps` 主流程** 🟡 待做  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
 
@@ -32,8 +32,8 @@
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
 | `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图 |
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖拽 |
-| Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，保留 3 天） | |
-| Settings：`Vision3dRoi*` / `VisionTopViewRoi*` | 阶段四 3D /「上」视图截图 ROI（UI 已可标定，主流程待接入） |
+| Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
+| Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y`（及下拉菜单项相关标定） / `VisionCaptureDir`（默认 `C:\AutoSlice\cutpicture\jietu`，**保留 7 天**） | 阶段四 3D /「上」视图 ROI + 简单 3-2-1 工具栏绝对坐标（Qt UIA 不可靠）；4a 单测已用，主流程待开关 |
 
 **真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/中」线 → 观察红线是否拖到中线。
 
@@ -49,8 +49,8 @@
 | 导入后步骤 | 体积渲染等待 → 灰度直方图拖拽 → 简单对齐 → 双视图截图算角旋转 | 导入完成 → **渲染 LUT 预设** ✅ → 四象限厚板/对齐/切片（见 §7） |
 | 进程名 | 曾硬编码 `vgstudiomax20241` | 从 UI 配置的 `VGAppPath` 推导 |
 
-**业务名称**仍为「CT 自动化切片」。当前已跑通：**批量 `.vgl` 导入 → 应用渲染预设（LUT）→ 直方图灰度阈值 → 三象限厚板 → 三视图切片导出**。  
-**阶段四（视觉对齐）** 为下一优先开发项：视觉已交付 `CTAutoCutImg.dll`（2026-07-21），流程见 **§7.1 / §8 阶段四 / §16**；主流程代码仍跳过该段，切片范围暂用默认 20～70 mm。
+**业务名称**仍为「CT 自动化切片」。当前已跑通：**批量 `.vgl` 导入 → 应用渲染预设（LUT）→ 直方图灰度阈值 → 三象限厚板 → 三视图切片导出**（阶段四未开主流程开关时仍跳过视觉对齐）。  
+**阶段四（视觉对齐）**：**4a** 已通过「测试简单 3-2-1 对齐」单测联通（截 3D → DLL → 标注 → 绝对下拉 → 重置 → Ctrl+四点 → 完成 → 警告选「是」）；**4b** 与 **`EnableVisionAlignmentSteps` 接入 `ImportSingleVglAsync`** 仍待做。流程见 **§7.1 / §8 / §16 / §17**；切片范围暂用默认 20～70 mm。
 
 ---
 
@@ -206,7 +206,7 @@ flowchart TD
 | CT 文件夹监控（仅记日志，**不触发流程**） | `CTFolderMonitorService` | ✅ 已挂载 |
 | 进程 CPU/内存/GPU CSV | `ProcessMonitorService` | ✅ 页面初始化启动 |
 | 角度算法 DLL 加载 | `AngleAlgorithmService.InitializeAsync` | ✅ 页面初始化；**阶段四主链改用 `CTAutoCutImg`，本 DLL 暂不参与对齐** |
-| 切图视觉 DLL | `CTAutoCutImg.dll`（Demo 已交付） | 🟡 待拷入 `Dlls\` 并封装 `CutImgAlgorithmService`（§16） |
+| 切图视觉 DLL | `CTAutoCutImg.dll` + `CutImgAlgorithmService` | ✅ 已拷入 `Dlls\` 并封装反射调用（§16）；Halcon 依赖同目录 + `SetDllDirectory` |
 | 偏移量测试按钮 | `VGAutomationService.TestOffsetAsync` | ✅ 灰度锚点/开始菜单等（主流程灰度已改为预设，锚点测试可逐步废弃） |
 | 渲染预设单步测试 | `TestRenderingPresetAsync` +「测试应用渲染预设」按钮 | ✅ 已用 |
 | 厚板三象限单步测试 | `TestThickPlateAsync` +「测试厚板设置(三象限)」按钮 | ✅ 已用 |
@@ -289,20 +289,19 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 3. 第一、二、三象限：各视口右键 → 选择「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定
       （`ApplyThickPlateForQuadrantsAsync`，已接入主流程与单步测试按钮）
 
-🟡 4. 阶段四 · 上盖平面三点选面（视觉 DLL #1）
-      直方图完成后，对 **3D 图（第四象限）图像范围** 截图 → 转 HObject
-      → 调用 `CTAutoCutImg.dll` / `GetSectionReferencePoints`
-      → 得到上盖平面三个点（+ 原点）像素坐标
-      → 按截图 ROI 与屏幕的相对位置，模拟鼠标依次点击三点，确定对齐平面
-      （详见 §16.2；代码尚未接入）
+✅ 4. 阶段四 · 4a 上盖平面选面（视觉 DLL #1）— **单测已联通**
+      对 **第四象限 3D 图** ROI 截图 → 转 HObject → `GetSectionReferencePoints`（四点含原点）
+      → 标注调试图 → **绝对坐标**打开「简单对齐」下拉 → 选菜单项 → **重置** → **Ctrl+依次点击四点（含原点）** → 「完成(F)」
+      → 等待/穿插点 **警告对话框「是(Y)」**（完成超时场景须处理）
+      （详见 §16.2 / §17；**主流程开关未接入**）
 
-🟡 5. 阶段四 · 切面方向两点对齐（视觉 DLL #2）
+🟡 5. 阶段四 · 4b 切面方向两点对齐（视觉 DLL #2）
       对 **第二象限「上」视图** 图像范围截图 → 转 HObject
       → 调用 `GetObjectTopBottomPoints`
       → 得到起点/终点像素坐标（及由此确定的切面方向）
       → 按相对位置模拟鼠标操作，完成方向对齐
       → 至此三个视图方向均已对齐，可进入切片导出
-      （详见 §16.3；代码尚未接入）
+      （详见 §16.3；单测与主流程均未接入）
 
 ✅ 6. Alt+F+T 三视图切片导出（`ExportImageStackSlicesAsync`，已接入主流程与单测按钮；
       切片范围暂用默认 20~70 mm；阶段四接入后可按视觉结果覆盖）
@@ -313,7 +312,8 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 **说明**：
 
 - **象限编号**：指 VG 主工作区四宫格视口（左上=一、右上=二、左下=三、右下=四）。阶段四约定：**第四象限 = 3D 图**（截图喂接口一）；**第二象限 =「上」视图**（截图喂接口二）。与「前/右/俯」导出视图名的对应关系仍须真机用 Insights 标定并写入配置。
-- **步骤 4～5** 依赖 `CTAutoCutImg.dll`（2026-07-21 已交付）。接入前主流程应 **显式跳过并打日志**，不得阻塞步骤 6 联调（可用「人工预先对齐好的工程」做导出单测）。
+- **步骤 4（4a）** 单测已跑通；**步骤 5（4b）** 仍依赖 `GetObjectTopBottomPoints`。主流程在 `EnableVisionAlignmentSteps=false` 时 **显式跳过并打日志**，不得阻塞步骤 6 联调（可用「人工预先对齐好的工程」做导出单测）。
+- **3D ROI 标定**：勿框进第二象限「上」视图区域，仅第四象限 3D 有效范围（见 §10 / §17）。
 - **与旧「三切面切片范围点位」表述的关系**：旧文档将「范围点位」单列为一步；当前确认的主链是 **平面三点 + 方向两点** 完成对齐后直接切片，范围参数仍可用配置默认值，待后续是否由视觉再输出 mm 范围另议。
 - **步骤顺序注意**：当前代码主链为「直方图 → 厚板 → 导出」。阶段四应插在 **厚板之后、导出之前**（直方图已完成是前提；3D/「上」视图截图依赖体积已可见）。若真机发现须紧挨直方图、厚板之后再对齐，以真机为准微调，但截图对象与 DLL 调用顺序不变。
 
@@ -344,8 +344,8 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 | 状态 | 步骤 | 说明 |
 |------|------|------|
-| 🟡 | **阶段四 · 3D 截图 + 上盖三点选面** | DLL `GetSectionReferencePoints` 已交付；需：ROI 截图 → HObject → 反射调用 → 像素点换算屏幕坐标 → 模拟点击三点；见 §16 |
-| 🟡 | **阶段四 · 「上」视图截图 + 方向两点对齐** | DLL `GetObjectTopBottomPoints` 已交付；需：第二象限「上」视图截图 → 调用 → 按点位/方向模拟操作；见 §16 |
+| ✅ | **阶段四 · 4a：3D 截图 + 简单 3-2-1 对齐** | 单测「测试简单 3-2-1 对齐」：截 3D → DLL 四点 → 标注图 → 绝对下拉 → 重置 → Ctrl+四点 → 完成 → 警告「是」；见 §16.2 / §17 |
+| 🟡 | **阶段四 · 4b：「上」视图截图 + 方向两点对齐** | `GetObjectTopBottomPoints` 已封装；需：第二象限「上」视图截图 → 调用 → 按点位/方向模拟操作；见 §16.3 |
 | — | ~~三切面切片范围（视觉 mm）~~ | **不再作为阶段四主链必做项**；导出暂用配置默认 20～70 mm，后续若视觉另出范围接口再补 |
 | ✅ | **Alt+F+T 保存影片/图像堆栈** | 三视图依次选参并导出；已接入主流程 |
 | ❌ | 导入成功后删除 `.vgl` | `OnImportSucceededAsync` 仍为占位 |
@@ -369,10 +369,11 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 真机已验证：`ApplyThickPlateForQuadrantsAsync` 已接入 `ImportSingleVglAsync`；页面提供「测试厚板设置(三象限)」单步按钮。
 
-### 阶段四：视觉对齐（🟡 算法已交付 — 流程见 §16 — 代码待接入）
+### 阶段四：视觉对齐（4a ✅ 单测 — 4b / 主流程 🟡 待做）
 
-> **2026-07-21 更新**：视觉已交付 `CTAutoCutImg.dll`（放置于 Demo：`C:\AutoSlice\CT自动切片Demo\AutoCTSlicer\dll\CTAutoCutImg.dll`）。  
-> 旧草稿中「选面 / 转角 / 三切面范围」三句空描述已废弃，以下为确认后的主流程。完整时序、坐标换算、接口约定见 **§16**。
+> **2026-07-22 更新**：4a 已在真机单测跑通（按钮「测试简单 3-2-1 对齐」）。  
+> **2026-07-21**：视觉交付 `CTAutoCutImg.dll`（Demo：`C:\AutoSlice\CT自动切片Demo\AutoCTSlicer\dll\CTAutoCutImg.dll`）。  
+> 完整时序、坐标换算、接口约定见 **§16**；**2026-07-22 联调要点见 §17**。
 
 **在总流程中的位置**（`ImportSingleVglAsync`）：
 
@@ -384,18 +385,34 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 | 顺序 | 子步骤 | 采图对象 | DLL 方法 | 自动化动作 | 完成判据 |
 |:----:|--------|----------|----------|------------|----------|
-| 4a | 上盖平面选面 | **第四象限 3D 图** ROI 截图 | `GetSectionReferencePoints` | 像素点 → 屏幕坐标 → 模拟鼠标依次点击**上盖三个点**，确定平面 | 三点点击完成；VG 进入已选平面状态（真机观察确认） |
-| 4b | 切面方向对齐 | **第二象限「上」视图** ROI 截图 | `GetObjectTopBottomPoints` | 像素点 → 屏幕坐标 → 按起点/终点（方向）模拟鼠标操作 | 方向对齐完成；三视图方向一致，可导出 |
+| 4a | 上盖平面 / 简单 3-2-1 | **第四象限 3D 图** ROI 截图 | `GetSectionReferencePoints` | 标注图 → **绝对坐标**点「简单对齐」下拉 → 菜单 → **重置** → **Ctrl+点击四点（含原点）** → **完成(F)** → 必要时 **警告「是」** | ✅ **单测已联通**；主流程待开关 |
+| 4b | 切面方向对齐 | **第二象限「上」视图** ROI 截图 | `GetObjectTopBottomPoints` | 像素点 → 屏幕坐标 → 按起点/终点（方向）模拟鼠标操作 | 🟡 待单测 + 主流程 |
 
-**代码侧落地清单（下一上下文实现）**：
+**4a 已落地（2026-07-22）**：
 
-1. 将 `CTAutoCutImg.dll` 复制到程序 `Dlls\`（`csproj` 增加 `None Update` 复制），按接口文档用 **`Assembly.LoadFrom`** 反射（非项目引用）。
-2. 新建 `ICutImgAlgorithmService` / `CutImgAlgorithmService`：加载类型 `CT`，封装两方法；入参 `HObject`，出参 `Point[]`。
-3. `ScreenCaptureHelper` 按标定 ROI 截 3D / 「上」视图 → 读图为 `HObject`（`HOperatorSet.ReadImage` 或等价）。
-4. 坐标换算：`screenX = roiLeft + point.X`，`screenY = roiTop + point.Y`（若算法坐标原点/轴向与截图不一致，真机标定后修正）。
-5. `MouseSimulationHelper` / `WinAPIHelper.ClickScreen` 依次点击。
-6. `EnableVisionAlignmentSteps`（默认 `false`）：未开启或 DLL 未就绪时打跳过日志，不中断导出。
-7. 页面初始化调用新服务 `Initialize`；提供「测试阶段四视觉对齐」单步按钮便于联调。
+1. ✅ `CTAutoCutImg.dll` 于输出目录 `Dlls\`（`GetCutImgAlgorithmDllPath` + **`SetDllDirectory(Dlls)`**，与 `halcon.dll` 等同目录加载）。
+2. ✅ `ICutImgAlgorithmService` / `CutImgAlgorithmService`：反射 `CTAutoCutImg.CT`，封装 `GetSectionReferencePoints` / `GetObjectTopBottomPoints`。
+3. ✅ `ScreenCaptureHelper` + 标定 `Vision3dRoi*` 截 3D → `HObject`。
+4. ✅ DLL 返回四点 → ROI 换算屏幕坐标 → **标注调试图**落盘（`VisionCaptureDir`，默认 `C:\AutoSlice\cutpicture\jietu`，**7 天清理**）。
+5. ✅ **`Simple321ToolbarClickX/Y`** 绝对坐标打开「简单对齐」**下拉**（Qt UIA 不可靠）。
+6. ✅ 对齐流程内 **「重置」** → **Ctrl+依次点击四点（上盖三点 + 原点）** → **「完成(F)」**；完成等待超时须穿插处理 **警告对话框「是(Y)」**。
+7. ✅ 页面按钮 **「测试简单 3-2-1 对齐」**（单测 4a，不跑导入）。
+
+**仍待（下一优先）**：
+
+- [ ] **4b**：截「上」视图 → `GetObjectTopBottomPoints` → 方向对齐手势（真机确认点/拖）。
+- [ ] **`EnableVisionAlignmentSteps`** 接入 `ImportSingleVglAsync`（厚板之后、导出之前），与单测共用 `RunVisionAlignmentAsync` 编排。
+- [ ] 真机巩固：菜单 Name 多候选、完成/警告时序、失败策略（是否仍导出）。
+
+**原代码侧清单（供对照，4a 已完成项已勾选于 §11）**：
+
+1. ~~将 `CTAutoCutImg.dll` 复制到程序 `Dlls\`~~ ✅  
+2. ~~新建 `CutImgAlgorithmService`~~ ✅  
+3. ~~ROI 截图 → HObject~~ ✅（4a）  
+4. ~~坐标换算 + 点击/标注~~ ✅（4a 含绝对下拉、重置、Ctrl 四点）  
+5. ~~单测按钮~~ ✅（4a）  
+6. `EnableVisionAlignmentSteps`（默认 `false`）：**主流程待接**  
+7. 4b + 全流程联调
 
 **接入点模板**：
 
@@ -417,7 +434,7 @@ else
 await ExportImageStackSlicesAsync(...);
 ```
 
-**下一优先**：按 §16 实现服务层 + 主流程接入 + 真机标定 ROI / 点击偏移。
+**下一优先**：完成 **4b 单测** + **`EnableVisionAlignmentSteps` 主流程接入** + 真机端到端（4a→4b→导出）；细节见 **§17**。
 
 ### 阶段五：切片导出（✅ 已接入 — 待真机联调）
 
@@ -501,6 +518,10 @@ await ExportImageStackSlicesAsync(...);
 | Qt 厚板组合框 UIA 读数滞后 | 不以 `GetComboBoxDisplayText` 判成败；点击+回车后直接点「确定」，以对话框关闭为准 |
 | 第三象限靠近屏幕底缘右键菜单反向 | `ViewportQuadrant3ClickOffsetY = -100`，右键点上移 |
 | 预设测试结束跨线程异常 | `ExecuteTestRenderingPresetAsync` 去掉 `ConfigureAwait(false)`；`finally` 用 `Dispatcher.Invoke` |
+| Halcon / `CTAutoCutImg` 加载失败 | 须 **`Dlls\` 同目录** + 调用前 **`SetDllDirectory`**；`halcon*.dll` 与 `CTAutoCutImg.dll` 一并部署，勿仅从 Demo 路径 Load |
+| 「简单对齐」下拉 UIA 不可靠 | 使用 **`Simple321ToolbarClickX/Y` 屏幕绝对坐标** 点开下拉，再选菜单项（Insights 标定） |
+| 4a「完成(F)」等待超时 | 流程中可能弹出 **警告**；自动化须穿插点击 **「是(Y)」** 后再继续判定完成 |
+| 3D ROI 标定框错象限 | **勿框进第二象限「上」视图**；仅第四象限 3D 有效像素区，否则 DLL 点位与点击全偏 |
 
 ---
 
@@ -531,18 +552,20 @@ await ExportImageStackSlicesAsync(...);
 - [x] 主流程 `ImportSingleVglAsync` 已接入 `ApplyThickPlateForQuadrantsAsync`
 - [x] 第三象限底缘菜单反向弹出：右键点上移 100px
 
-### 阶段四（视觉对齐）— 🟡 算法已交付，代码待接入（详见 §16）
+### 阶段四（视觉对齐）— 4a ✅ 单测；4b / 主流程 🟡（详见 §16 / §17）
 
 - [x] 视觉交付：`CTAutoCutImg.dll`（`GetSectionReferencePoints` / `GetObjectTopBottomPoints`）
-- [x] 流程文档：阶段四时序、采图对象、点击换算、接入点已写入 §7.1 / §8 / §16
-- [x] 标定：第四象限 3D ROI、第二象限「上」视图 ROI（页面 Expander「阶段四视觉对齐」框选标定，坐标写入 DB）
-- [ ] 部署：DLL 复制到程序 `Dlls\` + csproj 复制项
-- [ ] `ICutImgAlgorithmService` / 反射加载类型 `CT` + 两方法封装
-- [ ] 4a：截 3D → `GetSectionReferencePoints` → 三点换算屏幕坐标并模拟点击
-- [ ] 4b：截「上」视图 → `GetObjectTopBottomPoints` → 按点位完成方向对齐操作
-- [ ] `EnableVisionAlignmentSteps=false` 时主流程不报错并打跳过日志
-- [ ] 主流程接入：厚板之后、导出之前；单步测试按钮
-- [ ] 真机确认：原点坐标是否参与点击；方向两点对应的具体鼠标手势（点击/拖拽）
+- [x] 流程文档：阶段四时序、采图对象、点击换算、接入点（§7.1 / §8 / §16 / §17）
+- [x] 标定：第四象限 3D ROI、第二象限「上」视图 ROI（页面 Expander「阶段四视觉对齐」）
+- [x] 标定：`Simple321ToolbarClickX/Y`（及下拉菜单项相关坐标，**绝对定位**）
+- [x] 部署：`Dlls\` + `GetCutImgAlgorithmDllPath` + **`SetDllDirectory`**
+- [x] `ICutImgAlgorithmService` / `CutImgAlgorithmService` 反射 `CTAutoCutImg.CT`
+- [x] `VisionCaptureDir` 调试图（默认 `C:\AutoSlice\cutpicture\jietu`，**保留 7 天**清理）
+- [x] 4a 单测全流程：截 3D → DLL 四点 → **标注图** → 绝对下拉 → **重置** → **Ctrl+四点（含原点）** → **完成(F)** → **警告「是」**
+- [x] 页面按钮「测试简单 3-2-1 对齐」
+- [ ] 4b：截「上」视图 → `GetObjectTopBottomPoints` → 方向对齐操作 + 单测按钮/编排
+- [ ] `EnableVisionAlignmentSteps` 主流程接入（厚板之后、导出之前）
+- [ ] 真机端到端：4a+4b 后「测试切片导出」方向正确
 
 ### 阶段五（Alt+F+T 切片导出）— ✅ 已接入，待真机联调巩固
 
@@ -553,60 +576,60 @@ await ExportImageStackSlicesAsync(...);
 
 ---
 
-## 12. 相关文件速查（Git 未提交状态截至 2026-07-21）
+## 12. 相关文件速查（实现状态截至 **2026-07-22**）
 
 ```
 SUNWODA_SEVB.Core/Interfaces/Project/CTAutoSlicer/
   ICTAutoSlicerService.cs
   IAngleAlgorithmService.cs          ← 旧角度 DLL（保留，阶段四主链不用）
-  ICutImgAlgorithmService.cs         ← 【待建】CTAutoCutImg 封装
+  ICutImgAlgorithmService.cs         ← ✅ CTAutoCutImg 封装接口
 SUNWODA_SEVB.Core/Models/Project/CTAutoSlicer/
-  CTAutoSlicerSettings.cs            ← 待增：CutImg DLL 路径、EnableVisionAlignmentSteps、3D/上视图 ROI
+  CTAutoSlicerSettings.cs            ← ✅ Vision ROI、Simple321ToolbarClick*、VisionCaptureDir、EnableVisionAlignmentSteps 等
 SUNWODA_SEVB/Services/Project/CTAutoSlicer/
   CTAutoSlicerService.cs
-  VGAutomationService.cs             ← 主战场；阶段四接入点：厚板后、导出前
+  VGAutomationService.cs             ← ✅ 4a 单测编排；主流程接入点仍待 EnableVisionAlignmentSteps
   AngleAlgorithmService.cs           ← 旧角度；保留
-  CutImgAlgorithmService.cs          ← 【待建】反射 CT / GetSectionReferencePoints / GetObjectTopBottomPoints
+  CutImgAlgorithmService.cs          ← ✅ LoadFrom + 反射 CT / 两接口方法
   CTFolderMonitorService.cs
   CTAutoSlicerInputHookService.cs
   ProcessMonitorService.cs
-SUNWODA_SEVB.Core/Dlls/
-  CTAutoCutImg.dll                   ← 【待拷入】现位于 Demo\AutoCTSlicer\dll\
+SUNWODA_SEVB.Core/Dlls/  （及输出目录 Dlls\）
+  CTAutoCutImg.dll                   ← ✅ 已部署（与 halcon 同目录）
   V.NJ.L246.01.01.03.240924.dll      ← 旧角度
-  halcondotnet.dll
+  halcondotnet.dll / halcon*.dll     ← ✅ 运行时依赖
 SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/
-  VM_CTAutoSlicerPage.cs
+  VM_CTAutoSlicerPage.cs             ← ✅ 「测试简单 3-2-1 对齐」等
 SUNWODA_SEVB/Views/Pages/CTAutoSlicer/
   CTAutoSlicerPage.xaml
   CTAutoSlicerPage.xaml.cs
 SUNWODA_SEVB.Tool/Helper/
   UIAutomationHelper.cs
   MouseSimulationHelper.cs
-  ScreenCaptureHelper.cs             ← 阶段四截图必用
+  ScreenCaptureHelper.cs             ← ✅ 阶段四 ROI 截图
   PathGenerationHelper.cs
   AutomationWinAPIHelper.cs
   CsvFileHelper.cs
 docs/
   CTAutoSlicer迁移说明.md
-  CTAutoSlicer_2022改造进度存档.md   ← 本文档（§16 = 阶段四详规）
+  CTAutoSlicer_2022改造进度存档.md   ← 本文档（§16 = 阶段四详规；§17 = 2026-07-22 联调纪要）
 ```
 
 ---
 
 ## 13. 给下一上下文的阅读顺序
 
-1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**阶段四详规看 §16**；导入细节看 §15）  
-2. `VGAutomationService.OpenQuickImportAsync` + `QuickImportFillAndOpenAsync` + `ConfirmFileSelectionAsync` — 图一～四  
-3. `VGAutomationService.ImportSingleVglAsync` — 当前主链（直方图 → 厚板 → **缺阶段四** → 导出）  
-4. 视觉接口：`CTAutoCutImg.dll` / 类型 `CT` / `GetSectionReferencePoints` + `GetObjectTopBottomPoints`（见 §16.1）  
-5. `ScreenCaptureHelper` + `MouseSimulationHelper` — 阶段四采图与点击  
-6. `docs/CTAutoSlicer迁移说明.md` §6 调用链 — 页面生命周期  
+1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**阶段四详规 §16**；**2026-07-22 联调 §17**；导入细节 §15）  
+2. `VGAutomationService` — **4a 单测**（「测试简单 3-2-1 对齐」）与待接 **`RunVisionAlignmentAsync` / 主流程开关**  
+3. `CutImgAlgorithmService` + `Dlls\` + `SetDllDirectory` — Halcon / CTAutoCutImg 加载  
+4. `ImportSingleVglAsync` — 当前主链（直方图 → 厚板 → **跳过阶段四** → 导出）  
+5. `ScreenCaptureHelper` + 标定 ROI / `Simple321ToolbarClick*` — 采图与下拉绝对坐标  
+6. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
 
 ---
 
 ## 14. 一句话总结
 
-**阶段一、二、三、五已完成**（导入 + LUT + 直方图 + 厚板 + Alt+F+T 导出）。**阶段四已明确**：直方图/厚板之后，截第四象限 3D 图 → `GetSectionReferencePoints` → 点击上盖三点定平面 → 截第二象限「上」视图 → `GetObjectTopBottomPoints` → 按点位定方向 → 三视图对齐后切片。视觉 DLL 已交付，**代码尚未接入**；下一优先按 **§16** 实现。
+**阶段一～三、直方图、阶段五已在主流程跑通**。**阶段四·4a** 已通过单测（3D→DLL→标注→绝对下拉→重置→Ctrl 四点含原点→完成→警告「是」）；**4b** 与 **`EnableVisionAlignmentSteps`** 仍待接入。下一优先：**4b 单测 + 主流程开关 + 端到端导出**（§8 / §17）。
 
 ---
 
@@ -719,11 +742,11 @@ Alt+F 完成文件选择
 
 ---
 
-## 16. 阶段四详规：视觉对齐（2026-07-21）
+## 16. 阶段四详规：视觉对齐（2026-07-22 修订）
 
-> **状态**：🟡 算法 DLL 已交付，流程已确认，**自动化代码未接入**。  
-> **目标**：直方图与厚板完成后，用视觉点位驱动 VG「定平面 → 定方向」，使三视图对齐，再进入阶段五切片导出。  
-> **废弃**：早期「简单 1,2,3 选面 / 旋转角度 / 三切面范围 mm」空描述；旧 `MeasureAngle` 双视图算角链。
+> **状态**：**4a ✅** 单测「测试简单 3-2-1 对齐」已联通；**4b / `EnableVisionAlignmentSteps` 主流程** 🟡 待做。  
+> **目标**：直方图与厚板完成后，用视觉点位驱动 VG「简单 3-2-1 对齐 → 定方向」，使三视图对齐，再进入阶段五切片导出。  
+> **废弃**：早期「仅点三个上盖点、不用菜单」草稿；旧 `MeasureAngle` 双视图算角链。真机 4a 以 **§17** 为准。
 
 ### 16.1 视觉算法接口（`CTAutoCutImg.dll`）
 
@@ -731,7 +754,7 @@ Alt+F 完成文件选择
 |------|------|
 | 协议 | 反射动态调用（DLL 放服务器/程序目录，**非项目引用**） |
 | DLL | `CTAutoCutImg.dll`（当前 Demo 路径：`C:\AutoSlice\CT自动切片Demo\AutoCTSlicer\dll\CTAutoCutImg.dll`） |
-| 类型名 | `CT`（无命名空间前缀，与接口文档一致） |
+| 类型名 | `CTAutoCutImg.CT`（文档写 `CT` 不完整；反射须带命名空间） |
 | 运行时 | .NET 8.0 + `halcondotnet`（文档写 20.11；宿主工程已引用 Core\Dlls 下 halcondotnet） |
 | 加载方式 | 推荐 `Assembly.LoadFrom(dllPath)`（便于解析同目录依赖） |
 
@@ -753,29 +776,36 @@ Alt+F 完成文件选择
 
 坐标单位：像素；相对**输入截图像素坐标系**（通常左上为原点，与 Windows 屏幕坐标轴方向一致时直接平移即可）。
 
-### 16.2 子步骤 4a — 3D 上盖三点定平面
+### 16.2 子步骤 4a — 3D 截图 + 简单 3-2-1 对齐（✅ 单测）
 
-**前置**：单文件已导入、LUT 已应用、直方图红线已处理（或跳过）、厚板 Q1～Q3 已完成；VG 主窗四象限可见。
+**前置**：VG 中已导入体积、LUT、（可选）直方图、厚板；四象限可见。**3D ROI 勿框「上」视图**。
 
 ```mermaid
 flowchart TD
-    A[厚板完成] --> B[定位第四象限 3D 视口 BoundingRectangle]
-    B --> C[按标定 ROI 截取 3D 图区域]
-    C --> D[截图落盘并转为 HObject]
-    D --> E["反射调用 GetSectionReferencePoints"]
-    E --> F[取得 points 0..2 上盖三点]
-    F --> G["屏幕坐标 = ROI左上角 + 像素偏移"]
-    G --> H[模拟鼠标依次点击三点]
-    H --> I[平面已确定]
+    A[单测/主流程入口] --> B[按 Vision3dRoi 截取第四象限 3D]
+    B --> C[截图落盘 VisionCaptureDir + 转 HObject]
+    C --> D["GetSectionReferencePoints → 四点"]
+    D --> E[标注调试图 overlay 四点]
+    E --> F["Simple321ToolbarClick* 绝对坐标点开「简单对齐」下拉"]
+    F --> G[选菜单项进入对齐模式]
+    G --> H[点击「重置」]
+    H --> I["Ctrl+依次点击四点（上盖三点 + 原点）"]
+    I --> J[点击「完成(F)」]
+    J --> K{警告对话框?}
+    K -->|是| L[点击「是(Y)」]
+    K -->|否| M[4a 完成]
+    L --> M
 ```
 
 **操作要点**：
 
-1. **采图对象**：第四象限 **3D 图** 的图像有效范围（建议独立配置 `Vision3dRoiX/Y/Width/Height`，或先用视口矩形再减边距；可用类似直方图的「截图标定」）。
-2. **交付算法**：`HObject`（`ReadImage` 读截图文件，或内存构造；须与 Halcon 约定格式一致）。
-3. **点击**：人工流程等价于在 VG「简单对齐 / 选面」语境下点三个上盖点以确定平面。自动化用 `ClickScreen` 依次点 `points[0..2]` 换算后的屏幕坐标；点间加短延时（建议可配置，默认 200～500 ms）。
-4. **原点 `points[3]`**：接口有返回；**当前主链「点击定平面」只用三个上盖点**。原点是否用于后续对齐参考或校验，待真机与视觉确认后再用，勿擅自点击。
-5. **失败策略**：算法异常 / 点数不足 / 点击后状态不对 → 记 `@@VISION_FAIL@@` 日志；是否跳过导出由产品策略定（建议开发期可配置「失败仍导出」便于联调）。
+1. **采图**：第四象限 **3D** 有效范围（`Vision3dRoi*`，与直方图标定 UI 同类）。
+2. **DLL**：`points[0..2]` 上盖三点 + **`points[3]` 原点**；单测 **Ctrl+点击共四点**（非仅三点）。
+3. **UI**：「简单对齐」工具栏下拉须 **`Simple321ToolbarClickX/Y` 绝对屏幕坐标**（Qt UIA 常失败）。
+4. **重置**：进入对齐后先点 **重置**，再 Ctrl+选点。
+5. **完成与警告**：点 **完成(F)** 后若出现 **警告**，须点 **是(Y)**；否则完成等待可能超时（见 §10）。
+6. **调试图**：标注 PNG 与原始截图写入 **`VisionCaptureDir`**（默认 `C:\AutoSlice\cutpicture\jietu`，**7 天**清理）。
+7. **失败策略**：算法/点击异常 → 日志 `@@VISION_FAIL@@`；主流程是否仍导出由 `EnableVisionAlignmentSteps` 策略待定。
 
 ### 16.3 子步骤 4b — 「上」视图两点定方向
 
@@ -809,8 +839,8 @@ flowchart TD
 | 2 | LUT 预设 | ✅ |
 | 2b | 直方图拖红线 | ✅（未标定则跳过） |
 | 3 | Q1～Q3 厚板 + 平均值 | ✅ |
-| **4a** | **3D 截图 → 三点 → 点击定平面** | 🟡 待编码 |
-| **4b** | **「上」视图截图 → 两点 → 定方向** | 🟡 待编码 |
+| **4a** | **3D 截图 → 简单 3-2-1（重置 + Ctrl 四点 + 完成 + 警告是）** | ✅ **单测** |
+| **4b** | **「上」视图截图 → 两点 → 定方向** | 🟡 待编码/单测 |
 | 5 | Alt+F+T 三视图导出 | ✅（对齐依赖 4a/4b 或人工预对齐） |
 
 说明：业务描述常说「直方图拖拽完毕之后」开始做 3D 截图——**语义上直方图是视觉对齐的前提**；实现上仍建议放在 **厚板之后**（与现有主链一致，且 Q1～Q3 厚板不影响 Q4 3D / Q2「上」采图）。若真机要求「必须紧挨直方图、厚板插在对齐之后」，再调换 3 与 4 的顺序，**4a→4b 内部顺序不变**。
@@ -834,39 +864,54 @@ screenY = Ry + Py
 
 | 参数 | 建议默认 | 用途 |
 |------|----------|------|
-| `EnableVisionAlignmentSteps` | `false` | 总开关；未开则打跳过日志 |
+| `EnableVisionAlignmentSteps` | `false` | 总开关；**主流程尚未接入**，未开则跳过 |
 | `CutImgDllFileName` | `CTAutoCutImg.dll` | 相对 `Dlls\` |
-| `Vision3dRoiX/Y/Width/Height` | 真机标定 | 第四象限 3D 截图范围 |
-| `VisionTopViewRoiX/Y/Width/Height` | 真机标定 | 第二象限「上」视图截图范围 |
+| `Vision3dRoiX/Y/Width/Height` | 真机标定 | 第四象限 3D；**勿含「上」视图** |
+| `VisionTopViewRoiX/Y/Width/Height` | 真机标定 | 第二象限「上」视图（4b） |
+| `Simple321ToolbarClickX/Y` | 真机标定 | 「简单对齐」下拉 **绝对坐标** |
 | `VisionClickIntervalMs` | `300` | 多点点击间隔 |
-| `VisionCaptureDir` | 与直方图类似按日目录 | 调试图落盘 |
+| `VisionCaptureDir` | `C:\AutoSlice\cutpicture\jietu` | 阶段四调试图；按日分子目录，**保留 7 天** |
 
 ### 16.7 建议实现文件与方法名
 
 | 落点 | 职责 |
 |------|------|
-| `ICutImgAlgorithmService` | `Initialize` / `GetSectionReferencePoints(HObject)` / `GetObjectTopBottomPoints(HObject)` |
-| `CutImgAlgorithmService` | `LoadFrom` + 反射 `CT` |
-| `VGAutomationService.RunVisionAlignmentAsync` | 编排 4a + 4b |
-| `CaptureVisionRoiAsync` | 按 ROI 截图 → 路径 / HObject |
-| `ClickVisionPointsAsync` | 像素数组 → 屏幕点击 |
-| `VM_CTAutoSlicerPage` | 初始化 DLL；「测试阶段四视觉对齐」按钮；开关绑定 |
+| `ICutImgAlgorithmService` / `CutImgAlgorithmService` | ✅ `Initialize` / 两 Halcon 接口 |
+| `VGAutomationService`（4a 单测方法 + 待 `RunVisionAlignmentAsync`） | ✅ 4a 编排；🟡 4b + 主流程 |
+| `CaptureVisionRoiAsync` / 标注图 | ✅ 3D ROI 截图 + overlay |
+| `Simple321` 下拉 / 重置 / Ctrl 四点 / 完成 / 警告 | ✅ 4a 单测路径 |
+| `VM_CTAutoSlicerPage` | ✅ 初始化 CutImg；「测试简单 3-2-1 对齐」；🟡 总开关绑定主流程 |
 
 ### 16.8 联调检查清单
 
-- [ ] 单独测：给定一张 3D 截图，反射调用接口一，日志打印四点坐标
-- [ ] 单独测：给定一张「上」视图截图，调用接口二，打印起终点
-- [ ] 真机：ROI 截图与人手选区一致（对比落盘 PNG）
-- [ ] 真机：三点点击落在上盖目标位置（可先慢速、点间加长延时观察）
-- [ ] 真机：方向两点操作后三视图方向正确，再跑「测试切片导出」
-- [ ] `EnableVisionAlignmentSteps=false` 时全流程仍可导出（人工预对齐工程）
+- [x] 单独测：3D 截图 → 接口一 → 日志/标注四点（4a 单测）
+- [ ] 单独测：「上」视图截图 → 接口二 → 起终点（4b）
+- [x] 真机：ROI 与 3D 区一致（勿框上视图）
+- [x] 真机：绝对下拉 + 重置 + Ctrl 四点 + 完成 + **警告是**
+- [ ] 真机：4b 后三视图方向 + 「测试切片导出」
+- [ ] `EnableVisionAlignmentSteps=true` 时全流程 4a→4b→导出
+- [x] `EnableVisionAlignmentSteps=false` 时全流程仍可导出（当前默认）
 
 ### 16.9 待真机确认的开放项
 
-1. 进入「选三点定平面」前，VG 是否还需快捷键/菜单（如打开简单对齐模式）——若需要，补 UIA/快捷键步骤到 4a 截图之前。  
-2. `points[3]` 原点是否参与任何点击或校验。  
-3. 4b 方向对齐是「点两点」还是「拖拽」或其它手势。  
-4. 失败时是否允许继续导出。  
-5. 切片范围 20～70 mm 是否长期用配置，或后续视觉再给 mm 接口。
+1. ~~进入选点前是否打开「简单对齐」菜单~~ → **已确认**：绝对坐标下拉 + 菜单项（4a 单测）。  
+2. ~~`points[3]` 是否参与点击~~ → **已确认**：**Ctrl+点击第四点（原点）**。  
+3. 4b 方向对齐是「点两点」还是「拖拽」或其它手势 — **仍待真机**。  
+4. 失败时是否允许继续导出 — **仍待产品/配置**。  
+5. 切片范围 20～70 mm 是否长期用配置，或后续视觉再给 mm 接口 — **仍开放**。
+
+---
+
+## 17. 2026-07-22 联调纪要（阶段四 4a）
+
+| 项 | 结论 |
+|----|------|
+| 环境 | `CTAutoCutImg.dll` + Halcon 置于输出 **`Dlls\`**；加载前 **`SetDllDirectory`** |
+| 单测入口 | 页面 **「测试简单 3-2-1 对齐」**（不跑导入；假定 VG 已打开且体积/预设/厚板就绪） |
+| 4a 顺序 | 截 **3D ROI** → DLL **四点** → **标注图** → **`Simple321ToolbarClick*`** 开下拉 → 选菜单 → **重置** → **Ctrl+四点（含原点）** → **完成(F)** → 若弹出 **警告** 则点 **是(Y)** |
+| ROI | 仅 **第四象限 3D**；标定勿框 **第二象限「上」视图** |
+| 落盘 | `VisionCaptureDir` 默认 **`C:\AutoSlice\cutpicture\jietu`**；与直方图类似 **7 天**清理 |
+| 未做 | **4b**（上视图 + `GetObjectTopBottomPoints`）；**`EnableVisionAlignmentSteps`** 写入 `ImportSingleVglAsync` |
+| 下一刀 | 实现 4b 单测 → 主流程开关 → 4a+4b 后跑「测试切片导出」验证方向 |
 
 ---

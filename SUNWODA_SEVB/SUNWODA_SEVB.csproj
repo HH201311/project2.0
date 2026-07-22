@@ -157,6 +157,11 @@
     <None Update="remote_file_monitor_config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- 切图算法：复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\CTAutoCutImg.dll">
+      <Link>Dlls\CTAutoCutImg.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

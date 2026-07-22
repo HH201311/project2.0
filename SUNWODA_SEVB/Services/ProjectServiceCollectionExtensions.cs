@@ -179,6 +179,7 @@ namespace SUNWODA_SEVB.Services
         {
             services.AddSingleton<VGAutomationService>();
             services.AddSingleton<IAngleAlgorithmService, AngleAlgorithmService>();
+            services.AddSingleton<ICutImgAlgorithmService, CutImgAlgorithmService>();
             services.AddSingleton<ICTAutoSlicerService, CTAutoSlicerService>();
             services.AddSingleton<CTFolderMonitorService>();
             services.AddSingleton<CTAutoSlicerInputHookService>();

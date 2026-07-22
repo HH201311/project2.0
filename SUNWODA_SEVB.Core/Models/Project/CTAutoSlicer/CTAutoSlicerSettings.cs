@@ -14,12 +14,27 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const string DefaultDllFileName = "V.NJ.L246.01.01.03.240924.dll";
         public const string DllsFolderName = "Dlls";
         public const string DefaultDllDownloadBaseUrl = "http://10.201.88.151:10100/";
+        /// <summary>截图目录默认保留天数（一周）</summary>
+        public const int DefaultCaptureKeepDays = 7;
+        /// <summary>视觉对齐截图默认目录</summary>
+        public const string DefaultVisionCaptureDir = @"C:\AutoSlice\cutpicture\jietu";
 
         /// <summary>
         /// 角度算法 DLL 本地路径：{程序目录}\Dlls\{DefaultDllFileName}
         /// </summary>
         public static string GetAngleAlgorithmDllPath() =>
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, DefaultDllFileName);
+
+        public const string CutImgDllFileName = "CTAutoCutImg.dll";
+
+        /// <summary>切图算法 DLL：{程序目录}\Dlls\CTAutoCutImg.dll（与 halcon 原生库同目录）</summary>
+        public static string GetCutImgAlgorithmDllPath() =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, CutImgDllFileName);
+
+        /// <summary>原生依赖目录：{程序目录}\Dlls（halcon.dll / libiomp5md.dll 等）</summary>
+        public static string GetNativeDllsDirectory() =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName);
+
         public const string VglFileExtension = ".vgl";
         /// <summary>VG 冷启动就绪检测默认最大等待（毫秒）</summary>
         public const int DefaultVGOpenWaitTime = 180000;
@@ -124,7 +139,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>直方图截图落盘目录（空则使用程序目录 logs/histogram）</summary>
         public string HistogramCaptureDir { get; set; } = string.Empty;
         /// <summary>直方图截图保留天数（按日文件夹，超过则整夹删除）</summary>
-        public int HistogramCaptureKeepDays { get; set; } = 3;
+        public int HistogramCaptureKeepDays { get; set; } = DefaultCaptureKeepDays;
         /// <summary>直方图填充绝对色（#RRGGBB），取色或手填</summary>
         public string HistogramMaskColor { get; set; } = "#6E6E6E";
         /// <summary>掩膜颜色容差（每通道 0～64）</summary>
@@ -157,6 +172,33 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>「上」视图 ROI 是否已标定</summary>
         public bool HasVisionTopViewRoi => VisionTopViewRoiWidth > 0 && VisionTopViewRoiHeight > 0;
 
+        /// <summary>阶段四多点点击间隔（毫秒）</summary>
+        public int VisionClickIntervalMs { get; set; } = 300;
+
+        /// <summary>等待「简单 3-2-1 对齐」菜单/对话框出现的超时（毫秒）</summary>
+        public int VisionAlignmentDialogWaitTime { get; set; } = 8000;
+
+        /// <summary>
+        /// 测量工具栏「简单对齐」下拉的屏幕绝对点击 X（物理像素）。
+        /// Qt 下拉 UIA 常无法识别，须手动标定后用 Win32 点击。
+        /// </summary>
+        public int Simple321ToolbarClickX { get; set; }
+
+        /// <summary>测量工具栏「简单对齐」下拉的屏幕绝对点击 Y（物理像素）</summary>
+        public int Simple321ToolbarClickY { get; set; }
+
+        /// <summary>是否已完成「简单对齐」下拉点击位置标定</summary>
+        public bool Simple321ToolbarClickCalibrated { get; set; }
+
+        /// <summary>「简单对齐」下拉点击位置是否可用</summary>
+        public bool HasSimple321ToolbarClick => Simple321ToolbarClickCalibrated;
+
+        /// <summary>视觉对齐截图落盘目录（空则使用 DefaultVisionCaptureDir）</summary>
+        public string VisionCaptureDir { get; set; } = DefaultVisionCaptureDir;
+
+        /// <summary>视觉对齐截图按日目录保留天数（超过则删除）</summary>
+        public int VisionCaptureKeepDays { get; set; } = DefaultCaptureKeepDays;
+
         /// <summary>
         /// 将算法返回的相对像素坐标换算为屏幕物理像素点击位置。
         /// screen = (roiX + relativeX, roiY + relativeY)
@@ -167,6 +209,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             int relativeX,
             int relativeY) =>
             (roiX + relativeX, roiY + relativeY);
+
+        public string ResolveVisionCaptureDir()
+        {
+            if (!string.IsNullOrWhiteSpace(VisionCaptureDir))
+            {
+                return VisionCaptureDir.Trim();
+            }
+
+            return DefaultVisionCaptureDir;
+        }
 
         public string ResolveHistogramCaptureDir()
         {
@@ -179,11 +231,23 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 确保根目录与当日子目录存在，返回当日保存目录（yyyy-MM-dd）。
+        /// 确保视觉截图根目录与当日子目录存在，返回当日保存目录（yyyy-MM-dd）。
+        /// </summary>
+        public string EnsureVisionCaptureDayDir(DateTime? now = null)
+        {
+            return EnsureCaptureDayDir(ResolveVisionCaptureDir(), now);
+        }
+
+        /// <summary>
+        /// 确保直方图截图根目录与当日子目录存在，返回当日保存目录（yyyy-MM-dd）。
         /// </summary>
         public string EnsureHistogramCaptureDayDir(DateTime? now = null)
         {
-            var root = ResolveHistogramCaptureDir();
+            return EnsureCaptureDayDir(ResolveHistogramCaptureDir(), now);
+        }
+
+        private static string EnsureCaptureDayDir(string root, DateTime? now)
+        {
             Directory.CreateDirectory(root);
             var dayName = (now ?? DateTime.Now).ToString("yyyy-MM-dd");
             var dayDir = Path.Combine(root, dayName);
@@ -191,19 +255,31 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             return dayDir;
         }
 
-        /// <summary>
-        /// 删除超过保留天数的按日文件夹，以及根目录下过期的散落截图文件。
-        /// </summary>
-        /// <returns>删除的目录数 + 散落文件数</returns>
-        public (int DeletedDirs, int DeletedFiles) CleanupExpiredHistogramCaptures(int? keepDays = null)
-        {
-            var days = keepDays ?? HistogramCaptureKeepDays;
-            if (days < 1)
-            {
-                days = 1;
-            }
+        /// <summary>删除超过保留天数的视觉截图按日文件夹。</summary>
+        public (int DeletedDirs, int DeletedFiles) CleanupExpiredVisionCaptures(int? keepDays = null) =>
+            CleanupExpiredCaptureDayFolders(
+                ResolveVisionCaptureDir(),
+                keepDays ?? VisionCaptureKeepDays,
+                rootFilePatterns: ["vision*.png", "*_points.png"]);
 
-            var root = ResolveHistogramCaptureDir();
+        /// <summary>
+        /// 删除超过保留天数的直方图按日文件夹，以及根目录下过期的散落截图文件。
+        /// </summary>
+        public (int DeletedDirs, int DeletedFiles) CleanupExpiredHistogramCaptures(int? keepDays = null) =>
+            CleanupExpiredCaptureDayFolders(
+                ResolveHistogramCaptureDir(),
+                keepDays ?? HistogramCaptureKeepDays,
+                rootFilePatterns: ["histogram*.png"]);
+
+        /// <summary>
+        /// 删除根目录下超过保留天数的 yyyy-MM-dd 子目录，以及匹配模式的散落文件。
+        /// </summary>
+        public static (int DeletedDirs, int DeletedFiles) CleanupExpiredCaptureDayFolders(
+            string root,
+            int keepDays,
+            IEnumerable<string>? rootFilePatterns = null)
+        {
+            var days = keepDays < 1 ? 1 : keepDays;
             if (!Directory.Exists(root))
             {
                 return (0, 0);
@@ -243,23 +319,28 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
                 }
             }
 
-            // 兼容旧版：根目录下直接放的 histogram_*.png
-            foreach (var file in Directory.EnumerateFiles(root, "histogram*.png"))
+            if (rootFilePatterns != null)
             {
-                try
+                foreach (var pattern in rootFilePatterns)
                 {
-                    var ageDays = (today - File.GetLastWriteTime(file).Date).Days;
-                    if (ageDays < days)
+                    foreach (var file in Directory.EnumerateFiles(root, pattern))
                     {
-                        continue;
-                    }
+                        try
+                        {
+                            var ageDays = (today - File.GetLastWriteTime(file).Date).Days;
+                            if (ageDays < days)
+                            {
+                                continue;
+                            }
 
-                    File.Delete(file);
-                    deletedFiles++;
-                }
-                catch
-                {
-                    // ignore
+                            File.Delete(file);
+                            deletedFiles++;
+                        }
+                        catch
+                        {
+                            // ignore
+                        }
+                    }
                 }
             }
 

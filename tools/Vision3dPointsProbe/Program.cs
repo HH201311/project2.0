@@ -10,6 +10,9 @@ var debugDir = args.Length > 1
 
 Directory.CreateDirectory(debugDir);
 var files = Directory.GetFiles(inputDir, "vision_3d_*.png")
+    .Where(f => !Path.GetFileName(f).Contains("_points", StringComparison.OrdinalIgnoreCase)
+                && !Path.GetFileName(f).Contains("_mask", StringComparison.OrdinalIgnoreCase)
+                && !Path.GetFileName(f).Contains("_plate", StringComparison.OrdinalIgnoreCase))
     .OrderBy(f => f)
     .ToArray();
 

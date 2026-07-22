@@ -4344,7 +4344,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 单步测试：3D 截图 → DLL 四点 → 打开「简单 3-2-1 对齐」→ Ctrl+点击四点 → 完成。
+        /// 单步测试：3D 截图 → 本地剪影四角找点 → 打开「简单 3-2-1 对齐」→ Ctrl+点击四点 → 完成。
+        /// 暂不使用 CTAutoCutImg.dll，便于验证 OpenCV 找点。
         /// </summary>
         public async Task TestSimple321AlignmentAsync(
             CTAutoSlicerSettings settings,
@@ -4370,14 +4371,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("请先配置 VG 应用路径");
                 }
 
-                if (!_cutImgAlgorithmService.IsInitialized)
-                {
-                    throw new InvalidOperationException("切图算法 DLL 尚未初始化");
-                }
-
-                progress?.Report("简单 3-2-1 对齐测试：请确保 VG 已导入体积且第四象限 3D 可见");
+                progress?.Report("简单 3-2-1 对齐测试（本地剪影找点，不调用视觉 DLL）：请确保 VG 已导入体积且第四象限 3D 可见");
                 _logger.Info(
-                    $"简单 3-2-1 对齐测试开始，3D ROI=({settings.Vision3dRoiX},{settings.Vision3dRoiY}," +
+                    $"简单 3-2-1 对齐测试开始（本地 Vision3dSectionPointsDetector），3D ROI=({settings.Vision3dRoiX},{settings.Vision3dRoiY}," +
                     $"{settings.Vision3dRoiWidth}x{settings.Vision3dRoiHeight})，" +
                     $"下拉点击=({settings.Simple321ToolbarClickX},{settings.Simple321ToolbarClickY})");
 
@@ -4405,7 +4401,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 阶段四 · 4a：截 3D → GetSectionReferencePoints → 打开对齐 → Ctrl+点四点 → 完成。
+        /// 阶段四 · 4a：截 3D → 本地剪影四角找点 → 打开对齐 → Ctrl+点四点 → 完成。
         /// </summary>
         private async Task RunSimple321AlignmentAsync(
             CTAutoSlicerSettings settings,
@@ -4419,8 +4415,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report($"3D 截图已保存：{capturePath}");
             _logger.Info($"3D ROI 截图：{capturePath}");
 
-            progress?.Report("调用 GetSectionReferencePoints…");
-            var relativePoints = _cutImgAlgorithmService.GetSectionReferencePoints(capturePath);
+            progress?.Report("本地剪影算法找点（Vision3dSectionPointsDetector，不调用 DLL）…");
+            var captureDir = Path.GetDirectoryName(capturePath)!;
+            var detectResult = Vision3dSectionPointsDetector.Detect(capturePath, debugDir: captureDir);
+            var relativePoints = detectResult.Points;
+            if (relativePoints.Length < 4)
+            {
+                throw new InvalidOperationException(
+                    $"本地找点返回点数不足：期望 4，实际 {relativePoints.Length}");
+            }
+
+            progress?.Report($"本地找点：{detectResult.Summary}");
+            _logger.Info($"本地找点：{detectResult.Summary}");
+
             var screenPoints = new (int X, int Y, string Label)[4];
             var annotatePoints = new (int X, int Y, string Label)[4];
             for (var i = 0; i < 4; i++)
@@ -4439,14 +4446,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     $"{label}：相对=({relativePoints[i].X},{relativePoints[i].Y}) → 屏幕=({sx},{sy})");
             }
 
+            // 检测器已写出含四边形的调试图；再补一份与原先一致的四点标注命名，便于对照
             try
             {
                 var annotatedPath = Path.Combine(
-                    Path.GetDirectoryName(capturePath)!,
-                    Path.GetFileNameWithoutExtension(capturePath) + "_points.png");
+                    captureDir,
+                    Path.GetFileNameWithoutExtension(capturePath) + "_click_points.png");
                 ScreenCaptureHelper.SaveAnnotatedPointsImage(capturePath, annotatedPath, annotatePoints);
-                progress?.Report($"四点标注图已保存：{annotatedPath}");
-                _logger.Info($"3D 四点标注图：{annotatedPath}");
+                progress?.Report($"四点点击标注图已保存：{annotatedPath}（另有检测器 _points/_mask）");
+                _logger.Info($"3D 四点点击标注图：{annotatedPath}");
             }
             catch (Exception annotateEx)
             {

@@ -177,7 +177,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 取高度最高的两个尖峰；左线=两峰间波谷，右线=右侧尖峰，中线=(左线+右线)/2。
+        /// 取高度最高的两个尖峰；左线=两峰间波谷，右线=右侧尖峰，目标线=左线到右线的 2/3 处（靠右约三分之一）。
         /// </summary>
         public static HistogramPeakAnalysis FindBimodalHalfSlope(int[] heights)
         {
@@ -262,10 +262,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            // 左线=波谷，右线=右侧尖峰，中线=二者中点
+            // 左线=波谷，右线=右侧尖峰，目标线=靠右约 1/3（左→右 2/3 处），利于压掉左侧噪点灰阶
             var leftLine = valley;
             var rightLine = rightTip;
-            var midLine = (leftLine + rightLine) / 2;
+            var midLine = leftLine + (int)Math.Round((rightLine - leftLine) * (2.0 / 3.0));
 
             return new HistogramPeakAnalysis(
                 true,
@@ -673,7 +673,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             using var smallFont = new Font("Consolas", 9f);
             using var white = new SolidBrush(Color.White);
 
-            g.DrawString("左线=两尖峰间波谷 / 右线=右侧尖峰 / 中线=左右中点", titleFont, white, pad, pad);
+            g.DrawString("左线=两尖峰间波谷 / 右线=右侧尖峰 / 目标线=靠右约1/3(2/3处)", titleFont, white, pad, pad);
             var yImg = pad + labelH;
             g.DrawImage(cleaned, pad, yImg, w, h);
             DrawPeakMarkers(g, pad, yImg, h, peaks);
@@ -681,7 +681,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             var yCurve = yImg + h + gap;
             g.DrawString(
                 peaks.Success
-                    ? $"尖峰P1={peaks.LeftPeakX} P2侧={peaks.RightPeakX} | 左线(谷)={peaks.ValleyX} 右线={peaks.RightPeakX} 中线={peaks.TargetX}"
+                    ? $"尖峰P1={peaks.LeftPeakX} P2侧={peaks.RightPeakX} | 左线(谷)={peaks.ValleyX} 右线={peaks.RightPeakX} 目标={peaks.TargetX}"
                     : $"峰谷失败：{peaks.FailReason}",
                 smallFont,
                 white,
@@ -715,10 +715,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 VLine(peaks.LeftPeakX, Color.FromArgb(160, 0, 200, 0), "P1", 1f);
             }
 
-            // 左线=波谷，右线=右侧尖峰，中线=中点（业务线，粗）
+            // 左线=波谷，右线=右侧尖峰，目标线=靠右约1/3（业务线，粗）
             VLine(peaks.ValleyX, Color.Yellow, "左");
             VLine(peaks.RightPeakX, Color.Cyan, "右");
-            VLine(peaks.TargetX, Color.Magenta, "中");
+            VLine(peaks.TargetX, Color.Magenta, "目标");
         }
 
         private static void DrawHeightCurve(
@@ -864,7 +864,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>右线：两最高尖峰中偏右的尖峰列</summary>
         public int RightPeakX { get; }
         public int RightPeakHeight { get; }
-        /// <summary>中线：(ValleyX + RightPeakX) / 2，红线拖拽目标</summary>
+        /// <summary>中线/目标线：ValleyX→RightPeakX 的 2/3 处（靠右约三分之一），红线拖拽目标</summary>
         public int TargetX { get; }
     }
 }

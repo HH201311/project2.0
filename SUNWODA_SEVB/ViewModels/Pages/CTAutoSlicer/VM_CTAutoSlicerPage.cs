@@ -1636,19 +1636,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (!_cutImgAlgorithmService.IsInitialized)
-            {
-                try
-                {
-                    _cutImgAlgorithmService.Initialize();
-                }
-                catch (Exception initEx)
-                {
-                    MessageShower =
-                        $"切图算法 DLL 初始化失败：{initEx.Message}";
-                    return;
-                }
-            }
+            // 测试阶段使用本地剪影找点，不依赖 CTAutoCutImg.dll
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
@@ -1660,7 +1648,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 简单 3-2-1 对齐测试开始 ———");
+                AppendFlowLog("——— 简单 3-2-1 对齐测试开始（本地找点，不用视觉 DLL） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestSimple321AlignmentAsync(

@@ -5,32 +5,35 @@ using Point = OpenCvSharp.Point;
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 从 VG 第四象限 3D 视口截图中估计上盖平面三点 + 原点（像素坐标）。
-    /// 输入是二维渲染截图（非真点云）；输出约定与 CTAutoCutImg.GetSectionReferencePoints 一致：
-    /// [0..2]=上盖三点，[3]=原点（顶面“左上”角）。
+    /// 从 VG 第四象限 3D 视口截图估计上盖平面三点 + 原点。
+    /// 策略：剪影外轮廓 → 顶面四角(TL/TR/SR/SL) → 四角附近 UV 取三点（避极耳）+ TL 内偏 2px 作原点。
+    /// 输出约定与 CTAutoCutImg.GetSectionReferencePoints 一致：[0..2]=上盖三点，[3]=原点。
     /// </summary>
     public static class Vision3dSectionPointsDetector
     {
+        /// <summary>原点相对 TL 向顶面中心内偏像素数。</summary>
+        public const int OriginInsetPixels = 2;
+
+        /// <summary>角点 UV 内缩（相对四边形），靠近四角而非中心；向内偏约 5%。</summary>
+        public const double CornerUvInset = 0.05;
+
+        /// <summary>极耳避让：候选点相对极耳中心的最小 UV 距离。</summary>
+        public const double TabAvoidUvGap = 0.22;
+
         public sealed class DetectResult
         {
             /// <summary>[0..2] 上盖三点；[3] 原点</summary>
             public (int X, int Y)[] Points { get; init; } = Array.Empty<(int X, int Y)>();
 
+            public Point TopLeft { get; init; }
+            public Point TopRight { get; init; }
+            public Point ShoulderRight { get; init; }
+            public Point ShoulderLeft { get; init; }
+            public Point2f QuadCenter { get; init; }
             public Rect ObjectBounds { get; init; }
-            public Rect PlateBounds { get; init; }
-            public Point2f PlateCenter { get; init; }
             public string Summary { get; init; } = string.Empty;
         }
 
-        private readonly struct HubCircle
-        {
-            public Point2f Center { get; init; }
-            public float Radius { get; init; }
-        }
-
-        /// <summary>
-        /// 检测四点。可选写出调试图（mask / plate / annotated）。
-        /// </summary>
         public static DetectResult Detect(string imagePath, string? debugDir = null)
         {
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
@@ -47,86 +50,80 @@ namespace SUNWODA_SEVB.Tool.Helper
             using var gray = new Mat();
             Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
 
-            using var mask = new Mat();
-            Cv2.Threshold(gray, mask, 12, 255, ThresholdTypes.Binary);
-            using var kernelClose = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(5, 5));
-            using var kernelOpen = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
-            Cv2.MorphologyEx(mask, mask, MorphTypes.Close, kernelClose);
-            Cv2.MorphologyEx(mask, mask, MorphTypes.Open, kernelOpen);
-
+            using var mask = BuildSilhouetteMask(gray);
             Cv2.FindContours(
                 mask,
                 out var contours,
                 out _,
                 RetrievalModes.External,
-                ContourApproximationModes.ApproxSimple);
+                ContourApproximationModes.ApproxNone);
 
             if (contours.Length == 0)
             {
-                throw new InvalidOperationException("未分割到物体前景，请检查截图是否为黑底 3D 视图");
+                throw new InvalidOperationException("未分割到物体剪影");
             }
 
             var objectContour = contours.OrderByDescending(c => Cv2.ContourArea(c)).First();
-            var objectBounds = Cv2.BoundingRect(objectContour);
+            var smoothed = SmoothContour(objectContour, window: 5);
+            var objectBounds = Cv2.BoundingRect(smoothed);
             if (objectBounds.Width < 40 || objectBounds.Height < 40)
             {
                 throw new InvalidOperationException($"物体外接框过小：{objectBounds.Width}x{objectBounds.Height}");
             }
 
-            var widths = BuildRowWidths(mask, objectBounds);
-            var (plateTopY, plateBottomY, maxWidth) = FindPlateBand(widths, objectBounds);
-            if (plateBottomY <= plateTopY || maxWidth < 20)
+            var (tl, tr, sr, sl) = DetectTopFaceCorners(smoothed, objectBounds, mask);
+
+            // 四角轻微内收，抗外缘噪点（直方图压噪后不必过大）
+            const int cornerPullInPx = 4;
+            var roughCenter = new Point2f(
+                (tl.X + tr.X + sr.X + sl.X) / 4f,
+                (tl.Y + tr.Y + sr.Y + sl.Y) / 4f);
+            tl = InsetToward(tl, roughCenter, cornerPullInPx);
+            tr = InsetToward(tr, roughCenter, cornerPullInPx);
+            sr = InsetToward(sr, roughCenter, cornerPullInPx);
+            sl = InsetToward(sl, roughCenter, cornerPullInPx);
+
+            var center = new Point2f(
+                (tl.X + tr.X + sr.X + sl.X) / 4f,
+                (tl.Y + tr.Y + sr.Y + sl.Y) / 4f);
+
+            // 三点落在 TL/TR/SR 角附近（四边形 UV），避开中部极耳
+            var tabU = EstimateTabUvU(mask, tl, tr, sr, sl);
+            var (u0, v0) = (CornerUvInset, CornerUvInset);                 // 近 TL
+            var (u1, v1) = (1.0 - CornerUvInset, CornerUvInset);           // 近 TR
+            var (u2, v2) = (1.0 - CornerUvInset, 1.0 - CornerUvInset);     // 近 SR
+
+            if (!double.IsNaN(tabU))
             {
-                throw new InvalidOperationException("未能从行宽轮廓定位顶板带");
-            }
-
-            var plateBounds = new Rect(
-                objectBounds.X,
-                plateTopY,
-                objectBounds.Width,
-                Math.Max(8, plateBottomY - plateTopY + 1));
-
-            using var plateMask = ExtractPlateMask(mask, objectContour, plateBounds);
-            TightenPlateMaskHorizontally(plateMask, plateBounds);
-
-            var platePts = CollectMaskPoints(plateMask);
-            if (platePts.Count < 50)
-            {
-                throw new InvalidOperationException("顶板区域前景像素过少");
-            }
-
-            var plateCenter = ComputeCentroid(platePts);
-            var hub = TryDetectHubCircle(gray, plateBounds, plateCenter);
-            // 仅当圆靠近质心时才采纳，避免把侧壁弧误当成圆台
-            if (hub.HasValue)
-            {
-                var dx = hub.Value.Center.X - plateCenter.X;
-                var dy = hub.Value.Center.Y - plateCenter.Y;
-                var maxAllow = Math.Max(20, plateBounds.Width * 0.18);
-                if (dx * dx + dy * dy <= maxAllow * maxAllow)
+                // 极耳明显偏右：近 TR 的点再往左、往下，避免落在极耳立面
+                if (tabU > 0.68)
                 {
-                    plateCenter = new Point2f(hub.Value.Center.X, hub.Value.Center.Y);
+                    u1 = Math.Min(u1, Math.Max(0.55, tabU - TabAvoidUvGap));
+                    v1 = Math.Max(v1, CornerUvInset + 0.14);
+                }
+                else if (tabU < 0.30)
+                {
+                    u0 = Math.Max(u0, Math.Min(0.45, tabU + TabAvoidUvGap));
+                    v0 = Math.Max(v0, CornerUvInset + 0.14);
                 }
                 else
                 {
-                    hub = null;
+                    v0 = Math.Max(v0, CornerUvInset + 0.10);
+                    v1 = Math.Max(v1, CornerUvInset + 0.10);
                 }
             }
 
-            var cornerOrigin = FindTopLeftCorner(platePts, plateCenter);
-            var planePoints = SampleMaxAreaTriangle(
-                plateMask,
-                plateCenter,
-                plateBounds,
-                cornerOrigin,
-                hubRadius: hub?.Radius ?? 0);
+            var p0 = PointOnQuad(tl, tr, sr, sl, u0, v0);
+            var p1 = PointOnQuad(tl, tr, sr, sl, u1, v1);
+            var p2 = PointOnQuad(tl, tr, sr, sl, u2, v2);
+            var origin = InsetToward(tl, center, OriginInsetPixels);
 
             var points = new (int X, int Y)[]
             {
-                (planePoints[0].X, planePoints[0].Y),
-                (planePoints[1].X, planePoints[1].Y),
-                (planePoints[2].X, planePoints[2].Y),
-                (cornerOrigin.X, cornerOrigin.Y),
+                (p0.X, p0.Y),
+                (p1.X, p1.Y),
+                (p2.X, p2.Y),
+                (origin.X, origin.Y),
             };
 
             ValidateNonCollinear(points[0], points[1], points[2]);
@@ -135,298 +132,326 @@ namespace SUNWODA_SEVB.Tool.Helper
             {
                 Directory.CreateDirectory(debugDir);
                 var stem = Path.GetFileNameWithoutExtension(imagePath);
-                SaveDebugOverlay(src, plateMask, plateBounds, objectBounds, points, plateCenter, hub,
+                SaveDebugOverlay(
+                    src,
+                    mask,
+                    objectBounds,
+                    tl, tr, sr, sl,
+                    center,
+                    points,
                     Path.Combine(debugDir, $"{stem}_points.png"));
                 Cv2.ImWrite(Path.Combine(debugDir, $"{stem}_mask.png"), mask);
-                Cv2.ImWrite(Path.Combine(debugDir, $"{stem}_plate.png"), plateMask);
             }
 
             return new DetectResult
             {
                 Points = points,
+                TopLeft = tl,
+                TopRight = tr,
+                ShoulderRight = sr,
+                ShoulderLeft = sl,
+                QuadCenter = center,
                 ObjectBounds = objectBounds,
-                PlateBounds = plateBounds,
-                PlateCenter = plateCenter,
                 Summary =
-                    $"object={objectBounds.Width}x{objectBounds.Height}, " +
-                    $"plateY=[{plateTopY},{plateBottomY}], maxW={maxWidth}, hubR={(hub?.Radius ?? 0):F1}, " +
+                    $"TL={Fmt(tl)}, TR={Fmt(tr)}, SR={Fmt(sr)}, SL={Fmt(sl)}, " +
+                    $"tabU={(double.IsNaN(tabU) ? "n/a" : tabU.ToString("F2"))}, " +
+                    $"UV=({u0:F2},{v0:F2})/({u1:F2},{v1:F2})/({u2:F2},{v2:F2}), " +
                     $"P0={Fmt(points[0])}, P1={Fmt(points[1])}, P2={Fmt(points[2])}, O={Fmt(points[3])}"
             };
         }
 
+        private static string Fmt(Point p) => $"({p.X},{p.Y})";
         private static string Fmt((int X, int Y) p) => $"({p.X},{p.Y})";
 
-        private static int[] BuildRowWidths(Mat mask, Rect bounds)
+        private static Mat BuildSilhouetteMask(Mat gray)
         {
-            var widths = new int[bounds.Height];
-            for (var y = 0; y < bounds.Height; y++)
-            {
-                var row = y + bounds.Y;
-                var count = 0;
-                for (var x = bounds.X; x < bounds.X + bounds.Width; x++)
-                {
-                    if (mask.At<byte>(row, x) > 0)
-                    {
-                        count++;
-                    }
-                }
+            var mask = new Mat();
+            Cv2.Threshold(gray, mask, 12, 255, ThresholdTypes.Binary);
+            using var kClose = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(5, 5));
+            using var kOpen = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
+            Cv2.MorphologyEx(mask, mask, MorphTypes.Close, kClose);
+            Cv2.MorphologyEx(mask, mask, MorphTypes.Open, kOpen);
+            return mask;
+        }
 
-                widths[y] = count;
+        private static Point[] SmoothContour(Point[] contour, int window)
+        {
+            if (contour.Length < window * 2)
+            {
+                return contour;
             }
 
-            return widths;
+            var n = contour.Length;
+            var result = new Point[n];
+            var half = window / 2;
+            for (var i = 0; i < n; i++)
+            {
+                double sx = 0, sy = 0;
+                for (var k = -half; k <= half; k++)
+                {
+                    var p = contour[(i + k + n) % n];
+                    sx += p.X;
+                    sy += p.Y;
+                }
+
+                var count = half * 2 + 1;
+                result[i] = new Point((int)Math.Round(sx / count), (int)Math.Round(sy / count));
+            }
+
+            return result;
         }
 
         /// <summary>
-        /// 定位顶板薄带：上半部首次接近最大宽度处，再向下只扩展有限高度，避免吃进筒身侧壁。
+        /// 剪影顶面四角：
+        /// 1) 上半部行宽最大处 ≈ 肩线 → SL/SR（左右内收抗噪）；
+        /// 2) 自肩线向上：宽度不足 / 填充率低 / 左右同时大幅内收（进入中部焊件）则截断 → TL/TR。
         /// </summary>
-        private static (int TopY, int BottomY, int MaxWidth) FindPlateBand(int[] widths, Rect objectBounds)
+        private static (Point Tl, Point Tr, Point Sr, Point Sl) DetectTopFaceCorners(
+            Point[] contour,
+            Rect objectBounds,
+            Mat mask)
         {
-            var maxWidth = widths.Max();
-            if (maxWidth <= 0)
+            var heights = objectBounds.Height;
+            var widths = new int[heights];
+            var leftXs = new int[heights];
+            var rightXs = new int[heights];
+            var whiteCounts = new int[heights];
+            var spanWidths = new int[heights]; // trim 前外跨度，用于填充率
+
+            for (var i = 0; i < heights; i++)
             {
-                return (objectBounds.Y, objectBounds.Y, 0);
+                var y = objectBounds.Y + i;
+                var left = -1;
+                var right = -1;
+                var white = 0;
+                for (var x = objectBounds.X; x < objectBounds.X + objectBounds.Width; x++)
+                {
+                    if (mask.At<byte>(y, x) == 0)
+                    {
+                        continue;
+                    }
+
+                    white++;
+                    if (left < 0)
+                    {
+                        left = x;
+                    }
+
+                    right = x;
+                }
+
+                if (left < 0)
+                {
+                    widths[i] = 0;
+                    spanWidths[i] = 0;
+                    whiteCounts[i] = 0;
+                    leftXs[i] = objectBounds.X;
+                    rightXs[i] = objectBounds.X;
+                }
+                else
+                {
+                    var span = right - left + 1;
+                    spanWidths[i] = span;
+                    whiteCounts[i] = white;
+                    // 左右各内收，削弱外轮廓毛刺对肩角/顶角的拉动
+                    var trim = Math.Clamp(span / 70, 2, 8);
+                    var l2 = Math.Min(right, left + trim);
+                    var r2 = Math.Max(l2, right - trim);
+                    leftXs[i] = l2;
+                    rightXs[i] = r2;
+                    widths[i] = r2 - l2 + 1;
+                }
             }
 
-            var searchEnd = Math.Max(1, (int)(widths.Length * 0.45));
-            var threshold = (int)(maxWidth * 0.88);
-
-            var firstWide = -1;
-            for (var y = 0; y < searchEnd; y++)
+            var searchEnd = Math.Max(1, (int)(heights * 0.42));
+            var maxW = 0;
+            var shoulderIdx = 0;
+            for (var i = 0; i < searchEnd; i++)
             {
-                if (widths[y] >= threshold)
+                if (widths[i] > maxW)
                 {
-                    firstWide = y;
+                    maxW = widths[i];
+                    shoulderIdx = i;
+                }
+            }
+
+            if (maxW < 20)
+            {
+                throw new InvalidOperationException("上半部行宽过小，无法定位肩线");
+            }
+
+            var shoulderTop = shoulderIdx;
+            for (var i = shoulderIdx; i >= 0; i--)
+            {
+                if (widths[i] >= maxW * 0.96)
+                {
+                    shoulderTop = i;
+                }
+                else
+                {
                     break;
                 }
             }
 
-            if (firstWide < 0)
-            {
-                var localMax = 0;
-                firstWide = 0;
-                for (var y = 0; y < searchEnd; y++)
-                {
-                    if (widths[y] > localMax)
-                    {
-                        localMax = widths[y];
-                        firstWide = y;
-                    }
-                }
-            }
+            var sl = new Point(leftXs[shoulderTop], objectBounds.Y + shoulderTop);
+            var sr = new Point(rightXs[shoulderTop], objectBounds.Y + shoulderTop);
 
-            var plateThickness = Math.Clamp((int)(widths.Length * 0.14), 28, 72);
-            var upPad = Math.Max(4, plateThickness / 5);
-            var bestStart = Math.Max(0, firstWide - upPad);
-            var bestEnd = Math.Min(widths.Length - 1, firstWide + plateThickness);
+            // 顶边宽度下限提高，避免爬进明显更窄的中部焊件顶
+            var minTopWidth = (int)(maxW * 0.58);
+            const double minFillRatio = 0.72;
+            var inwardJumpPx = Math.Max(10, maxW / 22);
+            var topIdx = -1;
 
-            var narrowLimit = (int)(maxWidth * 0.72);
-            for (var y = firstWide + 8; y <= bestEnd; y++)
+            for (var i = shoulderTop; i >= 0; i--)
             {
-                if (widths[y] < narrowLimit)
+                if (widths[i] < minTopWidth)
                 {
-                    bestEnd = Math.Max(firstWide + 8, y - 1);
                     break;
                 }
-            }
 
-            return (objectBounds.Y + bestStart, objectBounds.Y + bestEnd, maxWidth);
-        }
-
-        private static Mat ExtractPlateMask(Mat fullMask, Point[] objectContour, Rect plateBounds)
-        {
-            var plateMask = new Mat(fullMask.Size(), MatType.CV_8UC1, Scalar.All(0));
-            using var roiFull = new Mat(fullMask, plateBounds);
-            using var roiPlate = new Mat(plateMask, plateBounds);
-            roiFull.CopyTo(roiPlate);
-
-            using var objMask = new Mat(fullMask.Size(), MatType.CV_8UC1, Scalar.All(0));
-            Cv2.DrawContours(objMask, new[] { objectContour }, 0, Scalar.All(255), -1);
-            Cv2.BitwiseAnd(plateMask, objMask, plateMask);
-
-            using var k = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
-            Cv2.MorphologyEx(plateMask, plateMask, MorphTypes.Open, k);
-            return plateMask;
-        }
-
-        /// <summary>按行去掉左右最外缘，削弱侧壁对顶面采样的污染。</summary>
-        private static void TightenPlateMaskHorizontally(Mat plateMask, Rect plateBounds)
-        {
-            for (var y = plateBounds.Y; y < plateBounds.Y + plateBounds.Height; y++)
-            {
-                var xs = new List<int>();
-                for (var x = plateBounds.X; x < plateBounds.X + plateBounds.Width; x++)
+                var fill = spanWidths[i] <= 0 ? 0.0 : whiteCounts[i] / (double)spanWidths[i];
+                if (fill < minFillRatio)
                 {
-                    if (plateMask.At<byte>(y, x) > 0)
+                    break;
+                }
+
+                if (i < shoulderTop)
+                {
+                    var leftInward = leftXs[i] - leftXs[i + 1];
+                    var rightInward = rightXs[i + 1] - rightXs[i];
+                    var widthDrop = widths[i + 1] - widths[i];
+                    // 两侧同时内收，或宽度突然掉一截 → 进入中部凸起/焊件
+                    if ((leftInward > inwardJumpPx && rightInward > inwardJumpPx)
+                        || widthDrop > inwardJumpPx * 2)
                     {
-                        xs.Add(x);
+                        break;
                     }
                 }
 
-                if (xs.Count < 10)
+                topIdx = i;
+            }
+
+            if (topIdx < 0)
+            {
+                for (var i = shoulderTop; i >= 0; i--)
+                {
+                    if (widths[i] >= minTopWidth)
+                    {
+                        topIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            if (topIdx < 0)
+            {
+                topIdx = Math.Max(0, shoulderTop - Math.Max(8, heights / 20));
+            }
+
+            var band = Math.Max(1, heights / 90);
+            var band1 = Math.Min(shoulderTop, topIdx + band);
+            var tlX = leftXs[topIdx];
+            var trX = rightXs[topIdx];
+            var topY = objectBounds.Y + topIdx;
+            for (var i = topIdx; i <= band1; i++)
+            {
+                if (widths[i] < minTopWidth)
+                {
+                    break;
+                }
+
+                if (leftXs[i] < tlX)
+                {
+                    tlX = leftXs[i];
+                }
+
+                if (rightXs[i] > trX)
+                {
+                    trX = rightXs[i];
+                }
+            }
+
+            var yTol = Math.Max(4, heights / 50);
+            var tl = SnapCornerOnBand(contour, topY, yTol, preferLeft: true, approxX: tlX);
+            var tr = SnapCornerOnBand(contour, topY, yTol, preferLeft: false, approxX: trX);
+            sl = SnapCornerOnBand(contour, sl.Y, yTol, preferLeft: true, approxX: sl.X);
+            sr = SnapCornerOnBand(contour, sr.Y, yTol, preferLeft: false, approxX: sr.X);
+
+            if (tl.X > tr.X)
+            {
+                (tl, tr) = (tr, tl);
+            }
+
+            if (sl.X > sr.X)
+            {
+                (sl, sr) = (sr, sl);
+            }
+
+            var minShoulderDrop = Math.Max(10, heights / 30);
+            if (sl.Y < tl.Y + minShoulderDrop || sr.Y < tr.Y + minShoulderDrop)
+            {
+                sl = SnapCornerOnBand(
+                    contour,
+                    objectBounds.Y + shoulderTop,
+                    yTol,
+                    preferLeft: true,
+                    approxX: leftXs[shoulderTop]);
+                sr = SnapCornerOnBand(
+                    contour,
+                    objectBounds.Y + shoulderTop,
+                    yTol,
+                    preferLeft: false,
+                    approxX: rightXs[shoulderTop]);
+            }
+
+            // TL/TR 若相对肩线过度内收，说明仍贴在中部结构上，沿侧边回退纠正
+            var plateHalf = Math.Max(20, (sr.X - sl.X) / 2.0);
+            if (tl.X > sl.X + plateHalf * 0.55)
+            {
+                var correctedTopY = (tl.Y + sl.Y) / 2;
+                tl = SnapCornerOnBand(
+                    contour,
+                    correctedTopY,
+                    yTol * 2,
+                    preferLeft: true,
+                    approxX: (sl.X * 2 + tl.X) / 3);
+            }
+
+            if (tr.X < sr.X - plateHalf * 0.55)
+            {
+                var correctedTopY = (tr.Y + sr.Y) / 2;
+                tr = SnapCornerOnBand(
+                    contour,
+                    correctedTopY,
+                    yTol * 2,
+                    preferLeft: false,
+                    approxX: (sr.X * 2 + tr.X) / 3);
+            }
+
+            return (tl, tr, sr, sl);
+        }
+
+        /// <summary>
+        /// 在指定 Y 带内吸附角点：左侧偏最小 X，右侧偏最大 X。
+        /// </summary>
+        private static Point SnapCornerOnBand(
+            Point[] contour,
+            int centerY,
+            int yTol,
+            bool preferLeft,
+            int approxX)
+        {
+            Point? best = null;
+            var bestScore = double.MaxValue;
+            foreach (var p in contour)
+            {
+                if (Math.Abs(p.Y - centerY) > yTol)
                 {
                     continue;
                 }
 
-                var trim = Math.Max(2, xs.Count / 12);
-                var keepL = xs[trim];
-                var keepR = xs[xs.Count - 1 - trim];
-                for (var x = plateBounds.X; x < plateBounds.X + plateBounds.Width; x++)
-                {
-                    if (x < keepL || x > keepR)
-                    {
-                        plateMask.Set(y, x, (byte)0);
-                    }
-                }
-            }
-        }
-
-        private static HubCircle? TryDetectHubCircle(Mat gray, Rect plateBounds, Point2f fallbackCenter)
-        {
-            using var roi = new Mat(gray, plateBounds);
-            using var blur = new Mat();
-            Cv2.GaussianBlur(roi, blur, new OpenCvSharp.Size(5, 5), 1.2);
-            var minR = Math.Max(8, plateBounds.Width / 18);
-            var maxR = Math.Max(minR + 4, plateBounds.Width / 5);
-            var circles = Cv2.HoughCircles(
-                blur,
-                HoughModes.Gradient,
-                dp: 1.2,
-                minDist: plateBounds.Width / 3.0,
-                param1: 120,
-                param2: 28,
-                minRadius: minR,
-                maxRadius: maxR);
-
-            if (circles == null || circles.Length == 0)
-            {
-                return null;
-            }
-
-            CircleSegment best = circles[0];
-            var bestDist = double.MaxValue;
-            foreach (var c in circles)
-            {
-                var cx = c.Center.X + plateBounds.X;
-                var cy = c.Center.Y + plateBounds.Y;
-                var dx = cx - fallbackCenter.X;
-                var dy = cy - fallbackCenter.Y;
-                var d = dx * dx + dy * dy;
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    best = c;
-                }
-            }
-
-            return new HubCircle
-            {
-                Center = new Point2f(best.Center.X + plateBounds.X, best.Center.Y + plateBounds.Y),
-                Radius = best.Radius
-            };
-        }
-
-        private static List<Point> CollectMaskPoints(Mat mask)
-        {
-            var pts = new List<Point>(4096);
-            for (var y = 0; y < mask.Rows; y++)
-            {
-                for (var x = 0; x < mask.Cols; x++)
-                {
-                    if (mask.At<byte>(y, x) > 0)
-                    {
-                        pts.Add(new Point(x, y));
-                    }
-                }
-            }
-
-            return pts;
-        }
-
-        private static Point2f ComputeCentroid(List<Point> pts)
-        {
-            double sx = 0, sy = 0;
-            foreach (var p in pts)
-            {
-                sx += p.X;
-                sy += p.Y;
-            }
-
-            return new Point2f((float)(sx / pts.Count), (float)(sy / pts.Count));
-        }
-
-        /// <summary>
-        /// 顶面“左上”角：PCA 局部坐标中取 u+v 最小点，再向中心内缩。
-        /// </summary>
-        private static Point FindTopLeftCorner(List<Point> platePts, Point2f center)
-        {
-            double cxx = 0, cxy = 0, cyy = 0;
-            foreach (var p in platePts)
-            {
-                var dx = p.X - center.X;
-                var dy = p.Y - center.Y;
-                cxx += dx * dx;
-                cxy += dx * dy;
-                cyy += dy * dy;
-            }
-
-            var n = (double)platePts.Count;
-            cxx /= n;
-            cxy /= n;
-            cyy /= n;
-
-            var trace = cxx + cyy;
-            var det = cxx * cyy - cxy * cxy;
-            var tmp = Math.Sqrt(Math.Max(0, trace * trace / 4 - det));
-            var l1 = trace / 2 + tmp;
-            double ux, uy;
-            if (Math.Abs(cxy) > 1e-6)
-            {
-                ux = l1 - cyy;
-                uy = cxy;
-            }
-            else if (cxx >= cyy)
-            {
-                ux = 1;
-                uy = 0;
-            }
-            else
-            {
-                ux = 0;
-                uy = 1;
-            }
-
-            var norm = Math.Sqrt(ux * ux + uy * uy);
-            ux /= norm;
-            uy /= norm;
-            var vx = -uy;
-            var vy = ux;
-
-            // 保证 u 大致指向图像右侧，使 -u 为“左”
-            if (ux < 0)
-            {
-                ux = -ux;
-                uy = -uy;
-                vx = -vx;
-                vy = -vy;
-            }
-
-            // 保证 v 大致指向图像下方，使 -v 为“上”
-            if (vy < 0)
-            {
-                vx = -vx;
-                vy = -vy;
-            }
-
-            Point best = platePts[0];
-            var bestScore = double.MaxValue;
-            foreach (var p in platePts)
-            {
-                var dx = p.X - center.X;
-                var dy = p.Y - center.Y;
-                var u = dx * ux + dy * uy;
-                var v = dx * vx + dy * vy;
-                var score = u + v;
+                var sideTerm = preferLeft ? p.X : -p.X;
+                var score = sideTerm + Math.Abs(p.X - approxX) * 0.15 + Math.Abs(p.Y - centerY) * 0.5;
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -434,203 +459,114 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            var ox = (int)Math.Round(best.X * 0.86 + center.X * 0.14);
-            var oy = (int)Math.Round(best.Y * 0.86 + center.Y * 0.14);
-            return new Point(ox, oy);
+            if (best != null)
+            {
+                return best.Value;
+            }
+
+            return SnapToContour(contour, new Point(approxX, centerY));
+        }
+
+        private static Point SnapToContour(Point[] contour, Point approx)
+        {
+            var best = contour[0];
+            var bestD = long.MaxValue;
+            foreach (var p in contour)
+            {
+                long dx = p.X - approx.X;
+                long dy = p.Y - approx.Y;
+                var d = dx * dx + dy * dy;
+                if (d < bestD)
+                {
+                    bestD = d;
+                    best = p;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>
-        /// 在顶板“内缩”区域中选面积最大的三角形三点，保证分散且互异。
+        /// 四边形双线性插值：u=0 左 / 1 右，v=0 上(TL-TR) / 1 下(SL-SR)。
         /// </summary>
-        private static Point[] SampleMaxAreaTriangle(
-            Mat plateMask,
-            Point2f center,
-            Rect plateBounds,
-            Point origin,
-            float hubRadius)
+        private static Point PointOnQuad(Point tl, Point tr, Point sr, Point sl, double u, double v)
         {
-            var halfW = plateBounds.Width / 2.0;
-            var excludeR = hubRadius > 0
-                ? Math.Max(hubRadius * 1.08, 10)
-                : Math.Max(10, halfW * 0.16);
-
-            // 距离变换：只保留离边缘足够远的内点，避免贴前缘/侧壁
-            using var dist = new Mat();
-            Cv2.DistanceTransform(plateMask, dist, DistanceTypes.L2, DistanceTransformMasks.Mask3);
-            var minDist = Math.Max(3.0, Math.Min(plateBounds.Height, plateBounds.Width) * 0.04);
-
-            var candidates = new List<Point>(512);
-            for (var y = plateBounds.Y; y < plateBounds.Y + plateBounds.Height; y += 2)
-            {
-                for (var x = plateBounds.X; x < plateBounds.X + plateBounds.Width; x += 2)
-                {
-                    if (!IsValidPlanePoint(plateMask, x, y, center, excludeR, origin))
-                    {
-                        continue;
-                    }
-
-                    if (dist.At<float>(y, x) < minDist)
-                    {
-                        continue;
-                    }
-
-                    candidates.Add(new Point(x, y));
-                }
-            }
-
-            if (candidates.Count < 3)
-            {
-                // 放宽距离阈值再采一次
-                candidates.Clear();
-                for (var y = plateBounds.Y; y < plateBounds.Y + plateBounds.Height; y += 2)
-                {
-                    for (var x = plateBounds.X; x < plateBounds.X + plateBounds.Width; x += 2)
-                    {
-                        if (IsValidPlanePoint(plateMask, x, y, center, excludeR * 0.7, origin))
-                        {
-                            candidates.Add(new Point(x, y));
-                        }
-                    }
-                }
-            }
-
-            if (candidates.Count < 3)
-            {
-                throw new InvalidOperationException("顶板内有效候选点不足 3 个");
-            }
-
-            // 先做均匀抽稀，再暴力/贪心找大三角形
-            var sampled = Decimate(candidates, 120);
-            return FindLargestTriangle(sampled);
+            u = Math.Clamp(u, 0, 1);
+            v = Math.Clamp(v, 0, 1);
+            var top = Lerp(tl, tr, u);
+            var bot = Lerp(sl, sr, u);
+            return Lerp(top, bot, v);
         }
 
-        private static List<Point> Decimate(List<Point> pts, int maxKeep)
+        private static Point Lerp(Point a, Point b, double t)
         {
-            if (pts.Count <= maxKeep)
-            {
-                return pts;
-            }
-
-            var step = Math.Max(1, pts.Count / maxKeep);
-            var list = new List<Point>(maxKeep);
-            for (var i = 0; i < pts.Count && list.Count < maxKeep; i += step)
-            {
-                list.Add(pts[i]);
-            }
-
-            return list;
+            return new Point(
+                (int)Math.Round(a.X + (b.X - a.X) * t),
+                (int)Math.Round(a.Y + (b.Y - a.Y) * t));
         }
 
-        private static Point[] FindLargestTriangle(List<Point> pts)
+        /// <summary>
+        /// 估计极耳在顶板水平方向的 UV-u（0~1）。无显著凸起时返回 NaN。
+        /// 依据：顶边 TL-TR 上方（图像更小 Y）剪影仍存在的列，取凸起最高处的 X。
+        /// </summary>
+        private static double EstimateTabUvU(Mat mask, Point tl, Point tr, Point sr, Point sl)
         {
-            // 1) 取距质心最远点 A
-            double cx = 0, cy = 0;
-            foreach (var p in pts)
+            var plateLeft = Math.Min(tl.X, sl.X);
+            var plateRight = Math.Max(tr.X, sr.X);
+            var plateW = plateRight - plateLeft;
+            if (plateW < 20)
             {
-                cx += p.X;
-                cy += p.Y;
+                return double.NaN;
             }
 
-            cx /= pts.Count;
-            cy /= pts.Count;
+            var topY = Math.Min(tl.Y, tr.Y);
+            var searchTop = Math.Max(0, topY - Math.Max(40, plateW / 3));
+            var bestX = -1;
+            var bestRise = 0;
 
-            Point a = pts[0];
-            var bestD = -1.0;
-            foreach (var p in pts)
+            for (var x = plateLeft; x <= plateRight; x++)
             {
-                var d = (p.X - cx) * (p.X - cx) + (p.Y - cy) * (p.Y - cy);
-                if (d > bestD)
+                var rise = 0;
+                for (var y = topY - 1; y >= searchTop; y--)
                 {
-                    bestD = d;
-                    a = p;
-                }
-            }
-
-            // 2) 距 A 最远点 B
-            Point b = pts[0];
-            bestD = -1.0;
-            foreach (var p in pts)
-            {
-                var d = (p.X - a.X) * (p.X - a.X) + (p.Y - a.Y) * (p.Y - a.Y);
-                if (d > bestD)
-                {
-                    bestD = d;
-                    b = p;
-                }
-            }
-
-            // 3) 使面积最大的 C
-            Point c = pts[0];
-            var bestArea = -1;
-            foreach (var p in pts)
-            {
-                var area = Math.Abs((b.X - a.X) * (p.Y - a.Y) - (b.Y - a.Y) * (p.X - a.X));
-                if (area > bestArea)
-                {
-                    bestArea = area;
-                    c = p;
-                }
-            }
-
-            if (bestArea < 80)
-            {
-                throw new InvalidOperationException($"上盖三点近似共线（area2={bestArea}），无法定平面");
-            }
-
-            // 去重保护
-            if ((a.X == b.X && a.Y == b.Y) || (a.X == c.X && a.Y == c.Y) || (b.X == c.X && b.Y == c.Y))
-            {
-                throw new InvalidOperationException("上盖三点存在重复像素");
-            }
-
-            return new[] { a, b, c };
-        }
-
-        private static bool IsValidPlanePoint(
-            Mat mask,
-            int x,
-            int y,
-            Point2f center,
-            double excludeR,
-            Point origin)
-        {
-            if (x < 1 || y < 1 || x >= mask.Cols - 1 || y >= mask.Rows - 1)
-            {
-                return false;
-            }
-
-            if (mask.At<byte>(y, x) == 0)
-            {
-                return false;
-            }
-
-            var dx = x - center.X;
-            var dy = y - center.Y;
-            if (dx * dx + dy * dy < excludeR * excludeR)
-            {
-                return false;
-            }
-
-            var ox = x - origin.X;
-            var oy = y - origin.Y;
-            if (ox * ox + oy * oy < 20 * 20)
-            {
-                return false;
-            }
-
-            var fg = 0;
-            for (var yy = y - 1; yy <= y + 1; yy++)
-            {
-                for (var xx = x - 1; xx <= x + 1; xx++)
-                {
-                    if (mask.At<byte>(yy, xx) > 0)
+                    if (mask.At<byte>(y, x) == 0)
                     {
-                        fg++;
+                        break;
                     }
+
+                    rise = topY - y;
+                }
+
+                if (rise > bestRise)
+                {
+                    bestRise = rise;
+                    bestX = x;
                 }
             }
 
-            return fg >= 7;
+            // 凸起太矮则认为无极耳干扰
+            if (bestX < 0 || bestRise < Math.Max(12, plateW / 25))
+            {
+                return double.NaN;
+            }
+
+            return (bestX - plateLeft) / (double)plateW;
+        }
+
+        private static Point InsetToward(Point corner, Point2f center, int insetPx)
+        {
+            var dx = center.X - corner.X;
+            var dy = center.Y - corner.Y;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-3 || insetPx <= 0)
+            {
+                return corner;
+            }
+
+            var t = insetPx / len;
+            return new Point(
+                (int)Math.Round(corner.X + dx * t),
+                (int)Math.Round(corner.Y + dy * t));
         }
 
         private static void ValidateNonCollinear((int X, int Y) a, (int X, int Y) b, (int X, int Y) c)
@@ -645,32 +581,38 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         private static void SaveDebugOverlay(
             Mat src,
-            Mat plateMask,
-            Rect plateBounds,
+            Mat mask,
             Rect objectBounds,
-            (int X, int Y)[] points,
+            Point tl,
+            Point tr,
+            Point sr,
+            Point sl,
             Point2f center,
-            HubCircle? hub,
+            (int X, int Y)[] points,
             string path)
         {
             using var canvas = src.Clone();
-            Cv2.Rectangle(canvas, objectBounds, new Scalar(80, 80, 80), 1);
-            Cv2.Rectangle(canvas, plateBounds, new Scalar(0, 255, 255), 1);
+            Cv2.Rectangle(canvas, objectBounds, new Scalar(60, 60, 60), 1);
 
-            using var plateColor = new Mat();
-            Cv2.CvtColor(plateMask, plateColor, ColorConversionCodes.GRAY2BGR);
-            Cv2.AddWeighted(canvas, 0.75, plateColor, 0.25, 0, canvas);
+            using var maskColor = new Mat();
+            Cv2.CvtColor(mask, maskColor, ColorConversionCodes.GRAY2BGR);
+            Cv2.AddWeighted(canvas, 0.82, maskColor, 0.18, 0, canvas);
 
-            Cv2.Circle(canvas, new Point((int)center.X, (int)center.Y), 3, new Scalar(255, 255, 0), -1);
-            if (hub.HasValue)
+            var quad = new[] { tl, tr, sr, sl };
+            Cv2.Polylines(canvas, new[] { quad }, isClosed: true, color: new Scalar(0, 255, 255), thickness: 2);
+
+            void MarkCorner(Point p, string label, Scalar color)
             {
-                Cv2.Circle(
-                    canvas,
-                    new Point((int)hub.Value.Center.X, (int)hub.Value.Center.Y),
-                    (int)hub.Value.Radius,
-                    new Scalar(255, 0, 255),
-                    1);
+                Cv2.Circle(canvas, p, 6, color, 2);
+                Cv2.PutText(canvas, label, new Point(p.X + 8, p.Y - 6),
+                    HersheyFonts.HersheySimplex, 0.5, color, 1);
             }
+
+            MarkCorner(tl, "TL", new Scalar(0, 255, 255));
+            MarkCorner(tr, "TR", new Scalar(0, 255, 255));
+            MarkCorner(sr, "SR", new Scalar(0, 255, 255));
+            MarkCorner(sl, "SL", new Scalar(0, 255, 255));
+            Cv2.Circle(canvas, new Point((int)center.X, (int)center.Y), 3, new Scalar(255, 255, 0), -1);
 
             var colors = new[]
             {
@@ -685,14 +627,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                 var p = new Point(points[i].X, points[i].Y);
                 Cv2.Circle(canvas, p, 8, colors[i], 2);
                 Cv2.Circle(canvas, p, 2, colors[i], -1);
-                Cv2.PutText(
-                    canvas,
-                    labels[i],
-                    new Point(p.X + 10, p.Y - 8),
-                    HersheyFonts.HersheySimplex,
-                    0.55,
-                    colors[i],
-                    2);
+                Cv2.PutText(canvas, labels[i], new Point(p.X + 10, p.Y - 8),
+                    HersheyFonts.HersheySimplex, 0.55, colors[i], 2);
             }
 
             Cv2.ImWrite(path, canvas);

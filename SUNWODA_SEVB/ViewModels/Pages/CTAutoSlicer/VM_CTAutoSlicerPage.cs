@@ -60,8 +60,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _sliceExportImageWidth = 3000;
         private int _sliceExportQuantity = 100;
         private int _sliceExportQuantityQj = 150;
-        private double _sliceRangeStartMm = 20;
-        private double _sliceRangeEndMm = 70;
+        private double _sliceRangeFrontStartMm = 20;
+        private double _sliceRangeFrontEndMm = 70;
+        private double _sliceRangeRightStartMm = 20;
+        private double _sliceRangeRightEndMm = 70;
+        private double _sliceRangeTopStartMm = 20;
+        private double _sliceRangeTopEndMm = 70;
         private int _sliceExportDialogWaitTime = 8000;
         private int _sliceExportWriteTimeoutMs = 60000;
         private int _thickPlateStepDelayMs = 500;
@@ -78,6 +82,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _histogramRoiHeight;
         private string _histogramCaptureDir = string.Empty;
         private string _visionCaptureDir = CTAutoSlicerSettings.DefaultVisionCaptureDir;
+        private string _vision2dVectorCaptureDir = CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir;
         private string _histogramMaskColor = "#6E6E6E";
         private int _histogramMaskTolerance = 2;
         private string _histogramRoiDisplayText = "未标定";
@@ -356,26 +361,74 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        public double SliceRangeStartMm
+        public double SliceRangeFrontStartMm
         {
-            get => _sliceRangeStartMm;
+            get => _sliceRangeFrontStartMm;
             set
             {
-                if (SetProperty(ref _sliceRangeStartMm, value))
+                if (SetProperty(ref _sliceRangeFrontStartMm, value))
                 {
-                    SaveSetting(nameof(SliceRangeStartMm), value);
+                    SaveSetting(nameof(SliceRangeFrontStartMm), value);
                 }
             }
         }
 
-        public double SliceRangeEndMm
+        public double SliceRangeFrontEndMm
         {
-            get => _sliceRangeEndMm;
+            get => _sliceRangeFrontEndMm;
             set
             {
-                if (SetProperty(ref _sliceRangeEndMm, value))
+                if (SetProperty(ref _sliceRangeFrontEndMm, value))
                 {
-                    SaveSetting(nameof(SliceRangeEndMm), value);
+                    SaveSetting(nameof(SliceRangeFrontEndMm), value);
+                }
+            }
+        }
+
+        public double SliceRangeRightStartMm
+        {
+            get => _sliceRangeRightStartMm;
+            set
+            {
+                if (SetProperty(ref _sliceRangeRightStartMm, value))
+                {
+                    SaveSetting(nameof(SliceRangeRightStartMm), value);
+                }
+            }
+        }
+
+        public double SliceRangeRightEndMm
+        {
+            get => _sliceRangeRightEndMm;
+            set
+            {
+                if (SetProperty(ref _sliceRangeRightEndMm, value))
+                {
+                    SaveSetting(nameof(SliceRangeRightEndMm), value);
+                }
+            }
+        }
+
+        public double SliceRangeTopStartMm
+        {
+            get => _sliceRangeTopStartMm;
+            set
+            {
+                if (SetProperty(ref _sliceRangeTopStartMm, value))
+                {
+                    SaveSetting(nameof(SliceRangeTopStartMm), value);
+                }
+            }
+        }
+
+        public double SliceRangeTopEndMm
+        {
+            get => _sliceRangeTopEndMm;
+            set
+            {
+                if (SetProperty(ref _sliceRangeTopEndMm, value))
+                {
+                    SaveSetting(nameof(SliceRangeTopEndMm), value);
                 }
             }
         }
@@ -476,6 +529,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _visionCaptureDir, value))
                 {
                     SaveSetting(nameof(VisionCaptureDir), value);
+                }
+            }
+        }
+
+        public string Vision2dVectorCaptureDir
+        {
+            get => _vision2dVectorCaptureDir;
+            set
+            {
+                if (SetProperty(ref _vision2dVectorCaptureDir, value))
+                {
+                    SaveSetting(nameof(Vision2dVectorCaptureDir), value);
                 }
             }
         }
@@ -672,6 +737,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenSliceExportFolderCommand { get; }
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand OpenVisionCaptureDirCommand { get; }
+        public ICommand OpenVision2dVectorCaptureDirCommand { get; }
         public ICommand CalibrateHistogramRoiCommand { get; }
         public ICommand CalibrateVision3dRoiCommand { get; }
         public ICommand CalibrateVisionTopViewRoiCommand { get; }
@@ -711,6 +777,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
+            OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
             CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
             CalibrateVision3dRoiCommand = new RelayCommand(ExecuteCalibrateVision3dRoi);
             CalibrateVisionTopViewRoiCommand = new RelayCommand(ExecuteCalibrateVisionTopViewRoi);
@@ -826,8 +893,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             SliceExportImageWidth = LoadIntSetting(nameof(SliceExportImageWidth), 3000);
             SliceExportQuantity = LoadIntSetting(nameof(SliceExportQuantity), 100);
             SliceExportQuantityQj = LoadIntSetting(nameof(SliceExportQuantityQj), 150);
-            SliceRangeStartMm = LoadDoubleSetting(nameof(SliceRangeStartMm), 20);
-            SliceRangeEndMm = LoadDoubleSetting(nameof(SliceRangeEndMm), 70);
+            // 三视角切片范围；若无新键则回填旧的单组 SliceRangeStart/End
+            var legacyStart = LoadDoubleSetting(nameof(CTAutoSlicerSettings.SliceRangeStartMm), 20);
+            var legacyEnd = LoadDoubleSetting(nameof(CTAutoSlicerSettings.SliceRangeEndMm), 70);
+            SliceRangeFrontStartMm = LoadDoubleSetting(nameof(SliceRangeFrontStartMm), legacyStart);
+            SliceRangeFrontEndMm = LoadDoubleSetting(nameof(SliceRangeFrontEndMm), legacyEnd);
+            SliceRangeRightStartMm = LoadDoubleSetting(nameof(SliceRangeRightStartMm), legacyStart);
+            SliceRangeRightEndMm = LoadDoubleSetting(nameof(SliceRangeRightEndMm), legacyEnd);
+            SliceRangeTopStartMm = LoadDoubleSetting(nameof(SliceRangeTopStartMm), legacyStart);
+            SliceRangeTopEndMm = LoadDoubleSetting(nameof(SliceRangeTopEndMm), legacyEnd);
             SliceExportDialogWaitTime = LoadIntSetting(nameof(SliceExportDialogWaitTime), 8000);
             SliceExportWriteTimeoutMs = LoadIntSetting(nameof(SliceExportWriteTimeoutMs), 60000);
             _histogramRoiX = LoadIntSetting(nameof(HistogramRoiX), 0);
@@ -842,6 +916,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             VisionCaptureDir = LoadStringSetting(
                 nameof(VisionCaptureDir),
                 CTAutoSlicerSettings.DefaultVisionCaptureDir);
+            Vision2dVectorCaptureDir = LoadStringSetting(
+                nameof(Vision2dVectorCaptureDir),
+                CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir);
             HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
             HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 2);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
@@ -956,8 +1033,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 SliceExportImageWidth = SliceExportImageWidth,
                 SliceExportQuantity = SliceExportQuantity,
                 SliceExportQuantityQj = SliceExportQuantityQj,
-                SliceRangeStartMm = SliceRangeStartMm,
-                SliceRangeEndMm = SliceRangeEndMm,
+                SliceRangeFrontStartMm = SliceRangeFrontStartMm,
+                SliceRangeFrontEndMm = SliceRangeFrontEndMm,
+                SliceRangeRightStartMm = SliceRangeRightStartMm,
+                SliceRangeRightEndMm = SliceRangeRightEndMm,
+                SliceRangeTopStartMm = SliceRangeTopStartMm,
+                SliceRangeTopEndMm = SliceRangeTopEndMm,
                 SliceExportDialogWaitTime = SliceExportDialogWaitTime,
                 SliceExportWriteTimeoutMs = SliceExportWriteTimeoutMs,
                 HistogramRoiX = HistogramRoiX,
@@ -970,6 +1051,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 HistogramMaskTolerance = HistogramMaskTolerance,
                 VisionCaptureDir = VisionCaptureDir,
                 VisionCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
+                Vision2dVectorCaptureDir = Vision2dVectorCaptureDir,
+                Vision2dVectorCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
+                EnableVisionAlignmentSteps = true,
                 Vision3dRoiX = Vision3dRoiX,
                 Vision3dRoiY = Vision3dRoiY,
                 Vision3dRoiWidth = Vision3dRoiWidth,
@@ -1427,6 +1511,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        private void OpenVision2dVectorCaptureDir(object? _)
+        {
+            var initial = Vision2dVectorCaptureDir;
+            if (string.IsNullOrWhiteSpace(initial))
+            {
+                initial = CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir;
+            }
+
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = Directory.Exists(initial) ? initial : null,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                Vision2dVectorCaptureDir = dialog.FileName;
+            }
+        }
+
         private async Task ExecuteTestRenderingPresetAsync()
         {
             if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
@@ -1630,6 +1734,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            if (_visionTopViewRoiWidth <= 0 || _visionTopViewRoiHeight <= 0)
+            {
+                MessageShower = "尚未标定「上」视图区域，请先在「阶段四视觉对齐」中标定「上」视图（向量两点需要）";
+                return;
+            }
+
             if (!_simple321ToolbarClickCalibrated)
             {
                 MessageShower = "尚未标定「简单对齐」下拉点击位置，请先在「阶段四视觉对齐」中标定下拉框";
@@ -1648,7 +1758,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 简单 3-2-1 对齐测试开始（本地找点，不用视觉 DLL） ———");
+                AppendFlowLog("——— 简单 3-2-1 对齐测试开始（3平面+2向量+1原点，本地找点） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestSimple321AlignmentAsync(
@@ -1687,11 +1797,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
 
             var vglCount = Directory
-                .EnumerateFiles(CTFileFolder, $"*{CTAutoSlicerSettings.VglFileExtension}")
-                .Count();
+                .EnumerateFiles(CTFileFolder)
+                .Count(path => CTAutoSlicerSettings.IsImportVolumeExtension(Path.GetExtension(path)));
             if (vglCount == 0)
             {
-                MessageShower = "所选文件夹内未找到 .vgl 文件";
+                MessageShower = "所选文件夹内未找到 .vgl/.vgi 文件";
                 return;
             }
 

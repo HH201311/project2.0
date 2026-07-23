@@ -115,31 +115,207 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         /// <summary>
         /// 在桌面 UIA 树中查找可见的「文件名」输入框（嵌套保存对话框内）。
+        /// Windows 通用「保存图像...」里「文件名」常为 ComboBox，内层 Edit 的 Name 可能为空。
         /// </summary>
         public static AutomationElement? FindVisibleFileNameEdit(AutomationElement searchRoot)
         {
-            var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit);
-            var elements = searchRoot.FindAll(TreeScope.Descendants, condition);
+            // 1) Edit：Name 含「文件名」
+            var byEditName = FindVisibleNamedFileNameControl(searchRoot, ControlType.Edit);
+            if (byEditName != null)
+            {
+                return byEditName;
+            }
+
+            // 2) ComboBox：Name 含「文件名」→ 优先返回内层可写 Edit，否则返回 ComboBox 本身
+            var fileNameCombo = FindVisibleNamedFileNameControl(searchRoot, ControlType.ComboBox);
+            if (fileNameCombo != null)
+            {
+                var nestedEdit = FindFirstDescendantEdit(fileNameCombo);
+                return nestedEdit ?? fileNameCombo;
+            }
+
+            // 3) 先定位「保存图像」窗，再在其子树找「文件名」Edit/Combo（应对 FindAll 跨嵌套窗不稳定）
+            var saveImageDialog = FindVisibleSaveImageDialog(searchRoot);
+            if (saveImageDialog != null && !ReferenceEquals(saveImageDialog, searchRoot))
+            {
+                return FindVisibleFileNameEdit(saveImageDialog);
+            }
+
+            // 4) 「保存图像」窗内：任意可见可写 Edit（通用对话框通常只有文件名一处主输入）
+            if (saveImageDialog != null)
+            {
+                var anyEdit = FindFirstDescendantEdit(saveImageDialog);
+                if (anyEdit != null)
+                {
+                    return anyEdit;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 查找标题含「保存图像」的可见对话框（VG：保存影片/图像序列 → 保存图像...）。
+        /// 先 FindAll，失败再用 ControlViewWalker 深搜（部分嵌套 Win32 对话框 Descendants 会漏）。
+        /// </summary>
+        public static AutomationElement? FindVisibleSaveImageDialog(AutomationElement searchRoot)
+        {
+            foreach (var controlType in new[] { ControlType.Window, ControlType.Pane })
+            {
+                var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, controlType);
+                AutomationElementCollection elements;
+                try
+                {
+                    elements = searchRoot.FindAll(TreeScope.Descendants, condition);
+                }
+                catch (ElementNotAvailableException)
+                {
+                    elements = null!;
+                }
+
+                if (elements != null)
+                {
+                    foreach (AutomationElement element in elements)
+                    {
+                        if (IsSaveImageDialogElement(element))
+                        {
+                            return element;
+                        }
+                    }
+                }
+            }
+
+            if (IsSaveImageDialogElement(searchRoot))
+            {
+                return searchRoot;
+            }
+
+            return FindSaveImageDialogByWalker(searchRoot, maxDepth: 12);
+        }
+
+        private static bool IsSaveImageDialogElement(AutomationElement? element)
+        {
+            if (element == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                var name = element.Current.Name ?? string.Empty;
+                if (!name.Contains("保存图像", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                return IsElementInteractable(element)
+                    || element.Current.BoundingRectangle is { Width: > 0, Height: > 0 };
+            }
+            catch (ElementNotAvailableException)
+            {
+                return false;
+            }
+        }
+
+        private static AutomationElement? FindSaveImageDialogByWalker(
+            AutomationElement root,
+            int maxDepth)
+        {
+            var walker = TreeWalker.ControlViewWalker;
+            return FindSaveImageDialogByWalkerCore(walker, root, depth: 0, maxDepth);
+        }
+
+        private static AutomationElement? FindSaveImageDialogByWalkerCore(
+            TreeWalker walker,
+            AutomationElement parent,
+            int depth,
+            int maxDepth)
+        {
+            if (depth > maxDepth)
+            {
+                return null;
+            }
+
+            AutomationElement? child;
+            try
+            {
+                child = walker.GetFirstChild(parent);
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
+            while (child != null)
+            {
+                if (IsSaveImageDialogElement(child))
+                {
+                    return child;
+                }
+
+                var nested = FindSaveImageDialogByWalkerCore(walker, child, depth + 1, maxDepth);
+                if (nested != null)
+                {
+                    return nested;
+                }
+
+                try
+                {
+                    child = walker.GetNextSibling(child);
+                }
+                catch (ElementNotAvailableException)
+                {
+                    break;
+                }
+            }
+
+            return null;
+        }
+
+        private static AutomationElement? FindVisibleNamedFileNameControl(
+            AutomationElement searchRoot,
+            ControlType controlType)
+        {
+            var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, controlType);
+            AutomationElementCollection elements;
+            try
+            {
+                elements = searchRoot.FindAll(TreeScope.Descendants, condition);
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
             foreach (AutomationElement element in elements)
             {
-                if (!element.Current.IsEnabled)
+                try
                 {
-                    continue;
-                }
+                    if (!element.Current.IsEnabled)
+                    {
+                        continue;
+                    }
 
-                var normalizedName = NormalizeLabelText(element.Current.Name ?? string.Empty);
-                if (!normalizedName.Contains("文件名", StringComparison.Ordinal))
+                    var normalizedName = NormalizeLabelText(element.Current.Name ?? string.Empty);
+                    if (!normalizedName.Contains("文件名", StringComparison.Ordinal)
+                        && !normalizedName.Contains("File name", StringComparison.OrdinalIgnoreCase)
+                        && !normalizedName.Contains("FileName", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var rect = element.Current.BoundingRectangle;
+                    if (rect.Width <= 0 || rect.Height <= 0)
+                    {
+                        continue;
+                    }
+
+                    return element;
+                }
+                catch (ElementNotAvailableException)
                 {
-                    continue;
+                    // 继续
                 }
-
-                var rect = element.Current.BoundingRectangle;
-                if (rect.Width <= 0 || rect.Height <= 0)
-                {
-                    continue;
-                }
-
-                return element;
             }
 
             return null;

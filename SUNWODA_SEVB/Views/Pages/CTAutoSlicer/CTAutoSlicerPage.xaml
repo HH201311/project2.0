@@ -649,9 +649,9 @@
                                 <hc:TextBox
                                     Width="420"
                                     Margin="0,0,10,0"
-                                    hc:InfoElement.Title="视觉截图目录"
+                                    hc:InfoElement.Title="3D图标定截图目录"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="3D/标注图保存目录；默认 C:\AutoSlice\cutpicture\jietu；实际保存到其下 yyyy-MM-dd 子目录，仅保留 7 天">
+                                    ToolTip="3D ROI 截图与标注图保存目录；默认 C:\AutoSlice\cutpicture\jietu；实际保存到其下 yyyy-MM-dd 子目录，仅保留 7 天">
                                     <hc:TextBox.Text>
                                         <Binding Path="VisionCaptureDir" UpdateSourceTrigger="PropertyChanged" />
                                     </hc:TextBox.Text>
@@ -659,7 +659,36 @@
                                 <Button
                                     Width="40"
                                     Command="{Binding OpenVisionCaptureDirCommand}"
-                                    ToolTip="选择视觉对齐截图保存文件夹">
+                                    ToolTip="选择 3D 图标定截图保存文件夹">
+                                    <Image Width="18">
+                                        <Image.Source>
+                                            <DrawingImage>
+                                                <DrawingImage.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                    </DrawingGroup>
+                                                </DrawingImage.Drawing>
+                                            </DrawingImage>
+                                        </Image.Source>
+                                    </Image>
+                                </Button>
+                            </StackPanel>
+
+                            <StackPanel Margin="10,8,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="420"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="上视图截图目录"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="「上」视图截图与向量标注图保存目录；默认 C:\AutoSlice\cutpicture\2Dxianglaing；实际保存到其下 yyyy-MM-dd 子目录，仅保留 7 天">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Vision2dVectorCaptureDir" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="40"
+                                    Command="{Binding OpenVision2dVectorCaptureDirCommand}"
+                                    ToolTip="选择「上」视图截图保存文件夹">
                                     <Image Width="18">
                                         <Image.Source>
                                             <DrawingImage>
@@ -677,15 +706,8 @@
                             <TextBlock
                                 Margin="10,8,10,10"
                                 Foreground="Gray"
-                                Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。算法四点会标注到截图（*_points.png）并保存到「视觉截图目录\当天日期」；超过 7 天的日期文件夹会自动删除。"
+                                Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。主流程厚板后自动执行简单 3-2-1。3D 图存「3D图标定截图目录」；上视图存「上视图截图目录」；均按日分子目录，超过 7 天自动删除。"
                                 TextWrapping="Wrap" />
-                            <StackPanel Margin="10,0,10,10" Orientation="Horizontal">
-                                <Button
-                                    Command="{Binding TestSimple321AlignmentCommand}"
-                                    Content="测试简单3-2-1对齐"
-                                    IsEnabled="{Binding IsEnableSimulationBtn}"
-                                    ToolTip="需已标定 3D ROI + 下拉点击位置：截图→DLL四点→标注落盘→绝对点击下拉→选菜单→Ctrl+点击→完成" />
-                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Expander>
@@ -793,24 +815,69 @@
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                             </StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
+                            <TextBlock
+                                Margin="10,8,10,0"
+                                FontWeight="SemiBold"
+                                Text="切片图范围 (mm) — 按视角分别设置" />
+                            <StackPanel Margin="10,4,10,0" Orientation="Horizontal">
                                 <hc:TextBox
-                                    Width="245"
-                                    Margin="0,0,10,0"
-                                    hc:InfoElement.Title="切片范围开始(mm)"
+                                    Width="160"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="上·开始"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="TODO: 待视觉算法返回，当前默认 20">
+                                    ToolTip="「上」视图切片范围开始 [mm]">
                                     <hc:TextBox.Text>
-                                        <Binding Path="SliceRangeStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                        <Binding Path="SliceRangeTopStartMm" UpdateSourceTrigger="PropertyChanged" />
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                                 <hc:TextBox
-                                    Width="245"
-                                    hc:InfoElement.Title="切片范围结束(mm)"
+                                    Width="160"
+                                    Margin="0,0,16,0"
+                                    hc:InfoElement.Title="上·结束"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="TODO: 待视觉算法返回，当前默认 70">
+                                    ToolTip="「上」视图切片范围结束 [mm]">
                                     <hc:TextBox.Text>
-                                        <Binding Path="SliceRangeEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                        <Binding Path="SliceRangeTopEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="160"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="右·开始"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="「右」视图切片范围开始 [mm]">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceRangeRightStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="160"
+                                    hc:InfoElement.Title="右·结束"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="「右」视图切片范围结束 [mm]">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceRangeRightEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                            <StackPanel Margin="10,4,10,10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="160"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="前·开始"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="「前」视图切片范围开始 [mm]">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceRangeFrontStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="160"
+                                    hc:InfoElement.Title="前·结束"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="「前」视图切片范围结束 [mm]">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="SliceRangeFrontEndMm" UpdateSourceTrigger="PropertyChanged" />
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                             </StackPanel>

@@ -270,13 +270,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 var vglFiles = GetVglFiles(settings.CTFileFolder);
                 if (vglFiles.Count == 0)
                 {
-                    progress?.Report("未找到 .vgl 文件");
-                    _logger.Info("未找到 .vgl 文件");
+                    progress?.Report("未找到 .vgl/.vgi 文件");
+                    _logger.Info("未找到 .vgl/.vgi 文件");
                     return;
                 }
 
-                progress?.Report($"找到 {vglFiles.Count} 个 .vgl 文件");
-                _logger.Info($"找到 {vglFiles.Count} 个 .vgl 文件");
+                progress?.Report($"找到 {vglFiles.Count} 个 .vgl/.vgi 文件");
+                _logger.Info($"找到 {vglFiles.Count} 个 .vgl/.vgi 文件");
 
                 var successCount = 0;
                 var failCount = 0;
@@ -419,6 +419,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
+            await TryRunVisionAlignmentInMainFlowAsync(
+                    settings,
+                    ctViewerProcess,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
             await ExportImageStackSlicesAsync(
                     settings,
                     ctViewerProcess,
@@ -426,6 +433,64 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken,
                     progress)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 主流程阶段四：厚板之后、导出之前执行简单 3-2-1。
+        /// 开关关闭或未标定齐全时跳过（不阻塞导出）。
+        /// </summary>
+        private async Task TryRunVisionAlignmentInMainFlowAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (!settings.EnableVisionAlignmentSteps)
+            {
+                progress?.Report("跳过阶段四视觉对齐：EnableVisionAlignmentSteps=false");
+                _logger.Info("跳过阶段四视觉对齐：EnableVisionAlignmentSteps=false");
+                return;
+            }
+
+            if (!settings.HasSimple321Prerequisites)
+            {
+                var missing = new List<string>();
+                if (!settings.HasVision3dRoi)
+                {
+                    missing.Add("3D ROI");
+                }
+
+                if (!settings.HasVisionTopViewRoi)
+                {
+                    missing.Add("「上」视图 ROI");
+                }
+
+                if (!settings.HasSimple321ToolbarClick)
+                {
+                    missing.Add("简单对齐下拉点击位置");
+                }
+
+                var reason = string.Join("、", missing);
+                progress?.Report($"跳过阶段四视觉对齐：尚未标定 {reason}");
+                _logger.Warn($"跳过阶段四视觉对齐：尚未标定 {reason}");
+                return;
+            }
+
+            progress?.Report("开始阶段四视觉对齐（简单 3-2-1）…");
+            _logger.Info("主流程执行阶段四：简单 3-2-1 对齐");
+
+            EnsureVgForeground(ctViewerProcess);
+            var mainWindow = GetFreshMainWindow(ctViewerProcess);
+            await RunSimple321AlignmentAsync(
+                    settings,
+                    ctViewerProcess,
+                    mainWindow,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
+            progress?.Report("阶段四视觉对齐完成，继续切片导出");
+            _logger.Info("阶段四视觉对齐完成，继续切片导出");
         }
 
         /// <summary>
@@ -787,6 +852,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
+        /// <summary>枚举目录内可导入体素文件（.vgl / .vgi），按创建时间升序。</summary>
         private static IReadOnlyList<string> GetVglFiles(string folder)
         {
             if (!Directory.Exists(folder))
@@ -795,7 +861,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             return Directory
-                .EnumerateFiles(folder, $"*{CTAutoSlicerSettings.VglFileExtension}")
+                .EnumerateFiles(folder)
+                .Where(path => CTAutoSlicerSettings.IsImportVolumeExtension(Path.GetExtension(path)))
                 .OrderBy(path => new FileInfo(path).CreationTimeUtc)
                 .ToList();
         }
@@ -1031,7 +1098,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 文件选择向导内写入路径（图四 ConfirmFileSelectionAsync 复用）。
+        /// 文件选择向导内写入路径。禁止 Alt+N（向导中 Alt+N =「下一步(N)」，会点错按钮）。
         /// </summary>
         private async Task FillQuickImportFileNameAsync(
             AutomationElement dialog,
@@ -1045,17 +1112,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 BringAutomationElementToFront(dialog);
 
+                // 先点击输入框获得焦点（勿用 Alt+N：文件选择向导里 Alt+N 是「下一步」）
+                await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
+
                 if (UIAutomationHelper.TrySetEditValueSafe(fileNameEdit, path)
                     && await WaitForInputPathAsync(fileNameEdit, path, 2000, cancellationToken).ConfigureAwait(false))
                 {
-                    _logger.Info("路径已通过 ValuePattern 写入");
+                    _logger.Info("向导路径已通过 ValuePattern 写入");
                     return;
                 }
 
-                progress?.Report("ValuePattern 未生效，使用 Alt+N 聚焦后键盘输入");
-                _logger.Info("ValuePattern 未生效，改用 Alt+N + 键盘输入");
-                await InvokeOnUiThreadAsync(SimulateAltN).ConfigureAwait(false);
-                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+                progress?.Report("ValuePattern 未生效，点击输入框后键盘输入路径");
+                _logger.Info("向导 ValuePattern 未生效，改用点击 + 键盘输入（不用 Alt+N）");
                 await NativeClickElementWhileUnlockedAsync(fileNameEdit, cancellationToken).ConfigureAwait(false);
                 await TypeTextIntoFocusedControlAsync(path).ConfigureAwait(false);
 
@@ -1212,13 +1280,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var wizardDialog = FindFileSelectionWizardDialog(GetFreshMainWindow(ctViewerProcess))
                 ?? throw new InvalidOperationException("未找到文件选择向导对话框");
 
-            var wizardEdit = FindQuickImportFileNameEdit(wizardDialog)
-                ?? UIAutomationHelper.FindEditByName(wizardDialog, QuickImportEditName)
-                ?? UIAutomationHelper.FindFirstEnabledEdit(wizardDialog, QuickImportEditName)
-                ?? throw new InvalidOperationException("未找到文件选择向导输入框");
+            var wizardEdit = FindFileSelectionWizardPathEdit(wizardDialog)
+                ?? throw new InvalidOperationException(
+                    "未找到文件选择向导路径输入框（须为「文件名」相关 Edit，排除尺寸/mm 类控件）");
 
-            progress?.Report($"向导内输入 .vgl 文件路径：{importFilePath}");
-            _logger.Info($"文件选择向导输入 .vgl 路径：{importFilePath}");
+            progress?.Report($"向导内输入导入文件路径：{importFilePath}");
+            _logger.Info(
+                $"文件选择向导输入路径：{importFilePath}；输入框 Name=「{wizardEdit.Current.Name}」");
             await FillQuickImportFileNameAsync(
                     wizardDialog,
                     wizardEdit,
@@ -1231,9 +1299,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     "完成文件选择",
                     async attempt =>
                     {
-                        progress?.Report(attempt == 1 ? "Alt+F 完成文件选择" : $"Alt+F 完成文件选择（第 {attempt} 次重试）");
-                        _logger.Info($"Alt+F 完成文件选择，第 {attempt} 次");
-                        await InvokeOnAutomationForegroundAsync(wizardDialog, SimulateAltF).ConfigureAwait(false);
+                        progress?.Report(
+                            attempt == 1
+                                ? $"点击「{FileSelectionFinishButtonName}」完成文件选择"
+                                : $"点击「{FileSelectionFinishButtonName}」（第 {attempt} 次重试）");
+                        _logger.Info($"点击「{FileSelectionFinishButtonName}」完成文件选择，第 {attempt} 次");
+
+                        // 直接定位并点击「完成(F)」元素；禁止 Alt+F / Alt+N（易与「下一步(N)」混淆）
+                        await ClickFileSelectionFinishButtonAsync(ctViewerProcess, cancellationToken, progress)
+                            .ConfigureAwait(false);
 
                         return await WaitUntilDisappearedAsync(
                                 () => FindEnabledFinishButton(GetFreshMainWindow(ctViewerProcess)),
@@ -1246,6 +1320,125 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken,
                     progress)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 在文件选择向导内查找路径输入框：优先「文件名」；排除当前值为 mm/尺寸类的 Edit。
+        /// </summary>
+        private static AutomationElement? FindFileSelectionWizardPathEdit(AutomationElement wizardDialog)
+        {
+            var byName = FindQuickImportFileNameEdit(wizardDialog)
+                ?? UIAutomationHelper.FindEditByName(wizardDialog, QuickImportEditName)
+                ?? UIAutomationHelper.FindVisibleFileNameEdit(wizardDialog);
+            if (byName != null && !LooksLikeMeasurementEdit(byName))
+            {
+                return byName;
+            }
+
+            // 回退：在向导内找可编辑、非 mm、且 Name/值像路径或文件名的 Edit
+            var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit);
+            var elements = wizardDialog.FindAll(TreeScope.Descendants, condition);
+            AutomationElement? fallback = null;
+            foreach (AutomationElement element in elements)
+            {
+                try
+                {
+                    if (!element.Current.IsEnabled || LooksLikeMeasurementEdit(element))
+                    {
+                        continue;
+                    }
+
+                    var name = element.Current.Name ?? string.Empty;
+                    if (name.Contains("文件名", StringComparison.Ordinal)
+                        || name.Contains("路径", StringComparison.Ordinal)
+                        || name.Contains("File", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return element;
+                    }
+
+                    fallback ??= element;
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // continue
+                }
+            }
+
+            return fallback;
+        }
+
+        private static bool LooksLikeMeasurementEdit(AutomationElement edit)
+        {
+            try
+            {
+                var name = edit.Current.Name ?? string.Empty;
+                if (name.Contains("mm", StringComparison.OrdinalIgnoreCase)
+                    || name.Contains("开始", StringComparison.Ordinal)
+                    || name.Contains("结束", StringComparison.Ordinal)
+                    || name.Contains("宽度", StringComparison.Ordinal)
+                    || name.Contains("高度", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                var value = UIAutomationHelper.TryGetInputValue(edit) ?? string.Empty;
+                if (value.Contains("mm", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                // 纯数字+小数且很短，多半是尺寸/测量框（如「0.00」），不是路径
+                if (value.Length > 0
+                    && value.Length <= 12
+                    && double.TryParse(value.Trim(), out _))
+                {
+                    return true;
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 按 Name 精确定位「完成(F)」并 Invoke / Win32 点击；绝不点「下一步(N) >」。
+        /// </summary>
+        private async Task ClickFileSelectionFinishButtonAsync(
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var finishButton = FindEnabledFinishButton(GetFreshMainWindow(ctViewerProcess))
+                ?? throw new InvalidOperationException(
+                    $"未找到可用按钮「{FileSelectionFinishButtonName}」");
+
+            var name = finishButton.Current.Name ?? string.Empty;
+            if (!name.Contains("完成", StringComparison.Ordinal)
+                || name.Contains("下一步", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"定位到的按钮不是「完成」：实际 Name=「{name}」");
+            }
+
+            progress?.Report($"已定位按钮「{name}」，直接点击元素（不用 Alt+F）");
+            _logger.Info(
+                $"文件选择向导点击完成按钮：Name=「{name}」，" +
+                $"Rect={finishButton.Current.BoundingRectangle}");
+
+            BringAutomationElementToFront(finishButton);
+
+            if (UIAutomationHelper.TryInvokeButton(finishButton))
+            {
+                _logger.Info("「完成(F)」已通过 InvokePattern 触发");
+                await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            _logger.Info("Invoke「完成(F)」失败，改用 Win32 点击按钮中心");
+            await NativeClickElementAsync(finishButton, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task WaitForImportCompleteAsync(
@@ -2230,7 +2423,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 优先根 → 同进程顶层 → 桌面顶层：查找「文件名」Edit（禁止 Root Descendants）。
+        /// 优先根 → 「保存图像」窗 → 同进程顶层 → 桌面顶层：查找「文件名」Edit（禁止 Root Descendants）。
+        /// VG2022：系统保存框嵌在「保存影片/图像序列」下，标题为「保存图像...」。
         /// </summary>
         private static AutomationElement? FindVisibleFileNameEditScoped(
             int? processId,
@@ -2250,6 +2444,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     {
                         return edit;
                     }
+
+                    // 显式先找嵌套「保存图像...」，再在其子树找文件名（FindAll 跨嵌套窗偶发漏检）
+                    var saveImageDialog = UIAutomationHelper.FindVisibleSaveImageDialog(root);
+                    if (saveImageDialog != null)
+                    {
+                        edit = UIAutomationHelper.FindVisibleFileNameEdit(saveImageDialog);
+                        if (edit != null)
+                        {
+                            return edit;
+                        }
+                    }
                 }
                 catch (ElementNotAvailableException)
                 {
@@ -2268,6 +2473,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         {
                             return edit;
                         }
+
+                        var saveImageDialog = UIAutomationHelper.FindVisibleSaveImageDialog(topWindow);
+                        if (saveImageDialog != null)
+                        {
+                            edit = UIAutomationHelper.FindVisibleFileNameEdit(saveImageDialog);
+                            if (edit != null)
+                            {
+                                return edit;
+                            }
+                        }
                     }
                     catch (ElementNotAvailableException)
                     {
@@ -2276,14 +2491,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
             }
 
-            // 系统另存为可能不在 VG 进程：仅扫桌面顶层窗口子树
+            // 系统另存为可能不在 VG 进程，或作为桌面顶层「保存图像...」出现
             foreach (var topWindow in EnumerateDesktopTopLevelWindows())
             {
                 try
                 {
-                    if (processId is > 0 && topWindow.Current.ProcessId == processId.Value)
+                    var name = topWindow.Current.Name ?? string.Empty;
+                    var isSaveImageTop =
+                        name.Contains("保存图像", StringComparison.Ordinal)
+                        || name.Contains("另存为", StringComparison.Ordinal);
+
+                    // 同进程顶层已扫过；但标题为「保存图像」的仍再扫一次（防止嵌套/归属差异漏检）
+                    if (processId is > 0
+                        && topWindow.Current.ProcessId == processId.Value
+                        && !isSaveImageTop)
                     {
-                        continue; // 已扫过
+                        continue;
                     }
 
                     var edit = UIAutomationHelper.FindVisibleFileNameEdit(topWindow);
@@ -3373,6 +3596,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         settings,
                         ctViewerProcess,
                         viewListItemName,
+                        viewSuffix,
                         exportSavePath,
                         quantity,
                         cancellationToken,
@@ -3388,6 +3612,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             string viewListItemName,
+            string viewSuffix,
             string exportSavePathWithoutExt,
             int quantity,
             CancellationToken cancellationToken,
@@ -3412,6 +3637,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             await FillSliceExportFormAsync(
                     settings,
                     exportDialog,
+                    viewSuffix,
                     quantity,
                     cancellationToken,
                     progress)
@@ -3544,6 +3770,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private async Task FillSliceExportFormAsync(
             CTAutoSlicerSettings settings,
             AutomationElement exportDialog,
+            string viewSuffix,
             int quantity,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
@@ -3591,7 +3818,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger.Info($"已设置导出数量 {quantityValue}");
             await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
 
-            // TODO: 待视觉算法返回切片范围，当前使用配置默认值
+            // 切片范围：按视角分别取 UI 配置（前 / 右 / 上）
+            var (rangeStart, rangeEnd) = settings.GetSliceRangeForView(viewSuffix);
             var startEdit = UIAutomationHelper.FindEditAdjacentToLabel(
                 exportDialog,
                 SliceExportRangeStartLabelKeyword,
@@ -3605,8 +3833,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException(
                     $"未找到「{SliceExportSliceRangeGroupName}」开始/结束输入框（Group 内 Text「开始 [mm]」「结束 [mm]」+ Custom 输入框）");
             }
-            var startValue = settings.SliceRangeStartMm.ToString("0.##");
-            var endValue = settings.SliceRangeEndMm.ToString("0.##");
+            var startValue = rangeStart.ToString("0.##");
+            var endValue = rangeEnd.ToString("0.##");
             if (!await SetSliceExportFieldValueAsync(
                     startEdit,
                     startValue,
@@ -3616,11 +3844,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     endValue,
                     cancellationToken).ConfigureAwait(false))
             {
-                throw new InvalidOperationException($"未能设置切片范围 {startValue} ~ {endValue} mm");
+                throw new InvalidOperationException(
+                    $"未能设置「{viewSuffix}」视图切片范围 {startValue} ~ {endValue} mm");
             }
 
-            progress?.Report($"已设置切片范围 {startValue} ~ {endValue} mm（TODO: 待视觉算法）");
-            _logger.Info($"已设置切片范围 {startValue} ~ {endValue} mm");
+            progress?.Report($"已设置「{viewSuffix}」视图切片范围 {startValue} ~ {endValue} mm");
+            _logger.Info($"已设置「{viewSuffix}」视图切片范围 {startValue} ~ {endValue} mm");
             await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
         }
 
@@ -3796,8 +4025,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException("未能点击「保存...」按钮");
             }
 
-            progress?.Report("已点击保存，等待系统保存对话框");
-            _logger.Info("已点击保存，等待系统保存对话框");
+            progress?.Report("已点击保存，等待系统保存对话框（保存图像...）");
+            _logger.Info("已点击保存，等待系统保存对话框（保存图像...）");
 
             int? processId = null;
             try
@@ -3808,6 +4037,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
             }
 
+            // 「保存图像...」嵌在「保存影片/图像序列」下；文件名控件可能是 ComboBox/空 Name Edit
             var fileEdit = await UIAutomationHelper.WaitForElementAsync(
                     () => FindVisibleFileNameEditScoped(processId, exportDialog),
                     TimeSpan.FromMilliseconds(settings.SliceExportDialogWaitTime),
@@ -3817,7 +4047,43 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             if (fileEdit == null)
             {
-                throw new InvalidOperationException("未在超时内检测到系统保存对话框");
+                AutomationElement? saveImageDialog = null;
+                try
+                {
+                    saveImageDialog = UIAutomationHelper.FindVisibleSaveImageDialog(exportDialog);
+                    if (saveImageDialog == null && processId is > 0)
+                    {
+                        foreach (var top in EnumerateSameProcessTopLevelWindows(processId.Value))
+                        {
+                            saveImageDialog = UIAutomationHelper.FindVisibleSaveImageDialog(top);
+                            if (saveImageDialog != null)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                }
+
+                var hint = saveImageDialog == null
+                    ? "未找到标题含「保存图像」的对话框"
+                    : $"已见到「{saveImageDialog.Current.Name}」但未找到「文件名」输入框";
+                throw new InvalidOperationException($"未在超时内检测到系统保存对话框（{hint}）");
+            }
+
+            try
+            {
+                var host = UIAutomationHelper.FindAncestorDialogOrWindow(fileEdit);
+                _logger.Info(
+                    host != null
+                        ? $"已定位系统保存对话框「{host.Current.Name}」，开始填写路径"
+                        : "已定位文件名输入框，开始填写路径");
+            }
+            catch (ElementNotAvailableException)
+            {
+                _logger.Info("已定位文件名输入框，开始填写路径");
             }
 
             await FillSystemSaveDialogAsync(
@@ -4226,7 +4492,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 var vglFiles = GetVglFiles(settings.CTFileFolder);
                 if (vglFiles.Count == 0)
                 {
-                    throw new InvalidOperationException("CT 体素文件夹内未找到 .vgl 文件（用于命名规则）");
+                    throw new InvalidOperationException("CT 体素文件夹内未找到 .vgl/.vgi 文件（用于命名规则）");
                 }
 
                 var vglPath = vglFiles[0];
@@ -4401,7 +4667,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 阶段四 · 4a：截 3D → 本地剪影四角找点 → 打开对齐 → Ctrl+点四点 → 完成。
+        /// 阶段四 · 4a：截 3D → 本地剪影找点 → 打开对齐 →
+        /// Ctrl+三点定平面 → 「上」视图两点定向量 → Ctrl+原点 → 完成。
+        /// 注意：向量两点必须在原点之前，否则「上」标定区域画面会变。
         /// </summary>
         private async Task RunSimple321AlignmentAsync(
             CTAutoSlicerSettings settings,
@@ -4410,6 +4678,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
+            if (!settings.HasVision3dRoi)
+            {
+                throw new InvalidOperationException("尚未标定 3D 视图 ROI，无法执行简单 3-2-1 对齐");
+            }
+
+            if (!settings.HasVisionTopViewRoi)
+            {
+                throw new InvalidOperationException(
+                    "尚未标定「上」视图 ROI，无法执行向量两点（请先在「阶段四视觉对齐」中标定「上」视图区域）");
+            }
+
             progress?.Report("截取第四象限 3D 视图 ROI…");
             var capturePath = CaptureVision3dRoiToFile(settings);
             progress?.Report($"3D 截图已保存：{capturePath}");
@@ -4428,31 +4707,49 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report($"本地找点：{detectResult.Summary}");
             _logger.Info($"本地找点：{detectResult.Summary}");
 
-            var screenPoints = new (int X, int Y, string Label)[4];
-            var annotatePoints = new (int X, int Y, string Label)[4];
-            for (var i = 0; i < 4; i++)
+            // 默认顺序：左上、右上、右下（上盖三点）+ 原点；原点须在向量两点之后点击
+            var planeScreenPoints = new (int X, int Y, string Label)[3];
+            var planeAnnotatePoints = new (int X, int Y, string Label)[3];
+            var planeLabels = new[] { "左上", "右上", "右下" };
+            for (var i = 0; i < 3; i++)
             {
                 var (sx, sy) = CTAutoSlicerSettings.ToScreenPoint(
                     settings.Vision3dRoiX,
                     settings.Vision3dRoiY,
                     relativePoints[i].X,
                     relativePoints[i].Y);
-                var label = i < 3 ? $"上盖点{i + 1}" : "原点";
-                screenPoints[i] = (sx, sy, label);
-                annotatePoints[i] = (relativePoints[i].X, relativePoints[i].Y, label);
+                var label = planeLabels[i];
+                planeScreenPoints[i] = (sx, sy, label);
+                planeAnnotatePoints[i] = (relativePoints[i].X, relativePoints[i].Y, label);
                 progress?.Report(
                     $"{label}：相对=({relativePoints[i].X},{relativePoints[i].Y}) → 屏幕=({sx},{sy})");
                 _logger.Info(
                     $"{label}：相对=({relativePoints[i].X},{relativePoints[i].Y}) → 屏幕=({sx},{sy})");
             }
 
-            // 检测器已写出含四边形的调试图；再补一份与原先一致的四点标注命名，便于对照
+            var (originSx, originSy) = CTAutoSlicerSettings.ToScreenPoint(
+                settings.Vision3dRoiX,
+                settings.Vision3dRoiY,
+                relativePoints[3].X,
+                relativePoints[3].Y);
+            progress?.Report(
+                $"原点：相对=({relativePoints[3].X},{relativePoints[3].Y}) → 屏幕=({originSx},{originSy})（稍后点击）");
+            _logger.Info(
+                $"原点：相对=({relativePoints[3].X},{relativePoints[3].Y}) → 屏幕=({originSx},{originSy})");
+
             try
             {
                 var annotatedPath = Path.Combine(
                     captureDir,
                     Path.GetFileNameWithoutExtension(capturePath) + "_click_points.png");
-                ScreenCaptureHelper.SaveAnnotatedPointsImage(capturePath, annotatedPath, annotatePoints);
+                var annotateAll = new (int X, int Y, string Label)[4];
+                for (var i = 0; i < 3; i++)
+                {
+                    annotateAll[i] = planeAnnotatePoints[i];
+                }
+
+                annotateAll[3] = (relativePoints[3].X, relativePoints[3].Y, "原点");
+                ScreenCaptureHelper.SaveAnnotatedPointsImage(capturePath, annotatedPath, annotateAll);
                 progress?.Report($"四点点击标注图已保存：{annotatedPath}（另有检测器 _points/_mask）");
                 _logger.Info($"3D 四点点击标注图：{annotatedPath}");
             }
@@ -4471,8 +4768,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("Ctrl+左键依次点击四点（三点定平面 + 原点）…");
-            foreach (var point in screenPoints)
+            // —— 步骤1：三点定平面（左上→右上→右下）——
+            progress?.Report("步骤1/3：Ctrl+左键依次点击上盖三点（左上→右上→右下）…");
+            foreach (var point in planeScreenPoints)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 progress?.Report($"Ctrl+点击 {point.Label} @({point.X},{point.Y})");
@@ -4480,6 +4778,20 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 var interval = Math.Max(100, settings.VisionClickIntervalMs);
                 await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
             }
+
+            // —— 步骤2：「上」视图右侧外缘两点（必须在原点之前）——
+            // 三点后短等，让 VG 刷新「上」标定区高亮后再截图
+            await Task.Delay(Math.Max(200, settings.VisionClickIntervalMs), cancellationToken)
+                .ConfigureAwait(false);
+            progress?.Report("步骤2/3：「上」视图向量两点（须先于原点，否则标定区会变）…");
+            await ClickTopViewVectorPointsAsync(settings, cancellationToken, progress)
+                .ConfigureAwait(false);
+
+            // —— 步骤3：3D 原点 ——
+            progress?.Report($"步骤3/3：Ctrl+点击原点 @({originSx},{originSy})…");
+            await CtrlClickScreenAsync(originSx, originSy, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(Math.Max(100, settings.VisionClickIntervalMs), cancellationToken)
+                .ConfigureAwait(false);
 
             progress?.Report("点击「完成(F)」…");
             await ClickSimple321FinishAsync(settings, mainWindow, cancellationToken, progress)
@@ -4492,7 +4804,86 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("简单 3-2-1 对齐流程完成");
+            progress?.Report("简单 3-2-1 对齐流程完成（3 平面点 + 2 向量点 + 1 原点）");
+        }
+
+        /// <summary>
+        /// 简单 3-2-1 步骤2：截取「上」视图 → 本地右缘两点 → 标注落盘 → Ctrl+从上到下点击。
+        /// </summary>
+        private async Task ClickTopViewVectorPointsAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            progress?.Report("截取第二象限「上」视图 ROI…");
+            var capturePath = CaptureVisionTopViewRoiToFile(settings);
+            progress?.Report($"「上」视图截图已保存：{capturePath}");
+            _logger.Info($"「上」视图 ROI 截图：{capturePath}");
+
+            progress?.Report("本地算法找右侧外缘向量两点（VisionTopViewVectorPointsDetector）…");
+            var captureDir = Path.GetDirectoryName(capturePath)!;
+            var detectResult = VisionTopViewVectorPointsDetector.Detect(capturePath, debugDir: captureDir);
+            var relativePoints = detectResult.Points;
+            if (relativePoints.Length < 2)
+            {
+                throw new InvalidOperationException(
+                    $"向量找点返回点数不足：期望 2，实际 {relativePoints.Length}");
+            }
+
+            // 强制从上到下
+            var top = relativePoints[0];
+            var bottom = relativePoints[1];
+            if (bottom.Y < top.Y)
+            {
+                (top, bottom) = (bottom, top);
+            }
+
+            progress?.Report($"向量找点：{detectResult.Summary}");
+            _logger.Info($"向量找点：{detectResult.Summary}");
+
+            var screenPoints = new (int X, int Y, string Label)[2];
+            var annotatePoints = new (int X, int Y, string Label)[2];
+            var labels = new[] { "向量上", "向量下" };
+            var rel = new[] { top, bottom };
+            for (var i = 0; i < 2; i++)
+            {
+                var (sx, sy) = CTAutoSlicerSettings.ToScreenPoint(
+                    settings.VisionTopViewRoiX,
+                    settings.VisionTopViewRoiY,
+                    rel[i].X,
+                    rel[i].Y);
+                screenPoints[i] = (sx, sy, labels[i]);
+                annotatePoints[i] = (rel[i].X, rel[i].Y, labels[i]);
+                progress?.Report(
+                    $"{labels[i]}：相对=({rel[i].X},{rel[i].Y}) → 屏幕=({sx},{sy})");
+                _logger.Info(
+                    $"{labels[i]}：相对=({rel[i].X},{rel[i].Y}) → 屏幕=({sx},{sy})");
+            }
+
+            try
+            {
+                var annotatedPath = Path.Combine(
+                    captureDir,
+                    Path.GetFileNameWithoutExtension(capturePath) + "_click_points.png");
+                ScreenCaptureHelper.SaveAnnotatedPointsImage(capturePath, annotatedPath, annotatePoints);
+                progress?.Report($"向量两点标注图已保存：{annotatedPath}");
+                _logger.Info($"「上」视图向量标注图：{annotatedPath}");
+            }
+            catch (Exception annotateEx)
+            {
+                progress?.Report($"向量标注图保存失败（继续流程）：{annotateEx.Message}");
+                _logger.Warn($"「上」视图向量标注图保存失败：{annotateEx.Message}");
+            }
+
+            progress?.Report("Ctrl+左键从上到下点击向量两点…");
+            foreach (var point in screenPoints)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Ctrl+点击 {point.Label} @({point.X},{point.Y})");
+                await CtrlClickScreenAsync(point.X, point.Y, cancellationToken).ConfigureAwait(false);
+                var interval = Math.Max(100, settings.VisionClickIntervalMs);
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         private string CaptureVision3dRoiToFile(CTAutoSlicerSettings settings)
@@ -4513,6 +4904,27 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 settings.Vision3dRoiY,
                 settings.Vision3dRoiWidth,
                 settings.Vision3dRoiHeight);
+            return filePath;
+        }
+
+        private string CaptureVisionTopViewRoiToFile(CTAutoSlicerSettings settings)
+        {
+            var dayDir = settings.EnsureVision2dVectorCaptureDayDir();
+            var cleanup = settings.CleanupExpiredVision2dVectorCaptures();
+            if (cleanup.DeletedDirs > 0 || cleanup.DeletedFiles > 0)
+            {
+                _logger.Info(
+                    $"向量截图清理：删除目录 {cleanup.DeletedDirs}、文件 {cleanup.DeletedFiles}" +
+                    $"（保留 {settings.Vision2dVectorCaptureKeepDays} 天）");
+            }
+
+            var filePath = Path.Combine(dayDir, $"vision_top_{DateTime.Now:HHmmss_fff}.png");
+            ScreenCaptureHelper.CaptureRegionAndSave(
+                filePath,
+                settings.VisionTopViewRoiX,
+                settings.VisionTopViewRoiY,
+                settings.VisionTopViewRoiWidth,
+                settings.VisionTopViewRoiHeight);
             return filePath;
         }
 

@@ -18,6 +18,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const int DefaultCaptureKeepDays = 7;
         /// <summary>视觉对齐截图默认目录</summary>
         public const string DefaultVisionCaptureDir = @"C:\AutoSlice\cutpicture\jietu";
+        /// <summary>简单 3-2-1「2」向量标点（「上」视图）截图默认目录</summary>
+        public const string DefaultVision2dVectorCaptureDir = @"C:\AutoSlice\cutpicture\2Dxianglaing";
 
         /// <summary>
         /// 角度算法 DLL 本地路径：{程序目录}\Dlls\{DefaultDllFileName}
@@ -36,6 +38,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName);
 
         public const string VglFileExtension = ".vgl";
+        public const string VgiFileExtension = ".vgi";
+
+        /// <summary>是否为可导入的体素文件扩展名（.vgl / .vgi，不区分大小写）。</summary>
+        public static bool IsImportVolumeExtension(string? extension) =>
+            string.Equals(extension, VglFileExtension, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(extension, VgiFileExtension, StringComparison.OrdinalIgnoreCase);
+
         /// <summary>VG 冷启动就绪检测默认最大等待（毫秒）</summary>
         public const int DefaultVGOpenWaitTime = 180000;
         /// <summary>旧版数据库中常见的过短等待（如 7000ms），加载时自动升级</summary>
@@ -113,10 +122,53 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int SliceExportQuantity { get; set; } = 100;
         /// <summary>全局图像（QJ）导出数量</summary>
         public int SliceExportQuantityQj { get; set; } = 150;
-        /// <summary>切片范围开始 [mm] — TODO: 待视觉算法返回</summary>
-        public double SliceRangeStartMm { get; set; } = 20;
-        /// <summary>切片范围结束 [mm] — TODO: 待视觉算法返回</summary>
-        public double SliceRangeEndMm { get; set; } = 70;
+        /// <summary>「前」视图切片范围开始 [mm] — UI 配置</summary>
+        public double SliceRangeFrontStartMm { get; set; } = 20;
+        /// <summary>「前」视图切片范围结束 [mm] — UI 配置</summary>
+        public double SliceRangeFrontEndMm { get; set; } = 70;
+        /// <summary>「右」视图切片范围开始 [mm] — UI 配置</summary>
+        public double SliceRangeRightStartMm { get; set; } = 20;
+        /// <summary>「右」视图切片范围结束 [mm] — UI 配置</summary>
+        public double SliceRangeRightEndMm { get; set; } = 70;
+        /// <summary>「上」视图切片范围开始 [mm] — UI 配置</summary>
+        public double SliceRangeTopStartMm { get; set; } = 20;
+        /// <summary>「上」视图切片范围结束 [mm] — UI 配置</summary>
+        public double SliceRangeTopEndMm { get; set; } = 70;
+
+        /// <summary>
+        /// 兼容旧配置：单组范围；若三视角未单独存过，加载时可回填到 Front/Right/Top。
+        /// </summary>
+        public double SliceRangeStartMm
+        {
+            get => SliceRangeFrontStartMm;
+            set
+            {
+                SliceRangeFrontStartMm = value;
+                SliceRangeRightStartMm = value;
+                SliceRangeTopStartMm = value;
+            }
+        }
+
+        /// <summary>兼容旧配置：单组范围结束。</summary>
+        public double SliceRangeEndMm
+        {
+            get => SliceRangeFrontEndMm;
+            set
+            {
+                SliceRangeFrontEndMm = value;
+                SliceRangeRightEndMm = value;
+                SliceRangeTopEndMm = value;
+            }
+        }
+
+        /// <summary>按导出视图后缀（前/右/上）取切片起止 mm。</summary>
+        public (double StartMm, double EndMm) GetSliceRangeForView(string viewSuffix) =>
+            viewSuffix switch
+            {
+                "右" => (SliceRangeRightStartMm, SliceRangeRightEndMm),
+                "上" => (SliceRangeTopStartMm, SliceRangeTopEndMm),
+                _ => (SliceRangeFrontStartMm, SliceRangeFrontEndMm),
+            };
         /// <summary>等待导出对话框出现的超时（毫秒）</summary>
         public int SliceExportDialogWaitTime { get; set; } = 8000;
         /// <summary>等待「正在写入图像」进度框消失的超时（毫秒），默认 1 分钟</summary>
@@ -193,11 +245,26 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>「简单对齐」下拉点击位置是否可用</summary>
         public bool HasSimple321ToolbarClick => Simple321ToolbarClickCalibrated;
 
+        /// <summary>
+        /// 主流程是否执行阶段四简单 3-2-1。默认始终开启；未标定齐全时跳过并对该文件打日志。
+        /// </summary>
+        public bool EnableVisionAlignmentSteps { get; set; } = true;
+
+        /// <summary>简单 3-2-1 所需标定是否齐全（3D ROI +「上」ROI + 下拉点击）</summary>
+        public bool HasSimple321Prerequisites =>
+            HasVision3dRoi && HasVisionTopViewRoi && HasSimple321ToolbarClick;
+
         /// <summary>视觉对齐截图落盘目录（空则使用 DefaultVisionCaptureDir）</summary>
         public string VisionCaptureDir { get; set; } = DefaultVisionCaptureDir;
 
         /// <summary>视觉对齐截图按日目录保留天数（超过则删除）</summary>
         public int VisionCaptureKeepDays { get; set; } = DefaultCaptureKeepDays;
+
+        /// <summary>「上」视图向量标点截图落盘目录（空则使用 DefaultVision2dVectorCaptureDir）</summary>
+        public string Vision2dVectorCaptureDir { get; set; } = DefaultVision2dVectorCaptureDir;
+
+        /// <summary>向量标点截图按日目录保留天数（超过则删除）</summary>
+        public int Vision2dVectorCaptureKeepDays { get; set; } = DefaultCaptureKeepDays;
 
         /// <summary>
         /// 将算法返回的相对像素坐标换算为屏幕物理像素点击位置。
@@ -220,6 +287,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             return DefaultVisionCaptureDir;
         }
 
+        public string ResolveVision2dVectorCaptureDir()
+        {
+            if (!string.IsNullOrWhiteSpace(Vision2dVectorCaptureDir))
+            {
+                return Vision2dVectorCaptureDir.Trim();
+            }
+
+            return DefaultVision2dVectorCaptureDir;
+        }
+
         public string ResolveHistogramCaptureDir()
         {
             if (!string.IsNullOrWhiteSpace(HistogramCaptureDir))
@@ -236,6 +313,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public string EnsureVisionCaptureDayDir(DateTime? now = null)
         {
             return EnsureCaptureDayDir(ResolveVisionCaptureDir(), now);
+        }
+
+        /// <summary>
+        /// 确保「上」视图向量标点截图根目录与当日子目录存在，返回当日保存目录（yyyy-MM-dd）。
+        /// </summary>
+        public string EnsureVision2dVectorCaptureDayDir(DateTime? now = null)
+        {
+            return EnsureCaptureDayDir(ResolveVision2dVectorCaptureDir(), now);
         }
 
         /// <summary>
@@ -261,6 +346,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
                 ResolveVisionCaptureDir(),
                 keepDays ?? VisionCaptureKeepDays,
                 rootFilePatterns: ["vision*.png", "*_points.png"]);
+
+        /// <summary>删除超过保留天数的「上」视图向量标点截图按日文件夹。</summary>
+        public (int DeletedDirs, int DeletedFiles) CleanupExpiredVision2dVectorCaptures(int? keepDays = null) =>
+            CleanupExpiredCaptureDayFolders(
+                ResolveVision2dVectorCaptureDir(),
+                keepDays ?? Vision2dVectorCaptureKeepDays,
+                rootFilePatterns: ["vision_top*.png", "*_vector_*.png", "*_click_points.png"]);
 
         /// <summary>
         /// 删除超过保留天数的直方图按日文件夹，以及根目录下过期的散落截图文件。

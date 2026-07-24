@@ -66,7 +66,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>图像堆栈导出时保存对话框中的基础文件名（VG 将依次导出为 1、2、3…）。</summary>
         public const string ImageStackBaseFileName = "1";
 
-        /// <summary>生成单个视图的导出文件夹名（不含根目录），如「0657-FD 2026-7-13 10-58-00 前」。</summary>
+        /// <summary>生成单个视图的导出文件夹名（不含根目录与主文件夹），如「0657-FD 2026-7-13 10-58-00 前」。</summary>
         public static string BuildExportFolderName(string exportBaseName, string viewSuffix)
         {
             if (string.IsNullOrWhiteSpace(viewSuffix))
@@ -78,14 +78,33 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 保存对话框完整路径：{导出根目录}/{文件夹名}/1（不含扩展名；文件夹内图片为 1、2、3…）。
+        /// 单个体素文件的主导出目录名（三视图共用一层），即 <paramref name="exportBaseName"/>。
+        /// </summary>
+        public static string BuildExportFileRootFolderName(string exportBaseName)
+        {
+            if (string.IsNullOrWhiteSpace(exportBaseName))
+            {
+                throw new ArgumentException("导出名不能为空", nameof(exportBaseName));
+            }
+
+            return exportBaseName.Trim();
+        }
+
+        /// <summary>
+        /// 保存对话框完整路径：
+        /// {导出根目录}/{主文件夹}/{视图文件夹}/1
+        /// 例如 …/0657-FD 2026-7-13 10-58-00/0657-FD 2026-7-13 10-58-00 前/1
+        /// （不含扩展名；文件夹内图片为 1、2、3…）。
         /// </summary>
         public static string BuildExportSavePath(string exportRootFolder, string exportBaseName, string viewSuffix)
         {
-            var folderPath = Path.Combine(
+            var fileRootFolder = Path.Combine(
                 exportRootFolder,
+                BuildExportFileRootFolderName(exportBaseName));
+            var viewFolderPath = Path.Combine(
+                fileRootFolder,
                 BuildExportFolderName(exportBaseName, viewSuffix));
-            return Path.Combine(folderPath, ImageStackBaseFileName);
+            return Path.Combine(viewFolderPath, ImageStackBaseFileName);
         }
 
         /// <summary>根据是否 QJ 解析导出数量。</summary>

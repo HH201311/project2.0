@@ -59,6 +59,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
             IProgress<string>? progress = null
         );
 
+        /// <summary>
+        /// 单步测试：3-2-1 之后步骤 — 点击视口底部无名捕捉按钮并按箭头标定拖拽。
+        /// </summary>
+        Task TestPostAlignCaptureDragAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
         void Cancel();
     }
 }

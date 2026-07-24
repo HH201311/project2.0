@@ -39,6 +39,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _vgOpenWaitTime = CTAutoSlicerSettings.DefaultVGOpenWaitTime;
         private int _vgShowFrontWaitTime = 2000;
         private string _ctFileFolder = string.Empty;
+        private int _maxVgProcesses = CTAutoSlicerSettings.DefaultMaxVgProcesses;
         private int _quickImportDialogWaitTime = 10000;
         private int _newProjectDialogWaitTime = 5000;
         private int _fileSelectionDialogWaitTime = 15000;
@@ -102,6 +103,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _simple321ToolbarClickY;
         private bool _simple321ToolbarClickCalibrated;
         private string _simple321ToolbarClickDisplayText = "未标定";
+        private int _simple321OffsetEditX;
+        private int _simple321OffsetEditY;
+        private bool _simple321OffsetEditCalibrated;
+        private string _simple321OffsetEditDisplayText = "未标定";
+        private int _postAlignCaptureButtonX;
+        private int _postAlignCaptureButtonY;
+        private bool _postAlignCaptureButtonCalibrated;
+        private string _postAlignCaptureButtonDisplayText = "未标定";
+        private int _postAlignCaptureButtonIndex;
+        private int _postAlignDragStartX;
+        private int _postAlignDragStartY;
+        private int _postAlignDragEndX;
+        private int _postAlignDragEndY;
+        private bool _postAlignDragCalibrated;
+        private string _postAlignDragDisplayText = "未标定";
+        private bool _enablePostAlignCaptureDragSteps = true;
+        private int _postAlignClickWaitMs = 400;
+        private int _postAlignDragStepDelayMs = 8;
 
         public string MessageShower
         {
@@ -147,6 +166,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _ctFileFolder, value))
                 {
                     SaveSetting(nameof(CTFileFolder), value);
+                }
+            }
+        }
+
+        /// <summary>VG 进程池最大并发数（导入重叠；后处理串行）。</summary>
+        public int MaxVgProcesses
+        {
+            get => _maxVgProcesses;
+            set
+            {
+                var clamped = value < 1
+                    ? 1
+                    : (value > CTAutoSlicerSettings.AbsoluteMaxVgProcesses
+                        ? CTAutoSlicerSettings.AbsoluteMaxVgProcesses
+                        : value);
+                if (SetProperty(ref _maxVgProcesses, clamped))
+                {
+                    SaveSetting(nameof(MaxVgProcesses), clamped);
                 }
             }
         }
@@ -732,6 +769,176 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _simple321ToolbarClickDisplayText, value);
         }
 
+        public int Simple321OffsetEditX
+        {
+            get => _simple321OffsetEditX;
+            set
+            {
+                if (SetProperty(ref _simple321OffsetEditX, value))
+                {
+                    SaveSetting(nameof(Simple321OffsetEditX), value);
+                    RefreshSimple321OffsetEditDisplay();
+                }
+            }
+        }
+
+        public int Simple321OffsetEditY
+        {
+            get => _simple321OffsetEditY;
+            set
+            {
+                if (SetProperty(ref _simple321OffsetEditY, value))
+                {
+                    SaveSetting(nameof(Simple321OffsetEditY), value);
+                    RefreshSimple321OffsetEditDisplay();
+                }
+            }
+        }
+
+        public string Simple321OffsetEditDisplayText
+        {
+            get => _simple321OffsetEditDisplayText;
+            private set => SetProperty(ref _simple321OffsetEditDisplayText, value);
+        }
+
+        public int PostAlignCaptureButtonX
+        {
+            get => _postAlignCaptureButtonX;
+            set
+            {
+                if (SetProperty(ref _postAlignCaptureButtonX, value))
+                {
+                    SaveSetting(nameof(PostAlignCaptureButtonX), value);
+                    RefreshPostAlignCaptureButtonDisplay();
+                }
+            }
+        }
+
+        public int PostAlignCaptureButtonY
+        {
+            get => _postAlignCaptureButtonY;
+            set
+            {
+                if (SetProperty(ref _postAlignCaptureButtonY, value))
+                {
+                    SaveSetting(nameof(PostAlignCaptureButtonY), value);
+                    RefreshPostAlignCaptureButtonDisplay();
+                }
+            }
+        }
+
+        public string PostAlignCaptureButtonDisplayText
+        {
+            get => _postAlignCaptureButtonDisplayText;
+            private set => SetProperty(ref _postAlignCaptureButtonDisplayText, value);
+        }
+
+        public int PostAlignCaptureButtonIndex
+        {
+            get => _postAlignCaptureButtonIndex;
+            set
+            {
+                if (SetProperty(ref _postAlignCaptureButtonIndex, value))
+                {
+                    SaveSetting(nameof(PostAlignCaptureButtonIndex), value);
+                }
+            }
+        }
+
+        public int PostAlignDragStartX
+        {
+            get => _postAlignDragStartX;
+            set
+            {
+                if (SetProperty(ref _postAlignDragStartX, value))
+                {
+                    SaveSetting(nameof(PostAlignDragStartX), value);
+                    RefreshPostAlignDragDisplay();
+                }
+            }
+        }
+
+        public int PostAlignDragStartY
+        {
+            get => _postAlignDragStartY;
+            set
+            {
+                if (SetProperty(ref _postAlignDragStartY, value))
+                {
+                    SaveSetting(nameof(PostAlignDragStartY), value);
+                    RefreshPostAlignDragDisplay();
+                }
+            }
+        }
+
+        public int PostAlignDragEndX
+        {
+            get => _postAlignDragEndX;
+            set
+            {
+                if (SetProperty(ref _postAlignDragEndX, value))
+                {
+                    SaveSetting(nameof(PostAlignDragEndX), value);
+                    RefreshPostAlignDragDisplay();
+                }
+            }
+        }
+
+        public int PostAlignDragEndY
+        {
+            get => _postAlignDragEndY;
+            set
+            {
+                if (SetProperty(ref _postAlignDragEndY, value))
+                {
+                    SaveSetting(nameof(PostAlignDragEndY), value);
+                    RefreshPostAlignDragDisplay();
+                }
+            }
+        }
+
+        public string PostAlignDragDisplayText
+        {
+            get => _postAlignDragDisplayText;
+            private set => SetProperty(ref _postAlignDragDisplayText, value);
+        }
+
+        public bool EnablePostAlignCaptureDragSteps
+        {
+            get => _enablePostAlignCaptureDragSteps;
+            set
+            {
+                if (SetProperty(ref _enablePostAlignCaptureDragSteps, value))
+                {
+                    SaveSetting(nameof(EnablePostAlignCaptureDragSteps), value ? 1 : 0);
+                }
+            }
+        }
+
+        public int PostAlignClickWaitMs
+        {
+            get => _postAlignClickWaitMs;
+            set
+            {
+                if (SetProperty(ref _postAlignClickWaitMs, value))
+                {
+                    SaveSetting(nameof(PostAlignClickWaitMs), value);
+                }
+            }
+        }
+
+        public int PostAlignDragStepDelayMs
+        {
+            get => _postAlignDragStepDelayMs;
+            set
+            {
+                if (SetProperty(ref _postAlignDragStepDelayMs, value))
+                {
+                    SaveSetting(nameof(PostAlignDragStepDelayMs), value);
+                }
+            }
+        }
+
         public ICommand OpenVGAppPathCommand { get; }
         public ICommand OpenCTFileFolderCommand { get; }
         public ICommand OpenSliceExportFolderCommand { get; }
@@ -742,12 +949,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand CalibrateVision3dRoiCommand { get; }
         public ICommand CalibrateVisionTopViewRoiCommand { get; }
         public ICommand CalibrateSimple321ToolbarClickCommand { get; }
+        public ICommand CalibrateSimple321OffsetEditCommand { get; }
+        public ICommand CalibratePostAlignCaptureButtonCommand { get; }
+        public ICommand CalibratePostAlignDragArrowCommand { get; }
         public ICommand PickHistogramMaskColorCommand { get; }
         public ICommand TestRenderingPresetCommand { get; }
         public ICommand TestThickPlateCommand { get; }
         public ICommand TestSliceExportCommand { get; }
         public ICommand TestHistogramGrayScaleCommand { get; }
         public ICommand TestSimple321AlignmentCommand { get; }
+        public ICommand TestPostAlignCaptureDragCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
 
@@ -782,12 +993,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             CalibrateVision3dRoiCommand = new RelayCommand(ExecuteCalibrateVision3dRoi);
             CalibrateVisionTopViewRoiCommand = new RelayCommand(ExecuteCalibrateVisionTopViewRoi);
             CalibrateSimple321ToolbarClickCommand = new RelayCommand(ExecuteCalibrateSimple321ToolbarClick);
+            CalibrateSimple321OffsetEditCommand = new RelayCommand(ExecuteCalibrateSimple321OffsetEdit);
+            CalibratePostAlignCaptureButtonCommand = new RelayCommand(ExecuteCalibratePostAlignCaptureButton);
+            CalibratePostAlignDragArrowCommand = new RelayCommand(ExecuteCalibratePostAlignDragArrow);
             PickHistogramMaskColorCommand = new RelayCommand(ExecutePickHistogramMaskColor);
             TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
             TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
             TestSliceExportCommand = new RelayCommandAsync(ExecuteTestSliceExportAsync);
             TestHistogramGrayScaleCommand = new RelayCommandAsync(ExecuteTestHistogramGrayScaleAsync);
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
+            TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
         }
@@ -868,6 +1083,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             _vgShowFrontWaitTime = LoadIntSetting("VGShowFrontWaitTime", 2000);
             CTFileFolder = LoadStringSetting(nameof(CTFileFolder), string.Empty);
+            MaxVgProcesses = LoadIntSetting(
+                nameof(MaxVgProcesses),
+                CTAutoSlicerSettings.DefaultMaxVgProcesses);
             QuickImportDialogWaitTime = LoadIntSetting(nameof(QuickImportDialogWaitTime), 10000);
             NewProjectDialogWaitTime = LoadIntSetting(nameof(NewProjectDialogWaitTime), 5000);
             FileSelectionDialogWaitTime = LoadIntSetting(nameof(FileSelectionDialogWaitTime), 15000);
@@ -953,6 +1171,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(Simple321ToolbarClickY));
             RefreshSimple321ToolbarClickDisplay();
 
+            _simple321OffsetEditX = LoadIntSetting(nameof(Simple321OffsetEditX), 0);
+            _simple321OffsetEditY = LoadIntSetting(nameof(Simple321OffsetEditY), 0);
+            _simple321OffsetEditCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.Simple321OffsetEditCalibrated), 0) != 0;
+            OnPropertyChanged(nameof(Simple321OffsetEditX));
+            OnPropertyChanged(nameof(Simple321OffsetEditY));
+            RefreshSimple321OffsetEditDisplay();
+
+            _postAlignCaptureButtonX = LoadIntSetting(nameof(PostAlignCaptureButtonX), 0);
+            _postAlignCaptureButtonY = LoadIntSetting(nameof(PostAlignCaptureButtonY), 0);
+            _postAlignCaptureButtonCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.PostAlignCaptureButtonCalibrated), 0) != 0;
+            _postAlignCaptureButtonIndex = LoadIntSetting(nameof(PostAlignCaptureButtonIndex), 0);
+            OnPropertyChanged(nameof(PostAlignCaptureButtonX));
+            OnPropertyChanged(nameof(PostAlignCaptureButtonY));
+            OnPropertyChanged(nameof(PostAlignCaptureButtonIndex));
+            RefreshPostAlignCaptureButtonDisplay();
+
+            _postAlignDragStartX = LoadIntSetting(nameof(PostAlignDragStartX), 0);
+            _postAlignDragStartY = LoadIntSetting(nameof(PostAlignDragStartY), 0);
+            _postAlignDragEndX = LoadIntSetting(nameof(PostAlignDragEndX), 0);
+            _postAlignDragEndY = LoadIntSetting(nameof(PostAlignDragEndY), 0);
+            _postAlignDragCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.PostAlignDragCalibrated), 0) != 0;
+            OnPropertyChanged(nameof(PostAlignDragStartX));
+            OnPropertyChanged(nameof(PostAlignDragStartY));
+            OnPropertyChanged(nameof(PostAlignDragEndX));
+            OnPropertyChanged(nameof(PostAlignDragEndY));
+            RefreshPostAlignDragDisplay();
+
+            _enablePostAlignCaptureDragSteps =
+                LoadIntSetting(nameof(EnablePostAlignCaptureDragSteps), 1) != 0;
+            _postAlignClickWaitMs = LoadIntSetting(nameof(PostAlignClickWaitMs), 400);
+            _postAlignDragStepDelayMs = LoadIntSetting(nameof(PostAlignDragStepDelayMs), 8);
+            OnPropertyChanged(nameof(EnablePostAlignCaptureDragSteps));
+            OnPropertyChanged(nameof(PostAlignClickWaitMs));
+            OnPropertyChanged(nameof(PostAlignDragStepDelayMs));
+
             _isLoadingSettings = false;
         }
 
@@ -1008,6 +1264,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 VGOpenWaitTime = VGOpenWaitTime,
                 VGShowFrontWaitTime = _vgShowFrontWaitTime,
                 CTFileFolder = CTFileFolder,
+                MaxVgProcesses = MaxVgProcesses,
                 QuickImportDialogWaitTime = QuickImportDialogWaitTime,
                 NewProjectDialogWaitTime = NewProjectDialogWaitTime,
                 FileSelectionDialogWaitTime = FileSelectionDialogWaitTime,
@@ -1065,6 +1322,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 Simple321ToolbarClickX = Simple321ToolbarClickX,
                 Simple321ToolbarClickY = Simple321ToolbarClickY,
                 Simple321ToolbarClickCalibrated = _simple321ToolbarClickCalibrated,
+                Simple321OffsetEditX = Simple321OffsetEditX,
+                Simple321OffsetEditY = Simple321OffsetEditY,
+                Simple321OffsetEditCalibrated = _simple321OffsetEditCalibrated,
+                PostAlignCaptureButtonX = PostAlignCaptureButtonX,
+                PostAlignCaptureButtonY = PostAlignCaptureButtonY,
+                PostAlignCaptureButtonCalibrated = _postAlignCaptureButtonCalibrated,
+                PostAlignCaptureButtonIndex = PostAlignCaptureButtonIndex,
+                PostAlignDragStartX = PostAlignDragStartX,
+                PostAlignDragStartY = PostAlignDragStartY,
+                PostAlignDragEndX = PostAlignDragEndX,
+                PostAlignDragEndY = PostAlignDragEndY,
+                PostAlignDragCalibrated = _postAlignDragCalibrated,
+                EnablePostAlignCaptureDragSteps = EnablePostAlignCaptureDragSteps,
+                PostAlignClickWaitMs = PostAlignClickWaitMs,
+                PostAlignDragStepDelayMs = PostAlignDragStepDelayMs,
                 VisionClickIntervalMs = 300,
                 VisionAlignmentDialogWaitTime = 8000,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
@@ -1097,6 +1369,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             Simple321ToolbarClickDisplayText = _simple321ToolbarClickCalibrated
                 ? $"X={_simple321ToolbarClickX}, Y={_simple321ToolbarClickY}"
                 : "未标定";
+        }
+
+        private void RefreshSimple321OffsetEditDisplay()
+        {
+            Simple321OffsetEditDisplayText = _simple321OffsetEditCalibrated
+                ? $"X={_simple321OffsetEditX}, Y={_simple321OffsetEditY}"
+                : "未标定";
+        }
+
+        private void RefreshPostAlignCaptureButtonDisplay()
+        {
+            PostAlignCaptureButtonDisplayText = _postAlignCaptureButtonCalibrated
+                ? $"X={_postAlignCaptureButtonX}, Y={_postAlignCaptureButtonY}（UIA 索引={_postAlignCaptureButtonIndex}）"
+                : "未标定";
+        }
+
+        private void RefreshPostAlignDragDisplay()
+        {
+            if (!_postAlignDragCalibrated)
+            {
+                PostAlignDragDisplayText = "未标定";
+                return;
+            }
+
+            var dx = _postAlignDragEndX - _postAlignDragStartX;
+            var dy = _postAlignDragEndY - _postAlignDragStartY;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            PostAlignDragDisplayText =
+                $"({_postAlignDragStartX},{_postAlignDragStartY}) → ({_postAlignDragEndX},{_postAlignDragEndY}) Δ=({dx},{dy}) L={len:F0}px";
         }
 
         private static string NormalizeMaskColor(string? value)
@@ -1333,6 +1634,250 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 MessageShower = $"「简单对齐」下拉标定失败：{ex.Message}";
                 _logger.Error("「简单对齐」下拉点击标定失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 标定三点定平面后、向量两点前左侧无名偏移 Edit（常显示「x.xx mm」）的点击位置。
+        /// </summary>
+        private void ExecuteCalibrateSimple321OffsetEdit(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var picker = new ScreenPointPickerOverlayWindow(
+                        "请对准三点后左侧显示「x.xx mm」的无名编辑框中心，左键确认；右键/Esc 取消（置 0 后「上」视图才正确）");
+                    var ok = picker.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消偏移 Edit 标定";
+                        AppendFlowLog("三点后偏移 Edit 标定已取消");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(Simple321OffsetEditX), 0, "int", nameof(Simple321OffsetEditX));
+                    EnsureSettingExists(nameof(Simple321OffsetEditY), 0, "int", nameof(Simple321OffsetEditY));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.Simple321OffsetEditCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.Simple321OffsetEditCalibrated));
+
+                    _isLoadingSettings = true;
+                    _simple321OffsetEditX = picker.SelectedX;
+                    _simple321OffsetEditY = picker.SelectedY;
+                    _simple321OffsetEditCalibrated = true;
+                    OnPropertyChanged(nameof(Simple321OffsetEditX));
+                    OnPropertyChanged(nameof(Simple321OffsetEditY));
+                    RefreshSimple321OffsetEditDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(Simple321OffsetEditX), picker.SelectedX);
+                    SaveSetting(nameof(Simple321OffsetEditY), picker.SelectedY);
+                    SaveSetting(nameof(CTAutoSlicerSettings.Simple321OffsetEditCalibrated), 1);
+
+                    var msg = $"偏移 Edit 已标定：X={picker.SelectedX}, Y={picker.SelectedY}";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"偏移 Edit 标定失败：{ex.Message}";
+                _logger.Error("三点后偏移 Edit 标定失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 标定 3-2-1 完成后、导出前视口底部无名捕捉按钮的屏幕绝对点击位置（UIA 匹配 + 兜底坐标）。
+        /// </summary>
+        private void ExecuteCalibratePostAlignCaptureButton(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var picker = new ScreenPointPickerOverlayWindow(
+                        "请将十字准星对准 VG 视口右下角无名捕捉按钮中心，左键确认；右键/Esc 取消");
+                    var ok = picker.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消捕捉按钮标定";
+                        AppendFlowLog("对齐后捕捉按钮标定已取消");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(PostAlignCaptureButtonX), 0, "int", nameof(PostAlignCaptureButtonX));
+                    EnsureSettingExists(nameof(PostAlignCaptureButtonY), 0, "int", nameof(PostAlignCaptureButtonY));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.PostAlignCaptureButtonCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.PostAlignCaptureButtonCalibrated));
+                    EnsureSettingExists(nameof(PostAlignCaptureButtonIndex), 0, "int", nameof(PostAlignCaptureButtonIndex));
+
+                    _isLoadingSettings = true;
+                    _postAlignCaptureButtonX = picker.SelectedX;
+                    _postAlignCaptureButtonY = picker.SelectedY;
+                    _postAlignCaptureButtonCalibrated = true;
+                    OnPropertyChanged(nameof(PostAlignCaptureButtonX));
+                    OnPropertyChanged(nameof(PostAlignCaptureButtonY));
+                    RefreshPostAlignCaptureButtonDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(PostAlignCaptureButtonX), picker.SelectedX);
+                    SaveSetting(nameof(PostAlignCaptureButtonY), picker.SelectedY);
+                    SaveSetting(nameof(CTAutoSlicerSettings.PostAlignCaptureButtonCalibrated), 1);
+
+                    var msg = $"对齐后捕捉按钮已标定：X={picker.SelectedX}, Y={picker.SelectedY}";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"捕捉按钮标定失败：{ex.Message}";
+                _logger.Error("对齐后捕捉按钮标定失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 标定点击捕捉按钮后的鼠标拖拽方向与距离（全屏箭头）。
+        /// </summary>
+        private void ExecuteCalibratePostAlignDragArrow(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var overlay = new ScreenArrowCalibrationOverlayWindow(
+                        "在 VG 上按住左键：从拖拽起点拖到终点，黄色箭头表示方向与距离；Esc/右键取消");
+                    var ok = overlay.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消拖拽箭头标定";
+                        AppendFlowLog("对齐后拖拽箭头标定已取消");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(PostAlignDragStartX), 0, "int", nameof(PostAlignDragStartX));
+                    EnsureSettingExists(nameof(PostAlignDragStartY), 0, "int", nameof(PostAlignDragStartY));
+                    EnsureSettingExists(nameof(PostAlignDragEndX), 0, "int", nameof(PostAlignDragEndX));
+                    EnsureSettingExists(nameof(PostAlignDragEndY), 0, "int", nameof(PostAlignDragEndY));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.PostAlignDragCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.PostAlignDragCalibrated));
+
+                    _isLoadingSettings = true;
+                    _postAlignDragStartX = overlay.StartX;
+                    _postAlignDragStartY = overlay.StartY;
+                    _postAlignDragEndX = overlay.EndX;
+                    _postAlignDragEndY = overlay.EndY;
+                    _postAlignDragCalibrated = true;
+                    OnPropertyChanged(nameof(PostAlignDragStartX));
+                    OnPropertyChanged(nameof(PostAlignDragStartY));
+                    OnPropertyChanged(nameof(PostAlignDragEndX));
+                    OnPropertyChanged(nameof(PostAlignDragEndY));
+                    RefreshPostAlignDragDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(PostAlignDragStartX), overlay.StartX);
+                    SaveSetting(nameof(PostAlignDragStartY), overlay.StartY);
+                    SaveSetting(nameof(PostAlignDragEndX), overlay.EndX);
+                    SaveSetting(nameof(PostAlignDragEndY), overlay.EndY);
+                    SaveSetting(nameof(CTAutoSlicerSettings.PostAlignDragCalibrated), 1);
+
+                    var msg =
+                        $"拖拽箭头已标定：({overlay.StartX},{overlay.StartY}) → ({overlay.EndX},{overlay.EndY})";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"拖拽箭头标定失败：{ex.Message}";
+                _logger.Error("对齐后拖拽箭头标定失败", ex);
             }
         }
 
@@ -1746,6 +2291,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            if (!_simple321OffsetEditCalibrated)
+            {
+                MessageShower = "尚未标定三点后偏移 Edit，请先在「阶段四视觉对齐」中标定「偏移置0」编辑框";
+                return;
+            }
+
             // 测试阶段使用本地剪影找点，不依赖 CTAutoCutImg.dll
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
@@ -1758,7 +2309,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 简单 3-2-1 对齐测试开始（3平面+2向量+1原点，本地找点） ———");
+                AppendFlowLog("——— 简单 3-2-1 对齐测试开始（三点→偏移置0→向量两点→原点，本地找点） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestSimple321AlignmentAsync(
@@ -1783,6 +2334,61 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        private async Task ExecuteTestPostAlignCaptureDragAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (!_postAlignCaptureButtonCalibrated)
+            {
+                MessageShower = "尚未标定捕捉按钮坐标，请先在「对齐后捕捉与拖拽」中点击「标定捕捉按钮」";
+                return;
+            }
+
+            if (!_postAlignDragCalibrated
+                || (_postAlignDragStartX == _postAlignDragEndX && _postAlignDragStartY == _postAlignDragEndY))
+            {
+                MessageShower = "尚未标定拖拽箭头，请先「标定拖拽箭头」";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 对齐后捕捉+拖拽测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.TestPostAlignCaptureDragAsync(
+                    BuildSettings(),
+                    flowToken,
+                    progress);
+                AppendFlowLog("——— 对齐后捕捉+拖拽测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"对齐后捕捉拖拽测试失败：{ex.Message}");
+                _logger.Error("对齐后捕捉拖拽测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
         private async Task ExecuteRunSimulationAsync()
         {
             if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
@@ -1796,12 +2402,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            var vglCount = Directory
-                .EnumerateFiles(CTFileFolder)
-                .Count(path => CTAutoSlicerSettings.IsImportVolumeExtension(Path.GetExtension(path)));
+            var folderFiles = Directory.EnumerateFiles(CTFileFolder).ToList();
+            var vglCount = folderFiles.Count(CTAutoSlicerSettings.IsImportVolumeQueueEntry);
             if (vglCount == 0)
             {
-                MessageShower = "所选文件夹内未找到 .vgl/.vgi 文件";
+                var broken = folderFiles
+                    .Where(CTAutoSlicerSettings.LooksLikeBrokenVolumeShortcutName)
+                    .Select(Path.GetFileName)
+                    .Take(3)
+                    .ToList();
+                if (broken.Count > 0)
+                {
+                    MessageShower =
+                        $"检测到名称像快捷方式但不是 .lnk 文件：{string.Join("；", broken)}。"
+                        + "请对源 .vgi 右键「创建快捷方式」，再把生成的 .lnk 拷入体素文件夹。";
+                    return;
+                }
+
+                var sample = folderFiles
+                    .Select(Path.GetFileName)
+                    .Where(name =>
+                        !string.IsNullOrEmpty(name)
+                        && (name.Contains("快捷方式", StringComparison.Ordinal)
+                            || name.Contains(".vgi", StringComparison.OrdinalIgnoreCase)
+                            || name.Contains(".vgl", StringComparison.OrdinalIgnoreCase)
+                            || name.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase)))
+                    .Take(3)
+                    .ToList();
+
+                MessageShower = sample.Count > 0
+                    ? $"未识别可导入体素。请确认是 Windows「快捷方式」(.lnk)。当前可疑文件：{string.Join("；", sample)}"
+                    : "所选文件夹内未找到 .vgl/.vgi 文件（含「.vgi - 快捷方式」）";
                 return;
             }
 

@@ -39,11 +39,74 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 
         public const string VglFileExtension = ".vgl";
         public const string VgiFileExtension = ".vgi";
+        /// <summary>Windows 快捷方式扩展名（资源管理器中常显示为「xxx.vgi - 快捷方式」）。</summary>
+        public const string ShortcutFileExtension = ".lnk";
 
         /// <summary>是否为可导入的体素文件扩展名（.vgl / .vgi，不区分大小写）。</summary>
         public static bool IsImportVolumeExtension(string? extension) =>
             string.Equals(extension, VglFileExtension, StringComparison.OrdinalIgnoreCase)
             || string.Equals(extension, VgiFileExtension, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 文件名是否像体素快捷方式（磁盘上必须是 .lnk）。
+        /// 资源管理器常显示为「0351-F ….vgi - 快捷方式」（隐藏了 .lnk 后缀）。
+        /// </summary>
+        public static bool LooksLikeImportVolumeShortcut(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var fileName = Path.GetFileName(path);
+            if (string.IsNullOrEmpty(fileName)
+                || !fileName.EndsWith(ShortcutFileExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var nameWithoutLnk = fileName[..^ShortcutFileExtension.Length];
+            return ContainsVolumeExtensionToken(nameWithoutLnk)
+                || nameWithoutLnk.Contains("快捷方式", StringComparison.Ordinal)
+                || nameWithoutLnk.Contains("Shortcut", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 名称像「xxx.vgi - 快捷方式」但不是 .lnk（无法作为 Windows 快捷方式解析）。
+        /// </summary>
+        public static bool LooksLikeBrokenVolumeShortcutName(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var fileName = Path.GetFileName(path);
+            if (string.IsNullOrEmpty(fileName)
+                || fileName.EndsWith(ShortcutFileExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var extension = Path.GetExtension(fileName);
+            var looksShortcutCaption = extension.Contains("快捷方式", StringComparison.Ordinal)
+                || extension.Contains("Shortcut", StringComparison.OrdinalIgnoreCase)
+                || fileName.Contains("快捷方式", StringComparison.Ordinal)
+                || fileName.Contains("Shortcut", StringComparison.OrdinalIgnoreCase);
+
+            return looksShortcutCaption && ContainsVolumeExtensionToken(fileName);
+        }
+
+        /// <summary>
+        /// 是否可作为体素文件夹排队条目：真实 .vgl/.vgi，或体素快捷方式（.lnk）。
+        /// </summary>
+        public static bool IsImportVolumeQueueEntry(string? path) =>
+            IsImportVolumeExtension(Path.GetExtension(path ?? string.Empty))
+            || LooksLikeImportVolumeShortcut(path);
+
+        private static bool ContainsVolumeExtensionToken(string text) =>
+            text.Contains(VgiFileExtension, StringComparison.OrdinalIgnoreCase)
+            || text.Contains(VglFileExtension, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>VG 冷启动就绪检测默认最大等待（毫秒）</summary>
         public const int DefaultVGOpenWaitTime = 180000;
@@ -56,6 +119,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>VG 置前后等待主界面可交互的最大超时（毫秒）</summary>
         public int VGShowFrontWaitTime { get; set; } = 2000;
         public string CTFileFolder { get; set; } = string.Empty;
+        /// <summary>VG 进程池最大并发数（导入可重叠等待；后处理串行）。默认 4，建议 1～8。</summary>
+        public int MaxVgProcesses { get; set; } = DefaultMaxVgProcesses;
+        /// <summary>进程池默认最大并发数</summary>
+        public const int DefaultMaxVgProcesses = 4;
+        /// <summary>进程池允许的最大上限（防止误配打爆内存）</summary>
+        public const int AbsoluteMaxVgProcesses = 8;
         /// <summary>Ctrl+I 后等待快速导入对话框出现的最大超时（毫秒）</summary>
         public int QuickImportDialogWaitTime { get; set; } = 10000;
         /// <summary>Ctrl+N 后等待保存提示框出现的最大超时（毫秒）</summary>
@@ -246,13 +315,84 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public bool HasSimple321ToolbarClick => Simple321ToolbarClickCalibrated;
 
         /// <summary>
+        /// 三点定平面后、向量两点前：左侧无名厚度/偏移 Edit 的屏幕点击 X（物理像素）。
+        /// Insights：Edit 无 Name，须标定后点击 → 输入 0 → Enter，否则「上」视图非预期。
+        /// </summary>
+        public int Simple321OffsetEditX { get; set; }
+
+        /// <summary>三点后偏移 Edit 的屏幕点击 Y（物理像素）</summary>
+        public int Simple321OffsetEditY { get; set; }
+
+        /// <summary>是否已完成偏移 Edit 点击位置标定</summary>
+        public bool Simple321OffsetEditCalibrated { get; set; }
+
+        /// <summary>偏移 Edit 点击位置是否可用</summary>
+        public bool HasSimple321OffsetEdit => Simple321OffsetEditCalibrated;
+
+        /// <summary>
         /// 主流程是否执行阶段四简单 3-2-1。默认始终开启；未标定齐全时跳过并对该文件打日志。
         /// </summary>
         public bool EnableVisionAlignmentSteps { get; set; } = true;
 
-        /// <summary>简单 3-2-1 所需标定是否齐全（3D ROI +「上」ROI + 下拉点击）</summary>
+        /// <summary>简单 3-2-1 所需标定是否齐全（3D ROI +「上」ROI + 下拉 + 三点后偏移 Edit）</summary>
         public bool HasSimple321Prerequisites =>
-            HasVision3dRoi && HasVisionTopViewRoi && HasSimple321ToolbarClick;
+            HasVision3dRoi && HasVisionTopViewRoi && HasSimple321ToolbarClick && HasSimple321OffsetEdit;
+
+        /// <summary>
+        /// 3-2-1 完成后、切片导出前：视口底部无名「捕捉」类按钮的绝对点击 X（物理像素，兜底）。
+        /// 主路径优先 UIA（父组内按索引 Invoke）；失败再用本坐标 Win32 点击。
+        /// </summary>
+        public int PostAlignCaptureButtonX { get; set; }
+
+        /// <summary>无名捕捉按钮绝对点击 Y（物理像素）</summary>
+        public int PostAlignCaptureButtonY { get; set; }
+
+        /// <summary>是否已完成捕捉按钮绝对坐标标定</summary>
+        public bool PostAlignCaptureButtonCalibrated { get; set; }
+
+        /// <summary>捕捉按钮绝对坐标是否可用</summary>
+        public bool HasPostAlignCaptureButton => PostAlignCaptureButtonCalibrated;
+
+        /// <summary>
+        /// 同一工具栏父组内、空 Name 小按钮从左到右的索引（0 起）。
+        /// UIA 方案一用此索引定位；若已标定绝对坐标则优先用坐标匹配矩形。
+        /// </summary>
+        public int PostAlignCaptureButtonIndex { get; set; }
+
+        /// <summary>捕捉按钮点击后的拖拽起点 X（箭头标定）</summary>
+        public int PostAlignDragStartX { get; set; }
+
+        /// <summary>捕捉按钮点击后的拖拽起点 Y</summary>
+        public int PostAlignDragStartY { get; set; }
+
+        /// <summary>捕捉按钮点击后的拖拽终点 X（箭头方向与距离）</summary>
+        public int PostAlignDragEndX { get; set; }
+
+        /// <summary>捕捉按钮点击后的拖拽终点 Y</summary>
+        public int PostAlignDragEndY { get; set; }
+
+        /// <summary>是否已完成拖拽箭头标定</summary>
+        public bool PostAlignDragCalibrated { get; set; }
+
+        /// <summary>拖拽箭头是否可用</summary>
+        public bool HasPostAlignDrag =>
+            PostAlignDragCalibrated
+            && (PostAlignDragStartX != PostAlignDragEndX || PostAlignDragStartY != PostAlignDragEndY);
+
+        /// <summary>
+        /// 主流程是否在 3-2-1 后、导出前执行「点捕捉按钮 → 沿箭头拖拽」。默认开；未标定齐全则跳过。
+        /// </summary>
+        public bool EnablePostAlignCaptureDragSteps { get; set; } = true;
+
+        /// <summary>点按钮后、开始拖拽前的等待（毫秒）</summary>
+        public int PostAlignClickWaitMs { get; set; } = 400;
+
+        /// <summary>拖拽路径每步间隔（毫秒）</summary>
+        public int PostAlignDragStepDelayMs { get; set; } = 8;
+
+        /// <summary>捕捉按钮 + 拖拽箭头标定是否齐全</summary>
+        public bool HasPostAlignCaptureDragPrerequisites =>
+            HasPostAlignCaptureButton && HasPostAlignDrag;
 
         /// <summary>视觉对齐截图落盘目录（空则使用 DefaultVisionCaptureDir）</summary>
         public string VisionCaptureDir { get; set; } = DefaultVisionCaptureDir;
@@ -439,6 +579,19 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             return (deletedDirs, deletedFiles);
         }
 
+        /// <summary>将 MaxVgProcesses 限制在 [1, AbsoluteMaxVgProcesses]。</summary>
+        public int GetClampedMaxVgProcesses()
+        {
+            if (MaxVgProcesses < 1)
+            {
+                return 1;
+            }
+
+            return MaxVgProcesses > AbsoluteMaxVgProcesses
+                ? AbsoluteMaxVgProcesses
+                : MaxVgProcesses;
+        }
+
         public bool IsInputComplete()
         {
             return !string.IsNullOrWhiteSpace(VGAppPath)
@@ -446,6 +599,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
                 && VGShowFrontWaitTime != 0
                 && !string.IsNullOrWhiteSpace(CTFileFolder)
                 && !string.IsNullOrWhiteSpace(SliceExportFolder)
+                && MaxVgProcesses > 0
                 && QuickImportDialogWaitTime != 0
                 && NewProjectDialogWaitTime != 0
                 && FileSelectionDialogWaitTime != 0

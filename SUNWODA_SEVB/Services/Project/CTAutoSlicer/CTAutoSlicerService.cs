@@ -75,6 +75,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress,
                 "切片流程正在运行中，请稍后再试");
 
+        public Task TestPostAlignCaptureDragAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.TestPostAlignCaptureDragAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "切片流程正在运行中，请稍后再试");
+
         private async Task ExecuteExclusiveAsync(
             Func<CancellationToken, IProgress<string>?, Task> action,
             CancellationToken cancellationToken,

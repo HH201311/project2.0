@@ -173,13 +173,28 @@
 
                             <StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
-                                    Width="500"
+                                    Width="245"
                                     Margin="0,0,10,0"
                                     hc:InfoElement.Necessary="True"
                                     hc:InfoElement.Title="导入后稳定等待(ms)"
                                     hc:InfoElement.TitlePlacement="Left">
                                     <hc:TextBox.Text>
                                         <Binding Path="PostImportWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="245"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Necessary="True"
+                                    hc:InfoElement.Title="最大VG进程数"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    hc:InfoElement.Placeholder="1～8，默认4">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="MaxVgProcesses" UpdateSourceTrigger="PropertyChanged">
                                             <Binding.ValidationRules>
                                                 <hc:RegexRule Type="PInt" />
                                             </Binding.ValidationRules>
@@ -645,6 +660,51 @@
                                     ToolTip="隐藏上位机 → 对准 VG 测量工具栏「简单对齐」下拉中心左键确认；Qt 下拉 UIA 不可靠，必须绝对定位" />
                             </StackPanel>
 
+                            <TextBlock
+                                Margin="10,16,10,0"
+                                FontWeight="SemiBold"
+                                Text="④ 三点后偏移 Edit 置 0（绝对坐标，向量两点前）" />
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="当前标定坐标：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding Simple321OffsetEditDisplayText}" />
+                            </StackPanel>
+                            <StackPanel Margin="10,0,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="左侧无名偏移 Edit 中心屏幕 X（常显示 x.xx mm）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Simple321OffsetEditX" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True"
+                                    ToolTip="左侧无名偏移 Edit 中心屏幕 Y">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="Simple321OffsetEditY" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Command="{Binding CalibrateSimple321OffsetEditCommand}"
+                                    Content="标定偏移置0编辑框"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="三点完成后左侧「x.xx mm」无名编辑框中心；自动化将点击→输入0→回车，否则「上」视图非预期" />
+                            </StackPanel>
+
                             <StackPanel Margin="10,16,10,0" Orientation="Horizontal">
                                 <hc:TextBox
                                     Width="420"
@@ -706,7 +766,132 @@
                             <TextBlock
                                 Margin="10,8,10,10"
                                 Foreground="Gray"
-                                Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。主流程厚板后自动执行简单 3-2-1。3D 图存「3D图标定截图目录」；上视图存「上视图截图目录」；均按日分子目录，超过 7 天自动删除。"
+                                Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。三点后须标定左侧偏移 Edit 并置 0，否则向量两点时「上」视图不对。主流程厚板后自动执行简单 3-2-1。3D 图存「3D图标定截图目录」；上视图存「上视图截图目录」；均按日分子目录，超过 7 天自动删除。"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
+                <Expander Margin="5" Header="对齐后捕捉与拖拽（3-2-1 后、切片导出前）">
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <CheckBox
+                                Margin="10,10,10,0"
+                                Content="主流程启用本步骤（EnablePostAlignCaptureDragSteps）"
+                                IsChecked="{Binding EnablePostAlignCaptureDragSteps}" />
+
+                            <TextBlock
+                                Margin="10,12,10,0"
+                                FontWeight="SemiBold"
+                                Text="① 无名捕捉按钮（绝对坐标 + UIA 索引兜底）" />
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" Text="当前标定：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding PostAlignCaptureButtonDisplayText}" />
+                            </StackPanel>
+                            <StackPanel Margin="10,0,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="X"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PostAlignCaptureButtonX" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="100"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Y"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    IsReadOnly="True">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PostAlignCaptureButtonY" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="120"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="UIA索引"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="主窗右下无名小按钮按 Left 排序后的索引（0 起）；已标定坐标时优先按坐标匹配矩形">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PostAlignCaptureButtonIndex" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Command="{Binding CalibratePostAlignCaptureButtonCommand}"
+                                    Content="标定捕捉按钮"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="隐藏上位机 → 十字准星对准视口右下角无名按钮中心" />
+                            </StackPanel>
+
+                            <TextBlock
+                                Margin="10,16,10,0"
+                                FontWeight="SemiBold"
+                                Text="② 点击按钮后的拖拽箭头（方向与距离）" />
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" Text="当前标定：" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Consolas"
+                                    FontSize="12"
+                                    Text="{Binding PostAlignDragDisplayText}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel Margin="10,0,10,0" Orientation="Horizontal">
+                                <Button
+                                    Command="{Binding CalibratePostAlignDragArrowCommand}"
+                                    Content="标定拖拽箭头"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="全屏按住左键拖出黄色箭头：起点→终点即自动化拖拽路径" />
+                            </StackPanel>
+
+                            <StackPanel Margin="10,8,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="180"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="点击后等待ms"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PostAlignClickWaitMs" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="180"
+                                    hc:InfoElement.Title="拖拽步进ms"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="PostAlignDragStepDelayMs" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
+                            <TextBlock
+                                Margin="10,8,10,10"
+                                Foreground="Gray"
+                                Text="执行顺序：优先 UIA 定位无名按钮并 Invoke；失败则用标定绝对坐标点击 → 等待 → 按箭头直线拖拽。未标定齐全时主流程跳过本步。"
                                 TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
@@ -911,7 +1096,13 @@
                         Command="{Binding TestSimple321AlignmentCommand}"
                         Content="测试简单3-2-1对齐"
                         IsEnabled="{Binding IsEnableSimulationBtn}"
-                        ToolTip="需已标定 3D ROI +「简单对齐」下拉点击位置" />
+                        ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit" />
+                    <Button
+                        Margin="0,0,10,0"
+                        Command="{Binding TestPostAlignCaptureDragCommand}"
+                        Content="测试对齐后捕捉拖拽"
+                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                        ToolTip="需已标定捕捉按钮与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态" />
                     <Button
                         Margin="0,0,10,0"
                         Command="{Binding TestSliceExportCommand}"

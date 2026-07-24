@@ -76,5 +76,55 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             simulator.SimulateMouseRelease(mouseButton);
         }
+
+        /// <summary>
+        /// 构造直线拖拽路径（物理像素，Bresenham 近似，步长约 1～2px）。
+        /// </summary>
+        public static List<(short x, short y)> BuildLinearDragPath(
+            int startX,
+            int startY,
+            int endX,
+            int endY,
+            int maxPoints = 800)
+        {
+            var sx = (short)Math.Clamp(startX, short.MinValue, short.MaxValue);
+            var sy = (short)Math.Clamp(startY, short.MinValue, short.MaxValue);
+            var ex = (short)Math.Clamp(endX, short.MinValue, short.MaxValue);
+            var ey = (short)Math.Clamp(endY, short.MinValue, short.MaxValue);
+
+            var path = new List<(short x, short y)> { (sx, sy) };
+            if (sx == ex && sy == ey)
+            {
+                path.Add((ex, ey));
+                return path;
+            }
+
+            var dx = Math.Abs(ex - sx);
+            var dy = Math.Abs(ey - sy);
+            var steps = Math.Max(dx, dy);
+            if (steps > maxPoints)
+            {
+                steps = maxPoints;
+            }
+
+            for (var i = 1; i <= steps; i++)
+            {
+                var t = (double)i / steps;
+                var x = (short)Math.Round(sx + (ex - sx) * t);
+                var y = (short)Math.Round(sy + (ey - sy) * t);
+                var last = path[^1];
+                if (x != last.x || y != last.y)
+                {
+                    path.Add((x, y));
+                }
+            }
+
+            if (path[^1].x != ex || path[^1].y != ey)
+            {
+                path.Add((ex, ey));
+            }
+
+            return path;
+        }
     }
 }

@@ -29,6 +29,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string FileMenuItemName = "文件(F)";
         private const string FileSelectionFinishButtonName = "完成(F)";
         private const string ImportProgressWindowName = "请耐心等待...";
+        /// <summary>导入进度框内文（Insights：Text Name=正在导入体积），比仅认窗口标题更稳。</summary>
+        private const string ImportProgressStatusText = "正在导入体积";
         private const string RenderingPanelWindowName = "渲染";
         private const string ThickPlateOkButtonName = "确定";
         private const string SliceExportDialogNamePrefix = "保存";
@@ -68,6 +70,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const int PresetDropdownCloseWaitMs = 1500;
         /// <summary>切片导出：单字段 Enter 提交后等待 VG/Qt 消化读数（Custom 框 UIA 常滞后）。</summary>
         private const int SliceExportFieldCommitDelayMs = 300;
+        /// <summary>进程池调度：无 UI 动作时的空闲轮询间隔。</summary>
+        private const int PoolIdlePollIntervalMs = 1000;
+
+        /// <summary>
+        /// 后处理独占计数：&gt;0 时后台导入等待暂停 UIA，避免抢焦点打断 LUT/厚板/3-2-1/导出。
+        /// </summary>
+        private int _postPipelineExclusiveCount;
 
         private readonly ILoggerService<VGAutomationService> _logger;
         private readonly IAngleAlgorithmService _angleAlgorithmService;
@@ -79,6 +88,37 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         /// </summary>
         private readonly List<InterruptDialogHandler> _interruptDialogQueue = new();
         private Process? _activeVgProcess;
+
+        /// <summary>进程池槽状态。</summary>
+        private enum VgSlotState
+        {
+            Importing,
+            ImportDone,
+            Failed
+        }
+
+        /// <summary>
+        /// 体素文件夹排队条目：ImportPath 传给 VG；QueueEntryPath 为文件夹内条目（真实文件或 .lnk），成功后删除。
+        /// </summary>
+        private sealed class VolumeQueueItem
+        {
+            public required string ImportPath { get; init; }
+            public required string QueueEntryPath { get; init; }
+        }
+
+        /// <summary>单个 VG 进程槽：绑定文件路径与导入等待任务。</summary>
+        private sealed class VgProcessSlot
+        {
+            public required Process Process { get; init; }
+            /// <summary>传给 VG 的实际体积路径（快捷方式已解析为目标 .vgl/.vgi）。</summary>
+            public required string FilePath { get; init; }
+            /// <summary>体素文件夹内排队条目路径；成功后删除此项（快捷方式时勿删源文件）。</summary>
+            public required string QueueEntryPath { get; init; }
+            public VgSlotState State { get; set; } = VgSlotState.Importing;
+            public Task? WaitTask { get; set; }
+            public Exception? Error { get; set; }
+            public DateTime ImportStartedUtc { get; set; } = DateTime.UtcNow;
+        }
 
         public VGAutomationService(
             ILoggerService<VGAutomationService> logger,
@@ -178,7 +218,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 {
                     try
                     {
-                        return IsRenderingWorkspaceReady(GetFreshMainWindow(ctViewerProcess), settings);
+                        // 静默取窗，避免后台轮询抢焦点
+                        var window = TryGetMainWindowElement(ctViewerProcess);
+                        return window != null && IsRenderingWorkspaceReady(window, settings);
                     }
                     catch
                     {
@@ -244,96 +286,180 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            progress?.Report("流程开始");
-            _logger.Info("流程开始");
+            var volumeItems = GetVolumeQueueItems(settings.CTFileFolder);
+            if (volumeItems.Count == 0)
+            {
+                progress?.Report("未找到 .vgl/.vgi 文件（含「.vgi - 快捷方式」）");
+                _logger.Info("未找到 .vgl/.vgi 文件（含快捷方式）");
+                return;
+            }
 
-            progress?.Report("连接/启动 VG 应用...");
-            var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
-            _activeVgProcess = ctViewerProcess;
-            await WaitForProcessMainWindowAsync(ctViewerProcess, cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
+            var maxSlots = settings.GetClampedMaxVgProcesses();
+            var pending = new Queue<VolumeQueueItem>(volumeItems);
+            var slots = new List<VgProcessSlot>();
+            var successCount = 0;
+            var failCount = 0;
+            var totalCount = volumeItems.Count;
+
+            progress?.Report("流程开始（VG 进程池模式）");
+            _logger.Info($"流程开始：文件 {totalCount} 个，最大 VG 进程数 {maxSlots}");
+            progress?.Report($"找到 {totalCount} 个体素文件（含快捷方式），最大并发 VG={maxSlots}");
 
             Lock();
             try
             {
-                // 第一步：等待软件打开；启动期间若出现队列中的弹窗（如自动保存恢复）则处理
-                await WaitForVgOpenAsync(
-                        ctViewerProcess,
-                        settings,
-                        cancellationToken,
-                        progress)
-                    .ConfigureAwait(false);
-
-                // TODO: 后续重写导入及之后步骤；当前先沿用既有导入逻辑便于联调第一步
-                await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
-
-                var vglFiles = GetVglFiles(settings.CTFileFolder);
-                if (vglFiles.Count == 0)
-                {
-                    progress?.Report("未找到 .vgl/.vgi 文件");
-                    _logger.Info("未找到 .vgl/.vgi 文件");
-                    return;
-                }
-
-                progress?.Report($"找到 {vglFiles.Count} 个 .vgl/.vgi 文件");
-                _logger.Info($"找到 {vglFiles.Count} 个 .vgl/.vgi 文件");
-
-                var successCount = 0;
-                var failCount = 0;
-
-                for (var index = 0; index < vglFiles.Count; index++)
+                while (pending.Count > 0 || slots.Count > 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var vglPath = vglFiles[index];
-                    var fileName = Path.GetFileName(vglPath);
-                    progress?.Report($"正在导入 {index + 1}/{vglFiles.Count}：{fileName}");
-                    _logger.Info($"开始导入 {index + 1}/{vglFiles.Count}：{vglPath}");
 
-                    try
-                    {
-                        await ImportSingleVglAsync(
-                                settings,
-                                ctViewerProcess,
-                                vglPath,
-                                cancellationToken,
-                                progress)
-                            .ConfigureAwait(false);
+                    HarvestFinishedImportWaits(slots, progress);
 
-                        successCount++;
-                        await OnImportSucceededAsync(vglPath).ConfigureAwait(false);
-                        progress?.Report($"导入完成 {index + 1}/{vglFiles.Count}：{fileName}");
-                    }
-                    catch (OperationCanceledException)
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // 优先处理已导入完成的槽（后处理串行，尽快腾出内存）
+                    var readySlot = slots.Find(s => s.State == VgSlotState.ImportDone);
+                    if (readySlot != null)
                     {
-                        throw;
+                        var fileName = Path.GetFileName(readySlot.FilePath);
+                        progress?.Report($"开始后处理：{fileName}（PID={readySlot.Process.Id}）");
+                        _logger.Info($"开始后处理：{readySlot.FilePath}，PID={readySlot.Process.Id}");
+
+                        try
+                        {
+                            await RunPostImportPipelineAsync(
+                                    settings,
+                                    readySlot.Process,
+                                    readySlot.FilePath,
+                                    cancellationToken,
+                                    progress)
+                                .ConfigureAwait(false);
+
+                            await OnImportSucceededAsync(readySlot.QueueEntryPath).ConfigureAwait(false);
+                            successCount++;
+                            progress?.Report($"处理成功并已删除排队条目：{Path.GetFileName(readySlot.QueueEntryPath)}");
+                            _logger.Info($"处理成功：导入={readySlot.FilePath}，已删排队条目={readySlot.QueueEntryPath}");
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            failCount++;
+                            var reason = GetFullExceptionMessage(ex);
+                            progress?.Report($"{ImportFailProgressPrefix}{fileName}|{reason}");
+                            _logger.Error($"后处理失败（保留文件）：{readySlot.FilePath}", ex);
+                        }
+                        finally
+                        {
+                            KillVgProcess(readySlot.Process, $"后处理结束释放：{fileName}");
+                            slots.Remove(readySlot);
+                            _activeVgProcess = null;
+                        }
+
+                        continue;
                     }
-                    catch (Exception ex)
+
+                    // 处理导入失败槽：杀进程，保留文件
+                    var failedSlot = slots.Find(s => s.State == VgSlotState.Failed);
+                    if (failedSlot != null)
                     {
+                        var fileName = Path.GetFileName(failedSlot.FilePath);
+                        var reason = failedSlot.Error == null
+                            ? "导入等待失败"
+                            : GetFullExceptionMessage(failedSlot.Error);
                         failCount++;
-                        var reason = GetFullExceptionMessage(ex);
                         progress?.Report($"{ImportFailProgressPrefix}{fileName}|{reason}");
-                        _logger.Error($"导入失败：{vglPath}", ex);
+                        _logger.Error($"导入失败（保留文件，杀进程）：{failedSlot.FilePath} — {reason}");
+                        KillVgProcess(failedSlot.Process, $"导入失败释放：{fileName}");
+                        slots.Remove(failedSlot);
+                        continue;
                     }
+
+                    // 槽位未满且仍有待处理文件 → 启动新 VG 并进入导入（需独占键鼠）
+                    if (slots.Count < maxSlots && pending.Count > 0)
+                    {
+                        var volumeItem = pending.Dequeue();
+                        var vglPath = volumeItem.ImportPath;
+                        var fileName = Path.GetFileName(vglPath);
+                        var slotIndex = successCount + failCount + slots.Count + 1;
+                        progress?.Report(
+                            $"启动 VG 导入 {slotIndex}/{totalCount}：{fileName}（槽位 {slots.Count + 1}/{maxSlots}）");
+                        _logger.Info(
+                            $"启动 VG 导入：{vglPath}（排队条目={volumeItem.QueueEntryPath}），当前槽 {slots.Count}/{maxSlots}，剩余排队 {pending.Count}");
+
+                        Process? started = null;
+                        try
+                        {
+                            started = await LaunchFreshVgAndStartImportAsync(
+                                    settings,
+                                    vglPath,
+                                    cancellationToken,
+                                    progress)
+                                .ConfigureAwait(false);
+
+                            var slot = new VgProcessSlot
+                            {
+                                Process = started,
+                                FilePath = vglPath,
+                                QueueEntryPath = volumeItem.QueueEntryPath,
+                                State = VgSlotState.Importing,
+                                ImportStartedUtc = DateTime.UtcNow
+                            };
+                            slots.Add(slot);
+                            // 先宣告槽位占用并放行主循环填下一 VG，再挂后台等待（避免后台 UIA 抢先占日志/延迟）
+                            progress?.Report(
+                                $"已进入导入等待：{fileName}（PID={started.Id}，活动槽 {slots.Count}/{maxSlots}）");
+                            slot.WaitTask = WaitImportInBackgroundAsync(
+                                settings,
+                                slot,
+                                cancellationToken,
+                                progress);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            KillVgProcess(started, "取消时清理启动中的 VG");
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            failCount++;
+                            var reason = GetFullExceptionMessage(ex);
+                            progress?.Report($"{ImportFailProgressPrefix}{fileName}|{reason}");
+                            _logger.Error($"启动/开始导入失败（保留文件）：{vglPath}", ex);
+                            KillVgProcess(started, $"启动导入失败：{fileName}");
+                            _activeVgProcess = null;
+                        }
+
+                        continue;
+                    }
+
+                    // 仅有 Importing 槽：等待任一导入完成（静默 UIA，不置顶）
+                    var activeWaits = slots
+                        .Where(s => s.State == VgSlotState.Importing && s.WaitTask != null)
+                        .Select(s => s.WaitTask!)
+                        .ToArray();
+                    if (activeWaits.Length == 0)
+                    {
+                        break;
+                    }
+
+                    progress?.Report(
+                        $"导入等待中……活动槽 {slots.Count}/{maxSlots}，排队 {pending.Count}");
+                    await Task.WhenAny(
+                            Task.WhenAny(activeWaits),
+                            Task.Delay(PoolIdlePollIntervalMs, cancellationToken))
+                        .ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                // 阶段三（厚板）之后尚有对齐、切片等步骤待开发；批次结束暂不 Ctrl+N 清空，
-                // 以便在 VG 中保留当前工程状态，便于联调后续功能。全流程完成后恢复。
-                progress?.Report("批次结束（暂不清空 VG，保留当前工程以便继续开发后续步骤）");
-                _logger.Info("批次结束（暂不清空 VG，保留当前工程以便继续开发后续步骤）");
-                // progress?.Report("批次结束，清空 VG");
-                // _logger.Info("批次结束，清空 VG");
-                // await PrepareNewProjectAsync(
-                //         settings,
-                //         GetFreshMainWindow(ctViewerProcess),
-                //         cancellationToken,
-                //         progress)
-                //     .ConfigureAwait(false);
-
-                progress?.Report($"批次结束：成功 {successCount} 个，失败 {failCount} 个，共 {vglFiles.Count} 个");
-                _logger.Info($"批次结束：成功 {successCount} 个，失败 {failCount} 个，共 {vglFiles.Count} 个");
+                progress?.Report($"批次结束：成功 {successCount} 个，失败 {failCount} 个，共 {totalCount} 个");
+                _logger.Info($"批次结束：成功 {successCount} 个，失败 {failCount} 个，共 {totalCount} 个");
             }
             catch (OperationCanceledException)
             {
+                progress?.Report("流程已取消，正在清理 VG 进程池…");
+                _logger.Warn("流程取消，清理全部 VG 槽位");
                 throw;
             }
             catch (Exception ex)
@@ -346,21 +472,70 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                try
+                foreach (var slot in slots.ToList())
                 {
-                    EnsureVgForeground(ctViewerProcess);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"流程结束恢复 VG 焦点失败：{ex.Message}");
+                    KillVgProcess(slot.Process, $"批次结束清理：{Path.GetFileName(slot.FilePath)}");
                 }
 
+                slots.Clear();
                 Unlock();
                 _activeVgProcess = null;
             }
         }
 
-        private async Task ImportSingleVglAsync(
+        /// <summary>
+        /// 冷启动全新 VG（不附着已有进程）→ 就绪 → 执行导入操作直至文件选择确认。
+        /// 导入体积等待由后台任务按 PID 静默轮询。
+        /// </summary>
+        private async Task<Process> LaunchFreshVgAndStartImportAsync(
+            CTAutoSlicerSettings settings,
+            string vglPath,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            progress?.Report("启动新的 VG 进程…");
+            var process = StartFreshVgProcess(settings);
+            _activeVgProcess = process;
+
+            try
+            {
+                await WaitForProcessMainWindowAsync(process, cancellationToken).ConfigureAwait(false);
+                await WaitForVgOpenAsync(process, settings, cancellationToken, progress)
+                    .ConfigureAwait(false);
+                await ActivateVgWindowAsync(process, settings, cancellationToken).ConfigureAwait(false);
+                await StartImportOnlyAsync(settings, process, vglPath, cancellationToken, progress)
+                    .ConfigureAwait(false);
+                return process;
+            }
+            catch
+            {
+                _activeVgProcess = null;
+                throw;
+            }
+        }
+
+        /// <summary>始终 Process.Start 新实例，禁止附着已有 VG。</summary>
+        private Process StartFreshVgProcess(CTAutoSlicerSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.VGAppPath) || !File.Exists(settings.VGAppPath))
+            {
+                throw new InvalidOperationException($"VG 应用路径无效：{settings.VGAppPath}");
+            }
+
+            var started = Process.Start(new ProcessStartInfo(settings.VGAppPath)
+            {
+                UseShellExecute = true
+            }) ?? throw new InvalidOperationException($"无法启动 VG 应用：{settings.VGAppPath}");
+
+            _logger.Info($"已启动新 VG 进程 PID={started.Id}：{settings.VGAppPath}");
+            return started;
+        }
+
+        /// <summary>
+        /// 仅执行导入操作链（需焦点）：Drain → 置前 → Ctrl+N → 快速导入 → 文件选择确认。
+        /// 不含体积导入等待与后处理。
+        /// </summary>
+        private async Task StartImportOnlyAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             string vglPath,
@@ -372,7 +547,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ConfigureAwait(false);
             await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
             var mainWindow = GetFreshMainWindow(ctViewerProcess);
-            await PrepareNewProjectAsync(settings, ctViewerProcess, mainWindow, cancellationToken, progress).ConfigureAwait(false);
+            await PrepareNewProjectAsync(settings, ctViewerProcess, mainWindow, cancellationToken, progress)
+                .ConfigureAwait(false);
             mainWindow = GetFreshMainWindow(ctViewerProcess);
             var quickImportDialog = await OpenQuickImportAsync(settings, ctViewerProcess, cancellationToken, progress)
                 .ConfigureAwait(false);
@@ -386,53 +562,207 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ConfigureAwait(false);
             await ConfirmFileSelectionAsync(settings, ctViewerProcess, vglPath, cancellationToken, progress)
                 .ConfigureAwait(false);
-            await WaitForImportCompleteAsync(settings, ctViewerProcess, cancellationToken, progress)
-                .ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(settings.RenderingPresetName))
+        }
+
+        /// <summary>后台静默等待导入完成（不置顶）；完成后标记槽位状态。</summary>
+        private async Task WaitImportInBackgroundAsync(
+            CTAutoSlicerSettings settings,
+            VgProcessSlot slot,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            // 立刻让出，确保主循环能先打出「已进入导入等待」并启动下一 VG
+            await Task.Yield();
+
+            var fileName = Path.GetFileName(slot.FilePath);
+            try
             {
+                await WaitForImportCompleteAsync(
+                        settings,
+                        slot.Process,
+                        cancellationToken,
+                        progress,
+                        activateWhenDone: false)
+                    .ConfigureAwait(false);
+                slot.State = VgSlotState.ImportDone;
+                progress?.Report($"导入体积完成，等待后处理：{fileName}（PID={slot.Process.Id}）");
+                _logger.Info($"导入体积完成：{slot.FilePath}，PID={slot.Process.Id}");
+            }
+            catch (OperationCanceledException)
+            {
+                // 取消不记业务失败；主循环 finally 统一 Kill 槽位
+                throw;
+            }
+            catch (Exception ex)
+            {
+                slot.State = VgSlotState.Failed;
+                slot.Error = ex;
+                _logger.Error($"导入等待失败：{slot.FilePath}", ex);
+            }
+        }
+
+        /// <summary>收割已结束的导入等待任务状态（主循环调用）。</summary>
+        private static void HarvestFinishedImportWaits(
+            List<VgProcessSlot> slots,
+            IProgress<string>? progress)
+        {
+            foreach (var slot in slots)
+            {
+                if (slot.State != VgSlotState.Importing || slot.WaitTask is not { IsCompleted: true })
+                {
+                    continue;
+                }
+
+                // WaitImportInBackgroundAsync 已写入 State/Error；此处仅处理未捕获的故障
+                if (slot.WaitTask.IsFaulted && slot.State == VgSlotState.Importing)
+                {
+                    slot.State = VgSlotState.Failed;
+                    slot.Error = slot.WaitTask.Exception?.GetBaseException()
+                        ?? new InvalidOperationException("导入等待任务异常结束");
+                    progress?.Report(
+                        $"导入等待异常：{Path.GetFileName(slot.FilePath)}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 导入完成后的主流程（需焦点，全局串行）：
+        /// LUT 预设 → 直方图 → 厚板 → 简单 3-2-1 → 对齐后捕捉拖拽 → 三视图切片导出。
+        /// 独占期间暂停其他槽位的导入 UIA 轮询，禁止切换进程焦点。
+        /// </summary>
+        private async Task RunPostImportPipelineAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            string vglPath,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            EnterPostPipelineExclusive(ctViewerProcess);
+            try
+            {
+                _activeVgProcess = ctViewerProcess;
+                await TryDrainInterruptDialogQueueAsync(ctViewerProcess, cancellationToken, progress)
+                    .ConfigureAwait(false);
+                await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
+
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+                if (!string.IsNullOrWhiteSpace(settings.RenderingPresetName))
+                {
+                    await ApplyRenderingPresetAsync(
+                            settings,
+                            ctViewerProcess,
+                            mainWindow,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
+                }
+
+                await ApplyHistogramGrayScaleAdjustAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                progress?.Report("直方图灰度步骤已结束，继续厚板设置");
+                _logger.Info("直方图灰度步骤已结束，继续厚板设置");
+
                 mainWindow = GetFreshMainWindow(ctViewerProcess);
-                await ApplyRenderingPresetAsync(
+                await ApplyThickPlateForQuadrantsAsync(
                         settings,
                         ctViewerProcess,
                         mainWindow,
                         cancellationToken,
                         progress)
                     .ConfigureAwait(false);
+
+                await TryRunVisionAlignmentInMainFlowAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                await TryRunPostAlignCaptureDragInMainFlowAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                await ExportImageStackSlicesAsync(
+                        settings,
+                        ctViewerProcess,
+                        vglPath,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
             }
+            finally
+            {
+                ExitPostPipelineExclusive();
+            }
+        }
 
-            await ApplyHistogramGrayScaleAdjustAsync(
+        /// <summary>单文件全流程（启动导入 + 等待 + 后处理）。供兼容/单测路径复用。</summary>
+        private async Task ImportSingleVglAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            string vglPath,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            await StartImportOnlyAsync(settings, ctViewerProcess, vglPath, cancellationToken, progress)
+                .ConfigureAwait(false);
+            await WaitForImportCompleteAsync(
                     settings,
                     ctViewerProcess,
                     cancellationToken,
-                    progress)
+                    progress,
+                    activateWhenDone: true)
                 .ConfigureAwait(false);
-
-            progress?.Report("直方图灰度步骤已结束，继续厚板设置");
-            _logger.Info("直方图灰度步骤已结束，继续厚板设置");
-
-            mainWindow = GetFreshMainWindow(ctViewerProcess);
-            await ApplyThickPlateForQuadrantsAsync(
-                    settings,
-                    ctViewerProcess,
-                    mainWindow,
-                    cancellationToken,
-                    progress)
-                .ConfigureAwait(false);
-
-            await TryRunVisionAlignmentInMainFlowAsync(
-                    settings,
-                    ctViewerProcess,
-                    cancellationToken,
-                    progress)
-                .ConfigureAwait(false);
-
-            await ExportImageStackSlicesAsync(
+            await RunPostImportPipelineAsync(
                     settings,
                     ctViewerProcess,
                     vglPath,
                     cancellationToken,
                     progress)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>强制结束 VG 进程树；失败仅记日志。</summary>
+        private void KillVgProcess(Process? process, string reason)
+        {
+            if (process == null)
+            {
+                return;
+            }
+
+            try
+            {
+                process.Refresh();
+                if (!process.HasExited)
+                {
+                    _logger.Info($"Kill VG PID={process.Id}：{reason}");
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(5000);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"Kill VG 失败（{reason}）：{ex.Message}");
+            }
+            finally
+            {
+                try
+                {
+                    process.Dispose();
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
         }
 
         /// <summary>
@@ -470,6 +800,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     missing.Add("简单对齐下拉点击位置");
                 }
 
+                if (!settings.HasSimple321OffsetEdit)
+                {
+                    missing.Add("三点后偏移Edit（置0）");
+                }
+
                 var reason = string.Join("、", missing);
                 progress?.Report($"跳过阶段四视觉对齐：尚未标定 {reason}");
                 _logger.Warn($"跳过阶段四视觉对齐：尚未标定 {reason}");
@@ -489,8 +824,59 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("阶段四视觉对齐完成，继续切片导出");
-            _logger.Info("阶段四视觉对齐完成，继续切片导出");
+            progress?.Report("阶段四视觉对齐完成，继续后续步骤");
+            _logger.Info("阶段四视觉对齐完成");
+        }
+
+        /// <summary>
+        /// 3-2-1 完成后、切片导出前：点击视口底部无名按钮 → 按箭头标定拖拽。
+        /// </summary>
+        private async Task TryRunPostAlignCaptureDragInMainFlowAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (!settings.EnablePostAlignCaptureDragSteps)
+            {
+                progress?.Report("跳过对齐后捕捉拖拽：EnablePostAlignCaptureDragSteps=false");
+                _logger.Info("跳过对齐后捕捉拖拽：EnablePostAlignCaptureDragSteps=false");
+                return;
+            }
+
+            if (!settings.HasPostAlignCaptureDragPrerequisites)
+            {
+                var missing = new List<string>();
+                if (!settings.HasPostAlignCaptureButton)
+                {
+                    missing.Add("捕捉按钮坐标");
+                }
+
+                if (!settings.HasPostAlignDrag)
+                {
+                    missing.Add("拖拽箭头");
+                }
+
+                var reason = string.Join("、", missing);
+                progress?.Report($"跳过对齐后捕捉拖拽：尚未标定 {reason}");
+                _logger.Warn($"跳过对齐后捕捉拖拽：尚未标定 {reason}");
+                return;
+            }
+
+            progress?.Report("开始对齐后捕捉按钮与拖拽…");
+            _logger.Info("主流程：对齐后捕捉按钮 + 箭头拖拽");
+
+            EnsureVgForeground(ctViewerProcess);
+            var mainWindow = GetFreshMainWindow(ctViewerProcess);
+            await RunPostAlignCaptureDragAsync(
+                    settings,
+                    mainWindow,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
+            progress?.Report("对齐后捕捉拖拽完成，继续切片导出");
+            _logger.Info("对齐后捕捉拖拽完成");
         }
 
         /// <summary>
@@ -827,12 +1213,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException("VG 主窗口句柄无效，请确认软件是否正常运行");
             }
 
-            EnsureVgForeground(ctViewerProcess);
+            // 禁止在此处 Maximize/SetForeground：后台导入轮询也会走本方法，会抢焦点打断后处理。
+            // 需要置前时请显式调用 ActivateVgWindowAsync / EnsureVgForeground。
             return UIAutomationHelper.FindMainWindow(ctViewerProcess.MainWindowHandle);
         }
 
         /// <summary>
-        /// 仅刷新主窗口句柄，不最大化、不抢焦点（用于弹窗轮询检测）。
+        /// 仅刷新主窗口句柄，不最大化、不抢焦点（用于后台导入静默轮询）。
         /// </summary>
         private static AutomationElement? TryGetMainWindowElement(Process ctViewerProcess)
         {
@@ -852,18 +1239,108 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
-        /// <summary>枚举目录内可导入体素文件（.vgl / .vgi），按创建时间升序。</summary>
-        private static IReadOnlyList<string> GetVglFiles(string folder)
+        private void EnterPostPipelineExclusive(Process ctViewerProcess)
+        {
+            Interlocked.Increment(ref _postPipelineExclusiveCount);
+            _logger.Info(
+                $"进入后处理独占：PID={ctViewerProcess.Id}（暂停其他槽位导入 UIA，禁止切换焦点）");
+        }
+
+        private void ExitPostPipelineExclusive()
+        {
+            Interlocked.Decrement(ref _postPipelineExclusiveCount);
+            _logger.Info("退出后处理独占（恢复其他槽位导入静默等待）");
+        }
+
+        private bool IsPostPipelineExclusive =>
+            Volatile.Read(ref _postPipelineExclusiveCount) > 0;
+
+        /// <summary>后处理进行中时，后台导入等待在此休眠，不做 UIA、不打「导入体积中」。</summary>
+        private async Task WaitWhilePostPipelineExclusiveAsync(CancellationToken cancellationToken)
+        {
+            var logged = false;
+            while (IsPostPipelineExclusive)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!logged)
+                {
+                    _logger.Info("后处理独占中，本槽导入等待暂停 UIA 轮询…");
+                    logged = true;
+                }
+
+                await Task.Delay(VgReadyPollIntervalMs, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// 枚举目录内可导入体素条目（.vgl / .vgi，以及「xxx.vgi - 快捷方式.lnk」等指向体素的快捷方式），按创建时间升序。
+        /// 快捷方式会解析为目标路径供 VG 导入，成功后只删除文件夹内的 .lnk，不删除源体积文件。
+        /// </summary>
+        private IReadOnlyList<VolumeQueueItem> GetVolumeQueueItems(string folder)
         {
             if (!Directory.Exists(folder))
             {
-                return Array.Empty<string>();
+                return Array.Empty<VolumeQueueItem>();
             }
 
-            return Directory
-                .EnumerateFiles(folder)
-                .Where(path => CTAutoSlicerSettings.IsImportVolumeExtension(Path.GetExtension(path)))
-                .OrderBy(path => new FileInfo(path).CreationTimeUtc)
+            var items = new List<VolumeQueueItem>();
+            foreach (var path in Directory.EnumerateFiles(folder))
+            {
+                var extension = Path.GetExtension(path);
+                if (CTAutoSlicerSettings.IsImportVolumeExtension(extension))
+                {
+                    items.Add(new VolumeQueueItem
+                    {
+                        ImportPath = path,
+                        QueueEntryPath = path
+                    });
+                    continue;
+                }
+
+                var fileName = Path.GetFileName(path);
+                var isLnk = fileName.EndsWith(
+                    CTAutoSlicerSettings.ShortcutFileExtension,
+                    StringComparison.OrdinalIgnoreCase);
+                if (!isLnk)
+                {
+                    if (CTAutoSlicerSettings.LooksLikeBrokenVolumeShortcutName(path))
+                    {
+                        _logger.Warn(
+                            $"检测到疑似体素快捷方式，但缺少 .lnk 后缀，已跳过（请右键源 .vgi「创建快捷方式」）：{fileName}");
+                    }
+
+                    continue;
+                }
+
+                if (!ShellLinkHelper.TryGetShortcutTarget(path, out var targetPath))
+                {
+                    _logger.Warn($"体素快捷方式无法解析目标，已跳过：{path}");
+                    continue;
+                }
+
+                if (!CTAutoSlicerSettings.IsImportVolumeExtension(Path.GetExtension(targetPath)))
+                {
+                    _logger.Warn(
+                        $"快捷方式目标不是 .vgl/.vgi，已跳过：{fileName} → {targetPath}");
+                    continue;
+                }
+
+                if (!File.Exists(targetPath))
+                {
+                    _logger.Warn($"体素快捷方式目标不存在，已跳过：{path} → {targetPath}");
+                    continue;
+                }
+
+                items.Add(new VolumeQueueItem
+                {
+                    ImportPath = targetPath,
+                    QueueEntryPath = path
+                });
+                _logger.Info($"识别体素快捷方式：{fileName} → {targetPath}");
+            }
+
+            return items
+                .OrderBy(item => new FileInfo(item.QueueEntryPath).CreationTimeUtc)
                 .ToList();
         }
 
@@ -1309,10 +1786,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         await ClickFileSelectionFinishButtonAsync(ctViewerProcess, cancellationToken, progress)
                             .ConfigureAwait(false);
 
-                        return await WaitUntilDisappearedAsync(
-                                () => FindEnabledFinishButton(GetFreshMainWindow(ctViewerProcess)),
+                        // 进程池关键路径：向导「完成」按钮 UIA 残留很慢，但「请耐心等待」已出现时
+                        // 导入实际已开始。任一条件满足即放行，避免空等十余秒才开下一 VG。
+                        return await WaitForFileSelectionHandoffAsync(
+                                ctViewerProcess,
                                 settings.FileSelectionDialogWaitTime,
-                                cancellationToken)
+                                cancellationToken,
+                                progress)
                             .ConfigureAwait(false);
                     },
                     success => success,
@@ -1320,6 +1800,75 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken,
                     progress)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 点击「完成(F)」后的交接手势：出现「正在导入体积」进度 <b>或</b> 向导消失，即视为可进入后台等待并填下一槽。
+        /// </summary>
+        private async Task<bool> WaitForFileSelectionHandoffAsync(
+            Process ctViewerProcess,
+            int timeoutMs,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var handoff = await WaitUntilAsync(
+                    () =>
+                    {
+                        try
+                        {
+                            var mainWindow = GetFreshMainWindow(ctViewerProcess);
+                            // 优先：Insights 标定的「正在导入体积」弹窗内文
+                            if (IsVolumeImportProgressVisible(mainWindow))
+                            {
+                                return true;
+                            }
+
+                            // 向导/完成按钮已不可用，视为文件选择结束
+                            return FindEnabledFinishButton(mainWindow) == null;
+                        }
+                        catch (ElementNotAvailableException)
+                        {
+                            // 窗口瞬断时偏向「已交手」，避免卡死
+                            return true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    },
+                    timeoutMs,
+                    cancellationToken,
+                    pollIntervalMs: 100)
+                .ConfigureAwait(false);
+
+            if (!handoff)
+            {
+                return false;
+            }
+
+            try
+            {
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+                if (IsVolumeImportProgressVisible(mainWindow))
+                {
+                    progress?.Report(
+                        $"文件选择已交手：已检测到「{ImportProgressStatusText}」（PID={ctViewerProcess.Id}），可启动下一 VG");
+                    _logger.Info(
+                        $"文件选择交手：检测到「{ImportProgressStatusText}」，PID={ctViewerProcess.Id}");
+                }
+                else
+                {
+                    progress?.Report(
+                        $"文件选择已交手：向导已关闭（PID={ctViewerProcess.Id}）");
+                    _logger.Info($"文件选择交手：向导/完成按钮已消失，PID={ctViewerProcess.Id}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"文件选择交手后诊断日志失败：{ex.Message}");
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -1445,42 +1994,123 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            bool activateWhenDone = true)
         {
-            await ExecuteStepWithRetryAsync(
-                    "等待导入进度框出现",
-                    async _ =>
-                    {
-                        return await UIAutomationHelper.WaitForElementAsync(
-                                () =>
-                                {
-                                    var window = GetFreshMainWindow(ctViewerProcess);
-                                    return FindVisibleImportProgressWindow(window);
-                                },
-                                TimeSpan.FromMilliseconds(settings.FileSelectionDialogWaitTime),
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    },
-                    window => window != null,
-                    settings,
-                    cancellationToken,
-                    progress)
-                .ConfigureAwait(false);
+            // 进程池静默等待：不走 ExecuteStepWithRetry / Drain；禁止 GetFreshMainWindow 抢焦点
+            if (!activateWhenDone)
+            {
+                await WaitWhilePostPipelineExclusiveAsync(cancellationToken).ConfigureAwait(false);
 
-            progress?.Report("导入体积中......");
-            _logger.Info("检测到可见导入进度框");
+                var appeared = await UIAutomationHelper.WaitForElementAsync(
+                        () =>
+                        {
+                            try
+                            {
+                                if (IsPostPipelineExclusive)
+                                {
+                                    return null;
+                                }
+
+                                var window = TryGetMainWindowElement(ctViewerProcess);
+                                return window != null && IsVolumeImportProgressVisible(window)
+                                    ? window
+                                    : null;
+                            }
+                            catch
+                            {
+                                return null;
+                            }
+                        },
+                        TimeSpan.FromMilliseconds(settings.FileSelectionDialogWaitTime),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (appeared == null)
+                {
+                    // 可能因后处理独占导致超时；独占结束后再给一次短窗口
+                    await WaitWhilePostPipelineExclusiveAsync(cancellationToken).ConfigureAwait(false);
+                    appeared = await UIAutomationHelper.WaitForElementAsync(
+                            () =>
+                            {
+                                try
+                                {
+                                    var window = TryGetMainWindowElement(ctViewerProcess);
+                                    return window != null && IsVolumeImportProgressVisible(window)
+                                        ? window
+                                        : null;
+                                }
+                                catch
+                                {
+                                    return null;
+                                }
+                            },
+                            TimeSpan.FromMilliseconds(settings.FileSelectionDialogWaitTime),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                if (appeared == null)
+                {
+                    throw new TimeoutException(
+                        $"等待导入进度框出现超时（{settings.FileSelectionDialogWaitTime}ms），PID={ctViewerProcess.Id}");
+                }
+            }
+            else
+            {
+                await ExecuteStepWithRetryAsync(
+                        "等待导入进度框出现",
+                        async _ =>
+                        {
+                            return await UIAutomationHelper.WaitForElementAsync(
+                                    () =>
+                                    {
+                                        var window = GetFreshMainWindow(ctViewerProcess);
+                                        return IsVolumeImportProgressVisible(window) ? window : null;
+                                    },
+                                    TimeSpan.FromMilliseconds(settings.FileSelectionDialogWaitTime),
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                        },
+                        window => window != null,
+                        settings,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+            }
+
+            if (activateWhenDone || !IsPostPipelineExclusive)
+            {
+                progress?.Report($"导入体积中......（PID={ctViewerProcess.Id}）");
+            }
+
+            _logger.Info($"检测到可见导入进度框，PID={ctViewerProcess.Id}");
 
             var deadline = DateTime.UtcNow.AddMinutes(settings.ImportTimeoutMinutes);
             var offscreenProgressReadySinceUtc = (DateTime?)null;
+            var lastProgressLogUtc = DateTime.MinValue;
 
             while (DateTime.UtcNow < deadline)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                AutomationElement mainWindow;
+                if (!activateWhenDone)
+                {
+                    await WaitWhilePostPipelineExclusiveAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                AutomationElement? mainWindow;
                 try
                 {
-                    mainWindow = GetFreshMainWindow(ctViewerProcess);
+                    // 静默等待：绝不 SetForeground；主流程等待：可用 GetFreshMainWindow（也不再内置置前）
+                    mainWindow = activateWhenDone
+                        ? GetFreshMainWindow(ctViewerProcess)
+                        : TryGetMainWindowElement(ctViewerProcess);
+                    if (mainWindow == null)
+                    {
+                        await Task.Delay(VgReadyPollIntervalMs, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1494,43 +2124,60 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 if (visibleProgress == null && volumeReady)
                 {
-                    progress?.Report("导入体积完成");
-                    _logger.Info("导入体积完成：进度框已消失且工作区已就绪");
+                    progress?.Report($"导入体积完成（PID={ctViewerProcess.Id}）");
+                    _logger.Info($"导入体积完成：进度框已消失且工作区已就绪，PID={ctViewerProcess.Id}");
                     await WaitForRenderingWorkspaceReadyAsync(
                             ctViewerProcess,
                             settings,
                             settings.PostImportWaitTime,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
+                    if (activateWhenDone)
+                    {
+                        await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
                     return;
                 }
 
-                // 可见进度框仍在时，必须等待其消失，不能提前进入预设/厚板（避免 UIA 误报工作区就绪）
                 if (visibleProgress != null)
                 {
                     offscreenProgressReadySinceUtc = null;
-                    progress?.Report("导入体积中......");
+                    // 静默等待降频日志，避免后处理期间刷屏误导为「切进程」
+                    if (activateWhenDone
+                        || (DateTime.UtcNow - lastProgressLogUtc).TotalSeconds >= 15)
+                    {
+                        lastProgressLogUtc = DateTime.UtcNow;
+                        progress?.Report($"导入体积中......（PID={ctViewerProcess.Id}）");
+                    }
+
                     await Task.Delay(VgReadyPollIntervalMs, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
-                // 仅当进度框 UIA 节点离屏残留、且工作区已就绪时，才允许绕过
                 if (volumeReady && FindOffscreenImportProgressWindow(mainWindow) != null)
                 {
                     offscreenProgressReadySinceUtc ??= DateTime.UtcNow;
                     var readyMs = (DateTime.UtcNow - offscreenProgressReadySinceUtc.Value).TotalMilliseconds;
                     if (readyMs >= OffscreenProgressBypassMs)
                     {
-                        progress?.Report("导入体积完成（工作区已就绪，忽略离屏进度框 UIA 残留）");
-                        _logger.Info($"导入体积完成：工作区已就绪 {readyMs:0}ms，忽略离屏进度框 UIA 残留");
+                        progress?.Report(
+                            $"导入体积完成（工作区已就绪，忽略离屏进度框 UIA 残留，PID={ctViewerProcess.Id}）");
+                        _logger.Info(
+                            $"导入体积完成：工作区已就绪 {readyMs:0}ms，忽略离屏进度框 UIA 残留，PID={ctViewerProcess.Id}");
                         await WaitForRenderingWorkspaceReadyAsync(
                                 ctViewerProcess,
                                 settings,
                                 settings.PostImportWaitTime,
                                 cancellationToken)
                             .ConfigureAwait(false);
-                        await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
+                        if (activateWhenDone)
+                        {
+                            await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+
                         return;
                     }
                 }
@@ -1539,13 +2186,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     offscreenProgressReadySinceUtc = null;
                 }
 
-                progress?.Report("导入体积中......");
+                if (activateWhenDone
+                    || (DateTime.UtcNow - lastProgressLogUtc).TotalSeconds >= 15)
+                {
+                    lastProgressLogUtc = DateTime.UtcNow;
+                    progress?.Report($"导入体积中......（PID={ctViewerProcess.Id}）");
+                }
+
                 await Task.Delay(VgReadyPollIntervalMs, cancellationToken).ConfigureAwait(false);
             }
 
             throw new TimeoutException(
                 $"等待导入完成超时（{settings.ImportTimeoutMinutes} 分钟）：" +
-                "进度框未消失且工作区（渲染面板/四宫格视口）未就绪，请检查 VG 是否卡死或增大「单文件导入超时(分钟)」");
+                $"进度框未消失且工作区未就绪，PID={ctViewerProcess.Id}");
         }
 
         private async Task ApplyRenderingPresetAsync(
@@ -2694,16 +3347,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             try
             {
-                var inMain = UIAutomationHelper.FindVisibleDescendantByName(
-                                 mainWindow,
-                                 ControlType.Window,
-                                 ImportProgressWindowName,
-                                 exactMatch: true)
-                             ?? UIAutomationHelper.FindVisibleDescendantByName(
-                                 mainWindow,
-                                 ControlType.Pane,
-                                 ImportProgressWindowName,
-                                 exactMatch: true);
+                // 最稳：内文 Text「正在导入体积」（与 Accessibility Insights 一致）
+                var statusText = FindVisibleImportStatusText(mainWindow);
+                if (statusText != null)
+                {
+                    return UIAutomationHelper.FindAncestorDialogOrWindow(statusText) ?? statusText;
+                }
+
+                var inMain = FindProgressWindowByTitle(mainWindow);
                 if (inMain != null)
                 {
                     return inMain;
@@ -2711,30 +3362,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 foreach (var topWindow in EnumerateSameProcessTopLevelWindows(mainWindow.Current.ProcessId))
                 {
-                    var name = topWindow.Current.Name ?? string.Empty;
-                    if (!name.Equals(ImportProgressWindowName, StringComparison.Ordinal))
+                    try
                     {
-                        var nested = UIAutomationHelper.FindVisibleDescendantByName(
-                                         topWindow,
-                                         ControlType.Window,
-                                         ImportProgressWindowName,
-                                         exactMatch: true)
-                                     ?? UIAutomationHelper.FindVisibleDescendantByName(
-                                         topWindow,
-                                         ControlType.Pane,
-                                         ImportProgressWindowName,
-                                         exactMatch: true);
+                        var name = topWindow.Current.Name ?? string.Empty;
+                        if (name.Equals(ImportProgressWindowName, StringComparison.Ordinal)
+                            && IsProgressUiVisible(topWindow))
+                        {
+                            return topWindow;
+                        }
+
+                        var nested = FindProgressWindowByTitle(topWindow);
                         if (nested != null)
                         {
                             return nested;
                         }
-
-                        continue;
                     }
-
-                    if (UIAutomationHelper.IsElementInteractable(topWindow))
+                    catch (ElementNotAvailableException)
                     {
-                        return topWindow;
+                        // continue
                     }
                 }
 
@@ -2743,6 +3388,138 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             catch (ElementNotAvailableException)
             {
                 return null;
+            }
+        }
+
+        /// <summary>是否已出现体积导入进度（交手/后台等待共用）。</summary>
+        private static bool IsVolumeImportProgressVisible(AutomationElement mainWindow) =>
+            FindVisibleImportProgressWindow(mainWindow) != null;
+
+        /// <summary>
+        /// 查找可见的「正在导入体积」文本（Insights：ControlType.Text）。
+        /// </summary>
+        private static AutomationElement? FindVisibleImportStatusText(AutomationElement mainWindow)
+        {
+            try
+            {
+                var inMain = FindVisibleTextByKeyword(mainWindow, ImportProgressStatusText);
+                if (inMain != null)
+                {
+                    return inMain;
+                }
+
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(mainWindow.Current.ProcessId))
+                {
+                    var text = FindVisibleTextByKeyword(topWindow, ImportProgressStatusText);
+                    if (text != null)
+                    {
+                        return text;
+                    }
+                }
+
+                return null;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+        }
+
+        private static AutomationElement? FindVisibleTextByKeyword(AutomationElement root, string keyword)
+        {
+            // 优先精确 Name 条件（Insights：Name=正在导入体积），避免全树扫 Text
+            try
+            {
+                var exact = new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
+                    new PropertyCondition(AutomationElement.NameProperty, keyword));
+                var exactHit = root.FindFirst(TreeScope.Descendants, exact);
+                if (exactHit != null && IsProgressUiVisible(exactHit))
+                {
+                    return exactHit;
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                // fall through
+            }
+
+            var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text);
+            foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, condition))
+            {
+                try
+                {
+                    var name = element.Current.Name ?? string.Empty;
+                    if (!name.Contains(keyword, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (IsProgressUiVisible(element))
+                    {
+                        return element;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // continue
+                }
+            }
+
+            return null;
+        }
+
+        private static AutomationElement? FindProgressWindowByTitle(AutomationElement root)
+        {
+            return FindNamedProgressSurface(root, ControlType.Window)
+                   ?? FindNamedProgressSurface(root, ControlType.Pane);
+        }
+
+        private static AutomationElement? FindNamedProgressSurface(AutomationElement root, ControlType controlType)
+        {
+            var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, controlType);
+            foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, condition))
+            {
+                try
+                {
+                    var name = element.Current.Name ?? string.Empty;
+                    if (!name.Equals(ImportProgressWindowName, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    // 进度窗对 IsOffscreen/IsEnabled 偶发不可靠；有尺寸或含导入文案即认
+                    if (IsProgressUiVisible(element)
+                        || UIAutomationHelper.ContainsDescendantText(element, ImportProgressStatusText))
+                    {
+                        return element;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // continue
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>进度类 UI 可见判定：不强制 IsEnabled（部分 Qt 进度窗 Enabled 不稳定）。</summary>
+        private static bool IsProgressUiVisible(AutomationElement element)
+        {
+            try
+            {
+                if (element.Current.IsOffscreen)
+                {
+                    return false;
+                }
+
+                var rect = element.Current.BoundingRectangle;
+                return rect.Width > 0 && rect.Height > 0;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return false;
             }
         }
 
@@ -2921,9 +3698,27 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 && normalizedActual.EndsWith(expectedFileName, StringComparison.OrdinalIgnoreCase);
         }
 
-        private Task OnImportSucceededAsync(string vglPath)
+        /// <summary>成功后删除体素文件夹内的排队条目（真实 .vgl/.vgi 或快捷方式 .lnk）。</summary>
+        private Task OnImportSucceededAsync(string queueEntryPath)
         {
-            _logger.Info($"导入成功（暂不删除文件）：{vglPath}");
+            try
+            {
+                if (File.Exists(queueEntryPath))
+                {
+                    File.Delete(queueEntryPath);
+                    _logger.Info($"处理成功，已删除排队条目：{queueEntryPath}");
+                }
+                else
+                {
+                    _logger.Warn($"处理成功，但排队条目已不存在：{queueEntryPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 流程已成功；删除失败只记警告，避免误判整单失败
+                _logger.Warn($"处理成功但删除排队条目失败（请手动清理）：{queueEntryPath} — {ex.Message}");
+            }
+
             return Task.CompletedTask;
         }
 
@@ -3575,8 +4370,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 (settings.SliceExportViewTopName.Trim(), "上"),
             };
 
-            progress?.Report($"开始三视图切片导出，基础名「{exportBaseName}」，数量 {quantity}");
-            _logger.Info($"三视图切片导出开始：{exportBaseName}，数量={quantity}");
+            progress?.Report($"开始三视图切片导出，主文件夹「{exportBaseName}」，数量 {quantity}");
+            _logger.Info($"三视图切片导出开始：主文件夹={exportBaseName}，数量={quantity}");
 
             for (var i = 0; i < viewExports.Length; i++)
             {
@@ -3587,8 +4382,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     exportBaseName,
                     viewSuffix);
                 var exportFolder = Path.GetDirectoryName(exportSavePath) ?? settings.SliceExportFolder;
+                var relativeFolder = Path.Combine(
+                    SliceExportNamingHelper.BuildExportFileRootFolderName(exportBaseName),
+                    Path.GetFileName(exportFolder));
                 progress?.Report(
-                    $"导出视图 {i + 1}/3：{viewListItemName} → 文件夹「{Path.GetFileName(exportFolder)}」，图片 1~{quantity}");
+                    $"导出视图 {i + 1}/3：{viewListItemName} → 「{relativeFolder}」，图片 1~{quantity}");
                 _logger.Info(
                     $"导出视图 {i + 1}/3：{viewListItemName}，文件夹={exportFolder}，图片命名 1~{quantity}");
 
@@ -4208,16 +5006,138 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             int? processId,
             params AutomationElement?[] preferRoots)
         {
-            return FindDescendantWindowByNameKeywordScoped(
-                    SliceExportJpegQualityWindowName,
+            // Insights：嵌套在「保存影片/图像堆栈」下，窗口 Name=「JPEG 质量」
+            // 先认窗体，再在 Confirm 时找含「确定」的按钮（避免 require 精确按钮名导致漏检）
+            return FindJpegQualityWindowCandidate(processId, preferRoots);
+        }
+
+        private static AutomationElement? FindJpegQualityWindowCandidate(
+            int? processId,
+            params AutomationElement?[] preferRoots)
+        {
+            foreach (var root in preferRoots)
+            {
+                if (root == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var found = FindJpegQualityWindowInRoot(root);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // continue
+                }
+            }
+
+            if (processId is > 0)
+            {
+                foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId.Value))
+                {
+                    try
+                    {
+                        var name = topWindow.Current.Name ?? string.Empty;
+                        if (IsJpegQualityWindowName(name) && IsProgressUiVisible(topWindow))
+                        {
+                            return topWindow;
+                        }
+
+                        var nested = FindJpegQualityWindowInRoot(topWindow);
+                        if (nested != null)
+                        {
+                            return nested;
+                        }
+                    }
+                    catch (ElementNotAvailableException)
+                    {
+                        // continue
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static AutomationElement? FindJpegQualityWindowInRoot(AutomationElement root)
+        {
+            foreach (var controlType in new[] { ControlType.Window, ControlType.Pane })
+            {
+                var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, controlType);
+                foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, condition))
+                {
+                    try
+                    {
+                        var name = element.Current.Name ?? string.Empty;
+                        if (!IsJpegQualityWindowName(name))
+                        {
+                            continue;
+                        }
+
+                        if (IsProgressUiVisible(element))
+                        {
+                            return element;
+                        }
+                    }
+                    catch (ElementNotAvailableException)
+                    {
+                        // continue
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsJpegQualityWindowName(string name) =>
+            name.Contains(SliceExportJpegQualityWindowName, StringComparison.Ordinal)
+            || (name.Contains("JPEG", StringComparison.OrdinalIgnoreCase)
+                && name.Contains("质量", StringComparison.Ordinal));
+
+        /// <summary>在质量对话框内查找名称含「确定」的按钮（Insights：按钮 Name=确定）。</summary>
+        private static AutomationElement? FindJpegQualityConfirmButton(AutomationElement qualityDialog)
+        {
+            var byName = UIAutomationHelper.FindButtonByName(
+                    qualityDialog,
                     SliceExportQualityConfirmButtonName,
-                    processId,
-                    preferRoots)
-                ?? FindDescendantWindowByNameKeywordScoped(
-                    "JPEG",
+                    exactMatch: true)
+                ?? UIAutomationHelper.FindButtonByName(
+                    qualityDialog,
                     SliceExportQualityConfirmButtonName,
-                    processId,
-                    preferRoots);
+                    exactMatch: false);
+            if (byName != null)
+            {
+                return byName;
+            }
+
+            var condition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button);
+            foreach (AutomationElement button in qualityDialog.FindAll(TreeScope.Descendants, condition))
+            {
+                try
+                {
+                    var name = button.Current.Name ?? string.Empty;
+                    if (!name.Contains(SliceExportQualityConfirmButtonName, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (button.Current.IsEnabled && IsProgressUiVisible(button))
+                    {
+                        return button;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // continue
+                }
+            }
+
+            return null;
         }
 
         private async Task DismissImageQualityDialogAsync(
@@ -4227,8 +5147,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
-            progress?.Report("等待 JPEG 质量对话框");
-            _logger.Info("等待 JPEG 质量对话框");
+            progress?.Report("检查是否出现「JPEG 质量」对话框（有则点确定）");
+            _logger.Info("检查「JPEG 质量」对话框（可选）");
 
             AutomationElement? FindQualityDialog() =>
                 FindImageQualityDialogScoped(processId, exportDialog);
@@ -4237,14 +5157,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     FindQualityDialog,
                     TimeSpan.FromMilliseconds(settings.SliceExportDialogWaitTime),
                     cancellationToken,
-                    pollIntervalMs: 300)
+                    pollIntervalMs: 200)
                 .ConfigureAwait(false);
 
             if (qualityDialog == null)
             {
-                _logger.Warn("未检测到 JPEG 质量对话框，继续流程");
+                _logger.Info("未出现「JPEG 质量」对话框，继续流程");
                 return;
             }
+
+            progress?.Report("已检测到「JPEG 质量」，点击含「确定」的按钮");
+            _logger.Info("已检测到「JPEG 质量」对话框，准备点击确定");
 
             await ConfirmJpegQualityDialogAsync(
                     settings,
@@ -4262,35 +5185,32 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
-            var okButton = UIAutomationHelper.FindButtonByName(
-                    qualityDialog,
-                    SliceExportQualityConfirmButtonName,
-                    exactMatch: true)
-                ?? UIAutomationHelper.FindButtonByName(
-                    qualityDialog,
-                    SliceExportQualityConfirmButtonName,
-                    exactMatch: false);
-
-            if (okButton != null && UIAutomationHelper.TryInvokeButton(okButton))
+            var okButton = FindJpegQualityConfirmButton(qualityDialog);
+            if (okButton == null)
             {
-                progress?.Report("JPEG 质量：Invoke「确定」");
-                _logger.Info("JPEG 质量：Invoke「确定」");
-                if (await WaitUntilDisappearedAsync(
-                            findQualityDialog,
-                            settings.SliceExportDialogWaitTime,
-                            cancellationToken)
-                        .ConfigureAwait(false))
-                {
-                    progress?.Report("JPEG 质量对话框已确认");
-                    _logger.Info("JPEG 质量对话框已确认");
-                    return;
-                }
+                _logger.Warn("「JPEG 质量」内未找到含「确定」的按钮，尝试 Enter");
             }
-
-            if (okButton != null)
+            else
             {
-                progress?.Report("JPEG 质量：Invoke 无效，Win32 点击「确定」");
-                _logger.Info("JPEG 质量：Invoke 无效，Win32 点击「确定」");
+                var buttonName = okButton.Current.Name ?? SliceExportQualityConfirmButtonName;
+                if (UIAutomationHelper.TryInvokeButton(okButton))
+                {
+                    progress?.Report($"JPEG 质量：Invoke「{buttonName}」");
+                    _logger.Info($"JPEG 质量：Invoke「{buttonName}」");
+                    if (await WaitUntilDisappearedAsync(
+                                findQualityDialog,
+                                settings.SliceExportDialogWaitTime,
+                                cancellationToken)
+                            .ConfigureAwait(false))
+                    {
+                        progress?.Report("JPEG 质量对话框已确认");
+                        _logger.Info("JPEG 质量对话框已确认");
+                        return;
+                    }
+                }
+
+                progress?.Report($"JPEG 质量：Invoke 无效，Win32 点击「{buttonName}」");
+                _logger.Info($"JPEG 质量：Invoke 无效，Win32 点击「{buttonName}」");
                 await NativeClickElementAsync(okButton, cancellationToken).ConfigureAwait(false);
                 if (await WaitUntilDisappearedAsync(
                             findQualityDialog,
@@ -4304,8 +5224,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
             }
 
-            progress?.Report("JPEG 质量：点击无效，Enter 确认（AccessKey）");
-            _logger.Info("JPEG 质量：点击无效，Enter 确认（AccessKey）");
+            progress?.Report("JPEG 质量：点击无效，Enter 确认");
+            _logger.Info("JPEG 质量：点击无效，Enter 确认");
             await FocusAutomationWindowAsync(qualityDialog, cancellationToken).ConfigureAwait(false);
             await InvokeOnUiThreadAsync(SimulateEnter).ConfigureAwait(false);
 
@@ -4315,7 +5235,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         cancellationToken)
                     .ConfigureAwait(false))
             {
-                throw new InvalidOperationException("未能关闭 JPEG 质量对话框（已尝试 Invoke / Win32 点击 / Enter）");
+                throw new InvalidOperationException(
+                    "未能关闭「JPEG 质量」对话框（已尝试 Invoke / Win32 点击含「确定」按钮 / Enter）");
             }
 
             progress?.Report("JPEG 质量对话框已确认");
@@ -4388,13 +5309,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
+            // 质量框偶发晚于「保存图像」关闭才弹出：写入等待前再兜底一次
+            await TryDismissLateJpegQualityDialogAsync(
+                    settings,
+                    ctViewerProcess,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
             const int pollIntervalMs = 500;
             var progressWindow = await UIAutomationHelper.WaitForElementAsync(
                     () =>
                     {
                         try
                         {
-                            return FindVisibleExportWriteProgressWindow(GetFreshMainWindow(ctViewerProcess));
+                            var main = TryGetMainWindowElement(ctViewerProcess);
+                            return main == null ? null : FindVisibleExportWriteProgressWindow(main);
                         }
                         catch
                         {
@@ -4408,6 +5338,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             if (progressWindow == null)
             {
+                // 可能卡在质量框导致写入进度未出现：再试一次质量确认
+                await TryDismissLateJpegQualityDialogAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
                 _logger.Info(
                     $"未在 {settings.SliceExportDialogWaitTime}ms 内检测到「正在写入图像」进度框，视为快速完成");
                 return;
@@ -4421,10 +5358,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                await TryDismissLateJpegQualityDialogAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
                 AutomationElement? visibleProgress;
                 try
                 {
-                    visibleProgress = FindVisibleExportWriteProgressWindow(GetFreshMainWindow(ctViewerProcess));
+                    var main = TryGetMainWindowElement(ctViewerProcess);
+                    visibleProgress = main == null ? null : FindVisibleExportWriteProgressWindow(main);
                 }
                 catch (Exception ex)
                 {
@@ -4440,12 +5385,47 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     return;
                 }
 
-                progress?.Report("正在写入图像...");
                 await Task.Delay(pollIntervalMs, cancellationToken).ConfigureAwait(false);
             }
 
             throw new TimeoutException(
                 $"等待导出写入完成超时（{settings.SliceExportWriteTimeoutMs} ms）：「请耐心等待.../正在写入图像」进度框未消失");
+        }
+
+        /// <summary>
+        /// 若当前已出现「JPEG 质量」则立即点含「确定」的按钮；未出现则立刻返回（不空等）。
+        /// </summary>
+        private async Task TryDismissLateJpegQualityDialogAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            int? processId = null;
+            try
+            {
+                processId = ctViewerProcess.Id;
+            }
+            catch
+            {
+                return;
+            }
+
+            var qualityDialog = FindImageQualityDialogScoped(processId);
+            if (qualityDialog == null)
+            {
+                return;
+            }
+
+            progress?.Report("检测到晚弹出的「JPEG 质量」，点击含「确定」的按钮");
+            _logger.Info("检测到晚弹出的「JPEG 质量」对话框，点击确定");
+            await ConfirmJpegQualityDialogAsync(
+                    settings,
+                    qualityDialog,
+                    () => FindImageQualityDialogScoped(processId),
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
         }
 
         private static async Task WaitForSliceExportDialogClosedAsync(
@@ -4489,13 +5469,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("请先配置切片导出目录");
                 }
 
-                var vglFiles = GetVglFiles(settings.CTFileFolder);
-                if (vglFiles.Count == 0)
+                var volumeItems = GetVolumeQueueItems(settings.CTFileFolder);
+                if (volumeItems.Count == 0)
                 {
-                    throw new InvalidOperationException("CT 体素文件夹内未找到 .vgl/.vgi 文件（用于命名规则）");
+                    throw new InvalidOperationException(
+                        "CT 体素文件夹内未找到 .vgl/.vgi 文件或体素快捷方式（用于命名规则）");
                 }
 
-                var vglPath = vglFiles[0];
+                var vglPath = volumeItems[0].ImportPath;
                 progress?.Report($"切片导出单步测试：请确保 VG 已导入体积、已应用预设并完成厚板设置；命名参考 {Path.GetFileName(vglPath)}");
                 _logger.Info($"切片导出单步测试开始，参考文件 {vglPath}");
 
@@ -4626,10 +5607,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("尚未标定 3D 视图区域，请先在「阶段四视觉对齐」中标定 3D 区域");
                 }
 
+                if (!settings.HasVisionTopViewRoi)
+                {
+                    throw new InvalidOperationException(
+                        "尚未标定「上」视图区域，请先在「阶段四视觉对齐」中标定「上」视图（向量两点需要）");
+                }
+
                 if (!settings.HasSimple321ToolbarClick)
                 {
                     throw new InvalidOperationException(
                         "尚未标定「简单对齐」下拉点击位置，请先在「阶段四视觉对齐」中标定下拉框");
+                }
+
+                if (!settings.HasSimple321OffsetEdit)
+                {
+                    throw new InvalidOperationException(
+                        "尚未标定三点后偏移 Edit 点击位置，请先在「阶段四视觉对齐」中标定「偏移置0」编辑框");
                 }
 
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))
@@ -4667,8 +5660,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 阶段四 · 4a：截 3D → 本地剪影找点 → 打开对齐 →
-        /// Ctrl+三点定平面 → 「上」视图两点定向量 → Ctrl+原点 → 完成。
+        /// 阶段四：截 3D → 本地剪影找点 → 打开对齐 →
+        /// Ctrl+三点定平面 → 偏移 Edit 置 0 → 「上」视图两点定向量 → Ctrl+原点 → 完成。
         /// 注意：向量两点必须在原点之前，否则「上」标定区域画面会变。
         /// </summary>
         private async Task RunSimple321AlignmentAsync(
@@ -4779,8 +5772,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
             }
 
+            // —— 步骤1.5：左侧无名偏移 Edit 置 0 + Enter（否则步骤2「上」视图非预期）——
+            await ResetSimple321PlaneOffsetEditAsync(
+                    settings,
+                    mainWindow,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+
             // —— 步骤2：「上」视图右侧外缘两点（必须在原点之前）——
-            // 三点后短等，让 VG 刷新「上」标定区高亮后再截图
+            // 三点+置0后短等，让 VG 刷新「上」标定区高亮后再截图
             await Task.Delay(Math.Max(200, settings.VisionClickIntervalMs), cancellationToken)
                 .ConfigureAwait(false);
             progress?.Report("步骤2/3：「上」视图向量两点（须先于原点，否则标定区会变）…");
@@ -4804,7 +5805,174 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("简单 3-2-1 对齐流程完成（3 平面点 + 2 向量点 + 1 原点）");
+            progress?.Report("简单 3-2-1 对齐流程完成（3 平面点 + 偏移置0 + 2 向量点 + 1 原点）");
+        }
+
+        /// <summary>
+        /// 三点定平面后：点击左侧无名偏移 Edit → 输入 0 → Enter。
+        /// 优先 UIA 定位（空 Name / 值含 mm，靠近标定点）；失败则绝对坐标点击 + 键盘。
+        /// </summary>
+        private async Task ResetSimple321PlaneOffsetEditAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (!settings.HasSimple321OffsetEdit)
+            {
+                throw new InvalidOperationException(
+                    "尚未标定三点后偏移 Edit，请先在「阶段四视觉对齐」中标定「偏移置0」编辑框");
+            }
+
+            progress?.Report(
+                $"步骤1.5：偏移 Edit 置 0 @({settings.Simple321OffsetEditX},{settings.Simple321OffsetEditY})…");
+            _logger.Info(
+                $"简单 3-2-1：偏移 Edit 置 0 ({settings.Simple321OffsetEditX},{settings.Simple321OffsetEditY})");
+
+            var edit = FindSimple321OffsetEdit(mainWindow, settings);
+            Unlock();
+            try
+            {
+                if (edit != null)
+                {
+                    var rect = edit.Current.BoundingRectangle;
+                    progress?.Report($"已 UIA 定位偏移 Edit Rect={rect}，点击并写入 0");
+                    _logger.Info($"偏移 Edit UIA Rect={rect}");
+                    await NativeClickElementWhileUnlockedAsync(edit, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+
+                    if (!UIAutomationHelper.TrySetEditValueSafe(edit, "0"))
+                    {
+                        await TypeTextIntoFocusedControlAsync("0").ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    progress?.Report("UIA 未找到偏移 Edit，使用标定绝对坐标点击后键盘输入 0");
+                    _logger.Warn("偏移 Edit UIA 未命中，回退绝对坐标");
+                    await InvokeOnUiThreadAsync(() =>
+                            WinAPIHelper.ClickScreen(
+                                settings.Simple321OffsetEditX,
+                                settings.Simple321OffsetEditY))
+                        .ConfigureAwait(false);
+                    await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+                    await TypeTextIntoFocusedControlAsync("0").ConfigureAwait(false);
+                }
+
+                await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+                await InvokeOnUiThreadAsync(SimulateEnter).ConfigureAwait(false);
+                await Task.Delay(Math.Max(150, settings.VisionClickIntervalMs), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            progress?.Report("偏移 Edit 已置 0 并回车");
+            _logger.Info("简单 3-2-1：偏移 Edit 置 0 + Enter 完成");
+        }
+
+        /// <summary>
+        /// 在主窗左侧寻找无名 Edit（常显示「x.xx mm」）；优先与标定点中心距最近。
+        /// </summary>
+        private static AutomationElement? FindSimple321OffsetEdit(
+            AutomationElement mainWindow,
+            CTAutoSlicerSettings settings)
+        {
+            System.Windows.Rect mainRect;
+            try
+            {
+                mainRect = mainWindow.Current.BoundingRectangle;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
+            if (mainRect.Width <= 0 || mainRect.Height <= 0)
+            {
+                return null;
+            }
+
+            var condition = new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
+                new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+
+            AutomationElementCollection elements;
+            try
+            {
+                elements = mainWindow.FindAll(TreeScope.Descendants, condition);
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+
+            AutomationElement? nearest = null;
+            var nearestDist = double.MaxValue;
+            const double maxCenterDistancePx = 40;
+
+            foreach (AutomationElement element in elements)
+            {
+                try
+                {
+                    if (!element.Current.IsEnabled || !element.Current.IsKeyboardFocusable)
+                    {
+                        continue;
+                    }
+
+                    var name = element.Current.Name ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        continue;
+                    }
+
+                    var r = element.Current.BoundingRectangle;
+                    // Insights 约 95×19；过滤过大/过小
+                    if (r.Width is < 40 or > 220 || r.Height is < 12 or > 40)
+                    {
+                        continue;
+                    }
+
+                    // 偏主窗左侧
+                    var cx = r.X + r.Width / 2;
+                    var cy = r.Y + r.Height / 2;
+                    if (cx > mainRect.Left + mainRect.Width * 0.35)
+                    {
+                        continue;
+                    }
+
+                    var value = UIAutomationHelper.TryGetInputValue(element) ?? string.Empty;
+                    var looksLikeMm = value.Contains("mm", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains('.', StringComparison.Ordinal)
+                        || string.IsNullOrWhiteSpace(value);
+
+                    if (!looksLikeMm)
+                    {
+                        continue;
+                    }
+
+                    var dx = cx - settings.Simple321OffsetEditX;
+                    var dy = cy - settings.Simple321OffsetEditY;
+                    var dist = Math.Sqrt(dx * dx + dy * dy);
+                    if (dist < nearestDist)
+                    {
+                        nearestDist = dist;
+                        nearest = element;
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                }
+            }
+
+            if (nearest != null && nearestDist <= maxCenterDistancePx)
+            {
+                return nearest;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -5358,6 +6526,296 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             progress?.Report("红线拖拽完成");
+        }
+
+        /// <summary>
+        /// 单步测试：对齐后捕捉无名按钮（UIA 索引/Invoke，失败则绝对坐标）→ 按箭头标定拖拽。
+        /// </summary>
+        public async Task TestPostAlignCaptureDragAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null)
+        {
+            Lock();
+            try
+            {
+                if (!settings.HasPostAlignCaptureDragPrerequisites)
+                {
+                    throw new InvalidOperationException(
+                        "尚未标定「对齐后捕捉」按钮坐标与拖拽箭头，请先在对应 Expander 中完成标定");
+                }
+
+                if (string.IsNullOrWhiteSpace(settings.VGAppPath))
+                {
+                    throw new InvalidOperationException("请先配置 VG 应用路径");
+                }
+
+                progress?.Report(
+                    "对齐后捕捉拖拽测试：请确保 VG 已打开且 3-2-1 已完成（或处于可执行拖拽的视图状态）");
+                _logger.Info(
+                    $"对齐后捕捉拖拽测试：按钮=({settings.PostAlignCaptureButtonX},{settings.PostAlignCaptureButtonY}) " +
+                    $"index={settings.PostAlignCaptureButtonIndex} " +
+                    $"drag ({settings.PostAlignDragStartX},{settings.PostAlignDragStartY})→" +
+                    $"({settings.PostAlignDragEndX},{settings.PostAlignDragEndY})");
+
+                var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
+                _activeVgProcess = ctViewerProcess;
+                EnsureVgForeground(ctViewerProcess);
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+
+                await RunPostAlignCaptureDragAsync(
+                        settings,
+                        mainWindow,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                progress?.Report("对齐后捕捉拖拽测试完成");
+                _logger.Info("对齐后捕捉拖拽测试完成");
+            }
+            finally
+            {
+                Unlock();
+                _activeVgProcess = null;
+            }
+        }
+
+        /// <summary>
+        /// 点击捕捉按钮 → 等待 → 沿标定箭头直线拖拽。
+        /// </summary>
+        private async Task RunPostAlignCaptureDragAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            await ClickPostAlignCaptureButtonAsync(settings, mainWindow, cancellationToken, progress)
+                .ConfigureAwait(false);
+
+            var waitMs = Math.Max(0, settings.PostAlignClickWaitMs);
+            if (waitMs > 0)
+            {
+                progress?.Report($"等待 {waitMs}ms 后开始拖拽…");
+                await Task.Delay(waitMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            await DragPostAlignArrowAsync(settings, cancellationToken, progress).ConfigureAwait(false);
+        }
+
+        private async Task ClickPostAlignCaptureButtonAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement mainWindow,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var button = FindPostAlignCaptureButton(mainWindow, settings);
+            if (button != null)
+            {
+                var name = button.Current.Name ?? string.Empty;
+                var rect = button.Current.BoundingRectangle;
+                progress?.Report(
+                    $"方案一：定位无名按钮（Name=「{name}」）Rect={rect}，尝试 Invoke…");
+                _logger.Info($"对齐后捕捉：UIA 按钮 Rect={rect}");
+
+                if (UIAutomationHelper.TryInvokeElement(button))
+                {
+                    progress?.Report("捕捉按钮已通过 InvokePattern 触发");
+                    _logger.Info("对齐后捕捉：Invoke 成功");
+                    await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                progress?.Report("Invoke 失败，Win32 点击按钮中心");
+                await NativeClickElementAsync(button, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (!settings.HasPostAlignCaptureButton)
+            {
+                throw new InvalidOperationException(
+                    "未在 VG 主窗内定位到无名捕捉按钮，且尚未标定绝对坐标");
+            }
+
+            progress?.Report(
+                $"UIA 未找到按钮，使用标定绝对坐标 ({settings.PostAlignCaptureButtonX},{settings.PostAlignCaptureButtonY})");
+            _logger.Warn("对齐后捕捉：UIA 未命中，回退绝对坐标");
+            await NativeClickScreenAsync(
+                    settings,
+                    settings.PostAlignCaptureButtonX,
+                    settings.PostAlignCaptureButtonY,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 在主窗子树中收集视口底部工具栏无名小按钮，按 Left 排序；优先与标定坐标最近的矩形，否则按索引。
+        /// </summary>
+        private static AutomationElement? FindPostAlignCaptureButton(
+            AutomationElement mainWindow,
+            CTAutoSlicerSettings settings)
+        {
+            var candidates = CollectEmptyNameViewportToolbarButtons(mainWindow);
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            candidates.Sort((a, b) =>
+            {
+                var ra = a.Current.BoundingRectangle;
+                var rb = b.Current.BoundingRectangle;
+                var cmp = ra.Left.CompareTo(rb.Left);
+                return cmp != 0 ? cmp : ra.Top.CompareTo(rb.Top);
+            });
+
+            if (settings.HasPostAlignCaptureButton)
+            {
+                const double maxCenterDistancePx = 28;
+                AutomationElement? nearest = null;
+                var nearestDist = double.MaxValue;
+                foreach (var btn in candidates)
+                {
+                    var r = btn.Current.BoundingRectangle;
+                    var cx = r.X + r.Width / 2;
+                    var cy = r.Y + r.Height / 2;
+                    var dx = cx - settings.PostAlignCaptureButtonX;
+                    var dy = cy - settings.PostAlignCaptureButtonY;
+                    var dist = Math.Sqrt(dx * dx + dy * dy);
+                    if (dist < nearestDist)
+                    {
+                        nearestDist = dist;
+                        nearest = btn;
+                    }
+                }
+
+                if (nearest != null && nearestDist <= maxCenterDistancePx)
+                {
+                    return nearest;
+                }
+            }
+
+            var index = Math.Clamp(settings.PostAlignCaptureButtonIndex, 0, candidates.Count - 1);
+            return candidates[index];
+        }
+
+        private static List<AutomationElement> CollectEmptyNameViewportToolbarButtons(AutomationElement mainWindow)
+        {
+            var result = new List<AutomationElement>();
+            System.Windows.Rect mainRect;
+            try
+            {
+                mainRect = mainWindow.Current.BoundingRectangle;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return result;
+            }
+
+            if (mainRect.Width <= 0 || mainRect.Height <= 0)
+            {
+                return result;
+            }
+
+            var minCenterY = mainRect.Top + mainRect.Height * 0.65;
+            var minCenterX = mainRect.Left + mainRect.Width * 0.35;
+
+            var condition = new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+                new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+
+            AutomationElementCollection elements;
+            try
+            {
+                elements = mainWindow.FindAll(TreeScope.Descendants, condition);
+            }
+            catch (ElementNotAvailableException)
+            {
+                return result;
+            }
+
+            foreach (AutomationElement element in elements)
+            {
+                try
+                {
+                    var name = element.Current.Name ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        continue;
+                    }
+
+                    if (!element.Current.IsEnabled)
+                    {
+                        continue;
+                    }
+
+                    var r = element.Current.BoundingRectangle;
+                    if (r.Width is < 8 or > 72 || r.Height is < 8 or > 72)
+                    {
+                        continue;
+                    }
+
+                    var cx = r.X + r.Width / 2;
+                    var cy = r.Y + r.Height / 2;
+                    if (cy < minCenterY || cx < minCenterX)
+                    {
+                        continue;
+                    }
+
+                    result.Add(element);
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // 忽略瞬时失效节点
+                }
+            }
+
+            return result;
+        }
+
+        private async Task DragPostAlignArrowAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (!settings.HasPostAlignDrag)
+            {
+                throw new InvalidOperationException("拖拽箭头尚未标定或起点终点重合");
+            }
+
+            var path = MouseSimulationHelper.BuildLinearDragPath(
+                settings.PostAlignDragStartX,
+                settings.PostAlignDragStartY,
+                settings.PostAlignDragEndX,
+                settings.PostAlignDragEndY);
+
+            progress?.Report(
+                $"沿箭头拖拽：({settings.PostAlignDragStartX},{settings.PostAlignDragStartY}) → " +
+                $"({settings.PostAlignDragEndX},{settings.PostAlignDragEndY})，路径点 {path.Count}");
+            _logger.Info(
+                $"对齐后箭头拖拽：({settings.PostAlignDragStartX},{settings.PostAlignDragStartY})→" +
+                $"({settings.PostAlignDragEndX},{settings.PostAlignDragEndY})");
+
+            Unlock();
+            try
+            {
+                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+                var stepDelay = Math.Max(1, settings.PostAlignDragStepDelayMs);
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    MouseSimulationHelper.MouseDragPressMoveRelease(
+                        _simulator,
+                        MouseButton.Button1,
+                        path,
+                        stepDelay);
+                }).ConfigureAwait(false);
+                await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            progress?.Report("箭头拖拽完成");
         }
 
         /// <summary>

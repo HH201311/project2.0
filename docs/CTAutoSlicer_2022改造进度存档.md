@@ -1,16 +1,53 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-22（**阶段一～五全流程完成**；阶段四=简单 3-2-1，**无独立 4b**）  
-> **状态**：**阶段一～五全部 ✅**（导入 → LUT → 直方图 → 厚板 → 简单 3-2-1 → 三视图切片导出）。切片范围取自 UI（`SliceRangeStartMm`/`SliceRangeEndMm`），前/右/上三视图共用。  
+> **文档版本**：2026-07-23（晚间修订：**阶段四增量** + **主/单测一致性核对**）  
+> **状态**：**阶段一～五全部 ✅**；进程池并行导入 ✅；阶段四已含「偏移置0」「黄框向量」「对齐后捕捉拖拽」。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
 
 > **重要更正（2026-07-22）**：早期文档将阶段四拆成「4a / 4b」是误解。  
-> **阶段四 = 简单 3-2-1 对齐本身**（对话框内：Ctrl+三点定平面 →「上」视图 Ctrl+两点定向量 → Ctrl+原点 → 完成）。  
+> **阶段四 = 简单 3-2-1 对齐本身**（对话框内：Ctrl+三点定平面 → 偏移 Edit 置 0 →「上」视图 Ctrl+两点定向量 → Ctrl+原点 → 完成）。  
 > 文档中凡「4b / GetObjectTopBottomPoints 定方向」均属过时规划，**已取消，不再开发**。  
-> 「3-2-1」中的「2」即「上」视图右侧向量两点（`VisionTopViewVectorPointsDetector`），不是另一步。
+> 「3-2-1」中的「2」即「上」视图向量两点（`VisionTopViewVectorPointsDetector`，**优先黄框右缘**），不是另一步。
+
+> **2026-07-23 增量（真机已单测跑通）**：  
+> 1. 三点后、向量前：左侧无名偏移 Edit 点击 → 输入 `0` → Enter（`Simple321OffsetEdit*`）。  
+> 2. 向量两点：优先检测 VG **黄色对齐框**右缘旁侧取点（与黄框平行、基线更长）；未检出则回退剪影右缘。  
+> 3. 3-2-1 完成后、切片导出前：**对齐后捕捉按钮 + 箭头拖拽**（`PostAlign*`；单测「测试对齐后捕捉拖拽」）。  
+> 4. **主流程与单测共用同一核心方法**（见 **§21**）。
+
+---
+
+## 0.1 VG 进程池并行导入（2026-07-23）
+
+> 瓶颈在单文件导入等待（十余分钟）。采用 **文件队列 + 最多 N 个进程槽**：导入启动/后处理串行置前；导入体积等待按 PID 静默 UIA 轮询（可并行）。
+
+| 项 | 说明 |
+|----|------|
+| UI 参数 | `MaxVgProcesses`（默认 **4**，钳制 1～8），页面「导入参数」→「最大VG进程数」 |
+| 调度 | 优先后处理 `ImportDone` → 槽未满则 `Process.Start` 新 VG 开导入 → 否则等待导入任务 |
+| 拆分 | `StartImportOnlyAsync` / `WaitForImportCompleteAsync(activateWhenDone:false)` / `RunPostImportPipelineAsync` |
+| 成功 | 删除该 `.vgl/.vgi`，`Kill` 对应 VG，腾槽 |
+| 失败 | `Kill` 对应 VG，**保留文件**，记 `@@IMPORT_FAIL@@` |
+| 附着 | 主流程**禁止**附着已有 VG（始终冷启动）；单步测试仍可用 `GetCTViewerProcess` |
+
+```mermaid
+flowchart TD
+  Q[文件队列 .vgl/.vgi] --> Fill{槽位未满?}
+  Fill -->|是| Launch[冷启动 VG + StartImportOnly]
+  Launch --> Wait[后台静默等导入完成]
+  Wait --> Done[ImportDone]
+  Fill -->|否| Prefer
+  Done --> Prefer{有 ImportDone?}
+  Prefer -->|是| Post[置前 + 后处理串行]
+  Prefer -->|否| Idle[等待导入 Task]
+  Post -->|成功| Del[删文件 + Kill VG]
+  Post -->|失败| Keep[保留文件 + Kill VG]
+  Del --> Fill
+  Keep --> Fill
+```
 
 ---
 
@@ -39,7 +76,8 @@
 | `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图；**TargetX = 左+(右−左)×2/3** |
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖拽 |
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
-| Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
+| Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `Simple321OffsetEditX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
+| Settings：`PostAlignCaptureButton*` / `PostAlignDrag*` / **`EnablePostAlignCaptureDragSteps`（默认开）** | 对齐后捕捉按钮 + 箭头拖拽；主流程在 3-2-1 后、导出前 |
 
 **真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线是否拖到目标线（靠右约 1/3）。
 
@@ -56,15 +94,16 @@
 | 进程名 | 曾硬编码 `vgstudiomax20241` | 从 UI 配置的 `VGAppPath` 推导 |
 
 **业务名称**仍为「CT 自动化切片」。当前已跑通全流程：  
-**批量 `.vgl` 导入 → LUT 预设 → 直方图灰度阈值 → 三象限厚板 → 简单 3-2-1 对齐 → 前/右/上三视图切片导出**。  
+**批量 `.vgl` 导入 → LUT 预设 → 直方图灰度阈值 → 三象限厚板 → 简单 3-2-1 对齐 → 对齐后捕捉拖拽 → 前/右/上三视图切片导出**。  
 
 **阶段四（视觉对齐）**：✅ **全部完成**（即简单 3-2-1，无独立「4b」）。  
 - 单测 + 主流程（`EnableVisionAlignmentSteps`，默认开；厚板后、导出前）  
-- 本地找点：`Vision3dSectionPointsDetector`（三点+原点）+ `VisionTopViewVectorPointsDetector`（向量两点）  
-- 顺序：Ctrl+三点（左上→右上→右下）→「上」右侧 Ctrl+两点（上→下）→ Ctrl+原点 → 完成 → 警告「是」  
+- 本地找点：`Vision3dSectionPointsDetector`（三点+原点）+ `VisionTopViewVectorPointsDetector`（**黄框优先**向量两点）  
+- 顺序：Ctrl+三点 → **偏移 Edit 置 0** →「上」Ctrl+两点（上→下）→ Ctrl+原点 → 完成 → 警告「是」  
+- 之后：**捕捉按钮 + 箭头拖拽**（`EnablePostAlignCaptureDragSteps`）  
 - 未标定齐全时跳过并对该文件打日志  
 
-**阶段五切片范围**：UI「切片导出参数」中的 `SliceRangeStartMm` / `SliceRangeEndMm`（默认 20～70）；导出「前 / 右 / 上」时**均写入该值**。见 §7.1 / §11 / §16～§19。
+**阶段五切片范围**：UI「切片导出参数」中按视角分别配置（`SliceRangeFront*Mm` / `Right*` / `Top*`）；导出时写入对应视图。见 §7.1 / §11 / §16～§21。
 
 ---
 
@@ -178,17 +217,12 @@ flowchart TD
 |------|------|------|
 | `SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/VM_CTAutoSlicerPage.cs` | `ExecuteRunSimulationAsync` | 页面按钮入口；校验 `.vgl`；写流程日志 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/CTAutoSlicerService.cs` | `RunSimulationAsync` | 门面；管理 `IsRunning` / Cancel |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `RunSimulationAsync` | **核心**：启动→就绪→循环导入 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ImportSingleVglAsync` | 单文件导入 + 预设 + 厚板 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `OpenQuickImportAsync` / `QuickImportFillAndOpenAsync` / `FindQuickImportDialog` | **图一～三**（2026-07-15 重写，见 §15） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ConfirmFileSelectionAsync` | **图四**（文件选择向导，原逻辑保留） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ApplyRenderingPresetAsync` | **阶段二**：渲染 LUT 预设选择与应用 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ApplyThickPlateForQuadrantsAsync` | **阶段三**：象限 1→2→3 厚板 + 平均值 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `TestRenderingPresetAsync` | 单步测试预设（无需重跑导入） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `TestThickPlateAsync` | 单步测试厚板三象限（无需重跑导入） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `WaitForVgOpenAsync` + `_interruptDialogQueue` | **第一步**：轮询打开；「自动保存恢复」登记在中断队列，步骤异常时 Drain 后重试 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ExecuteStepWithRetryAsync` | 通用步骤重试 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `OnImportSucceededAsync` | **占位**：仅打日志，不删文件 |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `RunSimulationAsync` | **核心**：进程池调度（冷启动多 VG → 重叠导入等待 → 串行后处理） |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `LaunchFreshVgAndStartImportAsync` / `StartImportOnlyAsync` | 冷启动 + 仅导入操作（需焦点） |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `WaitImportInBackgroundAsync` / `WaitForImportCompleteAsync` | 按 PID 静默等导入完成（不置顶） |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `RunPostImportPipelineAsync` | 后处理串行：LUT → 直方图 → 厚板 → 3-2-1 → 导出 |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ImportSingleVglAsync` | 兼容封装：StartImport + Wait + PostPipeline |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `OnImportSucceededAsync` | **成功删除**排队条目（真实 `.vgl/.vgi` 或 `.lnk` 快捷方式）；失败则 Kill 保留文件；快捷方式场景**不删**源体积 |
 
 ### 4.2 UI Automation 工具
 
@@ -204,7 +238,10 @@ flowchart TD
 
 `SUNWODA_SEVB.Core/Models/Project/CTAutoSlicer/CTAutoSlicerSettings.cs`
 
-- 文件后缀常量：`VglFileExtension = ".vgl"`
+- 文件后缀常量：`VglFileExtension = ".vgl"` / `VgiFileExtension = ".vgi"` / `ShortcutFileExtension = ".lnk"`
+- 排队识别：`IsImportVolumeExtension`（真实文件）+ `LooksLikeImportVolumeShortcut` / `IsImportVolumeQueueEntry`（如「xxx.vgi - 快捷方式.lnk」）
+- 快捷方式解析：`ShellLinkHelper.TryGetShortcutTarget` → VG 导入用目标路径；成功删除仅删 `.lnk`
+- 进程池：`MaxVgProcesses`（默认 4）/ `DefaultMaxVgProcesses` / `AbsoluteMaxVgProcesses = 8`
 - 默认 VG 就绪等待：`DefaultVGOpenWaitTime = 180000`
 - 旧库值自动升级阈值：`LegacyVGOpenWaitTimeThreshold = 10000`（≤10000 视为过短，升为 180000）
 
@@ -237,7 +274,8 @@ flowchart TD
 | `VGAppPath` | 用户配置 | VG exe 路径；进程名由此推导 |
 | `VGOpenWaitTime` | 180000 ms | 「文件(F)」就绪检测上限；每秒轮询 |
 | `VGShowFrontWaitTime` | 2000 ms | 置前后等待（厚板单测已改用 `EnsureVgForeground`，不重复等 2s） |
-| `CTFileFolder` | 用户选择 | 扫描 `.vgl` 的文件夹 |
+| `CTFileFolder` | 用户选择 | 扫描 `.vgl`/`.vgi`，以及「xxx.vgi - 快捷方式.lnk」（解析目标导入，成功只删快捷方式） |
+| `MaxVgProcesses` | 4（1～8） | **进程池最大 VG 并发数**；导入可重叠，后处理串行 |
 | `QuickImportDialogWaitTime` | 10000 ms | **Ctrl+F+I** 后轮询「快速导入...」出现的上限（找到即继续） |
 | `NewProjectDialogWaitTime` | 5000 ms | Ctrl+N 后等保存框 |
 | `FileSelectionDialogWaitTime` | 15000 ms | 等「完成(F)」/ 进度框出现 |
@@ -307,12 +345,17 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
       第四象限 3D ROI 截图 → Vision3dSectionPointsDetector（三点+原点）
       → 绝对坐标打开「简单对齐」→ 重置
       → Ctrl+三点（左上→右上→右下）
-      → 「上」视图 ROI 截图 → VisionTopViewVectorPointsDetector → Ctrl+两点（上→下）
+      → **偏移 Edit 置 0 + Enter**（`Simple321OffsetEdit*`；否则「上」视图非预期）
+      → 「上」视图 ROI 截图 → VisionTopViewVectorPointsDetector（**黄框右缘优先**）→ Ctrl+两点（上→下）
       → Ctrl+原点 → 完成(F) → 警告「是(Y)」
       （`RunSimple321AlignmentAsync`；主流程开关 `EnableVisionAlignmentSteps`）
 
+✅ 4b'. 对齐后捕捉与拖拽（非旧「4b」）
+      点视口底部无名捕捉按钮（UIA 索引/Invoke，失败绝对坐标）→ 按箭头标定直线拖拽
+      （`RunPostAlignCaptureDragAsync`；开关 `EnablePostAlignCaptureDragSteps`）
+
 ✅ 5. Alt+F+T 三视图切片导出（`ExportImageStackSlicesAsync`）
-      依次导出「前 / 右 / 上」；切片范围取自 UI：SliceRangeStartMm ~ SliceRangeEndMm（三视图共用）
+      依次导出「前 / 右 / 上」；切片范围取自 UI 各视角 mm
 
 ❌ 6. 收尾：导入成功后 .vgl 处理、文件夹监控自动跑批等（见 §8 阶段六，可选）
 ```
@@ -320,9 +363,8 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 **说明**：
 
 - **象限**：第四象限 = 3D（平面三点+原点）；第二象限 =「上」视图（向量两点）。  
-- **无 4b**：早期文档的「4b 定方向」已取消；向量两点即 3-2-1 中的「2」，在简单对齐对话框内完成。  
-- **切片范围**：不由视觉算法返回；由页面「切片导出参数」输入，导出前/右/上时均使用该起止 mm。  
-- **主链时序**：直方图 → 厚板 → 简单 3-2-1 → 导出（代码已落地）。
+- **无旧 4b**：早期文档的「4b 定方向」已取消；向量两点即 3-2-1 中的「2」。  
+- **主链时序**：直方图 → 厚板 → 简单 3-2-1（含偏移置0）→ 对齐后捕捉拖拽 → 导出。  
 
 ### 7.2 任务流程：已改造步骤 vs 未改造步骤
 
@@ -339,12 +381,15 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 →「渲染」面板 ComboBox 选 RenderingPresetName）
 ✅ 直方图灰度阈值（预设后：截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
-✅ 简单 3-2-1 对齐（阶段四全部；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
-✅ 三视图切片导出（`ExportImageStackSlicesAsync`；前/右/上；范围取自 UI SliceRange*Mm）
-✅ 「测试应用渲染预设」单步按钮（已导入体积前提下单独测预设，不重跑导入）
-✅ 「测试厚板设置(三象限)」单步按钮（已导入+已预设前提下测厚板，不重跑导入）
+✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
+✅ 对齐后捕捉拖拽（`TryRunPostAlignCaptureDragInMainFlowAsync` + `EnablePostAlignCaptureDragSteps`）
+✅ 三视图切片导出（`ExportImageStackSlicesAsync`；前/右/上）
+✅ 「测试应用渲染预设」单步按钮
+✅ 「测试直方图灰度调整」单步按钮
+✅ 「测试厚板设置(三象限)」单步按钮
 ✅ 「测试简单 3-2-1 对齐」单步按钮
-✅ 「测试切片导出(三视图)」单步按钮（已导入+预设+厚板前提下测导出）
+✅ 「测试对齐后捕捉拖拽」单步按钮
+✅ 「测试切片导出(三视图)」单步按钮
 ✅ 失败跳过、批次统计、流程日志
 ⏸ 批次结束 Ctrl+N（开发阶段暂注释，保留工程状态）
 ```
@@ -353,12 +398,13 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 | 状态 | 步骤 | 说明 |
 |------|------|------|
-| ✅ | **阶段四 · 简单 3-2-1 对齐** | **已完成**（单测+主流程）。含三点+向量两点+原点；**无独立 4b**。见 §16～§19 |
-| ✅ | **切片范围（UI mm）** | `SliceRangeStartMm`/`SliceRangeEndMm`；导出前/右/上三视图均使用；默认 20～70 |
+| ✅ | **阶段四 · 简单 3-2-1 对齐** | **已完成**（单测+主流程）。含三点+偏移置0+黄框向量+原点；**无独立旧 4b**。见 §16～§21 |
+| ✅ | **对齐后捕捉拖拽** | **已完成**（单测+主流程）。见 §20 |
+| ✅ | **切片范围（UI mm）** | 按前/右/上分视角配置 |
 | ✅ | **Alt+F+T 保存影片/图像堆栈** | 三视图依次选参并导出；已接入主流程 |
-| ❌ | 导入成功后删除 `.vgl` | `OnImportSucceededAsync` 仍为占位 |
+| ❌ | 导入成功后删除 `.vgl` | 进程池路径已删排队文件；策略见 §0.1 |
 | ❌ | 文件夹监控触发自动跑批 | 可选产品需求 |
-| ~~🟡~~ | ~~阶段四 · 4b~~ | **已取消**（文档误解；「2」已在简单 3-2-1 内完成） |
+| ~~🟡~~ | ~~阶段四 · 旧 4b~~ | **已取消** |
 
 #### §7.2 附：与旧文档「双视图截图算角」的关系
 
@@ -387,31 +433,34 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 **在总流程中的位置**（`ImportSingleVglAsync`）：
 
 ```text
-… → 直方图灰度调整 → 三象限厚板 → 【简单 3-2-1】→ Alt+F+T 切片导出 → …
+… → 直方图灰度调整 → 三象限厚板 → 【简单 3-2-1（含偏移置0）】→ 【对齐后捕捉拖拽】→ Alt+F+T 切片导出 → …
 ```
 
-**对话框内三步（不可颠倒；仅第三步完成后点「完成」）**：
+**对话框内步骤（不可颠倒；仅原点完成后点「完成」）**：
 
 | 步 | 含义 | 采图 / 找点 | 动作 | 状态 |
 |:--:|------|-------------|------|:----:|
 | 3 | 定平面 | 3D ROI → `Vision3dSectionPointsDetector` | Ctrl+左上→右上→右下 | ✅ |
-| 2 | 定向量 | 「上」ROI → `VisionTopViewVectorPointsDetector` | Ctrl+上点→下点（右缘） | ✅ |
+| 1.5 | 偏移置0 | — | 点击左侧无名 Edit → `0` → Enter | ✅ |
+| 2 | 定向量 | 「上」ROI → `VisionTopViewVectorPointsDetector`（黄框优先） | Ctrl+上点→下点 | ✅ |
 | 1 | 定原点 | 同上 3D 四点之原点 | Ctrl+原点 → 完成 → 警告「是」 | ✅ |
 
 **已落地清单**：
 
-1. ✅ 本地 3D 找点 +「上」视图向量找点（§18 / §19）  
-2. ✅ `RunSimple321AlignmentAsync` / `ClickTopViewVectorPointsAsync` / `TryRunVisionAlignmentInMainFlowAsync`  
-3. ✅ Settings + UI：ROI、下拉绝对坐标、`VisionCaptureDir`、`Vision2dVectorCaptureDir`、`EnableVisionAlignmentSteps`（默认开）  
-4. ✅ 单测按钮 + 离线探针  
-5. ✅ 主流程接入（厚板后、导出前）
+1. ✅ 本地 3D 找点 +「上」视图向量找点（黄框优先，§18 / §19）  
+2. ✅ `RunSimple321AlignmentAsync` / `ResetSimple321PlaneOffsetEditAsync` / `ClickTopViewVectorPointsAsync` / `TryRunVisionAlignmentInMainFlowAsync`  
+3. ✅ Settings + UI：ROI、下拉、**偏移 Edit**、`VisionCaptureDir`、`Vision2dVectorCaptureDir`、`EnableVisionAlignmentSteps`  
+4. ✅ 对齐后捕捉拖拽：标定 + `RunPostAlignCaptureDragAsync` + 主流程 + 单测（§20）  
+5. ✅ 单测按钮 + 离线探针  
+6. ✅ 主流程接入（厚板后 → 3-2-1 → 捕捉拖拽 → 导出）
 
 **接入点（已落地）**：
 
 ```csharp
 await ApplyThickPlateForQuadrantsAsync(...);
-await TryRunVisionAlignmentInMainFlowAsync(...); // EnableVisionAlignmentSteps + 标定齐全时跑 3-2-1
-await ExportImageStackSlicesAsync(...);          // 前/右/上；范围 = UI SliceRange*Mm
+await TryRunVisionAlignmentInMainFlowAsync(...);      // EnableVisionAlignmentSteps + 标定齐全时跑 3-2-1
+await TryRunPostAlignCaptureDragInMainFlowAsync(...); // EnablePostAlignCaptureDragSteps + 标定齐全
+await ExportImageStackSlicesAsync(...);
 ```
 
 **阶段五**：切片导出已完成；范围取自 UI。可选巩固项见 §11。
@@ -420,7 +469,7 @@ await ExportImageStackSlicesAsync(...);          // 前/右/上；范围 = UI Sl
 
 - **`OpenSaveImageStackDialogAsync`** — **Alt+F+T**，等待「保存影片/图像堆栈」对话框。
 - **`ExportImageStackSlicesAsync`** — 循环 **前 / 右 / 上** 三视图：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
-- 命名规则见 `SliceExportNamingHelper`。
+- 命名规则见 `SliceExportNamingHelper`：`{导出根}/{主文件夹}/{主文件夹} 前|右|上/1…`（三视图套一层主文件夹）。
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
 **说明**：主流程在简单 3-2-1 之后导出；三视图共用同一 UI 切片范围。
@@ -490,7 +539,10 @@ await ExportImageStackSlicesAsync(...);
 | 预设/厚板/导出步骤体感略卡 | 阶段二～四仍有多处 `RootElement.FindAll(Descendants)` 兜底；**2026-07-16** 已统一为 `Find*Scoped` |
 | 预设步骤日志空等 ~15s（打开下拉→找到列表项） | 旧逻辑：`TrySetComboBoxValue` 后 `WaitForPresetApplied` 5s + 打开下拉每步 5s + 等 ListItem 5s；**2026-07-16** 已改为跳过 ValuePattern、打开每步 800ms、Win32 点击后以**下拉关闭**判成败 |
 | 输入路径前无故放大快速导入窗 | 旧 `EnsureAutomationForeground` 调用 `ShowWindow(3)=SW_MAXIMIZE`；已改为仅 `SetForegroundWindow`；见 §15 |
-| 后缀 `.vgi` → 实测为 `.vgl` | `VglFileExtension` |
+| 后缀 `.vgi` → 实测为 `.vgl` | `VglFileExtension`；现同时支持 `.vgl`/`.vgi` |
+| 体素文件夹不想复制巨大 `uint16_scv` | **支持「xxx.vgi - 快捷方式.lnk」**：解析目标路径导入，成功只删文件夹内快捷方式 |
+| 点「完成」后很久才开下一 VG | 旧逻辑死等向导「完成」按钮 UIA 消失；**已改为**检测内文「**正在导入体积**」（或向导消失）即交手填下一槽 |
+| 后处理中仍切换 VG 窗口 | 根因：`GetFreshMainWindow` 每次 `EnsureVgForeground`（最大化+置前），后台「导入体积中」轮询抢焦点；**已改为**取窗不置前 + 后处理独占暂停其他槽 UIA |
 | 首次点击只开 VG 不导入 | 旧逻辑已移除；启动段重写为 `WaitForVgOpenAndDismissAutoSaveAsync`（弹窗按主窗**子窗口**查找，对齐 Insights 树） |
 | NuGet NU1102（`System.ServiceModel.Security`） | 与 CTAutoSlicer 无关；需加 nuget.org 源 |
 | `TestOffset` 中「导入菜单」仍用 2024 Qtitan Ribbon | 主流程已不用；测试按钮待 2022 更新或删除 |
@@ -532,28 +584,30 @@ await ExportImageStackSlicesAsync(...);
 - [x] 主流程 `ImportSingleVglAsync` 已接入 `ApplyThickPlateForQuadrantsAsync`
 - [x] 第三象限底缘菜单反向弹出：右键点上移 100px
 
-### 阶段四（简单 3-2-1）— ✅ 全部完成（无 4b）
+### 阶段四（简单 3-2-1）— ✅ 全部完成（无旧 4b）
 
-- [x] 流程文档：时序、采图、点击换算、主流程接入（§7.1 / §8 / §16～§19）
-- [x] 标定：3D ROI、「上」视图 ROI、`Simple321ToolbarClickX/Y`
+- [x] 流程文档：时序、采图、点击换算、主流程接入（§7.1 / §8 / §16～§21）
+- [x] 标定：3D ROI、「上」视图 ROI、`Simple321ToolbarClickX/Y`、**`Simple321OffsetEditX/Y`**
 - [x] 落盘：`VisionCaptureDir`（jietu）、`Vision2dVectorCaptureDir`（2Dxianglaing），均 **7 天**
-- [x] 本地找点：`Vision3dSectionPointsDetector` + `VisionTopViewVectorPointsDetector` + 探针
-- [x] 完整 3-2-1：重置 → Ctrl+三点 → Ctrl+向量两点 → Ctrl+原点 → 完成 → 警告「是」
+- [x] 本地找点：`Vision3dSectionPointsDetector` + `VisionTopViewVectorPointsDetector`（**黄框优先**）+ 探针
+- [x] 完整 3-2-1：重置 → Ctrl+三点 → **偏移置0** → Ctrl+向量两点 → Ctrl+原点 → 完成 → 警告「是」
 - [x] 单测按钮「测试简单 3-2-1 对齐」
 - [x] `EnableVisionAlignmentSteps` 主流程接入（默认开）
-- [x] ~~独立 4b~~ **已取消**（非需求）
+- [x] 对齐后捕捉拖拽：标定 UI + 单测「测试对齐后捕捉拖拽」+ 主流程（§20）
+- [x] **主流程 ↔ 单测一致性核对**（§21，2026-07-23）
+- [x] ~~独立旧 4b~~ **已取消**（非需求）
 
 ### 阶段五（Alt+F+T 切片导出）— ✅ 已完成
 
 - [x] Insights 标定：`Alt+F` + `T` 打开「保存影片/图像堆栈」
 - [x] 三视图依次选择 + 参数填写 + 导出（前/右/上）
-- [x] **切片范围取自 UI**：`SliceRangeStartMm` / `SliceRangeEndMm`（三视图共用，默认 20～70）
+- [x] **切片范围取自 UI**（按视角 Front/Right/Top）
 - [x] 输出路径与命名规则可配置（`SliceExportNamingHelper`）
 - [ ] 真机巩固（可选）：堆栈 Edit、保存对话框、JPEG 质量窗、写入进度
 
 ---
 
-## 12. 相关文件速查（实现状态截至 **2026-07-22**）
+## 12. 相关文件速查（实现状态截至 **2026-07-23**）
 
 ```
 SUNWODA_SEVB.Core/Interfaces/Project/CTAutoSlicer/
@@ -599,19 +653,17 @@ docs/
 
 ## 13. 给下一上下文的阅读顺序
 
-1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**§16**；**§17**；**§18 本地找点**；导入 §15）  
-2. `VGAutomationService` — **4a 单测**（「测试简单 3-2-1 对齐」）与待接 **`RunVisionAlignmentAsync` / 主流程开关**  
-3. `Vision3dSectionPointsDetector` + `tools/Vision3dPointsProbe` — 4a 找点与离线验证  
-4. `CutImgAlgorithmService` — 封装保留（对照用；主链不调用）  
-5. `ImportSingleVglAsync` — 主链：直方图 → 厚板 → **简单 3-2-1** → 导出（范围=UI）  
-6. `ScreenCaptureHelper` + 标定 ROI / `Simple321ToolbarClick*` — 采图与下拉绝对坐标  
-7. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
+1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**§16**；**§19 黄框向量**；**§20 捕捉拖拽**；**§21 主/单测一致性**；导入 §15）  
+2. `VGAutomationService` — `RunPostImportPipelineAsync` / `RunSimple321AlignmentAsync` / `RunPostAlignCaptureDragAsync`  
+3. `Vision3dSectionPointsDetector` + `VisionTopViewVectorPointsDetector` — 找点  
+4. `ImportSingleVglAsync` / 进程池 — 主链：直方图 → 厚板 → **3-2-1** → **捕捉拖拽** → 导出  
+5. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
 
 ---
 
 ## 14. 一句话总结
 
-**阶段一～五已在主流程跑通**。阶段四 = 简单 3-2-1（三点+向量两点+原点），**无独立 4b**。切片范围由 UI 配置，前/右/上三视图共用。可选后续：`.vgl` 收尾处理、文件夹监控跑批（阶段六）。
+**阶段一～五已在主流程跑通**。阶段四 = 简单 3-2-1（三点 → 偏移置0 → 黄框向量两点 → 原点）+ 对齐后捕捉拖拽；**无独立旧 4b**。主流程与单测共用核心方法（§21）。可选后续：文件夹监控跑批等（阶段六）。
 
 ---
 
@@ -786,12 +838,13 @@ flowchart TD
     F --> G[选菜单项进入对齐模式]
     G --> H[点击「重置」]
     H --> I["步骤1：Ctrl+三点（左上→右上→右下）"]
-    I --> J["步骤2：截「上」视图 → VisionTopViewVectorPointsDetector → Ctrl+两点（上→下）"]
+    I --> I2["步骤1.5：偏移 Edit 置 0 + Enter"]
+    I2 --> J["步骤2：截「上」视图 → 黄框向量两点 → Ctrl+两点（上→下）"]
     J --> K["步骤3：Ctrl+原点（3D）"]
     K --> L[点击「完成(F)」]
     L --> M{警告对话框?}
     M -->|是| N[点击「是(Y)」]
-    M -->|否| O[4a 完成]
+    M -->|否| O[3-2-1 完成]
     N --> O
 ```
 
@@ -799,16 +852,17 @@ flowchart TD
 
 1. **采图（3D）**：第四象限 **3D** 有效范围（`Vision3dRoi*`）→ `VisionCaptureDir`（默认 `jietu`，**7 天**）。
 2. **找点（3D）**：本地剪影四角（§18）；`points[0..2]` 上盖三点（默认 **左上 / 右上 / 右下**），`points[3]` 原点。
-3. **步骤顺序（关键）**：在「简单 3-2-1 对齐」对话框打开期间完成三步；**仅第三步（原点）完成后才点「完成」**。**步骤2 必须先于步骤3**，否则「上」标定区域画面会变。
-4. **步骤2 向量**：三点后截取 **`VisionTopViewRoi*`**（第二象限「上」）→ `VisionTopViewVectorPointsDetector` 取右侧外缘两点（上→下）→ Ctrl+点击 → 落盘 **`Vision2dVectorCaptureDir`**（默认 `C:\AutoSlice\cutpicture\2Dxianglaing`，**7 天**）。算法见 **§19**。
-5. **UI**：「简单对齐」下拉须 **`Simple321ToolbarClickX/Y` 绝对屏幕坐标**。
-6. **重置**：进入对齐后先点 **重置**，再 Ctrl+选点。
-7. **完成与警告**：点 **完成(F)** 后若出现 **警告**，须点 **是(Y)**。
-8. **失败策略**：算法/点击异常 → 日志；主流程是否仍导出由策略待定。
+3. **步骤顺序（关键）**：在「简单 3-2-1 对齐」对话框打开期间完成；**仅原点完成后才点「完成」**。**步骤2 必须先于步骤3**。
+4. **步骤1.5 偏移置0**：三点后点击左侧无名 Edit（`Simple321OffsetEdit*`）→ 输入 `0` → Enter；否则「上」视图非预期。
+5. **步骤2 向量**：截取 **`VisionTopViewRoi*`** → `VisionTopViewVectorPointsDetector`（**优先黄框右缘旁侧**，§19）→ Ctrl+从上到下 → 落盘 **`Vision2dVectorCaptureDir`**。
+6. **UI**：「简单对齐」下拉须 **`Simple321ToolbarClickX/Y` 绝对屏幕坐标**。
+7. **重置**：进入对齐后先点 **重置**，再 Ctrl+选点。
+8. **完成与警告**：点 **完成(F)** 后若出现 **警告**，须点 **是(Y)**。
+9. **失败策略**：算法/点击异常 → 日志；主流程未标定齐全则跳过该段。
 
-### 16.3 ~~子步骤 4b~~（已取消）
+### 16.3 ~~子步骤旧 4b~~（已取消）
 
-> **2026-07-22 终版**：不存在独立 4b。简单 3-2-1 的「2」=「上」视图右侧向量两点（§16.2 步骤2 / §19），在对齐对话框内、原点之前完成。  
+> **2026-07-22 终版**：不存在独立旧 4b。简单 3-2-1 的「2」=「上」视图向量两点（§16.2 步骤2 / §19）。  
 > `GetObjectTopBottomPoints` 封装可保留于仓库，**主链不调用、不再排期**。
 
 ### 16.4 与主流程 / 直方图 / 厚板 / 导出的时序
@@ -819,10 +873,11 @@ flowchart TD
 | 2 | LUT 预设 | ✅ |
 | 2b | 直方图拖红线 | ✅（未标定则跳过） |
 | 3 | Q1～Q3 厚板 + 平均值 | ✅ |
-| **4** | **简单 3-2-1（三点 + 向量两点 + 原点）** | ✅ **单测 + 主流程** |
-| 5 | Alt+F+T 三视图导出（前/右/上） | ✅；**切片范围 = UI `SliceRange*Mm`** |
+| **4** | **简单 3-2-1（三点 + 偏移置0 + 黄框向量 + 原点）** | ✅ **单测 + 主流程** |
+| **4'** | **对齐后捕捉拖拽** | ✅ **单测 + 主流程**（§20） |
+| 5 | Alt+F+T 三视图导出（前/右/上） | ✅ |
 
-说明：阶段四插在 **厚板之后、导出之前**。切片范围不由视觉返回，由页面「切片导出参数」配置，导出三个视图时均写入同一起止 mm。
+说明：阶段四插在 **厚板之后、导出之前**；对齐后捕捉在 3-2-1 与导出之间。
 
 ### 16.5 坐标换算约定
 
@@ -836,7 +891,6 @@ screenY = Ry + Py
 注意：
 
 - 若截图含 DPI / 多显示器虚拟桌面偏移，须与 `ScreenCaptureHelper` 所用坐标系一致（与直方图 ROI 同一套）。
-- 若算法输出为 Halcon 习惯的 `(Row, Column)` 而接口文档写成 `(X, Y)`，联调时用一帧调试图标注三点验证；不符则交换轴或改映射。
 - 点击前建议短时 Unlock 输入钩子（与预设下拉 Win32 点击同样处理），避免钩子吞掉鼠标。
 
 ### 16.6 配置项（已加入 `CTAutoSlicerSettings`）
@@ -847,41 +901,42 @@ screenY = Ry + Py
 | `Vision3dRoiX/Y/Width/Height` | 真机标定 | 第四象限 3D；**勿含「上」视图** |
 | `VisionTopViewRoiX/Y/Width/Height` | 真机标定 | 第二象限「上」视图（向量两点） |
 | `Simple321ToolbarClickX/Y` | 真机标定 | 「简单对齐」下拉 **绝对坐标** |
+| `Simple321OffsetEditX/Y` + Calibrated | 真机标定 | 三点后偏移 Edit **绝对坐标**（置 0） |
 | `VisionClickIntervalMs` | `300` | 多点点击间隔 |
 | `VisionCaptureDir` | `C:\AutoSlice\cutpicture\jietu` | 3D 调试图；按日，**7 天** |
 | `Vision2dVectorCaptureDir` | `C:\AutoSlice\cutpicture\2Dxianglaing` | 向量截图/标注；按日，**7 天** |
-| `SliceRangeStartMm` / `SliceRangeEndMm` | `20` / `70` | **UI 配置**；导出前/右/上三视图共用 |
+| `EnablePostAlignCaptureDragSteps` | `true` | 主流程是否执行对齐后捕捉拖拽 |
+| `PostAlignCaptureButtonX/Y` + Index | 真机标定 | 无名捕捉按钮坐标 / UIA 索引 |
+| `PostAlignDragStart/End X/Y` | 真机标定 | 箭头拖拽起终点 |
+| `PostAlignClickWaitMs` / `DragStepDelayMs` | `400` / `8` | 点击后等待 / 拖拽步进 |
 
 ### 16.7 建议实现文件与方法名
 
 | 落点 | 职责 |
 |------|------|
-| `Vision3dSectionPointsDetector` | ✅ **4a 本地 3D 找点**（§18） |
-| `VisionTopViewVectorPointsDetector` | ✅ **4a 本地「上」视图向量两点**（§19） |
+| `Vision3dSectionPointsDetector` | ✅ **本地 3D 找点**（§18） |
+| `VisionTopViewVectorPointsDetector` | ✅ **「上」视图向量两点（黄框优先）**（§19） |
 | `tools/Vision3dPointsProbe` / `tools/VisionTopViewVectorProbe` | ✅ 离线批量探针 |
-| `ICutImgAlgorithmService` / `CutImgAlgorithmService` | 封装保留（对照；主链不用） |
 | `VGAutomationService`（`RunSimple321AlignmentAsync` 等） | ✅ 简单 3-2-1 编排 + **主流程已接** |
-| `CaptureVisionRoi` / 标注图 | ✅ 3D → `jietu`；「上」→ `2Dxianglaing` |
-| `Simple321` 下拉 / 重置 / Ctrl 三点+向量两点+原点 / 完成 / 警告 | ✅ |
-| `VM_CTAutoSlicerPage` | ✅ 单测 + `EnableVisionAlignmentSteps`；切片范围 UI 绑定 |
+| `ResetSimple321PlaneOffsetEditAsync` | ✅ 三点后偏移置 0 |
+| `RunPostAlignCaptureDragAsync` | ✅ 对齐后捕捉 + 箭头拖拽（§20） |
+| `ScreenArrowCalibrationOverlayWindow` | ✅ 箭头标定遮罩 |
+| `VM_CTAutoSlicerPage` | ✅ 单测 + 标定 UI |
 
 ### 16.8 联调检查清单
 
 - [x] 3D 截图 → 本地 Detect → 标注四点
-- [x] 「上」视图截图 → 向量两点检测 → 标注
+- [x] 「上」视图截图 → 黄框/向量两点检测 → 标注
 - [x] 真机：ROI 与视口一致
-- [x] 真机：绝对下拉 + 重置 + 完整 3-2-1 + 完成 + 警告是
-- [x] `EnableVisionAlignmentSteps=true` 时主流程执行 3-2-1 再导出
-- [x] `EnableVisionAlignmentSteps=false` 时跳过对齐仍可导出
-- [x] 导出前/右/上使用 UI 切片范围
+- [x] 真机：绝对下拉 + 重置 + 完整 3-2-1（含偏移置0）+ 完成 + 警告是
+- [x] `EnableVisionAlignmentSteps=true` 时主流程执行 3-2-1
+- [x] 对齐后捕捉拖拽单测 + 主流程
+- [x] 主/单测一致性（§21）
 
 ### 16.9 开放项（可选）
 
-1. ~~进入选点前是否打开「简单对齐」菜单~~ → **已确认**。  
-2. ~~`points[3]` 是否参与点击~~ → **已确认**（原点）。  
-3. ~~独立 4b~~ → **已取消**。  
-4. 失败时是否允许继续导出 — 可由产品再定。  
-5. 切片范围长期用 UI 配置（当前方案）— **已确认**。
+1. 失败时是否允许继续导出 — 可由产品再定。  
+2. 黄框 HSV 若真机色偏，可再调阈值。  
 
 ---
 
@@ -893,7 +948,7 @@ screenY = Ry + Py
 | 找点（3D） | 本地 `Vision3dSectionPointsDetector` |
 | 找点（向量） | 本地 `VisionTopViewVectorPointsDetector` |
 | 单测 | 「测试简单 3-2-1 对齐」 |
-| 顺序 | 重置 → Ctrl+三点（左上→右上→右下）→ 向量两点（上→下）→ 原点 → 完成 → 警告「是」 |
+| 顺序 | 重置 → Ctrl+三点 → **偏移置0** → 向量两点（上→下，黄框优先）→ 原点 → 完成 → 警告「是」 |
 | 主流程 | ✅ `EnableVisionAlignmentSteps`（默认开） |
 | 切片范围 | UI `SliceRangeStartMm`/`EndMm`；前/右/上三视图共用 |
 | 用户确认 | 3-2-1 流程 OK；阶段四全部完成；无 4b |
@@ -940,39 +995,112 @@ screenY = Ry + Py
 
 ## 19. 「上」视图向量两点算法（`VisionTopViewVectorPointsDetector`）
 
-> **背景**：简单 3-2-1 的「2」= 在「上」标定区右侧外缘标两点定向量；须 Ctrl+从上到下；须在原点之前完成。  
+> **背景**：简单 3-2-1 的「2」= 定向量；须 Ctrl+从上到下；须在原点之前、偏移置0之后完成。  
 > **文件**：`SUNWODA_SEVB.Tool/Helper/VisionTopViewVectorPointsDetector.cs`  
-> **输出约定**：`[0]`=上点，`[1]`=下点。
+> **输出约定**：`[0]`=上点，`[1]`=下点。  
+> **2026-07-23**：主策略改为 **黄框右缘旁侧**（与黄框平行、基线更长）；外壳短段易导致不平行。
 
-### 19.1 流程概要
+### 19.1 流程概要（主路径：黄框）
 
 ```text
-深灰底「上」视图截图 → Otsu/抬高阈值剪影（清边框）
-  → 选主体轮廓（排除近似铺满整图的假轮廓）→ 填充 objectMask
-  → 逐行最右缘 → 肩部定 wallX → 沿墙向下取竖直段（上半约 55%）
-  → 段内 TopPointFraction / BottomPointFraction 取两点，EdgeInsetPixels 内收
-  → 调试图：红线连两点 + V-Top / V-Bot
+「上」视图截图 → HSV 提取黄色对齐框（仅 Close，禁 Open，避免抹掉细线）
+  → 最长周长黄轮廓 → MinAreaRect → 取右侧较竖直边
+  → 沿右缘 10%/90% 取两点 → 向矩形内侧偏移 YellowEdgeOffsetPixels（黄线不可点）
+  → 调试图：绿线=黄框右缘，红线=点击向量 + V-Top / V-Bot，角标 yellow-rect
 ```
 
-### 19.2 关键常量
+### 19.2 回退：剪影右缘
+
+未检出黄框时：Otsu 剪影 → 右缘竖直段 → 内收取点（`mode=silhouette-fallback`）。
+
+### 19.3 关键常量
 
 | 常量 | 值 | 含义 |
 |------|-----|------|
-| `EdgeInsetPixels` | `3` | 相对右缘向物体内收 |
-| `RightEdgeTolerancePx` | `4`（段内再 +6） | 竖直段抖动容差 |
-| `MinPointSeparationPx` | `24` | 两点最小竖直间距 |
-| `VerticalSearchHeightRatio` | `0.55` | 仅在物体上半部取段（对应人工红线范围） |
-| `TopPointFraction` / `BottomPointFraction` | `0.12` / `0.88` | 段内上下点相对位置 |
+| `YellowEdgeOffsetPixels` | `6` | 相对黄框右缘向内侧偏移（旁侧可点） |
+| `MinPointSeparationPx` | `40` | 黄框路径最小竖直间距 |
+| `TopPointFraction` / `BottomPointFraction` | `0.10` / `0.90` | 沿黄框右缘取点位置 |
+| `EdgeInsetPixels` | `3` | 回退：剪影右缘内收 |
 
-### 19.3 落盘与探针
+### 19.4 落盘与探针
 
-- 运行时：`Vision2dVectorCaptureDir`（默认 `C:\AutoSlice\cutpicture\2Dxianglaing`）\yyyy-MM-dd\  
-  `vision_top_*.png` / `*_vector_points.png` / `*_click_points.png`；**7 天**清理。  
-- UI：阶段四 Expander「向量截图目录」可改路径。  
-- 离线：`tools/VisionTopViewVectorProbe`；样图 `2Dxianglaing\_samples`。
+- 运行时：`Vision2dVectorCaptureDir`\yyyy-MM-dd\；`*_vector_points.png` / `*_vector_yellow_mask.png`；**7 天**。  
+- 离线：`tools/VisionTopViewVectorProbe`。
 
-### 19.4 说明（无独立 4b）
+### 19.5 说明（无独立旧 4b）
 
-简单 3-2-1 的「2」即本节向量两点，在对齐对话框内完成；**不存在**另一步「4b 定方向」。`GetObjectTopBottomPoints` 不必接入主链。
+简单 3-2-1 的「2」即本节向量两点；**不存在**另一步「旧 4b 定方向」。
+
+---
+
+## 20. 对齐后捕捉与拖拽（3-2-1 后、导出前）
+
+> **状态**：✅ 单测 + 主流程（2026-07-23）。  
+> **位置**：`RunPostImportPipelineAsync` 中，`TryRunVisionAlignmentInMainFlowAsync` 之后、`ExportImageStackSlicesAsync` 之前。
+
+### 20.1 步骤
+
+1. 定位视口底部无名捕捉 Button：优先 UIA（空 Name 小按钮，靠近标定坐标或按 `PostAlignCaptureButtonIndex`）→ Invoke → 失败 Win32；再失败用绝对坐标。  
+2. 等待 `PostAlignClickWaitMs`。  
+3. 按 `PostAlignDragStart/End` 直线拖拽（`MouseSimulationHelper.BuildLinearDragPath`）。
+
+### 20.2 UI / 标定
+
+- Expander「对齐后捕捉与拖拽」：标定捕捉按钮、标定拖拽箭头（`ScreenArrowCalibrationOverlayWindow`）、开关与等待参数。  
+- 单测按钮：「测试对齐后捕捉拖拽」→ `TestPostAlignCaptureDragAsync` → `RunPostAlignCaptureDragAsync`。
+
+### 20.3 开关
+
+| 参数 | 默认 | 行为 |
+|------|------|------|
+| `EnablePostAlignCaptureDragSteps` | `true` | 主流程执行；关则跳过 |
+| 标定不全 | — | 主流程跳过打日志；单测抛错 |
+
+---
+
+## 21. 主流程 ↔ 单测一致性核对（2026-07-23）
+
+> **结论**：核心业务路径一致；差异仅为入口包装（附着已有 VG / 开关跳过 / 前置校验抛错 vs 跳过）。
+
+### 21.1 共用核心方法（必须一致）
+
+| 业务段 | 核心方法 | 主流程入口 | 单测入口 |
+|--------|----------|------------|----------|
+| LUT 预设 | `ApplyRenderingPresetAsync` | `RunPostImportPipelineAsync` | `TestRenderingPresetAsync` |
+| 直方图 | `ApplyHistogramGrayScaleAdjustAsync` | 同上 | `TestHistogramGrayScaleAdjustAsync` |
+| 厚板 | `ApplyThickPlateForQuadrantsAsync` | 同上 | `TestThickPlateAsync` |
+| 简单 3-2-1 | **`RunSimple321AlignmentAsync`** | `TryRunVisionAlignmentInMainFlowAsync` | **`TestSimple321AlignmentAsync`** |
+| 对齐后捕捉拖拽 | **`RunPostAlignCaptureDragAsync`** | `TryRunPostAlignCaptureDragInMainFlowAsync` | **`TestPostAlignCaptureDragAsync`** |
+| 切片导出 | `ExportImageStackSlicesAsync` | 同上 | `TestSliceExportAsync` |
+
+### 21.2 有意差异（非 bug）
+
+| 项 | 主流程 | 单测 |
+|----|--------|------|
+| VG 进程 | 冷启动进程池，禁止附着 | `GetCTViewerProcess` 可附着已开 VG |
+| 未标定 | `Try*` **跳过**并打日志，继续后续步骤 | **抛错** / UI 拦截，便于排障 |
+| 开关 | 尊重 `EnableVisionAlignmentSteps` / `EnablePostAlignCaptureDragSteps` | 点击即跑（仍校验标定） |
+| 编排 | 全链串行：LUT→直方图→厚板→3-2-1→捕捉拖拽→导出 | 各按钮独立测一段 |
+
+### 21.3 3-2-1 内部顺序（主/单测相同）
+
+```text
+打开对齐 → 重置
+  → Ctrl+三点
+  → 偏移 Edit 置 0 + Enter
+  → 「上」黄框向量两点 Ctrl+点击
+  → Ctrl+原点
+  → 完成 → 警告「是」
+```
+
+### 21.4 核对时已修正
+
+- 后处理注释与日志改为含「对齐后捕捉拖拽」。  
+- `TestSimple321AlignmentAsync` 前置与 `HasSimple321Prerequisites` 对齐（含「上」ROI + 偏移 Edit）。
+
+### 21.5 真机状态（用户确认）
+
+- 各单步测试按钮均已跑通。  
+- 主流程在标定齐全且开关开启时应与单测行为一致（同一核心方法）。
 
 ---

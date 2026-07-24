@@ -99,6 +99,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _visionTopViewRoiWidth;
         private int _visionTopViewRoiHeight;
         private string _visionTopViewRoiDisplayText = "未标定";
+        private bool _isPreviewHistogramRoi;
+        private bool _isPreviewVision3dRoi;
+        private bool _isPreviewVisionTopViewRoi;
+        private RoiPreviewOverlayWindow? _activeRoiPreviewOverlay;
+        private WindowState? _roiPreviewPreviousMainWindowState;
+        private bool _isUpdatingRoiPreviewFlags;
         private int _simple321ToolbarClickX;
         private int _simple321ToolbarClickY;
         private bool _simple321ToolbarClickCalibrated;
@@ -839,6 +845,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _visionTopViewRoiDisplayText, value);
         }
 
+        /// <summary>勾选后在屏幕上高亮预览直方图 ROI 范围。</summary>
+        public bool IsPreviewHistogramRoi
+        {
+            get => _isPreviewHistogramRoi;
+            set => SetRoiPreviewFlag(ref _isPreviewHistogramRoi, nameof(IsPreviewHistogramRoi), value, RoiPreviewKind.Histogram);
+        }
+
+        /// <summary>勾选后在屏幕上高亮预览 3D ROI 范围。</summary>
+        public bool IsPreviewVision3dRoi
+        {
+            get => _isPreviewVision3dRoi;
+            set => SetRoiPreviewFlag(ref _isPreviewVision3dRoi, nameof(IsPreviewVision3dRoi), value, RoiPreviewKind.Vision3d);
+        }
+
+        /// <summary>勾选后在屏幕上高亮预览「上」视图 ROI 范围。</summary>
+        public bool IsPreviewVisionTopViewRoi
+        {
+            get => _isPreviewVisionTopViewRoi;
+            set => SetRoiPreviewFlag(ref _isPreviewVisionTopViewRoi, nameof(IsPreviewVisionTopViewRoi), value, RoiPreviewKind.VisionTopView);
+        }
+
+        private enum RoiPreviewKind
+        {
+            Histogram,
+            Vision3d,
+            VisionTopView,
+        }
+
         public int Simple321ToolbarClickX
         {
             get => _simple321ToolbarClickX;
@@ -1061,6 +1095,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestHistogramGrayScaleCommand { get; }
         public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand TestPostAlignCaptureDragCommand { get; }
+        /// <summary>临时：最小化本软件后截取 3D ROI，供视觉学习采图。</summary>
+        public ICommand CaptureVision3dSampleCommand { get; }
+        /// <summary>临时：最小化本软件后截取「上」视图 ROI，供视觉学习采图。</summary>
+        public ICommand CaptureVisionTopViewSampleCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
         public ICommand SwitchToProductionModeCommand { get; }
@@ -1108,6 +1146,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestHistogramGrayScaleCommand = new RelayCommandAsync(ExecuteTestHistogramGrayScaleAsync);
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
+            CaptureVision3dSampleCommand = new RelayCommand(ExecuteCaptureVision3dSample);
+            CaptureVisionTopViewSampleCommand = new RelayCommand(ExecuteCaptureVisionTopViewSample);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
@@ -1200,6 +1240,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         public override void OnCleanup()
         {
+            CloseRoiPreviewOverlay(restoreMainWindow: true);
             _inputHookService.Dispose();
             _folderMonitorService.Dispose();
             _activeFlowCts?.Cancel();
@@ -1505,6 +1546,217 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             VisionTopViewRoiDisplayText = _visionTopViewRoiWidth > 0 && _visionTopViewRoiHeight > 0
                 ? $"X={_visionTopViewRoiX}, Y={_visionTopViewRoiY}, W={_visionTopViewRoiWidth}, H={_visionTopViewRoiHeight}"
                 : "未标定";
+        }
+
+        private void SetRoiPreviewFlag(
+            ref bool field,
+            string propertyName,
+            bool value,
+            RoiPreviewKind kind)
+        {
+            if (_isUpdatingRoiPreviewFlags)
+            {
+                field = value;
+                OnPropertyChanged(propertyName);
+                return;
+            }
+
+            if (field == value)
+            {
+                return;
+            }
+
+            if (value)
+            {
+                if (!TryGetRoiRect(kind, out var rect, out var label, out var error))
+                {
+                    MessageShower = error;
+                    field = false;
+                    OnPropertyChanged(propertyName);
+                    return;
+                }
+
+                // 互斥：只预览当前勾选的一块 ROI
+                ClearOtherRoiPreviewFlags(kind);
+                field = true;
+                OnPropertyChanged(propertyName);
+                ShowRoiPreviewOverlay(rect, label);
+            }
+            else
+            {
+                field = false;
+                OnPropertyChanged(propertyName);
+                CloseRoiPreviewOverlay(restoreMainWindow: true);
+            }
+        }
+
+        private void ClearOtherRoiPreviewFlags(RoiPreviewKind keep)
+        {
+            _isUpdatingRoiPreviewFlags = true;
+            try
+            {
+                if (keep != RoiPreviewKind.Histogram && _isPreviewHistogramRoi)
+                {
+                    _isPreviewHistogramRoi = false;
+                    OnPropertyChanged(nameof(IsPreviewHistogramRoi));
+                }
+
+                if (keep != RoiPreviewKind.Vision3d && _isPreviewVision3dRoi)
+                {
+                    _isPreviewVision3dRoi = false;
+                    OnPropertyChanged(nameof(IsPreviewVision3dRoi));
+                }
+
+                if (keep != RoiPreviewKind.VisionTopView && _isPreviewVisionTopViewRoi)
+                {
+                    _isPreviewVisionTopViewRoi = false;
+                    OnPropertyChanged(nameof(IsPreviewVisionTopViewRoi));
+                }
+            }
+            finally
+            {
+                _isUpdatingRoiPreviewFlags = false;
+            }
+        }
+
+        private bool TryGetRoiRect(
+            RoiPreviewKind kind,
+            out System.Drawing.Rectangle rect,
+            out string label,
+            out string error)
+        {
+            rect = default;
+            label = string.Empty;
+            error = string.Empty;
+
+            switch (kind)
+            {
+                case RoiPreviewKind.Histogram:
+                    if (_histogramRoiWidth <= 0 || _histogramRoiHeight <= 0)
+                    {
+                        error = "直方图 ROI 尚未标定，无法预览";
+                        return false;
+                    }
+
+                    rect = new System.Drawing.Rectangle(
+                        _histogramRoiX, _histogramRoiY, _histogramRoiWidth, _histogramRoiHeight);
+                    label = "直方图 ROI";
+                    return true;
+
+                case RoiPreviewKind.Vision3d:
+                    if (_vision3dRoiWidth <= 0 || _vision3dRoiHeight <= 0)
+                    {
+                        error = "3D ROI 尚未标定，无法预览";
+                        return false;
+                    }
+
+                    rect = new System.Drawing.Rectangle(
+                        _vision3dRoiX, _vision3dRoiY, _vision3dRoiWidth, _vision3dRoiHeight);
+                    label = "3D 视图 ROI";
+                    return true;
+
+                case RoiPreviewKind.VisionTopView:
+                    if (_visionTopViewRoiWidth <= 0 || _visionTopViewRoiHeight <= 0)
+                    {
+                        error = "「上」视图 ROI 尚未标定，无法预览";
+                        return false;
+                    }
+
+                    rect = new System.Drawing.Rectangle(
+                        _visionTopViewRoiX, _visionTopViewRoiY, _visionTopViewRoiWidth, _visionTopViewRoiHeight);
+                    label = "「上」视图 ROI";
+                    return true;
+
+                default:
+                    error = "未知 ROI 类型";
+                    return false;
+            }
+        }
+
+        private void ShowRoiPreviewOverlay(System.Drawing.Rectangle rect, string label)
+        {
+            CloseRoiPreviewOverlay(restoreMainWindow: false);
+
+            var mainWindow = Application.Current.MainWindow;
+            if (mainWindow != null && mainWindow.WindowState != WindowState.Minimized)
+            {
+                _roiPreviewPreviousMainWindowState = mainWindow.WindowState;
+                mainWindow.WindowState = WindowState.Minimized;
+                Thread.Sleep(250);
+            }
+
+            var overlay = new RoiPreviewOverlayWindow(rect, label);
+            _activeRoiPreviewOverlay = overlay;
+            overlay.Closed += (_, _) =>
+            {
+                if (!ReferenceEquals(_activeRoiPreviewOverlay, overlay))
+                {
+                    return;
+                }
+
+                _activeRoiPreviewOverlay = null;
+                _isUpdatingRoiPreviewFlags = true;
+                try
+                {
+                    _isPreviewHistogramRoi = false;
+                    _isPreviewVision3dRoi = false;
+                    _isPreviewVisionTopViewRoi = false;
+                    OnPropertyChanged(nameof(IsPreviewHistogramRoi));
+                    OnPropertyChanged(nameof(IsPreviewVision3dRoi));
+                    OnPropertyChanged(nameof(IsPreviewVisionTopViewRoi));
+                }
+                finally
+                {
+                    _isUpdatingRoiPreviewFlags = false;
+                }
+
+                RestoreMainWindowAfterRoiPreview();
+            };
+
+            overlay.Show();
+        }
+
+        private void CloseRoiPreviewOverlay(bool restoreMainWindow)
+        {
+            if (_activeRoiPreviewOverlay == null)
+            {
+                if (restoreMainWindow)
+                {
+                    RestoreMainWindowAfterRoiPreview();
+                }
+
+                return;
+            }
+
+            var overlay = _activeRoiPreviewOverlay;
+            _activeRoiPreviewOverlay = null;
+            try
+            {
+                overlay.Close();
+            }
+            catch
+            {
+                // 忽略关闭异常
+            }
+
+            if (restoreMainWindow)
+            {
+                RestoreMainWindowAfterRoiPreview();
+            }
+        }
+
+        private void RestoreMainWindowAfterRoiPreview()
+        {
+            var mainWindow = Application.Current.MainWindow;
+            if (mainWindow == null || _roiPreviewPreviousMainWindowState is not { } previous)
+            {
+                _roiPreviewPreviousMainWindowState = null;
+                return;
+            }
+
+            _roiPreviewPreviousMainWindowState = null;
+            mainWindow.WindowState = previous;
+            mainWindow.Activate();
         }
 
         private void RefreshSimple321ToolbarClickDisplay()
@@ -2216,6 +2468,90 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
             {
                 Vision2dVectorCaptureDir = dialog.FileName;
+            }
+        }
+
+        /// <summary>临时采图保存根目录：3D 样本。</summary>
+        private const string VisionLearn3dSampleDir =
+            @"\\10.201.88.249\生产部资料临时存储服务器\测试验证部\测试实验室-计划资源组\离线CT尺寸自动标注\11111\图片\3D";
+
+        /// <summary>临时采图保存根目录：「上」视图样本。</summary>
+        private const string VisionLearnTopViewSampleDir =
+            @"\\10.201.88.249\生产部资料临时存储服务器\测试验证部\测试实验室-计划资源组\离线CT尺寸自动标注\11111\图片\上视图";
+
+        /// <summary>临时：缩小本软件后按 3D ROI 截图。</summary>
+        private void ExecuteCaptureVision3dSample(object? _)
+        {
+            if (_vision3dRoiWidth <= 0 || _vision3dRoiHeight <= 0)
+            {
+                MessageShower = "尚未标定 3D 区域，请先标定后再截图";
+                return;
+            }
+
+            CaptureSimpleRoiSample(
+                "3D 标定图",
+                VisionLearn3dSampleDir,
+                "vision_3d",
+                _vision3dRoiX,
+                _vision3dRoiY,
+                _vision3dRoiWidth,
+                _vision3dRoiHeight);
+        }
+
+        /// <summary>临时：缩小本软件后按「上」视图 ROI 截图。</summary>
+        private void ExecuteCaptureVisionTopViewSample(object? _)
+        {
+            if (_visionTopViewRoiWidth <= 0 || _visionTopViewRoiHeight <= 0)
+            {
+                MessageShower = "尚未标定「上」视图区域，请先标定后再截图";
+                return;
+            }
+
+            CaptureSimpleRoiSample(
+                "上视图标定图",
+                VisionLearnTopViewSampleDir,
+                "vision_top",
+                _visionTopViewRoiX,
+                _visionTopViewRoiY,
+                _visionTopViewRoiWidth,
+                _visionTopViewRoiHeight);
+        }
+
+        /// <summary>
+        /// 基础截图：最小化本软件 → 按 ROI 截图保存；截图后保持最小化。
+        /// </summary>
+        private void CaptureSimpleRoiSample(
+            string regionName,
+            string saveDir,
+            string filePrefix,
+            int x,
+            int y,
+            int width,
+            int height)
+        {
+            try
+            {
+                var mainWindow = Application.Current.MainWindow;
+                if (mainWindow != null)
+                {
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                Thread.Sleep(400);
+                Directory.CreateDirectory(saveDir);
+                var filePath = Path.Combine(saveDir, $"{filePrefix}_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+                ScreenCaptureHelper.CaptureRegionAndSave(filePath, x, y, width, height);
+
+                // 截图后保持最小化，方便连续采图；用户自行还原窗口
+                var msg = $"{regionName}已保存：{filePath}";
+                MessageShower = msg;
+                AppendFlowLog(msg);
+                _logger.Info(msg);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"{regionName}截取失败：{ex.Message}";
+                _logger.Error($"{regionName}临时截图失败", ex);
             }
         }
 

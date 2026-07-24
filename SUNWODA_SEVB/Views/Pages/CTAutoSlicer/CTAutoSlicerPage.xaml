@@ -762,6 +762,12 @@
                                     Content="标定直方图区域"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="隐藏上位机 → 全屏遮罩框选直方图 → ✓提交 / ✕重选" />
+                                <CheckBox
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Content="预览范围"
+                                    IsChecked="{Binding IsPreviewHistogramRoi}"
+                                    ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前直方图 ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
                             </StackPanel>
                             <StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
@@ -936,6 +942,12 @@
                                     Content="标定 3D 区域"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="隐藏上位机 → 全屏遮罩框选第四象限 3D 视图 → ✓提交 / ✕重选" />
+                                <CheckBox
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Content="预览范围"
+                                    IsChecked="{Binding IsPreviewVision3dRoi}"
+                                    ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前 3D ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
                             </StackPanel>
 
                             <TextBlock
@@ -1001,6 +1013,12 @@
                                     Content="标定「上」视图区域"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="隐藏上位机 → 全屏遮罩框选第二象限「上」视图 → ✓提交 / ✕重选" />
+                                <CheckBox
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Content="预览范围"
+                                    IsChecked="{Binding IsPreviewVisionTopViewRoi}"
+                                    ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前「上」视图 ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
                             </StackPanel>
 
                             <TextBlock
@@ -1615,6 +1633,21 @@
                                 Content="清除日志"
                                 Command="{Binding ClearImportLogCommand}"
                                 VerticalAlignment="Center"/>
+                        <!-- 临时采图：视觉学习 PlanB 兜底用，采完可删 -->
+                        <Button DockPanel.Dock="Left"
+                                Style="{StaticResource CasSecondaryButtonStyle}"
+                                Content="截取3D标定图"
+                                Command="{Binding CaptureVision3dSampleCommand}"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                ToolTip="临时：最小化本软件后，按已标定 3D ROI 截图，保存到网络目录「…\图片\3D」"/>
+                        <Button DockPanel.Dock="Left"
+                                Style="{StaticResource CasSecondaryButtonStyle}"
+                                Content="截取上视图标定图"
+                                Command="{Binding CaptureVisionTopViewSampleCommand}"
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                ToolTip="临时：最小化本软件后，按已标定「上」视图 ROI 截图，保存到网络目录「…\图片\上视图」"/>
                         <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
                                    Style="{StaticResource CasMutedTextStyle}"
                                    Text="{Binding MessageShower}"/>

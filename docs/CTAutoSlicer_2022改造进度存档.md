@@ -217,12 +217,20 @@ flowchart TD
 |------|------|------|
 | `SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/VM_CTAutoSlicerPage.cs` | `ExecuteRunSimulationAsync` | 页面按钮入口；校验 `.vgl`；写流程日志 |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/CTAutoSlicerService.cs` | `RunSimulationAsync` | 门面；管理 `IsRunning` / Cancel |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `RunSimulationAsync` | **核心**：进程池调度（冷启动多 VG → 重叠导入等待 → 串行后处理） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `LaunchFreshVgAndStartImportAsync` / `StartImportOnlyAsync` | 冷启动 + 仅导入操作（需焦点） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `WaitImportInBackgroundAsync` / `WaitForImportCompleteAsync` | 按 PID 静默等导入完成（不置顶） |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `RunPostImportPipelineAsync` | 后处理串行：LUT → 直方图 → 厚板 → 3-2-1 → 导出 |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `ImportSingleVglAsync` | 兼容封装：StartImport + Wait + PostPipeline |
-| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | `OnImportSucceededAsync` | **成功删除**排队条目（真实 `.vgl/.vgi` 或 `.lnk` 快捷方式）；失败则 Kill 保留文件；快捷方式场景**不删**源体积 |
+| `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | （partial 核心） | 字段/常量/构造/`WaitUntil*`；对外类型仍为 `VGAutomationService` |
+| `.../VgAutomation/VGAutomationService.ProcessPool.cs` | `RunSimulationAsync` / `RunPostImportPipelineAsync` | **核心**：进程池调度 + 后处理串行编排 |
+| `.../VgAutomation/VGAutomationService.InterruptAndWait.cs` | `WaitForVgOpenAsync` / 中断弹窗 | 启动等待、自动保存恢复、后处理独占、文件队列 |
+| `.../VgAutomation/VGAutomationService.Import.cs` | `OpenQuickImportAsync` / `WaitForImportCompleteAsync` | 阶段一：快速导入 |
+| `.../VgAutomation/VGAutomationService.LutAndHistogram.cs` | `ApplyRenderingPresetAsync` | 阶段二：LUT 预设 |
+| `.../VgAutomation/VGAutomationService.ThickPlate.cs` | `ApplyThickPlateForQuadrantsAsync` | 阶段三：厚板 |
+| `.../VgAutomation/VGAutomationService.Simple321.cs` | `RunSimple321AlignmentAsync` | 阶段四：简单 3-2-1 |
+| `.../VgAutomation/VGAutomationService.HistogramAndPostAlign.cs` | `ApplyHistogramGrayScaleAdjustAsync` / `RunPostAlignCaptureDragAsync` | 直方图灰度 + 对齐后捕捉拖拽 |
+| `.../VgAutomation/VGAutomationService.SliceExport.cs` | `ExportImageStackSlicesAsync` | 阶段五：切片导出 |
+| `.../VgAutomation/VGAutomationService.UiPrimitives.cs` | 点击/重试/键盘/`Find*` 包装 | UIA 原语；通用查找转发至 `VgElementFinder` |
+| `.../VgAutomation/VgElementFinder.cs` | `FindWindowByNameScoped` 等 | **内部**通用查找类（不改动 `Tool/Helper`） |
+| `.../VgAutomation/VGAutomationService.StageTests.cs` / `PublicApi.cs` | `Test*` / `CaptureHistogramRoiAsync` / Lock | 单测入口与公开辅助 API |
+
+> **拆分说明（2026-07-24）**：原约 7000 行单文件已按阶段拆为 `partial class`（零行为变更，DI/`ICTAutoSlicerService` 不变）。Phase 2 已抽出 `VgElementFinder`；Import/导出/3-2-1 等仍以 partial 文件为边界（共享 UIA 宿主私有方法，暂不强行拆独立类以免改公共可见性）。
 
 ### 4.2 UI Automation 工具
 

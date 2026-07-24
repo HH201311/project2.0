@@ -121,12 +121,42 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private bool _enablePostAlignCaptureDragSteps = true;
         private int _postAlignClickWaitMs = 400;
         private int _postAlignDragStepDelayMs = 8;
+        /// <summary>false=生产模式（默认）；true=调试模式（显示单步测试）。</summary>
+        private bool _isDebugMode;
 
         public string MessageShower
         {
             get => _messageShower;
             set => SetProperty(ref _messageShower, value);
         }
+
+        /// <summary>调试模式：显示「单步测试」等调试控件。默认关闭（生产模式）。</summary>
+        public bool IsDebugMode
+        {
+            get => _isDebugMode;
+            set
+            {
+                if (SetProperty(ref _isDebugMode, value))
+                {
+                    OnPropertyChanged(nameof(IsProductionMode));
+                    OnPropertyChanged(nameof(RunModeMenuHeader));
+                    MessageShower = value
+                        ? "已切换为调试模式（可使用单步测试）"
+                        : "已切换为生产模式（单步测试已隐藏）";
+                }
+            }
+        }
+
+        /// <summary>生产模式（默认）。与 <see cref="IsDebugMode"/> 互斥。</summary>
+        public bool IsProductionMode
+        {
+            get => !_isDebugMode;
+            set => IsDebugMode = !value;
+        }
+
+        /// <summary>顶部菜单「运行模式」标题，显示当前模式。</summary>
+        public string RunModeMenuHeader =>
+            IsDebugMode ? "运行模式：调试" : "运行模式：生产";
 
         public bool IsEnableSimulationBtn
         {
@@ -961,6 +991,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestPostAlignCaptureDragCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
+        public ICommand SwitchToProductionModeCommand { get; }
+        public ICommand SwitchToDebugModeCommand { get; }
 
         public event EventHandler? ImportLogScrollToEndRequested;
 
@@ -1005,6 +1037,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
+            SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
+            SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
         }
 
         public void NotifyImportLogScrollChanged(bool isAtBottom)

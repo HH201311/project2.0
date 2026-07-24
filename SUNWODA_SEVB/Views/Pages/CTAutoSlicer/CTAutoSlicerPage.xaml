@@ -7,10 +7,89 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="CTAutoSlicerPage"
     mc:Ignorable="d">
+    <Page.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <!-- 参数分组标题旁的「?」帮助图标：悬浮显示本组全部参数说明 -->
+        <Style x:Key="ParamHelpIconBorderStyle" TargetType="Border">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="#5B8DEF" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="Cursor" Value="Help" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+            <Setter Property="ToolTipService.ShowDuration" Value="60000" />
+            <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+        </Style>
+        <Style x:Key="ParamHelpIconTextStyle" TargetType="TextBlock">
+            <Setter Property="Text" Value="?" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ParamHelpToolTipTextStyle" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="MaxWidth" Value="520" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="LineHeight" Value="18" />
+        </Style>
+    </Page.Resources>
     <Grid>
-        <ScrollViewer Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Menu
+            Grid.Row="0"
+            Background="#F0F2F5"
+            Padding="4,2">
+            <MenuItem Header="{Binding RunModeMenuHeader}" ToolTip="切换生产/调试界面；默认生产模式，隐藏单步测试">
+                <MenuItem
+                    Command="{Binding SwitchToProductionModeCommand}"
+                    Header="生产模式"
+                    IsCheckable="True"
+                    IsChecked="{Binding IsProductionMode, Mode=OneWay}"
+                    ToolTip="生产界面：隐藏单步测试等调试入口，仅保留参数配置与开始流程" />
+                <MenuItem
+                    Command="{Binding SwitchToDebugModeCommand}"
+                    Header="调试模式"
+                    IsCheckable="True"
+                    IsChecked="{Binding IsDebugMode, Mode=OneWay}"
+                    ToolTip="调试界面：显示单步测试按钮，便于标定验证（生产请勿使用）" />
+            </MenuItem>
+        </Menu>
+
+        <ScrollViewer Grid.Row="1" Margin="5">
             <StackPanel>
-                <Expander Margin="5" Header="应用参数">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="应用参数" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="配置 VGSTUDIO MAX 可执行程序及启动就绪判定，是整条自动化链路的入口。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• VG应用路径：VG 安装目录下的可执行文件。进程名、冷启动与附着单测均由此推导；路径错误则无法启动/附着。" />
+                                            <LineBreak />
+                                            <Run Text="• VG启动就绪最大等待(ms)：轮询「自动保存恢复」弹窗或「文件(F)」菜单可点的上限。机器慢或首次启动慢时应加大，避免误判启动失败。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -72,7 +151,43 @@
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="导入参数">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="导入参数" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="控制批量 .vgl/.vgi 导入节奏、超时与进程池并行度，决定导入阶段是否稳定、吞吐多高。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• CT体素文件夹：待处理体积所在目录（含子级 .vgl/.vgi 或指向它们的 .lnk）。主流程按创建时间排队处理。" />
+                                            <LineBreak />
+                                            <Run Text="• 快速导入等待(ms)：Ctrl+F+I 后等待「快速导入」对话框出现的超时。界面卡顿时应加大。" />
+                                            <LineBreak />
+                                            <Run Text="• 新建工程等待(ms)：Ctrl+N 新建后等待工程就绪/保存提示处理完成的时间。" />
+                                            <LineBreak />
+                                            <Run Text="• 文件选择等待(ms)：填路径点打开后，等待「文件选择/完成」向导出现的超时。" />
+                                            <LineBreak />
+                                            <Run Text="• 导入超时(分钟)：单文件「正在导入体积」最长等待。超大体积需加大，超时则 Kill 该 VG 并保留文件。" />
+                                            <LineBreak />
+                                            <Run Text="• 导入后稳定等待(ms)：导入完成后稍作停顿再进后处理，避免 UI 尚未稳定就点渲染/厚板。" />
+                                            <LineBreak />
+                                            <Run Text="• 最大VG进程数：进程池槽位数（1～8）。导入等待可并行，后处理串行置前；越大越吃内存/显存。" />
+                                            <LineBreak />
+                                            <Run Text="• 步骤重试次数 / 步骤重试间隔(ms)：UIA 步骤失败时先 Drain 中断弹窗再重试。偶发弹窗/焦点丢失时提高成功率。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -237,7 +352,37 @@
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="渲染与厚板参数">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="渲染与厚板参数" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="导入后应用 LUT 渲染预设，并为前/右/上三象限启用厚板，保证后续截图与切片灰阶、切面一致。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• 渲染预设名称：渲染面板下拉中的预设项名称（须与 VG 中完全一致）。空则跳过预设步骤。" />
+                                            <LineBreak />
+                                            <Run Text="• 应用预设前等待(ms)：进入后处理后、点开预设下拉前的缓冲，避免面板未就绪。" />
+                                            <LineBreak />
+                                            <Run Text="• 预设下拉等待(ms)：等待预设 ComboBox 列表项可见/关闭的超时。Qt 下拉偶发慢时加大。" />
+                                            <LineBreak />
+                                            <Run Text="• 厚板菜单偏移X/Y：相对视口右键点的像素偏移，用于点中右键菜单「厚板」。分辨率/DPI 变化后需重标定。" />
+                                            <LineBreak />
+                                            <Run Text="• 视口右键Y偏移：相对视口中心的垂直偏移再右键。避开顶栏/标题时可设负值，保证点在内容区。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -337,7 +482,35 @@
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="直方图灰度阈值（截图标定）">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="直方图灰度阈值（截图标定）" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="LUT 预设不保存直方图中间红线位置。通过截图分析峰谷后拖拽红线到目标灰阶（靠右约 2/3），压掉左侧噪点。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• X/Y/W/H：直方图 ROI 屏幕矩形。未标定则主流程跳过本步；须框住直方图主体（含红线可拖区域）。" />
+                                            <LineBreak />
+                                            <Run Text="• 截图目录：调试图（原图/对比/峰谷）保存根目录；实际写入「目录\yyyy-MM-dd」，超过 7 天自动清理。" />
+                                            <LineBreak />
+                                            <Run Text="• 掩膜颜色：直方图填充灰的 #RRGGBB，用于把该色换成纯绿再找峰。请取填充区色，勿取红线/蓝 LUT。" />
+                                            <LineBreak />
+                                            <Run Text="• 容差：掩膜每通道容差 0～64。过小漏检、过大易染绿面板渐变；替换纯绿时建议 0～4。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -479,7 +652,37 @@
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="阶段四视觉对齐（3D /「上」视图 / 简单对齐下拉）">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="阶段四视觉对齐（3D /「上」视图 / 简单对齐下拉）" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="厚板后执行简单 3-2-1：3D 三点定平面 → 偏移置 0 →「上」视图两点定向量 → 原点。标定不全则主流程跳过并对该文件打日志。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• ① 3D ROI(X/Y/W/H)：第四象限 3D 视口截图区。用于本地剪影找三点+原点；是相对坐标换算起点。" />
+                                            <LineBreak />
+                                            <Run Text="• ②「上」视图 ROI：第二象限「上」视口截图区。用于黄框优先/剪影回退的向量两点（须在原点之前点击）。" />
+                                            <LineBreak />
+                                            <Run Text="• ③ 简单对齐下拉(X/Y)：测量工具栏「简单对齐」下拉中心绝对坐标。Qt 控件 UIA 不可靠，必须屏幕定位。" />
+                                            <LineBreak />
+                                            <Run Text="• ④ 偏移 Edit(X/Y)：三点后左侧无名「x.xx mm」编辑框中心。自动化点入后输入 0 回车，否则「上」视图不对。" />
+                                            <LineBreak />
+                                            <Run Text="• 3D图标定截图目录 / 上视图截图目录：调试截图与标注图根目录；按日子目录保存，保留 7 天。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -772,7 +975,39 @@
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="对齐后捕捉与拖拽（3-2-1 后、切片导出前）">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="对齐后捕捉与拖拽（3-2-1 后、切片导出前）" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="3-2-1 完成后、切片导出前：点击视口右下「捕捉」类无名按钮，再按标定箭头拖拽，整理对齐后的视图姿态。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• 主流程启用本步骤：关闭则主流程跳过捕捉拖拽；单测仍可单独跑。" />
+                                            <LineBreak />
+                                            <Run Text="• 捕捉按钮 X/Y：无名小按钮中心屏幕坐标；优先按坐标匹配 UIA 矩形，失败则绝对点击。" />
+                                            <LineBreak />
+                                            <Run Text="• UIA索引：主窗右下无名小按钮按 Left 排序后的索引（0 起），作坐标失败时的兜底定位。" />
+                                            <LineBreak />
+                                            <Run Text="• 拖拽箭头：全屏拖出的起点→终点路径，即自动化直线拖拽轨迹（方向与距离）。" />
+                                            <LineBreak />
+                                            <Run Text="• 点击后等待ms：点完捕捉按钮后停顿，等视图/手柄出现再拖。" />
+                                            <LineBreak />
+                                            <Run Text="• 拖拽步进ms：拖拽路径上每步移动间隔；过大偏慢，过小可能丢步。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -897,7 +1132,41 @@
                     </Border>
                 </Expander>
 
-                <Expander Margin="5" Header="切片导出参数">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="切片导出参数" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="对齐完成后按「前/右/上」三视图导出图像堆栈，写入指定目录与切片范围，供下游检测使用。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• 切片导出目录：三视图切片输出根目录；内部按命名规则分子目录/文件。" />
+                                            <LineBreak />
+                                            <Run Text="• 图像宽度：导出对话框「图像大小-宽」（默认约 3000）。" />
+                                            <LineBreak />
+                                            <Run Text="• 导出数量(局部)：非 QJ 文件的切片数量；文件名含 QJ 时运行时改用 QJ 数量。" />
+                                            <LineBreak />
+                                            <Run Text="• 导出数量(QJ)：文件名含 QJ 时的切片数量，并同步局部显示。" />
+                                            <LineBreak />
+                                            <Run Text="• 导出对话框等待(ms)：Alt+F+T 后等待「保存…」堆栈对话框出现的超时。" />
+                                            <LineBreak />
+                                            <Run Text="• 写入超时(ms)：等待「正在写入图像」进度消失的上限；超时则本视图导出失败。" />
+                                            <LineBreak />
+                                            <Run Text="• 上/右/前 · 开始/结束(mm)：各 2D 视图切片图范围，写入导出表单对应字段。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -1069,55 +1338,122 @@
                         </StackPanel>
                     </Border>
                 </Expander>
-                <StackPanel Margin="5" HorizontalAlignment="Center" Orientation="Horizontal">
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding RunSimulationCommand}"
-                        Content="流程模拟"
-                        IsEnabled="{Binding IsEnableSimulationBtn}" />
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding TestRenderingPresetCommand}"
-                        Content="测试应用渲染预设"
-                        IsEnabled="{Binding IsEnableSimulationBtn}" />
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding TestHistogramGrayScaleCommand}"
-                        Content="测试直方图灰度调整"
-                        IsEnabled="{Binding IsEnableSimulationBtn}"
-                        ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线" />
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding TestThickPlateCommand}"
-                        Content="测试厚板设置(三象限)"
-                        IsEnabled="{Binding IsEnableSimulationBtn}" />
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding TestSimple321AlignmentCommand}"
-                        Content="测试简单3-2-1对齐"
-                        IsEnabled="{Binding IsEnableSimulationBtn}"
-                        ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit" />
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding TestPostAlignCaptureDragCommand}"
-                        Content="测试对齐后捕捉拖拽"
-                        IsEnabled="{Binding IsEnableSimulationBtn}"
-                        ToolTip="需已标定捕捉按钮与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态" />
-                    <Button
-                        Margin="0,0,10,0"
-                        Command="{Binding TestSliceExportCommand}"
-                        Content="测试切片导出(三视图)"
-                        IsEnabled="{Binding IsEnableSimulationBtn}" />
-                </StackPanel>
-                <TextBlock
+                <Expander
                     Margin="5"
-                    HorizontalAlignment="Center"
-                    Foreground="Gray"
-                    Text="「测试直方图灰度调整」：截图+目标色换纯绿+峰谷+拖红线。「测试简单3-2-1对齐」：需先标定 3D 区域与「简单对齐」下拉点击位置。"
-                    TextWrapping="Wrap" />
+                    Visibility="{Binding IsDebugMode, Converter={StaticResource BoolToVis}}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="单步测试" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="警告" />
+                                            <LineBreak />
+                                            <Run Text="本组按钮仅供测试阶段点击，用于单步验证标定与各阶段自动化是否正常。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="生产阶段请勿点击。" />
+                                            <LineBreak />
+                                            <Run Text="生产请使用页面底部「开始流程」跑完整批处理；误点单测可能干扰正在运行的 VG 界面。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="按钮说明" />
+                                            <LineBreak />
+                                            <Run Text="• 测试应用渲染预设：仅验证 LUT 预设下拉选择。" />
+                                            <LineBreak />
+                                            <Run Text="• 测试直方图灰度调整：需已标定 ROI；截图→换纯绿→峰谷→拖红线。" />
+                                            <LineBreak />
+                                            <Run Text="• 测试厚板设置(三象限)：验证前/右/上厚板菜单与对话框。" />
+                                            <LineBreak />
+                                            <Run Text="• 测试简单3-2-1对齐：需标定 3D ROI +「上」ROI + 下拉 + 偏移 Edit。" />
+                                            <LineBreak />
+                                            <Run Text="• 测试对齐后捕捉拖拽：需标定捕捉按钮与拖拽箭头。" />
+                                            <LineBreak />
+                                            <Run Text="• 测试切片导出(三视图)：验证前/右/上堆栈导出。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
+                    <Border
+                        BorderBrush="LightGray"
+                        BorderThickness="1,0,1,1"
+                        CornerRadius="0,0,5,5">
+                        <StackPanel>
+                            <TextBlock
+                                Margin="10,10,10,0"
+                                Foreground="#C0392B"
+                                Text="仅测试阶段使用，生产阶段请勿点击。"
+                                TextWrapping="Wrap" />
+                            <WrapPanel Margin="10" Orientation="Horizontal">
+                                <Button
+                                    Margin="0,0,10,8"
+                                    Command="{Binding TestRenderingPresetCommand}"
+                                    Content="测试应用渲染预设"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                <Button
+                                    Margin="0,0,10,8"
+                                    Command="{Binding TestHistogramGrayScaleCommand}"
+                                    Content="测试直方图灰度调整"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线" />
+                                <Button
+                                    Margin="0,0,10,8"
+                                    Command="{Binding TestThickPlateCommand}"
+                                    Content="测试厚板设置(三象限)"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                <Button
+                                    Margin="0,0,10,8"
+                                    Command="{Binding TestSimple321AlignmentCommand}"
+                                    Content="测试简单3-2-1对齐"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit" />
+                                <Button
+                                    Margin="0,0,10,8"
+                                    Command="{Binding TestPostAlignCaptureDragCommand}"
+                                    Content="测试对齐后捕捉拖拽"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="需已标定捕捉按钮与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态" />
+                                <Button
+                                    Margin="0,0,10,8"
+                                    Command="{Binding TestSliceExportCommand}"
+                                    Content="测试切片导出(三视图)"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
                 <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
 
-                <Expander Margin="5" Header="流程日志">
+                <Expander Margin="5">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="流程日志" />
+                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                            <Run FontWeight="SemiBold" Text="本组作用" />
+                                            <LineBreak />
+                                            <Run Text="实时显示主流程/单测的进度与失败原因，便于现场排查导入失败、标定缺失、超时等问题。" />
+                                            <LineBreak />
+                                            <LineBreak />
+                                            <Run FontWeight="SemiBold" Text="说明" />
+                                            <LineBreak />
+                                            <Run Text="• 清除日志：清空本页文本框内容，不影响磁盘日志。" />
+                                            <LineBreak />
+                                            <Run Text="• 日志文本：只读；含进程池调度、各阶段进度及 @@IMPORT_FAIL@@ 等标记。" />
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                            </Border>
+                        </StackPanel>
+                    </Expander.Header>
                     <Border
                         BorderBrush="LightGray"
                         BorderThickness="1,0,1,1"
@@ -1140,6 +1476,21 @@
                         </StackPanel>
                     </Border>
                 </Expander>
+
+                <!-- 主流程入口：底部居中，左右留边距，高度足够完整显示文字 -->
+                <Button
+                    MinWidth="180"
+                    MinHeight="48"
+                    Margin="48,20,48,28"
+                    Padding="28,12"
+                    HorizontalAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Command="{Binding RunSimulationCommand}"
+                    Content="开始流程"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                    ToolTip="生产/批量入口：按 CT 体素文件夹排队执行完整自动化流程" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

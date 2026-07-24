@@ -1,0 +1,292 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 浅紫系：无渐变、低饱和、少颜色 -->
+    <SolidColorBrush x:Key="CasBgBrush" Color="#F6F4FA" />
+    <SolidColorBrush x:Key="CasSurfaceBrush" Color="#EFEBF7" />
+    <SolidColorBrush x:Key="CasAccentBrush" Color="#D9D0EF" />
+    <SolidColorBrush x:Key="CasNavSelectedBrush" Color="#A89AD4" />
+    <SolidColorBrush x:Key="CasPrimaryBrush" Color="#8E82C4" />
+    <SolidColorBrush x:Key="CasPrimaryTextBrush" Color="#5E567A" />
+    <SolidColorBrush x:Key="CasWhiteBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CasMutedTextBrush" Color="#8A839E" />
+    <SolidColorBrush x:Key="CasBorderBrush" Color="#E3DDF0" />
+
+    <!-- 兼容旧资源键名（原暖色键 → 浅紫映射） -->
+    <SolidColorBrush x:Key="CasPeachBrush" Color="#EFEBF7" />
+    <SolidColorBrush x:Key="CasApricotBrush" Color="#EFEBF7" />
+    <SolidColorBrush x:Key="CasCoralBrush" Color="#A89AD4" />
+    <SolidColorBrush x:Key="CasTerracottaBrush" Color="#8E82C4" />
+    <SolidColorBrush x:Key="CasSidebarIconBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CasHeroGradient" Color="#EFEBF7" />
+
+    <Style x:Key="CasPageRootStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasBgBrush}" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="TextElement.FontSize" Value="15" />
+    </Style>
+
+    <Style x:Key="CasSidebarStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasPrimaryBrush}" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="Width" Value="186" />
+        <Setter Property="Padding" Value="10,14" />
+        <Setter Property="Margin" Value="0,0,12,0" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect
+                    BlurRadius="14"
+                    Direction="270"
+                    Opacity="0.1"
+                    ShadowDepth="2"
+                    Color="#8E82C4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CasNavButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="12"
+                        Padding="{TemplateBinding Padding}">
+                        <ContentPresenter
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CasNavLabelStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Margin" Value="10,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="CasWhiteCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasWhiteBrush}" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="BorderBrush" Value="{StaticResource CasBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect
+                    BlurRadius="12"
+                    Direction="270"
+                    Opacity="0.08"
+                    ShadowDepth="2"
+                    Color="#8E82C4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CasHeroCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasSurfaceBrush}" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="BorderBrush" Value="{StaticResource CasBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect
+                    BlurRadius="12"
+                    Direction="270"
+                    Opacity="0.08"
+                    ShadowDepth="2"
+                    Color="#8E82C4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CasSummaryCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasWhiteBrush}" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Padding" Value="14" />
+        <Setter Property="MinHeight" Value="96" />
+        <Setter Property="BorderBrush" Value="{StaticResource CasBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect
+                    BlurRadius="10"
+                    Direction="270"
+                    Opacity="0.06"
+                    ShadowDepth="1"
+                    Color="#8E82C4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CasTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource CasPrimaryTextBrush}" />
+    </Style>
+
+    <Style x:Key="CasSectionHeaderStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource CasPrimaryTextBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <Style x:Key="CasMutedTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource CasMutedTextBrush}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="CasPillBorderStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasSurfaceBrush}" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="BorderBrush" Value="{StaticResource CasBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style x:Key="CasPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="MinWidth" Value="160" />
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="Padding" Value="22,10" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        x:Name="Bd"
+                        Background="{StaticResource CasPrimaryBrush}"
+                        CornerRadius="14"
+                        Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CasSecondaryButtonStyle" TargetType="Button">
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource CasPrimaryTextBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        x:Name="Bd"
+                        Background="{StaticResource CasSurfaceBrush}"
+                        BorderBrush="{StaticResource CasBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource CasAccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style
+        x:Key="CasIconButtonStyle"
+        BasedOn="{StaticResource CasSecondaryButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style x:Key="CasParamHelpIconBorderStyle" TargetType="Border">
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="{StaticResource CasPrimaryBrush}" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+        <Setter Property="Cursor" Value="Help" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+        <Setter Property="ToolTipService.ShowDuration" Value="60000" />
+        <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+    </Style>
+
+    <Style x:Key="CasParamHelpIconTextStyle" TargetType="TextBlock">
+        <Setter Property="Text" Value="?" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="CasParamHelpToolTipTextStyle" TargetType="TextBlock">
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="MaxWidth" Value="560" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineHeight" Value="22" />
+    </Style>
+
+    <Style x:Key="CasBottomBarStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CasWhiteBrush}" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="Margin" Value="0,10,0,0" />
+        <Setter Property="BorderBrush" Value="{StaticResource CasBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect
+                    BlurRadius="10"
+                    Direction="90"
+                    Opacity="0.06"
+                    ShadowDepth="1"
+                    Color="#8E82C4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

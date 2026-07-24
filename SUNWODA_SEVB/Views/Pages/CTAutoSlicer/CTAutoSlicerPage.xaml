@@ -4,75 +4,281 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="CTAutoSlicerPage"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
     mc:Ignorable="d">
     <Page.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <!-- 参数分组标题旁的「?」帮助图标：悬浮显示本组全部参数说明 -->
-        <Style x:Key="ParamHelpIconBorderStyle" TargetType="Border">
-            <Setter Property="Width" Value="18" />
-            <Setter Property="Height" Value="18" />
-            <Setter Property="CornerRadius" Value="9" />
-            <Setter Property="Background" Value="#5B8DEF" />
-            <Setter Property="Margin" Value="8,0,0,0" />
-            <Setter Property="Cursor" Value="Help" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
-            <Setter Property="ToolTipService.ShowDuration" Value="60000" />
-            <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
-        </Style>
-        <Style x:Key="ParamHelpIconTextStyle" TargetType="TextBlock">
-            <Setter Property="Text" Value="?" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style x:Key="ParamHelpToolTipTextStyle" TargetType="TextBlock">
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="MaxWidth" Value="520" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="LineHeight" Value="18" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="CTAutoSlicerPageStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <Style x:Key="ParamHelpIconBorderStyle" BasedOn="{StaticResource CasParamHelpIconBorderStyle}" TargetType="Border" />
+            <Style x:Key="ParamHelpIconTextStyle" BasedOn="{StaticResource CasParamHelpIconTextStyle}" TargetType="TextBlock" />
+            <Style x:Key="ParamHelpToolTipTextStyle" BasedOn="{StaticResource CasParamHelpToolTipTextStyle}" TargetType="TextBlock" />
+        </ResourceDictionary>
     </Page.Resources>
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
 
-        <Menu
-            Grid.Row="0"
-            Background="#F0F2F5"
-            Padding="4,2">
-            <MenuItem Header="{Binding RunModeMenuHeader}" ToolTip="切换生产/调试界面；默认生产模式，隐藏单步测试">
-                <MenuItem
-                    Command="{Binding SwitchToProductionModeCommand}"
-                    Header="生产模式"
-                    IsCheckable="True"
-                    IsChecked="{Binding IsProductionMode, Mode=OneWay}"
-                    ToolTip="生产界面：隐藏单步测试等调试入口，仅保留参数配置与开始流程" />
-                <MenuItem
-                    Command="{Binding SwitchToDebugModeCommand}"
-                    Header="调试模式"
-                    IsCheckable="True"
-                    IsChecked="{Binding IsDebugMode, Mode=OneWay}"
-                    ToolTip="调试界面：显示单步测试按钮，便于标定验证（生产请勿使用）" />
-            </MenuItem>
-        </Menu>
+    <Border Style="{StaticResource CasPageRootStyle}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <ScrollViewer Grid.Row="1" Margin="5">
-            <StackPanel>
-                <Expander Margin="5">
-                    <Expander.Header>
+            <Border Grid.Column="0" Style="{StaticResource CasSidebarStyle}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="0" ToolTip="运行总览">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavOverview}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="ViewDashboardOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="运行总览" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="1" ToolTip="应用参数">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavApp}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="CogOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="应用参数" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="2" ToolTip="导入参数">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavImport}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="FolderOpenOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="导入参数" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="3" ToolTip="渲染与厚板">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavRender}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="CubeOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="渲染厚板" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="4" ToolTip="直方图标定">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavHistogram}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="ChartBar" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="直方图标定" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="5" ToolTip="视觉对齐">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavVision}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="AxisArrow" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="视觉对齐" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="6" ToolTip="对齐后捕捉">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavPostAlign}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="CursorDefaultClickOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="对齐后捕捉" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="7" ToolTip="切片导出">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavSlice}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="ImageMultipleOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="切片导出" />
+                            </StackPanel>
+                        </Button>
+                        <Button
+                            Command="{Binding SelectNavCommand}"
+                            CommandParameter="8"
+                            ToolTip="单步测试（仅调试）"
+                            Visibility="{Binding IsDebugMode, Converter={StaticResource BoolToVis}}">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavStepTest}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="FlaskOutline" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="单步测试" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,14" LastChildFill="False">
+                    <StackPanel DockPanel.Dock="Left">
+                        <TextBlock Text="{Binding CurrentSectionTitle}" Style="{StaticResource CasTitleTextStyle}"/>
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource CasMutedTextStyle}" Text="{Binding MessageShower}"/>
+                    </StackPanel>
+                    <Border DockPanel.Dock="Right" Style="{StaticResource CasPillBorderStyle}" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="应用参数" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                            <TextBlock Text="{Binding RunModeDisplayText}" Foreground="{StaticResource CasPrimaryTextBrush}"
+                                       FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Button Style="{StaticResource CasSecondaryButtonStyle}" Margin="0,0,6,0"
+                                    Content="生产" Command="{Binding SwitchToProductionModeCommand}"
+                                    ToolTip="生产界面：隐藏单步测试"/>
+                            <Button Style="{StaticResource CasSecondaryButtonStyle}"
+                                    Content="调试" Command="{Binding SwitchToDebugModeCommand}"
+                                    ToolTip="调试界面：显示单步测试"/>
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
+
+                <Grid Grid.Row="1">
+                <Grid Visibility="{Binding IsNavOverview, Converter={StaticResource BoolToVis}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CasHeroCardStyle}" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="CT 自动化切片" FontSize="24" FontWeight="SemiBold"
+                                       Foreground="{StaticResource CasPrimaryTextBrush}"/>
+                            <TextBlock Grid.Row="1" Margin="0,8,0,0" Text="{Binding MessageShower}" TextWrapping="Wrap"
+                                       Style="{StaticResource CasMutedTextStyle}"/>
+                            <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="VG 路径"/>
+                                <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                           Text="{Binding VGAppPath}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="CT 体素文件夹"/>
+                                <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                           Text="{Binding CTFileFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="切片导出目录"/>
+                                <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                           Text="{Binding SliceExportFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,12"/>
+                                <Button Style="{StaticResource CasPrimaryButtonStyle}"
+                                        HorizontalAlignment="Left"
+                                        Content="{Binding PrimaryActionButtonText}"
+                                        Command="{Binding RunSimulationCommand}"
+                                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                                        ToolTip="生产/批量入口：按 CT 体素文件夹排队执行完整自动化流程"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Style="{StaticResource CasWhiteCardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+                                <TextBlock Text="流程日志" Style="{StaticResource CasSectionHeaderStyle}" Margin="0" DockPanel.Dock="Left"/>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource CasSecondaryButtonStyle}"
+                                        Content="清除日志" Command="{Binding ClearImportLogCommand}"/>
+                            </DockPanel>
+                            <TextBox
+                                x:Name="ImportLogTextBox"
+                                Grid.Row="1"
+                                MinHeight="180"
+                                FontFamily="Consolas"
+                                FontSize="14"
+                                IsReadOnly="True"
+                                Text="{Binding ImportLogText, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                VerticalScrollBarVisibility="Auto"
+                                Background="#FAF8FC"
+                                BorderBrush="{StaticResource CasBorderBrush}"
+                                BorderThickness="1"
+                                Padding="8"
+                                AcceptsReturn="True"
+                                VerticalContentAlignment="Top" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Border Visibility="{Binding IsNavApp, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="应用参数" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="配置 VGSTUDIO MAX 可执行程序及启动就绪判定，是整条自动化链路的入口。" />
@@ -86,16 +292,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
+                            </StackPanel>
+<StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
                                     Width="500"
                                     Margin="0,0,10,0"
@@ -147,18 +347,20 @@
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                             </StackPanel>
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="导入参数" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                <Border Visibility="{Binding IsNavImport, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="导入参数" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="控制批量 .vgl/.vgi 导入节奏、超时与进程池并行度，决定导入阶段是否稳定、吞吐多高。" />
@@ -184,16 +386,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
+                            </StackPanel>
+<StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
                                     Width="500"
                                     Margin="0,0,10,0"
@@ -348,18 +544,20 @@
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                             </StackPanel>
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="渲染与厚板参数" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                <Border Visibility="{Binding IsNavRender, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="渲染与厚板参数" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="导入后应用 LUT 渲染预设，并为前/右/上三象限启用厚板，保证后续截图与切片灰阶、切面一致。" />
@@ -379,16 +577,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
+                            </StackPanel>
+<StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
                                     Width="245"
                                     Margin="0,0,10,0"
@@ -478,18 +670,20 @@
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                             </StackPanel>
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="直方图灰度阈值（截图标定）" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                <Border Visibility="{Binding IsNavHistogram, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="直方图灰度阈值（区域标定）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="LUT 预设不保存直方图中间红线位置。通过截图分析峰谷后拖拽红线到目标灰阶（靠右约 2/3），压掉左侧噪点。" />
@@ -507,16 +701,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
+                            </StackPanel>
+<StackPanel Margin="10" Orientation="Horizontal">
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     Text="当前标定坐标：" />
@@ -560,6 +748,7 @@
                                 </hc:TextBox>
                                 <hc:TextBox
                                     Width="100"
+                                    Margin="0,0,8,0"
                                     hc:InfoElement.Title="H"
                                     hc:InfoElement.TitlePlacement="Left"
                                     IsReadOnly="True">
@@ -567,14 +756,14 @@
                                         <Binding Path="HistogramRoiHeight" />
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
-                            </StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
                                 <Button
-                                    Margin="0,0,10,0"
+                                    VerticalAlignment="Center"
                                     Command="{Binding CalibrateHistogramRoiCommand}"
-                                    Content="截图标定"
+                                    Content="标定直方图区域"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="隐藏上位机 → 全屏遮罩框选直方图 → ✓提交 / ✕重选" />
+                            </StackPanel>
+                            <StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
                                     Width="380"
                                     Margin="0,0,10,0"
@@ -648,18 +837,20 @@
                                 Foreground="Gray"
                                 Text="标定前请把 VG 直方图露在屏幕上。取色请对准直方图填充区（非红线/蓝 LUT）。单步测试会生成原图/对比图/峰谷图到「截图目录\当天日期」；超过 7 天的日期文件夹会自动删除。"
                                 TextWrapping="Wrap" />
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="阶段四视觉对齐（3D /「上」视图 / 简单对齐下拉）" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                <Border Visibility="{Binding IsNavVision, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="阶段四视觉对齐（3D /「上」视图 / 简单对齐下拉）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="厚板后执行简单 3-2-1：3D 三点定平面 → 偏移置 0 →「上」视图两点定向量 → 原点。标定不全则主流程跳过并对该文件打日志。" />
@@ -679,16 +870,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <TextBlock
+                            </StackPanel>
+<TextBlock
                                 Margin="10,10,10,0"
                                 FontWeight="SemiBold"
                                 Text="① 第四象限 3D 视图 ROI" />
@@ -971,18 +1156,20 @@
                                 Foreground="Gray"
                                 Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。三点后须标定左侧偏移 Edit 并置 0，否则向量两点时「上」视图不对。主流程厚板后自动执行简单 3-2-1。3D 图存「3D图标定截图目录」；上视图存「上视图截图目录」；均按日分子目录，超过 7 天自动删除。"
                                 TextWrapping="Wrap" />
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="对齐后捕捉与拖拽（3-2-1 后、切片导出前）" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                <Border Visibility="{Binding IsNavPostAlign, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="对齐后捕捉与拖拽（3-2-1 后、切片导出前）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="3-2-1 完成后、切片导出前：点击视口右下「捕捉」类无名按钮，再按标定箭头拖拽，整理对齐后的视图姿态。" />
@@ -990,7 +1177,7 @@
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
                                             <LineBreak />
-                                            <Run Text="• 主流程启用本步骤：关闭则主流程跳过捕捉拖拽；单测仍可单独跑。" />
+                                            <Run Text="• 本步骤默认启用（主流程在 3-2-1 后自动执行捕捉拖拽；单测仍可单独跑）。" />
                                             <LineBreak />
                                             <Run Text="• 捕捉按钮 X/Y：无名小按钮中心屏幕坐标；优先按坐标匹配 UIA 矩形，失败则绝对点击。" />
                                             <LineBreak />
@@ -1004,22 +1191,12 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <CheckBox
-                                Margin="10,10,10,0"
-                                Content="主流程启用本步骤（EnablePostAlignCaptureDragSteps）"
-                                IsChecked="{Binding EnablePostAlignCaptureDragSteps}" />
+                            </StackPanel>
 
                             <TextBlock
-                                Margin="10,12,10,0"
+                                Margin="10,4,10,0"
                                 FontWeight="SemiBold"
                                 Text="① 无名捕捉按钮（绝对坐标 + UIA 索引兜底）" />
                             <StackPanel Margin="10" Orientation="Horizontal">
@@ -1083,7 +1260,7 @@
                                     Margin="8,0,0,0"
                                     VerticalAlignment="Center"
                                     FontFamily="Consolas"
-                                    FontSize="12"
+                                    FontSize="14"
                                     Text="{Binding PostAlignDragDisplayText}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
@@ -1128,18 +1305,20 @@
                                 Foreground="Gray"
                                 Text="执行顺序：优先 UIA 定位无名按钮并 Invoke；失败则用标定绝对坐标点击 → 等待 → 按箭头直线拖拽。未标定齐全时主流程跳过本步。"
                                 TextWrapping="Wrap" />
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="切片导出参数" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                <Border Visibility="{Binding IsNavSlice, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="切片导出参数" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
                                             <Run Text="对齐完成后按「前/右/上」三视图导出图像堆栈，写入指定目录与切片范围，供下游检测使用。" />
@@ -1163,16 +1342,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <StackPanel Margin="10" Orientation="Horizontal">
+                            </StackPanel>
+<StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
                                     Width="500"
                                     Margin="0,0,10,0"
@@ -1335,19 +1508,22 @@
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
                             </StackPanel>
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
-                <Expander
-                    Margin="5"
-                    Visibility="{Binding IsDebugMode, Converter={StaticResource BoolToVis}}">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="单步测试" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
+                    </ScrollViewer>
+                </Border>
+
+                <Grid Visibility="{Binding IsDebugMode, Converter={StaticResource BoolToVis}}">
+
+                <Border Visibility="{Binding IsNavStepTest, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="单步测试" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
+                                        <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="警告" />
                                             <LineBreak />
                                             <Run Text="本组按钮仅供测试阶段点击，用于单步验证标定与各阶段自动化是否正常。" />
@@ -1374,16 +1550,10 @@
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
+                                <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel>
-                            <TextBlock
+                            </StackPanel>
+<TextBlock
                                 Margin="10,10,10,0"
                                 Foreground="#C0392B"
                                 Text="仅测试阶段使用，生产阶段请勿点击。"
@@ -1423,75 +1593,34 @@
                                     Content="测试切片导出(三视图)"
                                     IsEnabled="{Binding IsEnableSimulationBtn}" />
                             </WrapPanel>
+                        
                         </StackPanel>
-                    </Border>
-                </Expander>
+                    </ScrollViewer>
+                </Border>
 
-                <TextBlock Margin="5" Text="{Binding MessageShower}" TextWrapping="Wrap" />
+                </Grid>
+                </Grid>
 
-                <Expander Margin="5">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="流程日志" />
-                            <Border Style="{StaticResource ParamHelpIconBorderStyle}">
-                                <Border.ToolTip>
-                                    <ToolTip>
-                                        <TextBlock Style="{StaticResource ParamHelpToolTipTextStyle}">
-                                            <Run FontWeight="SemiBold" Text="本组作用" />
-                                            <LineBreak />
-                                            <Run Text="实时显示主流程/单测的进度与失败原因，便于现场排查导入失败、标定缺失、超时等问题。" />
-                                            <LineBreak />
-                                            <LineBreak />
-                                            <Run FontWeight="SemiBold" Text="说明" />
-                                            <LineBreak />
-                                            <Run Text="• 清除日志：清空本页文本框内容，不影响磁盘日志。" />
-                                            <LineBreak />
-                                            <Run Text="• 日志文本：只读；含进程池调度、各阶段进度及 @@IMPORT_FAIL@@ 等标记。" />
-                                        </TextBlock>
-                                    </ToolTip>
-                                </Border.ToolTip>
-                                <TextBlock Style="{StaticResource ParamHelpIconTextStyle}" />
-                            </Border>
-                        </StackPanel>
-                    </Expander.Header>
-                    <Border
-                        BorderBrush="LightGray"
-                        BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,5,5">
-                        <StackPanel Margin="10">
-                            <Button
-                                Width="100"
-                                Margin="0,0,0,5"
-                                HorizontalAlignment="Left"
+                <Border Grid.Row="2" Style="{StaticResource CasBottomBarStyle}">
+                    <DockPanel LastChildFill="True">
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource CasPrimaryButtonStyle}"
+                                Content="{Binding PrimaryActionButtonText}"
+                                Command="{Binding RunSimulationCommand}"
+                                IsEnabled="{Binding IsEnableSimulationBtn}"
+                                Margin="12,0,0,0"
+                                ToolTip="生产/批量入口：按 CT 体素文件夹排队执行完整自动化流程"/>
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource CasSecondaryButtonStyle}"
+                                Content="清除日志"
                                 Command="{Binding ClearImportLogCommand}"
-                                Content="清除日志" />
-                            <TextBox
-                                x:Name="ImportLogTextBox"
-                                Height="200"
-                                FontFamily="Consolas"
-                                IsReadOnly="True"
-                                Text="{Binding ImportLogText, Mode=OneWay}"
-                                TextWrapping="Wrap"
-                                VerticalScrollBarVisibility="Auto" />
-                        </StackPanel>
-                    </Border>
-                </Expander>
-
-                <!-- 主流程入口：底部居中，左右留边距，高度足够完整显示文字 -->
-                <Button
-                    MinWidth="180"
-                    MinHeight="48"
-                    Margin="48,20,48,28"
-                    Padding="28,12"
-                    HorizontalAlignment="Center"
-                    VerticalContentAlignment="Center"
-                    Command="{Binding RunSimulationCommand}"
-                    Content="开始流程"
-                    FontSize="16"
-                    FontWeight="SemiBold"
-                    IsEnabled="{Binding IsEnableSimulationBtn}"
-                    ToolTip="生产/批量入口：按 CT 体素文件夹排队执行完整自动化流程" />
-            </StackPanel>
-        </ScrollViewer>
-    </Grid>
+                                VerticalAlignment="Center"/>
+                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Style="{StaticResource CasMutedTextStyle}"
+                                   Text="{Binding MessageShower}"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
 </Page>

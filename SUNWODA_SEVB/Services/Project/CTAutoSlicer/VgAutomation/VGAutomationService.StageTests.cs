@@ -70,7 +70,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 if (!settings.HasHistogramRoi)
                 {
-                    throw new InvalidOperationException("尚未标定直方图区域，请先点击「截图标定」框选 ROI");
+                    throw new InvalidOperationException("尚未标定直方图区域，请先点击「标定直方图区域」框选 ROI");
                 }
 
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))

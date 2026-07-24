@@ -22,7 +22,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             if (!settings.HasHistogramRoi)
             {
-                progress?.Report("跳过直方图灰度调整：尚未标定 ROI（请先「截图标定」）");
+                progress?.Report("跳过直方图灰度调整：尚未标定 ROI（请先「标定直方图区域」）");
                 _logger.Info("跳过直方图灰度调整：尚未标定 ROI");
                 return;
             }

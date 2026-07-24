@@ -124,6 +124,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         /// <summary>false=生产模式（默认）；true=调试模式（显示单步测试）。</summary>
         private bool _isDebugMode;
 
+        /// <summary>左侧导航选中项：0总览 1应用 2导入 3渲染 4直方 5对齐 6捕捉 7导出 8单测。</summary>
+        private int _selectedNavIndex;
+
+        public const int NavOverview = 0;
+        public const int NavApp = 1;
+        public const int NavImport = 2;
+        public const int NavRender = 3;
+        public const int NavHistogram = 4;
+        public const int NavVision = 5;
+        public const int NavPostAlign = 6;
+        public const int NavSlice = 7;
+        public const int NavStepTest = 8;
+
         public string MessageShower
         {
             get => _messageShower;
@@ -140,6 +153,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 {
                     OnPropertyChanged(nameof(IsProductionMode));
                     OnPropertyChanged(nameof(RunModeMenuHeader));
+                    OnPropertyChanged(nameof(RunModeDisplayText));
+                    if (!value && SelectedNavIndex == NavStepTest)
+                    {
+                        SelectedNavIndex = NavOverview;
+                    }
+
                     MessageShower = value
                         ? "已切换为调试模式（可使用单步测试）"
                         : "已切换为生产模式（单步测试已隐藏）";
@@ -158,10 +177,63 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public string RunModeMenuHeader =>
             IsDebugMode ? "运行模式：调试" : "运行模式：生产";
 
+        /// <summary>顶栏 pill 显示的模式文案。</summary>
+        public string RunModeDisplayText => IsDebugMode ? "调试模式" : "生产模式";
+
+        public int SelectedNavIndex
+        {
+            get => _selectedNavIndex;
+            set
+            {
+                if (value == NavStepTest && !IsDebugMode)
+                {
+                    value = NavOverview;
+                }
+
+                if (SetProperty(ref _selectedNavIndex, value))
+                {
+                    NotifyNavSectionChanged();
+                }
+            }
+        }
+
+        public bool IsNavOverview => SelectedNavIndex == NavOverview;
+        public bool IsNavApp => SelectedNavIndex == NavApp;
+        public bool IsNavImport => SelectedNavIndex == NavImport;
+        public bool IsNavRender => SelectedNavIndex == NavRender;
+        public bool IsNavHistogram => SelectedNavIndex == NavHistogram;
+        public bool IsNavVision => SelectedNavIndex == NavVision;
+        public bool IsNavPostAlign => SelectedNavIndex == NavPostAlign;
+        public bool IsNavSlice => SelectedNavIndex == NavSlice;
+        public bool IsNavStepTest => SelectedNavIndex == NavStepTest;
+
+        public string CurrentSectionTitle => SelectedNavIndex switch
+        {
+            NavOverview => "运行总览",
+            NavApp => "应用参数",
+            NavImport => "导入参数",
+            NavRender => "渲染与厚板",
+            NavHistogram => "直方图标定",
+            NavVision => "视觉对齐",
+            NavPostAlign => "对齐后捕捉",
+            NavSlice => "切片导出",
+            NavStepTest => "单步测试",
+            _ => "CT 自动化切片"
+        };
+
+        public string PrimaryActionButtonText =>
+            IsEnableSimulationBtn ? "开始流程" : "运行中…";
+
         public bool IsEnableSimulationBtn
         {
             get => _isEnableSimulationBtn;
-            set => SetProperty(ref _isEnableSimulationBtn, value);
+            set
+            {
+                if (SetProperty(ref _isEnableSimulationBtn, value))
+                {
+                    OnPropertyChanged(nameof(PrimaryActionButtonText));
+                }
+            }
         }
 
         public string VGAppPath
@@ -993,6 +1065,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand ClearImportLogCommand { get; }
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
+        public ICommand SelectNavCommand { get; }
 
         public event EventHandler? ImportLogScrollToEndRequested;
 
@@ -1039,6 +1112,42 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
+            SelectNavCommand = new RelayCommand(ExecuteSelectNav);
+        }
+
+        private void ExecuteSelectNav(object? parameter)
+        {
+            if (parameter == null)
+            {
+                return;
+            }
+
+            var index = parameter switch
+            {
+                int i => i,
+                string s when int.TryParse(s, out var parsed) => parsed,
+                _ => -1
+            };
+            if (index < 0)
+            {
+                return;
+            }
+
+            SelectedNavIndex = index;
+        }
+
+        private void NotifyNavSectionChanged()
+        {
+            OnPropertyChanged(nameof(IsNavOverview));
+            OnPropertyChanged(nameof(IsNavApp));
+            OnPropertyChanged(nameof(IsNavImport));
+            OnPropertyChanged(nameof(IsNavRender));
+            OnPropertyChanged(nameof(IsNavHistogram));
+            OnPropertyChanged(nameof(IsNavVision));
+            OnPropertyChanged(nameof(IsNavPostAlign));
+            OnPropertyChanged(nameof(IsNavSlice));
+            OnPropertyChanged(nameof(IsNavStepTest));
+            OnPropertyChanged(nameof(CurrentSectionTitle));
         }
 
         public void NotifyImportLogScrollChanged(bool isAtBottom)
@@ -2261,7 +2370,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
             if (_histogramRoiWidth <= 0 || _histogramRoiHeight <= 0)
             {
-                MessageShower = "请先点击「截图标定」框选直方图区域";
+                MessageShower = "请先点击「标定直方图区域」框选直方图 ROI";
                 return;
             }
 

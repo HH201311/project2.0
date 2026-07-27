@@ -14,23 +14,25 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private Action? _onDoubleEsc;
         private Action? _onSingleEsc;
         private Action? _onCtrlX;
+        private Action? _onAltP;
 
         public CTAutoSlicerInputHookService(ILoggerService<CTAutoSlicerInputHookService> logger)
         {
             _logger = logger;
         }
 
-        public void Start(Action onDoubleEsc, Action onSingleEsc, Action onCtrlX)
+        public void Start(Action onDoubleEsc, Action onSingleEsc, Action onCtrlX, Action? onAltP = null)
         {
             Stop();
             _onDoubleEsc = onDoubleEsc;
             _onSingleEsc = onSingleEsc;
             _onCtrlX = onCtrlX;
+            _onAltP = onAltP;
             _hook = new TaskPoolGlobalHook();
             _hook.KeyPressed += OnKeyPressed;
             _hookThread = new Thread(() => _hook.Run()) { IsBackground = true };
             _hookThread.Start();
-            _logger.Info("CT 自动化切片全局按键 Hook 已启动（Esc 锁输入/双击中断，Ctrl+X 中断流程）");
+            _logger.Info("CT 自动化切片全局按键 Hook 已启动（Esc 锁输入/双击中断，Ctrl+X 中断，Alt+P 暂停/继续）");
         }
 
         public void Stop()
@@ -45,10 +47,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _onDoubleEsc = null;
             _onSingleEsc = null;
             _onCtrlX = null;
+            _onAltP = null;
         }
 
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {
+            if (IsAltPPressed(e))
+            {
+                // 暂停时需能操作鼠标；继续时由后续自动化步骤自行 Lock
+                WinAPIHelper.BlockInput(false);
+                _onAltP?.Invoke();
+                return;
+            }
+
             if (IsCtrlXPressed(e))
             {
                 WinAPIHelper.BlockInput(false);
@@ -77,6 +88,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         private static bool IsCtrlXPressed(KeyboardHookEventArgs e) =>
             e.Data.KeyCode == KeyCode.VcX && e.RawEvent.Mask.HasCtrl();
+
+        private static bool IsAltPPressed(KeyboardHookEventArgs e) =>
+            e.Data.KeyCode == KeyCode.VcP && e.RawEvent.Mask.HasAlt();
 
         public void Dispose()
         {

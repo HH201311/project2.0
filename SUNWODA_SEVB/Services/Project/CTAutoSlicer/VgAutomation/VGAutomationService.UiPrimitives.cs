@@ -248,6 +248,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             for (var attempt = 1; attempt <= maxRetries; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                await WaitIfPausedAsync(cancellationToken).ConfigureAwait(false);
 
                 if (attempt > 1)
                 {

@@ -7,6 +7,21 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
     {
         bool IsRunning { get; }
 
+        bool IsPaused { get; }
+
+        /// <summary>是否正在等待人工干预（醒目面板可见期间为 true）。</summary>
+        bool IsAwaitingManualIntervention { get; }
+
+        event EventHandler? PauseStateChanged;
+
+        event EventHandler? ManualInterventionStateChanged;
+
+        /// <summary>切换暂停/继续；返回切换后是否处于暂停。仅流程运行中有效。</summary>
+        bool TogglePause();
+
+        /// <summary>操作员点击「处理完成」后调用。</summary>
+        void ConfirmManualIntervention();
+
         Task RunSimulationAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,

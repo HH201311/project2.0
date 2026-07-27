@@ -14,6 +14,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     public partial class VGAutomationService
     {
         private const string ImportFailProgressPrefix = "@@IMPORT_FAIL@@";
+        /// <summary>请求 UI 弹出人工干预面板：@@MANUAL_INTERVENE@@文件名|原因</summary>
+        private const string ManualInterveneProgressPrefix = "@@MANUAL_INTERVENE@@";
+        /// <summary>关闭人工干预面板。</summary>
+        private const string ManualInterveneEndProgressPrefix = "@@MANUAL_INTERVENE_END@@";
         private const string SaveDialogWindowName = "VGSTUDIO MAX 问题";
         private const string SaveDialogNoButtonName = "否(N)";
         private const string AutoSaveRecoveryDialogWindowName = "自动保存恢复";
@@ -82,6 +86,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private readonly IAngleAlgorithmService _angleAlgorithmService;
         private readonly ICutImgAlgorithmService _cutImgAlgorithmService;
         private readonly EventSimulator _simulator;
+        private readonly AutomationPauseGate _pauseGate = new();
+        private readonly ManualInterventionGate _manualInterventionGate = new();
         /// <summary>
         /// 可能于任意时刻弹出的中断窗口队列。步骤异常/失败时先 Drain，处理后重试该步骤。
         /// 后续可继续 Register 其它弹窗（保存提示等）。
@@ -130,7 +136,61 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _cutImgAlgorithmService = cutImgAlgorithmService;
             _simulator = new EventSimulator();
             RegisterDefaultInterruptDialogs();
+            UIAutomationHelper.CooperativePauseWaitAsync = _pauseGate.WaitIfPausedAsync;
         }
+
+        public bool IsPaused => _pauseGate.IsPaused;
+
+        public bool IsAwaitingManualIntervention => _manualInterventionGate.IsAwaiting;
+
+        public event EventHandler? PauseStateChanged
+        {
+            add => _pauseGate.PauseStateChanged += value;
+            remove => _pauseGate.PauseStateChanged -= value;
+        }
+
+        public event EventHandler? ManualInterventionStateChanged
+        {
+            add => _manualInterventionGate.StateChanged += value;
+            remove => _manualInterventionGate.StateChanged -= value;
+        }
+
+        /// <summary>切换暂停/继续。暂停时解除 BlockInput，便于手动检查 VG。</summary>
+        public bool TogglePause()
+        {
+            var paused = _pauseGate.Toggle();
+            if (paused)
+            {
+                Unlock();
+                _logger.Info("流程已暂停（Alt+P 可继续）");
+            }
+            else
+            {
+                _logger.Info("流程已继续");
+            }
+
+            return paused;
+        }
+
+        public void ClearPause() => _pauseGate.Reset();
+
+        /// <summary>操作员点击「处理完成」后调用，放行人工干预等待。</summary>
+        public void ConfirmManualIntervention()
+        {
+            if (!_manualInterventionGate.IsAwaiting)
+            {
+                return;
+            }
+
+            _logger.Info("操作员确认人工干预「处理完成」");
+            _manualInterventionGate.SignalCompleted();
+        }
+
+        /// <summary>取消/结束流程时清出暂停与人工干预门闩。</summary>
+        public void ClearManualIntervention() => _manualInterventionGate.Reset();
+
+        private Task WaitIfPausedAsync(CancellationToken cancellationToken) =>
+            _pauseGate.WaitIfPausedAsync(cancellationToken);
 
         /// <summary>中断弹窗处理器：查找 + 关闭动作。</summary>
         private sealed class InterruptDialogHandler

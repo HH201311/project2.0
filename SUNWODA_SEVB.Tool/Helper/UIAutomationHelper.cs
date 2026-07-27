@@ -803,6 +803,24 @@ namespace SUNWODA_SEVB.Tool.Helper
         public const int DefaultConditionPollIntervalMs = 100;
 
         /// <summary>
+        /// 协作式暂停：由 CT 自动化在流程启动时挂接，等待环每轮轮询前调用。
+        /// </summary>
+        public static Func<CancellationToken, Task>? CooperativePauseWaitAsync { get; set; }
+
+        private static async Task DelayWithCooperativePauseAsync(
+            TimeSpan delay,
+            CancellationToken cancellationToken)
+        {
+            var pauseWait = CooperativePauseWaitAsync;
+            if (pauseWait != null)
+            {
+                await pauseWait(cancellationToken).ConfigureAwait(false);
+            }
+
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// 轮询直到条件成立或超时。配置的超时时间为最大等待上限，条件满足后立即返回。
         /// </summary>
         public static async Task<bool> WaitUntilAsync(
@@ -821,7 +839,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     return true;
                 }
 
-                await Task.Delay(pollDelay, cancellationToken).ConfigureAwait(false);
+                await DelayWithCooperativePauseAsync(pollDelay, cancellationToken).ConfigureAwait(false);
             }
 
             return false;
@@ -846,7 +864,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     return true;
                 }
 
-                await Task.Delay(pollDelay, cancellationToken).ConfigureAwait(false);
+                await DelayWithCooperativePauseAsync(pollDelay, cancellationToken).ConfigureAwait(false);
             }
 
             return findElement() == null;
@@ -869,7 +887,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     return element;
                 }
 
-                await Task.Delay(pollDelay, cancellationToken).ConfigureAwait(false);
+                await DelayWithCooperativePauseAsync(pollDelay, cancellationToken).ConfigureAwait(false);
             }
 
             return null;
@@ -897,7 +915,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                     progress?.Report(waitingMessage);
                 }
 
-                await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
+                await DelayWithCooperativePauseAsync(PollInterval, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             throw new TimeoutException($"等待元素消失超时（{timeout.TotalMinutes:0.#} 分钟）");

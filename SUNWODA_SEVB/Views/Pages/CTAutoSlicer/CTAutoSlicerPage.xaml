@@ -178,11 +178,27 @@
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <DockPanel Grid.Row="0" Margin="0,0,0,14" LastChildFill="False">
+                <!-- Alt+P 暂停态醒目横幅 -->
+                <Border Grid.Row="0"
+                        Margin="0,0,0,10"
+                        Padding="16,12"
+                        Background="#D32F2F"
+                        CornerRadius="6"
+                        Visibility="{Binding IsFlowPaused, Converter={StaticResource BoolToVis}}">
+                    <TextBlock HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               Text="暂停中 — 再按 Alt+P 继续检查后恢复"/>
+                </Border>
+
+                <DockPanel Grid.Row="1" Margin="0,0,0,14" LastChildFill="False">
                     <StackPanel DockPanel.Dock="Left">
                         <TextBlock Text="{Binding CurrentSectionTitle}" Style="{StaticResource CasTitleTextStyle}"/>
                         <TextBlock Margin="0,4,0,0" Style="{StaticResource CasMutedTextStyle}" Text="{Binding MessageShower}"/>
@@ -201,7 +217,7 @@
                     </Border>
                 </DockPanel>
 
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                 <Grid Visibility="{Binding IsNavOverview, Converter={StaticResource BoolToVis}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -1619,7 +1635,66 @@
                 </Grid>
                 </Grid>
 
-                <Border Grid.Row="2" Style="{StaticResource CasBottomBarStyle}">
+                <!-- 流程异常/超时：人工干预醒目面板（覆盖右侧内容区） -->
+                <Border Grid.Row="0" Grid.RowSpan="4"
+                        Panel.ZIndex="200"
+                        Background="#E6B71C1C"
+                        Visibility="{Binding IsManualInterventionVisible, Converter={StaticResource BoolToVis}}">
+                    <Border Margin="24"
+                            Padding="28"
+                            Background="#FF1A1A1A"
+                            BorderBrush="#FFFF5252"
+                            BorderThickness="3"
+                            CornerRadius="10"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            MinWidth="520"
+                            MaxWidth="860">
+                        <StackPanel>
+                            <TextBlock Text="需要人工处理"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="#FFFF5252"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,12"/>
+                            <TextBlock Text="自动化已暂停。请检查 VG / 现场状态，处理完成后点击下方按钮继续下一文件。"
+                                       FontSize="16"
+                                       Foreground="#FFFFE082"
+                                       TextWrapping="Wrap"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,18"/>
+                            <TextBlock FontSize="15"
+                                       Foreground="White"
+                                       Margin="0,0,0,6"
+                                       Text="{Binding ManualInterventionFileName, StringFormat=失败文件：{0}}"/>
+                            <TextBlock FontSize="14"
+                                       Foreground="#FFFFCDD2"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,14"
+                                       Text="{Binding ManualInterventionReason}"/>
+                            <TextBlock FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="#FFFFAB40"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,20"
+                                       Text="{Binding ManualInterventionCountdownText}"/>
+                            <Button Content="处理完成"
+                                    FontSize="20"
+                                    FontWeight="Bold"
+                                    Height="52"
+                                    MinWidth="220"
+                                    HorizontalAlignment="Center"
+                                    Background="#FF43A047"
+                                    Foreground="White"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    Command="{Binding ConfirmManualInterventionCommand}"
+                                    ToolTip="确认已完成人工处理：归档失败文件并继续下一文件"/>
+                        </StackPanel>
+                    </Border>
+                </Border>
+
+                <Border Grid.Row="3" Style="{StaticResource CasBottomBarStyle}">
                     <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Right"
                                 Style="{StaticResource CasPrimaryButtonStyle}"

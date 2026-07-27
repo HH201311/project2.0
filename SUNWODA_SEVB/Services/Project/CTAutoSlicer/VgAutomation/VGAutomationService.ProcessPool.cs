@@ -88,7 +88,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                             failCount++;
                             var reason = GetFullExceptionMessage(ex);
                             progress?.Report($"{ImportFailProgressPrefix}{fileName}|{reason}");
-                            _logger.Error($"后处理失败（保留文件）：{readySlot.FilePath}", ex);
+                            _logger.Error($"后处理失败：{readySlot.FilePath}", ex);
+                            await AwaitManualInterventionThenArchiveFailedAsync(
+                                    settings,
+                                    readySlot.Process,
+                                    readySlot.QueueEntryPath,
+                                    fileName,
+                                    reason,
+                                    cancellationToken,
+                                    progress)
+                                .ConfigureAwait(false);
                         }
                         finally
                         {
@@ -100,17 +109,26 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         continue;
                     }
 
-                    // 处理导入失败槽：杀进程，保留文件
+                    // 处理导入失败槽：人工干预 → 归档 → 杀进程
                     var failedSlot = slots.Find(s => s.State == VgSlotState.Failed);
                     if (failedSlot != null)
                     {
                         var fileName = Path.GetFileName(failedSlot.FilePath);
                         var reason = failedSlot.Error == null
-                            ? "导入等待失败"
+                            ? "导入等待失败/超时"
                             : GetFullExceptionMessage(failedSlot.Error);
                         failCount++;
                         progress?.Report($"{ImportFailProgressPrefix}{fileName}|{reason}");
-                        _logger.Error($"导入失败（保留文件，杀进程）：{failedSlot.FilePath} — {reason}");
+                        _logger.Error($"导入失败：{failedSlot.FilePath} — {reason}");
+                        await AwaitManualInterventionThenArchiveFailedAsync(
+                                settings,
+                                failedSlot.Process,
+                                failedSlot.QueueEntryPath,
+                                fileName,
+                                reason,
+                                cancellationToken,
+                                progress)
+                            .ConfigureAwait(false);
                         KillVgProcess(failedSlot.Process, $"导入失败释放：{fileName}");
                         slots.Remove(failedSlot);
                         continue;
@@ -166,7 +184,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                             failCount++;
                             var reason = GetFullExceptionMessage(ex);
                             progress?.Report($"{ImportFailProgressPrefix}{fileName}|{reason}");
-                            _logger.Error($"启动/开始导入失败（保留文件）：{vglPath}", ex);
+                            _logger.Error($"启动/开始导入失败：{vglPath}", ex);
+                            await AwaitManualInterventionThenArchiveFailedAsync(
+                                    settings,
+                                    started,
+                                    volumeItem.QueueEntryPath,
+                                    fileName,
+                                    reason,
+                                    cancellationToken,
+                                    progress)
+                                .ConfigureAwait(false);
                             KillVgProcess(started, $"启动导入失败：{fileName}");
                             _activeVgProcess = null;
                         }
@@ -186,6 +213,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                     progress?.Report(
                         $"导入等待中……活动槽 {slots.Count}/{maxSlots}，排队 {pending.Count}");
+                    await WaitIfPausedAsync(cancellationToken).ConfigureAwait(false);
                     await Task.WhenAny(
                             Task.WhenAny(activeWaits),
                             Task.Delay(PoolIdlePollIntervalMs, cancellationToken))
@@ -200,6 +228,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 progress?.Report("流程已取消，正在清理 VG 进程池…");
                 _logger.Warn("流程取消，清理全部 VG 槽位");
+                _manualInterventionGate.Reset();
                 throw;
             }
             catch (Exception ex)
@@ -209,9 +238,32 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     : ex.Message;
                 progress?.Report($"CT 导入流程异常：{message}");
                 _logger.Error("CT 导入流程异常", ex);
+                try
+                {
+                    await AwaitManualInterventionThenArchiveFailedAsync(
+                            settings,
+                            null,
+                            string.Empty,
+                            "(批次异常)",
+                            message,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception interveneEx)
+                {
+                    _logger.Error("批次异常后的人工干预等待失败（已吞掉，防止闪退）", interveneEx);
+                }
             }
             finally
             {
+                _manualInterventionGate.Reset();
+                progress?.Report(ManualInterveneEndProgressPrefix);
+
                 foreach (var slot in slots.ToList())
                 {
                     KillVgProcess(slot.Process, $"批次结束清理：{Path.GetFileName(slot.FilePath)}");
@@ -220,6 +272,118 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 slots.Clear();
                 Unlock();
                 _activeVgProcess = null;
+            }
+        }
+
+        /// <summary>
+        /// 单文件失败：暂停自动化 → 醒目提示人工处理 → 等「处理完成」或半小时超时 →
+        /// 将排队条目移入「运行失败的文件」→ 由调用方 Kill VG 并继续下一文件。
+        /// </summary>
+        private async Task AwaitManualInterventionThenArchiveFailedAsync(
+            CTAutoSlicerSettings settings,
+            Process? ctViewerProcess,
+            string queueEntryPath,
+            string fileName,
+            string reason,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            try
+            {
+                // 解除键鼠封锁，便于人工操作；不要置前 VG，应把自动化软件弹到最前
+                Unlock();
+                _pauseGate.Pause();
+
+                // 先开门闩，再通知 UI，避免操作员快速点击时 Signal 落空
+                _manualInterventionGate.Begin();
+
+                var timeout = CTAutoSlicerSettings.DefaultManualInterventionTimeout;
+                progress?.Report(
+                    $"{ManualInterveneProgressPrefix}{fileName}|{reason}");
+                progress?.Report(
+                    $"已暂停等待人工处理：{fileName}（限时 {timeout.TotalMinutes:0} 分钟，超时将关闭 VG 并继续下一文件）");
+                _logger.Warn(
+                    $"等待人工干预：文件={fileName}，超时={timeout.TotalMinutes}分钟，原因={reason}");
+
+                // 给 UI 线程一点时间处理 Progress（置前本软件 + 显示面板）
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+
+                var waitResult = await _manualInterventionGate
+                    .WaitAsync(timeout, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (waitResult == ManualInterventionWaitResult.TimedOut)
+                {
+                    progress?.Report(
+                        $"人工处理超时（{timeout.TotalMinutes:0} 分钟）：将关闭 VG，归档失败文件并继续下一文件 — {fileName}");
+                    _logger.Warn($"人工干预超时：{fileName}");
+                }
+                else
+                {
+                    progress?.Report($"已确认人工处理完成，归档失败文件并继续 — {fileName}");
+                    _logger.Info($"人工干预已确认：{fileName}");
+                }
+            }
+            finally
+            {
+                progress?.Report(ManualInterveneEndProgressPrefix);
+                _pauseGate.Reset();
+                try
+                {
+                    Lock();
+                }
+                catch (Exception lockEx)
+                {
+                    _logger.Warn($"人工干预结束后重新 Lock 失败（忽略）：{lockEx.Message}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(queueEntryPath)
+                    && !string.IsNullOrWhiteSpace(settings.CTFileFolder))
+                {
+                    MoveFailedQueueEntryToFailedFolder(settings.CTFileFolder, queueEntryPath, progress);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 将失败的排队条目（.vgl/.vgi/.lnk）移入体素目录下「运行失败的文件」，避免下次重复导入。
+        /// </summary>
+        private void MoveFailedQueueEntryToFailedFolder(
+            string ctFileFolder,
+            string queueEntryPath,
+            IProgress<string>? progress)
+        {
+            try
+            {
+                if (!File.Exists(queueEntryPath))
+                {
+                    _logger.Warn($"失败归档跳过：排队条目不存在 {queueEntryPath}");
+                    return;
+                }
+
+                var folderName = CTAutoSlicerSettings.FailedFilesSubFolderName;
+                var failedDir = Path.Combine(ctFileFolder, folderName);
+                Directory.CreateDirectory(failedDir);
+
+                var fileName = Path.GetFileName(queueEntryPath);
+                var destPath = Path.Combine(failedDir, fileName);
+                if (File.Exists(destPath))
+                {
+                    var name = Path.GetFileNameWithoutExtension(fileName);
+                    var ext = Path.GetExtension(fileName);
+                    destPath = Path.Combine(
+                        failedDir,
+                        $"{name}_{DateTime.Now:yyyyMMdd_HHmmss_fff}{ext}");
+                }
+
+                File.Move(queueEntryPath, destPath);
+                progress?.Report($"已移入「{folderName}」：{Path.GetFileName(destPath)}");
+                _logger.Info($"失败文件已归档：{queueEntryPath} → {destPath}");
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"移入「{CTAutoSlicerSettings.FailedFilesSubFolderName}」失败：{ex.Message}");
+                _logger.Error($"失败文件归档异常：{queueEntryPath}", ex);
             }
         }
 
@@ -401,7 +565,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         settings,
                         ctViewerProcess,
                         cancellationToken,
-                        progress)
+                        progress,
+                        softFailOnError: true)
                     .ConfigureAwait(false);
 
                 progress?.Report("直方图灰度步骤已结束，继续厚板设置");
@@ -554,18 +719,46 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report("开始阶段四视觉对齐（简单 3-2-1）…");
             _logger.Info("主流程执行阶段四：简单 3-2-1 对齐");
 
-            EnsureVgForeground(ctViewerProcess);
-            var mainWindow = GetFreshMainWindow(ctViewerProcess);
-            await RunSimple321AlignmentAsync(
-                    settings,
-                    ctViewerProcess,
-                    mainWindow,
-                    cancellationToken,
-                    progress)
-                .ConfigureAwait(false);
+            try
+            {
+                EnsureVgForeground(ctViewerProcess);
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+                await RunSimple321AlignmentAsync(
+                        settings,
+                        ctViewerProcess,
+                        mainWindow,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
 
-            progress?.Report("阶段四视觉对齐完成，继续后续步骤");
-            _logger.Info("阶段四视觉对齐完成");
+                progress?.Report("阶段四视觉对齐完成，继续后续步骤");
+                _logger.Info("阶段四视觉对齐完成");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 尽量关掉对话框后上抛，由进程池进入人工干预 → 归档 → 下一文件
+                var reason = GetFullExceptionMessage(ex);
+                progress?.Report($"阶段四视觉对齐失败：{reason}");
+                _logger.Error("阶段四视觉对齐失败", ex);
+                try
+                {
+                    await TryCloseSimple321DialogBestEffortAsync(
+                            ctViewerProcess,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception closeEx)
+                {
+                    _logger.Warn($"关闭 3-2-1 对话框失败（忽略）：{closeEx.Message}");
+                }
+
+                throw;
+            }
         }
 
         /// <summary>
@@ -606,17 +799,106 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report("开始对齐后捕捉按钮与拖拽…");
             _logger.Info("主流程：对齐后捕捉按钮 + 箭头拖拽");
 
-            EnsureVgForeground(ctViewerProcess);
-            var mainWindow = GetFreshMainWindow(ctViewerProcess);
-            await RunPostAlignCaptureDragAsync(
-                    settings,
-                    mainWindow,
-                    cancellationToken,
-                    progress)
-                .ConfigureAwait(false);
+            try
+            {
+                EnsureVgForeground(ctViewerProcess);
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+                await RunPostAlignCaptureDragAsync(
+                        settings,
+                        mainWindow,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
 
-            progress?.Report("对齐后捕捉拖拽完成，继续切片导出");
-            _logger.Info("对齐后捕捉拖拽完成");
+                progress?.Report("对齐后捕捉拖拽完成，继续切片导出");
+                _logger.Info("对齐后捕捉拖拽完成");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 上抛给进程池：人工干预 → 归档失败文件
+                var reason = GetFullExceptionMessage(ex);
+                progress?.Report($"对齐后捕捉拖拽失败：{reason}");
+                _logger.Error("对齐后捕捉拖拽失败", ex);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 3-2-1 中途失败时尽力关闭对话框（Esc / 取消按钮），避免挡住后续导出。
+        /// </summary>
+        private async Task TryCloseSimple321DialogBestEffortAsync(
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            try
+            {
+                var mainWindow = GetFreshMainWindow(ctViewerProcess);
+                var dialog = FindWindowByNameScoped(
+                    mainWindow,
+                    Simple321DialogNamePrefix,
+                    nameStartsWith: true);
+                if (dialog == null)
+                {
+                    return;
+                }
+
+                progress?.Report("阶段四失败后尝试关闭「简单 3-2-1 对齐」对话框…");
+                var cancelButton =
+                    UIAutomationHelper.FindButtonByName(dialog, "取消")
+                    ?? UIAutomationHelper.FindDescendantByName(
+                        dialog,
+                        ControlType.Button,
+                        "取消",
+                        nameContains: true);
+
+                Unlock();
+                try
+                {
+                    if (cancelButton != null)
+                    {
+                        if (!UIAutomationHelper.TryInvokeButton(cancelButton))
+                        {
+                            await NativeClickElementWhileUnlockedAsync(cancelButton, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        await InvokeOnUiThreadAsync(SimulateEscape).ConfigureAwait(false);
+                    }
+                }
+                finally
+                {
+                    Lock();
+                }
+
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+                if (FindWindowByNameScoped(mainWindow, Simple321DialogNamePrefix, nameStartsWith: true) != null)
+                {
+                    Unlock();
+                    try
+                    {
+                        await InvokeOnUiThreadAsync(SimulateEscape).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        Lock();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"关闭「简单 3-2-1 对齐」对话框失败（忽略）：{ex.Message}");
+            }
         }
 
         /// <summary>

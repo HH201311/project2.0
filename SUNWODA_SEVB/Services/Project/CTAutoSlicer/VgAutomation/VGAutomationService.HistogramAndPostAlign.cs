@@ -18,7 +18,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            bool softFailOnError = false)
         {
             if (!settings.HasHistogramRoi)
             {
@@ -32,43 +33,55 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 $"直方图灰度调整：ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
                 $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight})");
 
-            await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
-            await Task.Delay(300, cancellationToken).ConfigureAwait(false);
-
-            var capture = await CaptureHistogramRoiAsync(settings, cancellationToken, progress)
-                .ConfigureAwait(false);
-
-            progress?.Report($"截图已保存：{capture.FilePath}");
-            if (!string.IsNullOrWhiteSpace(capture.CompareImagePath))
+            try
             {
-                progress?.Report($"优化对比图：{capture.CompareImagePath}（掩膜像素 {capture.MaskPixelCount}）");
-            }
+                await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
 
-            if (!string.IsNullOrWhiteSpace(capture.PeaksImagePath))
+                var capture = await CaptureHistogramRoiAsync(settings, cancellationToken, progress)
+                    .ConfigureAwait(false);
+
+                progress?.Report($"截图已保存：{capture.FilePath}");
+                if (!string.IsNullOrWhiteSpace(capture.CompareImagePath))
+                {
+                    progress?.Report($"优化对比图：{capture.CompareImagePath}（掩膜像素 {capture.MaskPixelCount}）");
+                }
+
+                if (!string.IsNullOrWhiteSpace(capture.PeaksImagePath))
+                {
+                    progress?.Report($"峰谷调试图：{capture.PeaksImagePath}");
+                }
+
+                progress?.Report(
+                    $"红线初始位置：相对列={capture.RedLineColumn?.ToString() ?? "未检测到"}，" +
+                    $"屏幕X={capture.RedLineScreenX?.ToString() ?? "-"}，拖拽Y={capture.DragScreenY}");
+
+                if (!capture.PeaksSuccess)
+                {
+                    throw new InvalidOperationException(
+                        $"峰谷分析失败：{capture.PeaksFailReason ?? "未知原因"}");
+                }
+
+                progress?.Report(
+                    $"峰谷结果：左线(谷)={capture.ValleyX}, 右线={capture.RightPeakX}, 中线={capture.TargetX} " +
+                    $"（两尖峰参考 P1={capture.LeftPeakX}；屏幕中线X={capture.TargetScreenX}）");
+                _logger.Info(
+                    $"峰谷：P1={capture.LeftPeakX} 左线={capture.ValleyX} 右线={capture.RightPeakX} 中线={capture.TargetX}, " +
+                    $"red={capture.RedLineColumn}, compare={capture.CompareImagePath}, peaks={capture.PeaksImagePath}");
+
+                await DragRedLineToTargetAsync(capture, cancellationToken, progress).ConfigureAwait(false);
+                progress?.Report("直方图灰度调整完成");
+                _logger.Info("直方图灰度调整完成");
+            }
+            catch (OperationCanceledException)
             {
-                progress?.Report($"峰谷调试图：{capture.PeaksImagePath}");
+                throw;
             }
-
-            progress?.Report(
-                $"红线初始位置：相对列={capture.RedLineColumn?.ToString() ?? "未检测到"}，" +
-                $"屏幕X={capture.RedLineScreenX?.ToString() ?? "-"}，拖拽Y={capture.DragScreenY}");
-
-            if (!capture.PeaksSuccess)
+            catch (Exception ex) when (softFailOnError)
             {
-                throw new InvalidOperationException(
-                    $"峰谷分析失败：{capture.PeaksFailReason ?? "未知原因"}");
+                progress?.Report($"直方图灰度调整失败（跳过，继续后续步骤）：{GetFullExceptionMessage(ex)}");
+                _logger.Error("直方图灰度调整失败（主流程跳过）", ex);
             }
-
-            progress?.Report(
-                $"峰谷结果：左线(谷)={capture.ValleyX}, 右线={capture.RightPeakX}, 中线={capture.TargetX} " +
-                $"（两尖峰参考 P1={capture.LeftPeakX}；屏幕中线X={capture.TargetScreenX}）");
-            _logger.Info(
-                $"峰谷：P1={capture.LeftPeakX} 左线={capture.ValleyX} 右线={capture.RightPeakX} 中线={capture.TargetX}, " +
-                $"red={capture.RedLineColumn}, compare={capture.CompareImagePath}, peaks={capture.PeaksImagePath}");
-
-            await DragRedLineToTargetAsync(capture, cancellationToken, progress).ConfigureAwait(false);
-            progress?.Report("直方图灰度调整完成");
-            _logger.Info("直方图灰度调整完成");
         }
 
         /// <summary>

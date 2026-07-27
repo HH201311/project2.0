@@ -15,6 +15,34 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public bool IsRunning => _runCts != null;
 
+        public bool IsPaused => _vgAutomationService.IsPaused;
+
+        public bool IsAwaitingManualIntervention => _vgAutomationService.IsAwaitingManualIntervention;
+
+        public event EventHandler? PauseStateChanged
+        {
+            add => _vgAutomationService.PauseStateChanged += value;
+            remove => _vgAutomationService.PauseStateChanged -= value;
+        }
+
+        public event EventHandler? ManualInterventionStateChanged
+        {
+            add => _vgAutomationService.ManualInterventionStateChanged += value;
+            remove => _vgAutomationService.ManualInterventionStateChanged -= value;
+        }
+
+        public bool TogglePause()
+        {
+            if (!IsRunning)
+            {
+                return false;
+            }
+
+            return _vgAutomationService.TogglePause();
+        }
+
+        public void ConfirmManualIntervention() => _vgAutomationService.ConfirmManualIntervention();
+
         public Task RunSimulationAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
@@ -99,10 +127,26 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             try
             {
+                _vgAutomationService.ClearPause();
+                _vgAutomationService.ClearManualIntervention();
                 await action(_runCts.Token, progress).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                progress?.Report("流程已取消");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 大捕获：防止未处理异常冲出服务层导致 UI/async void 闪退
+                var message = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+                progress?.Report($"切片服务捕获未处理异常（已拦截，防止闪退）：{message}");
+                System.Diagnostics.Trace.TraceError($"[CTAutoSlicerService] {ex}");
             }
             finally
             {
+                _vgAutomationService.ClearPause();
+                _vgAutomationService.ClearManualIntervention();
                 _runCts.Dispose();
                 _runCts = null;
             }
@@ -110,6 +154,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public void Cancel()
         {
+            _vgAutomationService.ClearPause();
+            _vgAutomationService.ClearManualIntervention();
             _runCts?.Cancel();
         }
     }

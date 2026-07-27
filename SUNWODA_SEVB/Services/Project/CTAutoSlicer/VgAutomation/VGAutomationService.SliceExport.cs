@@ -268,20 +268,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException("未找到「图像大小」宽度输入框");
             }
 
-            var widthValue = settings.SliceExportImageWidth.ToString();
-            // 导出对话框「保存...」常为默认按钮：禁止 Enter，改用 Tab 失焦提交
-            if (!await SetSliceExportFieldValueAsync(
-                    imageSizeEdits[0],
-                    widthValue,
-                    cancellationToken).ConfigureAwait(false))
-            {
-                throw new InvalidOperationException($"未能设置图像宽度为 {widthValue}");
-            }
-
-            progress?.Report($"已设置图像宽度 {widthValue}");
-            _logger.Info($"已设置图像宽度 {widthValue}");
-            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
-
+            var widthEdit = imageSizeEdits[0];
             var quantityEdit = UIAutomationHelper.FindEditAdjacentToLabel(
                 exportDialog,
                 SliceExportQuantityLabelKeyword,
@@ -291,19 +278,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException(
                     $"未找到「{SliceExportQuantityLabelKeyword}」旁的输入框（Group「{SliceExportStackSettingsGroupName}」内 Text「{SliceExportQuantityLabelKeyword}：」+ Custom 输入框）");
             }
-
-            var quantityValue = quantity.ToString();
-            if (!await SetSliceExportFieldValueAsync(
-                    quantityEdit,
-                    quantityValue,
-                    cancellationToken).ConfigureAwait(false))
-            {
-                throw new InvalidOperationException($"未能设置导出数量为 {quantityValue}");
-            }
-
-            progress?.Report($"已设置导出数量 {quantityValue}");
-            _logger.Info($"已设置导出数量 {quantityValue}");
-            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
 
             // 切片范围：按视角分别取 UI 配置（前 / 右 / 上）
             var (rangeStart, rangeEnd) = settings.GetSliceRangeForView(viewSuffix);
@@ -320,33 +294,75 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException(
                     $"未找到「{SliceExportSliceRangeGroupName}」开始/结束输入框（Group 内 Text「开始 [mm]」「结束 [mm]」+ Custom 输入框）");
             }
+
+            var widthValue = settings.SliceExportImageWidth.ToString();
+            var quantityValue = quantity.ToString();
             var startValue = rangeStart.ToString("0.##");
             var endValue = rangeEnd.ToString("0.##");
+
+            // 顺序：宽度 → 开始 → 结束 → 切片图数量（数量必须最后填：改其它参数时 VG 会自动改写数量）
+            // 禁止 Enter/Tab：输入后点击 UIA 定位的下一目标框失焦提交，避免默认「保存...」与 Tab 乱跳焦点
+            if (!await SetSliceExportFieldValueAsync(
+                    widthEdit,
+                    widthValue,
+                    cancellationToken,
+                    commitByClicking: startEdit).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException($"未能设置图像宽度为 {widthValue}");
+            }
+
+            progress?.Report($"已设置图像宽度 {widthValue}");
+            _logger.Info($"已设置图像宽度 {widthValue}");
+            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
+
             if (!await SetSliceExportFieldValueAsync(
                     startEdit,
                     startValue,
-                    cancellationToken).ConfigureAwait(false)
-                || !await SetSliceExportFieldValueAsync(
-                    endEdit,
-                    endValue,
-                    cancellationToken).ConfigureAwait(false))
+                    cancellationToken,
+                    commitByClicking: endEdit).ConfigureAwait(false))
             {
                 throw new InvalidOperationException(
-                    $"未能设置「{viewSuffix}」视图切片范围 {startValue} ~ {endValue} mm");
+                    $"未能设置「{viewSuffix}」视图切片范围开始为 {startValue} mm");
+            }
+
+            if (!await SetSliceExportFieldValueAsync(
+                    endEdit,
+                    endValue,
+                    cancellationToken,
+                    commitByClicking: quantityEdit).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException(
+                    $"未能设置「{viewSuffix}」视图切片范围结束为 {endValue} mm");
             }
 
             progress?.Report($"已设置「{viewSuffix}」视图切片范围 {startValue} ~ {endValue} mm");
             _logger.Info($"已设置「{viewSuffix}」视图切片范围 {startValue} ~ {endValue} mm");
             await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
+
+            // 数量放最后：失焦提交点回宽度框（已填完，不会再改写数量）
+            if (!await SetSliceExportFieldValueAsync(
+                    quantityEdit,
+                    quantityValue,
+                    cancellationToken,
+                    commitByClicking: widthEdit).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException($"未能设置导出数量为 {quantityValue}");
+            }
+
+            progress?.Report($"已设置导出数量 {quantityValue}（最后写入，避免被其它参数覆盖）");
+            _logger.Info($"已设置导出数量 {quantityValue}（最后写入）");
+            await DelaySliceExportStepAsync(settings, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// 导出对话框专用填值：禁止 Enter（避免触发默认「保存...」），输入后用 Tab 失焦提交。
+        /// 导出对话框专用填值：禁止 Enter/Tab（避免默认「保存...」或焦点乱跳）。
+        /// 输入后通过点击 UIA 定位的下一控件失焦提交。
         /// </summary>
         private async Task<bool> SetSliceExportFieldValueAsync(
             AutomationElement edit,
             string value,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            AutomationElement? commitByClicking = null)
         {
             var isCustom = edit.Current.ControlType == ControlType.Custom;
 
@@ -354,7 +370,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 && UIAutomationHelper.TrySetEditValueSafe(edit, value)
                 && InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value))
             {
-                await CommitEditWithTabAsync(edit, cancellationToken).ConfigureAwait(false);
+                await CommitEditByClickingAsync(commitByClicking, cancellationToken).ConfigureAwait(false);
                 return true;
             }
 
@@ -364,7 +380,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken,
                     commitWithEnter: false)
                 .ConfigureAwait(false);
-            await CommitEditWithTabAsync(edit, cancellationToken).ConfigureAwait(false);
+            await CommitEditByClickingAsync(commitByClicking, cancellationToken).ConfigureAwait(false);
 
             if (await WaitUntilAsync(
                         () => InputValueMatches(UIAutomationHelper.TryGetInputValue(edit), value),
@@ -380,8 +396,23 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return true;
             }
 
-            // Custom 框常无法 UIA 读回；键盘+Tab 后视为已提交
+            // Custom 框常无法 UIA 读回；键盘+点击下一框后视为已提交
             return isCustom;
+        }
+
+        /// <summary>点击 UIA 下一目标框，使当前编辑失焦提交（替代 Tab）。</summary>
+        private async Task CommitEditByClickingAsync(
+            AutomationElement? nextEdit,
+            CancellationToken cancellationToken)
+        {
+            if (nextEdit == null)
+            {
+                await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await NativeClickElementAsync(nextEdit, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
         }
 
         private static Task DelaySliceExportStepAsync(CTAutoSlicerSettings settings, CancellationToken cancellationToken)
@@ -390,32 +421,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return delayMs > 0
                 ? Task.Delay(delayMs, cancellationToken)
                 : Task.CompletedTask;
-        }
-
-        private async Task CommitEditWithTabAsync(
-            AutomationElement edit,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                edit.SetFocus();
-            }
-            catch (ElementNotAvailableException)
-            {
-            }
-
-            await Task.Delay(50, cancellationToken).ConfigureAwait(false);
-            Unlock();
-            try
-            {
-                await InvokeOnUiThreadAsync(SimulateTab).ConfigureAwait(false);
-            }
-            finally
-            {
-                Lock();
-            }
-
-            await Task.Delay(SliceExportFieldCommitDelayMs, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task CommitEditWithEnterAsync(
@@ -635,10 +640,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                             await InvokeOnUiThreadAsync(SimulateAltS).ConfigureAwait(false);
                         }
 
-                        return await WaitUntilDisappearedAsync(
-                                () => FindVisibleFileNameEditScoped(processId, exportDialog),
-                                settings.SliceExportDialogWaitTime,
-                                cancellationToken)
+                        // JPEG 质量框可能在点「保存(S)」后立刻弹出并挡住关闭；
+                        // 等待保存框消失时并行处理，避免卡死在 WaitUntilDisappeared。
+                        return await WaitSaveDialogClosedWhileDismissingJpegAsync(
+                                settings,
+                                exportDialog,
+                                processId,
+                                cancellationToken,
+                                progress)
                             .ConfigureAwait(false);
                     },
                     success => success,
@@ -647,6 +656,73 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress,
                     maxRetriesOverride: settings.StepRetryCount)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 等待「保存图像…」文件名框消失；等待期间若出现「JPEG 质量」则立即点确定。
+        /// </summary>
+        private async Task<bool> WaitSaveDialogClosedWhileDismissingJpegAsync(
+            CTAutoSlicerSettings settings,
+            AutomationElement exportDialog,
+            int? processId,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var timeoutMs = Math.Max(1000, settings.SliceExportDialogWaitTime);
+            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            const int pollMs = 200;
+
+            while (DateTime.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                AutomationElement? qualityDialog = null;
+                try
+                {
+                    qualityDialog = FindImageQualityDialogScoped(processId, exportDialog);
+                }
+                catch (ElementNotAvailableException)
+                {
+                }
+
+                if (qualityDialog != null)
+                {
+                    progress?.Report("保存确认过程中检测到「JPEG 质量」，点击确定");
+                    _logger.Info("保存确认过程中检测到「JPEG 质量」，点击确定");
+                    await ConfirmJpegQualityDialogAsync(
+                            settings,
+                            qualityDialog,
+                            () => FindImageQualityDialogScoped(processId, exportDialog),
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
+                }
+
+                AutomationElement? fileEdit = null;
+                try
+                {
+                    fileEdit = FindVisibleFileNameEditScoped(processId, exportDialog);
+                }
+                catch (ElementNotAvailableException)
+                {
+                }
+
+                if (fileEdit == null)
+                {
+                    return true;
+                }
+
+                await Task.Delay(pollMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            try
+            {
+                return FindVisibleFileNameEditScoped(processId, exportDialog) == null;
+            }
+            catch (ElementNotAvailableException)
+            {
+                return true;
+            }
         }
 
         private async Task SetSaveDialogFileNameAsync(
@@ -842,9 +918,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             AutomationElement? FindQualityDialog() =>
                 FindImageQualityDialogScoped(processId, exportDialog);
 
+            // 主路径已在「保存(S)」后的等待环中处理 JPEG；此处仅短等晚弹出的兜底，避免无弹窗时白等整段超时。
+            var lateAppearWaitMs = Math.Min(1500, Math.Max(500, settings.SliceExportDialogWaitTime));
             var qualityDialog = await UIAutomationHelper.WaitForElementAsync(
                     FindQualityDialog,
-                    TimeSpan.FromMilliseconds(settings.SliceExportDialogWaitTime),
+                    TimeSpan.FromMilliseconds(lateAppearWaitMs),
                     cancellationToken,
                     pollIntervalMs: 200)
                 .ConfigureAwait(false);

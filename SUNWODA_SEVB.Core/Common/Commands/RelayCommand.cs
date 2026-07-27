@@ -51,7 +51,18 @@ namespace SUNWODA_SEVB.Core.Common.Commands
             if (_isExecuting) return;
             _isExecuting = true;
             CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-            try { await _execute(); }
+            try
+            {
+                await _execute();
+            }
+            catch (Exception ex)
+            {
+                // async void 未捕获异常会变成进程级未处理异常（闪退）；调用方应自行 catch，此处作最后防线
+                System.Diagnostics.Debug.WriteLine(
+                    $"[RelayCommandAsync] 未处理异常: {ex}");
+                System.Diagnostics.Trace.TraceError(
+                    $"[RelayCommandAsync] 未处理异常: {ex}");
+            }
             finally
             {
                 _isExecuting = false;

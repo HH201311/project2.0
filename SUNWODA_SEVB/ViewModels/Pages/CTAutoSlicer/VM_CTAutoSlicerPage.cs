@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -32,9 +33,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private readonly CTAutoSlicerInputHookService _inputHookService;
         private readonly ProcessMonitorService _processMonitorService;
         private CancellationTokenSource? _activeFlowCts;
+        private DispatcherTimer? _manualInterventionCountdownTimer;
+        private DateTime _manualInterventionDeadlineUtc;
 
         private string _messageShower = "CT自动化切片模块已加载";
         private bool _isEnableSimulationBtn = true;
+        private bool _isFlowPaused;
+        private bool _isManualInterventionVisible;
+        private string _manualInterventionFileName = string.Empty;
+        private string _manualInterventionReason = string.Empty;
+        private string _manualInterventionCountdownText = string.Empty;
         private string _vgAppPath = @"D:\App\VG\vgstudiomax20241.exe";
         private int _vgOpenWaitTime = CTAutoSlicerSettings.DefaultVGOpenWaitTime;
         private int _vgShowFrontWaitTime = 2000;
@@ -230,6 +238,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public string PrimaryActionButtonText =>
             IsEnableSimulationBtn ? "开始流程" : "运行中…";
 
+        /// <summary>流程暂停中（Alt+P 切换）；用于主界面醒目横幅。</summary>
+        public bool IsFlowPaused
+        {
+            get => _isFlowPaused;
+            private set => SetProperty(ref _isFlowPaused, value);
+        }
+
+        /// <summary>流程异常/超时：等待人工处理的醒目面板。</summary>
+        public bool IsManualInterventionVisible
+        {
+            get => _isManualInterventionVisible;
+            private set => SetProperty(ref _isManualInterventionVisible, value);
+        }
+
+        public string ManualInterventionFileName
+        {
+            get => _manualInterventionFileName;
+            private set => SetProperty(ref _manualInterventionFileName, value);
+        }
+
+        public string ManualInterventionReason
+        {
+            get => _manualInterventionReason;
+            private set => SetProperty(ref _manualInterventionReason, value);
+        }
+
+        public string ManualInterventionCountdownText
+        {
+            get => _manualInterventionCountdownText;
+            private set => SetProperty(ref _manualInterventionCountdownText, value);
+        }
+
         public bool IsEnableSimulationBtn
         {
             get => _isEnableSimulationBtn;
@@ -238,6 +278,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _isEnableSimulationBtn, value))
                 {
                     OnPropertyChanged(nameof(PrimaryActionButtonText));
+                    if (value)
+                    {
+                        IsFlowPaused = false;
+                        HideManualInterventionPanel();
+                    }
                 }
             }
         }
@@ -1101,6 +1146,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand CaptureVisionTopViewSampleCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
+        public ICommand ConfirmManualInterventionCommand { get; }
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
         public ICommand SelectNavCommand { get; }
@@ -1150,9 +1196,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             CaptureVisionTopViewSampleCommand = new RelayCommand(ExecuteCaptureVisionTopViewSample);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
+            ConfirmManualInterventionCommand = new RelayCommand(ExecuteConfirmManualIntervention);
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
             SelectNavCommand = new RelayCommand(ExecuteSelectNav);
+
+            _ctAutoSlicerService.PauseStateChanged += (_, _) =>
+            {
+                Dispatcher.Invoke(() => IsFlowPaused = _ctAutoSlicerService.IsPaused);
+            };
         }
 
         private void ExecuteSelectNav(object? parameter)
@@ -1226,7 +1278,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         public override void OnNavigatedTo(object? parameter)
         {
-            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed, OnCtrlXPressed);
+            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed, OnCtrlXPressed, OnAltPPressed);
             _folderMonitorService.Start(CTFileFolder);
             base.OnNavigatedTo(parameter);
         }
@@ -2943,40 +2995,166 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         private void HandleSimulationProgress(string message)
         {
-            if (message.StartsWith("@@SLICE_QTY@@", StringComparison.Ordinal))
+            try
             {
-                var qtyText = message["@@SLICE_QTY@@".Length..];
-                if (int.TryParse(qtyText, out var quantity))
+                if (message.StartsWith("@@SLICE_QTY@@", StringComparison.Ordinal))
                 {
-                    Dispatcher.Invoke(() =>
+                    var qtyText = message["@@SLICE_QTY@@".Length..];
+                    if (int.TryParse(qtyText, out var quantity))
                     {
-                        SetSliceExportQuantityRuntime(quantity);
-                        MessageShower = $"检测到 QJ 全局图像，导出数量已同步为 {quantity}";
-                    });
+                        Dispatcher.Invoke(() =>
+                        {
+                            SetSliceExportQuantityRuntime(quantity);
+                            MessageShower = $"检测到 QJ 全局图像，导出数量已同步为 {quantity}";
+                        });
+                    }
+
+                    return;
                 }
 
-                return;
-            }
+                if (string.Equals(message, "@@MANUAL_INTERVENE_END@@", StringComparison.Ordinal))
+                {
+                    Dispatcher.Invoke(HideManualInterventionPanel);
+                    return;
+                }
 
-            if (message.StartsWith("@@IMPORT_FAIL@@", StringComparison.Ordinal))
-            {
-                var payload = message["@@IMPORT_FAIL@@".Length..];
-                var separatorIndex = payload.IndexOf('|', StringComparison.Ordinal);
-                var fileName = separatorIndex >= 0 ? payload[..separatorIndex] : payload;
-                var reason = separatorIndex >= 0 ? payload[(separatorIndex + 1)..] : "未知原因";
+                if (message.StartsWith("@@MANUAL_INTERVENE@@", StringComparison.Ordinal))
+                {
+                    var payload = message["@@MANUAL_INTERVENE@@".Length..];
+                    var separatorIndex = payload.IndexOf('|', StringComparison.Ordinal);
+                    var fileName = separatorIndex >= 0 ? payload[..separatorIndex] : payload;
+                    var reason = separatorIndex >= 0 ? payload[(separatorIndex + 1)..] : "未知原因";
+                    Dispatcher.Invoke(() => ShowManualInterventionPanel(fileName, reason));
+                    return;
+                }
+
+                if (message.StartsWith("@@IMPORT_FAIL@@", StringComparison.Ordinal))
+                {
+                    var payload = message["@@IMPORT_FAIL@@".Length..];
+                    var separatorIndex = payload.IndexOf('|', StringComparison.Ordinal);
+                    var fileName = separatorIndex >= 0 ? payload[..separatorIndex] : payload;
+                    var reason = separatorIndex >= 0 ? payload[(separatorIndex + 1)..] : "未知原因";
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageShower = $"导入失败：{fileName}（等待人工处理）";
+                        AppendFlowLog($"{fileName} — {reason}", isFailure: true);
+                    });
+                    return;
+                }
+
                 Dispatcher.Invoke(() =>
                 {
-                    MessageShower = $"导入失败：{fileName}";
-                    AppendFlowLog($"{fileName} — {reason}", isFailure: true);
+                    MessageShower = message;
+                    AppendFlowLog(message);
                 });
-                return;
+            }
+            catch (Exception ex)
+            {
+                // Progress 回调异常若上抛，可能打断后台流程；仅记日志
+                _logger.Warn($"流程进度回调异常（已忽略）：{ex.Message}");
+            }
+        }
+
+        private void ShowManualInterventionPanel(string fileName, string reason)
+        {
+            ManualInterventionFileName = string.IsNullOrWhiteSpace(fileName) ? "(未知文件)" : fileName;
+            ManualInterventionReason = string.IsNullOrWhiteSpace(reason) ? "流程异常或超时" : reason;
+            MessageShower = $"需要人工处理：{ManualInterventionFileName}";
+            AppendFlowLog($"需要人工处理：{ManualInterventionFileName} — {ManualInterventionReason}", isFailure: true);
+
+            _manualInterventionDeadlineUtc =
+                DateTime.UtcNow + CTAutoSlicerSettings.DefaultManualInterventionTimeout;
+            UpdateManualInterventionCountdownText();
+            IsManualInterventionVisible = true;
+
+            // 关键：把本软件从 VG 后面拉到前台，否则操作员看不到干预面板
+            BringAutomationAppToForeground();
+
+            _manualInterventionCountdownTimer?.Stop();
+            _manualInterventionCountdownTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _manualInterventionCountdownTimer.Tick += (_, _) => UpdateManualInterventionCountdownText();
+            _manualInterventionCountdownTimer.Start();
+        }
+
+        /// <summary>
+        /// 人工干预时强制置前主窗口（恢复最小化 + Topmost 脉冲 + Win32 ForceForeground）。
+        /// </summary>
+        private void BringAutomationAppToForeground()
+        {
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current?.MainWindow;
+                if (mainWindow == null)
+                {
+                    return;
+                }
+
+                if (!mainWindow.IsVisible)
+                {
+                    mainWindow.Show();
+                }
+
+                if (mainWindow.WindowState == WindowState.Minimized)
+                {
+                    mainWindow.WindowState = WindowState.Normal;
+                }
+
+                mainWindow.Activate();
+                mainWindow.Topmost = true;
+                mainWindow.Topmost = false;
+                mainWindow.Focus();
+
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(mainWindow).EnsureHandle();
+                if (hwnd != IntPtr.Zero)
+                {
+                    WinAPIHelper.ForceForegroundWindow(hwnd);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"人工干预置前本软件失败（忽略）：{ex.Message}");
+            }
+        }
+
+        private void HideManualInterventionPanel()
+        {
+            _manualInterventionCountdownTimer?.Stop();
+            _manualInterventionCountdownTimer = null;
+            IsManualInterventionVisible = false;
+            ManualInterventionCountdownText = string.Empty;
+        }
+
+        private void UpdateManualInterventionCountdownText()
+        {
+            var remain = _manualInterventionDeadlineUtc - DateTime.UtcNow;
+            if (remain < TimeSpan.Zero)
+            {
+                remain = TimeSpan.Zero;
             }
 
-            Dispatcher.Invoke(() =>
+            ManualInterventionCountdownText =
+                $"剩余等待 {remain.Hours:00}:{remain.Minutes:00}:{remain.Seconds:00}"
+                + "（超时将关闭 VG，归档失败文件并继续下一文件）";
+        }
+
+        private void ExecuteConfirmManualIntervention(object? _)
+        {
+            try
             {
-                MessageShower = message;
-                AppendFlowLog(message);
-            });
+                AppendFlowLog("操作员点击「处理完成」");
+                MessageShower = "已确认人工处理，继续流程…";
+                _ctAutoSlicerService.ConfirmManualIntervention();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("确认人工干预失败", ex);
+                MessageShower = $"确认失败：{ex.Message}";
+            }
         }
 
         private void AppendFlowLog(string message, bool isFailure = false)
@@ -3048,6 +3226,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             Dispatcher.Invoke(() =>
             {
                 WinAPIHelper.BlockInput(false);
+                IsFlowPaused = false;
+                HideManualInterventionPanel();
                 IsEnableSimulationBtn = true;
                 MessageShower = $"流程已通过 {trigger} 中断";
                 AppendFlowLog($"流程已通过 {trigger} 中断");
@@ -3062,6 +3242,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private void OnCtrlXPressed()
         {
             InterruptActiveFlow("Ctrl+X");
+        }
+
+        private void OnAltPPressed()
+        {
+            if (!_ctAutoSlicerService.IsRunning)
+            {
+                Dispatcher.Invoke(() => MessageShower = "当前没有运行中的流程，Alt+P 无效");
+                return;
+            }
+
+            var paused = _ctAutoSlicerService.TogglePause();
+            Dispatcher.Invoke(() =>
+            {
+                IsFlowPaused = paused;
+                if (paused)
+                {
+                    MessageShower = "暂停中 — 再按 Alt+P 继续";
+                    AppendFlowLog("流程已暂停（Alt+P）");
+                }
+                else
+                {
+                    MessageShower = "流程已继续（Alt+P）";
+                    AppendFlowLog("流程已继续（Alt+P）");
+                }
+            });
         }
 
         private void OnSingleEscPressed()

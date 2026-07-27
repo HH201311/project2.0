@@ -10,7 +10,6 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Xml.Linq;
 
 namespace SUNWODA_SEVB.WEB.Services.STC
 {
@@ -20,7 +19,6 @@ namespace SUNWODA_SEVB.WEB.Services.STC
         private readonly ILoggerService<ScrewControllerService> _logger;
         private readonly HttpClient _httpClient;
         private bool _disposed;
-        private string vmProjectName = "";
 
         // Cookie缓存（按控制器IP）
         private readonly ConcurrentDictionary<string, CookieCacheRecord> _cookieCache = new();
@@ -41,6 +39,12 @@ namespace SUNWODA_SEVB.WEB.Services.STC
         // Cookie过期时间（小时），默认24小时
         private const int DEFAULT_COOKIE_EXPIRATION_HOURS = 24;
 
+        // Express控制器默认主轴ID；当前每个控制器IP只有一个TR
+        private const int EXPRESS_SPINDLE_ID = 1;
+
+        // fld_toolusertr与fld_torque_tr允许的比较误差
+        private const float EXPRESS_TR_COMPARE_TOLERANCE = 0.0001f;
+
         public ScrewControllerService(
             IServiceProvider serviceProvider,
             ILoggerService<ScrewControllerService> logger,
@@ -60,7 +64,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
         public async Task<ScrewControllerSettings> LoadSettingsAsync(string vmName)
         {
             ArgumentException.ThrowIfNullOrEmpty(vmName);
-            vmProjectName = vmName;
+            //vmProjectName = vmName;
             // 检查缓存
             if (_settingsCache.TryGetValue(vmName, out var cached))
             {
@@ -152,6 +156,20 @@ namespace SUNWODA_SEVB.WEB.Services.STC
             {
                 settings.base64RequestBody = requestBody.Value;
             }
+
+            // API 版本（Express 或 LegacyInsightQc，默认 LegacyInsightQc）
+            var apiVersion = await repo.GetByNameAndVMAsync("Screw_ApiVersion", vmName);
+            if (!string.IsNullOrEmpty(apiVersion?.Value))
+            {
+                if (string.Equals(apiVersion.Value, "Express", StringComparison.OrdinalIgnoreCase))
+                {
+                    settings.ApiVersion = ControllerApiVersion.Express;
+                }
+                else
+                {
+                    settings.ApiVersion = ControllerApiVersion.LegacyInsightQc;
+                }
+            }
         }
 
         private async Task LoadControllerConfigsAsync(
@@ -171,7 +189,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                     {
                         settings.Controllers = controllers;
                         BuildTightenGunMapping(settings, controllers);
-                        _logger.Info($"加载JSON控制器配置成功 - VM: {vmName}, 控制器数: {controllers.Count}",true);
+                        _logger.Info($"加载JSON控制器配置成功 - VM: {vmName}, 控制器数: {controllers.Count}", true);
                     }
                 }
                 catch (JsonException ex)
@@ -565,35 +583,49 @@ namespace SUNWODA_SEVB.WEB.Services.STC
 
             try
             {
-                // 构建请求体
-                var requestBody = BuildLoginRequestBody(settings);
+                var isExpress = settings.ApiVersion == ControllerApiVersion.Express;
+                var requestBody = isExpress
+                    ? BuildExpressLoginBody(settings.LoginUsername, settings.LoginPassword)
+                    : BuildLoginRequestBody(settings);
                 var url = $"http://{controllerIP}/rest/login/";
+
+                _logger.Info($"登录请求 - IP: {controllerIP}, 版本={(isExpress ? "Express" : "INSIGHTqc")}");
 
                 // 创建请求
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
-                request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-
-                // 添加必要的请求头
-
+                request.Content = new StringContent(requestBody, Encoding.UTF8);
+                request.Content.Headers.ContentType = null;
+                if (isExpress)
+                    request.Content.Headers.TryAddWithoutValidation("Content-Type", "application/json");
+                else
+                    request.Content.Headers.TryAddWithoutValidation("Content-Type", "application/json;charset=UTF-8");
+                request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.76");
+                if (isExpress)
+                {
+                    request.Headers.Add("Accept", "*/*");
+                    request.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
+                    request.Headers.TryAddWithoutValidation("Referer", $"http://{controllerIP}/login");
+                    request.Headers.TryAddWithoutValidation("Origin", $"http://{controllerIP}");
+                }
+                else
+                {
+                    request.Headers.Add("Accept", "application/json, text/plain, */*");
+                    request.Headers.TryAddWithoutValidation("Referer", $"http://{controllerIP}/");
+                    request.Headers.TryAddWithoutValidation("Origin", $"http://{controllerIP}/");
+                }
 
                 // 发送请求
                 var response = await _httpClient.SendAsync(request);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.Warn($"登录失败 - IP: {controllerIP}, 状态码: {response.StatusCode}");
+                    var loginErrBody = await response.Content.ReadAsStringAsync();
+                    _logger.Warn($"登录失败 - IP: {controllerIP}, 状态码: {response.StatusCode}, 响应: {loginErrBody}");
                     return null;
                 }
 
-                // 从响应头中提取Cookie
-                var cookie = ExtractCookiesFromResponse(response);
-
-                if (string.IsNullOrEmpty(cookie))
-                {
-                    // 尝试从响应体中解析
-                    var responseBody = await response.Content.ReadAsStringAsync();
-                    cookie = ExtractCookieFromResponseBody(responseBody);
-                }
+                // 从响应头中提取Cookie（Express 用 connect.sid，旧版用 session）
+                var cookie = isExpress ? ExtractConnectSidCookie(response) : ExtractCookiesFromResponse(response);
 
                 if (!string.IsNullOrEmpty(cookie))
                 {
@@ -603,7 +635,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                         ControllerIP = controllerIP,
                         Cookie = cookie,
                         CachedTime = DateTime.Now,
-                        ExpirationTime = DateTime.Now.AddHours(DEFAULT_COOKIE_EXPIRATION_HOURS)
+                        ExpirationTime = isExpress? DateTime.Now.AddSeconds(50): DateTime.Now.AddHours(DEFAULT_COOKIE_EXPIRATION_HOURS)
                     };
                     _cookieCache[controllerIP] = cacheRecord;
 
@@ -634,7 +666,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
 
                 if (string.IsNullOrEmpty(base64RequestBody))
                 {
-                    _logger.Error("Base64请求体为空或未设置");                
+                    _logger.Error("Base64请求体为空或未设置");
                 }
 
                 // 解码原始请求体
@@ -643,7 +675,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 var jsonNode = JsonNode.Parse(decodedJson) ?? throw new InvalidOperationException("无法解析JSON数据");
 
                 // 获取原始登录数据
-                var loginDataNode = jsonNode["loginData"]?? throw new InvalidOperationException("JSON中缺少loginData字段");
+                var loginDataNode = jsonNode["loginData"] ?? throw new InvalidOperationException("JSON中缺少loginData字段");
 
                 // 解码原始用户名密码（双重Base64）
                 var originalUserName = loginDataNode["userName"]?.GetValue<string>() ?? throw new InvalidOperationException("userName字段为空");
@@ -709,6 +741,53 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 _logger.Error($"构建登录请求体失败: {ex.Message}", ex);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// 构建 Express 新版登录请求体：纯 JSON，fld_ 前缀字段。
+        /// </summary>
+        private static string BuildExpressLoginBody(string username, string password)
+        {
+            var payload = new
+            {
+                loginData = new
+                {
+                    fld_user_name = username,
+                    fld_password = Convert.ToBase64String(Encoding.UTF8.GetBytes(password))
+                },
+                auditData = new
+                {
+                    fld_count = 1,
+                    fld_params = new[]
+                    {
+                        new
+                        {
+                            fld_audit_username = username,
+                            fld_audit_field_code = new[] { "-" },
+                            fld_audit_desc_code = "U000",
+                            fld_audit_old_value = new[] { "-" },
+                            fld_audit_new_value = new[] { "-" }
+                        }
+                    }
+                }
+            };
+            return System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null });
+        }
+
+        /// <summary>
+        /// 从响应头中提取 connect.sid Cookie（Express 新版）。
+        /// </summary>
+        private static string? ExtractConnectSidCookie(HttpResponseMessage response)
+        {
+            if (!response.Headers.TryGetValues("Set-Cookie", out var cookies)) return null;
+            foreach (var cookie in cookies)
+            {
+                var nameValue = cookie.Split(';', StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
+                var eq = nameValue.IndexOf('=');
+                if (eq > 0 && nameValue[..eq].Equals("connect.sid", StringComparison.OrdinalIgnoreCase))
+                    return $"connect.sid={nameValue[(eq + 1)..]}";
+            }
+            return null;
         }
 
         // 辅助方法：双重Base64解码
@@ -882,7 +961,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
         {
             var result = new ScrewTrValueResult { ControllerIP = controllerIP };
 
-            if (string.IsNullOrEmpty(controllerIP))
+            if (string.IsNullOrWhiteSpace(controllerIP))
             {
                 result.Message = "控制器IP不能为空";
                 return result;
@@ -890,7 +969,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
 
             try
             {
-                // 检查内存缓存
+                // 优先读取内存缓存
                 if (_trValueCache.TryGetValue(controllerIP, out var cached))
                 {
                     if (!cached.ExpirationTime.HasValue || cached.ExpirationTime > DateTime.Now)
@@ -899,23 +978,22 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                         result.TrValue = cached.TrValue;
                         result.FromCache = true;
                         result.CachedTime = cached.CachedTime;
+                        result.Message = string.Empty;
                         return result;
                     }
-                    // 缓存过期，移除
+
                     _trValueCache.TryRemove(controllerIP, out _);
                 }
 
-                // 获取配置设置
                 ScrewControllerSettings? settings = null;
 
-                // 如果提供了vmName，直接使用
-                if (!string.IsNullOrEmpty(vmName) && _settingsCache.TryGetValue(vmName, out settings))
+                if (!string.IsNullOrWhiteSpace(vmName) &&
+                    _settingsCache.TryGetValue(vmName, out var vmSettings))
                 {
-                    // 使用指定的vmName配置
+                    settings = vmSettings;
                 }
                 else
                 {
-                    // 根据IP查找对应的配置
                     foreach (var kvp in _settingsCache)
                     {
                         if (GetAllControllerIPs(kvp.Value).Contains(controllerIP))
@@ -932,35 +1010,31 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                     return result;
                 }
 
-                // 根据有线枪和无线枪选择不同的请求方式
-                if (settings.IsWired)
+                if (settings.ApiVersion == ControllerApiVersion.Express)
                 {
-                    // 有线枪请求
+                    result = await GetExpressTrValueAsync(controllerIP);
+                }
+                else if (settings.IsWired)
+                {
                     result = await CommonGetTrValueAsync(controllerIP);
+
                     if (!result.IsSuccess)
-                    {
                         result = await SpecGetTrValueForWiredGunAsync(controllerIP);
-                    }
-                    
                 }
                 else
                 {
-                    // 无线枪请求
                     result = await CommonGetTrValueAsync(controllerIP);
                 }
 
-                // 如果获取成功，更新缓存
                 if (result.IsSuccess)
                 {
-                    var cacheRecord = new TrValueCacheRecord
+                    UpdateTrValueCache(controllerIP, result.TrValue, settings);
+                    if (settings.EnableTrValueDbCache &&!string.IsNullOrWhiteSpace(vmName))
                     {
-                        ControllerIP = controllerIP,
-                        TrValue = result.TrValue,
-                        CachedTime = DateTime.Now,
-                        ExpirationTime = DateTime.Now.AddHours(settings.TrValueCacheExpirationHours)
-                    };
-                    _trValueCache[controllerIP] = cacheRecord;
+                        await SaveTrValueToDbAsync(vmName,controllerIP,string.Empty,result.TrValue);
+                    }
                 }
+                   
 
                 return result;
             }
@@ -970,7 +1044,6 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 _logger.Error($"获取TR值失败 - IP: {controllerIP}", ex);
                 return result;
             }
-
         }
 
         /// <summary>
@@ -1237,6 +1310,152 @@ namespace SUNWODA_SEVB.WEB.Services.STC
             _logger.Info("TR值内存缓存已清除");
         }
 
+        /// <summary>
+        /// 判断TR值是否有效
+        /// </summary>
+        private static bool IsValidTrValue(float value)
+        {
+            return value > 0 && !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        /// <summary>
+        /// 从JSON数字或字符串中读取有效正浮点数
+        /// </summary>
+        private static bool TryReadPositiveFloat(JsonElement element, out float value)
+        {
+            value = 0f;
+
+            if (element.ValueKind == JsonValueKind.Number)
+            {
+                var number = element.GetDouble();
+                if (number > 0 && number <= float.MaxValue && !double.IsNaN(number) && !double.IsInfinity(number))
+                {
+                    value = (float)number;
+                    return true;
+                }
+                return false;
+            }
+
+            if (element.ValueKind == JsonValueKind.String)
+            {
+                var text = element.GetString()?.Trim().Replace(',', '.');
+                return float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value) && IsValidTrValue(value);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 判断工具校准TR与曲线TR是否一致
+        /// </summary>
+        private static bool AreExpressTrValuesEqual(float toolTr, float curveTr)
+        {
+            return Math.Abs(toolTr - curveTr) <= EXPRESS_TR_COMPARE_TOLERANCE;
+        }
+
+        /// <summary>
+        /// 按控制器IP更新TR内存缓存
+        /// </summary>
+        private void UpdateTrValueCache(string controllerIP, float trValue, ScrewControllerSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(controllerIP) || !IsValidTrValue(trValue))
+            {
+                _logger.Warn($"忽略无效TR缓存更新 - IP: {controllerIP}, TR: {trValue}");
+                return;
+            }
+
+            var now = DateTime.Now;
+            var changed = !_trValueCache.TryGetValue(controllerIP, out var oldRecord) ||
+                          Math.Abs(oldRecord.TrValue - trValue) > EXPRESS_TR_COMPARE_TOLERANCE;
+
+            _trValueCache[controllerIP] = new TrValueCacheRecord
+            {
+                ControllerIP = controllerIP,
+                TrValue = trValue,
+                CachedTime = now,
+                ExpirationTime = settings.TrValueCacheExpirationHours > 0
+                    ? now.AddHours(settings.TrValueCacheExpirationHours)
+                    : null
+            };
+
+            if (changed)
+                _logger.Info($"TR值缓存已更新 - IP: {controllerIP}, TR: {trValue:F4}", true);
+        }
+
+        /// <summary>
+        /// 通过Express的tool-info接口获取工具用户TR：result.fld_toolusertr。
+        /// 每个控制器IP固定对应一个TR，因此使用默认主轴ID 1。
+        /// </summary>
+        private async Task<ScrewTrValueResult> GetExpressTrValueAsync(string controllerIP)
+        {
+            var result = new ScrewTrValueResult
+            {
+                ControllerIP = controllerIP,
+                FromCache = false
+            };
+
+            try
+            {
+                var url = $"http://{controllerIP}/rest/tool-info/?" +
+                          $"fld_spindle_id={EXPRESS_SPINDLE_ID}&" +
+                          $"fld_ip_address={Uri.EscapeDataString(controllerIP)}";
+
+                var response = await GetExpressWithAuthAsync(controllerIP, url, "/toolCalibration");
+                if (string.IsNullOrWhiteSpace(response))
+                {
+                    result.Message = "Express工具信息接口未返回有效响应";
+                    return result;
+                }
+
+                using var jsonDoc = JsonDocument.Parse(response);
+                var root = jsonDoc.RootElement;
+
+                if (root.TryGetProperty("status", out var statusElement) &&
+                    statusElement.ValueKind == JsonValueKind.False)
+                {
+                    result.Message = "Express工具信息接口返回status=false";
+                    return result;
+                }
+
+                if (!root.TryGetProperty("result", out var resultElement) ||
+                    resultElement.ValueKind != JsonValueKind.Object)
+                {
+                    result.Message = "Express工具信息响应中未找到result对象";
+                    return result;
+                }
+
+                if (!resultElement.TryGetProperty("fld_toolusertr", out var trElement))
+                {
+                    result.Message = "Express工具信息响应中未找到fld_toolusertr字段";
+                    return result;
+                }
+
+                if (!TryReadPositiveFloat(trElement, out var trValue))
+                {
+                    result.Message = $"无法解析Express fld_toolusertr: {trElement}";
+                    return result;
+                }
+
+                result.IsSuccess = true;
+                result.TrValue = trValue;
+                result.Message = string.Empty;
+
+                _logger.Info($"获取Express TR值成功 - IP: {controllerIP}, fld_toolusertr: {trValue:F4}", true);
+            }
+            catch (JsonException ex)
+            {
+                result.Message = $"Express工具信息JSON解析失败: {ex.Message}";
+                _logger.Error($"解析Express工具信息失败 - IP: {controllerIP}", ex);
+            }
+            catch (Exception ex)
+            {
+                result.Message = $"获取Express TR值异常: {ex.Message}";
+                _logger.Error($"获取Express TR值失败 - IP: {controllerIP}", ex);
+            }
+
+            return result;
+        }
+
         #endregion
 
         #region TR值数据库缓存
@@ -1256,11 +1475,11 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
 
-                var cacheKey = BuildTrCacheKey(vmName, controllerIP, tightenGun);
+                var cacheKey = BuildTrCacheKey(vmName, controllerIP);
                 var cacheRecord = new TrValueCacheRecord
                 {
                     ControllerIP = controllerIP,
-                    TightenGun = tightenGun ?? string.Empty,
+                    TightenGun = string.Empty,
                     TrValue = trValue,
                     CachedTime = DateTime.Now
                 };
@@ -1397,8 +1616,9 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 else
                 {
                     // 清除指定控制器的缓存
-                    var specificPrefix = $"{TR_CACHE_PREFIX}{vmName}_{controllerIP}_";
-                    recordsToDelete = allSettings.Where(s => s.Name?.StartsWith(specificPrefix) == true);
+                    var specificKey =BuildTrCacheKey(vmName, controllerIP);
+                    var legacyPrefix = $"{TR_CACHE_PREFIX}{vmName}_{controllerIP}_";
+                    recordsToDelete = allSettings.Where(s => string.Equals(s.Name,specificKey, StringComparison.OrdinalIgnoreCase) ||s.Name?.StartsWith( legacyPrefix, StringComparison.OrdinalIgnoreCase) == true);
 
                     // 同时清除内存缓存
                     _trValueCache.TryRemove(controllerIP, out _);
@@ -1468,10 +1688,11 @@ namespace SUNWODA_SEVB.WEB.Services.STC
             }
         }
 
-        private static string BuildTrCacheKey(string vmName, string controllerIP, string? tightenGun)
+        private static string BuildTrCacheKey(string vmName, string controllerIP)
         {
-            var gun = string.IsNullOrEmpty(tightenGun) ? "default" : tightenGun;
-            return $"{TR_CACHE_PREFIX}{vmName}_{controllerIP}_{gun}";
+            //var gun = string.IsNullOrEmpty(tightenGun) ? "default" : tightenGun;
+            //return $"{TR_CACHE_PREFIX}{vmName}_{controllerIP}_{gun}";
+            return $"{TR_CACHE_PREFIX}{vmName}_{controllerIP}";
         }
 
         #endregion
@@ -1743,6 +1964,114 @@ namespace SUNWODA_SEVB.WEB.Services.STC
 
             try
             {
+                if (settings.ApiVersion == ControllerApiVersion.Express)
+                {
+                    var toolTrResult = await GetTrValueAsync(controllerIP, vmName);
+                    var fallbackTr = toolTrResult.IsSuccess? toolTrResult.TrValue: IsValidTrValue(trValue) ? trValue : 1.0f;
+
+                    // Express 新版：POST /rest/get-trace-logs/
+                    var url = $"http://{controllerIP}/rest/get-trace-logs/";
+                    var bodyObj = new { traceId = traceLogId };
+                    var bodyJson = JsonSerializer.Serialize(bodyObj, new JsonSerializerOptions { PropertyNamingPolicy = null });
+
+                    //_logger.Info($"Express 曲线数据请求 - URL: {url}, Body: {bodyJson}",isToDatabase:true);
+
+                    var postResult = await PostExpressWithAuthAsync(controllerIP, url, bodyJson);
+                    if (!postResult.IsSuccess)
+                    {
+                        result.Message =
+                            $"Express曲线请求失败 - " +
+                            $"TraceLogId: {traceLogId}, " +
+                            $"HTTP: {(int)postResult.StatusCode} {postResult.StatusCode}, " +
+                            $"Response: {LimitLogText(postResult.ResponseBody, 1000)}";
+
+                        return result;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(postResult.ResponseBody))
+                    {
+                        result.Message =
+                            $"Express曲线接口响应为空 - TraceLogId: {traceLogId}";
+
+                        return result;
+                    }
+
+                    var curveResult = ParseExpressTraceData(postResult.ResponseBody, fallbackTr,out var curveTrValue);
+
+                    curveResult.TraceLogId = traceLogId;
+
+                    if (!curveResult.IsSuccess)
+                        return curveResult;
+
+                    if (!curveTrValue.HasValue)
+                    {
+                        _logger.Warn(
+                            $"Express曲线响应中未返回fld_torque_tr - IP: {controllerIP}, " +
+                            $"本次采用回退TR: {fallbackTr:F4}");
+
+                        return curveResult;
+                    }
+
+                    if (!toolTrResult.IsSuccess)
+                    {
+                        _logger.Warn(
+                            $"Express独立TR获取失败，无法完成TR一致性校验 - " +
+                            $"IP: {controllerIP}, CurveTR: {curveTrValue.Value:F4}, " +
+                            $"Error: {toolTrResult.Message}");
+
+                        return curveResult;
+                    }
+
+                    var verifiedToolTr = toolTrResult.TrValue;
+
+                    if (!AreExpressTrValuesEqual(verifiedToolTr, curveTrValue.Value) && toolTrResult.FromCache)
+                    {
+                        var refreshedTrResult = await GetExpressTrValueAsync(controllerIP);
+
+                        if (refreshedTrResult.IsSuccess)
+                        {
+                            verifiedToolTr = refreshedTrResult.TrValue;
+                            UpdateTrValueCache(controllerIP, verifiedToolTr, settings);
+
+                            if (AreExpressTrValuesEqual(verifiedToolTr, curveTrValue.Value))
+                            {
+                                _logger.Info(
+                                    $"Express TR缓存已根据tool-info刷新 - IP: {controllerIP}, " +
+                                    $"TR: {verifiedToolTr:F4}");
+
+                                return curveResult;
+                            }
+                        }
+                        else
+                        {
+                            _logger.Warn(
+                                $"Express TR不一致且刷新tool-info失败 - IP: {controllerIP}, " +
+                                $"CachedTR: {toolTrResult.TrValue:F4}, " +
+                                $"CurveTR: {curveTrValue.Value:F4}, " +
+                                $"Error: {refreshedTrResult.Message}");
+                        }
+                    }
+
+                    if (!AreExpressTrValuesEqual(verifiedToolTr, curveTrValue.Value))
+                    {
+                        var difference = Math.Abs(verifiedToolTr - curveTrValue.Value);
+
+                        var warning =
+                            $"Express TR校验不一致 - IP: {controllerIP}, " +
+                            $"工具校准TR(fld_toolusertr): {verifiedToolTr:F4}, " +
+                            $"曲线TR(fld_torque_tr): {curveTrValue.Value:F4}, " +
+                            $"差值: {difference:F4}。本次曲线按fld_torque_tr计算。";
+
+                        _logger.Warn(warning);
+
+                        // 保持IsSuccess=true，同时将校验警告返回给上层用于界面提示
+                        curveResult.Message = warning;
+                    }
+
+                    return curveResult;
+
+                }
+
                 if (settings.IsWired)
                 {
                     // 有线枪曲线数据获取
@@ -1973,6 +2302,127 @@ namespace SUNWODA_SEVB.WEB.Services.STC
         }
 
         /// <summary>
+        /// 解析Express曲线数据。
+        /// curveTrValue仅表示响应中真实返回的fld_torque_tr；
+        /// trValueFallback仅在曲线响应缺少TR时用于回退计算。
+        /// </summary>
+        private ScrewCurveDataResult ParseExpressTraceData(
+            string response,
+            float trValueFallback,
+            out float? curveTrValue)
+        {
+            var result = new ScrewCurveDataResult();
+            curveTrValue = null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(response);
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("results", out var results) ||
+                    results.ValueKind != JsonValueKind.Array ||
+                    results.GetArrayLength() == 0)
+                {
+                    result.Message = "Express响应中未找到results数组";
+                    return result;
+                }
+
+                var first = results[0];
+
+                // 用于与tool-info中的fld_toolusertr进行校验
+                if (first.TryGetProperty("fld_torque_tr", out var curveTrElement) &&
+                    TryReadPositiveFloat(curveTrElement, out var parsedCurveTr))
+                {
+                    curveTrValue = parsedCurveTr;
+                }
+
+                double transRange;
+
+                if (curveTrValue.HasValue)
+                {
+                    // 当前曲线始终优先采用其自身携带的TR
+                    transRange = curveTrValue.Value;
+                }
+                else if (first.TryGetProperty("fld_transducer_range", out var rangeElement) && TryReadPositiveFloat(rangeElement, out var compatibleTr))
+                {
+                    transRange = compatibleTr;
+                }
+                else if (IsValidTrValue(trValueFallback))
+                {
+                    transRange = trValueFallback;
+                }
+                else
+                {
+                    result.Message ="曲线响应未包含有效TR，且没有可用的工具校准TR，无法计算扭矩";
+                    return result;
+                }
+
+                if (!first.TryGetProperty("fld_trace_data_pt", out var dataPt) ||
+                    dataPt.ValueKind != JsonValueKind.Array)
+                {
+                    result.Message = $"未找到fld_trace_data_pt，TR={transRange:F4}";
+                    return result;
+                }
+
+                var points = new List<CurveDataPoint>(dataPt.GetArrayLength());
+
+                foreach (var pt in dataPt.EnumerateArray())
+                {
+                    if (pt.ValueKind != JsonValueKind.Array)
+                        continue;
+
+                    var arr = pt.EnumerateArray().ToArray();
+                    if (arr.Length < 3)
+                        continue;
+
+                    var rawAngle = GetDoubleValue(arr[0]);
+                    var rawTorque = GetDoubleValue(arr[1]);
+                    var rawCurrent = GetDoubleValue(arr[2]);
+
+                    var angleDeg = Math.Round(rawAngle, 0);
+
+                    // 扭矩：Int16(raw) × TR / 16384
+                    var signedTorque = (short)((int)rawTorque & 0xFFFF);
+                    var torque = signedTorque * transRange / 16384.0;
+
+                    // 电流：Int16(-raw & 0xFFFF) / 256
+                    var low16 = (int)rawCurrent & 0xFFFF;
+                    var signedCurrent = (short)((-low16) & 0xFFFF);
+                    var currentA = signedCurrent / 256.0;
+
+                    points.Add(new CurveDataPoint
+                    {
+                        Angle = Math.Round(angleDeg, 2),
+                        Torque = Math.Round(torque, 4),
+                        Current = Math.Round(currentA, 4)
+                    });
+                }
+
+                if (points.Count == 0)
+                {
+                    result.Message = "未解析到任何曲线点";
+                    return result;
+                }
+
+                result.IsSuccess = true;
+                result.DataPoints = points;
+                result.Message = string.Empty;
+            }
+            catch (JsonException ex)
+            {
+                result.Message = $"Express曲线JSON解析失败: {ex.Message}";
+                _logger.Error("ParseExpressTraceData JSON异常", ex);
+            }
+            catch (Exception ex)
+            {
+                result.Message = $"Express曲线解析异常: {ex.Message}";
+                _logger.Error("ParseExpressTraceData异常", ex);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// 记录JSON结构
         /// </summary>
         private void LogJsonStructure(JsonElement element, string prefix = "")
@@ -1994,7 +2444,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                     }
                 }
 
-                _logger.Info($"{prefix}JSON结构: {{ {string.Join(", ", properties)} }}",true);
+                _logger.Info($"{prefix}JSON结构: {{ {string.Join(", ", properties)} }}", true);
             }
             catch (Exception ex)
             {
@@ -2102,6 +2552,237 @@ namespace SUNWODA_SEVB.WEB.Services.STC
 
         #endregion
 
+        /// <summary>
+        /// Express 新版 POST 请求（connect.sid Cookie，JSON 体）。
+        /// </summary>
+        private async Task<ExpressPostResult> PostExpressWithAuthAsync(string controllerIP, string url, string bodyJson)
+        {
+            HttpRequestMessage CreateRequest(string cookie)
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
+                };
+
+                if (!string.IsNullOrWhiteSpace(cookie))
+                    request.Headers.TryAddWithoutValidation("Cookie", cookie);
+
+                request.Headers.TryAddWithoutValidation("Accept", "*/*");
+                request.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
+                request.Headers.TryAddWithoutValidation("Origin", $"http://{controllerIP}");
+                request.Headers.TryAddWithoutValidation("Referer", $"http://{controllerIP}/cycleResults");
+                request.Headers.TryAddWithoutValidation("Cache-Control", "no-cache");
+                request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.76");
+                return request;
+            }
+
+            async Task<ExpressPostResult> SendOnceAsync(string cookie, bool isRetry)
+            {
+                using var request = CreateRequest(cookie);
+                using var response = await _httpClient.SendAsync(request);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                var requestType = isRetry ? "重试" : "首次";
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.Info(
+                        $"Express POST请求成功 - Type: {requestType}, URL: {url}, " +
+                        $"Status: {(int)response.StatusCode} {response.StatusCode}, ResponseLength: {responseBody.Length}");
+
+                    return new ExpressPostResult
+                    {
+                        IsSuccess = true,
+                        StatusCode = response.StatusCode,
+                        ResponseBody = responseBody,
+                        ErrorMessage = string.Empty,
+                        ReasonPhrase = response.ReasonPhrase ?? string.Empty
+                    };
+                }
+
+                var message =
+                    $"Express POST请求失败 - Type: {requestType}, URL: {url}, " +
+                    $"Status: {(int)response.StatusCode} {response.StatusCode}, " +
+                    $"Request: {LimitLogText(bodyJson)}, Response: {LimitLogText(responseBody)}";
+
+                _logger.Warn(message);
+
+                return new ExpressPostResult
+                {
+                    IsSuccess = false,
+                    StatusCode = response.StatusCode,
+                    ResponseBody = responseBody,
+                    ErrorMessage = message,
+                    ReasonPhrase = response.ReasonPhrase ?? string.Empty
+                };
+            }
+
+            try
+            {
+                var cookie = await GetValidCookieAsync(controllerIP);
+
+                if (string.IsNullOrWhiteSpace(cookie))
+                {
+                    const string message = "Express POST请求失败：未获得有效Cookie";
+                    _logger.Warn($"{message} - IP: {controllerIP}, URL: {url}");
+
+                    return new ExpressPostResult
+                    {
+                        IsSuccess = false,
+                        StatusCode = System.Net.HttpStatusCode.Unauthorized,
+                        ErrorMessage = message
+                    };
+                }
+
+                var firstResult = await SendOnceAsync(cookie, false);
+
+                if (firstResult.IsSuccess)
+                    return firstResult;
+
+                // 400属于请求格式或参数问题，重新登录没有意义
+                if (firstResult.StatusCode != System.Net.HttpStatusCode.Unauthorized &&
+                    firstResult.StatusCode != System.Net.HttpStatusCode.Forbidden)
+                {
+                    return firstResult;
+                }
+
+                _logger.Warn($"Express认证失败，重新登录 - IP: {controllerIP}");
+                _cookieCache.TryRemove(controllerIP, out _);
+
+                cookie = await LoginAndGetCookieAsync(controllerIP);
+
+                if (string.IsNullOrWhiteSpace(cookie))
+                {
+                    return new ExpressPostResult
+                    {
+                        IsSuccess = false,
+                        StatusCode = System.Net.HttpStatusCode.Unauthorized,
+                        ErrorMessage = "Express重新登录失败"
+                    };
+                }
+
+                return await SendOnceAsync(cookie, true);
+
+              
+            }
+            catch (TaskCanceledException ex)
+            {
+                var message = $"Express POST请求超时 - URL: {url}, Error: {ex.Message}";
+                _logger.Warn(message);
+
+                return new ExpressPostResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = message
+                };
+            }
+            catch (HttpRequestException ex)
+            {
+                var message = $"Express POST网络错误 - URL: {url}, Error: {ex.Message}";
+                _logger.Warn(message);
+
+                return new ExpressPostResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = message
+                };
+            }
+            catch (Exception ex)
+            {
+                var message = $"Express POST请求异常 - URL: {url}, Error: {ex.Message}";
+                _logger.Error(message, ex);
+
+                return new ExpressPostResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = message
+                };
+            }
+        }
+
+        /// <summary>
+        /// Express新版GET请求，使用connect.sid认证。
+        /// 不发送If-None-Match，避免控制器返回304而没有响应正文。
+        /// </summary>
+        private async Task<string?> GetExpressWithAuthAsync(string controllerIP, string url, string refererPath)
+        {
+            HttpRequestMessage CreateRequest(string? cookie)
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+                if (!string.IsNullOrWhiteSpace(cookie))
+                    request.Headers.TryAddWithoutValidation("Cookie", cookie);
+
+                request.Headers.TryAddWithoutValidation("Accept", "*/*");
+                request.Headers.TryAddWithoutValidation("Accept-Encoding", "gzip, deflate");
+                request.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
+                request.Headers.TryAddWithoutValidation("Cache-Control", "no-cache, no-store");
+                request.Headers.TryAddWithoutValidation("Pragma", "no-cache");
+                request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.76");
+                request.Headers.TryAddWithoutValidation("Referer", $"http://{controllerIP}{refererPath}");
+
+                return request;
+            }
+
+            try
+            {
+                var cookie = await GetValidCookieAsync(controllerIP);
+
+                using var request = CreateRequest(cookie);
+                using var response = await _httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                    return await response.Content.ReadAsStringAsync();
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
+                {
+                    _logger.Warn($"Express GET返回304且没有正文，请确认未发送If-None-Match - URL: {url}");
+                    return null;
+                }
+
+                // Cookie失效时重新登录并重试一次
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                    response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    _logger.Warn($"Express GET认证失败，尝试重新登录 - IP: {controllerIP}");
+                    _cookieCache.TryRemove(controllerIP, out _);
+                    cookie = await LoginAndGetCookieAsync(controllerIP);
+
+                    if (!string.IsNullOrWhiteSpace(cookie))
+                    {
+                        using var retryRequest = CreateRequest(cookie);
+                        using var retryResponse = await _httpClient.SendAsync(retryRequest);
+
+                        if (retryResponse.IsSuccessStatusCode)
+                            return await retryResponse.Content.ReadAsStringAsync();
+
+                        var retryBody = await retryResponse.Content.ReadAsStringAsync();
+                        _logger.Warn($"Express GET重试失败 - URL: {url}, Status: {retryResponse.StatusCode}, Response: {retryBody}");
+                        return null;
+                    }
+                }
+
+                var errorBody = await response.Content.ReadAsStringAsync();
+                _logger.Warn($"Express GET请求失败 - URL: {url}, Status: {response.StatusCode}, Response: {errorBody}");
+                return null;
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.Warn($"Express GET请求超时 - URL: {url}");
+                return null;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.Warn($"Express GET网络错误 - URL: {url}, Error: {ex.Message}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Express GET请求异常 - URL: {url}", ex);
+                return null;
+            }
+        }
+
+
         #region 私有方法
 
         /// <summary>
@@ -2111,7 +2792,9 @@ namespace SUNWODA_SEVB.WEB.Services.STC
         {
             try
             {
-                using var content = new StringContent(body, Encoding.UTF8, "application/json");
+                using var content = new StringContent(body, Encoding.UTF8);
+                content.Headers.ContentType = null;
+                content.Headers.TryAddWithoutValidation("Content-Type", "application/json;charset=UTF-8");
                 using var response = await _httpClient.PostAsync(url, content);
 
                 if (response.IsSuccessStatusCode)
@@ -2119,7 +2802,8 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                     return await response.Content.ReadAsStringAsync();
                 }
 
-                _logger.Warn($"POST请求失败 - URL: {url}, Status: {response.StatusCode}");
+                var postErrBody = await response.Content.ReadAsStringAsync();
+                _logger.Warn($"POST请求失败 - URL: {url}, Status: {response.StatusCode}, 响应: {postErrBody}");
                 return null;
             }
             catch (TaskCanceledException)
@@ -2150,7 +2834,9 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 var cookie = await GetValidCookieAsync(controllerIP);
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
-                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                request.Content = new StringContent(body, Encoding.UTF8);
+                request.Content.Headers.ContentType = null;
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", "application/json;charset=UTF-8");
 
                 // 添加Cookie
                 if (!string.IsNullOrEmpty(cookie))
@@ -2162,6 +2848,7 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                 request.Headers.Add("Accept", "application/json, text/plain, */*");
                 request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
                 request.Headers.Add("Referer", $"http://{controllerIP}/");
+                request.Headers.Add("Origin", $"http://{controllerIP}/");
 
                 var response = await _httpClient.SendAsync(request);
 
@@ -2184,10 +2871,14 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                     {
                         // 重试请求
                         using var retryRequest = new HttpRequestMessage(HttpMethod.Post, url);
-                        retryRequest.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                        retryRequest.Content = new StringContent(body, Encoding.UTF8);
+                        retryRequest.Content.Headers.ContentType = null;
+                        retryRequest.Content.Headers.TryAddWithoutValidation("Content-Type", "application/json;charset=UTF-8");
                         retryRequest.Headers.Add("Cookie", cookie);
                         retryRequest.Headers.Add("Accept", "application/json, text/plain, */*");
+                        retryRequest.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
                         retryRequest.Headers.Add("Referer", $"http://{controllerIP}/");
+                        retryRequest.Headers.Add("Origin", $"http://{controllerIP}/");
 
                         var retryResponse = await _httpClient.SendAsync(retryRequest);
                         if (retryResponse.IsSuccessStatusCode)
@@ -2197,7 +2888,8 @@ namespace SUNWODA_SEVB.WEB.Services.STC
                     }
                 }
 
-                _logger.Warn($"POST请求失败 - URL: {url}, Status: {response.StatusCode}");
+                var postErrBody = await response.Content.ReadAsStringAsync();
+                _logger.Warn($"POST请求失败 - URL: {url}, Status: {response.StatusCode}, 响应: {postErrBody}");
                 return null;
             }
             catch (TaskCanceledException)
@@ -2250,6 +2942,29 @@ namespace SUNWODA_SEVB.WEB.Services.STC
             return (torque, current);
         }
 
+
+        private sealed class ExpressPostResult
+        {
+            public bool IsSuccess { get; set; }
+
+            public System.Net.HttpStatusCode StatusCode { get; set; }
+
+            public string ReasonPhrase { get; set; } = string.Empty;
+
+            public string ResponseBody { get; set; } = string.Empty;
+
+            public string ErrorMessage { get; set; } = string.Empty;
+        }
+
+        private static string LimitLogText(string? text, int maxLength = 2000)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+
+            return text.Length <= maxLength
+                ? text
+                : text[..maxLength] + "...";
+        }
         #endregion
 
         #region IDisposable

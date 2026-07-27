@@ -15,11 +15,32 @@ namespace SUNWODA_SEVB.Core.Models.Data
         Daily = 1
     }
 
+    public enum DetectionStatisticsSource
+    {
+        /// <summary>
+        /// 全部统计：在线 + 离线
+        /// 用于保持原有界面总统计兼容
+        /// </summary>
+        All = 0,
+
+        /// <summary>
+        /// 在线检测统计
+        /// </summary>
+        Online = 1,
+
+        /// <summary>
+        /// 离线检测统计
+        /// </summary>
+        Offline = 2
+    }
+
     public class DetectionStatisticsModel
     {
         public int ID { get; set; }
 
         public string ModuleCode { get; set; } = null!;
+
+        public int SourceType { get; set; }// 数据来源：0=全部，1=在线，2=离线
 
         public int ScopeType { get; set; }
 

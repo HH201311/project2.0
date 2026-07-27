@@ -15,6 +15,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     public static class PythonConfigHelper
     {
         private static Thread? PythonThread;
+        private static CancellationTokenSource? _cts;  // ✅ 添加
         public static bool IsWorking { get; private set; } = false;
         private static Queue<(Action<object[]>, object[])> actions =
             new Queue<(Action<object[]>, object[])>();
@@ -58,6 +59,19 @@ namespace SUNWODA_SEVB.Tool.Helper
             try
             {
                 string? pythonInstallDir = obj[0] as string;
+
+                // 校验传入的 pythonInstallDir，避免传入 null 或不存在的路径导致 Directory.GetFiles 报 CS8604
+                if (string.IsNullOrWhiteSpace(pythonInstallDir))
+                {
+                    MessageBox.Show("未提供 Python 安装路径", "路径错误");
+                    return;
+                }
+                if (!Directory.Exists(pythonInstallDir))
+                {
+                    MessageBox.Show("指定的 Python 安装路径不存在：" + pythonInstallDir, "路径错误");
+                    return;
+                }
+
                 #region python配置<可配置>
                 #region python动态链接库
                 var files = Directory.GetFiles(pythonInstallDir, "python*.dll");
@@ -106,7 +120,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                         searchPaths.AddRange(customPaths);
                     }
                 }
-                
+
 
                 searchPaths.Add("./PythonScripts");
                 PythonEngine.PythonPath = string.Join(";", searchPaths);
@@ -170,7 +184,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (!IsWorking)
             {
-                PythonThread = new Thread(DoAction);
+                _cts = new CancellationTokenSource();  // ✅ 创建取消令牌源
+                PythonThread = new Thread(() => DoAction(_cts.Token));  // ✅ 传递 Token
                 PythonThread.IsBackground = true;
                 PythonThread.Name = "PythonThread";
                 IsWorking = true;
@@ -185,7 +200,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (IsWorking)
             {
-                PythonThread.Abort();
+                _cts?.Cancel();  // ✅ 使用 Cancel 替代 Abort
                 IsWorking = false;
                 actions.Clear();
                 IsInitConfig = false;
@@ -195,9 +210,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 任务队列执行
         /// </summary>
-        private static void DoAction()
+        private static void DoAction(CancellationToken cancellationToken)  // ✅ 添加参数
         {
-            while (IsWorking)
+            while (!cancellationToken.IsCancellationRequested)  // ✅ 检查取消信号
             {
                 try
                 {

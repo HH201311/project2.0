@@ -22,11 +22,14 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
         private readonly IMessageHandler _messageHandler;
         private readonly ISocketOptionsLoader _optionsLoader;
         private readonly SocketServerOptions _defaultOptions;
-        private readonly SynchronizationContext? _synchronizationContext;     
+        private readonly SynchronizationContext? _synchronizationContext;
+        private const int MaxBufferedBytes = 1024 * 1024;
 
         // 当前生效的配置
         private SocketServerOptions _activeOptions;
         private IFrameParser? _frameParser;
+        private byte Stx = 0x02;
+        private byte Etx = 0x03;
 
         public bool IsRunning { get; private set; }
         public int Port { get; private set; }
@@ -63,6 +66,8 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
                 // 从数据库加载配置
                 _activeOptions = await _optionsLoader.LoadOptionsAsync(moduleName);
                 _frameParser = new FrameParser(_activeOptions.Protocol);
+                Stx = _activeOptions.Protocol.StartDelimiter?.FirstOrDefault() ?? 0x02;
+                Etx = _activeOptions.Protocol.EndDelimiter?.FirstOrDefault() ?? 0x03;
                 // 如果传入端口为0，使用配置中的端口
                 var actualPort = port > 0 ? port : _activeOptions.DefaultPort;
                 lock (_lockObj)
@@ -356,41 +361,169 @@ namespace SUNWODA_SEVB.Tool.Services.Socket
             }
         }
 
-        private async Task ProcessReceivedData(SocketClientSession session,byte[] buffer,int bytesRead,MemoryStream memoryStream,CancellationToken cancellationToken)
+        //private async Task ProcessReceivedData(SocketClientSession session,byte[] buffer,int bytesRead,MemoryStream memoryStream,CancellationToken cancellationToken)
+        //{
+        //    //_logger.Info($"接收到 {bytesRead} 字节数据",true);
+        //    //var receivedHex = BitConverter.ToString(buffer, 0, bytesRead);
+        //    var receivedText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+        //    _logger.Info($"接收到 {bytesRead} 字节: TEXT=[{receivedText}]", true);
+
+        //    memoryStream.Write(buffer, 0, bytesRead);
+
+        //    var data = memoryStream.ToArray();
+
+        //    int offset = 0;
+        //    while (offset < data.Length)
+        //    {
+        //        var result = _frameParser!.TryParseFrame(data, offset, data.Length - offset);
+
+        //        if (!result.Success)
+        //            break;
+
+        //        // 处理完整帧
+        //        if (result.FrameData != null)
+        //        {
+        //            await ProcessCompleteMessage(session, result.FrameData, cancellationToken);
+        //        }
+
+        //        offset += result.ConsumedBytes;
+        //    }
+
+
+        //    // 保存未处理完的数据
+        //    memoryStream.SetLength(0);
+        //    if (offset < data.Length)
+        //    {
+        //        memoryStream.Write(data, offset, data.Length - offset);
+        //    }
+        //}
+        private async Task ProcessReceivedData(SocketClientSession session, byte[] buffer, int bytesRead, MemoryStream memoryStream, CancellationToken cancellationToken)
         {
-            _logger.Info($"接收到 {bytesRead} 字节数据",true);
-            ////var receivedHex = BitConverter.ToString(buffer, 0, bytesRead);
-            //var receivedText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            //_logger.Info($"接收到 {bytesRead} 字节: TEXT=[{receivedText}]", true);
+            _logger.Info($"接收到 {bytesRead} 字节数据", true);
 
             memoryStream.Write(buffer, 0, bytesRead);
 
-            var data = memoryStream.ToArray();
-
-            int offset = 0;
-            while (offset < data.Length)
+            if (memoryStream.Length > MaxBufferedBytes)
             {
-                var result = _frameParser!.TryParseFrame(data, offset, data.Length - offset);
+                _logger.Error(
+                    $"客户端 {session.EndPoint} 接收缓存超过限制：" +
+                    $"{memoryStream.Length} > {MaxBufferedBytes}，清空缓存。",
+                    true);
 
-                if (!result.Success)
-                    break;
+                memoryStream.SetLength(0);
+                return;
+            }
 
-                // 处理完整帧
-                if (result.FrameData != null)
+            byte[] data = memoryStream.ToArray();
+
+            _logger.Info(
+                $"缓冲区 len={data.Length} " +
+                $"头=[{HexRange(data, 0, 16)}] " +
+                $"尾=[{HexRange(data, data.Length - 16, 16)}]",
+                true);
+
+            int cursor = 0;
+
+            while (cursor < data.Length)
+            {
+                // 1. 从当前位置向后寻找 STX，而不是要求当前位置必须是 STX
+                int stxIndex = Array.IndexOf(data, Stx, cursor);
+
+                if (stxIndex < 0)
                 {
-                    await ProcessCompleteMessage(session, result.FrameData, cancellationToken);
+                    // 当前剩余数据中完全没有 STX，全部属于无效数据
+                    int invalidLength = data.Length - cursor;
+
+                    if (invalidLength > 0)
+                    {
+                        _logger.Warn(
+                            $"丢弃未找到 STX 的无效数据 {invalidLength} 字节，" +
+                            $"HEX=[{HexRange(data, cursor, Math.Min(invalidLength, 32))}]",
+                            true);
+                    }
+
+                    cursor = data.Length;
+                    break;
                 }
 
-                offset += result.ConsumedBytes;
+                // 2. 丢弃 STX 前面的垃圾数据
+                if (stxIndex > cursor)
+                {
+                    int invalidLength = stxIndex - cursor;
+
+                    _logger.Warn(
+                        $"丢弃 STX 前无效数据 {invalidLength} 字节，" +
+                        $"HEX=[{HexRange(data, cursor, Math.Min(invalidLength, 32))}]",
+                        true);
+                }
+
+                // 3. 从 STX 后面寻找 ETX
+                int etxIndex = Array.IndexOf(data, Etx, stxIndex + 1);
+
+                if (etxIndex < 0)
+                {
+                    // 已收到 STX，但完整 ETX 还没到。
+                    // 从 STX 开始保留，等待下一次 ReceiveAsync。
+                    cursor = stxIndex;
+
+                    _logger.Info(
+                        $"帧不完整：已找到 STX，尚未找到 ETX，" +
+                        $"保留 {data.Length - cursor} 字节。",
+                        true);
+
+                    break;
+                }
+
+                // 4. 截取 STX 和 ETX 之间的业务数据
+                int payloadLength = etxIndex - stxIndex - 1;
+                byte[] payload = new byte[payloadLength];
+
+                if (payloadLength > 0)
+                {
+                    Buffer.BlockCopy(
+                        data,
+                        stxIndex + 1,
+                        payload,
+                        0,
+                        payloadLength);
+                }
+
+                await ProcessCompleteMessage(
+                    session,
+                    payload,
+                    cancellationToken);
+
+                // 5. 继续寻找下一帧，处理粘包
+                cursor = etxIndex + 1;
             }
 
-
-            // 保存未处理完的数据
+            // 6. 仅保留真正未完成的半帧
             memoryStream.SetLength(0);
-            if (offset < data.Length)
+
+            if (cursor < data.Length)
             {
-                memoryStream.Write(data, offset, data.Length - offset);
+                memoryStream.Write(
+                    data,
+                    cursor,
+                    data.Length - cursor);
+
+                _logger.Info(
+                    $"留存未完成帧 {data.Length - cursor} 字节，" +
+                    $"头=[{HexRange(data, cursor, 16)}]",
+                    true);
             }
+        }
+
+        /// <summary>取 data[start,start+count) 的 hex（空格分隔），越界自动夹紧；纯诊断用。</summary>
+        private static string HexRange(byte[] data, int start, int count)
+        {
+            if (data == null || data.Length == 0) return string.Empty;
+            start = Math.Max(0, start);
+            count = Math.Min(count, data.Length - start);
+            if (count <= 0) return string.Empty;
+            var sb = new StringBuilder(count * 3);
+            for (int i = 0; i < count; i++) sb.Append(data[start + i].ToString("X2")).Append(' ');
+            return sb.ToString().TrimEnd();
         }
 
         private async Task ProcessCompleteMessage(

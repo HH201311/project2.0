@@ -169,6 +169,93 @@
 
             <!--  底部功能按钮  -->
             <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                <!--  联系人信息  -->
+                <Border
+                    Margin="10,0,10,10"
+                    Padding="10"
+                    Background="#FF243443"
+                    CornerRadius="4">
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!--  标题  -->
+                        <StackPanel
+                            Grid.Row="0"
+                            Margin="0,0,0,8"
+                            Orientation="Horizontal">
+
+                            <iconPacks:PackIconMaterial
+                                Width="16"
+                                Height="16"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                Foreground="White"
+                                Kind="Contacts" />
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Foreground="White"
+                                Text="联系人" />
+                        </StackPanel>
+
+                        <!--  联系人姓名  -->
+                        <StackPanel
+                            Grid.Row="1"
+                            Margin="0,0,0,5"
+                            Orientation="Horizontal">
+
+                            <iconPacks:PackIconMaterial
+                                Width="15"
+                                Height="15"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                Foreground="#FF3498DB"
+                                Kind="AccountCircle" />
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="13"
+                                Foreground="White"
+                                Text="{Binding ContactName}"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTip="{Binding ContactName}" />
+                        </StackPanel>
+
+                        <!--  联系方式  -->
+                        <StackPanel Grid.Row="2" Orientation="Horizontal">
+
+                            <iconPacks:PackIconMaterial
+                                Width="15"
+                                Height="15"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                Foreground="#FF3498DB"
+                                Kind="Phone" />
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="#FFBDC3C7"
+                                Text="{Binding ContactMethod}"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTip="{Binding ContactMethod}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!--  分隔线  -->
+                <Border
+                    Height="1"
+                    Margin="10,0,10,5"
+                    Background="#FF455A64" />
+
                 <RadioButton
                     Command="{Binding SettingsCommand}"
                     GroupName="NavButtons"

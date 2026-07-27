@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
+    <Compile Include="Interfaces\Project\STC\IScrewControllerService.cs" />
     <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
   </ItemGroup>
 

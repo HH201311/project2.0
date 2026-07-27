@@ -38,6 +38,7 @@
     <None Remove="Assets\images\logo.ico" />
     <None Remove="Assets\images\logo.png" />
     <None Remove="Assets\images\plus.png" />
+    <None Remove="Assets\Images\强电1示意图.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -202,6 +203,12 @@
     <Content Include="Assets\images\plus.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Images\强电1示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

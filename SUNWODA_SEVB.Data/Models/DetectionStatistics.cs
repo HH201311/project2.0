@@ -4,8 +4,9 @@ namespace SUNWODA_SEVB.Data.Models
 {
     [SugarTable("detection_statistics", "雅康叠片机损AI检测统计表")]
     [SugarIndex(
-        "detection_statistics_key",
+        "ux_detection_statistics_key",
         nameof(ModuleCode), OrderByType.Asc,
+        nameof(SourceType), OrderByType.Asc,
         nameof(ScopeType), OrderByType.Asc,
         nameof(StatisticsDate), OrderByType.Asc,
         true)]
@@ -16,6 +17,9 @@ namespace SUNWODA_SEVB.Data.Models
 
         [SugarColumn(ColumnName = "module_code", ColumnDescription = "所属模块编码")]
         public string ModuleCode { get; set; } = null!;
+
+        [SugarColumn(ColumnName = "source_type", ColumnDescription = "数据来源：0=全部，1=在线，2=离线")]
+        public int SourceType { get; set; }
 
         [SugarColumn(ColumnName = "scope_type", ColumnDescription = "统计范围：0=总统计，1=每日统计")]
         public int ScopeType { get; set; }

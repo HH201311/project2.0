@@ -47,7 +47,7 @@ namespace SUNWODA_SEVB.Core.Converters
                 string externalFilePath = Path.Combine(appDirectory, normalizedPath);
 
 
-                externalFilePath = "D:\\sunwoda2.0.0.1\\SUNWODA_SEVB\\Assets\\Images\\shanggai.png";
+                //externalFilePath = "D:\\sunwoda2.0.0.1\\SUNWODA_SEVB\\Assets\\Images\\shanggai.png";
                 if (File.Exists(externalFilePath))
                 {
                     Debug.WriteLine($"[ImageConverter] 使用外部文件加载: {externalFilePath}");

@@ -1,9 +1,10 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-23（晚间修订：**阶段四增量** + **主/单测一致性核对**）  
+> **文档版本**：2026-07-27（**阶段七：AI 图像标注** 接口文档已入库）  
 > **状态**：**阶段一～五全部 ✅**；进程池并行导入 ✅；阶段四已含「偏移置0」「黄框向量」「对齐后捕捉拖拽」。  
+> **下一阶段**：❌ **阶段七 · AI 图像标注**（`NJCT.NJSwdCT`；接口见 `docs/CT离线AI视觉接口文档.md`）  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
-> **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）
+> **关联文档**：`docs/CTAutoSlicer迁移说明.md`（平台分层与文件职责）、`docs/update_ctautoslicer_wait_settings.sql`（数据库等待参数）、**`docs/CT离线AI视觉接口文档.md`**（惠州离线 CT 正极 AI 接口 V1.0）
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
 
@@ -365,7 +366,12 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 5. Alt+F+T 三视图切片导出（`ExportImageStackSlicesAsync`）
       依次导出「前 / 右 / 上」；切片范围取自 UI 各视角 mm
 
-❌ 6. 收尾：导入成功后 .vgl 处理、文件夹监控自动跑批等（见 §8 阶段六，可选）
+❌ 6. 阶段七 · AI 图像标注（`NJCT.NJSwdCT`）
+      切片导出图 → `ModelInit` → `ModelAction` / `ModelAction_origin`
+      → 抓点区域 + L1～L5 坐标 + 尺寸数据落盘标注
+      （接口详规见 `docs/CT离线AI视觉接口文档.md`、§22）
+
+❌ 7. 收尾：导入成功后 .vgl 处理、文件夹监控自动跑批等（见 §8 阶段六，可选）
 ```
 
 **说明**：
@@ -410,6 +416,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 | ✅ | **对齐后捕捉拖拽** | **已完成**（单测+主流程）。见 §20 |
 | ✅ | **切片范围（UI mm）** | 按前/右/上分视角配置 |
 | ✅ | **Alt+F+T 保存影片/图像堆栈** | 三视图依次选参并导出；已接入主流程 |
+| ❌ | **阶段七 · AI 图像标注** | 切片后调用 `NJSwdCT`；接口文档已入库（§22 / `CT离线AI视觉接口文档.md`） |
 | ❌ | 导入成功后删除 `.vgl` | 进程池路径已删排队文件；策略见 §0.1 |
 | ❌ | 文件夹监控触发自动跑批 | 可选产品需求 |
 | ~~🟡~~ | ~~阶段四 · 旧 4b~~ | **已取消** |
@@ -481,6 +488,33 @@ await ExportImageStackSlicesAsync(...);
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
 **说明**：主流程在简单 3-2-1 之后导出；三视图共用同一 UI 切片范围。
+
+### 阶段七：AI 图像标注（❌ 当前阶段；接口文档已就绪）
+
+> **2026-07-27**：视觉组交付惠州离线 CT 正极接口（V1.0）；完整字段见 **`docs/CT离线AI视觉接口文档.md`**。  
+> **位置**：阶段五切片导出 **之后**；对导出 JPEG 做 AI 推理与抓点标注。
+
+**接口概要**（`NJCT.NJSwdCT`，反射动态调用）：
+
+| 方法 | 用途 |
+|------|------|
+| `ModelInit` | 加载 ONNX 模型 → 返回 `IPredictor` 句柄 |
+| `ModelAction` | 推理 + **增强图** 显示；输出抓点区域、L1～L5 row/col、尺寸 |
+| `ModelAction_origin` | 推理 + **原图** 显示；输出字段同上 |
+
+**关键输出**（正常时 `AllPointRegion` / `AllRegionRow` / `AllRegionCol` 长度均为 **2**，对应双电芯）：
+
+- `AllPointRegion` — 每个电芯抓点区域（`List<HObject>`，**须手动 Dispose**）  
+- `AllRegionRow` / `AllRegionCol` — L1～L5 坐标  
+- `AllPrintfValue` — 抓点尺寸数据（像素）  
+- `RunInfo` — 成功为 `""`，异常须记录  
+
+**建议实现**（详见接口文档 §2～§3）：
+
+1. 新建或扩展 Service 封装反射调用（可参考 `VM_CTNCLXAutoDetectionPage` 中 `NJSwdCT` 用法）。  
+2. Settings：`ModelPath`、`BlackHeight`、`IsRunCuda`、标注图输出目录。  
+3. 主流程：`ExportImageStackSlicesAsync` 成功后对导出图批量标注。  
+4. 单测：「测试 AI 图像标注」— 选手动图片或最近导出切片。
 
 ### 阶段六：收尾与自动化增强
 
@@ -654,24 +688,27 @@ tools/
   Vision3dPointsProbe/               ← ✅ 离线批量探针（样图 → `_probe/*_points.png`）
 docs/
   CTAutoSlicer迁移说明.md
-  CTAutoSlicer_2022改造进度存档.md   ← 本文档（§16 详规；§17 联调；§18 本地算法）
+  CT离线AI视觉接口文档.md            ← ✅ 阶段七 NJSwdCT 接口 V1.0（2026-07-27）
+  CTAutoSlicer_2022改造进度存档.md   ← 本文档（§16 详规；§17 联调；§18 本地算法；§22 AI 标注）
 ```
 
 ---
 
 ## 13. 给下一上下文的阅读顺序
 
-1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**§16**；**§19 黄框向量**；**§20 捕捉拖拽**；**§21 主/单测一致性**；导入 §15）  
-2. `VGAutomationService` — `RunPostImportPipelineAsync` / `RunSimple321AlignmentAsync` / `RunPostAlignCaptureDragAsync`  
-3. `Vision3dSectionPointsDetector` + `VisionTopViewVectorPointsDetector` — 找点  
-4. `ImportSingleVglAsync` / 进程池 — 主链：直方图 → 厚板 → **3-2-1** → **捕捉拖拽** → 导出  
-5. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
+1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**§16**；**§19 黄框向量**；**§20 捕捉拖拽**；**§21 主/单测一致性**；**§22 AI 图像标注**；导入 §15）  
+2. **`docs/CT离线AI视觉接口文档.md`** — 阶段七 `NJSwdCT` 接口全文字段  
+3. `VGAutomationService` — `RunPostImportPipelineAsync` / `RunSimple321AlignmentAsync` / `RunPostAlignCaptureDragAsync`  
+4. `Vision3dSectionPointsDetector` + `VisionTopViewVectorPointsDetector` — 找点  
+5. `ImportSingleVglAsync` / 进程池 — 主链：直方图 → 厚板 → **3-2-1** → **捕捉拖拽** → 导出 → **（待接）AI 标注**  
+6. `VM_CTNCLXAutoDetectionPage` — 已有 `NJSwdCT.ModelInit` / `ModelAction` 参考实现  
+7. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
 
 ---
 
 ## 14. 一句话总结
 
-**阶段一～五已在主流程跑通**。阶段四 = 简单 3-2-1（三点 → 偏移置0 → 黄框向量两点 → 原点）+ 对齐后捕捉拖拽；**无独立旧 4b**。主流程与单测共用核心方法（§21）。可选后续：文件夹监控跑批等（阶段六）。
+**阶段一～五已在主流程跑通**。阶段四 = 简单 3-2-1（三点 → 偏移置0 → 黄框向量两点 → 原点）+ 对齐后捕捉拖拽；**无独立旧 4b**。主流程与单测共用核心方法（§21）。**当前任务**：阶段七 AI 图像标注（`NJSwdCT`，见 `CT离线AI视觉接口文档.md`）。可选后续：文件夹监控跑批等（阶段六）。
 
 ---
 
@@ -1110,5 +1147,68 @@ screenY = Ry + Py
 
 - 各单步测试按钮均已跑通。  
 - 主流程在标定齐全且开关开启时应与单测行为一致（同一核心方法）。
+
+---
+
+## 22. 阶段七：AI 图像标注（2026-07-27 接口入库）
+
+> **状态**：❌ **未开始实现**；视觉接口文档 V1.0 已写入 `docs/CT离线AI视觉接口文档.md`。  
+> **位置**：阶段五切片导出 **之后**；对导出图像做电芯抓点 AI 推理与标注落盘。  
+> **与阶段四区别**：阶段四用 OpenCV 本地找点做 VG 内 3-2-1 对齐；本阶段用 **`NJCT.NJSwdCT`** 对 **切片 JPEG** 做抓点区域与 L1～L5 标注，业务目标不同。
+
+### 22.1 接口来源
+
+| 项 | 值 |
+|----|-----|
+| 文档 | `docs/CT离线AI视觉接口文档.md` |
+| 编制 | 罗奕雄，2026-07-27，V1.0 |
+| 业务 | 惠州离线 CT 正极 |
+| DLL | 名称随版本变更（文档记为 `x.dll`） |
+| 类型 | `NJCT.NJSwdCT` |
+
+### 22.2 三个接口方法
+
+| 方法 | 输入要点 | 输出要点 |
+|------|----------|----------|
+| `ModelInit` | `ModelPath`（ONNX 绝对路径）、`IsRunCuda`（默认 true） | `IPredictor` 句柄、`ExInfo` |
+| `ModelAction` | `ImgPath`、`Models`、`BlackHeight` | 增强图 `ResultImg`、双电芯抓点区域与坐标 |
+| `ModelAction_origin` | 同上 | **原图** `ResultImg`、双电芯抓点区域与坐标 |
+
+正常推理时 `AllPointRegion`、`AllRegionRow`、`AllRegionCol`、`AllPrintfValue` 长度均为 **2**（双电芯）。  
+`AllRegionRow` / `AllRegionCol` 为 L1～L5 坐标；`AllPrintfValue` 为抓点尺寸（像素）。  
+`RunInfo` 成功为 `""`；`List<HObject>` **必须逐元素释放**。
+
+### 22.3 运行时依赖
+
+- C# 8.0 + .NET Framework 4.8 编译的算法 DLL（宿主为 .NET 8 时仍用反射 `LoadFrom`）  
+- `CF.dll`、`halcondotnet.dll`（**22.11**）、ONNX Runtime（**1.20.1** + **12.4 Cuda** 可选）  
+- `IPredictor` 来自 `IMEYModel.dll`  
+- 部署：`Dlls\` + 调用前 `SetDllDirectory`（与现有 Halcon 策略一致）
+
+### 22.4 仓库内参考实现
+
+| 文件 | 说明 |
+|------|------|
+| `VM_CTNCLXAutoDetectionPage.cs` | 已直接引用 `NJSwdCT`：`ModelInit` + `ModelAction`（南昌 Gap，含 `AllJianXiValue` 等扩展出参，与惠州正极接口字段略有差异） |
+| `CutImgAlgorithmService.cs` | 旧 `CTAutoCutImg.dll` 封装；**阶段七不用此 DLL** |
+
+### 22.5 建议接入点
+
+```text
+RunPostImportPipelineAsync 末尾：
+  … → ExportImageStackSlicesAsync
+  → （待实现）RunOfflineCtVisionAnnotationAsync
+      → ModelInit（页面 Init 或首次推理前）
+      → 遍历导出 JPEG → ModelAction / ModelAction_origin
+      → 标注图 + 坐标 JSON/CSV 落盘
+```
+
+### 22.6 待办清单
+
+- [ ] 封装 `ICTOfflineVisionService`（反射 `NJCT.NJSwdCT`）  
+- [ ] Settings：`ModelPath`、`BlackHeight`、`IsRunCuda`、标注输出目录  
+- [ ] 单测：「测试 AI 图像标注」  
+- [ ] 主流程：切片导出成功后可选批量标注（开关）  
+- [ ] Halcon `HObject` 生命周期管理与异常 `RunInfo` 日志  
 
 ---

@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -13,6 +15,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     public static class OfflineCtAnnotationHelper
     {
         public const string AnnotationFolderName = "AI标注";
+        public const string RotatedInputFileNameWithoutExt = "input_rotated_cw90";
 
         private static readonly Regex NumericFileName = new(
             @"^(\d+)",
@@ -37,6 +40,75 @@ namespace SUNWODA_SEVB.Tool.Helper
                 sliceExportFolder,
                 SliceExportNamingHelper.BuildExportFileRootFolderName(exportBaseName),
                 AnnotationFolderName);
+
+        /// <summary>
+        /// 将上视图顺时针旋转 90° 后保存到 outputPath（供 NJCT 识别；原图不变）。
+        /// </summary>
+        public static string SaveClockwiseRotated90(string sourceImagePath, string outputPath)
+        {
+            if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
+            {
+                throw new FileNotFoundException("待旋转的上视图不存在", sourceImagePath);
+            }
+
+            var outputDir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+
+            // 先读入内存再释放文件锁，避免 Image.FromFile 长期占用源文件
+            using var source = LoadBitmapUnlocked(sourceImagePath);
+            source.RotateFlip(RotateFlipType.Rotate90FlipNone);
+
+            var format = ResolveImageFormat(outputPath);
+            source.Save(outputPath, format);
+            return outputPath;
+        }
+
+        /// <summary>
+        /// 在标注输出目录生成顺时针旋转 90° 的推理输入图，返回落盘路径。
+        /// </summary>
+        public static string CreateRotatedInputForAnnotation(string sourceImagePath, string annotationFolder)
+        {
+            var ext = Path.GetExtension(sourceImagePath);
+            if (string.IsNullOrWhiteSpace(ext) || !ImageExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            {
+                ext = ".jpg";
+            }
+
+            var outputPath = Path.Combine(annotationFolder, RotatedInputFileNameWithoutExt + ext.ToLowerInvariant());
+            return SaveClockwiseRotated90(sourceImagePath, outputPath);
+        }
+
+        private static Bitmap LoadBitmapUnlocked(string path)
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var temp = new Bitmap(fs);
+            return new Bitmap(temp);
+        }
+
+        private static ImageFormat ResolveImageFormat(string path)
+        {
+            var ext = Path.GetExtension(path);
+            if (ext.Equals(".png", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageFormat.Png;
+            }
+
+            if (ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageFormat.Bmp;
+            }
+
+            if (ext.Equals(".tif", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".tiff", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageFormat.Tiff;
+            }
+
+            return ImageFormat.Jpeg;
+        }
 
         /// <summary>
         /// 取中间图：按文件名数字排序后取第 quantity/2 张（1-based；100→50）。

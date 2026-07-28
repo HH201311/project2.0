@@ -216,7 +216,23 @@
                 <DockPanel Grid.Row="1" Margin="0,0,0,14" LastChildFill="False">
                     <StackPanel DockPanel.Dock="Left">
                         <TextBlock Text="{Binding CurrentSectionTitle}" Style="{StaticResource CasTitleTextStyle}"/>
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource CasMutedTextStyle}" Text="{Binding MessageShower}"/>
+                        <!-- 运行总览不在此显示状态文案，避免长日志挤占布局；详见底部栏与流程日志区 -->
+                        <TextBlock Margin="0,4,0,0"
+                                   Text="{Binding MessageShower}"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="520">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CasMutedTextStyle}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavOverview}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                     <Border DockPanel.Dock="Right" Style="{StaticResource CasPillBorderStyle}" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -274,13 +290,10 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="CT 自动化切片" FontSize="24" FontWeight="SemiBold"
                                        Foreground="{StaticResource CasPrimaryTextBrush}"/>
-                            <TextBlock Grid.Row="1" Margin="0,8,0,0" Text="{Binding MessageShower}" TextWrapping="Wrap"
-                                       Style="{StaticResource CasMutedTextStyle}"/>
-                            <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                            <StackPanel Grid.Row="1" Margin="0,14,0,0">
                                 <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="VG 路径"/>
                                 <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
                                            Text="{Binding VGAppPath}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
@@ -1436,13 +1449,14 @@
                                         <Binding Path="SliceExportFolder" UpdateSourceTrigger="PropertyChanged" />
                                     </hc:TextBox.Text>
                                 </hc:TextBox>
-                                <Button Width="40" Command="{Binding OpenSliceExportFolderCommand}">
+                                <Button Width="40" Command="{Binding OpenSliceExportFolderCommand}"
+                                        ToolTip="选择切片导出保存文件夹">
                                     <Image Width="18">
                                         <Image.Source>
                                             <DrawingImage>
                                                 <DrawingImage.Drawing>
                                                     <DrawingGroup>
-                                                        <GeometryDrawing Brush="Black" Geometry="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm96,240H160a16,16,0,0,1,0-32H352a16,16,0,0,1,0,32Z" />
+                                                        <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
                                                     </DrawingGroup>
                                                 </DrawingImage.Drawing>
                                             </DrawingImage>
@@ -1624,6 +1638,8 @@
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
+                                            <Run Text="• 顺时针旋转90°：送入 NJCT 前旋转上视图；默认勾选（算法朝向要求）。" />
+                                            <LineBreak />
                                             <Run Text="• 导出 JSON/CSV：坐标与尺寸落盘，默认均勾选。" />
                                         </TextBlock>
                                     </ToolTip>
@@ -1684,6 +1700,11 @@
                             <StackPanel Margin="10,4,10,10" Orientation="Horizontal">
                                 <CheckBox
                                     Margin="0,0,24,0"
+                                    Content="上视图顺时针旋转90°"
+                                    IsChecked="{Binding OfflineCtRotateTopViewCw90}"
+                                    ToolTip="送入 NJCT 前将上视图顺时针旋转90°；算法朝向要求时请勾选。手动选已旋转图时可取消" />
+                                <CheckBox
+                                    Margin="0,0,24,0"
                                     Content="输出 annotation.json"
                                     IsChecked="{Binding OfflineCtExportJson}" />
                                 <CheckBox
@@ -1695,7 +1716,7 @@
                                 Margin="10,0,10,8"
                                 TextWrapping="Wrap"
                                 Foreground="#666"
-                                Text="主流程输入：上视图文件夹中第 N/2 张图。输出：主文件夹下「AI标注」子目录（与前/右/上同级）。" />
+                                Text="主流程输入：上视图文件夹中第 N/2 张图。输出：主文件夹下「AI标注」子目录（与前/右/上同级）。勾选旋转时额外生成 input_rotated_cw90.*" />
 
                             <TextBlock
                                 Margin="10,12,10,0"
@@ -1795,6 +1816,8 @@
                                             <Run Text="• 测试切片导出(三视图)：验证前/右/上堆栈导出。" />
                                             <LineBreak />
                                             <Run Text="• 测试 AI 图像标注：选手动图或按规则取「上」视图中间图调用 NJCT。" />
+                                            <LineBreak />
+                                            <Run Text="• 截取3D/上视图标定图：按 ROI 截图到下方配置的存放路径。" />
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
@@ -1855,6 +1878,64 @@
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="选手动图，或按切片导出目录取「上」视图中间图后调用 NJCT" />
                             </UniformGrid>
+
+                            <TextBlock
+                                Margin="10,18,10,0"
+                                FontWeight="SemiBold"
+                                Text="标定采图（调试）" />
+                            <TextBlock
+                                Margin="10,4,10,0"
+                                Foreground="{StaticResource CasMutedTextBrush}"
+                                TextWrapping="Wrap"
+                                Text="最小化本软件后按已标定 ROI 截图。需先在「视觉对齐」页完成 3D / 上视图区域标定。" />
+                            <StackPanel Margin="10,10,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="420"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="3D标定图存放路径"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="截取3D标定图保存目录；默认 C:\AutoSlice\cutpicture\3D">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionLearn3dSampleDir" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="70"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding BrowseVisionLearn3dSampleDirCommand}"
+                                    Content="浏览" />
+                                <Button
+                                    Style="{StaticResource CasStepTestButtonStyle}"
+                                    MinWidth="140"
+                                    Margin="0"
+                                    Command="{Binding CaptureVision3dSampleCommand}"
+                                    Content="截取3D标定图"
+                                    ToolTip="最小化本软件后，按已标定 3D ROI 截图并保存到左侧路径" />
+                            </StackPanel>
+                            <StackPanel Margin="10,8,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="420"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="上视图标定图存放路径"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="截取上视图标定图保存目录；默认 C:\AutoSlice\cutpicture\上视图">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="VisionLearnTopViewSampleDir" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="70"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding BrowseVisionLearnTopViewSampleDirCommand}"
+                                    Content="浏览" />
+                                <Button
+                                    Style="{StaticResource CasStepTestButtonStyle}"
+                                    MinWidth="140"
+                                    Margin="0"
+                                    Command="{Binding CaptureVisionTopViewSampleCommand}"
+                                    Content="截取上视图标定图"
+                                    ToolTip="最小化本软件后，按已标定「上」视图 ROI 截图并保存到左侧路径" />
+                            </StackPanel>
 
                             <TextBlock
                                 Margin="10,18,10,0"
@@ -2023,21 +2104,6 @@
                                 Content="清除日志"
                                 Command="{Binding ClearImportLogCommand}"
                                 VerticalAlignment="Center"/>
-                        <!-- 临时采图：视觉学习 PlanB 兜底用，采完可删 -->
-                        <Button DockPanel.Dock="Left"
-                                Style="{StaticResource CasSecondaryButtonStyle}"
-                                Content="截取3D标定图"
-                                Command="{Binding CaptureVision3dSampleCommand}"
-                                Margin="0,0,8,0"
-                                VerticalAlignment="Center"
-                                ToolTip="临时：最小化本软件后，按已标定 3D ROI 截图，保存到网络目录「…\图片\3D」"/>
-                        <Button DockPanel.Dock="Left"
-                                Style="{StaticResource CasSecondaryButtonStyle}"
-                                Content="截取上视图标定图"
-                                Command="{Binding CaptureVisionTopViewSampleCommand}"
-                                Margin="0,0,12,0"
-                                VerticalAlignment="Center"
-                                ToolTip="临时：最小化本软件后，按已标定「上」视图 ROI 截图，保存到网络目录「…\图片\上视图」"/>
                         <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
                                    Style="{StaticResource CasMutedTextStyle}"
                                    Text="{Binding MessageShower}"/>

@@ -5,6 +5,7 @@ using HalconDotNet;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Tool.Helper;
 
 namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 {
@@ -156,63 +157,89 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             EnsureNativeDllSearchPath();
+            EnsureNjCtRuntimePrerequisites();
 
             var method = methodName == ModelActionOriginMethodName
                 ? _modelActionOriginMethod!
                 : _modelActionMethod!;
 
-            // ImgPath, Models, BlackHeight, ResultImg, AllPointRegion, AllRegionRow, AllRegionCol, AllPrintfValue, RunInfo
-            object?[] parameters =
-            [
-                imagePath,
-                _modelHandle,
-                blackHeight,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-            ];
-
-            HObject? resultImg = null;
-            List<HObject>? pointRegions = null;
+            // OpenCvSharp.ImRead 无法可靠处理含非 ASCII（如中文）的路径，先转存到纯 ASCII 临时文件
+            string invokeImagePath = imagePath;
+            string? stagedAsciiPath = null;
             try
             {
-                method.Invoke(_algorithmInstance, parameters);
-
-                resultImg = parameters[3] as HObject;
-                pointRegions = parameters[4] as List<HObject>;
-                var regionRows = ExtractHTupleList(parameters[5]);
-                var regionCols = ExtractHTupleList(parameters[6]);
-                var printfValues = ExtractHTupleList(parameters[7]);
-                var runInfo = parameters[8] as string ?? string.Empty;
-
-                string? writtenPath = null;
-                if (!string.IsNullOrWhiteSpace(resultImagePath) && resultImg is not null)
+                stagedAsciiPath = StageImageToAsciiPathIfNeeded(imagePath);
+                if (stagedAsciiPath != null)
                 {
-                    writtenPath = WriteResultImage(resultImg, resultImagePath);
+                    invokeImagePath = stagedAsciiPath;
+                    _logger.Info($"离线 CT AI 输入路径含非 ASCII，已转存：{imagePath} -> {invokeImagePath}");
                 }
 
-                if (!string.IsNullOrEmpty(runInfo))
-                {
-                    _logger.Warn($"离线 CT AI 推理 RunInfo（{modeTag}）：{runInfo}");
-                }
+                // ImgPath, Models, BlackHeight, ResultImg, AllPointRegion, AllRegionRow, AllRegionCol, AllPrintfValue, RunInfo
+                object?[] parameters =
+                [
+                    invokeImagePath,
+                    _modelHandle,
+                    blackHeight,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                ];
 
-                return new OfflineCtInferResult
+                HObject? resultImg = null;
+                List<HObject>? pointRegions = null;
+                try
                 {
-                    ModeTag = modeTag,
-                    ResultImagePath = writtenPath,
-                    RunInfo = runInfo,
-                    RegionRows = regionRows,
-                    RegionCols = regionCols,
-                    PrintfValues = printfValues,
-                };
+                    method.Invoke(_algorithmInstance, parameters);
+
+                    resultImg = parameters[3] as HObject;
+                    pointRegions = parameters[4] as List<HObject>;
+                    var regionRows = ExtractHTupleList(parameters[5]);
+                    var regionCols = ExtractHTupleList(parameters[6]);
+                    var printfValues = ExtractHTupleList(parameters[7]);
+                    var runInfo = parameters[8] as string ?? string.Empty;
+
+                    // NJCT 内部 catch 会把任意异常吞成该文案；自动检测后给出具体原因
+                    if (string.Equals(runInfo, "当前图像暂不支持检测", StringComparison.Ordinal))
+                    {
+                        runInfo = OfflineCtImageDiagnostics.BuildUnsupportedRunInfo(
+                            invokeImagePath,
+                            imagePath);
+                        _logger.Warn($"离线 CT AI 推理失败（{modeTag}）：{runInfo}");
+                    }
+                    else if (!string.IsNullOrEmpty(runInfo))
+                    {
+                        _logger.Warn($"离线 CT AI 推理 RunInfo（{modeTag}）：{runInfo}");
+                    }
+
+                    string? writtenPath = null;
+                    if (!string.IsNullOrWhiteSpace(resultImagePath) && resultImg is not null)
+                    {
+                        writtenPath = WriteResultImage(resultImg, resultImagePath);
+                    }
+
+                    return new OfflineCtInferResult
+                    {
+                        ModeTag = modeTag,
+                        ResultImagePath = writtenPath,
+                        RunInfo = runInfo,
+                        RegionRows = regionRows,
+                        RegionCols = regionCols,
+                        PrintfValues = printfValues,
+                    };
+                }
+                finally
+                {
+                    DisposeHObjectList(pointRegions);
+                    resultImg?.Dispose();
+                }
             }
             finally
             {
-                DisposeHObjectList(pointRegions);
-                resultImg?.Dispose();
+                TryDeleteFile(stagedAsciiPath);
             }
         }
 
@@ -291,8 +318,127 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     dllsDir + Path.PathSeparator + pathEnv);
             }
 
+            // Halcon 默认在进程 cwd 找 license.dat；主程序 cwd 通常是 exe 目录而非 Dlls，
+            // 必须显式指定，否则 ReadImage 报 #2036，最终被 NJCT 吞成「暂不支持检测」。
+            EnsureHalconLicenseEnvironment(dllsDir);
+
             _nativeSearchPathConfigured = true;
             _logger.Info($"已配置离线 CT AI 原生 DLL 搜索目录：{dllsDir}");
+        }
+
+        /// <summary>
+        /// NJCT.ConvertMat32FC1ToHObject 会硬编码写 <c>D:\TEST.png</c> 再 Halcon ReadImage。
+        /// D 盘空间不足或 Halcon 许可找不到时，异常会被吞成「当前图像暂不支持检测」。
+        /// </summary>
+        private void EnsureNjCtRuntimePrerequisites()
+        {
+            const long minFreeBytes = 50L * 1024 * 1024; // 50 MB，足够写中间图
+            try
+            {
+                var drive = new DriveInfo("D");
+                if (!drive.IsReady)
+                {
+                    throw new IOException(
+                        "离线 CT AI 需要可写的 D: 盘（NJCT 硬编码写入 D:\\TEST.png），当前 D: 不可用。");
+                }
+
+                if (drive.AvailableFreeSpace < minFreeBytes)
+                {
+                    throw new IOException(
+                        $"离线 CT AI 需要向 D:\\TEST.png 写中间结果，当前 D: 仅剩 "
+                        + $"{drive.AvailableFreeSpace / 1024.0 / 1024.0:F1} MB（建议至少 50 MB）。请清理 D: 后重试。");
+                }
+            }
+            catch (IOException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"检查 D: 可用空间失败：{ex.Message}");
+            }
+        }
+
+        private void EnsureHalconLicenseEnvironment(string dllsDir)
+        {
+            var existing = Environment.GetEnvironmentVariable("HALCON_LICENSE_FILE");
+            if (!string.IsNullOrWhiteSpace(existing) && File.Exists(existing))
+            {
+                return;
+            }
+
+            var candidates = new[]
+            {
+                Path.Combine(dllsDir, "license.dat"),
+                Path.Combine(dllsDir, "license", "license.dat"),
+                Path.Combine(dllsDir, "license", "license_22.11.dat"),
+            };
+
+            var licensePath = candidates.FirstOrDefault(File.Exists);
+            if (licensePath is null)
+            {
+                _logger.Warn(
+                    $"未在 {dllsDir} 找到 Halcon license.dat；若随后出现「暂不支持检测」，请检查 Halcon 许可。");
+                return;
+            }
+
+            Environment.SetEnvironmentVariable("HALCON_LICENSE_FILE", licensePath);
+            _logger.Info($"已设置 HALCON_LICENSE_FILE={licensePath}");
+        }
+
+        /// <returns>若需要转存则返回临时 ASCII 路径；否则 null（直接用原路径）。</returns>
+        private static string? StageImageToAsciiPathIfNeeded(string imagePath)
+        {
+            var fullPath = Path.GetFullPath(imagePath);
+            if (IsAsciiPath(fullPath))
+            {
+                return null;
+            }
+
+            var ext = Path.GetExtension(fullPath);
+            if (string.IsNullOrEmpty(ext))
+            {
+                ext = ".png";
+            }
+
+            var tempDir = Path.Combine(Path.GetTempPath(), "OfflineCtAscii");
+            Directory.CreateDirectory(tempDir);
+            var staged = Path.Combine(tempDir, $"img_{Guid.NewGuid():N}{ext}");
+            File.Copy(fullPath, staged, overwrite: true);
+            return staged;
+        }
+
+        private static bool IsAsciiPath(string path)
+        {
+            foreach (var ch in path)
+            {
+                if (ch > 127)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static void TryDeleteFile(string? path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+                // 临时文件清理失败不影响主流程
+            }
         }
 
         private static string WriteResultImage(HObject resultImg, string resultImagePath)

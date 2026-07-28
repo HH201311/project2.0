@@ -127,9 +127,25 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             Directory.CreateDirectory(annotationFolder!);
-            progress?.Report($"AI 标注输入图：{imagePath}");
+            progress?.Report($"AI 标注输入图（原始上视图）：{imagePath}");
             progress?.Report($"AI 标注输出目录：{annotationFolder}");
             _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}");
+
+            var originalImagePath = imagePath;
+            if (settings.OfflineCtRotateTopViewCw90)
+            {
+                // NJCT 朝向要求：上视图顺时针 90°；旋转图落盘便于核对
+                imagePath = OfflineCtAnnotationHelper.CreateRotatedInputForAnnotation(
+                    originalImagePath,
+                    annotationFolder!);
+                progress?.Report($"上视图已顺时针旋转 90° → {Path.GetFileName(imagePath)}");
+                _logger.Info($"AI 标注旋转输入：{originalImagePath} → {imagePath}");
+            }
+            else
+            {
+                progress?.Report("已跳过上视图顺时针旋转 90°（OfflineCtRotateTopViewCw90=false）");
+                _logger.Info("AI 标注未旋转上视图：OfflineCtRotateTopViewCw90=false");
+            }
 
             var modelPath = settings.ResolveOfflineCtModelPath();
             progress?.Report($"AI 标注初始化模型：{modelPath}");
@@ -177,14 +193,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             if (settings.OfflineCtExportJson)
             {
                 var jsonPath = Path.Combine(annotationFolder!, "annotation.json");
-                OfflineCtAnnotationHelper.WriteAnnotationJson(jsonPath, imagePath, results);
+                OfflineCtAnnotationHelper.WriteAnnotationJson(jsonPath, originalImagePath, results);
                 progress?.Report($"已写入 JSON：{jsonPath}");
             }
 
             if (settings.OfflineCtExportCsv)
             {
                 var csvPath = Path.Combine(annotationFolder!, "annotation.csv");
-                OfflineCtAnnotationHelper.WriteAnnotationCsv(csvPath, imagePath, results);
+                OfflineCtAnnotationHelper.WriteAnnotationCsv(csvPath, originalImagePath, results);
                 progress?.Report($"已写入 CSV：{csvPath}");
             }
 

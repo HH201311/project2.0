@@ -92,6 +92,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _histogramCaptureDir = string.Empty;
         private string _visionCaptureDir = CTAutoSlicerSettings.DefaultVisionCaptureDir;
         private string _vision2dVectorCaptureDir = CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir;
+        private string _visionLearn3dSampleDir = CTAutoSlicerSettings.DefaultVisionLearn3dSampleDir;
+        private string _visionLearnTopViewSampleDir = CTAutoSlicerSettings.DefaultVisionLearnTopViewSampleDir;
         private string _histogramMaskColor = "#6E6E6E";
         private int _histogramMaskTolerance = 2;
         private string _histogramRoiDisplayText = "未标定";
@@ -141,6 +143,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _offlineCtResultImageMode = (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance;
         private bool _offlineCtExportJson = true;
         private bool _offlineCtExportCsv = true;
+        private bool _offlineCtRotateTopViewCw90 = true;
         private string _offlineCtManualInputImagePath = string.Empty;
         private string _offlineCtManualOutputFolder = string.Empty;
         private int _postAlignClickWaitMs = 400;
@@ -1228,6 +1231,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>送入 NJCT 前是否将上视图顺时针旋转 90°。</summary>
+        public bool OfflineCtRotateTopViewCw90
+        {
+            get => _offlineCtRotateTopViewCw90;
+            set
+            {
+                if (SetProperty(ref _offlineCtRotateTopViewCw90, value))
+                {
+                    SaveSetting(nameof(OfflineCtRotateTopViewCw90), value ? 1 : 0);
+                }
+            }
+        }
+
         /// <summary>AI 标注页：独立标注输入图片路径。</summary>
         public string OfflineCtManualInputImagePath
         {
@@ -1250,6 +1266,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _offlineCtManualOutputFolder, value ?? string.Empty))
                 {
                     SaveSetting(nameof(OfflineCtManualOutputFolder), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>单步测试：截取 3D 标定图保存目录。</summary>
+        public string VisionLearn3dSampleDir
+        {
+            get => _visionLearn3dSampleDir;
+            set
+            {
+                if (SetProperty(ref _visionLearn3dSampleDir, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(VisionLearn3dSampleDir), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>单步测试：截取上视图标定图保存目录。</summary>
+        public string VisionLearnTopViewSampleDir
+        {
+            get => _visionLearnTopViewSampleDir;
+            set
+            {
+                if (SetProperty(ref _visionLearnTopViewSampleDir, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(VisionLearnTopViewSampleDir), value ?? string.Empty);
                 }
             }
         }
@@ -1377,10 +1419,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand BrowseOfflineCtManualOutputFolderCommand { get; }
         public ICommand ClearOfflineCtManualOutputFolderCommand { get; }
         public ICommand RunOfflineCtManualAnnotationCommand { get; }
-        /// <summary>临时：最小化本软件后截取 3D ROI，供视觉学习采图。</summary>
+        /// <summary>单步测试：最小化本软件后截取 3D ROI 标定图。</summary>
         public ICommand CaptureVision3dSampleCommand { get; }
-        /// <summary>临时：最小化本软件后截取「上」视图 ROI，供视觉学习采图。</summary>
+        /// <summary>单步测试：最小化本软件后截取「上」视图 ROI 标定图。</summary>
         public ICommand CaptureVisionTopViewSampleCommand { get; }
+        public ICommand BrowseVisionLearn3dSampleDirCommand { get; }
+        public ICommand BrowseVisionLearnTopViewSampleDirCommand { get; }
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
         public ICommand ConfirmManualInterventionCommand { get; }
@@ -1441,6 +1485,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             RunOfflineCtManualAnnotationCommand = new RelayCommandAsync(ExecuteRunOfflineCtManualAnnotationAsync);
             CaptureVision3dSampleCommand = new RelayCommand(ExecuteCaptureVision3dSample);
             CaptureVisionTopViewSampleCommand = new RelayCommand(ExecuteCaptureVisionTopViewSample);
+            BrowseVisionLearn3dSampleDirCommand = new RelayCommand(BrowseVisionLearn3dSampleDir);
+            BrowseVisionLearnTopViewSampleDirCommand = new RelayCommand(BrowseVisionLearnTopViewSampleDir);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
             ConfirmManualInterventionCommand = new RelayCommand(ExecuteConfirmManualIntervention);
@@ -1724,8 +1770,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance);
             _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 1) != 0;
             _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 1) != 0;
+            _offlineCtRotateTopViewCw90 = LoadIntSetting(nameof(OfflineCtRotateTopViewCw90), 1) != 0;
             OfflineCtManualInputImagePath = LoadStringSetting(nameof(OfflineCtManualInputImagePath), string.Empty);
             OfflineCtManualOutputFolder = LoadStringSetting(nameof(OfflineCtManualOutputFolder), string.Empty);
+            VisionLearn3dSampleDir = LoadStringSetting(
+                nameof(VisionLearn3dSampleDir),
+                CTAutoSlicerSettings.DefaultVisionLearn3dSampleDir);
+            VisionLearnTopViewSampleDir = LoadStringSetting(
+                nameof(VisionLearnTopViewSampleDir),
+                CTAutoSlicerSettings.DefaultVisionLearnTopViewSampleDir);
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
@@ -1733,6 +1786,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtResultImageModeDisplay));
             OnPropertyChanged(nameof(OfflineCtExportJson));
             OnPropertyChanged(nameof(OfflineCtExportCsv));
+            OnPropertyChanged(nameof(OfflineCtRotateTopViewCw90));
 
             _isLoadingSettings = false;
 
@@ -1880,6 +1934,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     2),
                 OfflineCtExportJson = OfflineCtExportJson,
                 OfflineCtExportCsv = OfflineCtExportCsv,
+                OfflineCtRotateTopViewCw90 = OfflineCtRotateTopViewCw90,
                 VisionClickIntervalMs = 300,
                 VisionAlignmentDialogWaitTime = 8000,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
@@ -3052,15 +3107,49 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        /// <summary>临时采图保存根目录：3D 样本。</summary>
-        private const string VisionLearn3dSampleDir =
-            @"\\10.201.88.249\生产部资料临时存储服务器\测试验证部\测试实验室-计划资源组\离线CT尺寸自动标注\11111\图片\3D";
+        /// <summary>单步测试：截取 3D 标定图保存目录选择。</summary>
+        private void BrowseVisionLearn3dSampleDir(object? _)
+        {
+            var initial = VisionLearn3dSampleDir;
+            if (string.IsNullOrWhiteSpace(initial))
+            {
+                initial = CTAutoSlicerSettings.DefaultVisionLearn3dSampleDir;
+            }
 
-        /// <summary>临时采图保存根目录：「上」视图样本。</summary>
-        private const string VisionLearnTopViewSampleDir =
-            @"\\10.201.88.249\生产部资料临时存储服务器\测试验证部\测试实验室-计划资源组\离线CT尺寸自动标注\11111\图片\上视图";
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = Directory.Exists(initial) ? initial : null,
+            };
 
-        /// <summary>临时：缩小本软件后按 3D ROI 截图。</summary>
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                VisionLearn3dSampleDir = dialog.FileName;
+            }
+        }
+
+        /// <summary>单步测试：截取上视图标定图保存目录选择。</summary>
+        private void BrowseVisionLearnTopViewSampleDir(object? _)
+        {
+            var initial = VisionLearnTopViewSampleDir;
+            if (string.IsNullOrWhiteSpace(initial))
+            {
+                initial = CTAutoSlicerSettings.DefaultVisionLearnTopViewSampleDir;
+            }
+
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                InitialDirectory = Directory.Exists(initial) ? initial : null,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                VisionLearnTopViewSampleDir = dialog.FileName;
+            }
+        }
+
+        /// <summary>单步测试：缩小本软件后按 3D ROI 截图。</summary>
         private void ExecuteCaptureVision3dSample(object? _)
         {
             if (_vision3dRoiWidth <= 0 || _vision3dRoiHeight <= 0)
@@ -3069,9 +3158,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            var saveDir = string.IsNullOrWhiteSpace(VisionLearn3dSampleDir)
+                ? CTAutoSlicerSettings.DefaultVisionLearn3dSampleDir
+                : VisionLearn3dSampleDir.Trim();
+
             CaptureSimpleRoiSample(
                 "3D 标定图",
-                VisionLearn3dSampleDir,
+                saveDir,
                 "vision_3d",
                 _vision3dRoiX,
                 _vision3dRoiY,
@@ -3079,7 +3172,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 _vision3dRoiHeight);
         }
 
-        /// <summary>临时：缩小本软件后按「上」视图 ROI 截图。</summary>
+        /// <summary>单步测试：缩小本软件后按「上」视图 ROI 截图。</summary>
         private void ExecuteCaptureVisionTopViewSample(object? _)
         {
             if (_visionTopViewRoiWidth <= 0 || _visionTopViewRoiHeight <= 0)
@@ -3088,9 +3181,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            var saveDir = string.IsNullOrWhiteSpace(VisionLearnTopViewSampleDir)
+                ? CTAutoSlicerSettings.DefaultVisionLearnTopViewSampleDir
+                : VisionLearnTopViewSampleDir.Trim();
+
             CaptureSimpleRoiSample(
                 "上视图标定图",
-                VisionLearnTopViewSampleDir,
+                saveDir,
                 "vision_top",
                 _visionTopViewRoiX,
                 _visionTopViewRoiY,

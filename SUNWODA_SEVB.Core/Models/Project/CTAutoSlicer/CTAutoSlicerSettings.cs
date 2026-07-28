@@ -20,6 +20,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const string DefaultVisionCaptureDir = @"C:\AutoSlice\cutpicture\jietu";
         /// <summary>简单 3-2-1「2」向量标点（「上」视图）截图默认目录</summary>
         public const string DefaultVision2dVectorCaptureDir = @"C:\AutoSlice\cutpicture\2Dxianglaing";
+        /// <summary>单步测试：截取 3D 标定图默认保存目录</summary>
+        public const string DefaultVisionLearn3dSampleDir = @"C:\AutoSlice\cutpicture\3D";
+        /// <summary>单步测试：截取上视图标定图默认保存目录</summary>
+        public const string DefaultVisionLearnTopViewSampleDir = @"C:\AutoSlice\cutpicture\上视图";
 
         /// <summary>体素文件夹内：运行失败文件归档子目录名（避免下次重复导入）。</summary>
         public const string FailedFilesSubFolderName = "运行失败的文件";
@@ -286,6 +290,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 
         /// <summary>是否输出 annotation.csv</summary>
         public bool OfflineCtExportCsv { get; set; } = true;
+
+        /// <summary>送入 NJCT 前是否将上视图顺时针旋转 90°（默认开；算法朝向要求）</summary>
+        public bool OfflineCtRotateTopViewCw90 { get; set; } = true;
 
         /// <summary>解析模型路径：配置非空则用之，否则默认部署路径。</summary>
         public string ResolveOfflineCtModelPath()

@@ -214,9 +214,14 @@ NJCT.NJSwdCT  ──ModelInit/Predict──►  CF.SeDPredictor  ──►  *.on
    - 电芯头部异常 / 头部间隙异常  
    - 电芯内层间隙异常  
    - 抓点异常 / 内层抓点数量异常  
-   - 当前图像暂不支持检测  
-5. `ActionGetPoint`：输出按 Z45 / F45 / F0 / 内层等点区域分类，**不在官方接口文档中**；除非明确要求，接入优先用文档三个接口。  
-6. 文档写 `ModelHandle` 来源 `IMEYModel.dll`，本仓库实际类型在 **`CF.IPredictor` / `CF.SeDPredictor`**，以本仓库为准。
+   - **当前图像暂不支持检测** ← 这是 NJCT 最外层 `catch` 的兜底文案，**不等于业务判定**；真实异常被吞掉。  
+    本仓库 `OfflineCtVisionService` 在收到该文案后会 **自动检测** 并改写 RunInfo 为「具体原因」：  
+    输入图尺寸（须 ≥1844×1500）、ROI 平均灰度（过暗判定）、D: 可写空间、Halcon 许可、非 ASCII 路径等；**不再罗列多选让人猜**。  
+5. `ConvertMat32FC1ToHObject`：非 `CV_32FC1` 时会 `ImWrite("D:\\TEST.png")` 再 `ReadImage`；**必须保证 D: 可写且有足够剩余空间**。  
+6. `ActionGetPoint`：输出按 Z45 / F45 / F0 / 内层等点区域分类，**不在官方接口文档中**；除非明确要求，接入优先用文档三个接口。  
+7. 文档写 `ModelHandle` 来源 `IMEYModel.dll`，本仓库实际类型在 **`CF.IPredictor` / `CF.SeDPredictor`**，以本仓库为准。
+
+本仓库 `OfflineCtVisionService` 已做防护：设置 `HALCON_LICENSE_FILE`、推理前检查 D: 剩余空间、非 ASCII 路径自动转存到临时 ASCII 文件；失败时由 `OfflineCtImageDiagnostics` 给出具体原因。
 
 ---
 

@@ -233,6 +233,54 @@
         </Setter>
     </Style>
 
+    <!-- 生产/调试模式切换：分段胶囊 -->
+    <Style x:Key="CasModeSegmentButtonStyle" TargetType="Button">
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="14,4" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource CasMutedTextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="10"
+                        Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 单步测试按钮：加大尺寸，便于现场点选 -->
+    <Style
+        x:Key="CasStepTestButtonStyle"
+        BasedOn="{StaticResource CasSecondaryButtonStyle}"
+        TargetType="Button">
+        <Setter Property="MinWidth" Value="280" />
+        <Setter Property="MinHeight" Value="56" />
+        <Setter Property="Margin" Value="0,0,12,12" />
+        <Setter Property="Padding" Value="22,14" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
     <Style
         x:Key="CasIconButtonStyle"
         BasedOn="{StaticResource CasSecondaryButtonStyle}"

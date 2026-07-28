@@ -49,6 +49,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         /// <summary>
         /// 对指定导出名的「上」视图中间图执行推理并落盘；也可直接对单张图测试。
         /// </summary>
+        /// <param name="explicitOutputFolder">
+        /// 仅在指定 <paramref name="explicitImagePath"/> 时生效：输出目录；空则用输入图所在目录。
+        /// </param>
         public async Task RunOfflineCtVisionAnnotationAsync(
             CTAutoSlicerSettings settings,
             string? vglPath,
@@ -56,7 +59,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             int? quantity,
             CancellationToken cancellationToken,
             IProgress<string>? progress,
-            string? explicitImagePath = null)
+            string? explicitImagePath = null,
+            string? explicitOutputFolder = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -71,9 +75,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new FileNotFoundException("指定的 AI 标注输入图不存在", imagePath);
                 }
 
-                annotationFolder = Path.Combine(
-                    Path.GetDirectoryName(imagePath) ?? settings.SliceExportFolder,
-                    OfflineCtAnnotationHelper.AnnotationFolderName);
+                // 独立标注：优先用指定输出目录；空则落到输入图所在文件夹
+                if (!string.IsNullOrWhiteSpace(explicitOutputFolder))
+                {
+                    annotationFolder = explicitOutputFolder.Trim();
+                }
+                else
+                {
+                    annotationFolder = Path.GetDirectoryName(imagePath)
+                        ?? throw new InvalidOperationException("无法解析输入图所在目录作为默认输出目录");
+                }
             }
             else
             {
@@ -116,6 +127,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             Directory.CreateDirectory(annotationFolder!);
+            progress?.Report($"AI 标注输入图：{imagePath}");
+            progress?.Report($"AI 标注输出目录：{annotationFolder}");
+            _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}");
 
             var modelPath = settings.ResolveOfflineCtModelPath();
             progress?.Report($"AI 标注初始化模型：{modelPath}");
@@ -185,7 +199,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
             IProgress<string>? progress = null,
-            string? explicitImagePath = null)
+            string? explicitImagePath = null,
+            string? explicitOutputFolder = null)
         {
             Lock();
             try
@@ -219,7 +234,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         quantity,
                         cancellationToken,
                         progress,
-                        explicitImagePath)
+                        explicitImagePath,
+                        explicitOutputFolder)
                     .ConfigureAwait(false);
 
                 progress?.Report("AI 图像标注单步测试完成");

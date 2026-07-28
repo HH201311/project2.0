@@ -117,13 +117,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
             IProgress<string>? progress = null,
-            string? explicitImagePath = null) =>
+            string? explicitImagePath = null,
+            string? explicitOutputFolder = null) =>
             ExecuteExclusiveAsync(
                 (token, prog) => _vgAutomationService.TestOfflineCtVisionAnnotationAsync(
                     settings,
                     token,
                     prog,
-                    explicitImagePath),
+                    explicitImagePath,
+                    explicitOutputFolder),
                 cancellationToken,
                 progress,
                 "切片流程正在运行中，请稍后再试");

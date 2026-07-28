@@ -1487,6 +1487,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
 
                 _logger.Info($"开始调用算法");
                 var startTime = DateTime.Now;
+                // 惠州 NJCT.dll：ModelAction 已去掉 AllJianXiValue，签名为 9 参数
                 CTDetectionAlgorithmIstance!.ModelAction(
                     imageFilePath,
                     ModelHandle,
@@ -1495,7 +1496,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                     out List<HObject> allPointRegion,
                     out List<HTuple> allRegionRow,
                     out List<HTuple> allRegionCol,
-                    out List<HTuple> allJianXiValue,
                     out List<HTuple> allPrintfValue,
                     out string runInfo
                 );
@@ -1503,7 +1503,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 AllPointRegion = allPointRegion;
                 AllRegionRow = allRegionRow;
                 AllRegionCol = allRegionCol;
-                AllJianXiValue = allJianXiValue;
+                AllJianXiValue = null;
                 AllPrintfValue = allPrintfValue;
                 RunInfo = runInfo;
                 var duringTime = (DateTime.Now - startTime).TotalSeconds;

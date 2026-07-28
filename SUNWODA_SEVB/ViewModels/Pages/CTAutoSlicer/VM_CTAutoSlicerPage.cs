@@ -137,15 +137,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _offlineCtModelPath = string.Empty;
         private bool _offlineCtIsRunCuda = true;
         private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
-        private int _offlineCtResultImageMode = (int)OfflineCtResultImageMode.Enhance;
+        // 使用完全限定枚举名，避免与同名属性 OfflineCtResultImageMode 冲突（CS0236）
+        private int _offlineCtResultImageMode = (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance;
         private bool _offlineCtExportJson = true;
         private bool _offlineCtExportCsv = true;
+        private string _offlineCtManualInputImagePath = string.Empty;
+        private string _offlineCtManualOutputFolder = string.Empty;
         private int _postAlignClickWaitMs = 400;
         private int _postAlignDragStepDelayMs = 8;
+        private bool _mainWindowRememberSize;
+        private int _mainWindowWidth = 1280;
+        private int _mainWindowHeight = 720;
+        private int _mainWindowLeft = 80;
+        private int _mainWindowTop = 80;
+        private string _mainWindowSizeDisplayText = "未保存自定义尺寸（默认全屏）";
         /// <summary>false=生产模式（默认）；true=调试模式（显示单步测试）。</summary>
         private bool _isDebugMode;
 
-        /// <summary>左侧导航选中项：0总览 1应用 2导入 3渲染 4直方 5对齐 6捕捉 7导出 8AI标注 9单测。</summary>
+        /// <summary>左侧导航选中项：0总览 1应用 2导入 3渲染 4直方 5对齐 6拖拽 7导出 8AI标注 9单测。</summary>
         private int _selectedNavIndex;
 
         public const int NavOverview = 0;
@@ -238,7 +247,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             NavRender => "渲染与厚板",
             NavHistogram => "直方图标定",
             NavVision => "视觉对齐",
-            NavPostAlign => "对齐后捕捉",
+            NavPostAlign => "对齐后拖拽",
             NavSlice => "切片导出",
             NavAiAnnotate => "AI图像标注",
             NavStepTest => "单步测试",
@@ -1219,6 +1228,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>AI 标注页：独立标注输入图片路径。</summary>
+        public string OfflineCtManualInputImagePath
+        {
+            get => _offlineCtManualInputImagePath;
+            set
+            {
+                if (SetProperty(ref _offlineCtManualInputImagePath, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(OfflineCtManualInputImagePath), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>AI 标注页：独立标注输出目录；空则输出到输入图所在目录。</summary>
+        public string OfflineCtManualOutputFolder
+        {
+            get => _offlineCtManualOutputFolder;
+            set
+            {
+                if (SetProperty(ref _offlineCtManualOutputFolder, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(OfflineCtManualOutputFolder), value ?? string.Empty);
+                }
+            }
+        }
+
         public int PostAlignClickWaitMs
         {
             get => _postAlignClickWaitMs;
@@ -1241,6 +1276,78 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     SaveSetting(nameof(PostAlignDragStepDelayMs), value);
                 }
             }
+        }
+
+        /// <summary>下次进入本项目时是否沿用已保存的主窗尺寸。</summary>
+        public bool MainWindowRememberSize
+        {
+            get => _mainWindowRememberSize;
+            set
+            {
+                if (SetProperty(ref _mainWindowRememberSize, value))
+                {
+                    SaveSetting(nameof(MainWindowRememberSize), value ? 1 : 0);
+                    RefreshMainWindowSizeDisplay();
+                }
+            }
+        }
+
+        public int MainWindowWidth
+        {
+            get => _mainWindowWidth;
+            set
+            {
+                if (SetProperty(ref _mainWindowWidth, value))
+                {
+                    SaveSetting(nameof(MainWindowWidth), value);
+                    RefreshMainWindowSizeDisplay();
+                }
+            }
+        }
+
+        public int MainWindowHeight
+        {
+            get => _mainWindowHeight;
+            set
+            {
+                if (SetProperty(ref _mainWindowHeight, value))
+                {
+                    SaveSetting(nameof(MainWindowHeight), value);
+                    RefreshMainWindowSizeDisplay();
+                }
+            }
+        }
+
+        public int MainWindowLeft
+        {
+            get => _mainWindowLeft;
+            set
+            {
+                if (SetProperty(ref _mainWindowLeft, value))
+                {
+                    SaveSetting(nameof(MainWindowLeft), value);
+                    RefreshMainWindowSizeDisplay();
+                }
+            }
+        }
+
+        public int MainWindowTop
+        {
+            get => _mainWindowTop;
+            set
+            {
+                if (SetProperty(ref _mainWindowTop, value))
+                {
+                    SaveSetting(nameof(MainWindowTop), value);
+                    RefreshMainWindowSizeDisplay();
+                }
+            }
+        }
+
+        public string MainWindowSizeDisplayText
+        {
+            get => _mainWindowSizeDisplayText;
+            private set => SetProperty(ref _mainWindowSizeDisplayText, value);
         }
 
         public ICommand OpenVGAppPathCommand { get; }
@@ -1266,6 +1373,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestOfflineCtVisionAnnotationCommand { get; }
         public ICommand BrowseOfflineCtModelPathCommand { get; }
         public ICommand ResetOfflineCtModelPathCommand { get; }
+        public ICommand BrowseOfflineCtManualInputImageCommand { get; }
+        public ICommand BrowseOfflineCtManualOutputFolderCommand { get; }
+        public ICommand ClearOfflineCtManualOutputFolderCommand { get; }
+        public ICommand RunOfflineCtManualAnnotationCommand { get; }
         /// <summary>临时：最小化本软件后截取 3D ROI，供视觉学习采图。</summary>
         public ICommand CaptureVision3dSampleCommand { get; }
         /// <summary>临时：最小化本软件后截取「上」视图 ROI，供视觉学习采图。</summary>
@@ -1276,6 +1387,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
         public ICommand SelectNavCommand { get; }
+        public ICommand ApplyMainWindowSizeCommand { get; }
+        public ICommand SaveCurrentMainWindowSizeCommand { get; }
+        public ICommand RestoreDefaultMainWindowSizeCommand { get; }
 
         public event EventHandler? ImportLogScrollToEndRequested;
 
@@ -1321,6 +1435,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestOfflineCtVisionAnnotationCommand = new RelayCommandAsync(ExecuteTestOfflineCtVisionAnnotationAsync);
             BrowseOfflineCtModelPathCommand = new RelayCommand(ExecuteBrowseOfflineCtModelPath);
             ResetOfflineCtModelPathCommand = new RelayCommand(ExecuteResetOfflineCtModelPath);
+            BrowseOfflineCtManualInputImageCommand = new RelayCommand(ExecuteBrowseOfflineCtManualInputImage);
+            BrowseOfflineCtManualOutputFolderCommand = new RelayCommand(ExecuteBrowseOfflineCtManualOutputFolder);
+            ClearOfflineCtManualOutputFolderCommand = new RelayCommand(_ => OfflineCtManualOutputFolder = string.Empty);
+            RunOfflineCtManualAnnotationCommand = new RelayCommandAsync(ExecuteRunOfflineCtManualAnnotationAsync);
             CaptureVision3dSampleCommand = new RelayCommand(ExecuteCaptureVision3dSample);
             CaptureVisionTopViewSampleCommand = new RelayCommand(ExecuteCaptureVisionTopViewSample);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
@@ -1329,6 +1447,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
             SelectNavCommand = new RelayCommand(ExecuteSelectNav);
+            ApplyMainWindowSizeCommand = new RelayCommand(_ => ExecuteApplyMainWindowSize());
+            SaveCurrentMainWindowSizeCommand = new RelayCommand(_ => ExecuteSaveCurrentMainWindowSize());
+            RestoreDefaultMainWindowSizeCommand = new RelayCommand(_ => ExecuteRestoreDefaultMainWindowSize());
 
             _ctAutoSlicerService.PauseStateChanged += (_, _) =>
             {
@@ -1410,6 +1531,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed, OnCtrlXPressed, OnAltPPressed);
             _folderMonitorService.Start(CTFileFolder);
+            Dispatcher.BeginInvoke(new Action(TryApplyRememberedMainWindowSize), DispatcherPriority.Loaded);
             base.OnNavigatedTo(parameter);
         }
 
@@ -1417,6 +1539,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             _inputHookService.Stop();
             _ctAutoSlicerService.Cancel();
+            // 离开本项目时恢复默认全屏，避免影响其它模块
+            TryRestoreDefaultMainWindowMaximized();
             base.OnNavigatedFrom();
         }
 
@@ -1575,6 +1699,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(PostAlignClickWaitMs));
             OnPropertyChanged(nameof(PostAlignDragStepDelayMs));
 
+            _mainWindowRememberSize =
+                LoadIntSetting(nameof(MainWindowRememberSize), 0) != 0;
+            _mainWindowWidth = LoadIntSetting(nameof(MainWindowWidth), 1280);
+            _mainWindowHeight = LoadIntSetting(nameof(MainWindowHeight), 720);
+            _mainWindowLeft = LoadIntSetting(nameof(MainWindowLeft), 80);
+            _mainWindowTop = LoadIntSetting(nameof(MainWindowTop), 80);
+            OnPropertyChanged(nameof(MainWindowRememberSize));
+            OnPropertyChanged(nameof(MainWindowWidth));
+            OnPropertyChanged(nameof(MainWindowHeight));
+            OnPropertyChanged(nameof(MainWindowLeft));
+            OnPropertyChanged(nameof(MainWindowTop));
+            RefreshMainWindowSizeDisplay();
+
             _enableOfflineCtVisionAnnotation =
                 LoadIntSetting(nameof(EnableOfflineCtVisionAnnotation), 1) != 0;
             OfflineCtModelPath = LoadStringSetting(nameof(OfflineCtModelPath), string.Empty);
@@ -1587,6 +1724,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance);
             _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 1) != 0;
             _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 1) != 0;
+            OfflineCtManualInputImagePath = LoadStringSetting(nameof(OfflineCtManualInputImagePath), string.Empty);
+            OfflineCtManualOutputFolder = LoadStringSetting(nameof(OfflineCtManualOutputFolder), string.Empty);
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
@@ -1596,6 +1735,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtExportCsv));
 
             _isLoadingSettings = false;
+
+            // 首次进入模块：设置加载完成后尝试恢复自定义主窗尺寸
+            Dispatcher.BeginInvoke(new Action(TryApplyRememberedMainWindowSize), DispatcherPriority.Loaded);
         }
 
         private string LoadStringSetting(string name, string defaultValue)
@@ -1723,6 +1865,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 EnablePostAlignCaptureDragSteps = EnablePostAlignCaptureDragSteps,
                 PostAlignClickWaitMs = PostAlignClickWaitMs,
                 PostAlignDragStepDelayMs = PostAlignDragStepDelayMs,
+                MainWindowRememberSize = MainWindowRememberSize,
+                MainWindowWidth = MainWindowWidth,
+                MainWindowHeight = MainWindowHeight,
+                MainWindowLeft = MainWindowLeft,
+                MainWindowTop = MainWindowTop,
                 EnableOfflineCtVisionAnnotation = EnableOfflineCtVisionAnnotation,
                 OfflineCtModelPath = OfflineCtModelPath,
                 OfflineCtIsRunCuda = OfflineCtIsRunCuda,
@@ -1968,6 +2115,228 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
             _roiPreviewPreviousMainWindowState = null;
             mainWindow.WindowState = previous;
+            mainWindow.Activate();
+        }
+
+        private void RefreshMainWindowSizeDisplay()
+        {
+            MainWindowSizeDisplayText = _mainWindowRememberSize
+                ? $"已启用沿用：{_mainWindowWidth}×{_mainWindowHeight} @ ({_mainWindowLeft},{_mainWindowTop})"
+                : $"未启用沿用（参数 {_mainWindowWidth}×{_mainWindowHeight}）；启动仍默认全屏";
+        }
+
+        /// <summary>按参数区宽高立即调整主窗（不强制改 Remember 开关）。</summary>
+        private void ExecuteApplyMainWindowSize()
+        {
+            try
+            {
+                ApplyMainWindowBounds(
+                    MainWindowWidth,
+                    MainWindowHeight,
+                    MainWindowLeft,
+                    MainWindowTop);
+                MessageShower = $"已应用窗体大小：{MainWindowWidth}×{MainWindowHeight}";
+                AppendFlowLog(MessageShower);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"应用窗体大小失败：{ex.Message}";
+                _logger.Error("应用窗体大小失败", ex);
+            }
+        }
+
+        /// <summary>读取当前主窗实际尺寸并持久化，下次进入本项目自动沿用。</summary>
+        private void ExecuteSaveCurrentMainWindowSize()
+        {
+            try
+            {
+                if (!TryReadMainWindowBounds(out var width, out var height, out var left, out var top))
+                {
+                    MessageShower = "无法读取主窗尺寸";
+                    return;
+                }
+
+                EnsureSettingExists(nameof(MainWindowRememberSize), 0, "int", nameof(MainWindowRememberSize));
+                EnsureSettingExists(nameof(MainWindowWidth), 1280, "int", nameof(MainWindowWidth));
+                EnsureSettingExists(nameof(MainWindowHeight), 720, "int", nameof(MainWindowHeight));
+                EnsureSettingExists(nameof(MainWindowLeft), 80, "int", nameof(MainWindowLeft));
+                EnsureSettingExists(nameof(MainWindowTop), 80, "int", nameof(MainWindowTop));
+
+                _isLoadingSettings = true;
+                _mainWindowWidth = Math.Max(800, width);
+                _mainWindowHeight = Math.Max(450, height);
+                _mainWindowLeft = left;
+                _mainWindowTop = top;
+                _mainWindowRememberSize = true;
+                OnPropertyChanged(nameof(MainWindowWidth));
+                OnPropertyChanged(nameof(MainWindowHeight));
+                OnPropertyChanged(nameof(MainWindowLeft));
+                OnPropertyChanged(nameof(MainWindowTop));
+                OnPropertyChanged(nameof(MainWindowRememberSize));
+                RefreshMainWindowSizeDisplay();
+                _isLoadingSettings = false;
+
+                SaveSetting(nameof(MainWindowWidth), _mainWindowWidth);
+                SaveSetting(nameof(MainWindowHeight), _mainWindowHeight);
+                SaveSetting(nameof(MainWindowLeft), _mainWindowLeft);
+                SaveSetting(nameof(MainWindowTop), _mainWindowTop);
+                SaveSetting(nameof(MainWindowRememberSize), 1);
+
+                ApplyMainWindowBounds(_mainWindowWidth, _mainWindowHeight, _mainWindowLeft, _mainWindowTop);
+                MessageShower =
+                    $"已保存当前窗体大小：{_mainWindowWidth}×{_mainWindowHeight} @ ({_mainWindowLeft},{_mainWindowTop})，下次启动本项目将沿用";
+                AppendFlowLog(MessageShower);
+                _logger.Info(MessageShower);
+            }
+            catch (Exception ex)
+            {
+                _isLoadingSettings = false;
+                MessageShower = $"保存窗体大小失败：{ex.Message}";
+                _logger.Error("保存窗体大小失败", ex);
+            }
+        }
+
+        /// <summary>关闭自定义尺寸沿用，并恢复默认最大化。</summary>
+        private void ExecuteRestoreDefaultMainWindowSize()
+        {
+            try
+            {
+                MainWindowRememberSize = false;
+                TryRestoreDefaultMainWindowMaximized();
+                MessageShower = "已恢复默认全屏，并关闭下次启动沿用";
+                AppendFlowLog(MessageShower);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"恢复默认全屏失败：{ex.Message}";
+                _logger.Error("恢复默认全屏失败", ex);
+            }
+        }
+
+        private void TryApplyRememberedMainWindowSize()
+        {
+            if (!_mainWindowRememberSize)
+            {
+                return;
+            }
+
+            try
+            {
+                ApplyMainWindowBounds(
+                    _mainWindowWidth,
+                    _mainWindowHeight,
+                    _mainWindowLeft,
+                    _mainWindowTop);
+                _logger.Info(
+                    $"已按项目设置恢复主窗：{_mainWindowWidth}×{_mainWindowHeight} @ ({_mainWindowLeft},{_mainWindowTop})");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"恢复主窗尺寸失败：{ex.Message}");
+            }
+        }
+
+        private static void TryRestoreDefaultMainWindowMaximized()
+        {
+            var mainWindow = Application.Current?.MainWindow;
+            if (mainWindow == null)
+            {
+                return;
+            }
+
+            mainWindow.WindowState = WindowState.Maximized;
+        }
+
+        private static bool TryReadMainWindowBounds(
+            out int width,
+            out int height,
+            out int left,
+            out int top)
+        {
+            width = 0;
+            height = 0;
+            left = 0;
+            top = 0;
+            var mainWindow = Application.Current?.MainWindow;
+            if (mainWindow == null)
+            {
+                return false;
+            }
+
+            Rect bounds;
+            if (mainWindow.WindowState == WindowState.Maximized
+                || mainWindow.WindowState == WindowState.Minimized)
+            {
+                bounds = mainWindow.RestoreBounds;
+                if (bounds.Width < 1 || bounds.Height < 1)
+                {
+                    bounds = new Rect(
+                        mainWindow.Left,
+                        mainWindow.Top,
+                        mainWindow.ActualWidth > 0 ? mainWindow.ActualWidth : mainWindow.Width,
+                        mainWindow.ActualHeight > 0 ? mainWindow.ActualHeight : mainWindow.Height);
+                }
+            }
+            else
+            {
+                bounds = new Rect(
+                    mainWindow.Left,
+                    mainWindow.Top,
+                    mainWindow.ActualWidth > 0 ? mainWindow.ActualWidth : mainWindow.Width,
+                    mainWindow.ActualHeight > 0 ? mainWindow.ActualHeight : mainWindow.Height);
+            }
+
+            width = Math.Max(800, (int)Math.Round(bounds.Width));
+            height = Math.Max(450, (int)Math.Round(bounds.Height));
+            left = (int)Math.Round(bounds.Left);
+            top = (int)Math.Round(bounds.Top);
+            return true;
+        }
+
+        private static void ApplyMainWindowBounds(int width, int height, int left, int top)
+        {
+            var mainWindow = Application.Current?.MainWindow
+                ?? throw new InvalidOperationException("主窗未就绪");
+
+            var w = Math.Max(800, width);
+            var h = Math.Max(450, height);
+
+            // 先切 Normal，再设尺寸；避免 Maximized 下改 Width/Height 无效
+            mainWindow.WindowState = WindowState.Normal;
+            mainWindow.Width = w;
+            mainWindow.Height = h;
+            mainWindow.Left = left;
+            mainWindow.Top = top;
+
+            // 尽量落在当前屏幕工作区内，避免拖出屏幕
+            try
+            {
+                var work = SystemParameters.WorkArea;
+                if (mainWindow.Left + mainWindow.Width > work.Right)
+                {
+                    mainWindow.Left = Math.Max(work.Left, work.Right - mainWindow.Width);
+                }
+
+                if (mainWindow.Top + mainWindow.Height > work.Bottom)
+                {
+                    mainWindow.Top = Math.Max(work.Top, work.Bottom - mainWindow.Height);
+                }
+
+                if (mainWindow.Left < work.Left)
+                {
+                    mainWindow.Left = work.Left;
+                }
+
+                if (mainWindow.Top < work.Top)
+                {
+                    mainWindow.Top = work.Top;
+                }
+            }
+            catch
+            {
+                // 忽略屏幕边界校正失败
+            }
+
             mainWindow.Activate();
         }
 
@@ -2323,7 +2692,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
-        /// 标定 3-2-1 完成后、导出前视口底部无名捕捉按钮的屏幕绝对点击位置（UIA 匹配 + 兜底坐标）。
+        /// 标定 3-2-1 完成后、导出前「3D图正视图切换按钮」的屏幕绝对点击位置（UIA 匹配 + 兜底坐标）。
         /// </summary>
         private void ExecuteCalibratePostAlignCaptureButton(object? _)
         {
@@ -2349,12 +2718,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 {
                     Thread.Sleep(250);
                     var picker = new ScreenPointPickerOverlayWindow(
-                        "请将十字准星对准 VG 视口右下角无名捕捉按钮中心，左键确认；右键/Esc 取消");
+                        "请将十字准星对准 VG「3D图正视图切换按钮」中心，左键确认；右键/Esc 取消");
                     var ok = picker.ShowDialog() == true;
                     if (!ok)
                     {
-                        MessageShower = "已取消捕捉按钮标定";
-                        AppendFlowLog("对齐后捕捉按钮标定已取消");
+                        MessageShower = "已取消按钮位置标定";
+                        AppendFlowLog("对齐后拖拽：按钮位置标定已取消");
                         return;
                     }
 
@@ -2380,7 +2749,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     SaveSetting(nameof(PostAlignCaptureButtonY), picker.SelectedY);
                     SaveSetting(nameof(CTAutoSlicerSettings.PostAlignCaptureButtonCalibrated), 1);
 
-                    var msg = $"对齐后捕捉按钮已标定：X={picker.SelectedX}, Y={picker.SelectedY}";
+                    var msg = $"3D图正视图切换按钮位置已标定：X={picker.SelectedX}, Y={picker.SelectedY}";
                     MessageShower = msg;
                     AppendFlowLog(msg);
                     _logger.Info(msg);
@@ -2396,13 +2765,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             catch (Exception ex)
             {
-                MessageShower = $"捕捉按钮标定失败：{ex.Message}";
-                _logger.Error("对齐后捕捉按钮标定失败", ex);
+                MessageShower = $"按钮位置标定失败：{ex.Message}";
+                _logger.Error("对齐后拖拽：按钮位置标定失败", ex);
             }
         }
 
         /// <summary>
-        /// 标定点击捕捉按钮后的鼠标拖拽方向与距离（全屏箭头）。
+        /// 标定点击 3D图正视图切换按钮后的鼠标拖拽方向与距离（全屏箭头）。
         /// </summary>
         private void ExecuteCalibratePostAlignDragArrow(object? _)
         {
@@ -2428,7 +2797,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 {
                     Thread.Sleep(250);
                     var overlay = new ScreenArrowCalibrationOverlayWindow(
-                        "在 VG 上按住左键：从拖拽起点拖到终点，黄色箭头表示方向与距离；Esc/右键取消");
+                        "在 VG 上按住左键拖拽 3D 图：起点→终点；需拖至可同时看见3个面；Esc/右键取消");
                     var ok = overlay.ShowDialog() == true;
                     if (!ok)
                     {
@@ -3034,7 +3403,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
             if (!_postAlignCaptureButtonCalibrated)
             {
-                MessageShower = "尚未标定捕捉按钮坐标，请先在「对齐后捕捉与拖拽」中点击「标定捕捉按钮」";
+                MessageShower = "尚未标定 3D图正视图切换按钮位置，请先在「对齐后拖拽」中点击「标定按钮位置」";
                 return;
             }
 
@@ -3055,14 +3424,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 对齐后捕捉+拖拽测试开始 ———");
+                AppendFlowLog("——— 对齐后拖拽测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestPostAlignCaptureDragAsync(
                     BuildSettings(),
                     flowToken,
                     progress);
-                AppendFlowLog("——— 对齐后捕捉+拖拽测试结束 ———");
+                AppendFlowLog("——— 对齐后拖拽测试结束 ———");
             }
             catch (OperationCanceledException)
             {
@@ -3071,8 +3440,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             catch (Exception ex)
             {
                 MessageShower = ex.Message;
-                AppendFlowLog($"对齐后捕捉拖拽测试失败：{ex.Message}");
-                _logger.Error("对齐后捕捉拖拽测试失败", ex);
+                AppendFlowLog($"对齐后拖拽测试失败：{ex.Message}");
+                _logger.Error("对齐后拖拽测试失败", ex);
             }
             finally
             {
@@ -3111,6 +3480,125 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             OfflineCtModelPath = string.Empty;
             MessageShower = $"已恢复默认模型路径：{CTAutoSlicerSettings.GetDefaultOfflineCtModelPath()}";
+        }
+
+        private void ExecuteBrowseOfflineCtManualInputImage()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "选择 AI 标注输入图片",
+                Filter = "图像 (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp|所有文件 (*.*)|*.*",
+                CheckFileExists = true,
+            };
+            if (!string.IsNullOrWhiteSpace(OfflineCtManualInputImagePath))
+            {
+                var dir = Path.GetDirectoryName(OfflineCtManualInputImagePath);
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    dialog.InitialDirectory = dir;
+                    dialog.FileName = Path.GetFileName(OfflineCtManualInputImagePath);
+                }
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                OfflineCtManualInputImagePath = dialog.FileName;
+            }
+        }
+
+        private void ExecuteBrowseOfflineCtManualOutputFolder()
+        {
+            using var dialog = new CommonOpenFileDialog
+            {
+                Title = "选择 AI 标注输出文件夹（可留空则输出到输入图目录）",
+                IsFolderPicker = true,
+            };
+            if (!string.IsNullOrWhiteSpace(OfflineCtManualOutputFolder)
+                && Directory.Exists(OfflineCtManualOutputFolder))
+            {
+                dialog.InitialDirectory = OfflineCtManualOutputFolder;
+            }
+            else if (!string.IsNullOrWhiteSpace(OfflineCtManualInputImagePath))
+            {
+                var dir = Path.GetDirectoryName(OfflineCtManualInputImagePath);
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    dialog.InitialDirectory = dir;
+                }
+            }
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                OfflineCtManualOutputFolder = dialog.FileName;
+            }
+        }
+
+        /// <summary>AI 标注配置页：按指定输入图独立执行标注。</summary>
+        private async Task ExecuteRunOfflineCtManualAnnotationAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(OfflineCtManualInputImagePath)
+                || !File.Exists(OfflineCtManualInputImagePath))
+            {
+                MessageShower = "请先选择有效的输入图片路径";
+                return;
+            }
+
+            var outputFolder = string.IsNullOrWhiteSpace(OfflineCtManualOutputFolder)
+                ? null
+                : OfflineCtManualOutputFolder.Trim();
+            if (outputFolder != null && !Directory.Exists(outputFolder))
+            {
+                try
+                {
+                    Directory.CreateDirectory(outputFolder);
+                }
+                catch (Exception ex)
+                {
+                    MessageShower = $"无法创建输出目录：{ex.Message}";
+                    return;
+                }
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— AI 独立标注开始 ———");
+                AppendFlowLog($"输入图：{OfflineCtManualInputImagePath}");
+                AppendFlowLog(
+                    string.IsNullOrWhiteSpace(outputFolder)
+                        ? "输出目录：默认（输入图所在文件夹）"
+                        : $"输出目录：{outputFolder}");
+
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.TestOfflineCtVisionAnnotationAsync(
+                    BuildSettings(),
+                    flowToken,
+                    progress,
+                    OfflineCtManualInputImagePath.Trim(),
+                    outputFolder);
+                AppendFlowLog("——— AI 独立标注结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"AI 独立标注失败：{ex.Message}");
+                _logger.Error("AI 独立标注失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
         }
 
         private async Task ExecuteTestOfflineCtVisionAnnotationAsync()

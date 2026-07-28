@@ -86,11 +86,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// <summary>
         /// 单步测试：对「上」视图中间图或指定图片执行 AI 图像标注。
         /// </summary>
+        /// <param name="explicitOutputFolder">
+        /// 指定输出目录；仅在指定输入图时生效。空则输出到输入图所在目录。
+        /// </param>
         Task TestOfflineCtVisionAnnotationAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
             IProgress<string>? progress = null,
-            string? explicitImagePath = null
+            string? explicitImagePath = null,
+            string? explicitOutputFolder = null
         );
 
         void Cancel();

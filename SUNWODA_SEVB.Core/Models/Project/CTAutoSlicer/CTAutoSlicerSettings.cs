@@ -439,6 +439,23 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>拖拽路径每步间隔（毫秒）</summary>
         public int PostAlignDragStepDelayMs { get; set; } = 8;
 
+        /// <summary>
+        /// 是否在进入本项目时恢复自定义上位机主窗尺寸（仅 CTAutoSlicer；其它项目仍默认最大化）。
+        /// </summary>
+        public bool MainWindowRememberSize { get; set; }
+
+        /// <summary>自定义主窗宽度（逻辑像素）</summary>
+        public int MainWindowWidth { get; set; } = 1280;
+
+        /// <summary>自定义主窗高度（逻辑像素）</summary>
+        public int MainWindowHeight { get; set; } = 720;
+
+        /// <summary>自定义主窗 Left</summary>
+        public int MainWindowLeft { get; set; } = 80;
+
+        /// <summary>自定义主窗 Top</summary>
+        public int MainWindowTop { get; set; } = 80;
+
         /// <summary>捕捉按钮 + 拖拽箭头标定是否齐全</summary>
         public bool HasPostAlignCaptureDragPrerequisites =>
             HasPostAlignCaptureButton && HasPostAlignDrag;

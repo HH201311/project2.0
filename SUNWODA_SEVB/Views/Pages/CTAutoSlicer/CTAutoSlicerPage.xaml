@@ -122,7 +122,7 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="视觉对齐" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="6" ToolTip="对齐后捕捉">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="6" ToolTip="对齐后拖拽">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -134,7 +134,7 @@
                             </Button.Style>
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="CursorDefaultClickOutline" VerticalAlignment="Center" />
-                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="对齐后捕捉" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="对齐后拖拽" />
                             </StackPanel>
                         </Button>
                         <Button Command="{Binding SelectNavCommand}" CommandParameter="7" ToolTip="切片导出">
@@ -221,13 +221,43 @@
                     <Border DockPanel.Dock="Right" Style="{StaticResource CasPillBorderStyle}" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding RunModeDisplayText}" Foreground="{StaticResource CasPrimaryTextBrush}"
-                                       FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <Button Style="{StaticResource CasSecondaryButtonStyle}" Margin="0,0,6,0"
-                                    Content="生产" Command="{Binding SwitchToProductionModeCommand}"
-                                    ToolTip="生产界面：隐藏单步测试"/>
-                            <Button Style="{StaticResource CasSecondaryButtonStyle}"
-                                    Content="调试" Command="{Binding SwitchToDebugModeCommand}"
-                                    ToolTip="调试界面：显示单步测试"/>
+                                       FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <Border Background="{StaticResource CasWhiteBrush}"
+                                    BorderBrush="{StaticResource CasBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="生产"
+                                            Command="{Binding SwitchToProductionModeCommand}"
+                                            ToolTip="生产界面：隐藏单步测试">
+                                        <Button.Style>
+                                            <Style BasedOn="{StaticResource CasModeSegmentButtonStyle}" TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsProductionMode}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource CasPrimaryBrush}" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="调试"
+                                            Command="{Binding SwitchToDebugModeCommand}"
+                                            ToolTip="调试界面：显示单步测试">
+                                        <Button.Style>
+                                            <Style BasedOn="{StaticResource CasModeSegmentButtonStyle}" TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDebugMode}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource CasPrimaryBrush}" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </DockPanel>
@@ -1214,27 +1244,27 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="对齐后捕捉与拖拽（3-2-1 后、切片导出前）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <TextBlock Text="对齐后拖拽（3-2-1 后、切片导出前）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
                                 <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
                                 <Border.ToolTip>
                                     <ToolTip>
                                         <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
-                                            <Run Text="3-2-1 完成后、切片导出前：点击视口右下「捕捉」类无名按钮，再按标定箭头拖拽，整理对齐后的视图姿态。" />
+                                            <Run Text="3-2-1 完成后、切片导出前：点击「3D图正视图切换按钮」，再按标定箭头拖拽 3D 图，直到可同时看见三个面。" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
                                             <LineBreak />
-                                            <Run Text="• 本步骤默认启用（主流程在 3-2-1 后自动执行捕捉拖拽；单测仍可单独跑）。" />
+                                            <Run Text="• 本步骤默认启用（主流程在 3-2-1 后自动执行对齐后拖拽；单测仍可单独跑）。" />
                                             <LineBreak />
-                                            <Run Text="• 捕捉按钮 X/Y：无名小按钮中心屏幕坐标；优先按坐标匹配 UIA 矩形，失败则绝对点击。" />
+                                            <Run Text="• 按钮 X/Y：3D图正视图切换按钮中心屏幕坐标；优先按坐标匹配 UIA 矩形，失败则绝对点击。" />
                                             <LineBreak />
-                                            <Run Text="• UIA索引：主窗右下无名小按钮按 Left 排序后的索引（0 起），作坐标失败时的兜底定位。" />
+                                            <Run Text="• UIA索引：主窗右下该按钮按 Left 排序后的索引（0 起），作坐标失败时的兜底定位。" />
                                             <LineBreak />
                                             <Run Text="• 拖拽箭头：全屏拖出的起点→终点路径，即自动化直线拖拽轨迹（方向与距离）。" />
                                             <LineBreak />
-                                            <Run Text="• 点击后等待ms：点完捕捉按钮后停顿，等视图/手柄出现再拖。" />
+                                            <Run Text="• 点击后等待ms：点完切换按钮后停顿，等视图出现再拖。" />
                                             <LineBreak />
                                             <Run Text="• 拖拽步进ms：拖拽路径上每步移动间隔；过大偏慢，过小可能丢步。" />
                                         </TextBlock>
@@ -1247,7 +1277,7 @@
                             <TextBlock
                                 Margin="10,4,10,0"
                                 FontWeight="SemiBold"
-                                Text="① 无名捕捉按钮（绝对坐标 + UIA 索引兜底）" />
+                                Text="① 3D图正视图切换按钮位置（绝对坐标 + UIA 索引兜底）" />
                             <StackPanel Margin="10" Orientation="Horizontal">
                                 <TextBlock VerticalAlignment="Center" Text="当前标定：" />
                                 <TextBlock
@@ -1283,7 +1313,7 @@
                                     Margin="0,0,8,0"
                                     hc:InfoElement.Title="UIA索引"
                                     hc:InfoElement.TitlePlacement="Left"
-                                    ToolTip="主窗右下无名小按钮按 Left 排序后的索引（0 起）；已标定坐标时优先按坐标匹配矩形">
+                                    ToolTip="主窗右下 3D图正视图切换按钮按 Left 排序后的索引（0 起）；已标定坐标时优先按坐标匹配矩形">
                                     <hc:TextBox.Text>
                                         <Binding Path="PostAlignCaptureButtonIndex" UpdateSourceTrigger="PropertyChanged">
                                             <Binding.ValidationRules>
@@ -1294,15 +1324,16 @@
                                 </hc:TextBox>
                                 <Button
                                     Command="{Binding CalibratePostAlignCaptureButtonCommand}"
-                                    Content="标定捕捉按钮"
+                                    Content="标定按钮位置"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
-                                    ToolTip="隐藏上位机 → 十字准星对准视口右下角无名按钮中心" />
+                                    ToolTip="隐藏上位机 → 十字准星对准 3D图正视图切换按钮中心" />
                             </StackPanel>
 
                             <TextBlock
                                 Margin="10,16,10,0"
                                 FontWeight="SemiBold"
-                                Text="② 点击按钮后的拖拽箭头（方向与距离）" />
+                                TextWrapping="Wrap"
+                                Text="② 点击按钮后的拖拽箭头（方向与距离）：需要对3D图进行拖拽，因为切片后会默认在切片右下角显示3D图，需要拖拽，直到可以同时看见3个面的位置" />
                             <StackPanel Margin="10" Orientation="Horizontal">
                                 <TextBlock VerticalAlignment="Center" Text="当前标定：" />
                                 <TextBlock
@@ -1318,7 +1349,7 @@
                                     Command="{Binding CalibratePostAlignDragArrowCommand}"
                                     Content="标定拖拽箭头"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
-                                    ToolTip="全屏按住左键拖出黄色箭头：起点→终点即自动化拖拽路径" />
+                                    ToolTip="全屏按住左键拖出黄色箭头：起点→终点即自动化拖拽路径；拖至可同时看见3个面" />
                             </StackPanel>
 
                             <StackPanel Margin="10,8,10,0" Orientation="Horizontal">
@@ -1352,7 +1383,7 @@
                             <TextBlock
                                 Margin="10,8,10,10"
                                 Foreground="Gray"
-                                Text="执行顺序：优先 UIA 定位无名按钮并 Invoke；失败则用标定绝对坐标点击 → 等待 → 按箭头直线拖拽。未标定齐全时主流程跳过本步。"
+                                Text="执行顺序：优先 UIA 定位 3D图正视图切换按钮并 Invoke；失败则用标定绝对坐标点击 → 等待 → 按箭头直线拖拽。未标定齐全时主流程跳过本步。"
                                 TextWrapping="Wrap" />
                         
                         </StackPanel>
@@ -1661,10 +1692,69 @@
                             </StackPanel>
 
                             <TextBlock
-                                Margin="10,0,10,12"
+                                Margin="10,0,10,8"
                                 TextWrapping="Wrap"
                                 Foreground="#666"
-                                Text="输入：上视图文件夹中第 N/2 张图。输出：主文件夹下「AI标注」子目录（与前/右/上同级）。" />
+                                Text="主流程输入：上视图文件夹中第 N/2 张图。输出：主文件夹下「AI标注」子目录（与前/右/上同级）。" />
+
+                            <TextBlock
+                                Margin="10,12,10,0"
+                                FontWeight="SemiBold"
+                                Text="独立标注（单张图片）" />
+                            <TextBlock
+                                Margin="10,4,10,0"
+                                TextWrapping="Wrap"
+                                Foreground="{StaticResource CasMutedTextBrush}"
+                                Text="在此选择输入图片后点击「开始标注」。输出文件夹可留空，默认输出到输入图片所在目录。" />
+                            <StackPanel Margin="10,10,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="输入图片"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtManualInputImagePath" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="70"
+                                    Command="{Binding BrowseOfflineCtManualInputImageCommand}"
+                                    Content="浏览"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}" />
+                            </StackPanel>
+                            <StackPanel Margin="10,8,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="500"
+                                    Margin="0,0,10,0"
+                                    hc:InfoElement.Title="输出文件夹"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="留空则输出到输入图片所在目录">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtManualOutputFolder" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <Button
+                                    Width="70"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding BrowseOfflineCtManualOutputFolderCommand}"
+                                    Content="浏览"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                <Button
+                                    Width="70"
+                                    Command="{Binding ClearOfflineCtManualOutputFolderCommand}"
+                                    Content="清空"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="清空输出文件夹，恢复默认（输入图目录）" />
+                            </StackPanel>
+                            <StackPanel Margin="10,12,10,12" Orientation="Horizontal">
+                                <Button
+                                    Style="{StaticResource CasPrimaryButtonStyle}"
+                                    MinWidth="180"
+                                    Command="{Binding RunOfflineCtManualAnnotationCommand}"
+                                    Content="开始标注"
+                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                    ToolTip="使用上方模型/CUDA/打黑高度/结果图模式等参数，对指定输入图执行 AI 标注" />
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
@@ -1700,7 +1790,7 @@
                                             <LineBreak />
                                             <Run Text="• 测试简单3-2-1对齐：需标定 3D ROI +「上」ROI + 下拉 + 偏移 Edit。" />
                                             <LineBreak />
-                                            <Run Text="• 测试对齐后捕捉拖拽：需标定捕捉按钮与拖拽箭头。" />
+                                            <Run Text="• 测试对齐后拖拽：需标定 3D图正视图切换按钮位置与拖拽箭头。" />
                                             <LineBreak />
                                             <Run Text="• 测试切片导出(三视图)：验证前/右/上堆栈导出。" />
                                             <LineBreak />
@@ -1711,52 +1801,147 @@
                                 <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
                             </StackPanel>
-<TextBlock
+                            <Border
                                 Margin="10,10,10,0"
-                                Foreground="#C0392B"
-                                Text="仅测试阶段使用，生产阶段请勿点击。"
-                                TextWrapping="Wrap" />
-                            <WrapPanel Margin="10" Orientation="Horizontal">
+                                Padding="12,10"
+                                Background="#14C0392B"
+                                BorderBrush="#66C0392B"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                                <TextBlock
+                                    Foreground="#C0392B"
+                                    FontWeight="SemiBold"
+                                    Text="仅测试阶段使用，生产阶段请勿点击。误点可能干扰正在运行的 VG。"
+                                    TextWrapping="Wrap" />
+                            </Border>
+                            <UniformGrid Margin="10,14,0,4" Columns="2">
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestRenderingPresetCommand}"
-                                    Content="测试应用渲染预设"
+                                    Content="1  测试应用渲染预设"
                                     IsEnabled="{Binding IsEnableSimulationBtn}" />
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestHistogramGrayScaleCommand}"
-                                    Content="测试直方图灰度调整"
+                                    Content="2  测试直方图灰度调整"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线" />
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestThickPlateCommand}"
-                                    Content="测试厚板设置(三象限)"
+                                    Content="3  测试厚板设置(三象限)"
                                     IsEnabled="{Binding IsEnableSimulationBtn}" />
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestSimple321AlignmentCommand}"
-                                    Content="测试简单3-2-1对齐"
+                                    Content="4  测试简单3-2-1对齐"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit" />
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestPostAlignCaptureDragCommand}"
-                                    Content="测试对齐后捕捉拖拽"
+                                    Content="5  测试对齐后拖拽"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
-                                    ToolTip="需已标定捕捉按钮与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态" />
+                                    ToolTip="需已标定 3D图正视图切换按钮位置与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态" />
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestSliceExportCommand}"
-                                    Content="测试切片导出(三视图)"
+                                    Content="6  测试切片导出(三视图)"
                                     IsEnabled="{Binding IsEnableSimulationBtn}" />
                                 <Button
-                                    Margin="0,0,10,8"
+                                    Style="{StaticResource CasStepTestButtonStyle}"
                                     Command="{Binding TestOfflineCtVisionAnnotationCommand}"
-                                    Content="测试 AI 图像标注"
+                                    Content="7  测试 AI 图像标注"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
                                     ToolTip="选手动图，或按切片导出目录取「上」视图中间图后调用 NJCT" />
-                            </WrapPanel>
+                            </UniformGrid>
+
+                            <TextBlock
+                                Margin="10,18,10,0"
+                                FontWeight="SemiBold"
+                                Text="上位机窗体大小（仅本项目）" />
+                            <TextBlock
+                                Margin="10,4,10,0"
+                                Foreground="{StaticResource CasMutedTextBrush}"
+                                TextWrapping="Wrap"
+                                Text="默认全屏。可在此设置窗口宽高，或「保存当前窗体大小」以便下次进入 CT 自动化切片时自动沿用。离开本项目后恢复默认全屏。" />
+                            <TextBlock
+                                Margin="10,8,10,0"
+                                FontFamily="Consolas"
+                                FontWeight="SemiBold"
+                                Text="{Binding MainWindowSizeDisplayText}"
+                                TextWrapping="Wrap" />
+                            <StackPanel Margin="10,10,10,0" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="140"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="宽度"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="MainWindowWidth" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="140"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="高度"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="MainWindowHeight" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="120"
+                                    Margin="0,0,8,0"
+                                    hc:InfoElement.Title="Left"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="MainWindowLeft" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="120"
+                                    hc:InfoElement.Title="Top"
+                                    hc:InfoElement.TitlePlacement="Left">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="MainWindowTop" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+                            <StackPanel Margin="10,10,10,12" Orientation="Horizontal">
+                                <CheckBox
+                                    Margin="0,0,16,0"
+                                    VerticalAlignment="Center"
+                                    Content="下次启动沿用"
+                                    IsChecked="{Binding MainWindowRememberSize}"
+                                    ToolTip="勾选后，下次进入本项目自动应用上方尺寸" />
+                                <Button
+                                    Style="{StaticResource CasSecondaryButtonStyle}"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding ApplyMainWindowSizeCommand}"
+                                    Content="应用窗体大小"
+                                    ToolTip="按上方宽高/位置立即调整主窗（不改全屏默认）" />
+                                <Button
+                                    Style="{StaticResource CasPrimaryButtonStyle}"
+                                    Margin="0,0,8,0"
+                                    MinWidth="0"
+                                    Command="{Binding SaveCurrentMainWindowSizeCommand}"
+                                    Content="保存当前窗体大小"
+                                    ToolTip="读取当前主窗实际尺寸并保存，下次进入本项目自动沿用" />
+                                <Button
+                                    Style="{StaticResource CasSecondaryButtonStyle}"
+                                    Command="{Binding RestoreDefaultMainWindowSizeCommand}"
+                                    Content="恢复默认全屏"
+                                    ToolTip="关闭沿用并立即最大化主窗" />
+                            </StackPanel>
                         
                         </StackPanel>
                     </ScrollViewer>

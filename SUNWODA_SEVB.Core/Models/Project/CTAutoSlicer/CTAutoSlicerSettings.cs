@@ -34,10 +34,21 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, DefaultDllFileName);
 
         public const string CutImgDllFileName = "CTAutoCutImg.dll";
+        public const string OfflineCtDllFileName = "NJCT.dll";
+        public const string OfflineCtModelRelativePath = @"Models\CTOffline\model_500000_900.onnx";
+        public const int DefaultOfflineCtBlackHeight = 1500;
 
         /// <summary>切图算法 DLL：{程序目录}\Dlls\CTAutoCutImg.dll（与 halcon 原生库同目录）</summary>
         public static string GetCutImgAlgorithmDllPath() =>
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, CutImgDllFileName);
+
+        /// <summary>惠州离线 CT AI 业务 DLL：{程序目录}\Dlls\NJCT.dll</summary>
+        public static string GetOfflineCtDllPath() =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, OfflineCtDllFileName);
+
+        /// <summary>默认 ONNX 模型：{程序目录}\Dlls\Models\CTOffline\model_500000_900.onnx</summary>
+        public static string GetDefaultOfflineCtModelPath() =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, "Models", "CTOffline", "model_500000_900.onnx");
 
         /// <summary>原生依赖目录：{程序目录}\Dlls（halcon.dll / libiomp5md.dll 等）</summary>
         public static string GetNativeDllsDirectory() =>
@@ -254,6 +265,38 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public string SliceExportViewRightName { get; set; } = "右 1";
         /// <summary>2D 视图下拉项 Name（上视图）</summary>
         public string SliceExportViewTopName { get; set; } = "上 1";
+
+        /// <summary>阶段七：切片导出后是否执行 AI 图像标注</summary>
+        public bool EnableOfflineCtVisionAnnotation { get; set; } = true;
+
+        /// <summary>ONNX 模型绝对路径（空则使用默认 Dlls\Models\CTOffline\…）</summary>
+        public string OfflineCtModelPath { get; set; } = string.Empty;
+
+        /// <summary>是否启用 GPU CUDA（ModelInit IsRunCuda）</summary>
+        public bool OfflineCtIsRunCuda { get; set; } = true;
+
+        /// <summary>图片下方打黑高度（像素）</summary>
+        public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
+
+        /// <summary>结果图模式：增强 / 原图 / 两者</summary>
+        public OfflineCtResultImageMode OfflineCtResultImageMode { get; set; } = OfflineCtResultImageMode.Enhance;
+
+        /// <summary>是否输出 annotation.json</summary>
+        public bool OfflineCtExportJson { get; set; } = true;
+
+        /// <summary>是否输出 annotation.csv</summary>
+        public bool OfflineCtExportCsv { get; set; } = true;
+
+        /// <summary>解析模型路径：配置非空则用之，否则默认部署路径。</summary>
+        public string ResolveOfflineCtModelPath()
+        {
+            if (!string.IsNullOrWhiteSpace(OfflineCtModelPath))
+            {
+                return OfflineCtModelPath.Trim();
+            }
+
+            return GetDefaultOfflineCtModelPath();
+        }
 
         /// <summary>直方图 ROI 屏幕 X（物理像素，框选标定）</summary>
         public int HistogramRoiX { get; set; }

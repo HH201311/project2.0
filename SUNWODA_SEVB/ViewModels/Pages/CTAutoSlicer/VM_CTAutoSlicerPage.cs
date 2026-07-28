@@ -133,12 +133,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private bool _postAlignDragCalibrated;
         private string _postAlignDragDisplayText = "未标定";
         private bool _enablePostAlignCaptureDragSteps = true;
+        private bool _enableOfflineCtVisionAnnotation = true;
+        private string _offlineCtModelPath = string.Empty;
+        private bool _offlineCtIsRunCuda = true;
+        private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
+        private int _offlineCtResultImageMode = (int)OfflineCtResultImageMode.Enhance;
+        private bool _offlineCtExportJson = true;
+        private bool _offlineCtExportCsv = true;
         private int _postAlignClickWaitMs = 400;
         private int _postAlignDragStepDelayMs = 8;
         /// <summary>false=生产模式（默认）；true=调试模式（显示单步测试）。</summary>
         private bool _isDebugMode;
 
-        /// <summary>左侧导航选中项：0总览 1应用 2导入 3渲染 4直方 5对齐 6捕捉 7导出 8单测。</summary>
+        /// <summary>左侧导航选中项：0总览 1应用 2导入 3渲染 4直方 5对齐 6捕捉 7导出 8AI标注 9单测。</summary>
         private int _selectedNavIndex;
 
         public const int NavOverview = 0;
@@ -149,7 +156,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public const int NavVision = 5;
         public const int NavPostAlign = 6;
         public const int NavSlice = 7;
-        public const int NavStepTest = 8;
+        public const int NavAiAnnotate = 8;
+        public const int NavStepTest = 9;
 
         public string MessageShower
         {
@@ -219,6 +227,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public bool IsNavVision => SelectedNavIndex == NavVision;
         public bool IsNavPostAlign => SelectedNavIndex == NavPostAlign;
         public bool IsNavSlice => SelectedNavIndex == NavSlice;
+        public bool IsNavAiAnnotate => SelectedNavIndex == NavAiAnnotate;
         public bool IsNavStepTest => SelectedNavIndex == NavStepTest;
 
         public string CurrentSectionTitle => SelectedNavIndex switch
@@ -231,8 +240,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             NavVision => "视觉对齐",
             NavPostAlign => "对齐后捕捉",
             NavSlice => "切片导出",
+            NavAiAnnotate => "AI图像标注",
             NavStepTest => "单步测试",
-            _ => "CT 自动化切片"
+            _ => "CT自动化切片",
         };
 
         public string PrimaryActionButtonText =>
@@ -1096,6 +1106,119 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        public bool EnableOfflineCtVisionAnnotation
+        {
+            get => _enableOfflineCtVisionAnnotation;
+            set
+            {
+                if (SetProperty(ref _enableOfflineCtVisionAnnotation, value))
+                {
+                    SaveSetting(nameof(EnableOfflineCtVisionAnnotation), value ? 1 : 0);
+                }
+            }
+        }
+
+        public string OfflineCtModelPath
+        {
+            get => _offlineCtModelPath;
+            set
+            {
+                if (SetProperty(ref _offlineCtModelPath, value))
+                {
+                    SaveSetting(nameof(OfflineCtModelPath), value ?? string.Empty);
+                }
+            }
+        }
+
+        public bool OfflineCtIsRunCuda
+        {
+            get => _offlineCtIsRunCuda;
+            set
+            {
+                if (SetProperty(ref _offlineCtIsRunCuda, value))
+                {
+                    SaveSetting(nameof(OfflineCtIsRunCuda), value ? 1 : 0);
+                }
+            }
+        }
+
+        public int OfflineCtBlackHeight
+        {
+            get => _offlineCtBlackHeight;
+            set
+            {
+                if (SetProperty(ref _offlineCtBlackHeight, value))
+                {
+                    SaveSetting(nameof(OfflineCtBlackHeight), value);
+                }
+            }
+        }
+
+        /// <summary>0=增强图 1=原图 2=两者</summary>
+        public int OfflineCtResultImageMode
+        {
+            get => _offlineCtResultImageMode;
+            set
+            {
+                if (SetProperty(ref _offlineCtResultImageMode, value))
+                {
+                    SaveSetting(nameof(OfflineCtResultImageMode), value);
+                    OnPropertyChanged(nameof(OfflineCtResultImageModeDisplay));
+                }
+            }
+        }
+
+        public IReadOnlyList<string> OfflineCtResultImageModeOptions { get; } =
+        [
+            "增强图",
+            "原图",
+            "增强图和原图",
+        ];
+
+        public string OfflineCtResultImageModeDisplay
+        {
+            get
+            {
+                var idx = Math.Clamp(_offlineCtResultImageMode, 0, OfflineCtResultImageModeOptions.Count - 1);
+                return OfflineCtResultImageModeOptions[idx];
+            }
+            set
+            {
+                var idx = OfflineCtResultImageModeOptions.ToList().IndexOf(value);
+                if (idx < 0)
+                {
+                    return;
+                }
+
+                OfflineCtResultImageMode = idx;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool OfflineCtExportJson
+        {
+            get => _offlineCtExportJson;
+            set
+            {
+                if (SetProperty(ref _offlineCtExportJson, value))
+                {
+                    SaveSetting(nameof(OfflineCtExportJson), value ? 1 : 0);
+                }
+            }
+        }
+
+        public bool OfflineCtExportCsv
+        {
+            get => _offlineCtExportCsv;
+            set
+            {
+                if (SetProperty(ref _offlineCtExportCsv, value))
+                {
+                    SaveSetting(nameof(OfflineCtExportCsv), value ? 1 : 0);
+                }
+            }
+        }
+
         public int PostAlignClickWaitMs
         {
             get => _postAlignClickWaitMs;
@@ -1140,6 +1263,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestHistogramGrayScaleCommand { get; }
         public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand TestPostAlignCaptureDragCommand { get; }
+        public ICommand TestOfflineCtVisionAnnotationCommand { get; }
+        public ICommand BrowseOfflineCtModelPathCommand { get; }
+        public ICommand ResetOfflineCtModelPathCommand { get; }
         /// <summary>临时：最小化本软件后截取 3D ROI，供视觉学习采图。</summary>
         public ICommand CaptureVision3dSampleCommand { get; }
         /// <summary>临时：最小化本软件后截取「上」视图 ROI，供视觉学习采图。</summary>
@@ -1192,6 +1318,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestHistogramGrayScaleCommand = new RelayCommandAsync(ExecuteTestHistogramGrayScaleAsync);
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
+            TestOfflineCtVisionAnnotationCommand = new RelayCommandAsync(ExecuteTestOfflineCtVisionAnnotationAsync);
+            BrowseOfflineCtModelPathCommand = new RelayCommand(ExecuteBrowseOfflineCtModelPath);
+            ResetOfflineCtModelPathCommand = new RelayCommand(ExecuteResetOfflineCtModelPath);
             CaptureVision3dSampleCommand = new RelayCommand(ExecuteCaptureVision3dSample);
             CaptureVisionTopViewSampleCommand = new RelayCommand(ExecuteCaptureVisionTopViewSample);
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
@@ -1238,6 +1367,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(IsNavVision));
             OnPropertyChanged(nameof(IsNavPostAlign));
             OnPropertyChanged(nameof(IsNavSlice));
+            OnPropertyChanged(nameof(IsNavAiAnnotate));
             OnPropertyChanged(nameof(IsNavStepTest));
             OnPropertyChanged(nameof(CurrentSectionTitle));
         }
@@ -1445,6 +1575,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(PostAlignClickWaitMs));
             OnPropertyChanged(nameof(PostAlignDragStepDelayMs));
 
+            _enableOfflineCtVisionAnnotation =
+                LoadIntSetting(nameof(EnableOfflineCtVisionAnnotation), 1) != 0;
+            OfflineCtModelPath = LoadStringSetting(nameof(OfflineCtModelPath), string.Empty);
+            _offlineCtIsRunCuda = LoadIntSetting(nameof(OfflineCtIsRunCuda), 1) != 0;
+            _offlineCtBlackHeight = LoadIntSetting(
+                nameof(OfflineCtBlackHeight),
+                CTAutoSlicerSettings.DefaultOfflineCtBlackHeight);
+            _offlineCtResultImageMode = LoadIntSetting(
+                nameof(OfflineCtResultImageMode),
+                (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance);
+            _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 1) != 0;
+            _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 1) != 0;
+            OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
+            OnPropertyChanged(nameof(OfflineCtIsRunCuda));
+            OnPropertyChanged(nameof(OfflineCtBlackHeight));
+            OnPropertyChanged(nameof(OfflineCtResultImageMode));
+            OnPropertyChanged(nameof(OfflineCtResultImageModeDisplay));
+            OnPropertyChanged(nameof(OfflineCtExportJson));
+            OnPropertyChanged(nameof(OfflineCtExportCsv));
+
             _isLoadingSettings = false;
         }
 
@@ -1573,6 +1723,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 EnablePostAlignCaptureDragSteps = EnablePostAlignCaptureDragSteps,
                 PostAlignClickWaitMs = PostAlignClickWaitMs,
                 PostAlignDragStepDelayMs = PostAlignDragStepDelayMs,
+                EnableOfflineCtVisionAnnotation = EnableOfflineCtVisionAnnotation,
+                OfflineCtModelPath = OfflineCtModelPath,
+                OfflineCtIsRunCuda = OfflineCtIsRunCuda,
+                OfflineCtBlackHeight = OfflineCtBlackHeight,
+                OfflineCtResultImageMode = (Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode)Math.Clamp(
+                    _offlineCtResultImageMode,
+                    0,
+                    2),
+                OfflineCtExportJson = OfflineCtExportJson,
+                OfflineCtExportCsv = OfflineCtExportCsv,
                 VisionClickIntervalMs = 300,
                 VisionAlignmentDialogWaitTime = 8000,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
@@ -2913,6 +3073,108 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MessageShower = ex.Message;
                 AppendFlowLog($"对齐后捕捉拖拽测试失败：{ex.Message}");
                 _logger.Error("对齐后捕捉拖拽测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private void ExecuteBrowseOfflineCtModelPath()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "选择离线 CT ONNX 模型",
+                Filter = "ONNX 模型 (*.onnx)|*.onnx|所有文件 (*.*)|*.*",
+                CheckFileExists = true,
+            };
+            if (!string.IsNullOrWhiteSpace(OfflineCtModelPath))
+            {
+                try
+                {
+                    dialog.InitialDirectory = Path.GetDirectoryName(OfflineCtModelPath);
+                    dialog.FileName = Path.GetFileName(OfflineCtModelPath);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                OfflineCtModelPath = dialog.FileName;
+            }
+        }
+
+        private void ExecuteResetOfflineCtModelPath()
+        {
+            OfflineCtModelPath = string.Empty;
+            MessageShower = $"已恢复默认模型路径：{CTAutoSlicerSettings.GetDefaultOfflineCtModelPath()}";
+        }
+
+        private async Task ExecuteTestOfflineCtVisionAnnotationAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            string? explicitImage = null;
+            var pick = MessageBox.Show(
+                "是 = 手动选择一张图片测试\n否 = 按切片导出目录规则取「上」视图中间图\n取消 = 退出",
+                "AI 图像标注测试",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+            if (pick == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+
+            if (pick == MessageBoxResult.Yes)
+            {
+                var dialog = new OpenFileDialog
+                {
+                    Title = "选择 AI 标注输入图",
+                    Filter = "图像 (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp|所有文件 (*.*)|*.*",
+                    CheckFileExists = true,
+                };
+                if (dialog.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                explicitImage = dialog.FileName;
+            }
+            else if (string.IsNullOrWhiteSpace(SliceExportFolder))
+            {
+                MessageShower = "请先配置切片导出目录，或改为手动选图测试";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— AI 图像标注测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.TestOfflineCtVisionAnnotationAsync(
+                    BuildSettings(),
+                    flowToken,
+                    progress,
+                    explicitImage);
+                AppendFlowLog("——— AI 图像标注测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"AI 图像标注测试失败：{ex.Message}");
+                _logger.Error("AI 图像标注单步测试失败", ex);
             }
             finally
             {

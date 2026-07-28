@@ -83,6 +83,16 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
             IProgress<string>? progress = null
         );
 
+        /// <summary>
+        /// 单步测试：对「上」视图中间图或指定图片执行 AI 图像标注。
+        /// </summary>
+        Task TestOfflineCtVisionAnnotationAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null,
+            string? explicitImagePath = null
+        );
+
         void Cancel();
     }
 }

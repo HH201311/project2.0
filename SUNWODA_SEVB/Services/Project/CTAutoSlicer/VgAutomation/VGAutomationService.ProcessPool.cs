@@ -595,10 +595,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         progress)
                     .ConfigureAwait(false);
 
-                await ExportImageStackSlicesAsync(
+                var (exportBaseName, quantity) = await ExportImageStackSlicesAsync(
                         settings,
                         ctViewerProcess,
                         vglPath,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                await TryRunOfflineCtVisionAnnotationAsync(
+                        settings,
+                        vglPath,
+                        exportBaseName,
+                        quantity,
                         cancellationToken,
                         progress)
                     .ConfigureAwait(false);

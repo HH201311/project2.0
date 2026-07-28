@@ -85,6 +85,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private readonly ILoggerService<VGAutomationService> _logger;
         private readonly IAngleAlgorithmService _angleAlgorithmService;
         private readonly ICutImgAlgorithmService _cutImgAlgorithmService;
+        private readonly ICTOfflineVisionService _offlineCtVisionService;
         private readonly EventSimulator _simulator;
         private readonly AutomationPauseGate _pauseGate = new();
         private readonly ManualInterventionGate _manualInterventionGate = new();
@@ -129,11 +130,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         public VGAutomationService(
             ILoggerService<VGAutomationService> logger,
             IAngleAlgorithmService angleAlgorithmService,
-            ICutImgAlgorithmService cutImgAlgorithmService)
+            ICutImgAlgorithmService cutImgAlgorithmService,
+            ICTOfflineVisionService offlineCtVisionService)
         {
             _logger = logger;
             _angleAlgorithmService = angleAlgorithmService;
             _cutImgAlgorithmService = cutImgAlgorithmService;
+            _offlineCtVisionService = offlineCtVisionService;
             _simulator = new EventSimulator();
             RegisterDefaultInterruptDialogs();
             UIAutomationHelper.CooperativePauseWaitAsync = _pauseGate.WaitIfPausedAsync;

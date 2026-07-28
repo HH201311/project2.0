@@ -14,7 +14,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     public partial class VGAutomationService
     {
         // 阶段五：切片导出 + TestSliceExport
-        private async Task ExportImageStackSlicesAsync(
+        /// <returns>导出名与实际数量，供阶段七 AI 标注选「上」视图中间图。</returns>
+        private async Task<(string ExportBaseName, int Quantity)> ExportImageStackSlicesAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             string vglPath,
@@ -93,6 +94,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             progress?.Report("三视图切片导出完成");
             _logger.Info("三视图切片导出完成");
+            return (exportBaseName, quantity);
         }
 
         private async Task ExportSingleViewSliceAsync(
@@ -1251,10 +1253,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 _activeVgProcess = ctViewerProcess;
                 EnsureVgForeground(ctViewerProcess);
 
-                await ExportImageStackSlicesAsync(
+                var (exportBaseName, quantity) = await ExportImageStackSlicesAsync(
                         settings,
                         ctViewerProcess,
                         vglPath,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+
+                await TryRunOfflineCtVisionAnnotationAsync(
+                        settings,
+                        vglPath,
+                        exportBaseName,
+                        quantity,
                         cancellationToken,
                         progress)
                     .ConfigureAwait(false);

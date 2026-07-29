@@ -35,16 +35,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CapacityPrediction
     {
         private readonly ILoggerService<VM_CapacityPredictionPage> _logger;
         private readonly IGlobalSettingRepository _globalSettingRepository;
-        private readonly IPLCConfigRepository _plcConfigRepository;
         private readonly IWebApiClient _webApiClient;
-        private readonly IProjectSettingRepository _projectSettingRepository;
-        private readonly IModuleManager _moduleManager;
+
 
         #region 界面绑定数据源
 
         private string? directoryFilePath;
         private string? filePath;
-        private string? outFilePath = Environment.CurrentDirectory.Replace("net8.0-windows", "拆分结果");
+        private string outFilePath = Environment.CurrentDirectory.Replace("net8.0-windows", "拆分结果");
 
         /// <summary>
         /// 加载文件夹路径
@@ -67,7 +65,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CapacityPrediction
         /// <summary>
         /// 导出文件路径
         /// </summary>
-        public string? OutFilePath
+        public string OutFilePath
         {
             get => outFilePath;
             set => SetProperty(ref outFilePath, value);
@@ -85,18 +83,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CapacityPrediction
         (
             ILoggerService<VM_CapacityPredictionPage> logger,
             IGlobalSettingRepository globalSettingRepository,
-            IPLCConfigRepository plcConfigRepository,
-            IWebApiClient webApiClient,
-            IProjectSettingRepository projectSettingRepository,
-            IModuleManager moduleManager
+            IWebApiClient webApiClient
         )
         {
             _logger = logger;
             _globalSettingRepository = globalSettingRepository;
-            _plcConfigRepository = plcConfigRepository;
             _webApiClient = webApiClient;
-            _projectSettingRepository = projectSettingRepository;
-            _moduleManager = moduleManager;
 
             Init_Process();
         }
@@ -108,7 +100,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CapacityPrediction
         {
             // 创建文件夹
             Directory.CreateDirectory(OutFilePath);
-            
+
             // 消费者线程----处理Excel文件拆分
             Task.Run(async () =>
             {
@@ -459,7 +451,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CapacityPrediction
 
             if (sourceCell.DataType?.Value == CellValues.SharedString)
             {
-                string text = GetCellValue(sourceDoc, sourceCell)?.Trim();
+                string text = GetCellValue(sourceDoc, sourceCell)?.Trim() ?? "";
 
                 if (isAlarmColumn &&
                     (string.IsNullOrEmpty(text) ||
@@ -528,7 +520,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CapacityPrediction
             if (wbPart.SharedStringTablePart == null)
             {
                 wbPart.AddNewPart<SharedStringTablePart>();
-                wbPart.SharedStringTablePart.SharedStringTable = new SharedStringTable();
+                wbPart.SharedStringTablePart!.SharedStringTable = new SharedStringTable();
             }
 
             var sst = wbPart.SharedStringTablePart.SharedStringTable;

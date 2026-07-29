@@ -439,24 +439,24 @@ namespace SUNWODA_SEVB.Tool.Helper.SocketHelper
         /// <summary>
         /// 发送
         /// </summary>
-        /// <param name="message"></param>
+        /// <param name="Message"></param>
         /// <returns></returns>
-        public async Task<int> SendToClientAsync(Socket client, string message)
+        public async Task<int> SendToClientAsync(Socket client, string Message)
         {
-            var buffer = Encoding.UTF8.GetBytes(message);
+            var buffer = Encoding.UTF8.GetBytes(Message);
             return await SendToClientAsync(client, buffer);
         }
         /// <summary>
         /// 发送
         /// </summary>
-        /// <param name="message"></param>
+        /// <param name="Message"></param>
         /// <returns></returns>
-        public async Task<int> SendToClientAsync(Socket client, byte[] message)
+        public async Task<int> SendToClientAsync(Socket client, byte[] Message)
         {
             if (!_connectedClients.Contains(client)) return 0;
             try
             {
-                return await client.SendAsync(new ArraySegment<byte>(message), SocketFlags.None);
+                return await client.SendAsync(new ArraySegment<byte>(Message), SocketFlags.None);
             }
             catch (Exception ex)
             {
@@ -471,16 +471,16 @@ namespace SUNWODA_SEVB.Tool.Helper.SocketHelper
         /// <summary>
         /// 发送
         /// </summary>
-        /// <param name="message"></param>
+        /// <param name="Message"></param>
         /// <returns></returns>
-        public async Task SendToAllAsync(string message)
+        public async Task SendToAllAsync(string Message)
         {
-            var buffer = Encoding.UTF8.GetBytes(message + "\n"); // 确保消息格式兼容
+            var buffer = Encoding.UTF8.GetBytes(Message + "\n"); // 确保消息格式兼容
             var disconnectedClients = new List<Socket>();
             var clients = new List<Socket>(_connectedClients);
             foreach (var client in clients)
             {
-                var send = await SendToClientAsync(client, message);
+                var send = await SendToClientAsync(client, Message);
             }
         }
 

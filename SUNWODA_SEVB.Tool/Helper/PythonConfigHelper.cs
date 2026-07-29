@@ -1,13 +1,5 @@
 ﻿using Python.Runtime;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace SUNWODA_SEVB.Tool.Helper
@@ -15,10 +7,13 @@ namespace SUNWODA_SEVB.Tool.Helper
     public static class PythonConfigHelper
     {
         private static Thread? PythonThread;
-        private static CancellationTokenSource? _cts;  // ✅ 添加
-        public static bool IsWorking { get; private set; } = false;
-        private static Queue<(Action<object[]>, object[])> actions =
-            new Queue<(Action<object[]>, object[])>();
+        private static AutoResetEvent ar = new AutoResetEvent(false);
+
+        private static volatile bool isWorking = false;
+        public static bool IsWorking => isWorking;
+
+        private static readonly Queue<(Action<object[]>, object[])> actions = new();
+        private static readonly object queueLock = new();
 
         /// <summary>
         /// 是否已经初始化配置python环境
@@ -33,7 +28,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (!IsInitConfig)
             {
-                AddAction((InitConfig, new object[] { pyInstallPath }));
+                AddAction((InitConfig, [pyInstallPath]));
             }
         }
 
@@ -46,7 +41,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (!IsInitConfig)
             {
-                AddAction((InitConfig, new object[] { pyInstallPath, pySearchPaths }));
+                AddAction((InitConfig, [pyInstallPath, pySearchPaths]));
             }
         }
 
@@ -74,6 +69,14 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                 #region python配置<可配置>
                 #region python动态链接库
+
+                // 添加 null 检查
+                if (string.IsNullOrEmpty(pythonInstallDir))
+                {
+                    MessageBox.Show("Python 安装路径参数无效或为空", "参数错误");
+                    return;
+                }
+
                 var files = Directory.GetFiles(pythonInstallDir, "python*.dll");
                 if (files.Length == 0)
                 {
@@ -105,12 +108,12 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                 #region 设置对应python搜索路径
                 string[] pyPaths = { "DLLs", "Lib", "Lib/site-packages" };
-                List<string> searchPaths = new List<string> { pythonInstallDir };
+                List<string> searchPaths = [pythonInstallDir];
+                searchPaths.Add(Path.Combine(pythonInstallDir, "..", "Dlls"));
                 foreach (string p in pyPaths)
                 {
                     searchPaths.Add(Path.Combine(pythonInstallDir, p));
                 }
-
 
                 // 添加自定义模块的搜索路径
                 if (obj.Length > 1)
@@ -120,7 +123,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                         searchPaths.AddRange(customPaths);
                     }
                 }
-
 
                 searchPaths.Add("./PythonScripts");
                 PythonEngine.PythonPath = string.Join(";", searchPaths);
@@ -148,28 +150,24 @@ namespace SUNWODA_SEVB.Tool.Helper
             try
             {
                 // 使用 PEHeader 检查 DLL 文件位数
-                using (var fs = new FileStream(dllPath, FileMode.Open, FileAccess.Read))
+                using var fs = new FileStream(dllPath, FileMode.Open, FileAccess.Read);
+                using var br = new BinaryReader(fs);
+                // 读取 DOS 头
+                fs.Seek(0x3C, SeekOrigin.Begin);
+                int peHeaderOffset = br.ReadInt32();
+                fs.Seek(peHeaderOffset, SeekOrigin.Begin);
+
+                // 读取 PE 头
+                uint peHeader = br.ReadUInt32();
+                if (peHeader != 0x00004550) // "PE\0\0"
                 {
-                    using (var br = new BinaryReader(fs))
-                    {
-                        // 读取 DOS 头
-                        fs.Seek(0x3C, SeekOrigin.Begin);
-                        int peHeaderOffset = br.ReadInt32();
-                        fs.Seek(peHeaderOffset, SeekOrigin.Begin);
-
-                        // 读取 PE 头
-                        uint peHeader = br.ReadUInt32();
-                        if (peHeader != 0x00004550) // "PE\0\0"
-                        {
-                            MessageBox.Show("无效的 PE 文件", "系统错误");
-                            return false;
-                        }
-
-                        // 读取机器类型
-                        ushort machine = br.ReadUInt16();
-                        return machine == 0x8664; // IMAGE_FILE_MACHINE_AMD64
-                    }
+                    MessageBox.Show("无效的 PE 文件", "系统错误");
+                    return false;
                 }
+
+                // 读取机器类型
+                ushort machine = br.ReadUInt16();
+                return machine == 0x8664; // IMAGE_FILE_MACHINE_AMD64
             }
             catch (Exception ex)
             {
@@ -177,18 +175,20 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return false;
             }
         }
+
         /// <summary>
         /// 启动PythonThread
         /// </summary>
         public static void Start()
         {
-            if (!IsWorking)
+            if (!isWorking)
             {
-                _cts = new CancellationTokenSource();  // ✅ 创建取消令牌源
-                PythonThread = new Thread(() => DoAction(_cts.Token));  // ✅ 传递 Token
-                PythonThread.IsBackground = true;
-                PythonThread.Name = "PythonThread";
-                IsWorking = true;
+                isWorking = true;
+                PythonThread = new Thread(DoAction)
+                {
+                    IsBackground = true,
+                    Name = "PythonThread"
+                };
                 PythonThread.Start();
             }
         }
@@ -198,13 +198,45 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// </summary>
         public static void Stop()
         {
-            if (IsWorking)
+            if (!isWorking) return;
+
+            // 1. 通知工作线程退出
+            isWorking = false;
+
+            // 2. 等待线程自然结束（避免强制中止）
+            if (PythonThread != null && PythonThread.IsAlive)
             {
-                _cts?.Cancel();  // ✅ 使用 Cancel 替代 Abort
-                IsWorking = false;
+                // 给线程一些时间完成当前任务和清理（例如 2 秒）
+                bool exited = PythonThread.Join(TimeSpan.FromSeconds(2));
+                if (!exited)
+                {
+                    // 理论上工作线程会很快退出；如果未退出，记录日志或做额外处理（不建议强制中止）
+                    // 这里可以设置一个超时后的备用逻辑，例如置空线程引用，但保留 Python 资源不释放
+                }
+            }
+
+            // 3. 清空未执行的任务队列（安全清空，因为工作线程已停止或即将停止）
+            lock (queueLock)
+            {
                 actions.Clear();
+            }
+
+            // 4. 关闭 Python 运行时并重置状态
+            if (IsInitConfig)
+            {
+                try
+                {
+                    // 释放 Python 资源
+                    PythonEngine.Shutdown();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"PythonEngine.Shutdown 失败: {ex.Message}");
+                }
                 IsInitConfig = false;
             }
+
+            PythonThread = null;
         }
 
         /// <summary>
@@ -212,27 +244,31 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// </summary>
         private static void DoAction(CancellationToken cancellationToken)  // ✅ 添加参数
         {
-            while (!cancellationToken.IsCancellationRequested)  // ✅ 检查取消信号
+            // 每次循环检查标志
+            while (isWorking)
             {
+                ar.WaitOne(); // 等待新任务通知
+                (Action<object[]> action, object[] args)? item = null;
                 try
                 {
-                    Monitor.Enter(actions);
-                    while (actions.Count > 0)
+                    // 安全地从队列中取出任务
+                    lock (queueLock)
                     {
-                        (Action<object[]> action, object[] args) = actions.Dequeue();
-                        action(args);
+                        if (actions.Count > 0)
+                        {
+                            item = actions.Dequeue();
+                        }
+                    }
+
+                    if (item.HasValue)
+                    {
+                        item.Value.action(item.Value.args);
                     }
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    MessageBox.Show(e.Message);
+                    MessageBox.Show($"Python 任务执行出错: {ex.Message}");
                 }
-                finally
-                {
-                    Monitor.Exit(actions);
-                }
-
-                Thread.Sleep(500);
             }
         }
 
@@ -242,13 +278,14 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <param name="action">Python任务</param>
         public static void AddAction((Action<object[]>, object[]) action)
         {
-            if (IsWorking)
+            if (isWorking)
             {
                 Task.Run(() =>
                 {
-                    lock (actions)
+                    lock (queueLock)
                     {
                         actions.Enqueue(action);
+                        ar.Set(); // 通知工作线程有新任务
                     }
                 });
             }

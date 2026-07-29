@@ -21,7 +21,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 Timeout = TimeSpan.FromSeconds(120)
             };
         }
-
+       
         public byte[] IMEWebPost(string url, string jsonData, Dictionary<string, string>? headers = null)
         {
             return IMEWebPost(url, jsonData, "application/json", headers);
@@ -141,14 +141,14 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                     File.WriteAllBytes(fullPath, fileBytes);
 
-                    return "{\"code\":\"200\",\"message\":\"下载成功\"}";
+                    return "{\"code\":\"200\",\"Message\":\"下载成功\"}";
                 }
 
-                return $"{{\"code\":\"{(int)response.StatusCode}\",\"message\":\"下载失败: {response.ReasonPhrase}\"}}";
+                return $"{{\"code\":\"{(int)response.StatusCode}\",\"Message\":\"下载失败: {response.ReasonPhrase}\"}}";
             }
             catch (Exception ex)
             {
-                return $"{{\"code\":\"500\",\"message\":\"下载失败: {ex.Message}\"}}";
+                return $"{{\"code\":\"500\",\"Message\":\"下载失败: {ex.Message}\"}}";
             }
         }
 
@@ -160,7 +160,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 // 检查文件是否存在
                 if (!File.Exists(filePath))
                 {
-                    return $"{{\"code\":\"404\",\"message\":\"文件不存在: {filePath}\"}}";
+                    return $"{{\"code\":\"404\",\"Message\":\"文件不存在: {filePath}\"}}";
                 }
 
                 // 临时设置超时时间
@@ -199,11 +199,11 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
             catch (OperationCanceledException)
             {
-                return $"{{\"code\":\"408\",\"message\":\"请求超时\"}}";
+                return $"{{\"code\":\"408\",\"Message\":\"请求超时\"}}";
             }
             catch (Exception ex)
             {
-                return $"{{\"code\":\"500\",\"message\":\"上传失败: {ex.Message}\"}}";
+                return $"{{\"code\":\"500\",\"Message\":\"上传失败: {ex.Message}\"}}";
             }
         }
 
@@ -267,7 +267,15 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
-
+        /// <summary>
+        /// 支持单文件上传的接口，fileBytes 参数为文件的字节数组，fileType 参数为文件的 MIME 类型，format 参数为文件扩展名（如 "jpg"、"mp4" 等），用于自动生成文件名
+        /// </summary>
+        /// <param name="jsonString"></param>
+        /// <param name="fileBytes"></param>
+        /// <param name="url"></param>
+        /// <param name="fileType"></param>
+        /// <param name="format"></param>
+        /// <returns></returns>
         public async Task<byte[]> HttpWebPostBytesAsync(string jsonString, byte[]? fileBytes, string url, string fileType, string format)
         {
             using var form = new MultipartFormDataContent();
@@ -300,6 +308,13 @@ namespace SUNWODA_SEVB.Tool.Helper
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+        /// <summary>
+        /// 支持多文件上传的接口，files 参数为一个列表，每个元素包含文件字节数组、文件类型、文件名和文件扩展名
+        /// </summary>
+        /// <param name="jsonString"></param>
+        /// <param name="files"></param>
+        /// <param name="url"></param>
+        /// <returns></returns>
         public async Task<byte[]> HttpWebPostMultiFilesAsync
         (
             string jsonString,

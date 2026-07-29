@@ -1,0 +1,448 @@
+﻿<Page
+    x:Class="SUNWODA_SEVB.Views.Pages.ZZPACK.MeltingDepthDetectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.ZZPACK"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="焊接过程预警系统"
+    d:DesignHeight="600"
+    d:DesignWidth="1000"
+    mc:Ignorable="d">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" />
+            <RowDefinition Height="1.5*" />
+        </Grid.RowDefinitions>
+
+        <!--  标题行  -->
+        <Border Grid.Row="0" Background="#4A78C5">
+            <TextBlock
+                Margin="20,0"
+                VerticalAlignment="Center"
+                FontSize="20"
+                FontWeight="Bold"
+                Foreground="White"
+                Text="焊接过程预警系统 V1.0" />
+        </Border>
+
+        <!--  熔深阈值规格设置  -->
+        <Border
+            Grid.Row="1"
+            Padding="20,15"
+            Background="#F3F6FA"
+            BorderBrush="#DCE4EF"
+            BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock
+                    Margin="0,0,30,0"
+                    VerticalAlignment="Center"
+                    FontWeight="Bold"
+                    Foreground="#333"
+                    Text="判定参数设置" />
+
+                <TextBlock
+                    Margin="0,0,5,0"
+                    VerticalAlignment="Center"
+                    Text="熔深规格 (mm):" />
+                <TextBox
+                    MinWidth="80"
+                    MaxWidth="100"
+                    Padding="5,2"
+                    VerticalContentAlignment="Center"
+                    Text="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Margin="20,0,5,0"
+                    VerticalAlignment="Center"
+                    Text="允许公差 (±mm):" />
+                <TextBox
+                    MinWidth="80"
+                    MaxWidth="100"
+                    Padding="5,2"
+                    VerticalContentAlignment="Center"
+                    Text="{Binding Tolerance, UpdateSourceTrigger=PropertyChanged}" />
+
+            </StackPanel>
+        </Border>
+
+        <!--  预警数据展示  -->
+        <Border
+            Grid.Row="2"
+            Margin="0,0,0,2"
+            Background="White"
+            BorderBrush="#DCE4EF"
+            BorderThickness="1"
+            CornerRadius="4">
+            <Border.Effect>
+                <DropShadowEffect
+                    BlurRadius="10"
+                    Opacity="0.1"
+                    ShadowDepth="1"
+                    Color="#000" />
+            </Border.Effect>
+
+            <DataGrid
+                AlternationCount="2"
+                AutoGenerateColumns="False"
+                Background="Transparent"
+                BorderThickness="0"
+                CanUserAddRows="False"
+                GridLinesVisibility="None"
+                HorizontalScrollBarVisibility="Auto"
+                IsReadOnly="True"
+                ItemsSource="{Binding Records}"
+                RowHeight="35">
+
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Height" Value="45" />
+                        <Setter Property="Background" Value="#F8FAFD" />
+                        <Setter Property="Foreground" Value="#7F8C8D" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="BorderThickness" Value="0,0,0,1" />
+                        <Setter Property="BorderBrush" Value="#EBF0F6" />
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridColumnHeader">
+                                    <Border
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                        <TextBlock
+                                            Margin="5,0"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Text="{TemplateBinding Content}"
+                                            TextAlignment="Center"
+                                            TextWrapping="Wrap" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="White" />
+                        <Style.Triggers>
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                <Setter Property="Background" Value="#FAFBFE" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F7FF" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#2573A9" />
+                                <Setter Property="Foreground" Value="Black" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="60" Header="状态">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Ellipse
+                                    Width="16"
+                                    Height="16"
+                                    HorizontalAlignment="Center">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#76C733" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOk}" Value="False">
+                                                    <Setter Property="Fill" Value="#E67E22" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect
+                                            BlurRadius="4"
+                                            Opacity="0.3"
+                                            ShadowDepth="1" />
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn
+                        Width="50"
+                        Binding="{Binding ID}"
+                        Header="序号" />
+
+                    <DataGridTextColumn
+                        Width="160"
+                        Binding="{Binding TimeDate, StringFormat=\{0:yyyy/MM/dd HH:mm:ss\}}"
+                        Header="时间/日期">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Center" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="FontFamily" Value="Consolas" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTemplateColumn Width="Auto" Header="PACK码">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    Margin="10,0"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding PackCode}"
+                                    TextTrimming="CharacterEllipsis">
+                                    <TextBlock.ToolTip>
+                                        <ToolTip Content="{Binding PackCode}" />
+                                    </TextBlock.ToolTip>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn
+                        Width="80"
+                        Binding="{Binding DefocusAmount, StringFormat={}{0:F2}}"
+                        Header="离焦量" />
+                    <DataGridTextColumn
+                        Width="90"
+                        Binding="{Binding ProtectiveGasFlow, StringFormat={}{0:F2}}"
+                        Header="保护气流量" />
+                    <DataGridTextColumn
+                        Width="110"
+                        Binding="{Binding WeldingEnergyAverage, StringFormat={}{0:F2}}"
+                        Header="焊接能量平均值" />
+                    <DataGridTextColumn
+                        Width="110"
+                        Binding="{Binding WeldingEnergyMax, StringFormat={}{0:F2}}"
+                        Header="焊接能量最大值" />
+                    <DataGridTextColumn
+                        Width="110"
+                        Binding="{Binding WeldingEnergyMin, StringFormat={}{0:F2}}"
+                        Header="焊接能量最小值" />
+                    <DataGridTextColumn
+                        Width="80"
+                        Binding="{Binding WeldingSpeed, StringFormat={}{0:F2}}"
+                        Header="焊接速度" />
+                    <DataGridTextColumn
+                        Width="100"
+                        Binding="{Binding WeldingTensionPressure, StringFormat={}{0:F2}}"
+                        Header="焊接拉压力值" />
+                    <DataGridTextColumn
+                        Width="90"
+                        Binding="{Binding FirstOscillationAmplitude, StringFormat={}{0:F2}}"
+                        Header="第一摆动幅度" />
+                    <DataGridTextColumn
+                        Width="90"
+                        Binding="{Binding FirstOscillationFrequency, StringFormat={}{0:F2}}"
+                        Header="第一摆动频率" />
+                    <DataGridTextColumn
+                        Width="90"
+                        Binding="{Binding SecondOscillationAmplitude, StringFormat={}{0:F2}}"
+                        Header="第二摆动幅度" />
+
+                    <DataGridTemplateColumn Width="80" Header="熔深值">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding DepthValue, StringFormat={}{0:F2}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOk}" Value="False">
+                                                    <Setter Property="Foreground" Value="#E74C3C" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!--  日志区域：DataGrid表格形式  -->
+        <Border
+            Grid.Row="3"
+            Background="White"
+            BorderBrush="#DCE4EF"
+            BorderThickness="1"
+            CornerRadius="4">
+            <Border.Effect>
+                <DropShadowEffect
+                    BlurRadius="10"
+                    Opacity="0.1"
+                    ShadowDepth="1"
+                    Color="#000" />
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border
+                    Background="#F8FAFD"
+                    BorderBrush="#DCE4EF"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="4,4,0,0">
+                    <Grid Margin="15,0">
+                        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                            <Path
+                                Width="16"
+                                Height="16"
+                                Margin="0,0,8,0"
+                                Data="M13,9H11V7H13M13,15H11V11H13M4,3H20A2,2 0 0,1 22,5V15A2,2 0 0,1 20,17H12L8,21V17H4A2,2 0 0,1 2,15V5A2,2 0 0,1 4,3Z"
+                                Fill="#4A78C5"
+                                Stretch="Uniform" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Foreground="#34495E"
+                                Text="系统运行日志" />
+                        </StackPanel>
+
+                        <StackPanel
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                            <Button
+                                Padding="8,2"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding ClearLogsCommand}"
+                                Content="清空日志"
+                                Cursor="Hand"
+                                FontSize="11"
+                                Foreground="#7F8C8D" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <DataGrid
+                    Grid.Row="1"
+                    AlternationCount="2"
+                    AutoGenerateColumns="False"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    CanUserAddRows="False"
+                    GridLinesVisibility="None"
+                    IsReadOnly="True"
+                    ItemsSource="{Binding AppLogs}"
+                    RowHeight="32"
+                    SelectionUnit="FullRow">
+
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Height" Value="20" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Foreground" Value="#7F8C8D" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Padding" Value="10,0" />
+                            <Setter Property="BorderThickness" Value="0,0,0,1" />
+                            <Setter Property="BorderBrush" Value="#EBF0F6" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="White" />
+                            <Setter Property="SnapsToDevicePixels" Value="True" />
+                            <Style.Triggers>
+                                <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                    <Setter Property="Background" Value="#FAFBFE" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#F0F7FF" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn
+                            Width="175"
+                            Binding="{Binding LogTime, StringFormat=\{0:yyyy/MM/dd HH:mm:ss\}}"
+                            Header="时间"
+                            IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#95A5A6" />
+                                    <Setter Property="Margin" Value="10,0" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="FontFamily" Value="Consolas" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTemplateColumn Width="*" Header="日志内容">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock
+                                        Margin="10,0"
+                                        VerticalAlignment="Center"
+                                        Foreground="#2C3E50"
+                                        Text="{Binding Message}"
+                                        TextTrimming="CharacterEllipsis"
+                                        ToolTip="{Binding Message}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="100" Header="状态">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border
+                                        x:Name="LevelBadge"
+                                        MinWidth="60"
+                                        Padding="8,2"
+                                        HorizontalAlignment="Center"
+                                        Background="#E8F4FD"
+                                        BorderThickness="0"
+                                        CornerRadius="10">
+                                        <TextBlock
+                                            x:Name="LevelText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="10"
+                                            FontWeight="Bold"
+                                            Foreground="#3498DB"
+                                            Text="{Binding LogLevel}" />
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding LogLevel}" Value="Warn">
+                                            <Setter TargetName="LevelBadge" Property="Background" Value="#FFF7E6" />
+                                            <Setter TargetName="LevelText" Property="Foreground" Value="#F39C12" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding LogLevel}" Value="Error">
+                                            <Setter TargetName="LevelBadge" Property="Background" Value="#FDEAEA" />
+                                            <Setter TargetName="LevelText" Property="Foreground" Value="#E74C3C" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+    </Grid>
+
+</Page>

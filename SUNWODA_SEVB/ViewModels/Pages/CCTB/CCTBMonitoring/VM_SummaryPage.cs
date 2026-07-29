@@ -159,7 +159,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             ProductionInfo.CCDSpecificationLimit_Mismatch = 0.5;
 
             //  -TODO   后续注册到数据更新处
-        }   
+        }
         #endregion
 
         #region 关键控制
@@ -570,7 +570,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         private void InitializeCPKWatcher(string watcherPath, ESideType sideType)
         {
             var watcher = new DebounceWatcher(watcherPath, $"*_{sideType}面.csv");
-            watcher.Interval = 250;
+            watcher.Interval = 50;
             watcher.IncludeSubdirectories = true;
             //watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime;
             watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Attributes;
@@ -713,13 +713,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             return cpkFiles;
         }
 
+        private readonly SemaphoreSlim _cpkRefreshLockA = new(1, 1);
+        private readonly SemaphoreSlim _cpkRefreshLockB = new(1, 1);
         /// <summary>
         /// AB面文件修改触发后执行
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="sideType"></param>
         private async Task RefreshCPKOperation(string filePath, ESideType sideType)
-        {
+        {   
+            // 获取对应面的锁；如果正在刷新，直接丢弃本次请求
+            var semaphore = sideType == ESideType.A ? _cpkRefreshLockA : _cpkRefreshLockB;
+            if (!await semaphore.WaitAsync(0))
+            {
+                _logger.Debug($"{sideType}面 CPK刷新被跳过，上一次刷新尚未完成");
+                return;
+            }
             try
             {
                 var path = Path.GetDirectoryName(filePath);
@@ -744,6 +753,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             {
                 _logger.Error($"{sideType}面重量数据读取异常(CSV计算)[{filePath}]", ex);
             }
+            finally { semaphore.Release(); }
         }
 
         /// <summary>

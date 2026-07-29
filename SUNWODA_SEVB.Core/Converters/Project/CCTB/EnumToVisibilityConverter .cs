@@ -23,7 +23,8 @@ namespace SUNWODA_SEVB.Core.Converters.Project.CCTB
             if (!(parameter is IEnumerable ps))
             {
                 var targetValue = parameter.ToString();
-                return checkValue.Equals(targetValue, StringComparison.InvariantCultureIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
+                var visibility = checkValue.Equals(targetValue, StringComparison.InvariantCultureIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
+                return visibility;
             }
 
             foreach (var p in ps)

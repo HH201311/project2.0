@@ -23,7 +23,7 @@ namespace SUNWODA_SEVB.Data.Models
         [SugarColumn(ColumnName = "logger", ColumnDescription = "日志记录器名称")]
         public string Logger { get; set; } = null!;
 
-        [SugarColumn(ColumnName = "message", ColumnDescription = "日志消息", ColumnDataType = "text")]
+        [SugarColumn(ColumnName = "Message", ColumnDescription = "日志消息", ColumnDataType = "text")]
         public string Message { get; set; } = null!;
 
         [SugarColumn(ColumnName = "exception", ColumnDescription = "异常信息", IsNullable = true, ColumnDataType = "text")]

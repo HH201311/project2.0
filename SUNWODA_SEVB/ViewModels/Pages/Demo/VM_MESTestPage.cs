@@ -410,13 +410,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
                 await AddLogAsync($"Marking内容: {MarkingData}");
 
                 // 调用接口定义的方法
-                var result = await _markingDataUploadService.UploadMarkingDataAsync(
-                    serialNumber: ProductSn,
-                    markingData: MarkingData
+                //var result = await _markingDataUploadService.UploadMarkingDataAsync(
+                //    serialNumber: ProductSn,
+                //    markingData: MarkingData
+                //);
+                var Data = new List<string>() { MarkingData };
+                var result = await _markingDataUploadService.UploadAsync(
+                    productSn: ProductSn,
+                    defectList: Data
                 );
 
                 // 处理响应
-                if (result)
+                if (result.Success)
                 {
                     UploadStatus = "上传成功";
                     await AddLogAsync($"✓ Marking数据上传成功");
@@ -629,7 +634,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Demo
 
         #endregion
 
-      
+
 
 
     }

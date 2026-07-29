@@ -23,10 +23,11 @@
             <convert:ContentToStringConverter x:Key="ContentToStringConverter" />
             <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
 
-            <Style x:Key="ParamComboBoxItemLabelStyle" TargetType="Label">
+            <Style x:Key="ParamComboBoxItemConetntControlStyle" TargetType="ContentControl">
                 <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="VerticalAlignment" Value="Stretch" />
@@ -34,12 +35,12 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="Template">
                     <Setter.Value>
-                        <ControlTemplate TargetType="Label">
-                            <Grid
-                                Margin="{TemplateBinding Margin}"
-                                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                                <Border Background="{TemplateBinding Background}" Opacity="0.1" />
+                        <ControlTemplate TargetType="ContentControl">
+                            <Grid>
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="0"
+                                    Opacity="0.1" />
                                 <ContentPresenter
                                     Margin="20,5"
                                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -66,8 +67,6 @@
             </Style>
 
             <Style x:Key="ParamComboBoxItemStyle" TargetType="ComboBoxItem">
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
-                <Setter Property="FontSize" Value="12" />
                 <Setter Property="Margin" Value="0,0,0,5" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="VerticalAlignment" Value="Stretch" />
@@ -78,21 +77,21 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ComboBoxItem">
-                            <Grid Margin="{TemplateBinding Margin}">
+                            <Grid>
                                 <Border
                                     HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                                     VerticalAlignment="{TemplateBinding VerticalAlignment}"
                                     Background="{TemplateBinding Background}"
                                     BorderThickness="0"
                                     CornerRadius="5" />
-                                <Label
+                                <ContentControl
                                     Margin="5,5"
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Stretch"
                                     HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                     VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                     Content="{Binding DisplayName}"
-                                    Style="{StaticResource ParamComboBoxItemLabelStyle}" />
+                                    Style="{StaticResource ParamComboBoxItemConetntControlStyle}" />
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
@@ -107,11 +106,8 @@
                 </Setter>
             </Style>
 
-            <Style x:Key="ParamAlarmComboBoxStyle" TargetType="ComboBox">
+            <Style x:Key="ParamComboBoxStyle" TargetType="ComboBox">
                 <Setter Property="Background" Value="#0DFFFFFF" />
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
-                <Setter Property="Foreground" Value="#CCFFFFFF" />
-                <Setter Property="FontSize" Value="14" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Padding" Value="4" />
                 <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -137,10 +133,9 @@
                                     VerticalAlignment="Center"
                                     Content="{TemplateBinding SelectionBoxItem}"
                                     ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}">
-                                    <!--  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"  -->
                                     <ContentPresenter.ContentTemplate>
                                         <ItemContainerTemplate>
-                                            <Label Content="{Binding DisplayName}" Style="{StaticResource ParamComboBoxItemLabelStyle}" />
+                                            <ContentControl Content="{Binding DisplayName}" Style="{StaticResource ParamComboBoxItemConetntControlStyle}" />
                                         </ItemContainerTemplate>
                                     </ContentPresenter.ContentTemplate>
                                 </ContentPresenter>
@@ -196,7 +191,7 @@
                                         CornerRadius="5"
                                         SnapsToDevicePixels="True">
                                         <ScrollViewer
-                                            Margin="10,10,10,0"
+                                            Margin="15,10,10,5"
                                             Background="{TemplateBinding Background}"
                                             SnapsToDevicePixels="True">
                                             <ItemsPresenter />
@@ -427,7 +422,7 @@
                                         ItemsSource="{Binding DataContext.AlarmLevelSource, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         SelectedValue="{Binding Level, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                         SelectedValuePath="ItemValue"
-                                        Style="{StaticResource ParamAlarmComboBoxStyle}" />
+                                        Style="{StaticResource ParamComboBoxStyle}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

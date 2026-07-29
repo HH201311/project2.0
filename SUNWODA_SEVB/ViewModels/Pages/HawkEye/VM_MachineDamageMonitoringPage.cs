@@ -1569,144 +1569,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         {
             try
             {
-                FilePath = FilePath + "//" + FileName + ".txt";
-                FileInfo FI = new(FilePath);
-                if (!FI.Directory.Exists)
+                // 1. 规范路径拼接（自动处理 / 和 \）
+                string fullPath = Path.Combine(FilePath, $"{FileName}.txt");
+
+                // 2. 确保目录存在（Directory.CreateDirectory 已内置空值/存在性检查）
+                string? dirPath = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(dirPath))
                 {
-                    FI.Directory.Create();
+                    Directory.CreateDirectory(dirPath);
                 }
-                if (File.Exists(FilePath) == false)
-                {
-                    using StreamWriter sw = new(FilePath, false, Encoding.Default);
-                    sw.WriteLine(content);
-                }
-                else
-                {
-                    using StreamWriter sw = new(FilePath, true, Encoding.Default);
-                    sw.WriteLine(content);
-                }
+
+                // 3. 统一使用追加模式写入（File.AppendAllText 自动处理文件创建）
+                File.AppendAllText(fullPath, content + Environment.NewLine, Encoding.UTF8);
             }
             catch (Exception ex)
             {
-                _logger.Error($"保存TXT文件出错{ex.Message}");
+                _logger.Error($"保存TXT文件出错: {ex.Message}, 路径: {FilePath}/{FileName}.txt");
                 throw;
             }
         }
-
-        /// <summary>
-        /// 轨迹算法实时上传web
-        /// </summary>
-        /// <param name="position"></param>
-        /// <param name="aiResult"></param>
-        /// <param name="diagnosisResults"></param>
-        /// <param name="frameResultDataList"></param>
-        /// <param name="isValid"></param>
-        /// <param name="frameStatus"></param>
-        /// <returns></returns>
-        //private async Task FramesUpLoadWebAsync
-        //(
-        //    string position,
-        //    List<AIResultModel> aiResult,
-        //    IEnumerable<UnifiedDiagnosisResult> diagnosisResults,
-        //    List<FrameDtoList> frameResultDataList,
-        //    bool isValid,
-        //    int frameStatus
-        //)
-        //{
-        //    try
-        //    {                
-        //        logger?.Info($"[{position}]-[FramesUpLoadWebAsync]-准备处理实时轨迹数据进行上传");
-        //        // —— 诊断结果缓存
-        //        var diagnosisList = diagnosisResults?.ToList() ?? [];
-        //        var firstDiagnosis = diagnosisList.FirstOrDefault();
-
-        //        if (firstDiagnosis == null)
-        //            return;
-
-        //        // —— 分类容器
-        //        var categoryMap = categories.ToDictionary(c => c, c => new List<DataList>());
-
-        //        long timestamp = GetCurrentTimestampSeconds();
-
-        //        // —— 遍历所有检测点
-        //        foreach (var item in aiResult)
-        //        {
-        //            item.Img?.Dispose();
-        //            item.Region?.Dispose();
-
-        //            var dataResult = diagnosisList.FirstOrDefault(o => o.PositionName == item.Name) ?? firstDiagnosis;
-
-        //            var category = GetCategory(item.Name);                    
-
-        //            if (category == null)
-        //                continue;
-
-        //            var p = GetPointValues(item.Name, dataResult);
-
-        //            categoryMap[category].Add
-        //            (
-        //                CreateDataList
-        //                (
-        //                    item.Name,
-        //                    timestamp,
-        //                    p.x, p.y, p.z,
-        //                    p.dx, p.dy, p.dz,
-        //                    p.xStd, p.yStd, p.zStd,
-        //                    item.Point3D.X,
-        //                    item.Point3D.Y,
-        //                    item.Point3D.Z,
-        //                    p.abnormal,
-        //                    p.averageSlope
-        //                )
-        //            );                                         
-        //        }
-
-        //        // —— 构造 frame DTO
-        //        var frameDto = new FrameDtoList
-        //        {
-        //            FrameTimeStamp = GetCurrentTimestampSeconds(),
-        //            CategoryDtoList = [.. categoryMap.Select(kv => new CategoryDtoList
-        //            {
-        //                Category = kv.Key,
-        //                DataList = kv.Value
-        //            })]
-        //        };
-
-        //        if (isValid) frameResultDataList.Add(frameDto);
-
-        //        var detectionResult = firstDiagnosis.AbnormalType ?? "NG";
-
-        //        var workship = globalSettingRepository.GetSettingValue("workship")?.Split(':') ?? new string[4];
-        //        var DeviceSn = globalSettingRepository.GetSettingValue("DeviceSn");
-
-        //        var sendObj = new HawkEyeSocketRequest
-        //        {
-        //            Position = position,
-        //            Process = workship[3],
-        //            ProductionLine = workship[2],
-        //            ProductionBase = workship[0],
-        //            DeviceId = DeviceSn,
-        //            BarCode = "xxxxx",
-        //            DetectionTimeStamp = GetCurrentTimestampSeconds(),
-        //            DetectionResult = detectionResult,
-        //            AlertLevel = 1,
-        //            FrameDtoList = [frameDto],
-        //            StatusFlag = frameStatus
-        //        };
-
-        //        var jsonMsg = System.Text.Json.JsonSerializer.Serialize(sendObj, _jsonOpt);
-
-        //        await BroadcastAsync(jsonMsg);
-
-        //        aiResult.Clear();
-        //        logger?.Info($"[{position}]-[FramesUpLoadWebAsync]-实时轨迹数据上传完毕");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        logger?.Error($"上传异常: {ex.Message}");
-        //    }
-        //}
-
+       
         /// 轨迹数据实时上传web
         private async Task FramesUpLoadWebAsync
         (
@@ -1914,45 +1796,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// <param name="xDiff"></param>
         /// <param name="yDiff"></param>
         /// <param name="zDiff"></param>
-        /// <returns></returns>
-        private DataList CreateDataList
-        (
-            string name, float x, float y, float z,
-            float xDiff = 0f, float yDiff = 0f, float zDiff = 0f,
-            float XStandard = 0f, float YStandard = 0f, float ZStandard = 0f,
-            float PixelCoordinateX = 0f, float PixelCoordinateY = 0f, float PixelCoordinateZ = 0f,
-            int abnormal = 1, float averageSlope = 0f
-        )
-        {
-            return new DataList
-            {
-                PointName = name,
-                AiPointXYZDtoList =
-                [
-                    new AIPointXYZDto
-                    {
-                        PictureTimeStamp = GetCurrentTimestampSeconds(),
-                        MoveDirection = "x",
-                        X = x,
-                        Y = y,
-                        Z = z,
-                        Speed = 0f,
-                        XDiff = xDiff,
-                        YDiff = yDiff,
-                        ZDiff = zDiff,
-                        Abnormal = abnormal,
-                        XStandard = XStandard,
-                        YStandard = YStandard,
-                        ZStandard = ZStandard,
-                        PixelCoordinateX= PixelCoordinateX,
-                        PixelCoordinateY= PixelCoordinateY,
-                        PixelCoordinateZ= PixelCoordinateZ,
-                        AverageSlope = averageSlope
-                    }
-                ]
-            };
-        }
-
+        /// <returns></returns>       
         private DataList CreateDataList
         (
             string name,
@@ -2380,7 +2224,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var reFile = await _webApiClient.DownloadDllAsync(appKey, signature, pythonCode, executeType);
             if (!(reFile != null && reFile.DataStr != null))
             {
-                var message = $"获取AI算法onnx模型文件失败：pythonCode:[{pythonCode}]-message[{reFile?.Message}]";
+                var message = $"获取AI算法onnx模型文件失败：pythonCode:[{pythonCode}]-Message[{reFile?.Message}]";
                 _logger.Error(message);
                 throw new Exception(message);
             }
@@ -2405,7 +2249,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
             var reFile = await _webApiClient.DownloadDllAsync(appKey, signature, pythonCode, executeType);
             if (!(reFile != null && reFile.DataStr != null))
             {
-                var message = $"获取AI算法dll文件信息失败：pythonCode:[{pythonCode}]-message[{reFile?.Message}]";
+                var message = $"获取AI算法dll文件信息失败：pythonCode:[{pythonCode}]-Message[{reFile?.Message}]";
                 _logger.Error(message);
                 throw new Exception(message);
             }

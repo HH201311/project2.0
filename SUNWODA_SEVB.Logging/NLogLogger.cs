@@ -36,6 +36,9 @@ namespace SUNWODA_SEVB.Logging
         #endregion
 
         #region 委托事件
+        /// <summary>
+        /// 当前实例的委托通知
+        /// </summary>
         public event ILoggerService.OnLoggerReportEventHandle? OnLoggerReportEvent;
         #endregion
 
@@ -192,6 +195,20 @@ namespace SUNWODA_SEVB.Logging
             }
 
             specialLogger.Log(typeof(NLogLogger<T>), logEvent);
+
+            var logModel = new AppLogModel()
+            {
+                LogTime = logEvent.TimeStamp,
+                LogLevel = logEvent.Level.Name,
+                Logger = string.IsNullOrEmpty(logEvent.CallerMemberName)
+                                ? (logEvent.LoggerName ?? "Unknown")
+                                : $"{logEvent.LoggerName ?? "Unknown"}.{logEvent.CallerMemberName}",
+                Message = logEvent.FormattedMessage ?? string.Empty,
+                Exception = logEvent.Exception?.ToString(),
+            };
+
+            Task.Run(() => OnLoggerReportEvent?.Invoke(logModel));
+            Task.Run(() => ILoggerService.RaiseOnLoggerReportGlobalEvent(logModel));
         }
 
         public void LogSpecial(CoreLogLevel level, string message, bool isToDatabase = true,
@@ -202,6 +219,19 @@ namespace SUNWODA_SEVB.Logging
             var logEvent = CreateLogEventWithCallSite(ConvertToNLogLevel(level), message, null, isToDatabase, memberName, filePath, lineNumber);
             logEvent.Properties["LogToSpecialFile"] = true;
             Logger.Log(typeof(NLogLogger<T>), logEvent);
+
+            var logModel = new AppLogModel()
+            {
+                LogTime = logEvent.TimeStamp,
+                LogLevel = logEvent.Level.Name,
+                Logger = string.IsNullOrEmpty(logEvent.CallerMemberName)
+                                   ? (logEvent.LoggerName ?? "Unknown")
+                                   : $"{logEvent.LoggerName ?? "Unknown"}.{logEvent.CallerMemberName}",
+                Message = logEvent.FormattedMessage ?? string.Empty,
+                Exception = logEvent.Exception?.ToString(),
+            };
+            Task.Run(() => OnLoggerReportEvent?.Invoke(logModel));
+            Task.Run(() => ILoggerService.RaiseOnLoggerReportGlobalEvent(logModel));
         }
 
         public void LogSpecial(CoreLogLevel level, string message, Exception exception, bool isToDatabase = true,
@@ -212,6 +242,19 @@ namespace SUNWODA_SEVB.Logging
             var logEvent = CreateLogEventWithCallSite(ConvertToNLogLevel(level), message, exception, isToDatabase, memberName, filePath, lineNumber);
             logEvent.Properties["LogToSpecialFile"] = true;
             Logger.Log(typeof(NLogLogger<T>), logEvent);
+
+            var logModel = new AppLogModel()
+            {
+                LogTime = logEvent.TimeStamp,
+                LogLevel = logEvent.Level.Name,
+                Logger = string.IsNullOrEmpty(logEvent.CallerMemberName)
+                               ? (logEvent.LoggerName ?? "Unknown")
+                               : $"{logEvent.LoggerName ?? "Unknown"}.{logEvent.CallerMemberName}",
+                Message = logEvent.FormattedMessage ?? string.Empty,
+                Exception = logEvent.Exception?.ToString(),
+            };
+            Task.Run(() => OnLoggerReportEvent?.Invoke(logModel));
+            Task.Run(() => ILoggerService.RaiseOnLoggerReportGlobalEvent(logModel));
         }
 
         #endregion
@@ -319,11 +362,16 @@ namespace SUNWODA_SEVB.Logging
             var logEvent = CreateLogEventWithCallSite(level, message, exception, isToDatabase, memberName, filePath, lineNumber);
             Logger.Log(typeof(NLogLogger<T>), logEvent);
 
-            var logModel = new AppLogModel();
-            logModel.LogTime = logEvent.TimeStamp;
-            logModel.LogLevel = logEvent.Level.Name;
-            logModel.Message = logEvent.Message;
-            logModel.Exception = logEvent.Exception?.ToString();
+            var logModel = new AppLogModel()
+            {
+                LogTime = logEvent.TimeStamp,
+                LogLevel = logEvent.Level.Name,
+                Logger = string.IsNullOrEmpty(logEvent.CallerMemberName)
+                                ? (logEvent.LoggerName ?? "Unknown")
+                                : $"{logEvent.LoggerName ?? "Unknown"}.{logEvent.CallerMemberName}",
+                Message = logEvent.FormattedMessage ?? string.Empty,
+                Exception = logEvent.Exception?.ToString(),
+            };
             Task.Run(() => OnLoggerReportEvent?.Invoke(logModel));
             Task.Run(() => ILoggerService.RaiseOnLoggerReportGlobalEvent(logModel));
         }
@@ -460,7 +508,7 @@ namespace SUNWODA_SEVB.Logging
                 return null;
 
             // 尝试从错误消息中提取错误代码
-            // 假设格式为 "[ERROR_CODE] message" 或 "Error Code: ERROR_CODE"
+            // 假设格式为 "[ERROR_CODE] Message" 或 "Error Code: ERROR_CODE"
             var patterns = new[]
             {
                 @"\[([A-Z0-9_]+)\]",

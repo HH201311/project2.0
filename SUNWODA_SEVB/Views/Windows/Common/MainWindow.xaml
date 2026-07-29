@@ -354,7 +354,7 @@
                 Background="#FFF8F9FA"
                 BorderBrush="#FFE0E0E0"
                 BorderThickness="0,0,0,1"
-                Visibility="Visible">
+                Visibility="Collapsed">
                 <Grid>
                     <TextBlock
                         Grid.Column="0"

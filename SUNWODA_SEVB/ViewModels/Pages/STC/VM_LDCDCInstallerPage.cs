@@ -17,6 +17,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Windows;
 using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.STC
@@ -29,7 +30,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         private readonly IServiceProvider _serviceProvider;
         private readonly IScrewControllerService _screwControllerService;
 
-        private const string VM_NAME = "LDCDCInstaller";
+        private string VM_NAME = string.Empty;
 
         private bool _initialized;
         private bool _isServerRunning;
@@ -42,9 +43,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         private string? _overallResult;
         private ScrewCurveEntry? _selectedRecord;
         private string _manualScrewInput = string.Empty;
-        private string _diagramImagePath = string.Empty;
+        private string _diagramImagePath = "./Assets/Images/LDCDC示意图.png";
         private bool _isStarting;
         private bool _hasCurves;
+        private string _channelCode = "-";
 
         /// <summary>批量曲线下载的取消令牌；新包到达时取消上一批未完成的下载。</summary>
         private CancellationTokenSource? _batchCts;
@@ -106,6 +108,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             get => _diagramImagePath;
             set => SetProperty(ref _diagramImagePath, value);
         }
+        /// <summary>
+        /// 数据库配置的通道编码：A/B
+        /// </summary>
+        public string ChannelCode
+        {
+            get => _channelCode;
+            set
+            {
+                if (SetProperty(ref _channelCode, value))
+                {
+                    OnPropertyChanged(nameof(ChannelDisplayText));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 界面显示的完整通道名称
+        /// </summary>
+        public string ChannelDisplayText =>
+            ChannelCode is "A" or "B" ? $"LDCDC-{ChannelCode}通道" : "LDCDC-未知通道";
         #endregion
 
         #region 集合
@@ -131,6 +153,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
         public ICommand SelectRecordCommand { get; }
         /// <summary>手动输入编号/周期号取曲线</summary>
         public ICommand FetchCurveManualCommand { get; }
+        public ICommand LoadLocalCsvCommand { get; }
 
         #endregion
 
@@ -151,6 +174,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             ResetAllStatusCommand = new RelayCommand(_ => ResetAllStatus(), _ => true);
             SelectRecordCommand = new RelayCommand<ScrewCurveEntry>(async rec => await OnSelectRecordAsync(rec));
             FetchCurveManualCommand = new RelayCommand(async _ => await FetchCurveManualAsync(), _ => !IsLoadingCurveData);
+            LoadLocalCsvCommand = new RelayCommand(async _ => await LoadLocalCsvFileAsync(), _ => !IsServerRunning);
 
             _socketServer.ClientConnected += OnClientConnected;
             _socketServer.ClientDisconnected += OnClientDisconnected;
@@ -162,34 +186,78 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
-            if (!_initialized)
-            {
-                await LoadSettingsAsync();
-                _initialized = true;
-            }
             await base.OnNavigatedToAsync(parameter);
+            if (_initialized)
+            {
+                return;
+            }
+
+            _initialized = true;
+
+            var settingsLoaded = await LoadSettingsAsync();
+
+            if (!settingsLoaded)
+            {
+                LogError("LDCDC: 配置未加载完成，未自动启动服务");
+                return;
+            }
+
+            await StartServerAsync();
+
         }
 
-        private async Task LoadSettingsAsync()
+        private async Task<bool> LoadSettingsAsync()
         {
             try
             {
                 using var scope = _serviceProvider.CreateScope();
+                var globalrepo = scope.ServiceProvider.GetRequiredService<IGlobalSettingRepository>();
+                var vmNameSetting = await globalrepo.GetByNameAsync("CurrentVMName");
+                if (string.IsNullOrEmpty(vmNameSetting?.Value))
+                {
+                    MessageBox.Show("未配置项目！");
+                    return false;
+                }
+                VM_NAME = vmNameSetting.Value;
                 var repo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
                 var dataPort = await repo.GetByNameAndVMAsync("Port", VM_NAME);
                 Port = (dataPort != null && int.TryParse(dataPort.Value, out int p) && p > 0) ? p : 8080;
                 var dataPath = await repo.GetByNameAndVMAsync("DataPath", VM_NAME);
                 if (dataPath != null && !string.IsNullOrEmpty(dataPath.Value)) _curveDataDirectory = dataPath.Value;
                 var imgPath = await repo.GetByNameAndVMAsync("DiagramImage", VM_NAME);
-                DiagramImagePath = (imgPath != null && !string.IsNullOrEmpty(imgPath.Value))
-                    ? imgPath.Value
-                    : "Assets/Images/LDCDC示意图.png";
+                DiagramImagePath = (imgPath != null && !string.IsNullOrEmpty(imgPath.Value)) ? imgPath.Value : "Assets/Images/LDCDC示意图.png";
+                var channelSetting = await repo.GetByNameAndVMAsync("Channel", VM_NAME);
+
+                ChannelCode = NormalizeChannel(channelSetting?.Value);
+
+                if (ChannelCode == "-")
+                {
+                    LogWarn("LDCDC: Channel 配置无效，应配置为 A 或 B");
+                }
                 _screwSettings = await _screwControllerService.LoadSettingsAsync(VM_NAME);
                 LogInfo("LDCDC: 配置加载完成");
+                return true;
             }
-            catch (Exception ex) { LogError($"LDCDC: 配置加载失败 {ex.Message}"); }
+            catch (Exception ex) { LogError($"LDCDC: 配置加载失败 {ex.Message}"); return false; }
         }
 
+        private static string NormalizeChannel(string? value)
+        {
+            var channel = value?.Trim().ToUpperInvariant();
+
+            return channel switch
+            {
+                "A" => "A",
+                "A通道" => "A",
+                "CHANNEL_A" => "A",
+
+                "B" => "B",
+                "B通道" => "B",
+                "CHANNEL_B" => "B",
+
+                _ => "-"
+            };
+        }
         #endregion
 
         #region Socket
@@ -248,7 +316,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 _overallResult = pkg.OverallResult;
                 RunOnUIThread(() =>
                 {
-                    CurrentPackCode = pkg.ProductModel ?? pkg.ProductCode ?? CurrentPackCode;
+                    CurrentPackCode = pkg.ProductCode ?? CurrentPackCode;
                     OnPropertyChanged(nameof(OverallResultText));
                     PopulateScrewRecords(pkg.ScrewTighteningInfoLis);
                     SelectedPlotSeries.Clear();
@@ -287,6 +355,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     TightenControllerIP = item.TightenControllerIP,
                     TorqueUpLimit = item.TorqueUpLimit,
                     TorqueLowLimit = item.TorqueLowLimit,
+                    TargetTorque = item.TorqueActual,
                     TorqueValue = item.TorqueActualDouble,
                     AngleValue = item.AngleActualDouble,
                     Status = item.IsScrewOk ? ScrewStatus.OK : ScrewStatus.NG
@@ -295,6 +364,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             }
         }
 
+        private static System.Drawing.Color GetCurveColor(int screwNumber, string? typeLabel)
+        {
+            // 同一颗螺丝的“拧紧”和“复拧”使用相邻但不同的颜色
+            int typeOffset = string.Equals(
+                typeLabel,
+                "复拧",
+                StringComparison.Ordinal)
+                ? 1
+                : 0;
+
+            int colorIndex = Math.Max(
+                0,
+                (screwNumber - 1) * 2 + typeOffset);
+
+            return ScottPlotControl.GetPredefinedColor(colorIndex);
+        }
         #endregion
 
         #region 曲线按需获取
@@ -381,14 +466,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
             var series = new PlotDataSeries
             {
-                Name = $"#{rec.ScrewNumber} {rec.TypeLabel} ({rec.ScrewResult})",
-                // OK=绿色 / NG=红色，多条曲线在同一图中即可区分
-                Color = rec.IsScrewOk
-                    ? System.Drawing.Color.FromArgb(76, 175, 80)
-                    : System.Drawing.Color.FromArgb(244, 67, 54),
-                DataPoints = new ObservableCollection<PlotDataPoint>(
-                    curve.DataPoints.Select((p, i) => new PlotDataPoint(i + 1, p.Torque))),
-                LineWidth = 1.5f
+                // 加上周期号，避免同一螺丝多次执行时无法区分
+                Name = $"#{rec.ScrewNumber} " + $"{rec.TypeLabel} " + $"[{rec.ScrewResult}] " + $"Cycle={rec.EorCycleNumberInt}",
+
+                Color = GetCurveColor(rec.ScrewNumber, rec.TypeLabel),
+
+                DataPoints = new ObservableCollection<PlotDataPoint>(curve.DataPoints.Select(
+                    (point, index) =>
+                        new PlotDataPoint(
+                            index + 1,
+                            point.Torque))),
+
+                // NG 曲线加粗，但不再统一使用红色
+                LineWidth = rec.IsScrewOk ? 1.6f : 2.8f
             };
             return (series, curve, null);
         }
@@ -608,8 +698,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                 sb.Append("PointIndex");
                 foreach (var (rec, _) in sortedItems)
                 {
-                    var tag = $"#{rec.ScrewNumber}({rec.ScrewResult})";
-                    sb.Append($",{tag}_Torque,{tag}_Angle,{tag}_Current");
+                    var tag = $"#{rec.ScrewNumber}({rec.ScrewType})";
+                    sb.Append($",{tag}_Torque_{rec.TargetTorque},{tag}_Angle,{tag}_Current");
                 }
                 sb.AppendLine();
 
@@ -648,6 +738,244 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
             var safe = new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim();
             return string.IsNullOrEmpty(safe) ? $"Unknown_{DateTime.Now:HHmmss}" : safe;
         }
+
+        #endregion
+
+        #region 本地CSV导入
+
+        /// <summary>本地导入用中间结构：一颗螺丝的全部采样点</summary>
+        private sealed class LocalCurveScrew
+        {
+            public int ScrewNumber;
+            public string? ScrewType;
+            public bool IsOk = true;
+            public List<(double Torque, double Angle, double Current)> Points = new();
+        }
+
+        /// <summary>打开本地CSV（按包号命名）并导入到折线图。服务运行中禁用。</summary>
+        private async Task LoadLocalCsvFileAsync()
+        {
+            // 防御性二次确认：CanExecute 已禁用按钮，此处兜底
+            if (IsServerRunning)
+            {
+                LogWarn("LDCDC: 服务运行中，无法导入本地曲线，请先停止服务");
+                MessageBox.Show("服务运行中，无法导入本地曲线。\n请先点击「停止」后再导入。", "提示");
+                return;
+            }
+
+            var ofd = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择本地曲线CSV（按包号命名）",
+                Filter = "CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
+                RestoreDirectory = true,
+                Multiselect = false,
+            };
+            if (Directory.Exists(_curveDataDirectory)) ofd.InitialDirectory = _curveDataDirectory;
+
+            if (ofd.ShowDialog() != true) return;
+            var filePath = ofd.FileName;
+            if (!File.Exists(filePath)) { LogWarn($"LDCDC: 文件不存在: {filePath}"); return; }
+
+            IsLoadingCurveData = true;
+            try
+            {
+                LogInfo($"LDCDC: 开始导入本地曲线 -> {filePath}");
+                var screws = await ReadLocalCsvAsync(filePath);
+                if (screws.Count == 0)
+                {
+                    LogWarn("LDCDC: CSV未解析到有效曲线数据");
+                    MessageBox.Show("CSV文件中未解析到有效曲线数据。", "提示");
+                    return;
+                }
+
+                RunOnUIThread(() =>
+                {
+                    // 清空现有数据，再重建
+                    ScrewRecords.Clear();
+                    SelectedPlotSeries.Clear();
+                    SelectedRecord = null;
+                    _overallResult = null;
+
+                    // 文件即按包号命名
+                    CurrentPackCode = Path.GetFileNameWithoutExtension(filePath);
+
+                    bool anyNg = false;
+                    foreach (var s in screws)
+                    {
+                        var entry = new ScrewCurveEntry
+                        {
+                            ScrewNumber = s.ScrewNumber,
+                            ScrewType = s.ScrewType,
+                            ScrewResult = s.IsOk ? "OK" : "NG",
+                            Status = s.IsOk ? ScrewStatus.OK : ScrewStatus.NG,
+                            TorqueValue = s.Points.Count > 0 ? s.Points[^1].Torque : (double?)null,
+                            AngleValue = s.Points.Count > 0 ? s.Points[^1].Angle : (double?)null,
+                            HasCurve = s.Points.Count > 0,
+                        };
+                        ScrewRecords.Add(entry);
+                        if (!s.IsOk) anyNg = true;
+
+                        // 与 DownloadCurveSeriesAsync 保持一致：X=采样序号, Y=扭矩
+                        var series = new PlotDataSeries
+                        {
+                            Name = $"#{s.ScrewNumber} " + $"{entry.TypeLabel} " + $"[{entry.ScrewResult}] [本地]",
+
+                            Color = GetCurveColor(s.ScrewNumber, entry.TypeLabel),
+
+                            DataPoints = new ObservableCollection<PlotDataPoint>(
+                                s.Points.Select(
+                                    (point, index) =>
+                                        new PlotDataPoint(
+                                            index + 1,
+                                            point.Torque))),
+
+                            LineWidth = s.IsOk ? 1.6f : 2.8f
+                        };
+                        SelectedPlotSeries.Add(series);
+                    }
+
+                    HasCurves = SelectedPlotSeries.Count > 0;
+                    _overallResult = anyNg ? "NG" : "OK";
+                    OnPropertyChanged(nameof(OverallResultText));
+                    SelectedScrewLabel = $"本地导入：共 {ScrewRecords.Count} 条，整体 {_overallResult}";
+                });
+
+                LogInfo($"LDCDC: 本地曲线导入完成 - {screws.Count} 条螺丝");
+                MessageBox.Show($"成功导入 {screws.Count} 条螺丝的曲线数据。", "导入完成");
+            }
+            catch (Exception ex)
+            {
+                LogError($"LDCDC: 导入本地曲线失败: {ex.Message}");
+                MessageBox.Show($"导入失败：{ex.Message}", "错误");
+            }
+            finally
+            {
+                IsLoadingCurveData = false;
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        /// <summary>解析本地CSV，自动识别「批量包格式」与「单条手动格式」。</summary>
+        private async Task<List<LocalCurveScrew>> ReadLocalCsvAsync(string filePath)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new List<LocalCurveScrew>();
+                var lines = File.ReadAllLines(filePath, Encoding.UTF8);
+
+                // 表头行 = 第一个非空、非注释（#）行
+                int headerIdx = -1;
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var t = lines[i].Trim();
+                    if (t.Length == 0 || t.StartsWith("#")) continue;
+                    headerIdx = i; break;
+                }
+                if (headerIdx < 0) return result;
+
+                var header = lines[headerIdx].Split(',');
+                var colIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < header.Length; i++) colIndex[header[i].Trim()] = i;
+
+                // 单条手动格式：列头含纯 "Torque"（批量格式的列头是 #n(类型)_Torque_目标）
+                if (colIndex.ContainsKey("Torque"))
+                    return ParseManualFormat(lines, headerIdx, colIndex);
+
+                // 批量包格式：收集每颗螺丝的列前缀
+                var screwCols = new List<(int ScrewNumber, string? ScrewType, string Prefix, int TorqueCol, int AngleCol, int CurrentCol, int IsOkCol)>();
+                foreach (var hh in header)
+                {
+                    var name = hh.Trim();
+                    // 形如 #1(拧紧)_Torque_5.5  ；兼容参考格式 Screw1_Torque
+                    var m = System.Text.RegularExpressions.Regex.Match(name, @"#(\d+)\(([^)]*)\)_Torque");
+                    if (!m.Success)
+                        m = System.Text.RegularExpressions.Regex.Match(name, @"Screw(\d+)_Torque");
+                    if (!m.Success) continue;
+
+                    int sn = int.Parse(m.Groups[1].Value);
+                    string? type = m.Groups.Count > 2 && m.Groups[2].Success ? m.Groups[2].Value : null;
+                    string prefix = name.Contains('#') ? $"#{sn}({type})" : $"Screw{sn}";
+
+                    int tCol = colIndex[name];
+                    int aCol = colIndex.TryGetValue($"{prefix}_Angle", out var a) ? a : -1;
+                    int cCol = colIndex.TryGetValue($"{prefix}_Current", out var c) ? c : -1;
+                    int okCol = colIndex.TryGetValue($"{prefix}_IsOk", out var ok) ? ok : -1;
+
+                    screwCols.Add((sn, type, prefix, tCol, aCol, cCol, okCol));
+                }
+                if (screwCols.Count == 0) return result;
+
+                var map = screwCols.ToDictionary(
+                    sc => sc.ScrewNumber,
+                    sc => new LocalCurveScrew { ScrewNumber = sc.ScrewNumber, ScrewType = sc.ScrewType });
+
+                for (int r = headerIdx + 1; r < lines.Length; r++)
+                {
+                    var line = lines[r];
+                    if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#")) continue;
+                    var cells = line.Split(',');
+                    foreach (var sc in screwCols)
+                    {
+                        double torque = TryCellDouble(cells, sc.TorqueCol);
+                        if (double.IsNaN(torque)) continue; // 该螺丝此点无值（占位 ,,,）
+
+                        var s = map[sc.ScrewNumber];
+                        double angle = sc.AngleCol >= 0 ? TryCellDouble(cells, sc.AngleCol) : 0;
+                        double current = sc.CurrentCol >= 0 ? TryCellDouble(cells, sc.CurrentCol) : 0;
+                        s.Points.Add((torque, angle, current));
+
+                        if (sc.IsOkCol >= 0 && bool.TryParse(TryCellString(cells, sc.IsOkCol), out var b))
+                            s.IsOk = b;
+                    }
+                }
+
+                result.AddRange(map.Values.Where(x => x.Points.Count > 0));
+                return result;
+            });
+        }
+
+        /// <summary>单条手动格式：从注释行取螺丝号/结果，PointIndex,Torque,Angle,Current 取点。</summary>
+        private List<LocalCurveScrew> ParseManualFormat(string[] lines, int headerIdx, Dictionary<string, int> colIndex)
+        {
+            var tCol = colIndex["Torque"];
+            int aCol = colIndex.TryGetValue("Angle", out var a) ? a : -1;
+            int cCol = colIndex.TryGetValue("Current", out var c) ? c : -1;
+
+            var screw = new LocalCurveScrew { ScrewNumber = 1 };
+            for (int i = 0; i < headerIdx; i++)
+            {
+                var cm = lines[i].Trim();
+                if (!cm.StartsWith("#")) continue;
+                var mSn = System.Text.RegularExpressions.Regex.Match(cm, @"螺丝#(\d+)");
+                if (mSn.Success && int.TryParse(mSn.Groups[1].Value, out var sn)) screw.ScrewNumber = sn;
+                var mRes = System.Text.RegularExpressions.Regex.Match(cm, @"结果=([^\s]+)");
+                if (mRes.Success) screw.IsOk = !mRes.Groups[1].Value.Equals("NG", StringComparison.OrdinalIgnoreCase);
+            }
+
+            for (int r = headerIdx + 1; r < lines.Length; r++)
+            {
+                var line = lines[r];
+                if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#")) continue;
+                var cells = line.Split(',');
+                double torque = TryCellDouble(cells, tCol);
+                if (double.IsNaN(torque)) continue;
+                double angle = aCol >= 0 ? TryCellDouble(cells, aCol) : 0;
+                double current = cCol >= 0 ? TryCellDouble(cells, cCol) : 0;
+                screw.Points.Add((torque, angle, current));
+            }
+
+            return screw.Points.Count > 0 ? new List<LocalCurveScrew> { screw } : new List<LocalCurveScrew>();
+        }
+
+        private static double TryCellDouble(string[] cells, int idx)
+        {
+            if (idx < 0 || idx >= cells.Length) return double.NaN;
+            return double.TryParse(cells[idx].Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : double.NaN;
+        }
+        private static string TryCellString(string[] cells, int idx) =>
+            (idx >= 0 && idx < cells.Length) ? cells[idx].Trim() : string.Empty;
 
         #endregion
 

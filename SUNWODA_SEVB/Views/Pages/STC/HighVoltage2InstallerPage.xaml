@@ -115,7 +115,7 @@
                         FontSize="18"
                         FontWeight="Bold"
                         Foreground="#333"
-                        Text="强电连接与复拧2" />
+                        Text="强电2（Pack 6）" />
                     <TextBlock
                         Margin="0,3,0,0"
                         FontSize="12"
@@ -418,6 +418,21 @@
                             Content="清空曲线"
                             IsEnabled="{Binding IsServerRunning, Converter={StaticResource BooleanInverterConverter}}"
                             Style="{StaticResource NormalButtonStyle}" />
+                        <!--  离线导入：仅服务停止时可用  -->
+                        <Button
+                            Margin="1,5"
+                            Command="{Binding LoadLocalCsvCommand}"
+                            Content="离线导入"
+                            Style="{StaticResource NormalButtonStyle}"
+                            ToolTip="从本地CSV导入按包号保存的历史曲线（仅服务停止时可用）" />
+
+                        <!--  运行中禁用提示  -->
+                        <!--<TextBlock
+                            Margin="6,0,0,0"
+                            VerticalAlignment="Center"
+                            Foreground="#F44336"
+                            Text="⚠ 服务运行中，导入已禁用"
+                            Visibility="{Binding IsServerRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />-->
                     </StackPanel>
 
                     <!--  行1：运行状态 + 当前标签 (左) | 手动输入 (右)  -->
@@ -430,8 +445,9 @@
                         <TextBlock
                             VerticalAlignment="Center"
                             FontSize="11"
+                            FontWeight="SemiBold"
                             Foreground="#666"
-                            Text="强电连接与复拧B" />
+                            Text="{Binding ChannelDisplayText, TargetNullValue='强电2-未知通道', FallbackValue='强电2-未知通道'}" />
                         <Border
                             Width="1"
                             Height="16"
@@ -512,7 +528,7 @@
                             VerticalAlignment="Center"
                             FontSize="11"
                             Foreground="#666"
-                            Text="编号/周期号:" />
+                            Text="螺丝编号:" />
                         <TextBox
                             Width="90"
                             Height="26"

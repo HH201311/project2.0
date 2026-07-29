@@ -186,12 +186,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
 
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
+            await base.OnNavigatedToAsync(parameter);
+
             if (!_initialized)
             {
+                // 先加载端口、项目名称、控制器等配置
                 await LoadSettingsAsync();
+
                 _initialized = true;
+
+                // 配置加载成功后自动启动服务
+                if (!string.IsNullOrWhiteSpace(VM_NAME) && CanStart)
+                {
+                    await StartServerAsync();
+                }
+                else
+                {
+                    LogWarn("强电1: 配置未加载完成，未自动启动服务");
+                }
             }
-            await base.OnNavigatedToAsync(parameter);
         }
 
         private async Task LoadSettingsAsync()
@@ -342,7 +355,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.STC
                     TightenControllerIP = item.TightenControllerIP,
                     TorqueUpLimit = item.TorqueUpLimit,
                     TorqueLowLimit = item.TorqueLowLimit,
-                    TargetTorque = item.TorqueTarget,
+                    TargetTorque = item.TorqueActual,
                     TorqueValue = item.TorqueActualDouble,
                     AngleValue = item.AngleActualDouble,
                     Status = item.IsScrewOk ? ScrewStatus.OK : ScrewStatus.NG

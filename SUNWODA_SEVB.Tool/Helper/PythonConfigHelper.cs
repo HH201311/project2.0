@@ -181,16 +181,18 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// </summary>
         public static void Start()
         {
-            if (!isWorking)
+            if (isWorking)
+                return;
+
+            isWorking = true;
+
+            PythonThread = new Thread(DoAction)
             {
-                isWorking = true;
-                PythonThread = new Thread(DoAction)
-                {
-                    IsBackground = true,
-                    Name = "PythonThread"
-                };
-                PythonThread.Start();
-            }
+                IsBackground = true,
+                Name = "PythonThread"
+            };
+
+            PythonThread.Start();
         }
 
         /// <summary>
@@ -198,42 +200,41 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// </summary>
         public static void Stop()
         {
-            if (!isWorking) return;
+            if (!isWorking)
+                return;
 
-            // 1. 通知工作线程退出
             isWorking = false;
 
-            // 2. 等待线程自然结束（避免强制中止）
-            if (PythonThread != null && PythonThread.IsAlive)
+            // 唤醒正在 WaitOne() 的线程，让它检查 isWorking 并退出
+            ar.Set();
+
+            if (PythonThread is { IsAlive: true })
             {
-                // 给线程一些时间完成当前任务和清理（例如 2 秒）
                 bool exited = PythonThread.Join(TimeSpan.FromSeconds(2));
+
                 if (!exited)
                 {
-                    // 理论上工作线程会很快退出；如果未退出，记录日志或做额外处理（不建议强制中止）
-                    // 这里可以设置一个超时后的备用逻辑，例如置空线程引用，但保留 Python 资源不释放
+                    MessageBox.Show("Python 工作线程未能在指定时间内退出。");
+                    return;
                 }
             }
 
-            // 3. 清空未执行的任务队列（安全清空，因为工作线程已停止或即将停止）
             lock (queueLock)
             {
                 actions.Clear();
             }
 
-            // 4. 关闭 Python 运行时并重置状态
             if (IsInitConfig)
             {
                 try
                 {
-                    // 释放 Python 资源
                     PythonEngine.Shutdown();
+                    IsInitConfig = false;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"PythonEngine.Shutdown 失败: {ex.Message}");
+                    MessageBox.Show($"PythonEngine.Shutdown 失败：{ex.Message}");
                 }
-                IsInitConfig = false;
             }
 
             PythonThread = null;
@@ -242,16 +243,21 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 任务队列执行
         /// </summary>
-        private static void DoAction(CancellationToken cancellationToken)  // ✅ 添加参数
+        private static void DoAction()  
         {
-            // 每次循环检查标志
-            while (isWorking)
+            while (true)
             {
-                ar.WaitOne(); // 等待新任务通知
-                (Action<object[]> action, object[] args)? item = null;
-                try
+                // 等待任务或停止信号
+                ar.WaitOne();
+
+                // 被 Stop 唤醒后退出
+                if (!isWorking)
+                    break;
+
+                while (true)
                 {
-                    // 安全地从队列中取出任务
+                    (Action<object[]> action, object[] args)? item = null;
+
                     lock (queueLock)
                     {
                         if (actions.Count > 0)
@@ -260,14 +266,17 @@ namespace SUNWODA_SEVB.Tool.Helper
                         }
                     }
 
-                    if (item.HasValue)
+                    if (!item.HasValue)
+                        break;
+
+                    try
                     {
                         item.Value.action(item.Value.args);
                     }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Python 任务执行出错: {ex.Message}");
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Python 任务执行出错：{ex.Message}");
+                    }
                 }
             }
         }

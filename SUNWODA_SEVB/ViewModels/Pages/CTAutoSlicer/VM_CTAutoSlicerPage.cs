@@ -139,11 +139,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _offlineCtModelPath = string.Empty;
         private bool _offlineCtIsRunCuda = true;
         private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
+        private int _offlineCtTopViewSliceIndex = CTAutoSlicerSettings.DefaultOfflineCtTopViewSliceIndex;
+        private double _offlineCtPixelSizeUm = CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
         // 使用完全限定枚举名，避免与同名属性 OfflineCtResultImageMode 冲突（CS0236）
         private int _offlineCtResultImageMode = (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance;
         private bool _offlineCtExportJson = true;
         private bool _offlineCtExportCsv = true;
         private bool _offlineCtRotateTopViewCw90 = true;
+        private bool _enableOfflineCtPreBrighten = true;
+        private double _offlineCtPreBrightenMeanTrigger = 120.0;
+        private double _offlineCtPreBrightenP50Trigger = 110.0;
+        private double _offlineCtPreBrightenTargetMean = 132.0;
         private string _offlineCtManualInputImagePath = string.Empty;
         private string _offlineCtManualOutputFolder = string.Empty;
         private int _postAlignClickWaitMs = 400;
@@ -1166,6 +1172,61 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>
+        /// AI 标注选用「上」视图切片序号（1～100，1-based）。
+        /// 与导出文件名数字对应，如 50 → 50.jpg；默认 50（原中间张）。
+        /// </summary>
+        public int OfflineCtTopViewSliceIndex
+        {
+            get => _offlineCtTopViewSliceIndex;
+            set
+            {
+                var clamped = Math.Clamp(
+                    value,
+                    CTAutoSlicerSettings.MinOfflineCtTopViewSliceIndex,
+                    CTAutoSlicerSettings.MaxOfflineCtTopViewSliceIndex);
+                if (SetProperty(ref _offlineCtTopViewSliceIndex, clamped))
+                {
+                    SaveSetting(nameof(OfflineCtTopViewSliceIndex), clamped);
+                }
+                else if (value != clamped)
+                {
+                    // 输入越界被钳制时强制刷新绑定，避免文本框仍显示非法值
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 像素精度（μm/px）：一个像素的物理尺寸，供后续尺寸测量换算。
+        /// </summary>
+        public double OfflineCtPixelSizeUm
+        {
+            get => _offlineCtPixelSizeUm;
+            set
+            {
+                var normalized = value > 0 ? value : CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
+                if (SetProperty(ref _offlineCtPixelSizeUm, normalized))
+                {
+                    SaveSetting(nameof(OfflineCtPixelSizeUm), normalized);
+                    OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
+                    OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaUm));
+                    OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaMm));
+                }
+            }
+        }
+
+        /// <summary>像素精度换算为 mm/px（1 mm = 1000 μm）。</summary>
+        public double OfflineCtPixelSizeMmPerPx => OfflineCtPixelSizeUm / 1000.0;
+
+        /// <summary>界面：物理尺寸(μm) 公式展示用。</summary>
+        public string OfflineCtPixelSizeFormulaUm =>
+            $"L_μm = N_px × {OfflineCtPixelSizeUm:G} μm/px";
+
+        /// <summary>界面：物理尺寸(mm) 公式展示用。</summary>
+        public string OfflineCtPixelSizeFormulaMm =>
+            $"L_mm = N_px × {OfflineCtPixelSizeUm:G} / 1000 = N_px × {OfflineCtPixelSizeMmPerPx:G} mm/px";
+
         /// <summary>0=增强图 1=原图 2=两者</summary>
         public int OfflineCtResultImageMode
         {
@@ -1240,6 +1301,58 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _offlineCtRotateTopViewCw90, value))
                 {
                     SaveSetting(nameof(OfflineCtRotateTopViewCw90), value ? 1 : 0);
+                }
+            }
+        }
+
+        /// <summary>调用 NJCT 前是否按 ROI 亮度条件提亮并生成 input_for_njct。</summary>
+        public bool EnableOfflineCtPreBrighten
+        {
+            get => _enableOfflineCtPreBrighten;
+            set
+            {
+                if (SetProperty(ref _enableOfflineCtPreBrighten, value))
+                {
+                    SaveSetting(nameof(EnableOfflineCtPreBrighten), value ? 1 : 0);
+                }
+            }
+        }
+
+        /// <summary>预提亮触发：ROI 均值阈值。</summary>
+        public double OfflineCtPreBrightenMeanTrigger
+        {
+            get => _offlineCtPreBrightenMeanTrigger;
+            set
+            {
+                if (SetProperty(ref _offlineCtPreBrightenMeanTrigger, value))
+                {
+                    SaveSetting(nameof(OfflineCtPreBrightenMeanTrigger), value);
+                }
+            }
+        }
+
+        /// <summary>预提亮触发：ROI P50 阈值。</summary>
+        public double OfflineCtPreBrightenP50Trigger
+        {
+            get => _offlineCtPreBrightenP50Trigger;
+            set
+            {
+                if (SetProperty(ref _offlineCtPreBrightenP50Trigger, value))
+                {
+                    SaveSetting(nameof(OfflineCtPreBrightenP50Trigger), value);
+                }
+            }
+        }
+
+        /// <summary>预提亮目标 ROI 均值。</summary>
+        public double OfflineCtPreBrightenTargetMean
+        {
+            get => _offlineCtPreBrightenTargetMean;
+            set
+            {
+                if (SetProperty(ref _offlineCtPreBrightenTargetMean, value))
+                {
+                    SaveSetting(nameof(OfflineCtPreBrightenTargetMean), value);
                 }
             }
         }
@@ -1765,12 +1878,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtBlackHeight = LoadIntSetting(
                 nameof(OfflineCtBlackHeight),
                 CTAutoSlicerSettings.DefaultOfflineCtBlackHeight);
+            _offlineCtTopViewSliceIndex = Math.Clamp(
+                LoadIntSetting(
+                    nameof(OfflineCtTopViewSliceIndex),
+                    CTAutoSlicerSettings.DefaultOfflineCtTopViewSliceIndex),
+                CTAutoSlicerSettings.MinOfflineCtTopViewSliceIndex,
+                CTAutoSlicerSettings.MaxOfflineCtTopViewSliceIndex);
+            var loadedPixelSizeUm = LoadDoubleSetting(
+                nameof(OfflineCtPixelSizeUm),
+                CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm);
+            _offlineCtPixelSizeUm = loadedPixelSizeUm > 0
+                ? loadedPixelSizeUm
+                : CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
             _offlineCtResultImageMode = LoadIntSetting(
                 nameof(OfflineCtResultImageMode),
                 (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance);
             _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 1) != 0;
             _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 1) != 0;
             _offlineCtRotateTopViewCw90 = LoadIntSetting(nameof(OfflineCtRotateTopViewCw90), 1) != 0;
+            _enableOfflineCtPreBrighten = LoadIntSetting(nameof(EnableOfflineCtPreBrighten), 1) != 0;
+            _offlineCtPreBrightenMeanTrigger = LoadDoubleSetting(nameof(OfflineCtPreBrightenMeanTrigger), 120.0);
+            _offlineCtPreBrightenP50Trigger = LoadDoubleSetting(nameof(OfflineCtPreBrightenP50Trigger), 110.0);
+            _offlineCtPreBrightenTargetMean = LoadDoubleSetting(nameof(OfflineCtPreBrightenTargetMean), 132.0);
             OfflineCtManualInputImagePath = LoadStringSetting(nameof(OfflineCtManualInputImagePath), string.Empty);
             OfflineCtManualOutputFolder = LoadStringSetting(nameof(OfflineCtManualOutputFolder), string.Empty);
             VisionLearn3dSampleDir = LoadStringSetting(
@@ -1782,11 +1911,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
+            OnPropertyChanged(nameof(OfflineCtTopViewSliceIndex));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeUm));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaUm));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaMm));
             OnPropertyChanged(nameof(OfflineCtResultImageMode));
             OnPropertyChanged(nameof(OfflineCtResultImageModeDisplay));
             OnPropertyChanged(nameof(OfflineCtExportJson));
             OnPropertyChanged(nameof(OfflineCtExportCsv));
             OnPropertyChanged(nameof(OfflineCtRotateTopViewCw90));
+            OnPropertyChanged(nameof(EnableOfflineCtPreBrighten));
+            OnPropertyChanged(nameof(OfflineCtPreBrightenMeanTrigger));
+            OnPropertyChanged(nameof(OfflineCtPreBrightenP50Trigger));
+            OnPropertyChanged(nameof(OfflineCtPreBrightenTargetMean));
 
             _isLoadingSettings = false;
 
@@ -1928,6 +2066,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 OfflineCtModelPath = OfflineCtModelPath,
                 OfflineCtIsRunCuda = OfflineCtIsRunCuda,
                 OfflineCtBlackHeight = OfflineCtBlackHeight,
+                OfflineCtTopViewSliceIndex = OfflineCtTopViewSliceIndex,
+                OfflineCtPixelSizeUm = OfflineCtPixelSizeUm,
                 OfflineCtResultImageMode = (Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode)Math.Clamp(
                     _offlineCtResultImageMode,
                     0,
@@ -1935,6 +2075,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 OfflineCtExportJson = OfflineCtExportJson,
                 OfflineCtExportCsv = OfflineCtExportCsv,
                 OfflineCtRotateTopViewCw90 = OfflineCtRotateTopViewCw90,
+                EnableOfflineCtPreBrighten = EnableOfflineCtPreBrighten,
+                OfflineCtPreBrightenMeanTrigger = OfflineCtPreBrightenMeanTrigger,
+                OfflineCtPreBrightenP50Trigger = OfflineCtPreBrightenP50Trigger,
+                OfflineCtPreBrightenTargetMean = OfflineCtPreBrightenTargetMean,
                 VisionClickIntervalMs = 300,
                 VisionAlignmentDialogWaitTime = 8000,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,

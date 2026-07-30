@@ -344,3 +344,9 @@ else
 ---
 
 *本文基于当前工作区资源与既有会话分析整理，若与现场最新 DLL/文档冲突，以现场交付物为准，并回写本文第 11 节结论。*
+
+---
+
+## 14. 相关分析文档
+
+- **`docs/NJCT_1jpg失败原因分析.md`**（2026-07-29）：对照 `C:\AutoSlice\output\test` 样本与 `C:\AutoSlice\NJCT` / `CF` 反编译，说明失败图在「ROI 均值≥100」时仍可能因 **AI mask 亮区不足 + `GetDianXinTopNC` 的 `Threshold(200)`** 报电芯数量/头部异常；与 VG 直方图提亮直接相关。

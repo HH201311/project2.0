@@ -15,6 +15,9 @@ namespace SUNWODA_SEVB.Tool.Helper
     public static class OfflineCtAnnotationHelper
     {
         public const string AnnotationFolderName = "AI标注";
+
+        /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper.FinalInputFileNameWithoutExt。</summary>
+        [Obsolete("不再单独落盘旋转中间图，请使用 PrepareFinalInputImage(rotateCw90: true)")]
         public const string RotatedInputFileNameWithoutExt = "input_rotated_cw90";
 
         private static readonly Regex NumericFileName = new(
@@ -42,7 +45,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 AnnotationFolderName);
 
         /// <summary>
-        /// 将上视图顺时针旋转 90° 后保存到 outputPath（供 NJCT 识别；原图不变）。
+        /// 将上视图顺时针旋转 90° 后保存到 outputPath（原图不变）。主流程已改为内存旋转+input_for_njct，一般不再调用。
         /// </summary>
         public static string SaveClockwiseRotated90(string sourceImagePath, string outputPath)
         {
@@ -67,8 +70,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 在标注输出目录生成顺时针旋转 90° 的推理输入图，返回落盘路径。
+        /// 已废弃：勿再生成 input_rotated_cw90；请用 OfflineCtPreBrightenHelper.PrepareFinalInputImage(..., rotateCw90: true)。
         /// </summary>
+        [Obsolete("不再落盘 input_rotated_cw90，请使用 OfflineCtPreBrightenHelper.PrepareFinalInputImage")]
         public static string CreateRotatedInputForAnnotation(string sourceImagePath, string annotationFolder)
         {
             var ext = Path.GetExtension(sourceImagePath);
@@ -111,10 +115,12 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 取中间图：按文件名数字排序后取第 quantity/2 张（1-based；100→50）。
-        /// quantity≤0 时用目录内文件数 / 2。
+        /// 按文件名数字序号选取「上」视图切片图（1-based）。
+        /// 例如 sliceIndex=50 → 优先取 50.jpg；缺失时取排序后最接近的一张。
         /// </summary>
-        public static string? TryPickMiddleTopViewImage(string topViewFolder, int quantity)
+        /// <param name="topViewFolder">「上」视图导出目录</param>
+        /// <param name="sliceIndex">目标序号（建议 1～100；内部会钳制到 ≥1）</param>
+        public static string? TryPickTopViewImageByIndex(string topViewFolder, int sliceIndex)
         {
             if (string.IsNullOrWhiteSpace(topViewFolder) || !Directory.Exists(topViewFolder))
             {
@@ -134,28 +140,45 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return null;
             }
 
-            var n = quantity > 0 ? quantity : files.Count;
-            var targetIndex = Math.Max(1, n / 2);
+            var targetIndex = Math.Max(1, sliceIndex);
             var hit = files.FirstOrDefault(f => f.Index == targetIndex);
             if (hit.Path != null)
             {
                 return hit.Path;
             }
 
-            // 目标序号文件缺失时，取排序后最接近中间的一张
-            var midPos = Math.Clamp(targetIndex - 1, 0, files.Count - 1);
-            return files[midPos].Path;
+            // 目标序号文件缺失时，取排序后序号最接近的一张
+            var closest = files
+                .OrderBy(f => Math.Abs(f.Index - targetIndex))
+                .ThenBy(f => f.Index)
+                .First();
+            return closest.Path;
+        }
+
+        /// <summary>
+        /// 兼容旧调用：取中间图（quantity/2）。新代码请用 <see cref="TryPickTopViewImageByIndex"/>。
+        /// </summary>
+        [Obsolete("请使用 TryPickTopViewImageByIndex，并由 OfflineCtTopViewSliceIndex 配置目标序号")]
+        public static string? TryPickMiddleTopViewImage(string topViewFolder, int quantity)
+        {
+            var n = quantity > 0 ? quantity : 0;
+            var targetIndex = n > 0 ? Math.Max(1, n / 2) : CTAutoSlicerSettings.DefaultOfflineCtTopViewSliceIndex;
+            return TryPickTopViewImageByIndex(topViewFolder, targetIndex);
         }
 
         public static void WriteAnnotationJson(
             string outputPath,
             string sourceImagePath,
-            IReadOnlyList<OfflineCtInferResult> results)
+            IReadOnlyList<OfflineCtInferResult> results,
+            double? pixelSizeUm = null)
         {
             var payload = new
             {
                 sourceImage = sourceImagePath,
                 generatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                pixelSizeUm = pixelSizeUm,
+                pixelSizeUnit = "μm/px",
+                unitConversion = "1 mm = 1000 μm; L_μm = N_px × pixelSizeUm; L_mm = N_px × pixelSizeUm / 1000",
                 results = results.Select(r => new
                 {
                     mode = r.ModeTag,

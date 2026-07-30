@@ -216,7 +216,29 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
 
                     string? writtenPath = null;
-                    if (!string.IsNullOrWhiteSpace(resultImagePath) && resultImg is not null)
+                    var failed = !string.IsNullOrEmpty(runInfo);
+                    if (failed)
+                    {
+                        // 失败时 DLL 常把整图 ReadImage 塞进 ResultImg，对排查无意义；
+                        // 改为落盘与算法一致的左上角 1844×1500 裁剪图。
+                        var cropPath = OfflineCtPreBrightenHelper.BuildAlgorithmCropPath(
+                            resultImagePath,
+                            imagePath);
+                        try
+                        {
+                            writtenPath = OfflineCtPreBrightenHelper.SaveNjCtAlgorithmCrop(
+                                invokeImagePath,
+                                cropPath);
+                            _logger.Warn(
+                                $"检测失败，已导出 NJCT 算法裁剪区 "
+                                + $"{OfflineCtImageDiagnostics.RequiredRoiWidth}×{OfflineCtImageDiagnostics.RequiredRoiHeight}：{writtenPath}");
+                        }
+                        catch (Exception cropEx)
+                        {
+                            _logger.Warn($"导出 NJCT 裁剪区失败：{cropEx.Message}");
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(resultImagePath) && resultImg is not null)
                     {
                         writtenPath = WriteResultImage(resultImg, resultImagePath);
                     }

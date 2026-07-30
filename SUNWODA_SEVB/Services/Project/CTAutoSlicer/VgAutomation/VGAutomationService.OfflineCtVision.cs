@@ -7,7 +7,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     public partial class VGAutomationService
     {
         /// <summary>
-        /// 主流程：切片导出后，对「上」视图中间图做 AI 标注（软失败）。
+        /// 主流程：切片导出后，对「上」视图指定序号图做 AI 标注（软失败）。
         /// </summary>
         private async Task TryRunOfflineCtVisionAnnotationAsync(
             CTAutoSlicerSettings settings,
@@ -47,7 +47,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 对指定导出名的「上」视图中间图执行推理并落盘；也可直接对单张图测试。
+        /// 对指定导出名的「上」视图（按 OfflineCtTopViewSliceIndex）执行推理并落盘；也可直接对单张图测试。
         /// </summary>
         /// <param name="explicitOutputFolder">
         /// 仅在指定 <paramref name="explicitImagePath"/> 时生效：输出目录；空则用输入图所在目录。
@@ -109,12 +109,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         settings.SliceExportQuantityQj);
                 }
 
+                var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
+                // 若已知导出数量，避免选超出堆栈范围的序号
+                if (resolvedQuantity > 0 && sliceIndex > resolvedQuantity)
+                {
+                    sliceIndex = resolvedQuantity;
+                }
+
                 var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
                     settings.SliceExportFolder,
                     resolvedBaseName);
-                imagePath = OfflineCtAnnotationHelper.TryPickMiddleTopViewImage(topFolder, resolvedQuantity)
+                imagePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
                     ?? throw new FileNotFoundException(
-                        $"未在「上」视图目录找到中间图（期望序号 {Math.Max(1, resolvedQuantity / 2)}）：{topFolder}",
+                        $"未在「上」视图目录找到目标序号图（期望序号 {sliceIndex}）：{topFolder}",
                         topFolder);
 
                 annotationFolder = OfflineCtAnnotationHelper.BuildAnnotationFolder(
@@ -122,8 +129,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     resolvedBaseName);
 
                 progress?.Report(
-                    $"AI 标注选用「上」视图中间图：{Path.GetFileName(imagePath)}（数量基准 {resolvedQuantity}）");
-                _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}");
+                    $"AI 标注选用「上」视图第 {sliceIndex} 张：{Path.GetFileName(imagePath)}"
+                    + $"（配置序号 {settings.ResolveOfflineCtTopViewSliceIndex()}，数量基准 {resolvedQuantity}，"
+                    + $"像素精度 {settings.ResolveOfflineCtPixelSizeUm():G} μm/px）");
+                _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}，sliceIndex={sliceIndex}");
             }
 
             Directory.CreateDirectory(annotationFolder!);
@@ -132,20 +141,27 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}");
 
             var originalImagePath = imagePath;
-            if (settings.OfflineCtRotateTopViewCw90)
-            {
-                // NJCT 朝向要求：上视图顺时针 90°；旋转图落盘便于核对
-                imagePath = OfflineCtAnnotationHelper.CreateRotatedInputForAnnotation(
-                    originalImagePath,
-                    annotationFolder!);
-                progress?.Report($"上视图已顺时针旋转 90° → {Path.GetFileName(imagePath)}");
-                _logger.Info($"AI 标注旋转输入：{originalImagePath} → {imagePath}");
-            }
-            else
-            {
-                progress?.Report("已跳过上视图顺时针旋转 90°（OfflineCtRotateTopViewCw90=false）");
-                _logger.Info("AI 标注未旋转上视图：OfflineCtRotateTopViewCw90=false");
-            }
+
+            // 方案 B：内存中可选 CW90 → 算亮度 → 仅落盘最终效果图 input_for_njct → 再推理（不再落盘 input_rotated_cw90）
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(
+                settings.OfflineCtRotateTopViewCw90
+                    ? "AI 标注：内存顺时针旋转 90° + 计算 ROI 亮度，生成最终推理图…"
+                    : "AI 标注：计算 ROI 亮度并准备最终推理图（未旋转）…");
+            var preBrighten = await Task.Run(
+                    () => OfflineCtPreBrightenHelper.PrepareFinalInputImage(
+                        originalImagePath,
+                        annotationFolder!,
+                        settings.EnableOfflineCtPreBrighten,
+                        settings.OfflineCtRotateTopViewCw90,
+                        settings.OfflineCtPreBrightenMeanTrigger,
+                        settings.OfflineCtPreBrightenP50Trigger,
+                        settings.OfflineCtPreBrightenTargetMean),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            imagePath = preBrighten.FinalImagePath;
+            progress?.Report(preBrighten.Summary);
+            _logger.Info($"AI 标注预处理：{preBrighten.Summary}；报告={preBrighten.ReportPath}");
 
             var modelPath = settings.ResolveOfflineCtModelPath();
             progress?.Report($"AI 标注初始化模型：{modelPath}");
@@ -162,7 +178,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var enhancePath = Path.Combine(annotationFolder!, "result_enhance.jpg");
-                progress?.Report("AI 标注：调用 ModelAction（增强图）…");
+                progress?.Report($"AI 标注：调用 ModelAction（增强图），输入={Path.GetFileName(imagePath)}…");
                 var enhanceResult = await Task.Run(
                         () => _offlineCtVisionService.InferEnhance(imagePath, blackHeight, enhancePath),
                         cancellationToken)
@@ -178,7 +194,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var originPath = Path.Combine(annotationFolder!, "result_origin.jpg");
-                progress?.Report("AI 标注：调用 ModelAction_origin（原图）…");
+                progress?.Report($"AI 标注：调用 ModelAction_origin（原图），输入={Path.GetFileName(imagePath)}…");
                 var originResult = await Task.Run(
                         () => _offlineCtVisionService.InferOrigin(imagePath, blackHeight, originPath),
                         cancellationToken)
@@ -193,7 +209,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             if (settings.OfflineCtExportJson)
             {
                 var jsonPath = Path.Combine(annotationFolder!, "annotation.json");
-                OfflineCtAnnotationHelper.WriteAnnotationJson(jsonPath, originalImagePath, results);
+                OfflineCtAnnotationHelper.WriteAnnotationJson(
+                    jsonPath,
+                    originalImagePath,
+                    results,
+                    settings.ResolveOfflineCtPixelSizeUm());
                 progress?.Report($"已写入 JSON：{jsonPath}");
             }
 
@@ -209,7 +229,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 单步测试：选手动图或按切片目录规则取「上」视图中间图。
+        /// 单步测试：选手动图或按切片目录规则取「上」视图配置序号图。
         /// </summary>
         public async Task TestOfflineCtVisionAnnotationAsync(
             CTAutoSlicerSettings settings,

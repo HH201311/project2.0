@@ -84,7 +84,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         );
 
         /// <summary>
-        /// 单步测试：对「上」视图中间图或指定图片执行 AI 图像标注。
+        /// 单步测试：对「上」视图配置序号图或指定图片执行 AI 图像标注。
         /// </summary>
         /// <param name="explicitOutputFolder">
         /// 指定输出目录；仅在指定输入图时生效。空则输出到输入图所在目录。

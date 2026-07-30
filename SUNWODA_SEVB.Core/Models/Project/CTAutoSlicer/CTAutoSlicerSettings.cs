@@ -41,6 +41,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const string OfflineCtDllFileName = "NJCT.dll";
         public const string OfflineCtModelRelativePath = @"Models\CTOffline\model_500000_900.onnx";
         public const int DefaultOfflineCtBlackHeight = 1500;
+        /// <summary>AI 标注取「上」视图切片序号默认值（1-based；对应导出数量 100 时的中间张）。</summary>
+        public const int DefaultOfflineCtTopViewSliceIndex = 50;
+        /// <summary>「上」视图切片序号下限（含）。</summary>
+        public const int MinOfflineCtTopViewSliceIndex = 1;
+        /// <summary>「上」视图切片序号上限（含）；与 UI 1～100 一致。</summary>
+        public const int MaxOfflineCtTopViewSliceIndex = 100;
+        /// <summary>像素精度默认值（μm/px），供后续尺寸测量换算。</summary>
+        public const double DefaultOfflineCtPixelSizeUm = 1.0;
 
         /// <summary>切图算法 DLL：{程序目录}\Dlls\CTAutoCutImg.dll（与 halcon 原生库同目录）</summary>
         public static string GetCutImgAlgorithmDllPath() =>
@@ -282,6 +290,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>图片下方打黑高度（像素）</summary>
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
 
+        /// <summary>
+        /// AI 标注选用「上」视图切片序号（1-based，范围 1～100）。
+        /// 按文件名数字匹配，如 50 → 50.jpg；缺省为中间张 DefaultOfflineCtTopViewSliceIndex。
+        /// </summary>
+        public int OfflineCtTopViewSliceIndex { get; set; } = DefaultOfflineCtTopViewSliceIndex;
+
+        /// <summary>
+        /// 像素精度：一个像素对应的物理尺寸，单位微米（μm/px）。
+        /// 换算：1 mm = 1000 μm；物理尺寸(μm)=像素数×本值；物理尺寸(mm)=像素数×本值/1000。
+        /// </summary>
+        public double OfflineCtPixelSizeUm { get; set; } = DefaultOfflineCtPixelSizeUm;
+
         /// <summary>结果图模式：增强 / 原图 / 两者</summary>
         public OfflineCtResultImageMode OfflineCtResultImageMode { get; set; } = OfflineCtResultImageMode.Enhance;
 
@@ -294,6 +314,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>送入 NJCT 前是否将上视图顺时针旋转 90°（默认开；算法朝向要求）</summary>
         public bool OfflineCtRotateTopViewCw90 { get; set; } = true;
 
+        /// <summary>方案 B：调用 NJCT 前是否按 ROI 亮度条件提亮并生成 input_for_njct（默认开）</summary>
+        public bool EnableOfflineCtPreBrighten { get; set; } = true;
+
+        /// <summary>预提亮触发：ROI 均值低于此值</summary>
+        public double OfflineCtPreBrightenMeanTrigger { get; set; } = 120.0;
+
+        /// <summary>预提亮触发：ROI P50 低于此值</summary>
+        public double OfflineCtPreBrightenP50Trigger { get; set; } = 110.0;
+
+        /// <summary>预提亮目标 ROI 均值</summary>
+        public double OfflineCtPreBrightenTargetMean { get; set; } = 132.0;
+
         /// <summary>解析模型路径：配置非空则用之，否则默认部署路径。</summary>
         public string ResolveOfflineCtModelPath()
         {
@@ -304,6 +336,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 
             return GetDefaultOfflineCtModelPath();
         }
+
+        /// <summary>钳制「上」视图切片序号到 1～100。</summary>
+        public int ResolveOfflineCtTopViewSliceIndex() =>
+            Math.Clamp(OfflineCtTopViewSliceIndex, MinOfflineCtTopViewSliceIndex, MaxOfflineCtTopViewSliceIndex);
+
+        /// <summary>钳制像素精度为非负；≤0 时回退默认值。</summary>
+        public double ResolveOfflineCtPixelSizeUm() =>
+            OfflineCtPixelSizeUm > 0 ? OfflineCtPixelSizeUm : DefaultOfflineCtPixelSizeUm;
 
         /// <summary>直方图 ROI 屏幕 X（物理像素，框选标定）</summary>
         public int HistogramRoiX { get; set; }

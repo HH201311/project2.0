@@ -1,8 +1,8 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-28（下午：UI 标定采图迁入单步测试 + AI 上视图 CW90°；阶段七代码已接入）  
-> **状态**：**阶段一～五全部 ✅**；**阶段七代码 ✅**（软失败接入主流程；推理前上视图顺时针 90°）；进程池并行导入 ✅；工程编译 ✅。  
-> **待确认**：真机「测试 AI 图像标注」/主流程联调（选「上」视图第 N/2 张 → **CW90°** → NJCT → 落盘 `AI标注/`）。  
+> **文档版本**：2026-07-30（AI 标注：上视图切片序号可配 1～100 + 像素精度 μm/px；此前 2026-07-28：UI 标定采图迁入单步测试 + AI 上视图 CW90°）  
+> **状态**：**阶段一～五全部 ✅**；**阶段七代码 ✅**（软失败接入主流程；推理前上视图顺时针 90°；选图序号/像素精度可配）；进程池并行导入 ✅；工程编译 ✅。  
+> **待确认**：真机「测试 AI 图像标注」/主流程联调（选「上」视图第 **OfflineCtTopViewSliceIndex** 张 → **CW90°** → NJCT → 落盘 `AI标注/`）。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**
 
@@ -19,10 +19,14 @@
 > 3. 3-2-1 完成后、切片导出前：**对齐后捕捉按钮 + 箭头拖拽**（`PostAlign*`；单测「测试对齐后捕捉拖拽」）。  
 > 4. **主流程与单测共用同一核心方法**（见 **§21**）。
 
+> **2026-07-30 增量（AI 标注参数）**：  
+> 1. 「上」视图送检图序号改为可配：`OfflineCtTopViewSliceIndex`（1～100，默认 50，兼容原 N/2）。  
+> 2. 新增像素精度：`OfflineCtPixelSizeUm`（μm/px，默认 1.0）；界面展示 1 mm = 1000 μm 及 L_μm / L_mm 公式；写入 annotation.json。
+
 > **2026-07-28 增量（界面 + AI 输入朝向）**：  
 > 1. 主界面底部「截取3D标定图 / 截取上视图标定图」**迁入调试模式 → 单步测试**「标定采图」区；可输入存放路径（持久化）。  
 > 2. 默认路径：`C:\AutoSlice\cutpicture\3D`、`C:\AutoSlice\cutpicture\上视图`（`VisionLearn3dSampleDir` / `VisionLearnTopViewSampleDir`）。  
-> 3. AI 标注：送入 NJCT 前将「上」视图 **顺时针旋转 90°**，落盘 `AI标注/input_rotated_cw90.*`；JSON/CSV 仍记原始上视图路径。
+> 3. AI 标注：送入 NJCT 前将「上」视图 **顺时针旋转 90°**（内存）+ 条件提亮，仅落盘 `AI标注/input_for_njct.*`；JSON/CSV 仍记原始上视图路径。
 
 ---
 
@@ -372,8 +376,8 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
       依次导出「前 / 右 / 上」；切片范围取自 UI 各视角 mm
 
 ✅ 6. 阶段七 · AI 图像标注（`NJCT.NJSwdCT`）
-      取「上」视图第 N/2 张图 → **顺时针旋转 90°** → `ModelInit` → `ModelAction` / `ModelAction_origin`
-      → 结果图 + 可选 JSON/CSV 落到 `{主文件夹}/AI标注/`（与三视图同级；含 `input_rotated_cw90.*`）
+      取「上」视图第 OfflineCtTopViewSliceIndex 张（默认 50）→ **顺时针旋转 90°** → `ModelInit` → `ModelAction` / `ModelAction_origin`
+      → 结果图 + 可选 JSON/CSV 落到 `{主文件夹}/AI标注/`（与三视图同级；含 `input_for_njct.*`）
       （`TryRunOfflineCtVisionAnnotationAsync`；开关 `EnableOfflineCtVisionAnnotation`；见 §22）
 
 ❌ 7. 收尾：导入成功后 .vgl 处理、文件夹监控自动跑批等（见 §8 阶段六，可选）
@@ -403,7 +407,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
 ✅ 对齐后捕捉拖拽（`TryRunPostAlignCaptureDragInMainFlowAsync` + `EnablePostAlignCaptureDragSteps`）
 ✅ 三视图切片导出（`ExportImageStackSlicesAsync`；前/右/上）
-✅ AI 图像标注（`TryRunOfflineCtVisionAnnotationAsync`；「上」视图中间图）
+✅ AI 图像标注（`TryRunOfflineCtVisionAnnotationAsync`；「上」视图配置序号图）
 ✅ 「测试应用渲染预设」单步按钮
 ✅ 「测试直方图灰度调整」单步按钮
 ✅ 「测试厚板设置(三象限)」单步按钮
@@ -500,7 +504,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段七：AI 图像标注（✅ 代码已接入；真机联调待确认）
 
 > **2026-07-28**：已按惠州正极接口 V1.0 接入主流程与 UI。详规见 **§22**、`docs/CT离线AI视觉接口文档.md`、`docs/离线CT_DLL接入说明.md`。  
-> **位置**：阶段五切片导出 **之后**；输入为「上」视图文件夹第 **N/2** 张图（默认 100→50）。  
+> **位置**：阶段五切片导出 **之后**；输入为「上」视图文件夹第 **OfflineCtTopViewSliceIndex** 张图（默认 50）。  
 > **输出**：`{SliceExportFolder}/{exportBaseName}/AI标注/`（与前/右/上同级）。
 
 **已落地**：
@@ -508,7 +512,7 @@ await ExportImageStackSlicesAsync(...);
 | 项 | 说明 |
 |----|------|
 | 服务 | `ICTOfflineVisionService` / `OfflineCtVisionService`（反射 `NJCT.NJSwdCT`） |
-| 选图/落盘 | `OfflineCtAnnotationHelper` |
+| 选图/落盘 | `OfflineCtAnnotationHelper`（`TryPickTopViewImageByIndex`） |
 | 主流程 | `TryRunOfflineCtVisionAnnotationAsync`（软失败） |
 | UI | 侧栏「AI图像标注」；单测「测试 AI 图像标注」 |
 | 资源 | `Dlls\NJCT.dll`、`CF.dll`、`Dlls\Models\CTOffline\model_500000_900.onnx` |
@@ -518,6 +522,8 @@ await ExportImageStackSlicesAsync(...);
 | 参数 | 默认 | 说明 |
 |------|------|------|
 | `EnableOfflineCtVisionAnnotation` | `true` | 主流程开关 |
+| `OfflineCtTopViewSliceIndex` | `50` | 「上」视图送检图序号（1～100） |
+| `OfflineCtPixelSizeUm` | `1.0` | 像素精度（μm/px）；1 mm = 1000 μm |
 | `OfflineCtModelPath` | 空→默认 onnx | ONNX 路径 |
 | `OfflineCtIsRunCuda` | `true` | CUDA |
 | `OfflineCtBlackHeight` | `1500` | 打黑高度 |
@@ -659,12 +665,13 @@ await ExportImageStackSlicesAsync(...);
 
 - [x] 反射封装 `OfflineCtVisionService`（`ModelInit` / `ModelAction` / `ModelAction_origin`）
 - [x] UI 侧栏「AI图像标注」+ Settings Load/Save
-- [x] 主流程：导出后取「上」视图第 N/2 张 → **CW90°** → 落盘 `{主文件夹}/AI标注/`
+- [x] 主流程：导出后取「上」视图配置序号图 → **CW90°** → 落盘 `{主文件夹}/AI标注/`
 - [x] 单测：「测试 AI 图像标注」（手动选图或按目录规则；同样先旋转）
 - [x] JSON/CSV 可配置（默认勾选）；结果图模式三选一（默认增强图）
-- [x] 推理前上视图顺时针 90°（`input_rotated_cw90.*`）
+- [x] 推理前上视图顺时针 90°（内存）+ `input_for_njct.*`
+- [x] **上视图切片序号可配（1～100）+ 像素精度 μm/px + 换算公式展示**
 - [x] 工程编译通过（2026-07-28）
-- [ ] 真机：日志出现选用 `50.*`（quantity=100），`AI标注/` 含旋转图 + 结果图与 json/csv
+- [ ] 真机：日志出现选用配置序号（默认 `50.*`），`AI标注/` 含旋转图 + 结果图与 json/csv
 
 ### UI 增量（2026-07-28）— ✅ 标定采图迁入单步测试
 
@@ -689,7 +696,7 @@ SUNWODA_SEVB.Core/Models/Project/CTAutoSlicer/
 SUNWODA_SEVB/Services/Project/CTAutoSlicer/
   CTAutoSlicerService.cs
   VGAutomationService.cs             ← ✅ 构造注入 ICTOfflineVisionService
-  VgAutomation/VGAutomationService.OfflineCtVision.cs  ← ✅ 主流程/单测标注 + CW90°
+  VgAutomation/VGAutomationService.OfflineCtVision.cs  ← ✅ 主流程/单测：CW90° + 预提亮 + NJCT
   OfflineCtVisionService.cs          ← ✅ NJCT 反射实现
   AngleAlgorithmService.cs
   CutImgAlgorithmService.cs
@@ -702,21 +709,23 @@ SUNWODA_SEVB.Core/Dlls/
   CTAutoCutImg.dll                   ← 阶段四对照保留
   halcondotnet.dll / halcon*.dll
 SUNWODA_SEVB.Tool/Helper/
-  OfflineCtAnnotationHelper.cs       ← ✅ 中间图选取 + CW90° + JSON/CSV
+  OfflineCtAnnotationHelper.cs       ← ✅ 按序号选图 + CW90° + JSON/CSV（含像素精度）
+  OfflineCtPreBrightenHelper.cs      ← ✅ 方案B：ROI 亮度计算 + 条件提亮 + input_for_njct
   SliceExportNamingHelper.cs
   Vision3dSectionPointsDetector.cs
   VisionTopViewVectorPointsDetector.cs
   ScreenCaptureHelper.cs
   …
 SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/
-  VM_CTAutoSlicerPage.cs             ← ✅ NavAiAnnotate=8；标定采图路径/命令
+  VM_CTAutoSlicerPage.cs             ← ✅ NavAiAnnotate=8；标定采图路径/命令；预提亮开关
 SUNWODA_SEVB/Views/Pages/CTAutoSlicer/
-  CTAutoSlicerPage.xaml              ← ✅ 「AI图像标注」；单步测试「标定采图」
+  CTAutoSlicerPage.xaml              ← ✅ 「AI图像标注」；「调用前条件提亮」
 docs/
   CTAutoSlicer迁移说明.md
   CT离线AI视觉接口文档.md
   离线CT_DLL接入说明.md
   CTAutoSlicer_2022改造进度存档.md
+  NJCT_1jpg失败原因分析.md
 ```
 
 ---
@@ -725,16 +734,17 @@ docs/
 
 1. **本文档** — 知道做到哪、还差什么（§7.1 总序；**§16**；**§19～§21**；**§22 AI 图像标注**；导入 §15）  
 2. **`docs/CT离线AI视觉接口文档.md`** + **`docs/离线CT_DLL接入说明.md`** — 接口与依赖  
-3. `VGAutomationService` — `RunPostImportPipelineAsync` / `RunOfflineCtVisionAnnotationAsync`  
-4. `OfflineCtVisionService` + `OfflineCtAnnotationHelper` — 反射推理、**CW90°**、落盘  
-5. `ImportSingleVglAsync` / 进程池 — 主链：… → 导出 → **AI 标注**  
-6. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
+3. **`docs/NJCT_1jpg失败原因分析.md`** — 样本 `1.jpg` 失败根因（CF→`Threshold(200)` / 非 ROI&lt;100 硬伤）  
+4. `VGAutomationService` — `RunPostImportPipelineAsync` / `RunOfflineCtVisionAnnotationAsync`  
+5. `OfflineCtVisionService` + `OfflineCtAnnotationHelper` + **`OfflineCtPreBrightenHelper`** — 反射推理、CW90°、**预提亮**、落盘  
+6. `ImportSingleVglAsync` / 进程池 — 主链：… → 导出 → **AI 标注**  
+7. `docs/CTAutoSlicer迁移说明.md` §6 — 页面生命周期  
 
 ---
 
 ## 14. 一句话总结
 
-**阶段一～五已跑通；阶段七 AI 图像标注代码已接入**（「上」视图中间图 → **CW90°** → NJCT → `AI标注/`）。标定采图已迁入单步测试并可配路径。主/单测路径见 §21 / §22。待真机联调确认旋转后识别与落盘。可选后续：文件夹监控跑批等（阶段六）。
+**阶段一～五已跑通；阶段七 AI 图像标注代码已接入**（「上」视图配置序号图 → **CW90°** → NJCT → `AI标注/`；序号/像素精度可配）。标定采图已迁入单步测试并可配路径。主/单测路径见 §21 / §22。待真机联调确认旋转后识别与落盘。可选后续：文件夹监控跑批等（阶段六）。
 
 ---
 
@@ -1180,7 +1190,7 @@ screenY = Ry + Py
 ## 22. 阶段七：AI 图像标注（2026-07-28 代码已接入）
 
 > **状态**：✅ **代码已接入**（主流程 + UI 栏目 + 单测 + **上视图 CW90°**）；工程编译 ✅；**真机联调待确认**。  
-> **位置**：阶段五切片导出 **之后**；对「上」视图中间图做电芯抓点 AI 推理与标注落盘。  
+> **位置**：阶段五切片导出 **之后**；对「上」视图配置序号图做电芯抓点 AI 推理与标注落盘。  
 > **与阶段四区别**：阶段四用 OpenCV 本地找点做 VG 内 3-2-1 对齐；本阶段用 **`NJCT.NJSwdCT`** 对 **切片 JPEG** 做抓点区域与 L1～L5 标注。
 
 ### 22.1 接口来源
@@ -1208,6 +1218,7 @@ screenY = Ry + Py
 
 - 反射 `Assembly.LoadFrom(Dlls\NJCT.dll)` + `SetDllDirectory(Dlls)`  
 - `CF.dll`、`halcondotnet.dll`（22.11）、ONNX Runtime（Cuda 可选）  
+- **方案 B 预提亮**（默认开）：内存 CW90（可选）→ 算 ROI 均值/P50 → 偏暗则增益提亮 → **仅**落盘 `input_for_njct.*` + `prebrighten_report.txt` → 再调 NJCT（不再生成 `input_rotated_cw90`）  
 - 注意：仓库 `Dlls\NJCT.dll` 已覆盖为惠州正极包；CTNCLX 若共用该 DLL，联调时需确认兼容性
 
 ### 22.4 实现文件
@@ -1215,7 +1226,7 @@ screenY = Ry + Py
 | 文件 | 说明 |
 |------|------|
 | `ICTOfflineVisionService.cs` / `OfflineCtVisionService.cs` | 反射 ModelInit / ModelAction / ModelAction_origin |
-| `OfflineCtAnnotationHelper.cs` | 「上」视图中间图选取 + **CW90°** + JSON/CSV |
+| `OfflineCtAnnotationHelper.cs` | 「上」视图按序号选图 + **CW90°** + JSON/CSV（含像素精度） |
 | `VGAutomationService.OfflineCtVision.cs` | 主流程 / 单测编排（推理前旋转） |
 | `OfflineCtResultImageMode.cs` | Enhance / Origin / Both |
 | `CTAutoSlicerSettings` | `EnableOfflineCt*` / `OfflineCt*`；`VisionLearn*SampleDir` |
@@ -1228,28 +1239,30 @@ screenY = Ry + Py
 RunPostImportPipelineAsync：
   … → ExportImageStackSlicesAsync → (exportBaseName, quantity)
   → TryRunOfflineCtVisionAnnotationAsync
-      → 输入：{导出根}/{exportBaseName}/{exportBaseName} 上/{N/2}.*
-      → 预处理：顺时针旋转 90° → AI标注/input_rotated_cw90.*
+      → 输入：{导出根}/{exportBaseName}/{exportBaseName} 上/{OfflineCtTopViewSliceIndex}.*
+      → 预处理：内存 CW90° + 条件提亮 → AI标注/input_for_njct.*
       → 输出：{导出根}/{exportBaseName}/AI标注/
-           input_rotated_cw90.*（送入 NJCT 的图）
+           input_for_njct.*（送入 NJCT 的最终图）
            result_enhance.jpg / result_origin.jpg（按模式）
-           annotation.json / annotation.csv（按勾选；sourceImage=原始上视图路径）
+           annotation.json / annotation.csv（按勾选；sourceImage=原始上视图路径；含 pixelSizeUm）
+           prebrighten_report.txt
 ```
 
-中间图规则：按文件名数字排序，取第 `max(1, quantity/2)` 张（100→50）。  
-**朝向**：VG 导出的「上」视图须 **顺时针 90°** 后再送 NJCT，否则算法识别异常（主流程 / 单测 / 手动标注统一处理）。  
+选图规则：按文件名数字排序，取 `OfflineCtTopViewSliceIndex`（钳制 1～100；若已知 quantity 且序号更大则钳到 quantity；缺文件取最接近序号）。默认 50。  
+**朝向**：VG 导出的「上」视图须 **顺时针 90°** 后再送 NJCT，否则算法识别异常（主流程 / 单测统一在内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
 失败策略：主流程**软失败**记日志，不中断批次；开关关闭则跳过。
 
 ### 22.6 清单
 
 - [x] 封装 `ICTOfflineVisionService`（反射 `NJCT.NJSwdCT`）  
-- [x] Settings + UI 栏目（模型/CUDA/BlackHeight/结果图模式/JSON/CSV）  
+- [x] Settings + UI 栏目（模型/CUDA/BlackHeight/结果图模式/JSON/CSV/**切片序号/像素精度**）  
 - [x] 单测：「测试 AI 图像标注」  
 - [x] 主流程：切片导出后标注（`EnableOfflineCtVisionAnnotation`）  
 - [x] Halcon `HObject` 释放与 `RunInfo` 日志  
-- [x] 上视图推理前顺时针 90°（`CreateRotatedInputForAnnotation`）  
+- [x] 上视图推理前顺时针 90° + 条件提亮 → 仅 `input_for_njct.*`  
+- [x] 上视图切片序号可配（1～100）+ 像素精度（μm/px）与 mm/μm 换算展示  
 - [x] 工程编译通过  
-- [ ] 真机联调：确认选用 `50.*`，旋转后识别正常，`AI标注/` 落盘符合配置  
+- [ ] 真机联调：确认选用配置序号（默认 `50.*`），旋转后识别正常，`AI标注/` 落盘符合配置  
 
 ### 22.7 UI：标定采图迁入单步测试（2026-07-28）
 

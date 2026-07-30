@@ -1618,7 +1618,7 @@
                                         <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
-                                            <Run Text="切片导出完成后，取「上」视图中间一张图（数量 N 时取第 N/2 张，如 100→50），调用 NJCT.NJSwdCT 做电芯抓点标注。" />
+                                            <Run Text="切片导出完成后，按「上视图切片序号」（1～100，默认 50）取对应文件，调用 NJCT.NJSwdCT 做电芯抓点标注。" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="输出位置" />
@@ -1630,6 +1630,10 @@
                                             <LineBreak />
                                             <Run Text="• 启用：主流程开关；关闭则跳过本步。" />
                                             <LineBreak />
+                                            <Run Text="• 上视图切片序号：选用「上」视图第几张（1～100），对应文件名数字，如 50→50.jpg。" />
+                                            <LineBreak />
+                                            <Run Text="• 像素精度：一个像素的物理尺寸（μm/px），供后续尺寸测量；1 mm = 1000 μm。" />
+                                            <LineBreak />
                                             <Run Text="• 模型路径：ONNX 绝对路径；空则用默认 Dlls\Models\CTOffline\model_500000_900.onnx。" />
                                             <LineBreak />
                                             <Run Text="• CUDA：ModelInit 的 IsRunCuda，默认开启。" />
@@ -1639,6 +1643,8 @@
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
                                             <Run Text="• 顺时针旋转90°：送入 NJCT 前旋转上视图；默认勾选（算法朝向要求）。" />
+                                            <LineBreak />
+                                            <Run Text="• 预提亮：调用算法前计算 ROI 均值/P50，偏暗则增益提亮并生成 input_for_njct（方案B，默认开）。" />
                                             <LineBreak />
                                             <Run Text="• 导出 JSON/CSV：坐标与尺寸落盘，默认均勾选。" />
                                         </TextBlock>
@@ -1652,6 +1658,63 @@
                                 Margin="10,4,10,8"
                                 Content="启用 AI 图像标注（切片导出后自动执行）"
                                 IsChecked="{Binding EnableOfflineCtVisionAnnotation}" />
+
+                            <StackPanel Margin="10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="180"
+                                    Margin="0,0,24,0"
+                                    hc:InfoElement.Title="上视图切片序号"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="送视觉检测的「上」视图第几张（1～100，1-based）。默认 50，对应原先中间张。">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtTopViewSliceIndex" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <hc:RegexRule Type="PInt" />
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{StaticResource CasMutedTextBrush}"
+                                    Text="范围 1～100（对应导出文件名如 50.jpg）" />
+                            </StackPanel>
+
+                            <StackPanel Margin="10,0,10,4" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="220"
+                                    Margin="0,0,24,0"
+                                    hc:InfoElement.Title="像素精度"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="一个像素的物理尺寸，单位微米（μm/px），供后续尺寸测量换算">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtPixelSizeUm" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{StaticResource CasMutedTextBrush}"
+                                    Text="μm/px（微米 / 像素）" />
+                            </StackPanel>
+                            <Border
+                                Margin="10,0,10,10"
+                                Padding="10,8"
+                                Background="#F7F7F7"
+                                BorderBrush="#E0E0E0"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                                <StackPanel>
+                                    <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="尺寸换算（毫米 ↔ 微米）" />
+                                    <TextBlock Text="1 mm = 1000 μm" />
+                                    <TextBlock Margin="0,4,0,0" Text="{Binding OfflineCtPixelSizeFormulaUm}" />
+                                    <TextBlock Margin="0,2,0,0" Text="{Binding OfflineCtPixelSizeFormulaMm}" />
+                                    <TextBlock
+                                        Margin="0,6,0,0"
+                                        Foreground="#666"
+                                        TextWrapping="Wrap"
+                                        Text="数学单位：像素精度 s [μm·px⁻¹]；N_px 为像素数；L 为物理长度。" />
+                                </StackPanel>
+                            </Border>
 
                             <StackPanel Margin="10" Orientation="Horizontal">
                                 <hc:TextBox
@@ -1705,6 +1768,11 @@
                                     ToolTip="送入 NJCT 前将上视图顺时针旋转90°；算法朝向要求时请勾选。手动选已旋转图时可取消" />
                                 <CheckBox
                                     Margin="0,0,24,0"
+                                    Content="调用前条件提亮"
+                                    IsChecked="{Binding EnableOfflineCtPreBrighten}"
+                                    ToolTip="方案B：按暗部/中间调/高光/白场分区提亮（类PS），偏暗才处理；保护高光防过曝" />
+                                <CheckBox
+                                    Margin="0,0,24,0"
                                     Content="输出 annotation.json"
                                     IsChecked="{Binding OfflineCtExportJson}" />
                                 <CheckBox
@@ -1712,11 +1780,43 @@
                                     IsChecked="{Binding OfflineCtExportCsv}" />
                             </StackPanel>
 
+                            <StackPanel Margin="10,0,10,10" Orientation="Horizontal">
+                                <hc:TextBox
+                                    Width="160"
+                                    Margin="0,0,12,0"
+                                    hc:InfoElement.Title="均值触发"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="ROI 均值低于此值则提亮（默认120）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtPreBrightenMeanTrigger" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="160"
+                                    Margin="0,0,12,0"
+                                    hc:InfoElement.Title="P50触发"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="ROI P50 低于此值则提亮（默认110）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtPreBrightenP50Trigger" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                                <hc:TextBox
+                                    Width="160"
+                                    hc:InfoElement.Title="目标均值"
+                                    hc:InfoElement.TitlePlacement="Left"
+                                    ToolTip="提亮目标 ROI 均值（默认132；过高易过曝）">
+                                    <hc:TextBox.Text>
+                                        <Binding Path="OfflineCtPreBrightenTargetMean" UpdateSourceTrigger="PropertyChanged" />
+                                    </hc:TextBox.Text>
+                                </hc:TextBox>
+                            </StackPanel>
+
                             <TextBlock
                                 Margin="10,0,10,8"
                                 TextWrapping="Wrap"
                                 Foreground="#666"
-                                Text="主流程输入：上视图文件夹中第 N/2 张图。输出：主文件夹下「AI标注」子目录（与前/右/上同级）。勾选旋转时额外生成 input_rotated_cw90.*" />
+                                Text="主流程：上视图 →（可选）内存CW90 → 条件提亮 → input_for_njct.* → NJCT。失败时额外落盘 njct_algo_crop_1844x1500.*（算法真实裁剪区），不再把整图当结果图。" />
 
                             <TextBlock
                                 Margin="10,12,10,0"
@@ -1815,7 +1915,7 @@
                                             <LineBreak />
                                             <Run Text="• 测试切片导出(三视图)：验证前/右/上堆栈导出。" />
                                             <LineBreak />
-                                            <Run Text="• 测试 AI 图像标注：选手动图或按规则取「上」视图中间图调用 NJCT。" />
+                                            <Run Text="• 测试 AI 图像标注：选手动图或按规则取「上」视图配置序号图调用 NJCT。" />
                                             <LineBreak />
                                             <Run Text="• 截取3D/上视图标定图：按 ROI 截图到下方配置的存放路径。" />
                                         </TextBlock>
@@ -1876,7 +1976,7 @@
                                     Command="{Binding TestOfflineCtVisionAnnotationCommand}"
                                     Content="7  测试 AI 图像标注"
                                     IsEnabled="{Binding IsEnableSimulationBtn}"
-                                    ToolTip="选手动图，或按切片导出目录取「上」视图中间图后调用 NJCT" />
+                                    ToolTip="选手动图，或按切片导出目录取「上」视图配置序号图后调用 NJCT" />
                             </UniformGrid>
 
                             <TextBlock

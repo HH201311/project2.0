@@ -38,6 +38,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, DefaultDllFileName);
 
         public const string CutImgDllFileName = "CTAutoCutImg.dll";
+        /// <summary>CTAutoCutImg DLL 离线单测标注图默认输出目录</summary>
+        public const string DefaultCutImgDllTestOutputDir = @"C:\AutoSlice\cutpicture\CutImgDllTest";
         public const string OfflineCtDllFileName = "NJCT.dll";
         public const string OfflineCtModelRelativePath = @"Models\CTOffline\model_500000_900.onnx";
         public const int DefaultOfflineCtBlackHeight = 1500;
@@ -49,6 +51,99 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const int MaxOfflineCtTopViewSliceIndex = 100;
         /// <summary>像素精度默认值（μm/px），供后续尺寸测量换算。</summary>
         public const double DefaultOfflineCtPixelSizeUm = 1.0;
+
+        /// <summary>页面底色默认 #F7E4E5（RGB 247,228,229）</summary>
+        public const string DefaultThemePageBgColor = "#F7E4E5";
+        /// <summary>最外层卡片默认 #F7EDEE（RGB 247,237,238）</summary>
+        public const string DefaultThemeOuterCardColor = "#F7EDEE";
+        /// <summary>内部分组卡片默认 #EFEBF7</summary>
+        public const string DefaultThemeInnerCardColor = "#EFEBF7";
+        /// <summary>左侧菜单栏默认 #8E82C4</summary>
+        public const string DefaultThemeSidebarColor = "#8E82C4";
+
+        /// <summary>一键主题预设（页面底色 / 外层卡片 / 内部分组 / 侧栏）。</summary>
+        public sealed class ThemeColorPreset
+        {
+            public ThemeColorPreset(
+                string id,
+                string name,
+                string description,
+                string pageBg,
+                string outerCard,
+                string innerCard,
+                string sidebar,
+                bool isBuiltIn = true)
+            {
+                Id = id;
+                Name = name;
+                Description = description;
+                PageBg = pageBg;
+                OuterCard = outerCard;
+                InnerCard = innerCard;
+                Sidebar = sidebar;
+                IsBuiltIn = isBuiltIn;
+            }
+
+            public string Id { get; }
+            public string Name { get; }
+            public string Description { get; }
+            public string PageBg { get; }
+            public string OuterCard { get; }
+            public string InnerCard { get; }
+            public string Sidebar { get; }
+            public bool IsBuiltIn { get; }
+        }
+
+        /// <summary>自定义主题预设持久化 DTO。</summary>
+        public sealed class ThemeCustomPresetDto
+        {
+            public string Id { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public string PageBg { get; set; } = DefaultThemePageBgColor;
+            public string OuterCard { get; set; } = DefaultThemeOuterCardColor;
+            public string InnerCard { get; set; } = DefaultThemeInnerCardColor;
+            public string Sidebar { get; set; } = DefaultThemeSidebarColor;
+        }
+
+        /// <summary>
+        /// 内置 4 套配色（不可删除）。工业界面宜「侧栏有色 + 内容区中性浅底」。
+        /// </summary>
+        public static IReadOnlyList<ThemeColorPreset> ThemeColorPresets { get; } =
+        [
+            new(
+                "industrial-blue",
+                "工控蓝灰",
+                "推荐：侧栏沉稳蓝，内容区中性灰白，层次清晰。",
+                "#F3F5F8",
+                "#FFFFFF",
+                "#E8EDF3",
+                "#3D5A80"),
+            new(
+                "mist-teal",
+                "雾青清爽",
+                "侧栏青绿点缀，内容区近白，偏现代。",
+                "#F5FAF8",
+                "#FFFFFF",
+                "#E6F3EF",
+                "#2F7D73"),
+            new(
+                "warm-paper",
+                "暖纸炭灰",
+                "暖纸底 + 炭灰侧栏，减少紫色疲劳。",
+                "#F7F4EF",
+                "#FFFEFB",
+                "#EFEAE3",
+                "#4A5560"),
+            new(
+                "contrast-slate",
+                "高对比石板",
+                "深侧栏 + 近白卡片，导航与表单分离最明显。",
+                "#EEF1F5",
+                "#FFFFFF",
+                "#E2E8F0",
+                "#334155"),
+        ];
 
         /// <summary>切图算法 DLL：{程序目录}\Dlls\CTAutoCutImg.dll（与 halcon 原生库同目录）</summary>
         public static string GetCutImgAlgorithmDllPath() =>
@@ -429,6 +524,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// 主流程是否执行阶段四简单 3-2-1。默认始终开启；未标定齐全时跳过并对该文件打日志。
         /// </summary>
         public bool EnableVisionAlignmentSteps { get; set; } = true;
+
+        /// <summary>
+        /// 简单 3-2-1 找点算法来源。默认 Local（上位机 OpenCV）；VisionDll 走 CTAutoCutImg.dll。
+        /// </summary>
+        public Simple321PointSource Simple321PointSource { get; set; } = Simple321PointSource.Local;
+
+        /// <summary>是否使用视觉 CTAutoCutImg.dll 找点（与 <see cref="Simple321PointSource"/> 同步）。</summary>
+        public bool UseVisionDllForSimple321 => Simple321PointSource == Simple321PointSource.VisionDll;
 
         /// <summary>简单 3-2-1 所需标定是否齐全（3D ROI +「上」ROI + 下拉 + 三点后偏移 Edit）</summary>
         public bool HasSimple321Prerequisites =>

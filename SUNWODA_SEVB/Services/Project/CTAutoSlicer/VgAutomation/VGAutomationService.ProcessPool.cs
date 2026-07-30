@@ -726,7 +726,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             progress?.Report("开始阶段四视觉对齐（简单 3-2-1）…");
-            _logger.Info("主流程执行阶段四：简单 3-2-1 对齐");
+            _logger.Info(
+                $"主流程执行阶段四：简单 3-2-1 对齐（Simple321PointSource={settings.Simple321PointSource}）");
 
             try
             {

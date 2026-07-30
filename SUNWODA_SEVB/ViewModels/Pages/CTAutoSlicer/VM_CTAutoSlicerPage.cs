@@ -1,8 +1,12 @@
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using SUNWODA_SEVB.Core.Attributes;
@@ -123,6 +127,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _simple321OffsetEditY;
         private bool _simple321OffsetEditCalibrated;
         private string _simple321OffsetEditDisplayText = "未标定";
+        // 使用完全限定枚举名，避免与同名属性 Simple321PointSource 冲突（CS0236）
+        private int _simple321PointSource = (int)Core.Models.Project.CTAutoSlicer.Simple321PointSource.Local;
         private int _postAlignCaptureButtonX;
         private int _postAlignCaptureButtonY;
         private bool _postAlignCaptureButtonCalibrated;
@@ -152,6 +158,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private double _offlineCtPreBrightenTargetMean = 132.0;
         private string _offlineCtManualInputImagePath = string.Empty;
         private string _offlineCtManualOutputFolder = string.Empty;
+        private string _cutImgDllTestSectionImagePath = string.Empty;
+        private string _cutImgDllTestVectorImagePath = string.Empty;
+        private string _cutImgDllTestOutputDir = CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir;
         private int _postAlignClickWaitMs = 400;
         private int _postAlignDragStepDelayMs = 8;
         private bool _mainWindowRememberSize;
@@ -163,8 +172,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         /// <summary>false=生产模式（默认）；true=调试模式（显示单步测试）。</summary>
         private bool _isDebugMode;
 
-        /// <summary>左侧导航选中项：0总览 1应用 2导入 3渲染 4直方 5对齐 6拖拽 7导出 8AI标注 9单测。</summary>
+        /// <summary>左侧导航选中项：0总览…8AI标注 9单测 10偏好。</summary>
         private int _selectedNavIndex;
+        private int _selectedPrefSubIndex;
+        /// <summary>工作区预览色（实时作用于界面，未点保存则不落盘）。</summary>
+        private string _themePageBgColor = CTAutoSlicerSettings.DefaultThemePageBgColor;
+        private string _themeOuterCardColor = CTAutoSlicerSettings.DefaultThemeOuterCardColor;
+        private string _themeInnerCardColor = CTAutoSlicerSettings.DefaultThemeInnerCardColor;
+        private string _themeSidebarColor = CTAutoSlicerSettings.DefaultThemeSidebarColor;
+        /// <summary>已持久化的主题色（下次启动加载）。</summary>
+        private string _savedThemePageBgColor = CTAutoSlicerSettings.DefaultThemePageBgColor;
+        private string _savedThemeOuterCardColor = CTAutoSlicerSettings.DefaultThemeOuterCardColor;
+        private string _savedThemeInnerCardColor = CTAutoSlicerSettings.DefaultThemeInnerCardColor;
+        private string _savedThemeSidebarColor = CTAutoSlicerSettings.DefaultThemeSidebarColor;
+        private bool _hasUnsavedThemeChanges;
+        private string _newThemePresetName = string.Empty;
+        private int _themeEditSlot;
+        private int _themeEditR = 247;
+        private int _themeEditG = 228;
+        private int _themeEditB = 229;
+        private bool _themeEditSyncing;
 
         public const int NavOverview = 0;
         public const int NavApp = 1;
@@ -176,6 +203,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public const int NavSlice = 7;
         public const int NavAiAnnotate = 8;
         public const int NavStepTest = 9;
+        public const int NavPreferences = 10;
+
+        public const int PrefSubColors = 0;
 
         public string MessageShower
         {
@@ -230,6 +260,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     value = NavOverview;
                 }
 
+                if (value == _selectedNavIndex)
+                {
+                    return;
+                }
+
+                // 离开偏好且未保存：丢弃预览，恢复已保存配色
+                if (_selectedNavIndex == NavPreferences && value != NavPreferences && HasUnsavedThemeChanges)
+                {
+                    RevertThemeColorsToSaved(showMessage: true);
+                }
+
                 if (SetProperty(ref _selectedNavIndex, value))
                 {
                     NotifyNavSectionChanged();
@@ -247,6 +288,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public bool IsNavSlice => SelectedNavIndex == NavSlice;
         public bool IsNavAiAnnotate => SelectedNavIndex == NavAiAnnotate;
         public bool IsNavStepTest => SelectedNavIndex == NavStepTest;
+        public bool IsNavPreferences => SelectedNavIndex == NavPreferences;
+        public bool IsPrefSubColors => IsNavPreferences && SelectedPrefSubIndex == PrefSubColors;
 
         public string CurrentSectionTitle => SelectedNavIndex switch
         {
@@ -260,8 +303,244 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             NavSlice => "切片导出",
             NavAiAnnotate => "AI图像标注",
             NavStepTest => "单步测试",
+            NavPreferences => "偏好设置",
             _ => "CT自动化切片",
         };
+
+        public int SelectedPrefSubIndex
+        {
+            get => _selectedPrefSubIndex;
+            set
+            {
+                if (SetProperty(ref _selectedPrefSubIndex, value))
+                {
+                    OnPropertyChanged(nameof(IsPrefSubColors));
+                }
+            }
+        }
+
+        /// <summary>0页面底色 1外层卡片 2内部卡片 3左侧菜单</summary>
+        public int ThemeEditSlot
+        {
+            get => _themeEditSlot;
+            set
+            {
+                if (SetProperty(ref _themeEditSlot, value))
+                {
+                    LoadThemeEditFromSlot();
+                    OnPropertyChanged(nameof(IsThemeSlotPageBg));
+                    OnPropertyChanged(nameof(IsThemeSlotOuterCard));
+                    OnPropertyChanged(nameof(IsThemeSlotInnerCard));
+                    OnPropertyChanged(nameof(IsThemeSlotSidebar));
+                    OnPropertyChanged(nameof(ThemeEditSlotTitle));
+                }
+            }
+        }
+
+        public bool IsThemeSlotPageBg => ThemeEditSlot == 0;
+        public bool IsThemeSlotOuterCard => ThemeEditSlot == 1;
+        public bool IsThemeSlotInnerCard => ThemeEditSlot == 2;
+        public bool IsThemeSlotSidebar => ThemeEditSlot == 3;
+
+        public string ThemeEditSlotTitle => ThemeEditSlot switch
+        {
+            0 => "页面底色",
+            1 => "最外层卡片",
+            2 => "内部分组卡片",
+            3 => "左侧菜单栏",
+            _ => "颜色",
+        };
+
+        public string ThemePageBgColor
+        {
+            get => _themePageBgColor;
+            set => SetThemeColor(ref _themePageBgColor, value, nameof(ThemePageBgColor), nameof(ThemePageBgBrush));
+        }
+
+        public string ThemeOuterCardColor
+        {
+            get => _themeOuterCardColor;
+            set => SetThemeColor(ref _themeOuterCardColor, value, nameof(ThemeOuterCardColor), nameof(ThemeOuterCardBrush));
+        }
+
+        public string ThemeInnerCardColor
+        {
+            get => _themeInnerCardColor;
+            set => SetThemeColor(ref _themeInnerCardColor, value, nameof(ThemeInnerCardColor), nameof(ThemeInnerCardBrush));
+        }
+
+        public string ThemeSidebarColor
+        {
+            get => _themeSidebarColor;
+            set => SetThemeColor(ref _themeSidebarColor, value, nameof(ThemeSidebarColor), nameof(ThemeSidebarBrush));
+        }
+
+        public Brush ThemePageBgBrush => CreateBrush(ThemePageBgColor);
+        public Brush ThemeOuterCardBrush => CreateBrush(ThemeOuterCardColor);
+        public Brush ThemeInnerCardBrush => CreateBrush(ThemeInnerCardColor);
+        public Brush ThemeSidebarBrush => CreateBrush(ThemeSidebarColor);
+        public Brush ThemeEditPreviewBrush => CreateBrush(ThemeEditHex);
+
+        /// <summary>预览色与已保存色不一致时为 true，需点「保存主题」才落盘。</summary>
+        public bool HasUnsavedThemeChanges
+        {
+            get => _hasUnsavedThemeChanges;
+            private set => SetProperty(ref _hasUnsavedThemeChanges, value);
+        }
+
+        /// <summary>内置 + 自定义配色方案列表。</summary>
+        public ObservableCollection<ThemePresetItem> ThemeColorPresets { get; } = new();
+
+        public string NewThemePresetName
+        {
+            get => _newThemePresetName;
+            set => SetProperty(ref _newThemePresetName, value ?? string.Empty);
+        }
+
+        public sealed class ThemePresetItem
+        {
+            public ThemePresetItem(CTAutoSlicerSettings.ThemeColorPreset preset)
+            {
+                Id = preset.Id;
+                Name = preset.Name;
+                Description = preset.Description;
+                PageBg = preset.PageBg;
+                OuterCard = preset.OuterCard;
+                InnerCard = preset.InnerCard;
+                Sidebar = preset.Sidebar;
+                IsBuiltIn = preset.IsBuiltIn;
+                RefreshBrushes();
+            }
+
+            public string Id { get; }
+            public string Name { get; }
+            public string Description { get; }
+            /// <summary>单行展示：名称 · 说明，避免双行被裁切。</summary>
+            public string TitleLine =>
+                string.IsNullOrWhiteSpace(Description) ? Name : $"{Name}  ·  {Description}";
+            public string PageBg { get; }
+            public string OuterCard { get; }
+            public string InnerCard { get; }
+            public string Sidebar { get; }
+            public bool IsBuiltIn { get; }
+            public bool CanDelete => !IsBuiltIn;
+            public Brush PageBgBrush { get; private set; } = Brushes.White;
+            public Brush OuterCardBrush { get; private set; } = Brushes.White;
+            public Brush InnerCardBrush { get; private set; } = Brushes.White;
+            public Brush SidebarBrush { get; private set; } = Brushes.White;
+
+            public void RefreshBrushes()
+            {
+                PageBgBrush = CreateBrush(PageBg);
+                OuterCardBrush = CreateBrush(OuterCard);
+                InnerCardBrush = CreateBrush(InnerCard);
+                SidebarBrush = CreateBrush(Sidebar);
+            }
+        }
+
+        public int ThemeEditR
+        {
+            get => _themeEditR;
+            set
+            {
+                var clamped = Math.Clamp(value, 0, 255);
+                if (SetProperty(ref _themeEditR, clamped) && !_themeEditSyncing)
+                {
+                    CommitThemeEditRgb();
+                }
+            }
+        }
+
+        public int ThemeEditG
+        {
+            get => _themeEditG;
+            set
+            {
+                var clamped = Math.Clamp(value, 0, 255);
+                if (SetProperty(ref _themeEditG, clamped) && !_themeEditSyncing)
+                {
+                    CommitThemeEditRgb();
+                }
+            }
+        }
+
+        public int ThemeEditB
+        {
+            get => _themeEditB;
+            set
+            {
+                var clamped = Math.Clamp(value, 0, 255);
+                if (SetProperty(ref _themeEditB, clamped) && !_themeEditSyncing)
+                {
+                    CommitThemeEditRgb();
+                }
+            }
+        }
+
+        public string ThemeEditHex
+        {
+            get => $"#{ThemeEditR:X2}{ThemeEditG:X2}{ThemeEditB:X2}";
+            set
+            {
+                if (!TryParseHexColor(value, out var color))
+                {
+                    return;
+                }
+
+                _themeEditSyncing = true;
+                try
+                {
+                    ThemeEditR = color.R;
+                    ThemeEditG = color.G;
+                    ThemeEditB = color.B;
+                }
+                finally
+                {
+                    _themeEditSyncing = false;
+                }
+
+                CommitThemeEditRgb();
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ThemeEditPreviewBrush));
+                OnPropertyChanged(nameof(ThemeEditColor));
+            }
+        }
+
+        public string ThemeEditRgbText => $"RGB({ThemeEditR}, {ThemeEditG}, {ThemeEditB})";
+
+        /// <summary>圆环取色绑定色（与 RGB/HEX 同步）。</summary>
+        public Color ThemeEditColor
+        {
+            get => Color.FromRgb((byte)ThemeEditR, (byte)ThemeEditG, (byte)ThemeEditB);
+            set
+            {
+                if (_themeEditSyncing)
+                {
+                    return;
+                }
+
+                _themeEditSyncing = true;
+                try
+                {
+                    _themeEditR = value.R;
+                    _themeEditG = value.G;
+                    _themeEditB = value.B;
+                }
+                finally
+                {
+                    _themeEditSyncing = false;
+                }
+
+                OnPropertyChanged(nameof(ThemeEditR));
+                OnPropertyChanged(nameof(ThemeEditG));
+                OnPropertyChanged(nameof(ThemeEditB));
+                OnPropertyChanged(nameof(ThemeEditHex));
+                OnPropertyChanged(nameof(ThemeEditRgbText));
+                OnPropertyChanged(nameof(ThemeEditPreviewBrush));
+                OnPropertyChanged();
+                CommitThemeEditRgb();
+            }
+        }
 
         public string PrimaryActionButtonText =>
             IsEnableSimulationBtn ? "开始流程" : "运行中…";
@@ -1010,6 +1289,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _simple321OffsetEditDisplayText, value);
         }
 
+        /// <summary>简单 3-2-1 找点算法：0=上位机本地，1=视觉 DLL。</summary>
+        public int Simple321PointSource
+        {
+            get => _simple321PointSource;
+            set
+            {
+                if (SetProperty(ref _simple321PointSource, value))
+                {
+                    SaveSetting(nameof(Simple321PointSource), value);
+                    OnPropertyChanged(nameof(Simple321PointSourceDisplay));
+                }
+            }
+        }
+
+        public IReadOnlyList<string> Simple321PointSourceOptions { get; } =
+        [
+            "上位机本地算法",
+            "视觉 DLL 算法",
+        ];
+
+        public string Simple321PointSourceDisplay
+        {
+            get
+            {
+                var idx = Math.Clamp(_simple321PointSource, 0, Simple321PointSourceOptions.Count - 1);
+                return Simple321PointSourceOptions[idx];
+            }
+            set
+            {
+                var idx = Simple321PointSourceOptions.ToList().IndexOf(value);
+                if (idx < 0)
+                {
+                    return;
+                }
+
+                Simple321PointSource = idx;
+                OnPropertyChanged();
+            }
+        }
+
         public int PostAlignCaptureButtonX
         {
             get => _postAlignCaptureButtonX;
@@ -1383,6 +1702,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>CTAutoCutImg 离线测：GetSectionReferencePoints 输入图（通常为 3D 截图）。</summary>
+        public string CutImgDllTestSectionImagePath
+        {
+            get => _cutImgDllTestSectionImagePath;
+            set
+            {
+                if (SetProperty(ref _cutImgDllTestSectionImagePath, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(CutImgDllTestSectionImagePath), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>CTAutoCutImg 离线测：GetObjectTopBottomPoints 输入图（通常为「上」视图截图）。</summary>
+        public string CutImgDllTestVectorImagePath
+        {
+            get => _cutImgDllTestVectorImagePath;
+            set
+            {
+                if (SetProperty(ref _cutImgDllTestVectorImagePath, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(CutImgDllTestVectorImagePath), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>CTAutoCutImg 离线测：标注结果输出目录。</summary>
+        public string CutImgDllTestOutputDir
+        {
+            get => _cutImgDllTestOutputDir;
+            set
+            {
+                if (SetProperty(ref _cutImgDllTestOutputDir, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(CutImgDllTestOutputDir), value ?? string.Empty);
+                }
+            }
+        }
+
         /// <summary>单步测试：截取 3D 标定图保存目录。</summary>
         public string VisionLearn3dSampleDir
         {
@@ -1526,6 +1884,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand TestPostAlignCaptureDragCommand { get; }
         public ICommand TestOfflineCtVisionAnnotationCommand { get; }
+        public ICommand BrowseCutImgDllTestSectionImageCommand { get; }
+        public ICommand BrowseCutImgDllTestVectorImageCommand { get; }
+        public ICommand BrowseCutImgDllTestOutputDirCommand { get; }
+        public ICommand TestCutImgGetSectionReferencePointsCommand { get; }
+        public ICommand TestCutImgGetObjectTopBottomPointsCommand { get; }
         public ICommand BrowseOfflineCtModelPathCommand { get; }
         public ICommand ResetOfflineCtModelPathCommand { get; }
         public ICommand BrowseOfflineCtManualInputImageCommand { get; }
@@ -1544,11 +1907,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
         public ICommand SelectNavCommand { get; }
+        public ICommand SelectPrefSubCommand { get; }
+        public ICommand SelectThemeColorSlotCommand { get; }
+        public ICommand ApplyThemePresetCommand { get; }
+        public ICommand SaveThemeColorsCommand { get; }
+        public ICommand RevertThemeColorsCommand { get; }
+        public ICommand ResetThemeColorsCommand { get; }
+        public ICommand SaveAsThemePresetCommand { get; }
+        public ICommand DeleteThemePresetCommand { get; }
         public ICommand ApplyMainWindowSizeCommand { get; }
         public ICommand SaveCurrentMainWindowSizeCommand { get; }
         public ICommand RestoreDefaultMainWindowSizeCommand { get; }
 
         public event EventHandler? ImportLogScrollToEndRequested;
+        /// <summary>主题色变更后由页面刷新 ResourceDictionary。</summary>
+        public event EventHandler? ThemeColorsChanged;
 
         public VM_CTAutoSlicerPage(
             ILoggerService<VM_CTAutoSlicerPage> logger,
@@ -1590,6 +1963,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
             TestOfflineCtVisionAnnotationCommand = new RelayCommandAsync(ExecuteTestOfflineCtVisionAnnotationAsync);
+            BrowseCutImgDllTestSectionImageCommand = new RelayCommand(ExecuteBrowseCutImgDllTestSectionImage);
+            BrowseCutImgDllTestVectorImageCommand = new RelayCommand(ExecuteBrowseCutImgDllTestVectorImage);
+            BrowseCutImgDllTestOutputDirCommand = new RelayCommand(ExecuteBrowseCutImgDllTestOutputDir);
+            TestCutImgGetSectionReferencePointsCommand = new RelayCommandAsync(ExecuteTestCutImgGetSectionReferencePointsAsync);
+            TestCutImgGetObjectTopBottomPointsCommand = new RelayCommandAsync(ExecuteTestCutImgGetObjectTopBottomPointsAsync);
             BrowseOfflineCtModelPathCommand = new RelayCommand(ExecuteBrowseOfflineCtModelPath);
             ResetOfflineCtModelPathCommand = new RelayCommand(ExecuteResetOfflineCtModelPath);
             BrowseOfflineCtManualInputImageCommand = new RelayCommand(ExecuteBrowseOfflineCtManualInputImage);
@@ -1606,6 +1984,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
             SelectNavCommand = new RelayCommand(ExecuteSelectNav);
+            SelectPrefSubCommand = new RelayCommand(ExecuteSelectPrefSub);
+            SelectThemeColorSlotCommand = new RelayCommand(ExecuteSelectThemeColorSlot);
+            ApplyThemePresetCommand = new RelayCommand(ExecuteApplyThemePreset);
+            SaveThemeColorsCommand = new RelayCommand(_ => SaveThemeColors());
+            RevertThemeColorsCommand = new RelayCommand(_ => RevertThemeColorsToSaved(showMessage: true));
+            ResetThemeColorsCommand = new RelayCommand(_ => ResetThemeColorsToDefault());
+            SaveAsThemePresetCommand = new RelayCommand(_ => SaveCurrentColorsAsPreset());
+            DeleteThemePresetCommand = new RelayCommand(ExecuteDeleteThemePreset);
             ApplyMainWindowSizeCommand = new RelayCommand(_ => ExecuteApplyMainWindowSize());
             SaveCurrentMainWindowSizeCommand = new RelayCommand(_ => ExecuteSaveCurrentMainWindowSize());
             RestoreDefaultMainWindowSizeCommand = new RelayCommand(_ => ExecuteRestoreDefaultMainWindowSize());
@@ -1637,6 +2023,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             SelectedNavIndex = index;
         }
 
+        private void ExecuteSelectPrefSub(object? parameter)
+        {
+            var index = parameter switch
+            {
+                int i => i,
+                string s when int.TryParse(s, out var parsed) => parsed,
+                _ => -1
+            };
+            if (index < 0)
+            {
+                return;
+            }
+
+            SelectedPrefSubIndex = index;
+        }
+
+        private void ExecuteSelectThemeColorSlot(object? parameter)
+        {
+            var index = parameter switch
+            {
+                int i => i,
+                string s when int.TryParse(s, out var parsed) => parsed,
+                _ => -1
+            };
+            if (index is < 0 or > 3)
+            {
+                return;
+            }
+
+            ThemeEditSlot = index;
+        }
+
         private void NotifyNavSectionChanged()
         {
             OnPropertyChanged(nameof(IsNavOverview));
@@ -1649,12 +2067,399 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(IsNavSlice));
             OnPropertyChanged(nameof(IsNavAiAnnotate));
             OnPropertyChanged(nameof(IsNavStepTest));
+            OnPropertyChanged(nameof(IsNavPreferences));
+            OnPropertyChanged(nameof(IsPrefSubColors));
             OnPropertyChanged(nameof(CurrentSectionTitle));
         }
 
         public void NotifyImportLogScrollChanged(bool isAtBottom)
         {
             _isUserScrolledUp = !isAtBottom;
+        }
+
+        private void SetThemeColor(ref string field, string value, string propName, string brushPropName)
+        {
+            var normalized = NormalizeHexColor(value);
+            if (string.Equals(field, normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            field = normalized;
+            OnPropertyChanged(propName);
+            OnPropertyChanged(brushPropName);
+            if (!_themeEditSyncing && GetHexForSlot(ThemeEditSlot) == normalized)
+            {
+                OnPropertyChanged(nameof(ThemeEditHex));
+                OnPropertyChanged(nameof(ThemeEditRgbText));
+                OnPropertyChanged(nameof(ThemeEditPreviewBrush));
+            }
+
+            RefreshThemeDirtyState();
+            if (!_themeEditSyncing)
+            {
+                ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private void LoadThemeEditFromSlot()
+        {
+            if (!TryParseHexColor(GetHexForSlot(ThemeEditSlot), out var color))
+            {
+                return;
+            }
+
+            _themeEditSyncing = true;
+            try
+            {
+                _themeEditR = color.R;
+                _themeEditG = color.G;
+                _themeEditB = color.B;
+            }
+            finally
+            {
+                _themeEditSyncing = false;
+            }
+
+            OnPropertyChanged(nameof(ThemeEditR));
+            OnPropertyChanged(nameof(ThemeEditG));
+            OnPropertyChanged(nameof(ThemeEditB));
+            OnPropertyChanged(nameof(ThemeEditHex));
+            OnPropertyChanged(nameof(ThemeEditRgbText));
+            OnPropertyChanged(nameof(ThemeEditPreviewBrush));
+            OnPropertyChanged(nameof(ThemeEditColor));
+        }
+
+        private void CommitThemeEditRgb()
+        {
+            if (_themeEditSyncing)
+            {
+                return;
+            }
+
+            var hex = ThemeEditHex;
+            _themeEditSyncing = true;
+            try
+            {
+                switch (ThemeEditSlot)
+                {
+                    case 0:
+                        ThemePageBgColor = hex;
+                        break;
+                    case 1:
+                        ThemeOuterCardColor = hex;
+                        break;
+                    case 2:
+                        ThemeInnerCardColor = hex;
+                        break;
+                    case 3:
+                        ThemeSidebarColor = hex;
+                        break;
+                }
+            }
+            finally
+            {
+                _themeEditSyncing = false;
+            }
+
+            OnPropertyChanged(nameof(ThemeEditHex));
+            OnPropertyChanged(nameof(ThemeEditRgbText));
+            OnPropertyChanged(nameof(ThemeEditPreviewBrush));
+            OnPropertyChanged(nameof(ThemeEditColor));
+            ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private string GetHexForSlot(int slot) => slot switch
+        {
+            1 => ThemeOuterCardColor,
+            2 => ThemeInnerCardColor,
+            3 => ThemeSidebarColor,
+            _ => ThemePageBgColor,
+        };
+
+        private void ExecuteApplyThemePreset(object? parameter)
+        {
+            var id = parameter as string;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            var preset = ThemeColorPresets.FirstOrDefault(p =>
+                string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (preset == null)
+            {
+                return;
+            }
+
+            ApplyThemePresetPreview(new CTAutoSlicerSettings.ThemeColorPreset(
+                preset.Id,
+                preset.Name,
+                preset.Description,
+                preset.PageBg,
+                preset.OuterCard,
+                preset.InnerCard,
+                preset.Sidebar,
+                preset.IsBuiltIn));
+            MessageShower = $"已预览「{preset.Name}」，请点「保存主题」后下次启动生效";
+        }
+
+        private void ApplyThemePresetPreview(CTAutoSlicerSettings.ThemeColorPreset preset)
+        {
+            _themeEditSyncing = true;
+            try
+            {
+                ThemePageBgColor = preset.PageBg;
+                ThemeOuterCardColor = preset.OuterCard;
+                ThemeInnerCardColor = preset.InnerCard;
+                ThemeSidebarColor = preset.Sidebar;
+            }
+            finally
+            {
+                _themeEditSyncing = false;
+            }
+
+            LoadThemeEditFromSlot();
+            RefreshThemeDirtyState();
+            ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void SaveThemeColors()
+        {
+            _savedThemePageBgColor = ThemePageBgColor;
+            _savedThemeOuterCardColor = ThemeOuterCardColor;
+            _savedThemeInnerCardColor = ThemeInnerCardColor;
+            _savedThemeSidebarColor = ThemeSidebarColor;
+
+            SaveSetting(nameof(ThemePageBgColor), _savedThemePageBgColor);
+            SaveSetting(nameof(ThemeOuterCardColor), _savedThemeOuterCardColor);
+            SaveSetting(nameof(ThemeInnerCardColor), _savedThemeInnerCardColor);
+            SaveSetting(nameof(ThemeSidebarColor), _savedThemeSidebarColor);
+
+            RefreshThemeDirtyState();
+            MessageShower = "主题色已保存，下次启动将沿用当前配色";
+        }
+
+        private void RevertThemeColorsToSaved(bool showMessage)
+        {
+            _themeEditSyncing = true;
+            try
+            {
+                ThemePageBgColor = _savedThemePageBgColor;
+                ThemeOuterCardColor = _savedThemeOuterCardColor;
+                ThemeInnerCardColor = _savedThemeInnerCardColor;
+                ThemeSidebarColor = _savedThemeSidebarColor;
+            }
+            finally
+            {
+                _themeEditSyncing = false;
+            }
+
+            LoadThemeEditFromSlot();
+            RefreshThemeDirtyState();
+            ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
+            if (showMessage)
+            {
+                MessageShower = "已还原为上次保存的主题色";
+            }
+        }
+
+        private void ResetThemeColorsToDefault()
+        {
+            var preset = CTAutoSlicerSettings.ThemeColorPresets[0];
+            ApplyThemePresetPreview(preset);
+            MessageShower = $"已预览「{preset.Name}」，请点「保存主题」后下次启动生效";
+        }
+
+        private void SaveCurrentColorsAsPreset()
+        {
+            var name = (NewThemePresetName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                MessageShower = "请先填写新预设名称";
+                return;
+            }
+
+            if (ThemeColorPresets.Any(p =>
+                    string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageShower = "预设名称已存在，请换一个名称";
+                return;
+            }
+
+            var id = "custom-" + Guid.NewGuid().ToString("N")[..8];
+            var preset = new CTAutoSlicerSettings.ThemeColorPreset(
+                id,
+                name,
+                "自定义预设",
+                ThemePageBgColor,
+                ThemeOuterCardColor,
+                ThemeInnerCardColor,
+                ThemeSidebarColor,
+                isBuiltIn: false);
+            ThemeColorPresets.Add(new ThemePresetItem(preset));
+            PersistCustomThemePresets();
+            NewThemePresetName = string.Empty;
+            MessageShower = $"已保存自定义预设「{name}」";
+        }
+
+        private void ExecuteDeleteThemePreset(object? parameter)
+        {
+            var id = parameter as string;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            var item = ThemeColorPresets.FirstOrDefault(p =>
+                string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+            {
+                return;
+            }
+
+            if (item.IsBuiltIn)
+            {
+                MessageShower = "内置预设不可删除";
+                return;
+            }
+
+            ThemeColorPresets.Remove(item);
+            PersistCustomThemePresets();
+            MessageShower = $"已删除自定义预设「{item.Name}」";
+        }
+
+        private void RebuildThemePresetList(IEnumerable<CTAutoSlicerSettings.ThemeCustomPresetDto>? customs = null)
+        {
+            ThemeColorPresets.Clear();
+            foreach (var builtIn in CTAutoSlicerSettings.ThemeColorPresets)
+            {
+                ThemeColorPresets.Add(new ThemePresetItem(builtIn));
+            }
+
+            if (customs == null)
+            {
+                return;
+            }
+
+            foreach (var dto in customs)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Id) || string.IsNullOrWhiteSpace(dto.Name))
+                {
+                    continue;
+                }
+
+                if (CTAutoSlicerSettings.ThemeColorPresets.Any(p =>
+                        string.Equals(p.Id, dto.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                ThemeColorPresets.Add(new ThemePresetItem(new CTAutoSlicerSettings.ThemeColorPreset(
+                    dto.Id,
+                    dto.Name,
+                    string.IsNullOrWhiteSpace(dto.Description) ? "自定义预设" : dto.Description,
+                    NormalizeHexColor(dto.PageBg),
+                    NormalizeHexColor(dto.OuterCard),
+                    NormalizeHexColor(dto.InnerCard),
+                    NormalizeHexColor(dto.Sidebar),
+                    isBuiltIn: false)));
+            }
+        }
+
+        private void PersistCustomThemePresets()
+        {
+            var customs = ThemeColorPresets
+                .Where(p => !p.IsBuiltIn)
+                .Select(p => new CTAutoSlicerSettings.ThemeCustomPresetDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    PageBg = p.PageBg,
+                    OuterCard = p.OuterCard,
+                    InnerCard = p.InnerCard,
+                    Sidebar = p.Sidebar,
+                })
+                .ToList();
+            var json = JsonSerializer.Serialize(customs);
+            SaveSetting("ThemeCustomPresetsJson", json);
+        }
+
+        private void LoadCustomThemePresets()
+        {
+            var json = LoadStringSetting("ThemeCustomPresetsJson", "[]");
+            List<CTAutoSlicerSettings.ThemeCustomPresetDto>? customs = null;
+            try
+            {
+                customs = JsonSerializer.Deserialize<List<CTAutoSlicerSettings.ThemeCustomPresetDto>>(json);
+            }
+            catch
+            {
+                customs = null;
+            }
+
+            RebuildThemePresetList(customs);
+        }
+
+        private void RefreshThemeDirtyState()
+        {
+            HasUnsavedThemeChanges =
+                !HexEquals(_themePageBgColor, _savedThemePageBgColor)
+                || !HexEquals(_themeOuterCardColor, _savedThemeOuterCardColor)
+                || !HexEquals(_themeInnerCardColor, _savedThemeInnerCardColor)
+                || !HexEquals(_themeSidebarColor, _savedThemeSidebarColor);
+        }
+
+        private static bool HexEquals(string a, string b) =>
+            string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+        private static Brush CreateBrush(string hex)
+        {
+            var brush = new SolidColorBrush(TryParseHexColor(hex, out var c) ? c : Colors.White);
+            brush.Freeze();
+            return brush;
+        }
+
+        private static string NormalizeHexColor(string? value)
+        {
+            if (TryParseHexColor(value, out var c))
+            {
+                return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+            }
+
+            return CTAutoSlicerSettings.DefaultThemePageBgColor;
+        }
+
+        private static bool TryParseHexColor(string? value, out Color color)
+        {
+            color = Colors.White;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var s = value.Trim();
+            if (!s.StartsWith('#'))
+            {
+                s = "#" + s;
+            }
+
+            try
+            {
+                var converted = ColorConverter.ConvertFromString(s);
+                if (converted is Color c)
+                {
+                    color = Color.FromRgb(c.R, c.G, c.B);
+                    return true;
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+
+            return false;
         }
 
         public override async void OnInitialize()
@@ -1671,8 +2476,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 catch (Exception cutEx)
                 {
                     _logger.Error("CT 切图算法初始化失败", cutEx);
+                    var hint = Simple321PointSource == (int)Core.Models.Project.CTAutoSlicer.Simple321PointSource.VisionDll
+                        ? "当前已选「视觉 DLL」找点，单测/主流程将失败，请检查 Dlls\\CTAutoCutImg.dll"
+                        : "当前为「上位机本地」找点，不影响本地算法；若改选视觉 DLL 需先修复";
                     await Dispatcher.InvokeAsync(() =>
-                        MessageShower = $"切图算法初始化失败：{cutEx.Message}（阶段四单测将不可用）");
+                        MessageShower = $"切图算法初始化失败：{cutEx.Message}（{hint}）");
                 }
 
                 await Dispatcher.InvokeAsync(() => MessageShower = "CT自动化切片模块初始化完成");
@@ -1828,6 +2636,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(Simple321OffsetEditY));
             RefreshSimple321OffsetEditDisplay();
 
+            _simple321PointSource = Math.Clamp(
+                LoadIntSetting(
+                    nameof(Simple321PointSource),
+                    (int)Core.Models.Project.CTAutoSlicer.Simple321PointSource.Local),
+                0,
+                1);
+            OnPropertyChanged(nameof(Simple321PointSource));
+            OnPropertyChanged(nameof(Simple321PointSourceDisplay));
+
             _postAlignCaptureButtonX = LoadIntSetting(nameof(PostAlignCaptureButtonX), 0);
             _postAlignCaptureButtonY = LoadIntSetting(nameof(PostAlignCaptureButtonY), 0);
             _postAlignCaptureButtonCalibrated =
@@ -1902,12 +2719,47 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtPreBrightenTargetMean = LoadDoubleSetting(nameof(OfflineCtPreBrightenTargetMean), 132.0);
             OfflineCtManualInputImagePath = LoadStringSetting(nameof(OfflineCtManualInputImagePath), string.Empty);
             OfflineCtManualOutputFolder = LoadStringSetting(nameof(OfflineCtManualOutputFolder), string.Empty);
+            CutImgDllTestSectionImagePath = LoadStringSetting(nameof(CutImgDllTestSectionImagePath), string.Empty);
+            CutImgDllTestVectorImagePath = LoadStringSetting(nameof(CutImgDllTestVectorImagePath), string.Empty);
+            CutImgDllTestOutputDir = LoadStringSetting(
+                nameof(CutImgDllTestOutputDir),
+                CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir);
             VisionLearn3dSampleDir = LoadStringSetting(
                 nameof(VisionLearn3dSampleDir),
                 CTAutoSlicerSettings.DefaultVisionLearn3dSampleDir);
             VisionLearnTopViewSampleDir = LoadStringSetting(
                 nameof(VisionLearnTopViewSampleDir),
                 CTAutoSlicerSettings.DefaultVisionLearnTopViewSampleDir);
+
+            _themePageBgColor = NormalizeHexColor(LoadStringSetting(
+                nameof(ThemePageBgColor),
+                CTAutoSlicerSettings.DefaultThemePageBgColor));
+            _themeOuterCardColor = NormalizeHexColor(LoadStringSetting(
+                nameof(ThemeOuterCardColor),
+                CTAutoSlicerSettings.DefaultThemeOuterCardColor));
+            _themeInnerCardColor = NormalizeHexColor(LoadStringSetting(
+                nameof(ThemeInnerCardColor),
+                CTAutoSlicerSettings.DefaultThemeInnerCardColor));
+            _themeSidebarColor = NormalizeHexColor(LoadStringSetting(
+                nameof(ThemeSidebarColor),
+                CTAutoSlicerSettings.DefaultThemeSidebarColor));
+            _savedThemePageBgColor = _themePageBgColor;
+            _savedThemeOuterCardColor = _themeOuterCardColor;
+            _savedThemeInnerCardColor = _themeInnerCardColor;
+            _savedThemeSidebarColor = _themeSidebarColor;
+            HasUnsavedThemeChanges = false;
+            LoadCustomThemePresets();
+            LoadThemeEditFromSlot();
+            OnPropertyChanged(nameof(ThemePageBgColor));
+            OnPropertyChanged(nameof(ThemeOuterCardColor));
+            OnPropertyChanged(nameof(ThemeInnerCardColor));
+            OnPropertyChanged(nameof(ThemeSidebarColor));
+            OnPropertyChanged(nameof(ThemePageBgBrush));
+            OnPropertyChanged(nameof(ThemeOuterCardBrush));
+            OnPropertyChanged(nameof(ThemeInnerCardBrush));
+            OnPropertyChanged(nameof(ThemeSidebarBrush));
+            ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
+
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
@@ -2031,6 +2883,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 Vision2dVectorCaptureDir = Vision2dVectorCaptureDir,
                 Vision2dVectorCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 EnableVisionAlignmentSteps = true,
+                Simple321PointSource = (Core.Models.Project.CTAutoSlicer.Simple321PointSource)Math.Clamp(
+                    _simple321PointSource,
+                    0,
+                    1),
                 Vision3dRoiX = Vision3dRoiX,
                 Vision3dRoiY = Vision3dRoiY,
                 Vision3dRoiWidth = Vision3dRoiWidth,
@@ -3598,7 +4454,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            // 测试阶段使用本地剪影找点，不依赖 CTAutoCutImg.dll
+            // 找点算法由 Simple321PointSource 配置（本地 / 视觉 DLL）
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
@@ -3610,7 +4466,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 简单 3-2-1 对齐测试开始（三点→偏移置0→向量两点→原点，本地找点） ———");
+                var sourceLabel = Simple321PointSourceDisplay;
+                AppendFlowLog($"——— 简单 3-2-1 对齐测试开始（三点→偏移置0→向量两点→原点，找点={sourceLabel}） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestSimple321AlignmentAsync(
@@ -3632,6 +4489,249 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             finally
             {
                 Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private void ExecuteBrowseCutImgDllTestSectionImage(object? _)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "选择 GetSectionReferencePoints 测试图（3D）",
+                Filter = "图像文件|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|所有文件|*.*",
+            };
+            if (!string.IsNullOrWhiteSpace(CutImgDllTestSectionImagePath))
+            {
+                var dir = Path.GetDirectoryName(CutImgDllTestSectionImagePath);
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    dialog.InitialDirectory = dir;
+                    dialog.FileName = Path.GetFileName(CutImgDllTestSectionImagePath);
+                }
+            }
+            else if (Directory.Exists(CTAutoSlicerSettings.DefaultVisionCaptureDir))
+            {
+                dialog.InitialDirectory = CTAutoSlicerSettings.DefaultVisionCaptureDir;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                CutImgDllTestSectionImagePath = dialog.FileName;
+            }
+        }
+
+        private void ExecuteBrowseCutImgDllTestVectorImage(object? _)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "选择 GetObjectTopBottomPoints 测试图（上视图）",
+                Filter = "图像文件|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|所有文件|*.*",
+            };
+            if (!string.IsNullOrWhiteSpace(CutImgDllTestVectorImagePath))
+            {
+                var dir = Path.GetDirectoryName(CutImgDllTestVectorImagePath);
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    dialog.InitialDirectory = dir;
+                    dialog.FileName = Path.GetFileName(CutImgDllTestVectorImagePath);
+                }
+            }
+            else if (Directory.Exists(CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir))
+            {
+                dialog.InitialDirectory = CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                CutImgDllTestVectorImagePath = dialog.FileName;
+            }
+        }
+
+        private void ExecuteBrowseCutImgDllTestOutputDir(object? _)
+        {
+            using var dialog = new CommonOpenFileDialog
+            {
+                Title = "选择 CTAutoCutImg 标注输出目录",
+                IsFolderPicker = true,
+            };
+            var initial = string.IsNullOrWhiteSpace(CutImgDllTestOutputDir)
+                ? CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir
+                : CutImgDllTestOutputDir.Trim();
+            if (Directory.Exists(initial))
+            {
+                dialog.InitialDirectory = initial;
+            }
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                CutImgDllTestOutputDir = dialog.FileName;
+            }
+        }
+
+        private void EnsureCutImgDllReadyForOfflineTest()
+        {
+            if (_cutImgAlgorithmService.IsInitialized)
+            {
+                return;
+            }
+
+            _cutImgAlgorithmService.Initialize();
+        }
+
+        private string ResolveCutImgDllTestOutputDir()
+        {
+            var dir = string.IsNullOrWhiteSpace(CutImgDllTestOutputDir)
+                ? CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir
+                : CutImgDllTestOutputDir.Trim();
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        /// <summary>
+        /// 离线测 GetSectionReferencePoints：不跑 VG，选图 → DLL → 标注四点落盘。
+        /// </summary>
+        private async Task ExecuteTestCutImgGetSectionReferencePointsAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CutImgDllTestSectionImagePath)
+                || !File.Exists(CutImgDllTestSectionImagePath))
+            {
+                MessageShower = "请先选择 GetSectionReferencePoints 测试图（3D 截图）";
+                return;
+            }
+
+            var imagePath = CutImgDllTestSectionImagePath.Trim();
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— CTAutoCutImg 离线测：GetSectionReferencePoints 开始 ———");
+                AppendFlowLog($"输入图：{imagePath}");
+
+                var (pointLines, destPath) = await Task.Run(() =>
+                {
+                    EnsureCutImgDllReadyForOfflineTest();
+                    var points = _cutImgAlgorithmService.GetSectionReferencePoints(imagePath);
+                    if (points.Length < 4)
+                    {
+                        throw new InvalidOperationException(
+                            $"GetSectionReferencePoints 返回点数不足：期望 4，实际 {points.Length}");
+                    }
+
+                    var labels = new[] { "上盖1", "上盖2", "上盖3", "原点" };
+                    var annotate = new (int X, int Y, string Label)[4];
+                    var lines = new List<string>(4);
+                    for (var i = 0; i < 4; i++)
+                    {
+                        annotate[i] = (points[i].X, points[i].Y, labels[i]);
+                        lines.Add($"{labels[i]}：({points[i].X},{points[i].Y})");
+                    }
+
+                    var outDir = ResolveCutImgDllTestOutputDir();
+                    var stamp = DateTime.Now.ToString("HHmmss_fff");
+                    var dest = Path.Combine(
+                        outDir,
+                        Path.GetFileNameWithoutExtension(imagePath) + $"_section_{stamp}.png");
+                    ScreenCaptureHelper.SaveAnnotatedPointsImage(imagePath, dest, annotate);
+                    return (lines, dest);
+                }).ConfigureAwait(true);
+
+                foreach (var line in pointLines)
+                {
+                    AppendFlowLog(line);
+                }
+
+                AppendFlowLog($"标注图已保存：{destPath}");
+                MessageShower = $"GetSectionReferencePoints 完成，标注图：{destPath}";
+                AppendFlowLog("——— CTAutoCutImg 离线测：GetSectionReferencePoints 结束 ———");
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"GetSectionReferencePoints 离线测失败：{ex.Message}");
+                _logger.Error("GetSectionReferencePoints 离线测失败", ex);
+            }
+            finally
+            {
+                IsEnableSimulationBtn = true;
+            }
+        }
+
+        /// <summary>
+        /// 离线测 GetObjectTopBottomPoints：不跑 VG，选图 → DLL → 标注起点/终点落盘。
+        /// [0]=起点，[1]=终点。
+        /// </summary>
+        private async Task ExecuteTestCutImgGetObjectTopBottomPointsAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CutImgDllTestVectorImagePath)
+                || !File.Exists(CutImgDllTestVectorImagePath))
+            {
+                MessageShower = "请先选择 GetObjectTopBottomPoints 测试图（上视图截图）";
+                return;
+            }
+
+            var imagePath = CutImgDllTestVectorImagePath.Trim();
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— CTAutoCutImg 离线测：GetObjectTopBottomPoints 开始 ———");
+                AppendFlowLog($"输入图：{imagePath}");
+
+                var (startLine, endLine, destPath) = await Task.Run(() =>
+                {
+                    EnsureCutImgDllReadyForOfflineTest();
+                    var points = _cutImgAlgorithmService.GetObjectTopBottomPoints(imagePath);
+                    if (points.Length < 2)
+                    {
+                        throw new InvalidOperationException(
+                            $"GetObjectTopBottomPoints 返回点数不足：期望 2，实际 {points.Length}");
+                    }
+
+                    // [0]=起点，[1]=终点
+                    var start = points[0];
+                    var end = points[1];
+                    var annotate = new (int X, int Y, string Label)[]
+                    {
+                        (start.X, start.Y, "起点"),
+                        (end.X, end.Y, "终点"),
+                    };
+
+                    var outDir = ResolveCutImgDllTestOutputDir();
+                    var stamp = DateTime.Now.ToString("HHmmss_fff");
+                    var dest = Path.Combine(
+                        outDir,
+                        Path.GetFileNameWithoutExtension(imagePath) + $"_topbottom_{stamp}.png");
+                    ScreenCaptureHelper.SaveAnnotatedPointsImage(imagePath, dest, annotate);
+                    return (
+                        $"起点[0]：({start.X},{start.Y})",
+                        $"终点[1]：({end.X},{end.Y})",
+                        dest);
+                }).ConfigureAwait(true);
+
+                AppendFlowLog(startLine);
+                AppendFlowLog(endLine);
+                AppendFlowLog($"标注图已保存：{destPath}");
+                MessageShower = $"GetObjectTopBottomPoints 完成，标注图：{destPath}";
+                AppendFlowLog("——— CTAutoCutImg 离线测：GetObjectTopBottomPoints 结束 ———");
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"GetObjectTopBottomPoints 离线测失败：{ex.Message}");
+                _logger.Error("GetObjectTopBottomPoints 离线测失败", ex);
+            }
+            finally
+            {
+                IsEnableSimulationBtn = true;
             }
         }
 

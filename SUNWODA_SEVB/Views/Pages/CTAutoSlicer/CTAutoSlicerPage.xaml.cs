@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.Views.Pages.CTAutoSlicer
@@ -8,6 +9,7 @@ namespace SUNWODA_SEVB.Views.Pages.CTAutoSlicer
     {
         private ScrollViewer? _importLogScrollViewer;
         private bool _isImportLogHooked;
+        private VM_CTAutoSlicerPage? _themeViewModel;
 
         public CTAutoSlicerPage()
         {
@@ -19,6 +21,7 @@ namespace SUNWODA_SEVB.Views.Pages.CTAutoSlicer
         private void OnPageLoaded(object sender, RoutedEventArgs e)
         {
             HookImportLogViewModel();
+            ApplyThemeColorsFromViewModel();
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -26,9 +29,11 @@ namespace SUNWODA_SEVB.Views.Pages.CTAutoSlicer
             if (e.OldValue is VM_CTAutoSlicerPage oldViewModel)
             {
                 oldViewModel.ImportLogScrollToEndRequested -= OnImportLogScrollToEndRequested;
+                oldViewModel.ThemeColorsChanged -= OnThemeColorsChanged;
             }
 
             HookImportLogViewModel();
+            ApplyThemeColorsFromViewModel();
         }
 
         private void HookImportLogViewModel()
@@ -36,6 +41,17 @@ namespace SUNWODA_SEVB.Views.Pages.CTAutoSlicer
             if (DataContext is not VM_CTAutoSlicerPage viewModel)
             {
                 return;
+            }
+
+            if (!ReferenceEquals(_themeViewModel, viewModel))
+            {
+                if (_themeViewModel != null)
+                {
+                    _themeViewModel.ThemeColorsChanged -= OnThemeColorsChanged;
+                }
+
+                _themeViewModel = viewModel;
+                _themeViewModel.ThemeColorsChanged += OnThemeColorsChanged;
             }
 
             viewModel.ImportLogScrollToEndRequested -= OnImportLogScrollToEndRequested;
@@ -50,60 +66,113 @@ namespace SUNWODA_SEVB.Views.Pages.CTAutoSlicer
             _isImportLogHooked = true;
         }
 
-        private void OnImportLogTextBoxLoaded(object sender, RoutedEventArgs e)
+        private void OnThemeColorsChanged(object? sender, EventArgs e)
         {
-            _importLogScrollViewer = FindScrollViewer(ImportLogTextBox);
-            if (_importLogScrollViewer != null)
-            {
-                _importLogScrollViewer.ScrollChanged += OnImportLogScrollChanged;
-            }
+            ApplyThemeColorsFromViewModel();
         }
 
-        private void OnImportLogScrollChanged(object sender, ScrollChangedEventArgs e)
+        private void ApplyThemeColorsFromViewModel()
         {
-            if (_importLogScrollViewer == null || DataContext is not VM_CTAutoSlicerPage viewModel)
+            if (DataContext is not VM_CTAutoSlicerPage vm)
             {
                 return;
             }
 
-            const double threshold = 2.0;
-            var isAtBottom = _importLogScrollViewer.VerticalOffset
-                >= _importLogScrollViewer.ScrollableHeight - threshold;
-            viewModel.NotifyImportLogScrollChanged(isAtBottom);
+            var dict = FindThemeDictionary();
+            if (dict == null)
+            {
+                return;
+            }
+
+            SetBrush(dict, "CasBgBrush", vm.ThemePageBgColor);
+            SetBrush(dict, "CasOuterCardBrush", vm.ThemeOuterCardColor);
+            SetBrush(dict, "CasSurfaceBrush", vm.ThemeInnerCardColor);
+            SetBrush(dict, "CasPrimaryBrush", vm.ThemeSidebarColor);
+            // 兼容旧键：主色映射到 Terracotta
+            SetBrush(dict, "CasTerracottaBrush", vm.ThemeSidebarColor);
+            SetBrush(dict, "CasHeroGradient", vm.ThemeInnerCardColor);
+            SetBrush(dict, "CasPeachBrush", vm.ThemeInnerCardColor);
+            SetBrush(dict, "CasApricotBrush", vm.ThemeInnerCardColor);
+        }
+
+        private ResourceDictionary? FindThemeDictionary()
+        {
+            foreach (var d in Resources.MergedDictionaries)
+            {
+                if (d.Contains("CasBgBrush"))
+                {
+                    return d;
+                }
+            }
+
+            return Resources.Contains("CasBgBrush") ? Resources : null;
+        }
+
+        private static void SetBrush(ResourceDictionary dict, string key, string hex)
+        {
+            try
+            {
+                var converted = ColorConverter.ConvertFromString(hex);
+                if (converted is not Color color)
+                {
+                    return;
+                }
+
+                dict[key] = new SolidColorBrush(Color.FromRgb(color.R, color.G, color.B));
+            }
+            catch
+            {
+                // ignore invalid color
+            }
+        }
+
+        private void OnImportLogTextBoxLoaded(object sender, RoutedEventArgs e)
+        {
+            _importLogScrollViewer = FindScrollViewer(ImportLogTextBox);
+            if (_importLogScrollViewer == null)
+            {
+                return;
+            }
+
+            _importLogScrollViewer.ScrollChanged -= OnImportLogScrollChanged;
+            _importLogScrollViewer.ScrollChanged += OnImportLogScrollChanged;
+        }
+
+        private void OnImportLogScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (DataContext is not VM_CTAutoSlicerPage viewModel || _importLogScrollViewer == null)
+            {
+                return;
+            }
+
+            var atBottom = _importLogScrollViewer.VerticalOffset
+                >= _importLogScrollViewer.ScrollableHeight - 2;
+            viewModel.NotifyImportLogScrollChanged(atBottom);
         }
 
         private void OnImportLogScrollToEndRequested(object? sender, EventArgs e)
         {
-            if (_importLogScrollViewer == null)
+            Dispatcher.BeginInvoke(() =>
             {
-                _importLogScrollViewer = FindScrollViewer(ImportLogTextBox);
-                if (_importLogScrollViewer != null)
-                {
-                    _importLogScrollViewer.ScrollChanged += OnImportLogScrollChanged;
-                }
-            }
-
-            ImportLogTextBox.ScrollToEnd();
-            if (_importLogScrollViewer != null)
-            {
-                _importLogScrollViewer.ScrollToEnd();
-            }
+                _importLogScrollViewer ??= FindScrollViewer(ImportLogTextBox);
+                _importLogScrollViewer?.ScrollToEnd();
+            });
         }
 
-        private static ScrollViewer? FindScrollViewer(DependencyObject element)
+        private static ScrollViewer? FindScrollViewer(DependencyObject root)
         {
-            if (element is ScrollViewer scrollViewer)
+            if (root is ScrollViewer sv)
             {
-                return scrollViewer;
+                return sv;
             }
 
-            for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(element); index++)
+            for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
             {
-                var child = System.Windows.Media.VisualTreeHelper.GetChild(element, index);
-                var result = FindScrollViewer(child);
-                if (result != null)
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                var found = FindScrollViewer(child);
+                if (found != null)
                 {
-                    return result;
+                    return found;
                 }
             }
 

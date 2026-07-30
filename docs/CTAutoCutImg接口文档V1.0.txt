@@ -1,0 +1,55 @@
+接口文档
+
+
+
+创建日期：2026-07-21
+版 本 号：1.0
+接口请求协议
+接口请求方式：
+一.文档控制
+1.修改记录
+编制日期	编制人	版本	编制内容
+2026-07-21	罗文	V1.0	惠州离线CT自动切图算法接口
+			
+			
+			
+			
+			
+
+1.	获取上盖平面三个点坐标和原点坐标执行接口
+Dll名称：CTAutoCutImg.dll
+接口类名称： CT
+接口方法名： GetSectionReferencePoints
+接口调用方式：反射动态调用【dll需放置于服务器，非本地引用调用】
+Dll依赖环境： C#8.0 + .NET 8.0 + halcondotnet.dll【20.11版本】
+变量说明：
+序号	必填	I/O	参数字段	数据类型	参数描述：数据来源
+1	Y	Input	image	HObject	检测图像
+2	Y	Out	points	Point[]	输出点坐标
+points结果说明：
+索引	数据类型	字段说明
+0	(int X, int Y)[]	上盖第一个点坐标
+1	(int X, int Y)[]	上盖第二个点坐标
+2	(int X, int Y)[]	上盖第三个点坐标
+3	(int X, int Y)[]	原点坐标
+2.	获取切面方向两个点坐标执行接口
+Dll名称：CTAutoCutImg.dll
+接口类名称： CT
+接口方法名： GetObjectTopBottomPoints
+接口调用方式：反射动态调用【dll需放置于服务器，非本地引用调用】
+Dll依赖环境： C#8.0 + .NET 8.0 + halcondotnet.dll【20.11版本】
+变量说明：
+序号	必填	I/O	参数字段	数据类型	参数描述：数据来源
+1	Y	Input	image	HObject	检测图像
+2	Y	Out	points	Point[]	输出点坐标
+points结果说明：
+索引	数据类型	字段说明
+0	(int X, int Y)[]	起点坐标
+1	(int X, int Y)[]	终点坐标
+说明：上位机点击顺序为「起点 → 终点」，即先点索引0，再点索引1。
+
+【上位机 3-2-1 对应关系】
+步骤1：GetSectionReferencePoints → 点击 points[0..2] 三点定平面
+步骤2：GetObjectTopBottomPoints → 点击 起点(points[0]) → 终点(points[1])
+步骤3：GetSectionReferencePoints 的 points[3] → 点击原点
+

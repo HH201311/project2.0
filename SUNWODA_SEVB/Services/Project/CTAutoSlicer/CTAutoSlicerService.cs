@@ -156,7 +156,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             catch (Exception ex)
             {
                 // 大捕获：防止未处理异常冲出服务层导致 UI/async void 闪退
-                var message = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+                // 反射 TargetInvocationException 只含英文套话，须展开 InnerException
+                var message = FormatExceptionChain(ex);
                 progress?.Report($"切片服务捕获未处理异常（已拦截，防止闪退）：{message}");
                 System.Diagnostics.Trace.TraceError($"[CTAutoSlicerService] {ex}");
             }
@@ -174,6 +175,21 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _vgAutomationService.ClearPause();
             _vgAutomationService.ClearManualIntervention();
             _runCts?.Cancel();
+        }
+
+        /// <summary>展开异常链（含反射 TargetInvocationException 的 InnerException）。</summary>
+        private static string FormatExceptionChain(Exception ex)
+        {
+            var parts = new List<string>();
+            for (var current = ex; current != null; current = current.InnerException)
+            {
+                if (!string.IsNullOrWhiteSpace(current.Message))
+                {
+                    parts.Add(current.Message.Trim());
+                }
+            }
+
+            return parts.Count > 0 ? string.Join(" → ", parts) : ex.GetType().Name;
         }
     }
 }

@@ -10,7 +10,7 @@ using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 {
     /// <summary>
-    /// 反射调用 CTAutoCutImg.dll（类型 CT）。按接口文档使用 LoadFrom；
+    /// 反射调用 CTAutoCutImg.dll（类型 CT，接口文档 V1.0）。按接口文档使用 LoadFrom；
     /// 原生 halcon 等依赖位于输出目录 Dlls\，初始化时加入 DLL 搜索路径。
     /// </summary>
     public class CutImgAlgorithmService : ICutImgAlgorithmService
@@ -95,7 +95,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 HOperatorSet.ReadImage(out image, imagePath);
                 object?[] parameters = [image, null];
-                method.Invoke(_algorithmInstance, parameters);
+                try
+                {
+                    method.Invoke(_algorithmInstance, parameters);
+                }
+                catch (TargetInvocationException tie)
+                {
+                    // 反射包装异常：对外暴露 DLL/Halcon 真实原因
+                    var root = tie.GetBaseException();
+                    var detail = string.IsNullOrWhiteSpace(root.Message)
+                        ? root.GetType().FullName
+                        : root.Message;
+                    _logger.Error(
+                        $"CTAutoCutImg.{method.Name} 调用失败：{detail}；image={imagePath}",
+                        root);
+                    throw new InvalidOperationException(
+                        $"CTAutoCutImg.{method.Name} 失败：{detail}（输入图：{Path.GetFileName(imagePath)}）",
+                        root);
+                }
 
                 var points = ConvertToXyPoints(parameters[1]);
                 if (points.Length < expectedMinCount)

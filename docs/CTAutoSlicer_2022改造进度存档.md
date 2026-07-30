@@ -1,17 +1,22 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-30（AI 标注：上视图切片序号可配 1～100 + 像素精度 μm/px；此前 2026-07-28：UI 标定采图迁入单步测试 + AI 上视图 CW90°）  
+> **文档版本**：2026-07-30（阶段四找点：本地/视觉 DLL 二选一 `Simple321PointSource`；此前同日：AI 标注序号/像素精度；2026-07-28：标定采图迁入单测 + AI 上视图 CW90°）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七代码 ✅**（软失败接入主流程；推理前上视图顺时针 90°；选图序号/像素精度可配）；进程池并行导入 ✅；工程编译 ✅。  
-> **待确认**：真机「测试 AI 图像标注」/主流程联调（选「上」视图第 **OfflineCtTopViewSliceIndex** 张 → **CW90°** → NJCT → 落盘 `AI标注/`）。  
+> **待确认**：真机「测试 AI 图像标注」/主流程联调（选「上」视图第 **OfflineCtTopViewSliceIndex** 张 → **CW90°** → NJCT → 落盘 `AI标注/`）；真机验证 **视觉 DLL** 找点路径。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
-> **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**
+> **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
 
 > **重要更正（2026-07-22）**：早期文档将阶段四拆成「4a / 4b」是误解。  
 > **阶段四 = 简单 3-2-1 对齐本身**（对话框内：Ctrl+三点定平面 → 偏移 Edit 置 0 →「上」视图 Ctrl+两点定向量 → Ctrl+原点 → 完成）。  
-> 文档中凡「4b / GetObjectTopBottomPoints 定方向」均属过时规划，**已取消，不再开发**。  
-> 「3-2-1」中的「2」即「上」视图向量两点（`VisionTopViewVectorPointsDetector`，**优先黄框右缘**），不是另一步。
+> 「3-2-1」中的「2」即「上」视图向量两点：本地用 `VisionTopViewVectorPointsDetector`（**优先黄框右缘**）；选视觉 DLL 时用 `GetObjectTopBottomPoints`。
+
+> **2026-07-30 增量（阶段四找点二选一）**：  
+> 1. 配置项 `Simple321PointSource`：`Local`（默认，上位机 OpenCV）/ `VisionDll`（`CTAutoCutImg.dll` V1.0）。  
+> 2. 界面：阶段四「找点算法」下拉；主流程与「测试简单 3-2-1」共用。  
+> 3. DLL：`GetSectionReferencePoints`（3D 四点）+ `GetObjectTopBottomPoints`（向量两点）；封装仍为 `CutImgAlgorithmService`。  
+> 4. 接口文档副本：`docs/CTAutoCutImg接口文档V1.0.txt`。
 
 > **2026-07-23 增量（真机已单测跑通）**：  
 > 1. 三点后、向量前：左侧无名偏移 Edit 点击 → 输入 `0` → Enter（`Simple321OffsetEdit*`）。  
@@ -861,13 +866,12 @@ Alt+F 完成文件选择
 
 > **状态**：✅ **全部完成**（单测 + 主流程）。  
 > **范围**：阶段四 **仅**「简单 3-2-1 对齐」——对话框内完成 **3 平面点 + 2 向量点 + 1 原点**。  
-> **无 4b**：早期「4b / GetObjectTopBottomPoints 另做定方向」为文档误解，**已取消**。  
-> **找点**：本地 OpenCV（§18 / §19）；`CTAutoCutImg` 封装保留作对照，主链不调用。  
-> **废弃**：旧 `MeasureAngle` 双视图算角链；独立「4b」规划。
+> **找点二选一**：`Simple321PointSource` = `Local`（默认，OpenCV）或 `VisionDll`（`CTAutoCutImg` V1.0）。  
+> **废弃**：旧 `MeasureAngle` 双视图算角链；独立「4b」规划名称（向量仍在 3-2-1 内，可选 DLL）。
 
 ### 16.1 视觉算法接口
 
-#### 4a 当前路径（本地，✅）
+#### 本地路径（`Simple321PointSource.Local`，默认 ✅）
 
 | 项目 | 说明 |
 |------|------|
@@ -877,17 +881,18 @@ Alt+F 完成文件选择
 | 输出约定 | 与 DLL 接口一一致：`[0..2]` 上盖三点，`[3]` 原点 |
 | 详规 | **§18** |
 
-#### `CTAutoCutImg.dll`（封装保留；主链不调用）
+#### `CTAutoCutImg.dll`（`Simple321PointSource.VisionDll`）
 
 | 项目 | 说明 |
 |------|------|
 | 协议 | 反射动态调用（DLL 放服务器/程序目录，**非项目引用**） |
-| DLL | `CTAutoCutImg.dll`（Demo：`C:\AutoSlice\CT自动切片Demo\AutoCTSlicer\dll\CTAutoCutImg.dll`） |
-| 类型名 | `CTAutoCutImg.CT`（反射须带命名空间） |
-| 运行时 | .NET 8.0 + `halcondotnet`；加载前 **`SetDllDirectory(Dlls)`** |
+| DLL | `CTAutoCutImg.dll`（`Dlls\`；接口文档 V1.0，2026-07-21） |
+| 类型名 | `CTAutoCutImg.CT`（反射须带命名空间；亦回退 `CT`） |
+| 运行时 | .NET 8.0 + `halcondotnet`（文档写 20.11）；加载前 **`SetDllDirectory(Dlls)`** |
 | 加载方式 | `Assembly.LoadFrom(dllPath)` |
+| 封装 | `CutImgAlgorithmService` / `ICutImgAlgorithmService` |
 
-**接口一：`GetSectionReferencePoints`**（4a 单测已旁路；保留对照）
+**接口一：`GetSectionReferencePoints`**（3D 四点）
 
 | 索引 | 含义 |
 |:----:|------|
@@ -896,14 +901,26 @@ Alt+F 完成文件选择
 | 2 | 上盖第三个点 |
 | 3 | 原点坐标 |
 
-**接口二：`GetObjectTopBottomPoints`**（~~原 4b 规划~~；**已取消，主链不用**）
+**接口二：`GetObjectTopBottomPoints`**（「上」视图向量两点；选 VisionDll 时主链调用）
 
 | 索引 | 含义 |
 |:----:|------|
-| 0 | 起点 `(X, Y)` 像素 |
-| 1 | 终点 `(X, Y)` 像素 |
+| 0 | **起点** `(X, Y)` 像素 |
+| 1 | **终点** `(X, Y)` 像素 |
+
+上位机点击顺序：**起点→终点**（`[0]` → `[1]`）。
 
 坐标单位：像素；相对**输入截图像素坐标系**。
+
+**3-2-1 与 DLL 对应**：
+
+| 步骤 | DLL | 点击 |
+|:----:|-----|------|
+| 1 | `GetSectionReferencePoints` `[0..2]` | Ctrl 三点定平面 |
+| 2 | `GetObjectTopBottomPoints`：先 `[0]` 起点再 `[1]` 终点 | Ctrl 向量两点 |
+| 3 | `GetSectionReferencePoints` `[3]` 原点 | Ctrl 原点 |
+
+**离线单测（不跑 VG）**：单步测试页「CTAutoCutImg DLL 离线测试」两个按钮分别测上述两方法，标注图默认输出 `C:\AutoSlice\cutpicture\CutImgDllTest`。
 
 ### 16.2 简单 3-2-1 对齐流程（✅ 单测 + 主流程）
 
@@ -913,7 +930,7 @@ Alt+F 完成文件选择
 flowchart TD
     A[单测/主流程入口] --> B[按 Vision3dRoi 截取第四象限 3D]
     B --> C[截图落盘 VisionCaptureDir]
-    C --> D["Vision3dSectionPointsDetector.Detect → 四点"]
+    C --> D["按 Simple321PointSource：Local 本地 Detect / VisionDll GetSectionReferencePoints"]
     D --> E[标注调试图 overlay]
     E --> F["Simple321ToolbarClick* 绝对坐标点开「简单对齐」下拉"]
     F --> G[选菜单项进入对齐模式]
@@ -979,6 +996,7 @@ screenY = Ry + Py
 | 参数 | 默认 | 用途 |
 |------|------|------|
 | `EnableVisionAlignmentSteps` | `true` | 主流程是否执行简单 3-2-1；关则跳过；开但未标定齐全则跳过打日志 |
+| `Simple321PointSource` | `Local` | 找点来源：`Local`=上位机 OpenCV；`VisionDll`=`CTAutoCutImg` |
 | `Vision3dRoiX/Y/Width/Height` | 真机标定 | 第四象限 3D；**勿含「上」视图** |
 | `VisionTopViewRoiX/Y/Width/Height` | 真机标定 | 第二象限「上」视图（向量两点） |
 | `Simple321ToolbarClickX/Y` | 真机标定 | 「简单对齐」下拉 **绝对坐标** |

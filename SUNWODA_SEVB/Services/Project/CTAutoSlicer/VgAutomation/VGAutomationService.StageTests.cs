@@ -103,8 +103,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 单步测试：3D 截图 → 本地剪影四角找点 → 打开「简单 3-2-1 对齐」→ Ctrl+点击四点 → 完成。
-        /// 暂不使用 CTAutoCutImg.dll，便于验证 OpenCV 找点。
+        /// 单步测试：3D 截图 → 按配置选本地/视觉 DLL 找点 → 打开「简单 3-2-1 对齐」→ Ctrl+点击 → 完成。
         /// </summary>
         public async Task TestSimple321AlignmentAsync(
             CTAutoSlicerSettings settings,
@@ -142,9 +141,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("请先配置 VG 应用路径");
                 }
 
-                progress?.Report("简单 3-2-1 对齐测试（本地剪影找点，不调用视觉 DLL）：请确保 VG 已导入体积且第四象限 3D 可见");
+                var sourceLabel = settings.UseVisionDllForSimple321
+                    ? "视觉 DLL（CTAutoCutImg）"
+                    : "上位机本地（OpenCV）";
+                progress?.Report(
+                    $"简单 3-2-1 对齐测试（找点={sourceLabel}）：请确保 VG 已导入体积且第四象限 3D 可见");
                 _logger.Info(
-                    $"简单 3-2-1 对齐测试开始（本地 Vision3dSectionPointsDetector），3D ROI=({settings.Vision3dRoiX},{settings.Vision3dRoiY}," +
+                    $"简单 3-2-1 对齐测试开始（Simple321PointSource={settings.Simple321PointSource}），" +
+                    $"3D ROI=({settings.Vision3dRoiX},{settings.Vision3dRoiY}," +
                     $"{settings.Vision3dRoiWidth}x{settings.Vision3dRoiHeight})，" +
                     $"下拉点击=({settings.Simple321ToolbarClickX},{settings.Simple321ToolbarClickY})");
 

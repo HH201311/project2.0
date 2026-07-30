@@ -15,7 +15,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     {
         // 阶段四：简单 3-2-1 对齐
         /// <summary>
-        /// 阶段四：截 3D → 本地剪影找点 → 打开对齐 →
+        /// 阶段四：截 3D → 按配置选本地/视觉 DLL 找点 → 打开对齐 →
         /// Ctrl+三点定平面 → 偏移 Edit 置 0 → 「上」视图两点定向量 → Ctrl+原点 → 完成。
         /// 注意：向量两点必须在原点之前，否则「上」标定区域画面会变。
         /// </summary>
@@ -42,18 +42,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report($"3D 截图已保存：{capturePath}");
             _logger.Info($"3D ROI 截图：{capturePath}");
 
-            progress?.Report("本地剪影算法找点（Vision3dSectionPointsDetector，不调用 DLL）…");
             var captureDir = Path.GetDirectoryName(capturePath)!;
-            var detectResult = Vision3dSectionPointsDetector.Detect(capturePath, debugDir: captureDir);
-            var relativePoints = detectResult.Points;
+            var (relativePoints, sectionSummary) = DetectSectionReferencePoints(settings, capturePath, captureDir, progress);
             if (relativePoints.Length < 4)
             {
                 throw new InvalidOperationException(
-                    $"本地找点返回点数不足：期望 4，实际 {relativePoints.Length}");
+                    $"3D 找点返回点数不足：期望 4，实际 {relativePoints.Length}");
             }
 
-            progress?.Report($"本地找点：{detectResult.Summary}");
-            _logger.Info($"本地找点：{detectResult.Summary}");
+            progress?.Report($"3D 找点：{sectionSummary}");
+            _logger.Info($"3D 找点：{sectionSummary}");
 
             // 默认顺序：左上、右上、右下（上盖三点）+ 原点；原点须在向量两点之后点击
             var planeScreenPoints = new (int X, int Y, string Label)[3];
@@ -135,16 +133,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            // —— 步骤2：「上」视图右侧外缘两点（必须在原点之前）——
+            // —— 步骤2：「上」视图向量两点（必须在原点之前）——
             // 三点+置0后短等，让 VG 刷新「上」标定区高亮后再截图
             await Task.Delay(Math.Max(200, settings.VisionClickIntervalMs), cancellationToken)
                 .ConfigureAwait(false);
-            progress?.Report("步骤2/3：「上」视图向量两点（须先于原点，否则标定区会变）…");
+            progress?.Report(
+                settings.UseVisionDllForSimple321
+                    ? "步骤2/3：调用 GetObjectTopBottomPoints → Ctrl 起点→终点（须先于原点）…"
+                    : "步骤2/3：「上」视图向量两点（须先于原点，否则标定区会变）…");
             await ClickTopViewVectorPointsAsync(settings, cancellationToken, progress)
                 .ConfigureAwait(false);
 
-            // —— 步骤3：3D 原点 ——
-            progress?.Report($"步骤3/3：Ctrl+点击原点 @({originSx},{originSy})…");
+            // —— 步骤3：3D 原点（GetSectionReferencePoints 返回的第 4 点 / 索引 3）——
+            progress?.Report(
+                settings.UseVisionDllForSimple321
+                    ? $"步骤3/3：Ctrl+点击原点（GetSectionReferencePoints[3]）@({originSx},{originSy})…"
+                    : $"步骤3/3：Ctrl+点击原点 @({originSx},{originSy})…");
             await CtrlClickScreenAsync(originSx, originSy, cancellationToken).ConfigureAwait(false);
             await Task.Delay(Math.Max(100, settings.VisionClickIntervalMs), cancellationToken)
                 .ConfigureAwait(false);
@@ -330,44 +334,57 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return null;
         }
 
-        /// <summary>
-        /// 简单 3-2-1 步骤2：截取「上」视图 → 本地右缘两点 → 标注落盘 → Ctrl+从上到下点击。
+        /// <summary>简单 3-2-1 步骤2：截取「上」视图 → 按配置找向量两点 → 标注落盘 → Ctrl 点击。
+        /// 视觉 DLL：按「起点→终点」点击（DLL [0]=起点、[1]=终点）。
+        /// 本地：按屏幕从上到下点击。
         /// </summary>
         private async Task ClickTopViewVectorPointsAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
-            progress?.Report("截取第二象限「上」视图 ROI…");
+            progress?.Report("截取第二象限「上」视图 ROI（步骤2 向量找点）…");
             var capturePath = CaptureVisionTopViewRoiToFile(settings);
             progress?.Report($"「上」视图截图已保存：{capturePath}");
             _logger.Info($"「上」视图 ROI 截图：{capturePath}");
 
-            progress?.Report("本地算法找右侧外缘向量两点（VisionTopViewVectorPointsDetector）…");
             var captureDir = Path.GetDirectoryName(capturePath)!;
-            var detectResult = VisionTopViewVectorPointsDetector.Detect(capturePath, debugDir: captureDir);
-            var relativePoints = detectResult.Points;
+            var (relativePoints, vectorSummary) = DetectTopViewVectorPoints(settings, capturePath, captureDir, progress);
             if (relativePoints.Length < 2)
             {
                 throw new InvalidOperationException(
                     $"向量找点返回点数不足：期望 2，实际 {relativePoints.Length}");
             }
 
-            // 强制从上到下
-            var top = relativePoints[0];
-            var bottom = relativePoints[1];
-            if (bottom.Y < top.Y)
+            (int X, int Y) first;
+            (int X, int Y) second;
+            string[] labels;
+            if (settings.UseVisionDllForSimple321)
             {
-                (top, bottom) = (bottom, top);
+                // DetectTopViewVectorPoints 已归一化为 [起点, 终点]，禁止再按 Y 重排
+                first = relativePoints[0];
+                second = relativePoints[1];
+                labels = ["向量起点", "向量终点"];
+            }
+            else
+            {
+                // 本地：强制从上到下
+                first = relativePoints[0];
+                second = relativePoints[1];
+                if (second.Y < first.Y)
+                {
+                    (first, second) = (second, first);
+                }
+
+                labels = ["向量上", "向量下"];
             }
 
-            progress?.Report($"向量找点：{detectResult.Summary}");
-            _logger.Info($"向量找点：{detectResult.Summary}");
+            progress?.Report($"向量找点：{vectorSummary}");
+            _logger.Info($"向量找点：{vectorSummary}");
 
             var screenPoints = new (int X, int Y, string Label)[2];
             var annotatePoints = new (int X, int Y, string Label)[2];
-            var labels = new[] { "向量上", "向量下" };
-            var rel = new[] { top, bottom };
+            var rel = new[] { first, second };
             for (var i = 0; i < 2; i++)
             {
                 var (sx, sy) = CTAutoSlicerSettings.ToScreenPoint(
@@ -398,7 +415,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 _logger.Warn($"「上」视图向量标注图保存失败：{annotateEx.Message}");
             }
 
-            progress?.Report("Ctrl+左键从上到下点击向量两点…");
+            var clickHint = settings.UseVisionDllForSimple321
+                ? "Ctrl+左键按「起点→终点」点击向量两点…"
+                : "Ctrl+左键从上到下点击向量两点…";
+            progress?.Report(clickHint);
             foreach (var point in screenPoints)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -406,6 +426,110 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 await CtrlClickScreenAsync(point.X, point.Y, cancellationToken).ConfigureAwait(false);
                 var interval = Math.Max(100, settings.VisionClickIntervalMs);
                 await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// 3D 上盖三点 + 原点：按 <see cref="CTAutoSlicerSettings.Simple321PointSource"/> 二选一。
+        /// 步骤1 用 [0..2]；步骤3 用 [3]（原点）。
+        /// </summary>
+        private ((int X, int Y)[] Points, string Summary) DetectSectionReferencePoints(
+            CTAutoSlicerSettings settings,
+            string capturePath,
+            string captureDir,
+            IProgress<string>? progress)
+        {
+            if (settings.UseVisionDllForSimple321)
+            {
+                EnsureCutImgAlgorithmReady();
+                progress?.Report("步骤1/3 视觉 DLL：GetSectionReferencePoints（三点+原点，原点稍后点）…");
+                _logger.Info("简单 3-2-1：调用视觉 DLL GetSectionReferencePoints");
+                var dllPoints = _cutImgAlgorithmService.GetSectionReferencePoints(capturePath);
+                if (dllPoints.Length < 4)
+                {
+                    throw new InvalidOperationException(
+                        $"GetSectionReferencePoints 返回点数不足：期望 4，实际 {dllPoints.Length}");
+                }
+
+                var summary =
+                    $"VisionDll GetSectionReferencePoints " +
+                    $"P0=({dllPoints[0].X},{dllPoints[0].Y}) " +
+                    $"P1=({dllPoints[1].X},{dllPoints[1].Y}) " +
+                    $"P2=({dllPoints[2].X},{dllPoints[2].Y}) " +
+                    $"Origin[3]=({dllPoints[3].X},{dllPoints[3].Y})";
+                return (dllPoints, summary);
+            }
+
+            progress?.Report("本地剪影算法找点（Vision3dSectionPointsDetector）…");
+            _logger.Info("简单 3-2-1：使用本地 Vision3dSectionPointsDetector");
+            var detectResult = Vision3dSectionPointsDetector.Detect(capturePath, debugDir: captureDir);
+            return (detectResult.Points, detectResult.Summary);
+        }
+
+        /// <summary>
+        /// 「上」视图向量两点：按 <see cref="CTAutoSlicerSettings.Simple321PointSource"/> 二选一。
+        /// 视觉 DLL：调用 GetObjectTopBottomPoints；[0]=起点、[1]=终点，点击顺序起点→终点。
+        /// </summary>
+        private ((int X, int Y)[] Points, string Summary) DetectTopViewVectorPoints(
+            CTAutoSlicerSettings settings,
+            string capturePath,
+            string captureDir,
+            IProgress<string>? progress)
+        {
+            if (settings.UseVisionDllForSimple321)
+            {
+                EnsureCutImgAlgorithmReady();
+                progress?.Report("步骤2/3 视觉 DLL：GetObjectTopBottomPoints（向量两点）…");
+                _logger.Info("简单 3-2-1：调用视觉 DLL GetObjectTopBottomPoints");
+                var dllPoints = _cutImgAlgorithmService.GetObjectTopBottomPoints(capturePath);
+                if (dllPoints.Length < 2)
+                {
+                    throw new InvalidOperationException(
+                        $"GetObjectTopBottomPoints 返回点数不足：期望 2，实际 {dllPoints.Length}");
+                }
+
+                // 视觉约定（已更正）：索引0=起点，索引1=终点
+                var start = dllPoints[0];
+                var end = dllPoints[1];
+                var normalized = new[] { start, end };
+                var summary =
+                    $"VisionDll GetObjectTopBottomPoints " +
+                    $"[0]起点=({start.X},{start.Y}) [1]终点=({end.X},{end.Y}) " +
+                    $"→ 点击顺序 起点→终点";
+                _logger.Info(summary);
+                return (normalized, summary);
+            }
+
+            progress?.Report("本地算法找右侧外缘向量两点（VisionTopViewVectorPointsDetector）…");
+            _logger.Info("简单 3-2-1：使用本地 VisionTopViewVectorPointsDetector");
+            var detectResult = VisionTopViewVectorPointsDetector.Detect(capturePath, debugDir: captureDir);
+            return (detectResult.Points, detectResult.Summary);
+        }
+
+        /// <summary>视觉 DLL 未初始化时再尝试一次；仍失败则抛出明确错误。</summary>
+        private void EnsureCutImgAlgorithmReady()
+        {
+            if (_cutImgAlgorithmService.IsInitialized)
+            {
+                return;
+            }
+
+            try
+            {
+                _cutImgAlgorithmService.Initialize();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "已选择「视觉 DLL」找点，但 CTAutoCutImg.dll 初始化失败。" +
+                    "请确认 Dlls\\CTAutoCutImg.dll 与 Halcon 依赖齐全。详情：" + ex.Message,
+                    ex);
+            }
+
+            if (!_cutImgAlgorithmService.IsInitialized)
+            {
+                throw new InvalidOperationException(
+                    "已选择「视觉 DLL」找点，但 CTAutoCutImg 仍未就绪。请检查 Dlls\\CTAutoCutImg.dll。");
             }
         }
 

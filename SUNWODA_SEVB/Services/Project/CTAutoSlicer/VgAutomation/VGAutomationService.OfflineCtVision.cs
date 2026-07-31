@@ -7,7 +7,85 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     public partial class VGAutomationService
     {
         /// <summary>
-        /// 主流程：切片导出后，对「上」视图指定序号图做 AI 标注（软失败）。
+        /// AI 标注模式批处理：扫描交接目录一层图像，逐张推理并落盘到标注结果根目录。
+        /// </summary>
+        public async Task RunAiAnnotationBatchAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null)
+        {
+            Lock();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(settings.TopViewHandoffFolder)
+                    || !Directory.Exists(settings.TopViewHandoffFolder))
+                {
+                    throw new InvalidOperationException("请先配置有效的上视图交接目录（TopViewHandoffFolder）");
+                }
+
+                if (string.IsNullOrWhiteSpace(settings.SliceExportFolder))
+                {
+                    throw new InvalidOperationException("请先配置标注结果根目录（复用 SliceExportFolder）");
+                }
+
+                var images = OfflineCtAnnotationHelper.EnumerateHandoffImages(settings.TopViewHandoffFolder);
+                if (images.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"交接目录内未找到可标注图像（jpg/png 等）：{settings.TopViewHandoffFolder}");
+                }
+
+                Directory.CreateDirectory(settings.SliceExportFolder);
+                progress?.Report($"AI 标注批处理开始：共 {images.Count} 张 → {settings.TopViewHandoffFolder}");
+                _logger.Info($"AI 标注批处理开始：count={images.Count}，handoff={settings.TopViewHandoffFolder}");
+
+                var ok = 0;
+                var fail = 0;
+                for (var i = 0; i < images.Count; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var imagePath = images[i];
+                    var outputFolder = OfflineCtAnnotationHelper.BuildBatchAnnotationFolder(
+                        settings.SliceExportFolder,
+                        imagePath);
+                    progress?.Report($"[{i + 1}/{images.Count}] 标注：{Path.GetFileName(imagePath)}");
+                    try
+                    {
+                        await RunOfflineCtVisionAnnotationAsync(
+                                settings,
+                                vglPath: null,
+                                exportBaseName: null,
+                                quantity: null,
+                                cancellationToken,
+                                progress,
+                                explicitImagePath: imagePath,
+                                explicitOutputFolder: outputFolder)
+                            .ConfigureAwait(false);
+                        ok++;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        fail++;
+                        progress?.Report($"[{i + 1}/{images.Count}] 失败（继续下一张）：{ex.Message}");
+                        _logger.Error($"AI 批处理单张失败：{imagePath}", ex);
+                    }
+                }
+
+                progress?.Report($"AI 标注批处理完成：成功 {ok}，失败 {fail}，合计 {images.Count}");
+                _logger.Info($"AI 标注批处理完成：ok={ok}, fail={fail}, total={images.Count}");
+            }
+            finally
+            {
+                Unlock();
+            }
+        }
+
+        /// <summary>
+        /// 兼容保留：历史主流程软失败入口。现行切图链路已改为交接目录，不再调用。
         /// </summary>
         private async Task TryRunOfflineCtVisionAnnotationAsync(
             CTAutoSlicerSettings settings,

@@ -29,6 +29,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         );
 
         /// <summary>
+        /// AI 标注模式：扫描交接目录批量推理（不启 VG）。
+        /// </summary>
+        Task RunAiAnnotationBatchAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
         /// 单步测试：在 VG 已导入体积的前提下，仅应用渲染预设（不执行导入）。
         /// </summary>
         Task TestRenderingPresetAsync(

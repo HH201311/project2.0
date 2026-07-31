@@ -185,6 +185,7 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<CTFolderMonitorService>();
             services.AddSingleton<CTAutoSlicerInputHookService>();
             services.AddSingleton<ProcessMonitorService>();
+            services.AddSingleton<CTAutoSlicerLocalConfigService>();
             return services;
         }
     }

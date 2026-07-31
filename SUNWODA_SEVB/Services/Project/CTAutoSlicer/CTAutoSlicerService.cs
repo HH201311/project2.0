@@ -53,6 +53,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress,
                 "切片流程正在运行中");
 
+        public Task RunAiAnnotationBatchAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.RunAiAnnotationBatchAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "AI 标注流程正在运行中");
+
         public Task TestRenderingPresetAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,

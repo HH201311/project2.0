@@ -69,7 +69,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="运行总览" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="1" ToolTip="应用参数">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="1" ToolTip="应用参数"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -84,7 +85,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="应用参数" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="2" ToolTip="导入参数">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="2" ToolTip="导入参数"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -99,7 +101,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="导入参数" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="3" ToolTip="渲染与厚板">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="3" ToolTip="渲染与厚板"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -114,7 +117,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="渲染厚板" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="4" ToolTip="直方图标定">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="4" ToolTip="直方图标定"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -129,7 +133,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="直方图标定" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="5" ToolTip="视觉对齐">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="5" ToolTip="视觉对齐"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -144,7 +149,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="视觉对齐" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="6" ToolTip="对齐后拖拽">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="6" ToolTip="对齐后拖拽"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -159,7 +165,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="对齐后拖拽" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="7" ToolTip="切片导出">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="7" ToolTip="切片导出"
+                                Visibility="{Binding ShowSlicePipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -174,7 +181,8 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="切片导出" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding SelectNavCommand}" CommandParameter="8" ToolTip="AI图像标注">
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="8" ToolTip="AI图像标注"
+                                Visibility="{Binding ShowAiPipelineNav, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
                                 <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
                                     <Style.Triggers>
@@ -264,6 +272,44 @@
                                     BorderBrush="{StaticResource CasBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="12"
+                                    Padding="3"
+                                    Margin="0,0,8,0"
+                                    Visibility="{Binding IsDebugMode, Converter={StaticResource BoolToVis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="切图模式"
+                                            Command="{Binding SwitchToSlicePipelineModeCommand}"
+                                            ToolTip="切图流水线：导出后交接上视图送检图，不跑 NJCT">
+                                        <Button.Style>
+                                            <Style BasedOn="{StaticResource CasModeSegmentButtonStyle}" TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSlicePipelineMode}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource CasPrimaryBrush}" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="AI标注模式"
+                                            Command="{Binding SwitchToAiPipelineModeCommand}"
+                                            ToolTip="AI 标注流水线：扫描交接目录批量 NJCT（不启 VG）">
+                                        <Button.Style>
+                                            <Style BasedOn="{StaticResource CasModeSegmentButtonStyle}" TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAiPipelineMode}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource CasPrimaryBrush}" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CasWhiteBrush}"
+                                    BorderBrush="{StaticResource CasBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
                                     Padding="3">
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="生产"
@@ -282,7 +328,7 @@
                                     </Button>
                                     <Button Content="调试"
                                             Command="{Binding SwitchToDebugModeCommand}"
-                                            ToolTip="调试界面：显示单步测试">
+                                            ToolTip="调试界面：可切换切图/AI 模式，并显示单步测试">
                                         <Button.Style>
                                             <Style BasedOn="{StaticResource CasModeSegmentButtonStyle}" TargetType="Button">
                                                 <Style.Triggers>
@@ -313,24 +359,37 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="CT 自动化切片" FontSize="24" FontWeight="SemiBold"
+                            <TextBlock Grid.Row="0" Text="{Binding OverviewHeroTitle}" FontSize="24" FontWeight="SemiBold"
                                        Foreground="{StaticResource CasPrimaryTextBrush}"/>
                             <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="VG 路径"/>
+                                <StackPanel Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="VG 路径"/>
+                                    <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                               Text="{Binding VGAppPath}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="CT 体素文件夹"/>
+                                    <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                               Text="{Binding CTFileFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="切片导出目录"/>
+                                    <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                               Text="{Binding SliceExportFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding IsAiPipelineMode, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="ONNX 模型"/>
+                                    <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                               Text="{Binding OverviewOfflineCtModelPathDisplay}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="标注结果根目录"/>
+                                    <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
+                                               Text="{Binding SliceExportFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="上视图交接目录"/>
                                 <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
-                                           Text="{Binding VGAppPath}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
-                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="CT 体素文件夹"/>
-                                <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
-                                           Text="{Binding CTFileFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
-                                <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="切片导出目录"/>
-                                <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
-                                           Text="{Binding SliceExportFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,12"/>
+                                           Text="{Binding TopViewHandoffFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,12"/>
                                 <Button Style="{StaticResource CasPrimaryButtonStyle}"
                                         HorizontalAlignment="Left"
                                         Content="{Binding PrimaryActionButtonText}"
                                         Command="{Binding RunSimulationCommand}"
                                         IsEnabled="{Binding IsEnableSimulationBtn}"
-                                        ToolTip="生产/批量入口：按 CT 体素文件夹排队执行完整自动化流程"/>
+                                        ToolTip="{Binding PrimaryActionToolTip}"/>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -1725,6 +1784,10 @@
                                             <LineBreak />
                                             <Run Text="• 切片导出目录：三视图切片输出根目录；内部按命名规则分子目录/文件。" />
                                             <LineBreak />
+                                            <Run Text="• 上视图交接目录：导出结束后将 OfflineCtTopViewSliceIndex 指定的那一张上视图复制到此目录，供 AI 电脑消费。" />
+                                            <LineBreak />
+                                            <Run Text="• 上视图切片序号：选用「上」视图第几张写入交接目录（1～100，默认 50）。" />
+                                            <LineBreak />
                                             <Run Text="• 图像宽度：导出对话框「图像大小-宽」（默认约 3000）。" />
                                             <LineBreak />
                                             <Run Text="• 导出数量(局部)：非 QJ 文件的切片数量；文件名含 QJ 时运行时改用 QJ 数量。" />
@@ -1745,7 +1808,7 @@
                             <Border Style="{StaticResource CasFormSectionStyle}">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="导出路径与数量" />
-                                    <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="三视图切片输出根目录、图像宽度与导出数量（QJ 文件名运行时自动切换）。" />
+                                    <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="三视图切片输出根目录、上视图交接目录、图像宽度与导出数量（QJ 文件名运行时自动切换）。" />
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
@@ -1771,6 +1834,57 @@
                                                 </Image.Source>
                                             </Image>
                                         </Button>
+                                    </Grid>
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图交接目录"
+                                                   ToolTip="切图结束后复制送检上视图到此目录，供 AI 标注电脑读取" />
+                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True"
+                                                    ToolTip="两机共享目录；文件名形如 {导出名}_{序号}.jpg">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="TopViewHandoffFolder" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button Grid.Column="2" Style="{StaticResource CasFormActionButtonStyle}" Width="40" MinWidth="40" Padding="0"
+                                                Command="{Binding OpenTopViewHandoffFolderCommand}" ToolTip="选择上视图交接目录">
+                                            <Image Width="18">
+                                                <Image.Source>
+                                                    <DrawingImage>
+                                                        <DrawingImage.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                            </DrawingGroup>
+                                                        </DrawingImage.Drawing>
+                                                    </DrawingImage>
+                                                </Image.Source>
+                                            </Image>
+                                        </Button>
+                                    </Grid>
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图切片序号"
+                                                   ToolTip="写入交接目录的「上」视图第几张（1～100）" />
+                                        <StackPanel Grid.Column="1">
+                                            <hc:TextBox Width="160" HorizontalAlignment="Left"
+                                                        ToolTip="1～100，对应导出文件名数字，如 50→50.jpg">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtTopViewSliceIndex" UpdateSourceTrigger="PropertyChanged">
+                                                        <Binding.ValidationRules>
+                                                            <hc:RegexRule Type="PInt" />
+                                                        </Binding.ValidationRules>
+                                                    </Binding>
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Style="{StaticResource CasFormHintStyle}"
+                                                       Text="导出完成后复制该序号上视图到交接目录" />
+                                        </StackPanel>
                                     </Grid>
                                     <UniformGrid Columns="2" Margin="0,12,0,0">
                                         <hc:TextBox
@@ -1930,19 +2044,19 @@
                                         <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
-                                            <Run Text="切片导出完成后，按「上视图切片序号」（1～100，默认 50）取对应文件，调用 NJCT.NJSwdCT 做电芯抓点标注。" />
+                                            <Run Text="独立 AI 标注模式：扫描「上视图交接目录」批量调用 NJCT.NJSwdCT，不依赖 VG / 切图流程。" />
                                             <LineBreak />
                                             <LineBreak />
-                                            <Run FontWeight="SemiBold" Text="输出位置" />
+                                            <Run FontWeight="SemiBold" Text="输入 / 输出" />
                                             <LineBreak />
-                                            <Run Text="与三视图文件夹同级：{导出根}/{主文件夹}/AI标注/" />
+                                            <Run Text="输入：上视图交接目录（一层 jpg/png）。输出：{标注结果根}/{文件名}/AI标注/" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
                                             <LineBreak />
-                                            <Run Text="• 启用：主流程开关；关闭则跳过本步。" />
+                                            <Run Text="• 上视图交接目录：切图电脑写入、本机读取的共享目录。" />
                                             <LineBreak />
-                                            <Run Text="• 上视图切片序号：选用「上」视图第几张（1～100），对应文件名数字，如 50→50.jpg。" />
+                                            <Run Text="• 标注结果根目录：复用「切片导出目录」字段；批处理结果落于此下。" />
                                             <LineBreak />
                                             <Run Text="• 像素精度：一个像素的物理尺寸（μm/px），供后续尺寸测量；1 mm = 1000 μm。" />
                                             <LineBreak />
@@ -1966,57 +2080,78 @@
                             </Border>
                             </StackPanel>
 
-                            <!-- 启用（Win11 式总开关条） -->
+                            <!-- 交接目录与结果根 -->
                             <Border Style="{StaticResource CasFormSectionStyle}">
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="启用" />
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="输入与输出目录" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="主流程：上视图 →（可选）内存 CW90 → 条件提亮 → input_for_njct.* → NJCT。关闭则跳过本步。" />
-                                    <CheckBox
-                                        Style="{StaticResource CasFormCheckItemStyle}"
-                                        Margin="0"
-                                        Content="切片导出后自动执行 AI 图像标注"
-                                        IsChecked="{Binding EnableOfflineCtVisionAnnotation}" />
-                                </StackPanel>
-                            </Border>
-
-                            <!-- 采图与标定 -->
-                            <Border Style="{StaticResource CasFormSectionStyle}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="采图与标定" />
-                                    <TextBlock
-                                        Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="选择送入视觉检测的「上」视图序号，并配置像素物理尺寸供后续测量换算。" />
-
+                                        Text="「开始流程」扫描交接目录一层图像，结果写入标注结果根目录下各子文件夹。" />
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock
-                                            Grid.Column="0"
-                                            Style="{StaticResource CasFormLabelStyle}"
-                                            Text="上视图切片序号"
-                                            ToolTip="送视觉检测的「上」视图第几张（1～100，1-based）。默认 50。" />
-                                        <StackPanel Grid.Column="1">
-                                            <hc:TextBox
-                                                Width="160"
-                                                HorizontalAlignment="Left"
-                                                ToolTip="1～100，对应导出文件名数字，如 50→50.jpg">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtTopViewSliceIndex" UpdateSourceTrigger="PropertyChanged">
-                                                        <Binding.ValidationRules>
-                                                            <hc:RegexRule Type="PInt" />
-                                                        </Binding.ValidationRules>
-                                                    </Binding>
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <TextBlock
-                                                Style="{StaticResource CasFormHintStyle}"
-                                                Text="范围 1～100，对应导出文件名（如 50.jpg）" />
-                                        </StackPanel>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图交接目录" />
+                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="TopViewHandoffFolder" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button Grid.Column="2" Style="{StaticResource CasFormActionButtonStyle}" Width="40" MinWidth="40" Padding="0"
+                                                Command="{Binding OpenTopViewHandoffFolderCommand}" ToolTip="选择上视图交接目录">
+                                            <Image Width="18">
+                                                <Image.Source>
+                                                    <DrawingImage>
+                                                        <DrawingImage.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                            </DrawingGroup>
+                                                        </DrawingImage.Drawing>
+                                                    </DrawingImage>
+                                                </Image.Source>
+                                            </Image>
+                                        </Button>
                                     </Grid>
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="{Binding SliceExportFolderLabel}" />
+                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True"
+                                                    ToolTip="批处理输出根：{本目录}/{文件名}/AI标注/">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="SliceExportFolder" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button Grid.Column="2" Style="{StaticResource CasFormActionButtonStyle}" Width="40" MinWidth="40" Padding="0"
+                                                Command="{Binding OpenSliceExportFolderCommand}" ToolTip="选择标注结果根目录">
+                                            <Image Width="18">
+                                                <Image.Source>
+                                                    <DrawingImage>
+                                                        <DrawingImage.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                            </DrawingGroup>
+                                                        </DrawingImage.Drawing>
+                                                    </DrawingImage>
+                                                </Image.Source>
+                                            </Image>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 像素精度等标定 -->
+                            <Border Style="{StaticResource CasFormSectionStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="尺寸标定" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="配置像素物理尺寸供后续测量换算。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -2390,41 +2525,49 @@
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestRenderingPresetCommand}"
                                             Content="1  测试应用渲染预设"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestHistogramGrayScaleCommand}"
                                             Content="2  测试直方图灰度调整"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线" />
+                                            ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestThickPlateCommand}"
                                             Content="3  测试厚板设置(三象限)"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestSimple321AlignmentCommand}"
                                             Content="4  测试简单3-2-1对齐"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit" />
+                                            ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestPostAlignCaptureDragCommand}"
                                             Content="5  测试对齐后拖拽"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="需已标定 3D图正视图切换按钮位置与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态" />
+                                            ToolTip="需已标定 3D图正视图切换按钮位置与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestSliceExportCommand}"
-                                            Content="6  测试切片导出(三视图)"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                            Content="6  测试切片导出+交接"
+                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            ToolTip="三视图导出后复制上视图送检图到交接目录"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestOfflineCtVisionAnnotationCommand}"
-                                            Content="7  测试 AI 图像标注"
+                                            Content="测试 AI 图像标注"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="选手动图，或按切片导出目录取「上」视图配置序号图后调用 NJCT" />
+                                            ToolTip="选手动图，或从交接目录/切片目录取图后调用 NJCT"
+                                            Visibility="{Binding IsAiPipelineMode, Converter={StaticResource BoolToVis}}" />
                                     </UniformGrid>
                                 </StackPanel>
                             </Border>
@@ -3003,7 +3146,7 @@
                                 Command="{Binding RunSimulationCommand}"
                                 IsEnabled="{Binding IsEnableSimulationBtn}"
                                 Margin="12,0,0,0"
-                                ToolTip="生产/批量入口：按 CT 体素文件夹排队执行完整自动化流程"/>
+                                ToolTip="{Binding PrimaryActionToolTip}"/>
                         <Button DockPanel.Dock="Right"
                                 Style="{StaticResource CasSecondaryButtonStyle}"
                                 Content="清除日志"

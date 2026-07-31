@@ -1,12 +1,18 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-30（阶段四找点：本地/视觉 DLL 二选一 `Simple321PointSource`；此前同日：AI 标注序号/像素精度；2026-07-28：标定采图迁入单测 + AI 上视图 CW90°）  
-> **状态**：**阶段一～五全部 ✅**；**阶段七代码 ✅**（软失败接入主流程；推理前上视图顺时针 90°；选图序号/像素精度可配）；进程池并行导入 ✅；工程编译 ✅。  
-> **待确认**：真机「测试 AI 图像标注」/主流程联调（选「上」视图第 **OfflineCtTopViewSliceIndex** 张 → **CW90°** → NJCT → 落盘 `AI标注/`）；真机验证 **视觉 DLL** 找点路径。  
+> **文档版本**：2026-07-31（切图 / AI 标注两机拆分：`PipelineRunMode` + `TopViewHandoffFolder`；阶段七脱离切图主链）  
+> **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；CW90° + 预提亮）；进程池并行导入 ✅。  
+> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-07-31 增量（切图 / AI 两机拆分）**：  
+> 1. 流水线模式 `PipelineRunMode`：`SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏单选胶囊切换；**本机** `Config/CTAutoSlicer/local.json` 持久化（不落共享 DB，避免两机互盖）。  
+> 2. 切图终点：三视图导出后复制「上」视图第 `OfflineCtTopViewSliceIndex` 张到 `TopViewHandoffFolder`（硬失败），**不再**串行 NJCT。  
+> 3. AI 模式：「开始流程」扫描交接目录一层图像 → CW90/预提亮/NJCT → `{SliceExportFolder}/{文件名}/AI标注/`（不启 VG）。  
+> 4. 侧栏按模式显隐；同一「开始流程」按模式分发。
 
 > **重要更正（2026-07-22）**：早期文档将阶段四拆成「4a / 4b」是误解。  
 > **阶段四 = 简单 3-2-1 对齐本身**（对话框内：Ctrl+三点定平面 → 偏移 Edit 置 0 →「上」视图 Ctrl+两点定向量 → Ctrl+原点 → 完成）。  
@@ -379,11 +385,13 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 ✅ 5. Alt+F+T 三视图切片导出（`ExportImageStackSlicesAsync`）
       依次导出「前 / 右 / 上」；切片范围取自 UI 各视角 mm
+      → **上视图交接**（`MirrorTopViewHandoffAsync`）：复制第 OfflineCtTopViewSliceIndex 张到 TopViewHandoffFolder
+      （切图模式终点；硬失败）
 
-✅ 6. 阶段七 · AI 图像标注（`NJCT.NJSwdCT`）
-      取「上」视图第 OfflineCtTopViewSliceIndex 张（默认 50）→ **顺时针旋转 90°** → `ModelInit` → `ModelAction` / `ModelAction_origin`
-      → 结果图 + 可选 JSON/CSV 落到 `{主文件夹}/AI标注/`（与三视图同级；含 `input_for_njct.*`）
-      （`TryRunOfflineCtVisionAnnotationAsync`；开关 `EnableOfflineCtVisionAnnotation`；见 §22）
+✅ 6. 阶段七 · AI 图像标注（独立模式，见 §22）
+      `PipelineRunMode=AiAnnotateOnly` → `RunAiAnnotationBatchAsync`
+      扫描 TopViewHandoffFolder → CW90° → NJCT → `{结果根}/{文件名}/AI标注/`
+      （不启 VG；与切图主链解耦）
 
 ❌ 7. 收尾：导入成功后 .vgl 处理、文件夹监控自动跑批等（见 §8 阶段六，可选）
 ```
@@ -392,7 +400,8 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 - **象限**：第四象限 = 3D（平面三点+原点）；第二象限 =「上」视图（向量两点）。  
 - **无旧 4b**：早期文档的「4b 定方向」已取消；向量两点即 3-2-1 中的「2」。  
-- **主链时序**：直方图 → 厚板 → 简单 3-2-1（含偏移置0）→ 对齐后捕捉拖拽 → 导出 → **AI 标注**。  
+- **切图主链时序**：直方图 → 厚板 → 简单 3-2-1（含偏移置0）→ 对齐后捕捉拖拽 → 导出 → **交接上视图送检图**。  
+- **AI 独立机**：读交接目录批量标注，与 VG 无关。  
 
 ### 7.2 任务流程：已改造步骤 vs 未改造步骤
 
@@ -412,7 +421,8 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
 ✅ 对齐后捕捉拖拽（`TryRunPostAlignCaptureDragInMainFlowAsync` + `EnablePostAlignCaptureDragSteps`）
 ✅ 三视图切片导出（`ExportImageStackSlicesAsync`；前/右/上）
-✅ AI 图像标注（`TryRunOfflineCtVisionAnnotationAsync`；「上」视图配置序号图）
+✅ 上视图交接（`MirrorTopViewHandoffAsync` → `TopViewHandoffFolder`）
+✅ AI 图像标注批处理（`RunAiAnnotationBatchAsync`；独立模式，扫描交接目录）
 ✅ 「测试应用渲染预设」单步按钮
 ✅ 「测试直方图灰度调整」单步按钮
 ✅ 「测试厚板设置(三象限)」单步按钮
@@ -1205,11 +1215,21 @@ screenY = Ry + Py
 
 ---
 
-## 22. 阶段七：AI 图像标注（2026-07-28 代码已接入）
+## 22. 阶段七：AI 图像标注（独立模式；2026-07-31 两机拆分）
 
-> **状态**：✅ **代码已接入**（主流程 + UI 栏目 + 单测 + **上视图 CW90°**）；工程编译 ✅；**真机联调待确认**。  
-> **位置**：阶段五切片导出 **之后**；对「上」视图配置序号图做电芯抓点 AI 推理与标注落盘。  
-> **与阶段四区别**：阶段四用 OpenCV 本地找点做 VG 内 3-2-1 对齐；本阶段用 **`NJCT.NJSwdCT`** 对 **切片 JPEG** 做抓点区域与 L1～L5 标注。
+> **状态**：✅ **已从切图主链拆出**；`PipelineRunMode=AiAnnotateOnly` 下「开始流程」批处理；单测保留；**上视图 CW90°**；真机两机联调待确认。  
+> **位置**：不再挂在 `RunPostImportPipelineAsync` 末尾；切图机只负责把送检图写入 `TopViewHandoffFolder`。  
+> **与阶段四区别**：阶段四用 OpenCV 本地找点做 VG 内 3-2-1 对齐；本阶段用 **`NJCT.NJSwdCT`** 对交接目录中的 JPEG 做抓点区域与 L1～L5 标注。
+
+### 22.0 两机部署与流水线模式
+
+| 项 | 说明 |
+|----|------|
+| `PipelineRunMode` | `SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏胶囊切换；**本机 JSON** `{程序目录}/Config/CTAutoSlicer/local.json`（`CTAutoSlicerLocalConfigService`） |
+| `TopViewHandoffFolder` | 共享交接目录；切图写入 `{exportBaseName}_{index:D3}.ext`，AI 扫描一层 |
+| 切图机 | 侧栏：应用～切片；导出后 `MirrorTopViewHandoffAsync`（硬失败） |
+| AI 机 | 侧栏：AI 图像标注；「开始流程」→ `RunAiAnnotationBatchAsync`（不启 VG） |
+| 结果根 | 复用 `SliceExportFolder`（AI 模式下 UI 文案为「标注结果根目录」） |
 
 ### 22.1 接口来源
 
@@ -1244,43 +1264,49 @@ screenY = Ry + Py
 | 文件 | 说明 |
 |------|------|
 | `ICTOfflineVisionService.cs` / `OfflineCtVisionService.cs` | 反射 ModelInit / ModelAction / ModelAction_origin |
-| `OfflineCtAnnotationHelper.cs` | 「上」视图按序号选图 + **CW90°** + JSON/CSV（含像素精度） |
-| `VGAutomationService.OfflineCtVision.cs` | 主流程 / 单测编排（推理前旋转） |
+| `OfflineCtAnnotationHelper.cs` | 按序号选图 + 交接复制/枚举 + JSON/CSV |
+| `VGAutomationService.OfflineCtVision.cs` | `RunAiAnnotationBatchAsync` / 单测编排（推理前旋转） |
+| `VGAutomationService.SliceExport.cs` | `MirrorTopViewHandoffAsync` |
+| `PipelineRunMode.cs` | SliceOnly / AiAnnotateOnly |
 | `OfflineCtResultImageMode.cs` | Enhance / Origin / Both |
-| `CTAutoSlicerSettings` | `EnableOfflineCt*` / `OfflineCt*`；`VisionLearn*SampleDir` |
+| `CTAutoSlicerSettings` | `PipelineRunMode` / `TopViewHandoffFolder` / `OfflineCt*` |
 | `CTAutoSlicerPage` 侧栏「AI图像标注」 | NavAiAnnotate=8 |
 | 单步测试「标定采图」 | 截取 3D / 上视图标定图（见 §22.7） |
 
 ### 22.5 接入时序与目录约定
 
 ```text
+【切图机 · SliceOnly】
 RunPostImportPipelineAsync：
   … → ExportImageStackSlicesAsync → (exportBaseName, quantity)
-  → TryRunOfflineCtVisionAnnotationAsync
-      → 输入：{导出根}/{exportBaseName}/{exportBaseName} 上/{OfflineCtTopViewSliceIndex}.*
+  → MirrorTopViewHandoffAsync
+      → 源：{导出根}/{exportBaseName}/{exportBaseName} 上/{OfflineCtTopViewSliceIndex}.*
+      → 目标：{TopViewHandoffFolder}/{exportBaseName}_{index:D3}.*
+      → 硬失败（交接目录未配 / 源图缺失 / 复制失败则中断该文件）
+
+【AI 机 · AiAnnotateOnly】
+RunAiAnnotationBatchAsync：
+  → 枚举 TopViewHandoffFolder 一层 jpg/png
+  → 逐张 RunOfflineCtVisionAnnotationAsync(explicitImagePath, explicitOutputFolder)
       → 预处理：内存 CW90° + 条件提亮 → AI标注/input_for_njct.*
-      → 输出：{导出根}/{exportBaseName}/AI标注/
-           input_for_njct.*（送入 NJCT 的最终图）
-           result_enhance.jpg / result_origin.jpg（按模式）
-           annotation.json / annotation.csv（按勾选；sourceImage=原始上视图路径；含 pixelSizeUm）
-           prebrighten_report.txt
+      → 输出：{SliceExportFolder}/{文件名去扩展}/AI标注/
+           input_for_njct.* / result_*.jpg / annotation.json|csv / prebrighten_report.txt
 ```
 
-选图规则：按文件名数字排序，取 `OfflineCtTopViewSliceIndex`（钳制 1～100；若已知 quantity 且序号更大则钳到 quantity；缺文件取最接近序号）。默认 50。  
-**朝向**：VG 导出的「上」视图须 **顺时针 90°** 后再送 NJCT，否则算法识别异常（主流程 / 单测统一在内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
-失败策略：主流程**软失败**记日志，不中断批次；开关关闭则跳过。
+切图侧选图规则：按文件名数字排序，取 `OfflineCtTopViewSliceIndex`（钳制 1～100；若已知 quantity 且序号更大则钳到 quantity；缺文件取最接近序号）。默认 50。  
+**朝向**：送检图须 **顺时针 90°** 后再送 NJCT（AI 侧内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
+失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。
 
 ### 22.6 清单
 
 - [x] 封装 `ICTOfflineVisionService`（反射 `NJCT.NJSwdCT`）  
 - [x] Settings + UI 栏目（模型/CUDA/BlackHeight/结果图模式/JSON/CSV/**切片序号/像素精度**）  
 - [x] 单测：「测试 AI 图像标注」  
-- [x] 主流程：切片导出后标注（`EnableOfflineCtVisionAnnotation`）  
+- [x] **两机拆分**：`PipelineRunMode` + `TopViewHandoffFolder`；切图交接硬失败；AI 批处理独立入口  
 - [x] Halcon `HObject` 释放与 `RunInfo` 日志  
 - [x] 上视图推理前顺时针 90° + 条件提亮 → 仅 `input_for_njct.*`  
 - [x] 上视图切片序号可配（1～100）+ 像素精度（μm/px）与 mm/μm 换算展示  
-- [x] 工程编译通过  
-- [ ] 真机联调：确认选用配置序号（默认 `50.*`），旋转后识别正常，`AI标注/` 落盘符合配置  
+- [ ] 真机两机联调：切图交接文件名正确；AI 机批处理识别与 `AI标注/` 落盘符合配置  
 
 ### 22.7 UI：标定采图迁入单步测试（2026-07-28）
 

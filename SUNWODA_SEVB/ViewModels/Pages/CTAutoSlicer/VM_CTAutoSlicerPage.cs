@@ -36,6 +36,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private readonly CTFolderMonitorService _folderMonitorService;
         private readonly CTAutoSlicerInputHookService _inputHookService;
         private readonly ProcessMonitorService _processMonitorService;
+        private readonly CTAutoSlicerLocalConfigService _localConfigService;
         private CancellationTokenSource? _activeFlowCts;
         private DispatcherTimer? _manualInterventionCountdownTimer;
         private DateTime _manualInterventionDeadlineUtc;
@@ -70,6 +71,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _thickPlateMenuOffsetY = 28;
         private int _viewportClickOffsetY;
         private string _sliceExportFolder = string.Empty;
+        private string _topViewHandoffFolder = string.Empty;
+        private int _pipelineRunMode = (int)Core.Models.Project.CTAutoSlicer.PipelineRunMode.SliceOnly;
         private int _sliceExportImageWidth = 3000;
         private int _sliceExportQuantity = 100;
         private int _sliceExportQuantityQj = 150;
@@ -141,7 +144,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private bool _postAlignDragCalibrated;
         private string _postAlignDragDisplayText = "未标定";
         private bool _enablePostAlignCaptureDragSteps = true;
-        private bool _enableOfflineCtVisionAnnotation = true;
+        private bool _enableOfflineCtVisionAnnotation;
         private string _offlineCtModelPath = string.Empty;
         private bool _offlineCtIsRunCuda = true;
         private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
@@ -224,14 +227,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     OnPropertyChanged(nameof(IsProductionMode));
                     OnPropertyChanged(nameof(RunModeMenuHeader));
                     OnPropertyChanged(nameof(RunModeDisplayText));
+                    OnPropertyChanged(nameof(PrimaryActionToolTip));
                     if (!value && SelectedNavIndex == NavStepTest)
                     {
                         SelectedNavIndex = NavOverview;
                     }
 
                     MessageShower = value
-                        ? "已切换为调试模式（可使用单步测试）"
-                        : "已切换为生产模式（单步测试已隐藏）";
+                        ? "已切换为调试模式（可切换切图/AI 模式，并可使用单步测试）"
+                        : "已切换为生产模式（单步测试已隐藏；流水线模式保持上次选择）";
                 }
             }
         }
@@ -247,8 +251,94 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public string RunModeMenuHeader =>
             IsDebugMode ? "运行模式：调试" : "运行模式：生产";
 
-        /// <summary>顶栏 pill 显示的模式文案。</summary>
-        public string RunModeDisplayText => IsDebugMode ? "调试模式" : "生产模式";
+        /// <summary>顶栏 pill 显示的模式文案（生产/调试 · 切图/AI）。</summary>
+        public string RunModeDisplayText
+        {
+            get
+            {
+                var ui = IsDebugMode ? "调试" : "生产";
+                var pipe = IsAiPipelineMode ? "AI标注" : "切图";
+                return $"{ui} · {pipe}";
+            }
+        }
+
+        /// <summary>流水线模式：切图 / AI 标注（持久化；调试胶囊切换；重启后恢复）。</summary>
+        public int PipelineRunMode
+        {
+            get => _pipelineRunMode;
+            set
+            {
+                var clamped = Math.Clamp(value, 0, 1);
+                if (!SetProperty(ref _pipelineRunMode, clamped))
+                {
+                    return;
+                }
+
+                SavePipelineRunModeToLocalConfig(clamped);
+                NotifyPipelineModeUiChanged();
+                if (!_isLoadingSettings)
+                {
+                    MessageShower = IsAiPipelineMode
+                        ? "已切换为 AI 标注模式（开始流程将扫描交接目录批量推理）"
+                        : "已切换为切图模式（开始流程导出后复制上视图送检图到交接目录）";
+                }
+            }
+        }
+
+        public bool IsSlicePipelineMode
+        {
+            get => _pipelineRunMode == (int)Core.Models.Project.CTAutoSlicer.PipelineRunMode.SliceOnly;
+            set
+            {
+                if (value)
+                {
+                    PipelineRunMode = (int)Core.Models.Project.CTAutoSlicer.PipelineRunMode.SliceOnly;
+                }
+            }
+        }
+
+        public bool IsAiPipelineMode
+        {
+            get => _pipelineRunMode == (int)Core.Models.Project.CTAutoSlicer.PipelineRunMode.AiAnnotateOnly;
+            set
+            {
+                if (value)
+                {
+                    PipelineRunMode = (int)Core.Models.Project.CTAutoSlicer.PipelineRunMode.AiAnnotateOnly;
+                }
+            }
+        }
+
+        /// <summary>切图侧栏项（应用/导入/…/切片）可见。</summary>
+        public bool ShowSlicePipelineNav => IsSlicePipelineMode;
+
+        /// <summary>AI 侧栏「AI图像标注」可见。</summary>
+        public bool ShowAiPipelineNav => IsAiPipelineMode;
+
+        public string OverviewHeroTitle =>
+            IsAiPipelineMode ? "CT 离线 AI 标注" : "CT 自动化切片";
+
+        /// <summary>切片导出目录在 AI 模式下显示为标注结果根目录。</summary>
+        public string SliceExportFolderLabel =>
+            IsAiPipelineMode ? "标注结果根目录" : "切片导出目录";
+
+        public string PrimaryActionToolTip =>
+            IsAiPipelineMode
+                ? "AI 标注入口：扫描上视图交接目录，批量调用 NJCT（不启 VG）"
+                : "切图入口：按 CT 体素文件夹排队执行导入→对齐→三视图导出→交接上视图送检图";
+
+        private void NotifyPipelineModeUiChanged()
+        {
+            OnPropertyChanged(nameof(IsSlicePipelineMode));
+            OnPropertyChanged(nameof(IsAiPipelineMode));
+            OnPropertyChanged(nameof(ShowSlicePipelineNav));
+            OnPropertyChanged(nameof(ShowAiPipelineNav));
+            OnPropertyChanged(nameof(RunModeDisplayText));
+            OnPropertyChanged(nameof(PrimaryActionToolTip));
+            OnPropertyChanged(nameof(OverviewHeroTitle));
+            OnPropertyChanged(nameof(SliceExportFolderLabel));
+            EnsureNavValidForPipelineMode();
+        }
 
         public int SelectedNavIndex
         {
@@ -256,6 +346,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             set
             {
                 if (value == NavStepTest && !IsDebugMode)
+                {
+                    value = NavOverview;
+                }
+
+                if (!IsNavAllowedForCurrentPipeline(value))
                 {
                     value = NavOverview;
                 }
@@ -818,6 +913,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _sliceExportFolder, value))
                 {
                     SaveSetting(nameof(SliceExportFolder), value);
+                }
+            }
+        }
+
+        /// <summary>上视图送检图交接根目录（切图写入 / AI 读取）。</summary>
+        public string TopViewHandoffFolder
+        {
+            get => _topViewHandoffFolder;
+            set
+            {
+                if (SetProperty(ref _topViewHandoffFolder, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(TopViewHandoffFolder), value ?? string.Empty);
                 }
             }
         }
@@ -1463,9 +1571,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _offlineCtModelPath, value))
                 {
                     SaveSetting(nameof(OfflineCtModelPath), value ?? string.Empty);
+                    OnPropertyChanged(nameof(OverviewOfflineCtModelPathDisplay));
                 }
             }
         }
+
+        /// <summary>总览 Hero：模型路径（空则显示默认部署路径）。</summary>
+        public string OverviewOfflineCtModelPathDisplay =>
+            string.IsNullOrWhiteSpace(OfflineCtModelPath)
+                ? CTAutoSlicerSettings.GetDefaultOfflineCtModelPath()
+                : OfflineCtModelPath;
 
         public bool OfflineCtIsRunCuda
         {
@@ -1866,6 +1981,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenVGAppPathCommand { get; }
         public ICommand OpenCTFileFolderCommand { get; }
         public ICommand OpenSliceExportFolderCommand { get; }
+        public ICommand OpenTopViewHandoffFolderCommand { get; }
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand OpenVisionCaptureDirCommand { get; }
         public ICommand OpenVision2dVectorCaptureDirCommand { get; }
@@ -1906,6 +2022,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand ConfirmManualInterventionCommand { get; }
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
+        public ICommand SwitchToSlicePipelineModeCommand { get; }
+        public ICommand SwitchToAiPipelineModeCommand { get; }
         public ICommand SelectNavCommand { get; }
         public ICommand SelectPrefSubCommand { get; }
         public ICommand SelectThemeColorSlotCommand { get; }
@@ -1931,7 +2049,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             ICutImgAlgorithmService cutImgAlgorithmService,
             CTFolderMonitorService folderMonitorService,
             CTAutoSlicerInputHookService inputHookService,
-            ProcessMonitorService processMonitorService)
+            ProcessMonitorService processMonitorService,
+            CTAutoSlicerLocalConfigService localConfigService)
         {
             _logger = logger;
             _projectSettingRepository = projectSettingRepository;
@@ -1941,10 +2060,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _folderMonitorService = folderMonitorService;
             _inputHookService = inputHookService;
             _processMonitorService = processMonitorService;
+            _localConfigService = localConfigService;
 
             OpenVGAppPathCommand = new RelayCommand(OpenVGAppPath);
             OpenCTFileFolderCommand = new RelayCommand(OpenCTFileFolder);
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
+            OpenTopViewHandoffFolderCommand = new RelayCommand(OpenTopViewHandoffFolder);
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
@@ -1983,6 +2104,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             ConfirmManualInterventionCommand = new RelayCommand(ExecuteConfirmManualIntervention);
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
+            SwitchToSlicePipelineModeCommand = new RelayCommand(_ => IsSlicePipelineMode = true);
+            SwitchToAiPipelineModeCommand = new RelayCommand(_ => IsAiPipelineMode = true);
             SelectNavCommand = new RelayCommand(ExecuteSelectNav);
             SelectPrefSubCommand = new RelayCommand(ExecuteSelectPrefSub);
             SelectThemeColorSlotCommand = new RelayCommand(ExecuteSelectThemeColorSlot);
@@ -2565,6 +2688,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _thickPlateStepRetryCount = LoadIntSetting("ThickPlateStepRetryCount", 1);
             _thickPlateMenuAfterRightClickDelayMs = LoadIntSetting("ThickPlateMenuAfterRightClickDelayMs", 200);
             SliceExportFolder = LoadStringSetting(nameof(SliceExportFolder), string.Empty);
+            TopViewHandoffFolder = LoadStringSetting(nameof(TopViewHandoffFolder), string.Empty);
+            // 机台角色存本机 JSON（Config/CTAutoSlicer/local.json），不落共享 DB
+            PipelineRunMode = (int)_localConfigService.LoadPipelineRunMode();
+            _logger.Info(
+                $"已从本机配置恢复流水线模式：{(IsAiPipelineMode ? "AI标注" : "切图")}（{CTAutoSlicerLocalConfigService.ConfigFilePath}）");
             SliceExportImageWidth = LoadIntSetting(nameof(SliceExportImageWidth), 3000);
             SliceExportQuantity = LoadIntSetting(nameof(SliceExportQuantity), 100);
             SliceExportQuantityQj = LoadIntSetting(nameof(SliceExportQuantityQj), 150);
@@ -2689,7 +2817,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             RefreshMainWindowSizeDisplay();
 
             _enableOfflineCtVisionAnnotation =
-                LoadIntSetting(nameof(EnableOfflineCtVisionAnnotation), 1) != 0;
+                LoadIntSetting(nameof(EnableOfflineCtVisionAnnotation), 0) != 0;
             OfflineCtModelPath = LoadStringSetting(nameof(OfflineCtModelPath), string.Empty);
             _offlineCtIsRunCuda = LoadIntSetting(nameof(OfflineCtIsRunCuda), 1) != 0;
             _offlineCtBlackHeight = LoadIntSetting(
@@ -2815,6 +2943,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        private void SavePipelineRunModeToLocalConfig(int mode)
+        {
+            if (_isLoadingSettings)
+            {
+                return;
+            }
+
+            try
+            {
+                _localConfigService.SavePipelineRunMode(
+                    (Core.Models.Project.CTAutoSlicer.PipelineRunMode)Math.Clamp(mode, 0, 1));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"保存本机流水线模式失败：{CTAutoSlicerLocalConfigService.ConfigFilePath}", ex);
+                MessageShower = $"保存本机流水线模式失败：{ex.Message}";
+            }
+        }
+
         private void SaveSetting(string name, object value)
         {
             if (_isLoadingSettings)
@@ -2822,11 +2969,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (_projectSettingRepository.Exists(model => model.Name == name && model.BelongToVM == VmName))
+            // 键不存在时补建（类型用仓库可识别的短名，避免 Int32 导致下次加载失败）
+            if (!_projectSettingRepository.Exists(model => model.Name == name && model.BelongToVM == VmName))
             {
-                _projectSettingRepository.UpdateSettingValue(name, VmName, value);
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(
+                        name,
+                        VmName,
+                        Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty,
+                        ResolveSettingTypeName(value),
+                        1) { Remark = name });
+                return;
             }
+
+            _projectSettingRepository.UpdateSettingValue(name, VmName, value);
         }
+
+        /// <summary>与 EnsureSettingExists / DataTypeConverter 对齐的类型短名。</summary>
+        private static string ResolveSettingTypeName(object value) =>
+            value switch
+            {
+                int or long or short or byte or sbyte or uint or ulong or ushort => "int",
+                double or float or decimal => "double",
+                bool => "bool",
+                _ => "string",
+            };
 
         private CTAutoSlicerSettings BuildSettings()
         {
@@ -2859,6 +3026,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 ThickPlateStepRetryCount = _thickPlateStepRetryCount,
                 ThickPlateMenuAfterRightClickDelayMs = _thickPlateMenuAfterRightClickDelayMs,
                 SliceExportFolder = SliceExportFolder,
+                TopViewHandoffFolder = TopViewHandoffFolder,
+                PipelineRunMode = (Core.Models.Project.CTAutoSlicer.PipelineRunMode)Math.Clamp(
+                    _pipelineRunMode,
+                    0,
+                    1),
                 SliceExportImageWidth = SliceExportImageWidth,
                 SliceExportQuantity = SliceExportQuantity,
                 SliceExportQuantityQj = SliceExportQuantityQj,
@@ -4038,12 +4210,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             var dialog = new CommonOpenFileDialog
             {
                 IsFolderPicker = true,
+                Title = IsAiPipelineMode ? "选择标注结果根目录" : "选择切片导出保存文件夹",
                 InitialDirectory = string.IsNullOrWhiteSpace(SliceExportFolder) ? null : SliceExportFolder,
             };
 
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
             {
                 SliceExportFolder = dialog.FileName;
+            }
+        }
+
+        private void OpenTopViewHandoffFolder(object? _)
+        {
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                Title = "选择上视图交接目录",
+                InitialDirectory = string.IsNullOrWhiteSpace(TopViewHandoffFolder) ? null : TopViewHandoffFolder,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                TopViewHandoffFolder = dialog.FileName;
+            }
+        }
+
+        private bool IsNavAllowedForCurrentPipeline(int navIndex) =>
+            navIndex switch
+            {
+                NavOverview or NavPreferences or NavStepTest => true,
+                NavAiAnnotate => IsAiPipelineMode,
+                NavApp or NavImport or NavRender or NavHistogram or NavVision or NavPostAlign or NavSlice
+                    => IsSlicePipelineMode,
+                _ => true,
+            };
+
+        private void EnsureNavValidForPipelineMode()
+        {
+            if (!IsNavAllowedForCurrentPipeline(SelectedNavIndex))
+            {
+                SelectedNavIndex = NavOverview;
             }
         }
 
@@ -5018,6 +5224,69 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            if (IsAiPipelineMode)
+            {
+                await ExecuteAiAnnotationBatchAsync().ConfigureAwait(false);
+                return;
+            }
+
+            await ExecuteSlicePipelineAsync().ConfigureAwait(false);
+        }
+
+        private async Task ExecuteAiAnnotationBatchAsync()
+        {
+            if (string.IsNullOrWhiteSpace(TopViewHandoffFolder) || !Directory.Exists(TopViewHandoffFolder))
+            {
+                MessageShower = "请先选择有效的上视图交接目录";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SliceExportFolder))
+            {
+                MessageShower = "请先配置标注结果根目录";
+                return;
+            }
+
+            var images = OfflineCtAnnotationHelper.EnumerateHandoffImages(TopViewHandoffFolder);
+            if (images.Count == 0)
+            {
+                MessageShower = $"交接目录内未找到可标注图像：{TopViewHandoffFolder}";
+                return;
+            }
+
+            var flowToken = BeginActiveFlow();
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— AI 标注批次开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                await _ctAutoSlicerService
+                    .RunAiAnnotationBatchAsync(BuildSettings(), flowToken, progress);
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.InvokeAsync(() => MessageShower = ex.Message);
+                _logger.Error("AI 标注批处理异常", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteSlicePipelineAsync()
+        {
+            if (string.IsNullOrWhiteSpace(TopViewHandoffFolder))
+            {
+                MessageShower = "请先配置上视图交接目录";
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(CTFileFolder) || !Directory.Exists(CTFileFolder))
             {
                 MessageShower = "请先选择有效的 CT 体素文件夹";
@@ -5064,7 +5333,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 新批次开始 ———");
+                AppendFlowLog("——— 切图批次开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 await _ctAutoSlicerService
                     .RunSimulationAsync(BuildSettings(), flowToken, progress);
@@ -5076,7 +5345,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             catch (Exception ex)
             {
                 await Dispatcher.InvokeAsync(() => MessageShower = ex.Message);
-                _logger.Error("CT 切片流程异常", ex);
+                _logger.Error("CT 切图流程异常", ex);
             }
             finally
             {

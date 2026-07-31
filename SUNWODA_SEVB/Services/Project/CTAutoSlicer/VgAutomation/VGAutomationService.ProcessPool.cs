@@ -530,8 +530,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 导入完成后的主流程（需焦点，全局串行）：
-        /// LUT 预设 → 直方图 → 厚板 → 简单 3-2-1 → 对齐后捕捉拖拽 → 三视图切片导出。
+        /// 导入完成后的切图主流程（需焦点，全局串行）：
+        /// LUT 预设 → 直方图 → 厚板 → 简单 3-2-1 → 对齐后捕捉拖拽 → 三视图切片导出 → 上视图交接。
+        /// 阶段七 AI 标注已拆至独立「AI 标注模式」，本流程不再调用 NJCT。
         /// 独占期间暂停其他槽位的导入 UIA 轮询，禁止切换进程焦点。
         /// </summary>
         private async Task RunPostImportPipelineAsync(
@@ -603,9 +604,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         progress)
                     .ConfigureAwait(false);
 
-                await TryRunOfflineCtVisionAnnotationAsync(
+                // 切图模式终点：复制上视图送检图到交接目录；阶段七已拆到 AI 标注模式独立执行
+                await MirrorTopViewHandoffAsync(
                         settings,
-                        vglPath,
                         exportBaseName,
                         quantity,
                         cancellationToken,

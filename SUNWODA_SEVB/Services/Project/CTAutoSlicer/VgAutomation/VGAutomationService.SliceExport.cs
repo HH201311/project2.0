@@ -13,8 +13,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 {
     public partial class VGAutomationService
     {
-        // 阶段五：切片导出 + TestSliceExport
-        /// <returns>导出名与实际数量，供阶段七 AI 标注选「上」视图中间图。</returns>
+        // 阶段五：切片导出 + TestSliceExport + 上视图交接
+        /// <returns>导出名与实际数量，供交接复制 OfflineCtTopViewSliceIndex 送检图。</returns>
         private async Task<(string ExportBaseName, int Quantity)> ExportImageStackSlicesAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
@@ -1261,9 +1261,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         progress)
                     .ConfigureAwait(false);
 
-                await TryRunOfflineCtVisionAnnotationAsync(
+                await MirrorTopViewHandoffAsync(
                         settings,
-                        vglPath,
                         exportBaseName,
                         quantity,
                         cancellationToken,
@@ -1278,6 +1277,60 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 Unlock();
                 _activeVgProcess = null;
             }
+        }
+
+        /// <summary>
+        /// 将 OfflineCtTopViewSliceIndex 指定的上视图送检图复制到交接目录（硬失败）。
+        /// </summary>
+        private async Task MirrorTopViewHandoffAsync(
+            CTAutoSlicerSettings settings,
+            string exportBaseName,
+            int quantity,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(settings.TopViewHandoffFolder))
+            {
+                throw new InvalidOperationException("请先配置上视图交接目录（TopViewHandoffFolder）");
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.SliceExportFolder))
+            {
+                throw new InvalidOperationException("请先配置切片导出目录");
+            }
+
+            var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
+            if (quantity > 0 && sliceIndex > quantity)
+            {
+                sliceIndex = quantity;
+            }
+
+            var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
+                settings.SliceExportFolder,
+                exportBaseName);
+            var sourcePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
+                ?? throw new FileNotFoundException(
+                    $"未在「上」视图目录找到送检序号图（期望序号 {sliceIndex}）：{topFolder}",
+                    topFolder);
+
+            progress?.Report(
+                $"交接上视图送检图：第 {sliceIndex} 张 → {settings.TopViewHandoffFolder}");
+            _logger.Info(
+                $"交接上视图：源={sourcePath}，序号={sliceIndex}，交接目录={settings.TopViewHandoffFolder}");
+
+            var destPath = await Task.Run(
+                    () => OfflineCtAnnotationHelper.CopyTopViewImageToHandoffFolder(
+                        sourcePath,
+                        settings.TopViewHandoffFolder,
+                        exportBaseName,
+                        sliceIndex),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            progress?.Report($"上视图交接完成：{destPath}");
+            _logger.Info($"上视图交接完成：{destPath}");
         }
 
     }

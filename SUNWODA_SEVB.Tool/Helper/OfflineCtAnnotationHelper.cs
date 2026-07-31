@@ -45,6 +45,81 @@ namespace SUNWODA_SEVB.Tool.Helper
                 AnnotationFolderName);
 
         /// <summary>
+        /// 交接文件名：{exportBaseName}_{index:D3}{ext}，避免批次重名覆盖。
+        /// </summary>
+        public static string BuildHandoffFileName(string exportBaseName, int sliceIndex, string sourceImagePath)
+        {
+            var safeBase = string.IsNullOrWhiteSpace(exportBaseName)
+                ? "export"
+                : Path.GetFileName(exportBaseName.Trim());
+            var ext = Path.GetExtension(sourceImagePath);
+            if (string.IsNullOrWhiteSpace(ext)
+                || !ImageExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            {
+                ext = ".jpg";
+            }
+
+            return $"{safeBase}_{Math.Max(1, sliceIndex):D3}{ext.ToLowerInvariant()}";
+        }
+
+        /// <summary>
+        /// 将上视图送检图复制到交接目录，返回目标路径。
+        /// </summary>
+        public static string CopyTopViewImageToHandoffFolder(
+            string sourceImagePath,
+            string handoffFolder,
+            string exportBaseName,
+            int sliceIndex)
+        {
+            if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
+            {
+                throw new FileNotFoundException("待交接的上视图送检图不存在", sourceImagePath);
+            }
+
+            if (string.IsNullOrWhiteSpace(handoffFolder))
+            {
+                throw new InvalidOperationException("请先配置上视图交接目录（TopViewHandoffFolder）");
+            }
+
+            Directory.CreateDirectory(handoffFolder);
+            var destPath = Path.Combine(
+                handoffFolder,
+                BuildHandoffFileName(exportBaseName, sliceIndex, sourceImagePath));
+            File.Copy(sourceImagePath, destPath, overwrite: true);
+            return destPath;
+        }
+
+        /// <summary>
+        /// 枚举交接目录一层内的图像文件（不递归，避免扫到结果子目录）。
+        /// </summary>
+        public static IReadOnlyList<string> EnumerateHandoffImages(string handoffFolder)
+        {
+            if (string.IsNullOrWhiteSpace(handoffFolder) || !Directory.Exists(handoffFolder))
+            {
+                return Array.Empty<string>();
+            }
+
+            return Directory.EnumerateFiles(handoffFolder)
+                .Where(p => ImageExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// AI 批处理输出目录：{resultRoot}/{文件名去扩展}/AI标注
+        /// </summary>
+        public static string BuildBatchAnnotationFolder(string resultRoot, string sourceImagePath)
+        {
+            var stem = Path.GetFileNameWithoutExtension(sourceImagePath);
+            if (string.IsNullOrWhiteSpace(stem))
+            {
+                stem = "annotation";
+            }
+
+            return Path.Combine(resultRoot, stem, AnnotationFolderName);
+        }
+
+        /// <summary>
         /// 将上视图顺时针旋转 90° 后保存到 outputPath（原图不变）。主流程已改为内存旋转+input_for_njct，一般不再调用。
         /// </summary>
         public static string SaveClockwiseRotated90(string sourceImagePath, string outputPath)

@@ -307,8 +307,19 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>组合模式下拉 UIA 失败时相对对话框左上角的 Y 偏移（0=不用）</summary>
         public int ThickPlateComboFallbackOffsetY { get; set; } = 0;
 
-        /// <summary>切片导出目标目录</summary>
+        /// <summary>切片导出目标目录（AI 模式下复用为标注结果根目录）</summary>
         public string SliceExportFolder { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 流水线模式：切图 / AI 标注（两机拆分；主流程不再串行阶段七）。
+        /// </summary>
+        public PipelineRunMode PipelineRunMode { get; set; } = PipelineRunMode.SliceOnly;
+
+        /// <summary>
+        /// 上视图送检图交接根目录：切图结束后复制 OfflineCtTopViewSliceIndex 指定图到此目录；
+        /// AI 模式从此目录批量读取输入图。
+        /// </summary>
+        public string TopViewHandoffFolder { get; set; } = string.Empty;
         /// <summary>切片导出图像宽度（像素）</summary>
         public int SliceExportImageWidth { get; set; } = 3000;
         /// <summary>局部图像（非 QJ）导出数量</summary>
@@ -373,8 +384,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>2D 视图下拉项 Name（上视图）</summary>
         public string SliceExportViewTopName { get; set; } = "上 1";
 
-        /// <summary>阶段七：切片导出后是否执行 AI 图像标注</summary>
-        public bool EnableOfflineCtVisionAnnotation { get; set; } = true;
+        /// <summary>
+        /// 兼容旧配置：历史主流程「导出后跑 AI」开关。
+        /// 现行主链以 <see cref="PipelineRunMode"/> 为准，不再串行阶段七。
+        /// </summary>
+        public bool EnableOfflineCtVisionAnnotation { get; set; } = false;
 
         /// <summary>ONNX 模型绝对路径（空则使用默认 Dlls\Models\CTOffline\…）</summary>
         public string OfflineCtModelPath { get; set; } = string.Empty;

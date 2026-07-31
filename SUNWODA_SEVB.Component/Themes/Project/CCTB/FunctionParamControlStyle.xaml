@@ -1,6 +1,7 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
     xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls">
 
@@ -55,10 +56,33 @@
         <Setter Property="Height" Value="40" />
         <Setter Property="Margin" Value="0,10,0,0" />
         <Setter Property="PairKeyWidth" Value="260" />
-        <Setter Property="PairSeparateWidth" Value="10" />
-        <Setter Property="PairValueWidth" Value="Auto" />
-        <Setter Property="PairValueMaxWidth" Value="999999999999999" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <Style
+        x:Key="HCTitleValueTextBox"
+        BasedOn="{StaticResource TextBoxExtend}"
+        TargetType="TextBox">
+        <Setter Property="Height" Value="40" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="Background" Value="#0DFFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="TextAlignment" Value="Left" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="IsReadOnly" Value="False" />
+        <Setter Property="CaretBrush" Value="#FFFFFFFF" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
+        <Setter Property="hc:InfoElement.TitleWidth" Value="180" />
+        <Setter Property="hc:InfoElement.TitlePlacement" Value="Left" />
+        <Setter Property="hc:InfoElement.Symbol" Value="*" />
+        <Setter Property="hc:InfoElement.Necessary" Value="True" />
     </Style>
 
     <Style

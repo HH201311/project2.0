@@ -14,6 +14,9 @@ namespace SUNWODA_SEVB.Data.Repositories
         private new readonly ISqlSugarClient _db;
 
         private static readonly object StatisticsLock = new();
+        private static readonly object SchemaLock = new();
+
+        private static bool _schemaEnsured = false;
 
         private static readonly DateTime TotalStatisticsDate = new DateTime(1900, 1, 1);
 
@@ -29,14 +32,30 @@ namespace SUNWODA_SEVB.Data.Repositories
 
         public void EnsureTable()
         {
-            const string tableName = "detection_statistics";
-
-            if (!_db.DbMaintenance.IsAnyTable(tableName, false))
+            if (_schemaEnsured)
             {
-                _db.CodeFirst.InitTables<DetectionStatistics>();
+                return;
             }
 
-            EnsureUniqueIndex();
+            lock (SchemaLock)
+            {
+                if (_schemaEnsured)
+                {
+                    return;
+                }
+
+                const string tableName = "detection_statistics";
+
+                if (!_db.DbMaintenance.IsAnyTable(tableName, false))
+                {
+                    _db.CodeFirst.InitTables<DetectionStatistics>();
+                }
+
+                EnsureSourceTypeColumn(tableName);
+                EnsureUniqueIndex(tableName);
+
+                _schemaEnsured = true;
+            }
         }
 
         public async Task EnsureTableAsync()
@@ -44,23 +63,42 @@ namespace SUNWODA_SEVB.Data.Repositories
             await Task.Run(EnsureTable);
         }
 
-        private void EnsureUniqueIndex()
+        private void EnsureSourceTypeColumn(string tableName)
         {
-            const string tableName = "detection_statistics";
-            const string indexName = "ux_detection_statistics_key";
+            bool hasSourceType = _db.DbMaintenance.IsAnyColumn(
+                tableName,
+                "source_type",
+                false);
 
-            string sql = $@"
-                CREATE UNIQUE INDEX {indexName}
-                ON {tableName}(module_code, scope_type, statistics_date);";
+            if (hasSourceType)
+            {
+                return;
+            }
+
+            // 旧数据默认归为 All / 全部统计
+            _db.Ado.ExecuteCommand(@"
+                ALTER TABLE detection_statistics
+                ADD COLUMN source_type INT NOT NULL DEFAULT 0; ");
+        }
+
+
+
+        private void EnsureUniqueIndex(string tableName)
+        {
+            // 删除旧索引和可能存在的新索引，然后统一创建新索引
+            TryDropIndex("ux_detection_statistics_key", tableName);
+            TryDropIndex("detection_statistics_key", tableName);
 
             try
             {
-                _db.Ado.ExecuteCommand(sql);
+                _db.Ado.ExecuteCommand($@"
+                    CREATE UNIQUE INDEX ux_detection_statistics_key
+                    ON {tableName}(module_code, source_type, scope_type, statistics_date);
+                ");
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("Duplicate key name", StringComparison.OrdinalIgnoreCase) ||
-                    ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                if (IsIndexAlreadyExistsException(ex))
                 {
                     return;
                 }
@@ -69,8 +107,85 @@ namespace SUNWODA_SEVB.Data.Repositories
             }
         }
 
+        private void TryDropIndex(string indexName, string tableName)
+        {
+            try
+            {
+                // SQLite 写法
+                _db.Ado.ExecuteCommand($"DROP INDEX IF EXISTS {indexName};");
+            }
+            catch
+            {
+                try
+                {
+                    // MySQL 写法
+                    _db.Ado.ExecuteCommand($"DROP INDEX {indexName} ON {tableName};");
+                }
+                catch
+                {
+                    // 不存在则忽略
+                }
+            }
+        }
+
+        private static bool IsIndexAlreadyExistsException(Exception ex)
+        {
+            return ex.Message.Contains("Duplicate key name", StringComparison.OrdinalIgnoreCase)
+                   || ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+                   || ex.Message.Contains("已存在", StringComparison.OrdinalIgnoreCase);
+        }
+        //private static void AddOrThrowMigrationException(string message, Exception ex)
+        //{
+        //    throw new Exception($"{message}：{ex.Message}", ex);
+        //}
+        #region 查询与创建
         public DetectionStatisticsModel? GetByKey(
+           string moduleCode,
+           DetectionStatisticsSource sourceType,
+           DetectionStatisticsScope scopeType,
+           DateTime statisticsDate)
+        {
+            EnsureTable();
+            return GetByKeyCore(moduleCode, sourceType, scopeType, statisticsDate);
+        }
+
+        public async Task<DetectionStatisticsModel?> GetByKeyAsync(
             string moduleCode,
+            DetectionStatisticsSource sourceType,
+            DetectionStatisticsScope scopeType,
+            DateTime statisticsDate)
+        {
+            return await Task.Run(() =>
+                GetByKey(moduleCode, sourceType, scopeType, statisticsDate));
+        }
+
+        public DetectionStatisticsModel GetOrCreate(
+            string moduleCode,
+            DetectionStatisticsSource sourceType,
+            DetectionStatisticsScope scopeType,
+            DateTime statisticsDate)
+        {
+            EnsureTable();
+
+            lock (StatisticsLock)
+            {
+                return GetOrCreateCore(moduleCode, sourceType, scopeType, statisticsDate);
+            }
+        }
+
+        public async Task<DetectionStatisticsModel> GetOrCreateAsync(
+            string moduleCode,
+            DetectionStatisticsSource sourceType,
+            DetectionStatisticsScope scopeType,
+            DateTime statisticsDate)
+        {
+            return await Task.Run(() =>
+                GetOrCreate(moduleCode, sourceType, scopeType, statisticsDate));
+        }
+
+        private DetectionStatisticsModel? GetByKeyCore(
+            string moduleCode,
+            DetectionStatisticsSource sourceType,
             DetectionStatisticsScope scopeType,
             DateTime statisticsDate)
         {
@@ -78,98 +193,126 @@ namespace SUNWODA_SEVB.Data.Repositories
 
             return Get(model =>
                 model.ModuleCode == moduleCode &&
+                model.SourceType == (int)sourceType &&
                 model.ScopeType == (int)scopeType &&
                 model.StatisticsDate == statisticsDate);
         }
 
-        public async Task<DetectionStatisticsModel?> GetByKeyAsync(
+        private DetectionStatisticsModel GetOrCreateCore(
             string moduleCode,
+            DetectionStatisticsSource sourceType,
             DetectionStatisticsScope scopeType,
             DateTime statisticsDate)
         {
             statisticsDate = NormalizeStatisticsDate(scopeType, statisticsDate);
 
-            return await GetAsync(model =>
-                model.ModuleCode == moduleCode &&
-                model.ScopeType == (int)scopeType &&
-                model.StatisticsDate == statisticsDate);
-        }
-
-        public DetectionStatisticsModel GetOrCreate(
-            string moduleCode,
-            DetectionStatisticsScope scopeType,
-            DateTime statisticsDate)
-        {
-            EnsureTable();
-            statisticsDate = NormalizeStatisticsDate(scopeType, statisticsDate);
-
-            var model = GetByKey(moduleCode, scopeType, statisticsDate);
+            var model = GetByKeyCore(moduleCode, sourceType, scopeType, statisticsDate);
             if (model != null)
             {
                 return model;
             }
 
-            var newModel = CreateEmptyModel(moduleCode, scopeType, statisticsDate);
-            Add(newModel);
+            var newModel = CreateEmptyModel(
+                moduleCode,
+                sourceType,
+                scopeType,
+                statisticsDate);
 
-            return GetByKey(moduleCode, scopeType, statisticsDate) ?? newModel;
-        }
-
-        public async Task<DetectionStatisticsModel> GetOrCreateAsync(
-            string moduleCode,
-            DetectionStatisticsScope scopeType,
-            DateTime statisticsDate)
-        {
-            statisticsDate = NormalizeStatisticsDate(scopeType, statisticsDate);
-
-            var model = await GetByKeyAsync(moduleCode, scopeType, statisticsDate);
-            if (model != null)
+            try
             {
-                return model;
+                Add(newModel);
+            }
+            catch
+            {
+                // 多实例或并发场景下，可能被其他线程/进程抢先插入
+                var existed = GetByKeyCore(moduleCode, sourceType, scopeType, statisticsDate);
+                if (existed != null)
+                {
+                    return existed;
+                }
+
+                throw;
             }
 
-            var newModel = CreateEmptyModel(moduleCode, scopeType, statisticsDate);
-            await AddAsync(newModel);
-
-            return await GetByKeyAsync(moduleCode, scopeType, statisticsDate) ?? newModel;
+            return GetByKeyCore(moduleCode, sourceType, scopeType, statisticsDate) ?? newModel;
         }
+        #endregion
+
+
+        #region 统计累加
 
         public DetectionStatisticsModel Increment(
             string moduleCode,
             DateTime today,
+            DetectionStatisticsSource sourceType,
             string detectionResult,
             IEnumerable<string>? triggeredDefects)
         {
             EnsureTable();
             today = today.Date;
 
+            if (sourceType == DetectionStatisticsSource.All)
+            {
+                throw new ArgumentException(
+                    "Increment 必须明确传入 Online 或 Offline，不能传 All。",
+                    nameof(sourceType));
+            }
+
+            if (!IsCountableResult(detectionResult))
+            {
+                return GetOrCreate(
+                    moduleCode,
+                    DetectionStatisticsSource.All,
+                    DetectionStatisticsScope.Total,
+                    TotalStatisticsDate);
+            }
+
             lock (StatisticsLock)
             {
-                try
-                {
-                    // 测试连接是否可用
-                    _db.Ado.CheckConnection();
-                }
-                catch
-                {
-                    // 尝试重新打开连接
-                    _db.Open();
-                }
+                EnsureConnection();
 
                 _db.Ado.BeginTran();
+
                 try
                 {
-                    var total = GetOrCreate(moduleCode, DetectionStatisticsScope.Total, TotalStatisticsDate);
-                    var daily = GetOrCreate(moduleCode, DetectionStatisticsScope.Daily, today);
+                    var allTotal = GetOrCreateCore(
+                        moduleCode,
+                        DetectionStatisticsSource.All,
+                        DetectionStatisticsScope.Total,
+                        TotalStatisticsDate);
 
-                    ApplyIncrement(total, detectionResult, triggeredDefects);
-                    ApplyIncrement(daily, detectionResult, triggeredDefects);
+                    var allDaily = GetOrCreateCore(
+                        moduleCode,
+                        DetectionStatisticsSource.All,
+                        DetectionStatisticsScope.Daily,
+                        today);
 
-                    Update(total);
-                    Update(daily);
+                    var sourceTotal = GetOrCreateCore(
+                        moduleCode,
+                        sourceType,
+                        DetectionStatisticsScope.Total,
+                        TotalStatisticsDate);
+
+                    var sourceDaily = GetOrCreateCore(
+                        moduleCode,
+                        sourceType,
+                        DetectionStatisticsScope.Daily,
+                        today);
+
+                    ApplyIncrement(allTotal, detectionResult, triggeredDefects);
+                    ApplyIncrement(allDaily, detectionResult, triggeredDefects);
+                    ApplyIncrement(sourceTotal, detectionResult, triggeredDefects);
+                    ApplyIncrement(sourceDaily, detectionResult, triggeredDefects);
+
+                    Update(allTotal);
+                    Update(allDaily);
+                    Update(sourceTotal);
+                    Update(sourceDaily);
 
                     _db.Ado.CommitTran();
-                    return total;
+
+                    // 保持原有界面兼容：返回全部总统计
+                    return allTotal;
                 }
                 catch
                 {
@@ -182,43 +325,59 @@ namespace SUNWODA_SEVB.Data.Repositories
         public async Task<DetectionStatisticsModel> IncrementAsync(
             string moduleCode,
             DateTime today,
+            DetectionStatisticsSource sourceType,
             string detectionResult,
             IEnumerable<string>? triggeredDefects)
         {
             return await Task.Run(() =>
-                Increment(moduleCode, today, detectionResult, triggeredDefects));
+                Increment(moduleCode, today, sourceType, detectionResult, triggeredDefects));
         }
 
-        public bool ClearTotalAndToday(string moduleCode, DateTime today)
+        #endregion
+
+        #region 清零
+
+        public bool ClearTotalAndToday(
+            string moduleCode,
+            DateTime today,
+            DetectionStatisticsSource sourceType = DetectionStatisticsSource.All,
+            bool clearAllSources = true)
         {
             EnsureTable();
             today = today.Date;
 
             lock (StatisticsLock)
             {
+                EnsureConnection();
+
                 _db.Ado.BeginTran();
 
                 try
                 {
-                    var total = GetOrCreate(
-                        moduleCode,
-                        DetectionStatisticsScope.Total,
-                        TotalStatisticsDate);
+                    bool result = true;
 
-                    var daily = GetOrCreate(
-                        moduleCode,
-                        DetectionStatisticsScope.Daily,
-                        today);
+                    if (clearAllSources || sourceType == DetectionStatisticsSource.All)
+                    {
+                        foreach (var source in new[]
+                        {
+                            DetectionStatisticsSource.All,
+                            DetectionStatisticsSource.Online,
+                            DetectionStatisticsSource.Offline
+                        })
+                        {
+                            result = ResetSourceTotalAndToday(moduleCode, today, source) && result;
+                        }
+                    }
+                    else
+                    {
+                        result = ResetSourceTotalAndToday(moduleCode, today, sourceType) && result;
 
-                    ResetStatistics(total);
-                    ResetStatistics(daily);
-
-                    bool totalResult = Update(total);
-                    bool dailyResult = Update(daily);
+                        // 清除单一来源后，重新汇总 All，避免 All 与 Online/Offline 不一致
+                        RebuildAllStatisticsFromSources(moduleCode, today);
+                    }
 
                     _db.Ado.CommitTran();
-
-                    return totalResult && dailyResult;
+                    return result;
                 }
                 catch
                 {
@@ -228,19 +387,98 @@ namespace SUNWODA_SEVB.Data.Repositories
             }
         }
 
-        public async Task<bool> ClearTotalAndTodayAsync(string moduleCode, DateTime today)
+        public async Task<bool> ClearTotalAndTodayAsync(
+            string moduleCode,
+            DateTime today,
+            DetectionStatisticsSource sourceType = DetectionStatisticsSource.All,
+            bool clearAllSources = true)
         {
-            return await Task.Run(() => ClearTotalAndToday(moduleCode, today));
+            return await Task.Run(() =>
+                ClearTotalAndToday(moduleCode, today, sourceType, clearAllSources));
         }
+
+        private bool ResetSourceTotalAndToday(
+            string moduleCode,
+            DateTime today,
+            DetectionStatisticsSource sourceType)
+        {
+            var total = GetOrCreateCore(
+                moduleCode,
+                sourceType,
+                DetectionStatisticsScope.Total,
+                TotalStatisticsDate);
+
+            var daily = GetOrCreateCore(
+                moduleCode,
+                sourceType,
+                DetectionStatisticsScope.Daily,
+                today);
+
+            ResetStatistics(total);
+            ResetStatistics(daily);
+
+            return Update(total) && Update(daily);
+        }
+
+        private void RebuildAllStatisticsFromSources(string moduleCode, DateTime today)
+        {
+            var allTotal = GetOrCreateCore(
+                moduleCode,
+                DetectionStatisticsSource.All,
+                DetectionStatisticsScope.Total,
+                TotalStatisticsDate);
+
+            var allDaily = GetOrCreateCore(
+                moduleCode,
+                DetectionStatisticsSource.All,
+                DetectionStatisticsScope.Daily,
+                today);
+
+            var onlineTotal = GetOrCreateCore(
+                moduleCode,
+                DetectionStatisticsSource.Online,
+                DetectionStatisticsScope.Total,
+                TotalStatisticsDate);
+
+            var offlineTotal = GetOrCreateCore(
+                moduleCode,
+                DetectionStatisticsSource.Offline,
+                DetectionStatisticsScope.Total,
+                TotalStatisticsDate);
+
+            var onlineDaily = GetOrCreateCore(
+                moduleCode,
+                DetectionStatisticsSource.Online,
+                DetectionStatisticsScope.Daily,
+                today);
+
+            var offlineDaily = GetOrCreateCore(
+                moduleCode,
+                DetectionStatisticsSource.Offline,
+                DetectionStatisticsScope.Daily,
+                today);
+
+            MergeStatistics(allTotal, onlineTotal, offlineTotal);
+            MergeStatistics(allDaily, onlineDaily, offlineDaily);
+
+            Update(allTotal);
+            Update(allDaily);
+        }
+
+        #endregion
+
+        #region 内部统计逻辑
 
         private static DetectionStatisticsModel CreateEmptyModel(
             string moduleCode,
+            DetectionStatisticsSource sourceType,
             DetectionStatisticsScope scopeType,
             DateTime statisticsDate)
         {
             return new DetectionStatisticsModel
             {
                 ModuleCode = moduleCode,
+                SourceType = (int)sourceType,
                 ScopeType = (int)scopeType,
                 StatisticsDate = NormalizeStatisticsDate(scopeType, statisticsDate),
                 TotalCount = 0,
@@ -249,7 +487,7 @@ namespace SUNWODA_SEVB.Data.Repositories
                 OKRate = 0,
                 DefectNGJson = "{}",
                 LastUpdateTime = DateTime.Now,
-                Remark = scopeType == DetectionStatisticsScope.Total ? "总统计" : "每日统计"
+                Remark = $"{GetSourceName(sourceType)}-{GetScopeName(scopeType)}"
             };
         }
 
@@ -258,8 +496,7 @@ namespace SUNWODA_SEVB.Data.Repositories
             string detectionResult,
             IEnumerable<string>? triggeredDefects)
         {
-            if (!string.Equals(detectionResult, "OK", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(detectionResult, "NG", StringComparison.OrdinalIgnoreCase))
+            if (!IsCountableResult(detectionResult))
             {
                 return;
             }
@@ -285,23 +522,21 @@ namespace SUNWODA_SEVB.Data.Repositories
                             continue;
                         }
 
-                        if (!defectMap.ContainsKey(defect))
+                        string defectKey = defect.Trim();
+
+                        if (!defectMap.ContainsKey(defectKey))
                         {
-                            defectMap[defect] = 0;
+                            defectMap[defectKey] = 0;
                         }
 
-                        defectMap[defect]++;
+                        defectMap[defectKey]++;
                     }
                 }
 
                 model.DefectNGJson = JsonSerializer.Serialize(defectMap, JsonOptions);
             }
 
-            model.OKRate = model.TotalCount > 0
-                ? Math.Round((double)model.OKCount / model.TotalCount * 100, 2)
-                : 0;
-
-            model.LastUpdateTime = DateTime.Now;
+            RefreshRateAndTime(model);
         }
 
         private static void ResetStatistics(DetectionStatisticsModel model)
@@ -312,6 +547,50 @@ namespace SUNWODA_SEVB.Data.Repositories
             model.OKRate = 0;
             model.DefectNGJson = "{}";
             model.ResetTime = DateTime.Now;
+            model.LastUpdateTime = DateTime.Now;
+        }
+
+        private static void MergeStatistics(
+            DetectionStatisticsModel target,
+            DetectionStatisticsModel sourceA,
+            DetectionStatisticsModel sourceB)
+        {
+            target.TotalCount = sourceA.TotalCount + sourceB.TotalCount;
+            target.OKCount = sourceA.OKCount + sourceB.OKCount;
+            target.NGCount = sourceA.NGCount + sourceB.NGCount;
+            target.DefectNGJson = JsonSerializer.Serialize(
+                MergeDefectMaps(sourceA.DefectNGJson, sourceB.DefectNGJson),
+                JsonOptions);
+
+            RefreshRateAndTime(target);
+        }
+
+        private static Dictionary<string, int> MergeDefectMaps(
+            string? defectJsonA,
+            string? defectJsonB)
+        {
+            var result = DeserializeDefectMap(defectJsonA);
+            var second = DeserializeDefectMap(defectJsonB);
+
+            foreach (var item in second)
+            {
+                if (!result.ContainsKey(item.Key))
+                {
+                    result[item.Key] = 0;
+                }
+
+                result[item.Key] += item.Value;
+            }
+
+            return result;
+        }
+
+        private static void RefreshRateAndTime(DetectionStatisticsModel model)
+        {
+            model.OKRate = model.TotalCount > 0
+                ? Math.Round((double)model.OKCount / model.TotalCount * 100, 2)
+                : 0;
+
             model.LastUpdateTime = DateTime.Now;
         }
 
@@ -333,6 +612,24 @@ namespace SUNWODA_SEVB.Data.Repositories
             }
         }
 
+        private static bool IsCountableResult(string detectionResult)
+        {
+            return string.Equals(detectionResult, "OK", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(detectionResult, "NG", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void EnsureConnection()
+        {
+            try
+            {
+                _db.Ado.CheckConnection();
+            }
+            catch
+            {
+                _db.Open();
+            }
+        }
+
         private static DateTime NormalizeStatisticsDate(
             DetectionStatisticsScope scopeType,
             DateTime statisticsDate)
@@ -341,5 +638,28 @@ namespace SUNWODA_SEVB.Data.Repositories
                 ? TotalStatisticsDate
                 : statisticsDate.Date;
         }
+
+        private static string GetSourceName(DetectionStatisticsSource sourceType)
+        {
+            return sourceType switch
+            {
+                DetectionStatisticsSource.All => "全部统计",
+                DetectionStatisticsSource.Online => "在线统计",
+                DetectionStatisticsSource.Offline => "离线统计",
+                _ => "未知来源"
+            };
+        }
+
+        private static string GetScopeName(DetectionStatisticsScope scopeType)
+        {
+            return scopeType switch
+            {
+                DetectionStatisticsScope.Total => "总统计",
+                DetectionStatisticsScope.Daily => "每日统计",
+                _ => "未知范围"
+            };
+        }
+
+        #endregion
     }
 }

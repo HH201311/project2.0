@@ -47,8 +47,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
                             .Subscribe(_ => Dispatcher?.Invoke(DrawChart));
         }
 
-        public ObservableCollection<string> Columns { get; set; } = new();
-        public ObservableCollection<List<CellItem>> Rows { get; set; } = new();
+        public ObservableCollection<string> Columns { get; set; } = [];
+        public ObservableCollection<List<CellItem>> Rows { get; set; } = [];
 
         #region ItemsSource
         public ObservableCollection<CCDModel> ItemsSource
@@ -103,18 +103,13 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
 
         private void DrawChart()
         {
-            var sw = new Stopwatch();
-            sw.Start();
             // 获取最大列数
             var maxCount = GetMaxFilmCount();
             if (maxCount == 0) return;
-
             // 更新表头
             UpdateColumns(maxCount);
             // 更新数据行
             UpdateRows(maxCount);
-            sw.Stop();
-            var t = sw.ElapsedMilliseconds;
         }
 
         /// <summary>

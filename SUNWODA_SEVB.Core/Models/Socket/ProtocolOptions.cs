@@ -1,4 +1,6 @@
 ﻿
+using SUNWODA_SEVB.Core.Common;
+
 namespace SUNWODA_SEVB.Core.Models.Socket
 {
     /// <summary>
@@ -31,59 +33,71 @@ namespace SUNWODA_SEVB.Core.Models.Socket
         /// </summary>
         None
     }
+
     /// <summary>
     /// 协议配置选项
     /// </summary>
-    public class ProtocolOptions
+    public class ProtocolOptions : ModelBase
     {
+        private FramingMode framingMode = FramingMode.StartEndDelimiter;
+        private byte[]? startDelimiter = new byte[] { 0x02 };
+        private byte[]? endDelimiter = new byte[] { 0x03 };
+        private int fixedFrameLength = 1024;
+        private int lengthFieldOffset = 0;
+        private int lengthFieldSize = 4;
+        private bool lengthIncludesHeader = false;
+        private bool bigEndian = false;
+        private bool stripDelimiters = true;
+        private int maxFrameLength = 65536;
+
         /// <summary>
         /// 分包模式
         /// </summary>
-        public FramingMode FramingMode { get; set; } = FramingMode.StartEndDelimiter;
+        public FramingMode FramingMode { get => framingMode; set => SetProperty(ref framingMode, value); }
 
         /// <summary>
         /// 起始符 (可为null表示无起始符)
         /// </summary>
-        public byte[]? StartDelimiter { get; set; } = new byte[] { 0x02 };
+        public byte[]? StartDelimiter { get => startDelimiter; set => SetProperty(ref startDelimiter, value); }
 
         /// <summary>
         /// 结束符 (可为null表示无结束符)
         /// </summary>
-        public byte[]? EndDelimiter { get; set; } = new byte[] { 0x03 };
+        public byte[]? EndDelimiter { get => endDelimiter; set => SetProperty(ref endDelimiter, value); }
 
         /// <summary>
         /// 固定长度 (FixedLength模式使用)
         /// </summary>
-        public int FixedFrameLength { get; set; } = 1024;
+        public int FixedFrameLength { get => fixedFrameLength; set => SetProperty(ref fixedFrameLength, value); }
 
         /// <summary>
         /// 长度字段偏移量 (LengthPrefixed模式使用)
         /// </summary>
-        public int LengthFieldOffset { get; set; } = 0;
+        public int LengthFieldOffset { get => lengthFieldOffset; set => SetProperty(ref lengthFieldOffset, value); }
 
         /// <summary>
         /// 长度字段字节数 (1, 2, 4)
         /// </summary>
-        public int LengthFieldSize { get; set; } = 4;
+        public int LengthFieldSize { get => lengthFieldSize; set => SetProperty(ref lengthFieldSize, value); }
 
         /// <summary>
         /// 长度值是否包含头部长度
         /// </summary>
-        public bool LengthIncludesHeader { get; set; } = false;
+        public bool LengthIncludesHeader { get => lengthIncludesHeader; set => SetProperty(ref lengthIncludesHeader, value); }
 
         /// <summary>
         /// 是否使用大端字节序
         /// </summary>
-        public bool BigEndian { get; set; } = false;
+        public bool BigEndian { get => bigEndian; set => SetProperty(ref bigEndian, value); }
 
         /// <summary>
         /// 是否在解析后移除起止符
         /// </summary>
-        public bool StripDelimiters { get; set; } = true;
+        public bool StripDelimiters { get => stripDelimiters; set => SetProperty(ref stripDelimiters, value); }
 
         /// <summary>
         /// 最大帧长度 (防止内存溢出)
         /// </summary>
-        public int MaxFrameLength { get; set; } = 65536;
+        public int MaxFrameLength { get => maxFrameLength; set => SetProperty(ref maxFrameLength, value); }
     }
 }

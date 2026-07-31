@@ -25,6 +25,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
         private bool _isNavigationExpanded = false;
         private GridLength _navigationColumnDefinitionWidth;
         private bool _isExiting = false;
+        private string _contactName = string.Empty;
+        private string _contactMethod = string.Empty;
 
         // 添加导航防抖
         private CancellationTokenSource? _navigationCts;
@@ -65,6 +67,23 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
         {
             get => _isNavigationExpanded;
             set => SetProperty(ref _isNavigationExpanded, value);
+        }
+        /// <summary>
+        /// 联系人姓名
+        /// </summary>
+        public string ContactName
+        {
+            get => _contactName;
+            set => SetProperty(ref _contactName, value);
+        }
+
+        /// <summary>
+        /// 联系方式
+        /// </summary>
+        public string ContactMethod
+        {
+            get => _contactMethod;
+            set => SetProperty(ref _contactMethod, value);
         }
         /// <summary>
         /// 是否正在退出
@@ -109,6 +128,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
             MenuItems = new ObservableCollection<ModuleInfo>(
                 _moduleManager.GetModulesByType(ModuleType.Normal)
             );
+            LoadContactInfo();
 
             NavigateCommand = new RelayCommand(ExecuteNavigate);
             SettingsCommand = new RelayCommand(
@@ -152,6 +172,39 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
                 }
             }
             _logger.Info("预加载业务模块完成");
+        }
+
+        private void LoadContactInfo()
+        {
+            try
+            {
+                ContactName =
+                    _globalSettingRepository.GetSettingValue("ContactName")
+                    ?? string.Empty;
+
+                ContactMethod =
+                    _globalSettingRepository.GetSettingValue("ContactMethod")
+                    ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(ContactName))
+                {
+                    ContactName = "暂无联系人";
+                }
+
+                if (string.IsNullOrWhiteSpace(ContactMethod))
+                {
+                    ContactMethod = "暂无联系方式";
+                }
+
+                _logger.Info($"联系人信息加载完成");
+            }
+            catch (Exception ex)
+            {
+                ContactName = "联系人加载失败";
+                ContactMethod = string.Empty;
+
+                _logger.Error("从全局配置表加载联系人信息失败", ex);
+            }
         }
 
         private async void NavigateToDefaultAsync()

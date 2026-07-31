@@ -46,23 +46,48 @@
                 Content="停止监控"
                 Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" />
 
+            <Separator
+                Margin="10,0"
+                Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
+
+            <!--  顶部相机状态  -->
+            <Ellipse
+                Width="10"
+                Height="10"
+                Margin="5,0,2,0"
+                Fill="{Binding Cam1StatusColor}" />
             <TextBlock
-                Margin="20,0,0,0"
                 VerticalAlignment="Center"
-                FontWeight="Bold"
-                Foreground="DarkGray"
-                Text="当前系统状态: " />
+                Foreground="{Binding Cam1StatusColor}"
+                Text="{Binding Cam1Status, StringFormat='顶部: {0}'}" />
+
+            <!--  左部相机状态  -->
+            <Ellipse
+                Width="10"
+                Height="10"
+                Margin="15,0,2,0"
+                Fill="{Binding Cam2StatusColor}" />
             <TextBlock
-                Margin="5,0,0,0"
                 VerticalAlignment="Center"
-                Foreground="{Binding IsProcessing, Converter={StaticResource BooleanToBrushConverter}}"
-                Text="{Binding StatusMessage}" />
+                Foreground="{Binding Cam2StatusColor}"
+                Text="{Binding Cam2Status, StringFormat='左部: {0}'}" />
+
+            <!--  右部相机状态  -->
+            <Ellipse
+                Width="10"
+                Height="10"
+                Margin="15,0,2,0"
+                Fill="{Binding Cam3StatusColor}" />
+            <TextBlock
+                VerticalAlignment="Center"
+                Foreground="{Binding Cam3StatusColor}"
+                Text="{Binding Cam3Status, StringFormat='右部: {0}'}" />
         </StackPanel>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="275" />
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0" Margin="0,0,10,0">

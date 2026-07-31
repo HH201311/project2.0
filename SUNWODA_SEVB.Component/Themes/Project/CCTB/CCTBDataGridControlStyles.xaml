@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:hc="https://handyorg.github.io/handycontrol">
 
-    <Style TargetType="DataGridColumnHeader">
+    <Style x:Key="CustomDataGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="Height" Value="50" />
         <Setter Property="Background" Value="#0DFFFFFF" />
@@ -16,13 +16,15 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
-    <Style TargetType="DataGridRow">
+    <Style x:Key="CustomDataGridRowStyle" TargetType="DataGridRow">
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinHeight" Value="50" />
         <Setter Property="BorderThickness" Value="0,0,0,0.5" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="#1AFFFFFF" />
         <Setter Property="Foreground" Value="#99FFFFFF" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Style.Triggers>
@@ -32,12 +34,14 @@
         </Style.Triggers>
     </Style>
 
-    <Style TargetType="DataGridCell">
+    <Style x:Key="CustomDataGridCellStyle" TargetType="DataGridCell">
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinHeight" Value="40" />
         <Setter Property="BorderThickness" Value="0,0,0.5,0" />
         <Setter Property="BorderBrush" Value="#1AFFFFFF" />
         <Setter Property="Foreground" Value="#99FFFFFF" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Style.Triggers>
@@ -81,5 +85,8 @@
         <Setter Property="SelectionUnit" Value="FullRow" />
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
         <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource CustomDataGridColumnHeaderStyle}" />
+        <Setter Property="RowStyle" Value="{StaticResource CustomDataGridRowStyle}" />
+        <Setter Property="CellStyle" Value="{StaticResource CustomDataGridCellStyle}" />
     </Style>
 </ResourceDictionary>

@@ -48,37 +48,19 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB
             ClosedLoopSettingModel.BootUp_EBootUpType = bootUpType;
         }
 
-        public ICommand CloseCommand => new RelayCommand(Close);
+        /// <summary>
+        /// 关闭
+        /// </summary>
+        public ICommand CloseCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
 
         /// <summary>
         /// 确认
         /// </summary>
-        public ICommand ConfirmCommand => new RelayCommand(Confirm);
+        public ICommand ConfirmCommand => new RelayCommand(() => { Result = true; CloseAction?.Invoke(); });
 
         /// <summary>
         /// 取消
         /// </summary>
-        public ICommand CancleCommand => new RelayCommand(Cancle);
-
-        private void Close()
-        {
-            Result = false;
-            CloseAction?.Invoke();
-        }
-
-        /// <summary>
-        /// 确认
-        /// </summary>
-        private void Confirm()
-        {
-            Result = true;
-            CloseAction?.Invoke();
-        }
-
-        private void Cancle()
-        {
-            Result = false;
-            CloseAction?.Invoke();
-        }
+        public ICommand CancleCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
     }
 }

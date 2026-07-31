@@ -54,17 +54,15 @@
                     Content="分区干膜净重数据"
                     IsChecked="{Binding ItemSource.IsUseDryFilmNetDataOfPartitioned, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     Style="{StaticResource ParamCheckBoxStyle}" />
-
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率" />
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="采集频率（客户端）" />
                 <uccc:PairContentControl PairKeyText="面密度数据采集频率(s/次)" Style="{StaticResource PPairContentControlStyle}">
                     <TextBox
                         d:Text="1"
                         Style="{StaticResource PValueTextBoxStyle}"
                         Text="{Binding ItemSource.CollectFrequencyOfWeightData, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                 </uccc:PairContentControl>
-
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
                 <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据保存" />

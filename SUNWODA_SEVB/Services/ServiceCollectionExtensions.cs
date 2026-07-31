@@ -1,11 +1,13 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using RemoteFileMonitor.Abstractions;
 using RemoteFileMonitor.Extensions;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Services.Project.CTOL;
 using SUNWODA_SEVB.Services.Project.CTOL.Processing;
+using SUNWODA_SEVB.Services.Project.JRRY;
 
 namespace SUNWODA_SEVB.Services
 {
@@ -114,7 +116,7 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<RemoteFileMonitorConfigService>();
             services.AddSingleton<GapThresholdService>();
             services.AddSingleton<BarcodeGroupingService>();
-            services.AddSingleton<InspectionResultService>();
+            services.AddSingleton<Project.CTOL.InspectionResultService>();
             services.AddSingleton<ProcessingResultService>();
             services.AddHostedService(sp => sp.GetRequiredService<BarcodeGroupingService>());
             services.AddSingleton<GapCsvService>();        // 间隙值 CSV 按天写入服务
@@ -124,6 +126,23 @@ namespace SUNWODA_SEVB.Services
             services.Configure<DailyUploadOptions>(configuration.GetSection("DailyUpload"));
             services.AddSingleton<DailyUploadService>();
             services.AddHostedService(sp => sp.GetRequiredService<DailyUploadService>());
+
+            return services;
+        }
+
+        /// <summary>
+        /// 添加极耳冗余项目远程文件监控服务
+        /// </summary>    
+        public static IServiceCollection AddJRRYRemoteFileMonitor(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddRemoteFileMonitor(configuration);            
+            services.AddSingleton<ThresholdService>();
+            services.AddSingleton<ResultAggregator>();
+            services.AddSingleton<ProcessingResultService>();
+            services.AddSingleton<RemoteFileMonitorConfigService>();
+            services.AddSingletonFileProcessor<ImageProcessor>();
+            services.AddHostedService<ModelPreloader>();
+            services.AddSingleton<Project.JRRY.InspectionResultService>();
 
             return services;
         }

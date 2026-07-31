@@ -10,7 +10,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.ArithmeticModels
     /// Python算法输出结果类
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class PyResultModel<TInPut, TOutPut>
+    public class PyResultModel<TInPut, TResult>
     {
         /// <summary>
         /// python执行结果
@@ -30,7 +30,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.ArithmeticModels
         /// <summary>
         /// python解析后的算法结果
         /// </summary>
-        public TOutPut? Result { get; set; }
+        public TResult? Result { get; set; }
 
         /// <summary>
         /// python算法结果信息

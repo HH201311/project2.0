@@ -50,6 +50,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.STC.Results
         public string? Message { get; set; }
         public int TraceLogId { get; set; }
         public List<CurveDataPoint> DataPoints { get; set; } = new();
+        /// <summary>
+        /// 供应商 fld_final_angle。
+        /// 优先使用该值；没有时可以回退使用 rec.AngleValue。
+        /// </summary>
+        public double? FinalAngle { get; set; }
+
+        /// <summary>
+        /// 供应商 fld_asc。
+        /// 大于 0 时，DataPoints[i].Angle 表示角度增量原始值。
+        /// 小于等于 0 时，DataPoints[i].Angle 直接表示角度。
+        /// </summary>
+        public double AngleIncrementFactor { get; set; }
 
         public double[] Angles => DataPoints.Select(p => p.Angle).ToArray();
         public double[] Torques => DataPoints.Select(p => p.Torque).ToArray();

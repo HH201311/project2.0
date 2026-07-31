@@ -3,6 +3,7 @@ using System.Text;
 
 namespace SUNWODA_SEVB.Core.Models.Socket
 {
+    #region SocketServer
     /// <summary>
     /// 数据接收事件参数
     /// </summary>
@@ -40,4 +41,33 @@ namespace SUNWODA_SEVB.Core.Models.Socket
         public Exception? Exception { get; init; }
         public string? ClientEndPoint { get; init; }
     }
+    #endregion
+
+    #region SocketClient
+    /// <summary>
+    /// 数据接收事件参数
+    /// </summary>
+    public class ClientDataReceivedEventArgs : EventArgs
+    {
+        public string RemoteEndPoint { get; init; } = string.Empty;
+        public byte[] Data { get; init; } = Array.Empty<byte>();
+        public DateTime ReceivedTime { get; init; } = DateTime.Now;
+
+        public string GetDataAsString(Encoding? encoding = null)
+        {
+            encoding ??= Encoding.UTF8;
+            return encoding.GetString(Data);
+        }
+    }
+
+    /// <summary>
+    /// 客户端错误事件参数
+    /// </summary>
+    public class ClientErrorEventArgs : EventArgs
+    {
+        public string Message { get; init; } = string.Empty;
+        public Exception? Exception { get; init; }
+        public string? RemoteEndPoint { get; init; }
+    }
+    #endregion
 }

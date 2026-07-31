@@ -3,43 +3,10 @@
         "DatabaseDirectory": "database",
         "Targets": [
             {
-                "Id": "LAB",
-                "RemotePath": "E:\\LAB",
-                "OutputDirectory": "E:\\IMEResult\\LAB",
-                "Filter": "*origin.png",
-                "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
-                "WatcherBufferSizeBytes": 65536,
-                "AutoStart": false
-            },
-            {
-                "Id": "LCD",
-                "RemotePath": "E:\\LCD",
-                "OutputDirectory": "E:\\IMEResult\\LCD",
-                "Filter": "*origin.png",
-                "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
-                "WatcherBufferSizeBytes": 65536,
-                "AutoStart": false
-            },
-            {
-                "Id": "RAB",
-                "RemotePath": "E:\\RAB",
-                "OutputDirectory": "E:\\IMEResult\\RAB",
-                "Filter": "*origin.png",
-                "IncludeSubdirectories": true,
-                "PollingIntervalSeconds": 30,
-                "PollingOverlapSeconds": 5,
-                "WatcherBufferSizeBytes": 65536,
-                "AutoStart": false
-            },
-            {
-                "Id": "RCD",
-                "RemotePath": "E:\\RCD",
-                "OutputDirectory": "E:\\IMEResult\\RCD",
-                "Filter": "*origin.png",
+                "Id": "JRRY",
+                "RemotePath": "D:\\Users\\2207130097\\Desktop\\项目\\极耳冗余\\算法模型\\images",
+                "OutputDirectory": "D:\\SEVB\\SUNWODA\\SUNWODA_SEVB\\bin\\Debug\\极耳冗余项目\\IMEResult",
+                "Filter": "*cutImage*.png",
                 "IncludeSubdirectories": true,
                 "PollingIntervalSeconds": 30,
                 "PollingOverlapSeconds": 5,
@@ -47,18 +14,5 @@
                 "AutoStart": false
             }
         ]
-    },
-    "BarcodeGrouping": {
-        "ImagesPerBarcode": 8,
-        "BarcodeTimeoutSeconds": 600,
-        "DefectTypePriorities": [ "负极边缘间隙不良", "正极边缘间隙不良", "正极中间间隙不良", "负极压伤", "负极突起", "负极多片", "正极Y方向掉片", "OH不良", "负极少片", "正极少片", "正极多片", "负极差不良" ],
-        "TimeoutFolderName": "超时未达八张"
-    },
-    "DailyUpload": {
-        "Enabled": false,
-        "UploadTargetDirectory": "\\\\10.178.5.10\\生产数据暂存（如空间不足，请自行删除文件）\\C06CT看图（中工序）（A线）勿删\\IMEResult",
-        "UploadDefectTypes": [ "负极多片", "负极边缘间隙不良", "正极边缘间隙不良", "正极中间间隙不良", "负极压伤", "正极Y方向掉片" ],
-        "TriggerHour": 0,
-        "TriggerMinute": 5
     }
 }

@@ -41,7 +41,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
 
 
     public class WebApiSendResponse : BaseResponse
-    {     
+    {
     }
 
     /// <summary>
@@ -109,8 +109,28 @@ namespace SUNWODA_SEVB.Core.Models.Web
     /// </summary>
     public class FileVersionResponse
     {
+        /// <summary>
+        /// 返回代码
+        /// </summary>
+        [JsonPropertyName("code")]
+        public string? Code { get; set; }
+
+        /// <summary>
+        /// 结果
+        /// </summary>
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
+
+        /// <summary>
+        /// 信息
+        /// </summary>
+        [JsonPropertyName("message")]
         public string? Message { get; set; }
+
+        /// <summary>
+        /// 版本号
+        /// </summary>
+        [JsonPropertyName("data")]
         public string? Version { get; set; }
     }
 
@@ -124,7 +144,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } 
+        public string? Data { get; set; }
     }
 
     /// <summary>
@@ -136,8 +156,8 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } 
-    }    
+        public string? Data { get; set; }
+    }
 
     /// <summary>
     /// UE端数据接收接口响应
@@ -149,7 +169,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } 
+        public string? Data { get; set; }
     }
 
     /// <summary>
@@ -162,7 +182,7 @@ namespace SUNWODA_SEVB.Core.Models.Web
         /// 返回信息
         /// </summary>
         [JsonPropertyName("data")]
-        public string? Data { get; set; } 
+        public string? Data { get; set; }
     }
 
     #region 螺丝拧紧曲线相关

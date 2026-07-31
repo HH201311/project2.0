@@ -13,10 +13,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
     /// <summary>
     /// 算法参数模型类
     /// </summary>
-    public class ArithmeticModel : ModelBase
+    public class AlgorithmModel : ModelBase
     {
         private bool isEnable;
-        private string? arithmeticName;
+        private string algorithmName = string.Empty;
 
         /// <summary>
         /// 请求调用的接口用户Key，由Web组提供
@@ -44,38 +44,50 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// <summary>
         /// 文件配置编码:由Web组提供
         /// </summary>
-        public string? ArithmeticName { get => arithmeticName; set => SetProperty(ref arithmeticName, value); }
+        public string AlgorithmName { get => algorithmName; set => SetProperty(ref algorithmName, value); }
 
         /// <summary>
         /// 算法类型
         /// </summary>
         [JsonIgnore]
-        public EArithmeticType ArithmeticType { get; set; }
+        public EAlgorithmType AlgorithmType { get; set; }
 
         /// <summary>
         /// 获取算法类型
         /// </summary>
         /// <param name="closedLoopType"></param>
-        /// <param name="arithmeticName"></param>
+        /// <param name="algorithmName"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
-        public static EArithmeticType GetEArithmeticType(EClosedLoopType closedLoopType, string arithmeticName)
+        public static EAlgorithmType GetEAlgorithmType(EClosedLoopType closedLoopType, string algorithmName)
         {
             switch (closedLoopType)
             {
                 case EClosedLoopType.MD:
-                    return EArithmeticType.MDControl;
+                    {
+                        if (algorithmName is null) throw new ArgumentNullException(nameof(algorithmName), "算法名称不能为空");
+                        var isMatch = Regex.Match(algorithmName, @"^.*_FLU_.*$");
+                        if (isMatch.Success) return EAlgorithmType.流量PID;
+                        isMatch = Regex.Match(algorithmName, @"^.*PID_.*$");
+                        if (isMatch.Success) return EAlgorithmType.专家PID;
+                        return EAlgorithmType.Unknown;
+                    }
                 case EClosedLoopType.TD:
-                    return EArithmeticType.TDControl;
+                    {
+                        if (algorithmName is null) throw new ArgumentNullException(nameof(algorithmName), "算法名称不能为空");
+                        var isMatch = Regex.Match(algorithmName, @"^.*_TD_.*$");
+                        if (isMatch.Success) return EAlgorithmType.TDControl;
+                        return EAlgorithmType.Unknown;
+                    }
                 case EClosedLoopType.MDTD:
                     {
-                        if (arithmeticName is null) throw new ArgumentNullException(nameof(arithmeticName), "算法名称不能为空");
-                        var isMatch = Regex.Match(arithmeticName, @"^.*_MDTD_.*$");
-                        if (isMatch.Success) return EArithmeticType.MDTDControl;
-                        isMatch = Regex.Match(arithmeticName, @"^.*_MULTIMDTD_.*$");
-                        if (isMatch.Success) return EArithmeticType.MULTIMDTDControl;
-                        throw new ArgumentException($"算术名称 {arithmeticName} 格式不正确，应包含MDTD或MULTIMDTD！", nameof(arithmeticName));
+                        if (algorithmName is null) throw new ArgumentNullException(nameof(algorithmName), "算法名称不能为空");
+                        var isMatch = Regex.Match(algorithmName, @"^.*_MDTD_.*$");
+                        if (isMatch.Success) return EAlgorithmType.MDTDControl;
+                        isMatch = Regex.Match(algorithmName, @"^.*_MULTIMDTD_.*$");
+                        if (isMatch.Success) return EAlgorithmType.MULTIMDTDControl;
+                        return EAlgorithmType.Unknown;
                     }
                 default:
                     throw new ArgumentException($"不支持的闭环类型: {closedLoopType}", nameof(closedLoopType));

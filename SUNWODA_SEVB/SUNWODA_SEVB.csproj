@@ -37,7 +37,9 @@
   <ItemGroup>
     <None Remove="Assets\images\logo.ico" />
     <None Remove="Assets\images\logo.png" />
+    <None Remove="Assets\Images\logo1.png" />
     <None Remove="Assets\images\plus.png" />
+    <None Remove="Assets\Images\强电1示意图.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -142,7 +144,13 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Assets\Images\LDCDC示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\Images\shanggai.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Images\强电2示意图.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Assets\model\C06CT\C06CT.mtl">
@@ -190,6 +198,9 @@
     <Reference Include="UIAutoMonitorCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
+    <Reference Include="V11Core">
+      <HintPath>..\..\SWD\DLL\V11Core.dll</HintPath>
+    </Reference>
     <Reference Include="YingYanAlgoCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
     </Reference>
@@ -212,6 +223,12 @@
     <Content Include="Assets\images\plus.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Images\强电1示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
@@ -245,6 +262,9 @@
     <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\Images\logo1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Reference Include="OpenNetV8">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\OpenNetV8.dll</HintPath>
     </Reference>
@@ -253,6 +273,9 @@
     </Reference>
     <Reference Include="ZZC6OnlineCTModel">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZJiErRongYu">
+      <HintPath>..\..\SWD\DLL\ZZJiErRongYu.dll</HintPath>
     </Reference>
   </ItemGroup>
 

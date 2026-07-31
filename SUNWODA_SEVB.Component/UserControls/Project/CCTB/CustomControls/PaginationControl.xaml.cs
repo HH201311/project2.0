@@ -213,6 +213,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         {
             if (!(sender is Button btn)) return;
 
+            if (CurrentPageNumber == FirstPageNumber) return;
             MovePageNumber(-1);
         }
 
@@ -225,6 +226,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         {
             if (!(sender is Button btn)) return;
 
+            if (CurrentPageNumber == LastPageNumber) return;
             MovePageNumber(1);
         }
 
@@ -298,11 +300,12 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         /// <param name="moveCount">移动的页数(>0:向后移动；<0:向前移动)</param>
         private void MovePageNumber(int moveCount)
         {
-            if (moveCount == 0) return;
-
             var newPage = CurrentPageNumber + moveCount;
             if (newPage < FirstPageNumber) newPage = FirstPageNumber;
             if (newPage > LastPageNumber) newPage = LastPageNumber;
+
+            // 如果新页码与当前页码相同，则不执行跳转
+            if (newPage == CurrentPageNumber) return;
 
             // 执行跳转命令
             GotoPageCommand?.Execute(newPage);

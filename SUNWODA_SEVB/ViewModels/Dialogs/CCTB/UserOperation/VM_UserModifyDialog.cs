@@ -40,7 +40,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation
                 {
                     if ((int)ur < _currentUserRoleID)
                     {
-                        UserRoleSource?.Add(OperationUtil.RoleIDToString((int)ur));
+                        UserRoleSource?.Add(CCTBCore.RoleIDToString((int)ur));
                     }
                 }
             }

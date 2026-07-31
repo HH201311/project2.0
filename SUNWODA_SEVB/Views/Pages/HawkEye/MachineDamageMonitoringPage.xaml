@@ -14,7 +14,7 @@
     mc:Ignorable="d">
 
     <Grid Margin="5">
-        <uc:WebBrowserControl Grid.Column="1" Source="{Binding WebBrowserControlSource}" />
+        <uc:WebBrowserControl Source="{Binding WebBrowserControlSource}" />
         <!--  本地测试环境  -->
         <!--<uc:WebBrowserControl Grid.Column="1" Source="http://10.201.88.153/hsfdev/" />-->
         <!--  PTO现场环境  -->

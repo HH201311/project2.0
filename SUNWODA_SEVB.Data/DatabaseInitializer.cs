@@ -198,8 +198,7 @@ namespace SUNWODA_SEVB.Data
         private void InitializeGlobalSettings()
         {
             var settings = new[]
-            {
-                new GlobalSetting { Name = "ProcessCode", Value = "", Type = "string", Remark = "工序编码", RoleRank = 2 },
+            {                
                 new GlobalSetting { Name = "IsCycleReadPLC", Value = "false", Type = "bool", Remark = "是否开启循环读取PLC", RoleRank = 2 },
                 new GlobalSetting { Name = "IsCycleWritePLC", Value = "false", Type = "bool", Remark = "是否开启循环写入PLC", RoleRank = 2 },
                 new GlobalSetting { Name = "DefaultProject", Value = "", Type = "string", Remark = "启动默认显示项目(VM)", RoleRank = 2 },
@@ -214,6 +213,8 @@ namespace SUNWODA_SEVB.Data
                 new GlobalSetting { Name ="isEnableHeartbeat",Value="false",Type ="bool",Remark = "是否启用web心跳",RoleRank =2 },
                 new GlobalSetting { Name ="isEnableMachineErrorLog",Value="false",Type ="bool",Remark = "是否启用上位机预警飞书推送",RoleRank =2 },
                 new GlobalSetting { Name ="MesProfile",Value="test",Type ="string",Remark = "MES环境：生产/测试",RoleRank =2 },
+                new GlobalSetting { Name ="ContactName",Value="洪浩",Type ="string",Remark = "联系人",RoleRank =2 },
+                new GlobalSetting { Name ="ContactMethod",Value="17776836578",Type ="string",Remark = "联系电话",RoleRank =2 },
             };
             foreach (var setting in settings)
             {

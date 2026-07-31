@@ -613,7 +613,7 @@ namespace SUNWODA_SEVB.PLC
                 address =>
                 {
                     try
-                    {
+                    {                                              
                         if (rwConfig.AddressType == 0 && address.Type?.ToUpperInvariant() == "STRING")
                         {
                             ushort len = BitConverter.ToUInt16(data, 0);
@@ -940,9 +940,9 @@ namespace SUNWODA_SEVB.PLC
         {
             string[] result = source.Split('.');
             if (result.Length > 2)
-                return int.Parse(result[2]);
+                return int.Parse(AddressNumberRegex.Replace(result[2], ""));
             else if (result.Length == 2)
-                return int.Parse(result[1]);
+                return int.Parse(AddressNumberRegex.Replace(result[1], ""));
             else
                 return 0;
         }

@@ -7,7 +7,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     public static class PythonConfigHelper
     {
         private static Thread? PythonThread;
-        private static AutoResetEvent ar = new AutoResetEvent(false);
+        private static AutoResetEvent ar = new(false);
 
         private static volatile bool isWorking = false;
         public static bool IsWorking => isWorking;
@@ -126,6 +126,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             IsInitConfig = true;
             #endregion
         }
+
         /// <summary>
         /// 检查 DLL 文件是否为 64 位
         /// </summary>

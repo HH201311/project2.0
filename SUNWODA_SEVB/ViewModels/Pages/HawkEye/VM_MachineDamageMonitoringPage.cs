@@ -126,9 +126,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.HawkEye
         /// </summary>
         private async void Init_Process()
         {
-            var barCodeWatchPath = _projectSettingRepository.GetByNameAndVM("BarCodeWatchPath", "VM_MachineDamageMonitoringPage")?.Value ?? ""; ;
+            var barCodeWatchPath = _projectSettingRepository.GetByNameAndVM("BarCodeWatchPath", "VM_MachineDamageMonitoringPage")?.Value ?? "";
             InitBarCodeWatcher(barCodeWatchPath);
-            var serverPort = _projectSettingRepository.GetByNameAndVM("ServerPort", "VM_MachineDamageMonitoringPage")?.Value ?? "8181"; ;
+            var serverPort = _projectSettingRepository.GetByNameAndVM("ServerPort", "VM_MachineDamageMonitoringPage")?.Value ?? "8181";
             WebBrowserControlSource = _globalSettingRepository.GetByName("WebTestUrlSysCenter")?.Value.Split(":7035").FirstOrDefault() + "/hsfdev/";
 
             StartServer(int.Parse(serverPort));

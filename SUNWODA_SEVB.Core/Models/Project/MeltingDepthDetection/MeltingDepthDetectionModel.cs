@@ -1,13 +1,14 @@
-﻿using SUNWODA_SEVB.Core.Common;
+﻿using System.Windows;
+using SUNWODA_SEVB.Core.Common;
 
-namespace SUNWODA_SEVB.Core.Models.Project.ZZPACK
+namespace SUNWODA_SEVB.Core.Models.Project.MeltingDepthDetection
 {
     /// <summary>
     /// 激光焊接参数模型
     /// </summary>
     public class MeltingDepthDetectionModel : ModelBase
     {
-        private bool isOk;
+        private bool isOk;        
 
         /// <summary>
         /// 序号
@@ -86,6 +87,40 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZPACK
         {
             get => isOk;         
             set => SetProperty(ref isOk, value);
-        }
+        }               
+
+        #region 惠州基地专属属性
+
+        /// <summary>
+        /// 焊接点位（当前焊点序号）
+        /// </summary>
+        public int WeldingPoint { get; set; }
+
+        /// <summary>
+        /// 中心光输出功率
+        /// </summary>
+        public double CenterOpticalPower { get; set; }
+
+        /// <summary>
+        /// 铜嘴压力
+        /// </summary>
+        public double CopperNozzlePressure { get; set; }
+
+        /// <summary>
+        /// 除尘风速
+        /// </summary>
+        public double DustRemovalAirVelocity { get; set; }
+
+        /// <summary>
+        /// 环形光输出功率
+        /// </summary>
+        public double RingOpticalPower { get; set; }
+
+        /// <summary>
+        /// 总功率（中心 + 环形）
+        /// </summary>
+        public double TotalPower { get; set; }
+
+        #endregion
     }
 }

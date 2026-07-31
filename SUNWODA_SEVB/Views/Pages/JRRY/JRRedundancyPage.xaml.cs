@@ -13,14 +13,14 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace SUNWODA_SEVB.Views.Pages.ZZPACK
+namespace SUNWODA_SEVB.Views.Pages.JRRY
 {
     /// <summary>
-    /// MeltingDepthDetectionPage.xaml 的交互逻辑
+    /// JRRedundancyPage.xaml 的交互逻辑
     /// </summary>
-    public partial class MeltingDepthDetectionPage : Page
+    public partial class JRRedundancyPage : Page
     {
-        public MeltingDepthDetectionPage()
+        public JRRedundancyPage()
         {
             InitializeComponent();
         }

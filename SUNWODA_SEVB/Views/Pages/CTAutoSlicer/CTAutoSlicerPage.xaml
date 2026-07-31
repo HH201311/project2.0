@@ -902,12 +902,14 @@
                                         <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
-                                            <Run Text="LUT 预设不保存直方图中间红线位置。通过截图分析峰谷后拖拽红线到目标灰阶（靠右约 2/3），压掉左侧噪点。" />
+                                            <Run Text="LUT 预设不保存直方图中间红线位置。通过截图分析峰谷后拖拽红线到目标灰阶（靠右约 2/3），压掉左侧噪点。随后将 LUT 关键段两端中点水平拖到红线，使折线始终落在峰值附近。" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
                                             <LineBreak />
                                             <Run Text="• X/Y/W/H：直方图 ROI 屏幕矩形。未标定则主流程跳过本步；须框住直方图主体（含红线可拖区域）。" />
+                                            <LineBreak />
+                                            <Run Text="• LUT 关键段两点：应用预设后一次性点选折线关键段两端控制点；运行时取中点拖到红线。未标定则主流程跳过中点对齐，单测要求必须标定。" />
                                             <LineBreak />
                                             <Run Text="• 截图目录：调试图（原图/对比/峰谷）保存根目录；实际写入「目录\yyyy-MM-dd」，超过 7 天自动清理。" />
                                             <LineBreak />
@@ -992,6 +994,74 @@
                                             Content="预览范围"
                                             IsChecked="{Binding IsPreviewHistogramRoi}"
                                             ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前直方图 ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CasFormSectionStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="LUT 关键段两点" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="应用渲染预设后，一次性点选折线关键段两端控制点。运行时取中点水平拖到红线目标列，使关键斜段始终落在峰值附近。未标定则主流程跳过本子步。" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock VerticalAlignment="Center" Text="当前标定坐标：" />
+                                        <TextBlock
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            FontFamily="Consolas"
+                                            FontWeight="SemiBold"
+                                            Text="{Binding LutSegmentPointsDisplayText}" />
+                                    </StackPanel>
+                                    <WrapPanel Orientation="Horizontal">
+                                        <hc:TextBox
+                                            Width="100"
+                                            Margin="0,0,8,8"
+                                            hc:InfoElement.Title="P1X"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            IsReadOnly="True">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="LutSegmentPoint1X" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="100"
+                                            Margin="0,0,8,8"
+                                            hc:InfoElement.Title="P1Y"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            IsReadOnly="True">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="LutSegmentPoint1Y" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="100"
+                                            Margin="0,0,8,8"
+                                            hc:InfoElement.Title="P2X"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            IsReadOnly="True">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="LutSegmentPoint2X" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="100"
+                                            Margin="0,0,8,8"
+                                            hc:InfoElement.Title="P2Y"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            IsReadOnly="True">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="LutSegmentPoint2Y" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Margin="0,0,8,8"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding CalibrateLutSegmentPointsCommand}"
+                                            Content="标定 LUT 关键段两点"
+                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            ToolTip="隐藏上位机 → 依次左键点选关键段两端控制点；右键/Esc 取消" />
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>
@@ -2673,7 +2743,7 @@
                                             <LineBreak />
                                             <Run Text="• 测试应用渲染预设：仅验证 LUT 预设下拉选择。" />
                                             <LineBreak />
-                                            <Run Text="• 测试直方图灰度调整：需已标定 ROI；截图→换纯绿→峰谷→拖红线。" />
+                                            <Run Text="• 测试直方图灰度调整：需已标定 ROI + LUT 关键段两点；截图→峰谷→拖红线→中点对齐红线。" />
                                             <LineBreak />
                                             <Run Text="• 测试厚板设置(三象限)：验证前/右/上厚板菜单与对话框。" />
                                             <LineBreak />
@@ -2723,7 +2793,7 @@
                                             Command="{Binding TestHistogramGrayScaleCommand}"
                                             Content="2  测试直方图灰度调整"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="需已标定 ROI：截图→目标色换纯绿→峰谷→拖红线"
+                                            ToolTip="需已标定 ROI + LUT 关键段两点：截图→峰谷→拖红线→中点对齐红线"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"

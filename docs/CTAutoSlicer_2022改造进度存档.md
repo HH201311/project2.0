@@ -1,12 +1,19 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-31（Pre321 视角准备 + 斜俯视本地找点重写 + 视觉对齐 UI 收敛）  
+> **文档版本**：2026-07-31（LUT 关键段中点对齐红线 + Pre321 + 斜俯视找点）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；CW90° + 预提亮）；进程池并行导入 ✅。  
-> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对 `*_points.png`。  
+> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-07-31 增量（直方图 2c：LUT 关键段中点对齐红线）**：  
+> 1. **问题**：仅 LUT 预设时，峰值左右偏会导致折线关键斜段偏离峰区。  
+> 2. **做法**：应用预设后一次性标定关键段两端点 → 运行时取中点 → 红线到位后水平拖中点到 `TargetScreenX`（整段平移）。  
+> 3. **配置**：`LutSegmentPoint1/2 X/Y` + `LutSegmentPointsCalibrated`；UI「直方图标定 → LUT 关键段两点」。  
+> 4. **主流程**：`ApplyHistogramGrayScaleAdjustAsync` 内拖红线后接 `DragLutSegmentMidpointToRedLineAsync`；未标定则跳过。  
+> 5. **单测**：「测试直方图灰度调整」同步要求 ROI + LUT 两点，覆盖拖红线 + 中点对齐。
 
 > **2026-07-31 增量（Pre321 + 斜俯视找点 + UI）**：  
 > 1. **找点前视角准备（Pre321）**：配置前缀 `Pre321View*`（点击坐标 + 箭头拖拽起终点 + 等待/步进）；服务 `VGAutomationService.Pre321ViewPrep.cs`；主流程在截 3D 前若标定齐全则先执行；单测在「视觉对齐 → ⓪」内。  
@@ -79,11 +86,12 @@ flowchart TD
 
 ---
 
-## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线）
+## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐）
 
 > 背景：LUT 预设不保存直方图中间红色阈值竖线位置，需截图分析后拖拽。  
 > 半坡目标约定：取**高度最高的两个尖峰**；左线=两峰间波谷，右线=右侧尖峰；  
-> **目标线（红线）** = 左线 + (右线−左线)×**2/3**（靠右约三分之一，利于压掉左侧噪点灰阶；**2026-07-22 起不再用左右中点**）。
+> **目标线（红线）** = 左线 + (右线−左线)×**2/3**（靠右约三分之一，利于压掉左侧噪点灰阶；**2026-07-22 起不再用左右中点**）。  
+> **2c LUT 中点对齐（2026-07-31）**：预设关键斜段两端一次性标定 → 中点水平拖到红线目标列，使折线随峰值左右偏自适应。
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
@@ -93,7 +101,9 @@ flowchart TD
 | 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
 | 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰 → 左线=谷、右线=右尖、**目标=靠右 2/3**；调试图 `histogram_peaks_*.png` |
 | 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T*（目标线） |
-| 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过 |
+| **LUT 关键段两端标定** | ✅ UI | 「标定 LUT 关键段两点」→ 全屏依次点选 P1/P2；`LutSegmentPoint*` |
+| **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 红线到位后：中点=(P1+P2)/2 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
+| 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过整步；未标定 LUT 两点则跳过 2c |
 
 **关键入口**：
 
@@ -101,14 +111,17 @@ flowchart TD
 |------|------|
 | `ScreenColorPickerOverlayWindow` | 全屏取色（先截虚拟屏再采样，避免取到预览窗） |
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
+| `ScreenTwoPointPickerOverlayWindow` | 全屏两点标定（LUT 关键段 P1→P2） |
 | `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图；**TargetX = 左+(右−左)×2/3** |
-| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖拽 |
+| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐 |
+| `VGAutomationService.DragLutSegmentMidpointToRedLineAsync` | 2c：标定中点 → 红线目标列 |
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
+| Settings：`LutSegmentPoint1/2 X/Y` / `LutSegmentPointsCalibrated` | LUT 关键段两端；主流程未标定则跳过 2c |
 | Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `Simple321OffsetEditX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
 | Settings：`Pre321View*`（Click / Drag / WaitMs） | 找点前视角准备；仅 `Simple321PointSource=Local` 时 UI 显示；主流程截 3D 前执行 |
 | Settings：`PostAlignCaptureButton*` / `PostAlignDrag*` / **`EnablePostAlignCaptureDragSteps`（默认开）** | 对齐后捕捉按钮 + 箭头拖拽；主流程在 3-2-1 后、导出前 |
 
-**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线是否拖到目标线（靠右约 1/3）。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **应用预设后标定 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
 
 ---
 
@@ -175,7 +188,7 @@ flowchart TD
 | 9 | 轮询进度框消失 | 超时上限 `ImportTimeoutMinutes` |
 | 10 | `PostImportWaitTime` 稳定等待 | 默认 3000ms |
 | 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 打开「渲染」面板 ComboBox → 选中 `RenderingPresetName` 列表项 |
-| 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线；未标定则跳过 |
+| 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线→LUT中点对齐；未标定 ROI 跳过整步；未标定 LUT 两点跳过 2c |
 | 12 | `ApplyThickPlateForQuadrantsAsync` | 象限 1→2→3：视口右键 →「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定 |
 
 **失败策略**：单文件任意步骤超时/异常 → `@@IMPORT_FAIL@@文件名|原因` → **跳过继续**下一个文件。
@@ -254,7 +267,7 @@ flowchart TD
 | `.../VgAutomation/VGAutomationService.ThickPlate.cs` | `ApplyThickPlateForQuadrantsAsync` | 阶段三：厚板 |
 | `.../VgAutomation/VGAutomationService.Simple321.cs` | `RunSimple321AlignmentAsync` | 阶段四：简单 3-2-1（截 3D 前可接 Pre321） |
 | `.../VgAutomation/VGAutomationService.Pre321ViewPrep.cs` | `RunPre321ViewPrepAsync` | 找点前视角准备（点击+拖拽） |
-| `.../VgAutomation/VGAutomationService.HistogramAndPostAlign.cs` | `ApplyHistogramGrayScaleAdjustAsync` / `RunPostAlignCaptureDragAsync` | 直方图灰度 + 对齐后捕捉拖拽 |
+| `.../VgAutomation/VGAutomationService.HistogramAndPostAlign.cs` | `ApplyHistogramGrayScaleAdjustAsync` / `DragLutSegmentMidpointToRedLineAsync` / `RunPostAlignCaptureDragAsync` | 直方图灰度（含 LUT 中点）+ 对齐后捕捉拖拽 |
 | `.../VgAutomation/VGAutomationService.SliceExport.cs` | `ExportImageStackSlicesAsync` | 阶段五：切片导出 |
 | `.../VgAutomation/VGAutomationService.UiPrimitives.cs` | 点击/重试/键盘/`Find*` 包装 | UIA 原语；通用查找转发至 `VgElementFinder` |
 | `.../VgAutomation/VgElementFinder.cs` | `FindWindowByNameScoped` 等 | **内部**通用查找类（不改动 `Tool/Helper`） |
@@ -375,6 +388,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 1. 导入 .vgl 体积（Ctrl+F+I 快速导入 → 图一～四，见 §15）
 ✅ 2. 应用渲染 LUT 预设（「渲染」面板 ComboBox）
 ✅ 2b. 直方图灰度阈值（截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
+✅ 2c. LUT 关键段中点对齐红线（两端一次性标定；未标定则跳过）
 
 ✅ 3. 第一、二、三象限：各视口右键 →「厚板」→ 启用 → 组合模式「平均值」→ 确定
       （`ApplyThickPlateForQuadrantsAsync`）
@@ -1007,6 +1021,7 @@ flowchart TD
 | 1 | 导入 `.vgl` | ✅ |
 | 2 | LUT 预设 | ✅ |
 | 2b | 直方图拖红线 | ✅（未标定则跳过） |
+| 2c | LUT 关键段中点对齐红线 | ✅（未标定两端则跳过） |
 | 3 | Q1～Q3 厚板 + 平均值 | ✅ |
 | **4** | **简单 3-2-1（三点 + 偏移置0 + 黄框向量 + 原点）** | ✅ **单测 + 主流程** |
 | **4'** | **对齐后捕捉拖拽** | ✅ **单测 + 主流程**（§20） |

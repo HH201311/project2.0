@@ -105,6 +105,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _histogramMaskColor = "#6E6E6E";
         private int _histogramMaskTolerance = 2;
         private string _histogramRoiDisplayText = "未标定";
+        private int _lutSegmentPoint1X;
+        private int _lutSegmentPoint1Y;
+        private int _lutSegmentPoint2X;
+        private int _lutSegmentPoint2Y;
+        private bool _lutSegmentPointsCalibrated;
+        private string _lutSegmentPointsDisplayText = "未标定";
         private System.Windows.Media.Brush _histogramMaskColorBrush =
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6E, 0x6E, 0x6E));
         private int _vision3dRoiX;
@@ -1202,6 +1208,64 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _histogramRoiDisplayText, value);
         }
 
+        public int LutSegmentPoint1X
+        {
+            get => _lutSegmentPoint1X;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint1X, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint1X), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public int LutSegmentPoint1Y
+        {
+            get => _lutSegmentPoint1Y;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint1Y, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint1Y), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public int LutSegmentPoint2X
+        {
+            get => _lutSegmentPoint2X;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint2X, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint2X), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public int LutSegmentPoint2Y
+        {
+            get => _lutSegmentPoint2Y;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint2Y, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint2Y), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public string LutSegmentPointsDisplayText
+        {
+            get => _lutSegmentPointsDisplayText;
+            private set => SetProperty(ref _lutSegmentPointsDisplayText, value);
+        }
+
         public int Vision3dRoiX
         {
             get => _vision3dRoiX;
@@ -2150,6 +2214,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenVisionCaptureDirCommand { get; }
         public ICommand OpenVision2dVectorCaptureDirCommand { get; }
         public ICommand CalibrateHistogramRoiCommand { get; }
+        public ICommand CalibrateLutSegmentPointsCommand { get; }
         public ICommand CalibrateVision3dRoiCommand { get; }
         public ICommand CalibrateVisionTopViewRoiCommand { get; }
         public ICommand CalibrateSimple321ToolbarClickCommand { get; }
@@ -2237,6 +2302,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
             CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
+            CalibrateLutSegmentPointsCommand = new RelayCommand(ExecuteCalibrateLutSegmentPoints);
             CalibrateVision3dRoiCommand = new RelayCommand(ExecuteCalibrateVision3dRoi);
             CalibrateVisionTopViewRoiCommand = new RelayCommand(ExecuteCalibrateVisionTopViewRoi);
             CalibrateSimple321ToolbarClickCommand = new RelayCommand(ExecuteCalibrateSimple321ToolbarClick);
@@ -2895,6 +2961,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
             HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 2);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
+            _lutSegmentPoint1X = LoadIntSetting(nameof(LutSegmentPoint1X), 0);
+            _lutSegmentPoint1Y = LoadIntSetting(nameof(LutSegmentPoint1Y), 0);
+            _lutSegmentPoint2X = LoadIntSetting(nameof(LutSegmentPoint2X), 0);
+            _lutSegmentPoint2Y = LoadIntSetting(nameof(LutSegmentPoint2Y), 0);
+            _lutSegmentPointsCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated), 0) != 0;
+            OnPropertyChanged(nameof(LutSegmentPoint1X));
+            OnPropertyChanged(nameof(LutSegmentPoint1Y));
+            OnPropertyChanged(nameof(LutSegmentPoint2X));
+            OnPropertyChanged(nameof(LutSegmentPoint2Y));
+            RefreshLutSegmentPointsDisplay();
             RefreshHistogramRoiDisplay();
             RefreshMaskColorBrush();
 
@@ -3246,6 +3323,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 HistogramCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 HistogramMaskColor = HistogramMaskColor,
                 HistogramMaskTolerance = HistogramMaskTolerance,
+                LutSegmentPoint1X = LutSegmentPoint1X,
+                LutSegmentPoint1Y = LutSegmentPoint1Y,
+                LutSegmentPoint2X = LutSegmentPoint2X,
+                LutSegmentPoint2Y = LutSegmentPoint2Y,
+                LutSegmentPointsCalibrated = _lutSegmentPointsCalibrated,
                 VisionCaptureDir = VisionCaptureDir,
                 VisionCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 Vision2dVectorCaptureDir = Vision2dVectorCaptureDir,
@@ -3324,6 +3406,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             HistogramRoiDisplayText = _histogramRoiWidth > 0 && _histogramRoiHeight > 0
                 ? $"X={_histogramRoiX}, Y={_histogramRoiY}, W={_histogramRoiWidth}, H={_histogramRoiHeight}"
                 : "未标定";
+        }
+
+        private void RefreshLutSegmentPointsDisplay()
+        {
+            if (!_lutSegmentPointsCalibrated)
+            {
+                LutSegmentPointsDisplayText = "未标定";
+                return;
+            }
+
+            LutSegmentPointsDisplayText =
+                $"P1=({_lutSegmentPoint1X},{_lutSegmentPoint1Y}) P2=({_lutSegmentPoint2X},{_lutSegmentPoint2Y})";
         }
 
         private void RefreshVision3dRoiDisplay()
@@ -3931,6 +4025,104 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     SaveSetting(nameof(HistogramRoiWidth), rect.Width);
                     SaveSetting(nameof(HistogramRoiHeight), rect.Height);
                 });
+        }
+
+        /// <summary>
+        /// 一次性标定 LUT 预设关键段两端点（应用预设后在直方图折线上点选）。
+        /// </summary>
+        private void ExecuteCalibrateLutSegmentPoints(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var picker = new ScreenTwoPointPickerOverlayWindow(
+                        "第 1 步：对准 LUT 预设关键段的第一个控制点（空心圆），左键确认；右键/Esc 取消",
+                        "第 2 步：对准同一关键段的第二个控制点，左键确认；右键/Esc 取消");
+                    var ok = picker.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消 LUT 关键段两点标定";
+                        AppendFlowLog("LUT 关键段两点标定已取消");
+                        return;
+                    }
+
+                    if (picker.Point1X == picker.Point2X && picker.Point1Y == picker.Point2Y)
+                    {
+                        MessageShower = "两端点重合，请重新标定两个不同的控制点";
+                        AppendFlowLog("LUT 关键段两点标定失败：两端点重合");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(LutSegmentPoint1X), 0, "int", nameof(LutSegmentPoint1X));
+                    EnsureSettingExists(nameof(LutSegmentPoint1Y), 0, "int", nameof(LutSegmentPoint1Y));
+                    EnsureSettingExists(nameof(LutSegmentPoint2X), 0, "int", nameof(LutSegmentPoint2X));
+                    EnsureSettingExists(nameof(LutSegmentPoint2Y), 0, "int", nameof(LutSegmentPoint2Y));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated));
+
+                    _isLoadingSettings = true;
+                    _lutSegmentPoint1X = picker.Point1X;
+                    _lutSegmentPoint1Y = picker.Point1Y;
+                    _lutSegmentPoint2X = picker.Point2X;
+                    _lutSegmentPoint2Y = picker.Point2Y;
+                    _lutSegmentPointsCalibrated = true;
+                    OnPropertyChanged(nameof(LutSegmentPoint1X));
+                    OnPropertyChanged(nameof(LutSegmentPoint1Y));
+                    OnPropertyChanged(nameof(LutSegmentPoint2X));
+                    OnPropertyChanged(nameof(LutSegmentPoint2Y));
+                    RefreshLutSegmentPointsDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(LutSegmentPoint1X), picker.Point1X);
+                    SaveSetting(nameof(LutSegmentPoint1Y), picker.Point1Y);
+                    SaveSetting(nameof(LutSegmentPoint2X), picker.Point2X);
+                    SaveSetting(nameof(LutSegmentPoint2Y), picker.Point2Y);
+                    SaveSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated), 1);
+
+                    var midX = (picker.Point1X + picker.Point2X) / 2;
+                    var midY = (picker.Point1Y + picker.Point2Y) / 2;
+                    var msg =
+                        $"LUT 关键段两点已标定：P1=({picker.Point1X},{picker.Point1Y}) " +
+                        $"P2=({picker.Point2X},{picker.Point2Y}) 中点=({midX},{midY})";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"LUT 关键段两点标定失败：{ex.Message}";
+                _logger.Error("LUT 关键段两点标定失败", ex);
+            }
         }
 
         private void ExecuteCalibrateVision3dRoi(object? _)
@@ -4987,6 +5179,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            if (!_lutSegmentPointsCalibrated
+                || (_lutSegmentPoint1X == _lutSegmentPoint2X && _lutSegmentPoint1Y == _lutSegmentPoint2Y))
+            {
+                MessageShower = "请先在「直方图标定」中点击「标定 LUT 关键段两点」";
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
@@ -4997,7 +5196,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 直方图灰度调整测试开始 ———");
+                AppendFlowLog("——— 直方图灰度调整测试开始（拖红线 + LUT中点对齐） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestHistogramGrayScaleAdjustAsync(

@@ -474,6 +474,29 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>直方图 ROI 是否已完成框选标定</summary>
         public bool HasHistogramRoi => HistogramRoiWidth > 0 && HistogramRoiHeight > 0;
 
+        /// <summary>
+        /// LUT 预设关键段端点 1 屏幕 X（物理像素）。
+        /// 应用预设后一次性标定；运行时取两端中点水平拖到红线目标列。
+        /// </summary>
+        public int LutSegmentPoint1X { get; set; }
+
+        /// <summary>LUT 预设关键段端点 1 屏幕 Y（物理像素）</summary>
+        public int LutSegmentPoint1Y { get; set; }
+
+        /// <summary>LUT 预设关键段端点 2 屏幕 X（物理像素）</summary>
+        public int LutSegmentPoint2X { get; set; }
+
+        /// <summary>LUT 预设关键段端点 2 屏幕 Y（物理像素）</summary>
+        public int LutSegmentPoint2Y { get; set; }
+
+        /// <summary>是否已完成 LUT 关键段两端点标定</summary>
+        public bool LutSegmentPointsCalibrated { get; set; }
+
+        /// <summary>LUT 关键段两端点是否可用（已标定且两点不重合）</summary>
+        public bool HasLutSegmentPoints =>
+            LutSegmentPointsCalibrated
+            && (LutSegmentPoint1X != LutSegmentPoint2X || LutSegmentPoint1Y != LutSegmentPoint2Y);
+
         /// <summary>阶段四：第四象限 3D 视图截图 ROI — 屏幕 X（物理像素，框选标定起始坐标）</summary>
         public int Vision3dRoiX { get; set; }
         /// <summary>阶段四：3D 视图 ROI — 屏幕 Y</summary>

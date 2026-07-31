@@ -28,7 +28,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            progress?.Report("开始直方图灰度调整（截图→峰谷→拖红线）");
+            progress?.Report("开始直方图灰度调整（截图→峰谷→拖红线→LUT中点对齐）");
             _logger.Info(
                 $"直方图灰度调整：ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
                 $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight})");
@@ -70,6 +70,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     $"red={capture.RedLineColumn}, compare={capture.CompareImagePath}, peaks={capture.PeaksImagePath}");
 
                 await DragRedLineToTargetAsync(capture, cancellationToken, progress).ConfigureAwait(false);
+
+                await DragLutSegmentMidpointToRedLineAsync(
+                        settings,
+                        capture,
+                        cancellationToken,
+                        progress,
+                        requireCalibrated: !softFailOnError)
+                    .ConfigureAwait(false);
+
                 progress?.Report("直方图灰度调整完成");
                 _logger.Info("直方图灰度调整完成");
             }
@@ -135,6 +144,84 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             progress?.Report("红线拖拽完成");
+        }
+
+        /// <summary>
+        /// 将 LUT 预设关键段两端点连线中点水平拖到红线目标列，使关键斜段始终落在峰值附近。
+        /// 两端点由 UI 一次性标定；未标定时主流程跳过，单测可要求必须标定。
+        /// </summary>
+        private async Task DragLutSegmentMidpointToRedLineAsync(
+            CTAutoSlicerSettings settings,
+            HistogramCaptureResult capture,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress,
+            bool requireCalibrated)
+        {
+            if (!settings.HasLutSegmentPoints)
+            {
+                var msg = "跳过 LUT 关键段中点对齐：尚未标定两端点（请先在「直方图标定」中一次性标定）";
+                if (requireCalibrated)
+                {
+                    throw new InvalidOperationException(
+                        "尚未标定 LUT 关键段两端点，请先在「直方图标定」中点击「标定 LUT 关键段两点」");
+                }
+
+                progress?.Report(msg);
+                _logger.Info(msg);
+                return;
+            }
+
+            if (capture.TargetScreenX is not int targetX)
+            {
+                throw new InvalidOperationException("半坡目标屏幕坐标无效，无法对齐 LUT 中点");
+            }
+
+            var midX = (settings.LutSegmentPoint1X + settings.LutSegmentPoint2X) / 2;
+            var midY = (settings.LutSegmentPoint1Y + settings.LutSegmentPoint2Y) / 2;
+            var sx = (short)Math.Clamp(midX, short.MinValue, short.MaxValue);
+            var ex = (short)Math.Clamp(targetX, short.MinValue, short.MaxValue);
+            var y = (short)Math.Clamp(midY, short.MinValue, short.MaxValue);
+
+            progress?.Report(
+                $"LUT 关键段：P1=({settings.LutSegmentPoint1X},{settings.LutSegmentPoint1Y}) " +
+                $"P2=({settings.LutSegmentPoint2X},{settings.LutSegmentPoint2Y}) " +
+                $"中点=({midX},{midY}) → 红线目标X={targetX}");
+            _logger.Info(
+                $"LUT 关键段中点对齐：P1=({settings.LutSegmentPoint1X},{settings.LutSegmentPoint1Y}) " +
+                $"P2=({settings.LutSegmentPoint2X},{settings.LutSegmentPoint2Y}) " +
+                $"mid=({midX},{midY}) targetX={targetX}");
+
+            if (Math.Abs(ex - sx) < 2)
+            {
+                progress?.Report($"LUT 中点已接近红线（ΔX={ex - sx}），跳过拖拽");
+                _logger.Info($"LUT 中点拖拽跳过：start={sx} end={ex}");
+                return;
+            }
+
+            var path = HistogramGrayScaleAnalyzer.BuildHorizontalDragPath(sx, y, ex);
+            progress?.Report($"拖拽 LUT 中点：({sx},{y}) → ({ex},{y})，路径点 {path.Count}");
+            _logger.Info($"拖拽 LUT 中点：({sx},{y}) → ({ex},{y})");
+
+            Unlock();
+            try
+            {
+                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    MouseSimulationHelper.MouseDragPressMoveRelease(
+                        _simulator,
+                        MouseButton.Button1,
+                        path,
+                        stepDelayMs: 4);
+                }).ConfigureAwait(false);
+                await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
+
+            progress?.Report("LUT 关键段中点对齐完成");
         }
 
         /// <summary>

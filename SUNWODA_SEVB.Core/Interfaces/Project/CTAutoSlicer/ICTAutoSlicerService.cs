@@ -65,7 +65,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         );
 
         /// <summary>
-        /// 单步测试：按已标定直方图 ROI 截图 → 掩膜优化 → 峰谷半坡 → 拖拽红线。
+        /// 单步测试：按已标定直方图 ROI 截图 → 掩膜优化 → 峰谷半坡 → 拖拽红线 → LUT 关键段中点对齐红线。
         /// </summary>
         Task TestHistogramGrayScaleAdjustAsync(
             CTAutoSlicerSettings settings,

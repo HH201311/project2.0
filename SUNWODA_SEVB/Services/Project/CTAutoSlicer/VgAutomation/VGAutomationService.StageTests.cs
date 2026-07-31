@@ -58,7 +58,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 单步测试：截图 → 掩膜优化 → 峰谷半坡 → 拖拽红线到位。
+        /// 单步测试：截图 → 掩膜优化 → 峰谷半坡 → 拖拽红线到位 → LUT 关键段中点对齐红线。
         /// </summary>
         public async Task TestHistogramGrayScaleAdjustAsync(
             CTAutoSlicerSettings settings,
@@ -73,15 +73,23 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("尚未标定直方图区域，请先点击「标定直方图区域」框选 ROI");
                 }
 
+                if (!settings.HasLutSegmentPoints)
+                {
+                    throw new InvalidOperationException(
+                        "尚未标定 LUT 关键段两端点，请先在「直方图标定」中点击「标定 LUT 关键段两点」");
+                }
+
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))
                 {
                     throw new InvalidOperationException("请先配置 VG 应用路径");
                 }
 
-                progress?.Report("直方图灰度单步测试：请确保 VG 中已显示直方图");
+                progress?.Report("直方图灰度单步测试：请确保 VG 中已显示直方图且已应用 LUT 预设");
                 _logger.Info(
                     $"直方图灰度单步测试开始，ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
-                    $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight})");
+                    $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight}) " +
+                    $"LUT=({settings.LutSegmentPoint1X},{settings.LutSegmentPoint1Y})-" +
+                    $"({settings.LutSegmentPoint2X},{settings.LutSegmentPoint2Y})");
 
                 var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
                 _activeVgProcess = ctViewerProcess;
@@ -92,7 +100,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         progress)
                     .ConfigureAwait(false);
 
-                progress?.Report("直方图灰度调整单步测试完成（截图+峰谷+拖拽）");
+                progress?.Report("直方图灰度调整单步测试完成（截图+峰谷+拖红线+LUT中点对齐）");
                 _logger.Info("直方图灰度单步测试完成");
             }
             finally

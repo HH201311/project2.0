@@ -1967,9 +1967,9 @@
                                             <LineBreak />
                                             <Run Text="• 切片导出目录：三视图切片输出根目录；内部按命名规则分子目录/文件。" />
                                             <LineBreak />
-                                            <Run Text="• 上视图交接目录：导出结束后将指定文件名的上视图复制到「交接目录/产品名/」下（如 …/导出名/50.jpg），供 AI 电脑消费。" />
+                                            <Run Text="• 上视图交接目录：导出结束后将第 N 张上视图复制到「交接目录/产品名/」下（如 …/导出名/050.jpg），供 AI 电脑消费。" />
                                             <LineBreak />
-                                            <Run Text="• 上视图切片序号：按文件名查找，输入 50 即找 50.jpg（不是“第 50 张”）。" />
+                                            <Run Text="• 上视图切片序号：填 50 = 第 50 张；因导出前缀为 0，实际文件名为 050.jpg。" />
                                             <LineBreak />
                                             <Run Text="• 图像宽度：导出对话框「图像大小-宽」（默认约 3000）。" />
                                             <LineBreak />
@@ -2027,7 +2027,7 @@
                                         <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图交接目录"
                                                    ToolTip="切图结束后复制送检上视图到此目录，供 AI 标注电脑读取" />
                                         <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True"
-                                                    ToolTip="两机共享目录；结构为 {交接目录}/{导出名产品文件夹}/50.jpg">
+                                                    ToolTip="两机共享目录；结构为 {交接目录}/{导出名产品文件夹}/050.jpg">
                                             <hc:TextBox.Text>
                                                 <Binding Path="TopViewHandoffFolder" UpdateSourceTrigger="PropertyChanged" />
                                             </hc:TextBox.Text>
@@ -2053,10 +2053,10 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图切片序号"
-                                                   ToolTip="按文件名查找：输入 50 即找 50.jpg（1～100）" />
+                                                   ToolTip="填 50 = 第 50 张；实际文件名=前缀0+50 → 050.jpg（1～100）" />
                                         <StackPanel Grid.Column="1">
                                             <hc:TextBox Width="160" HorizontalAlignment="Left"
-                                                        ToolTip="按文件名精确匹配，如 50→50.jpg（不是第 50 张）">
+                                                        ToolTip="第几张：50 → 查找 050.jpg（导出前缀 ImageStackBaseFileName=0）">
                                                 <hc:TextBox.Text>
                                                     <Binding Path="OfflineCtTopViewSliceIndex" UpdateSourceTrigger="PropertyChanged">
                                                         <Binding.ValidationRules>
@@ -2066,7 +2066,7 @@
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Style="{StaticResource CasFormHintStyle}"
-                                                       Text="按文件名查找（50→50.jpg），复制到交接目录下的产品名文件夹" />
+                                                       Text="填 50 = 第 50 张 → 文件 050.jpg；复制到交接目录下的产品名文件夹" />
                                         </StackPanel>
                                     </Grid>
                                     <UniformGrid Columns="2" Margin="0,12,0,0">

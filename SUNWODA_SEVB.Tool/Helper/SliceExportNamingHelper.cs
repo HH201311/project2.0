@@ -63,8 +63,21 @@ namespace SUNWODA_SEVB.Tool.Helper
             return $"{model}-{matchedType} {timestamp}";
         }
 
-        /// <summary>图像堆栈导出时保存对话框中的基础文件名（VG 将依次导出为 1、2、3…）。</summary>
-        public const string ImageStackBaseFileName = "1";
+        /// <summary>
+        /// 图像堆栈导出时保存对话框中的基础文件名（前缀）。
+        /// VG 以此为前缀递增导出；选第 50 张时实际文件名为 <c>050.jpg</c>（前缀 + 序号）。
+        /// </summary>
+        public const string ImageStackBaseFileName = "0";
+
+        /// <summary>
+        /// 由切片序号生成图像文件主干名：前缀 + 序号。
+        /// 例如前缀 <c>0</c>、序号 50 → <c>050</c>（对应 050.jpg）。
+        /// </summary>
+        public static string BuildImageStackFileStem(int sliceIndex)
+        {
+            var index = Math.Max(0, sliceIndex);
+            return ImageStackBaseFileName + index.ToString(CultureInfo.InvariantCulture);
+        }
 
         /// <summary>生成单个视图的导出文件夹名（不含根目录与主文件夹），如「0657-FD 2026-7-13 10-58-00 前」。</summary>
         public static string BuildExportFolderName(string exportBaseName, string viewSuffix)
@@ -92,9 +105,9 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         /// <summary>
         /// 保存对话框完整路径：
-        /// {导出根目录}/{主文件夹}/{视图文件夹}/1
-        /// 例如 …/0657-FD 2026-7-13 10-58-00/0657-FD 2026-7-13 10-58-00 前/1
-        /// （不含扩展名；文件夹内图片为 1、2、3…）。
+        /// {导出根目录}/{主文件夹}/{视图文件夹}/0
+        /// 例如 …/0657-FD 2026-7-13 10-58-00/0657-FD 2026-7-13 10-58-00 前/0
+        /// （不含扩展名；前缀为 ImageStackBaseFileName，堆栈图为 01、02…050…）。
         /// </summary>
         public static string BuildExportSavePath(string exportRootFolder, string exportBaseName, string viewSuffix)
         {

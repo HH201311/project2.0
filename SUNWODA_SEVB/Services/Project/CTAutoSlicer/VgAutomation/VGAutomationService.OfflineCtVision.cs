@@ -183,14 +183,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
 
                 var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
-                var expectedName = $"{sliceIndex}.jpg";
+                var expectedStem = SliceExportNamingHelper.BuildImageStackFileStem(sliceIndex);
+                var expectedName = $"{expectedStem}.jpg";
 
                 var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
                     settings.SliceExportFolder,
                     resolvedBaseName);
                 imagePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
                     ?? throw new FileNotFoundException(
-                        $"未在「上」视图目录按文件名找到送检图（期望 {expectedName} 等）：{topFolder}",
+                        $"未在「上」视图目录按文件名找到送检图（期望第 {sliceIndex} 张 → {expectedName} 等）：{topFolder}",
                         topFolder);
 
                 annotationFolder = OfflineCtAnnotationHelper.BuildAnnotationFolder(
@@ -198,10 +199,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     resolvedBaseName);
 
                 progress?.Report(
-                    $"AI 标注按文件名选用：{Path.GetFileName(imagePath)}"
-                    + $"（配置={settings.ResolveOfflineCtTopViewSliceIndex()} → {expectedName}，"
+                    $"AI 标注选用第 {sliceIndex} 张：{Path.GetFileName(imagePath)}"
+                    + $"（配置={sliceIndex} → {expectedName}，"
                     + $"像素精度 {settings.ResolveOfflineCtPixelSizeUm():G} μm/px）");
-                _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}，fileNameIndex={sliceIndex}");
+                _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}，sliceIndex={sliceIndex}，stem={expectedStem}");
             }
 
             Directory.CreateDirectory(annotationFolder!);

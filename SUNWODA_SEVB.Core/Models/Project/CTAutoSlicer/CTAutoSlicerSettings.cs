@@ -400,8 +400,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
 
         /// <summary>
-        /// AI 标注选用「上」视图切片文件名序号（范围 1～100）。
-        /// 输入 50 表示查找目录下的 <c>50.jpg</c>（按名字精确匹配，不是“第 50 张”）。
+        /// AI 标注选用「上」视图第几张（范围 1～100）。
+        /// 输入 50 = 第 50 张；实际文件名 = 导出前缀 + 序号（前缀默认 <c>0</c> → <c>050.jpg</c>）。
         /// </summary>
         public int OfflineCtTopViewSliceIndex { get; set; } = DefaultOfflineCtTopViewSliceIndex;
 

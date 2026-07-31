@@ -17,7 +17,7 @@
 
 > **2026-07-31 增量（切图 / AI 两机拆分）**：  
 > 1. 流水线模式 `PipelineRunMode`：`SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏单选胶囊切换；**本机** `Config/CTAutoSlicer/local.json` 持久化（不落共享 DB，避免两机互盖）。  
-> 2. 切图终点：三视图导出后按文件名复制「上」视图 `OfflineCtTopViewSliceIndex.jpg`（如 50→50.jpg）到 `TopViewHandoffFolder/{导出名}/`（硬失败），**不再**串行 NJCT。  
+> 2. 切图终点：三视图导出后按「前缀+序号」复制「上」视图第 `OfflineCtTopViewSliceIndex` 张（前缀 `ImageStackBaseFileName=0`，如 50→`050.jpg`）到 `TopViewHandoffFolder/{导出名}/`（硬失败），**不再**串行 NJCT。  
 > 3. AI 模式：「开始流程」扫描交接目录产品子文件夹内图像 → CW90/预提亮/NJCT → `{SliceExportFolder}/{产品名}/AI标注/`（不启 VG）。  
 > 4. 侧栏按模式显隐；同一「开始流程」按模式分发。
 
@@ -1322,7 +1322,7 @@ RunAiAnnotationBatchAsync：
            input_for_njct.* / result_*.jpg / annotation.json|csv / prebrighten_report.txt
 ```
 
-切图侧选图规则：按**精确文件名**查找 `OfflineCtTopViewSliceIndex`（如 50 → `50.jpg`/`50.png`…）；找不到则硬失败（不再取最接近序号）。交接落盘为 `{TopViewHandoffFolder}/{导出名}/{原文件名}`。AI 批处理输出 `{结果根}/{产品名}/AI标注/`。  
+切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}/{原文件名}`。AI 批处理输出 `{结果根}/{产品名}/AI标注/`。  
 **朝向**：送检图须 **顺时针 90°** 后再送 NJCT（AI 侧内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
 失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。
 

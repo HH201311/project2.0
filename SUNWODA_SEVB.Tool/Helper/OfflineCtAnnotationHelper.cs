@@ -240,11 +240,12 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         /// <summary>
         /// 按<strong>精确文件名</strong>选取「上」视图切片图。
-        /// 例如 sliceIndex=50 → 查找 <c>50.jpg</c> / <c>50.jpeg</c> / <c>50.png</c> 等（文件名主干须等于 "50"）。
-        /// 找不到则返回 null（不再用“最接近序号”兜底，避免误选）。
+        /// 例如 sliceIndex=50、前缀 <see cref="SliceExportNamingHelper.ImageStackBaseFileName"/>=<c>0</c>
+        /// → 查找 <c>050.jpg</c> / <c>050.png</c> 等。
+        /// 找不到则返回 null（不再用“最接近序号”兜底）。
         /// </summary>
         /// <param name="topViewFolder">「上」视图导出目录</param>
-        /// <param name="sliceIndex">目标文件名数字（1～100；对应 50.jpg）</param>
+        /// <param name="sliceIndex">第几张（配置值；实际文件名=前缀+该数字）</param>
         public static string? TryPickTopViewImageByIndex(string topViewFolder, int sliceIndex)
         {
             if (string.IsNullOrWhiteSpace(topViewFolder) || !Directory.Exists(topViewFolder))
@@ -252,10 +253,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return null;
             }
 
-            var targetIndex = Math.Max(1, sliceIndex);
-            var expectedStem = targetIndex.ToString(CultureInfo.InvariantCulture);
+            var targetIndex = Math.Max(0, sliceIndex);
+            var expectedStem = SliceExportNamingHelper.BuildImageStackFileStem(targetIndex);
 
-            // 1) 直接拼路径：50.jpg / 50.jpeg / …
+            // 1) 直接拼路径：050.jpg / 050.jpeg / …
             foreach (var ext in ImageExtensions)
             {
                 var direct = Path.Combine(topViewFolder, expectedStem + ext);
@@ -265,7 +266,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            // 2) 目录枚举：主干名精确等于 "50"（忽略扩展名大小写）
+            // 2) 目录枚举：主干名精确等于 "050"（忽略扩展名大小写）
             foreach (var path in Directory.EnumerateFiles(topViewFolder))
             {
                 if (!ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
@@ -283,7 +284,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return null;
         }
 
-        /// <summary>文件名主干是否为纯数字切片名（如 50、1、100）。</summary>
+        /// <summary>文件名主干是否为纯数字切片名（如 50、050、1、100）。</summary>
         public static bool IsExactNumericSliceFileName(string? fileNameWithoutExtension)
         {
             if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
@@ -292,12 +293,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             var stem = fileNameWithoutExtension.Trim();
-            return int.TryParse(stem, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
-                   && n >= 1
-                   && string.Equals(
-                       n.ToString(CultureInfo.InvariantCulture),
-                       stem,
-                       StringComparison.Ordinal);
+            return stem.Length > 0 && stem.All(char.IsDigit);
         }
 
         /// <summary>

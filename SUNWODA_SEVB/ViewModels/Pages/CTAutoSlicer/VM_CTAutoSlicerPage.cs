@@ -1625,8 +1625,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
-        /// AI 标注选用「上」视图切片文件名序号（1～100）。
-        /// 输入 50 → 查找「上」视图目录下的 50.jpg（按名字精确匹配）；默认 50。
+        /// AI 标注选用「上」视图第几张（1～100）。
+        /// 输入 50 = 第 50 张；实际查找文件名 = 前缀0 + 50 → 050.jpg；默认 50。
         /// </summary>
         public int OfflineCtTopViewSliceIndex
         {

@@ -1304,20 +1304,21 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
-            var expectedName = $"{sliceIndex}.jpg";
+            var expectedStem = SliceExportNamingHelper.BuildImageStackFileStem(sliceIndex);
+            var expectedName = $"{expectedStem}.jpg";
 
             var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
                 settings.SliceExportFolder,
                 exportBaseName);
             var sourcePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
                 ?? throw new FileNotFoundException(
-                    $"未在「上」视图目录按文件名找到送检图（期望 {expectedName} / {sliceIndex}.png 等）：{topFolder}",
+                    $"未在「上」视图目录按文件名找到送检图（期望第 {sliceIndex} 张 → {expectedName} 等）：{topFolder}",
                     topFolder);
 
             progress?.Report(
-                $"交接上视图送检图：按文件名查找 {Path.GetFileName(sourcePath)} → 产品目录「{exportBaseName}」");
+                $"交接上视图送检图：第 {sliceIndex} 张 → {Path.GetFileName(sourcePath)} → 产品目录「{exportBaseName}」");
             _logger.Info(
-                $"交接上视图：源={sourcePath}，文件名序号={sliceIndex}，交接目录={settings.TopViewHandoffFolder}/{exportBaseName}");
+                $"交接上视图：源={sourcePath}，序号={sliceIndex}，文件名={expectedStem}.*，交接目录={settings.TopViewHandoffFolder}/{exportBaseName}");
 
             var destPath = await Task.Run(
                     () => OfflineCtAnnotationHelper.CopyTopViewImageToHandoffFolder(

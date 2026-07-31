@@ -387,13 +387,60 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Thumb}">
                     <Border Background="{TemplateBinding Background}" CornerRadius="3" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#909090" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter Property="Background" Value="#707070" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  ScrollViewer水平滚动条样式  -->
+    <Style x:Key="ModernHorizontalScrollBar" TargetType="{x:Type ScrollBar}">
+        <Setter Property="Stylus.IsFlicksEnabled" Value="false" />
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                    <Grid
+                        x:Name="GridRoot"
+                        Height="{TemplateBinding Height}"
+                        Background="Transparent">
+                        <Track
+                            x:Name="PART_Track"
+                            Focusable="false"
+                            IsDirectionReversed="False">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ModernScrollThumb}" />
+                            </Track.Thumb>
+                            <!--  隐藏上下箭头按钮 (Increase/DecreaseRepeatButton)  -->
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton
+                                    Command="ScrollBar.PageRightCommand"
+                                    Focusable="false"
+                                    Opacity="0" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton
+                                    Command="ScrollBar.PageLeftCommand"
+                                    Focusable="false"
+                                    Opacity="0" />
+                            </Track.DecreaseRepeatButton>
+                        </Track>
+                    </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
     <!--  ScrollViewer垂直滚动条样式  -->
-    <Style x:Key="ModernScrollBar" TargetType="{x:Type ScrollBar}">
+    <Style x:Key="ModernVerticalScrollBar" TargetType="{x:Type ScrollBar}">
         <Setter Property="Stylus.IsFlicksEnabled" Value="false" />
         <Setter Property="Width" Value="6" />
         <Setter Property="Background" Value="Transparent" />
@@ -407,7 +454,7 @@
                         <Track
                             x:Name="PART_Track"
                             Focusable="false"
-                            IsDirectionReversed="true">
+                            IsDirectionReversed="True">
                             <Track.Thumb>
                                 <Thumb Style="{StaticResource ModernScrollThumb}" />
                             </Track.Thumb>
@@ -454,13 +501,23 @@
                             Grid.ColumnSpan="2"
                             Margin="{TemplateBinding Padding}"
                             CanContentScroll="{TemplateBinding CanContentScroll}" />
+                        <!--  水平滚动条  -->
+                        <ScrollBar
+                            x:Name="PART_HorizontalScrollBar"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Maximum="{TemplateBinding ScrollableHeight}"
+                            Style="{StaticResource ModernHorizontalScrollBar}"
+                            ViewportSize="{TemplateBinding ViewportHeight}"
+                            Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
+                            Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
                         <!--  垂直滚动条  -->
                         <ScrollBar
                             x:Name="PART_VerticalScrollBar"
                             Grid.Row="0"
                             Grid.Column="1"
                             Maximum="{TemplateBinding ScrollableHeight}"
-                            Style="{StaticResource ModernScrollBar}"
+                            Style="{StaticResource ModernVerticalScrollBar}"
                             ViewportSize="{TemplateBinding ViewportHeight}"
                             Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
                             Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
@@ -470,7 +527,6 @@
         </Setter>
     </Style>
     <!--#endregion-->
-
 
     <!--#region 文本框样式-->
     <!--  报错信息提示文本框  -->

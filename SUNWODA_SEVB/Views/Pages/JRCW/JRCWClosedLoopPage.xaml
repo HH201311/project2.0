@@ -9,7 +9,7 @@
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.JRCW"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:oxyWpf="http://oxyplot.org/wpf"
-    xmlns:params="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.JRCW.ParamControls;assembly=SUNWODA_SEVB.Component"
+    xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.JRCW;assembly=SUNWODA_SEVB.Component"
     Title="JRCWClosedLoopPage"
     d:Background="#FFFFFF"
     d:DesignHeight="800"
@@ -17,60 +17,21 @@
     mc:Ignorable="d">
     <Page.Resources>
         <ResourceDictionary>
-            <convert:StringToVisibilityConverter x:Key="StringToVisibilityConverter" />
-            <Style x:Key="SimpleGroupBoxStyle" TargetType="GroupBox">
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.AlimamaShuHeiTi}" />
-                <Setter Property="FontSize" Value="20" />
-                <Setter Property="BorderThickness" Value="0" />
-            </Style>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/JRCW/JRCWCustomControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-            <Style x:Key="ConnectStatusContentControlStyle" TargetType="ContentControl">
-                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="MinWidth" Value="120" />
-                <Setter Property="Foreground" Value="Black" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Tag" Value="xx通信状态" />
-                <Setter Property="Content" Value="离线" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ContentControl">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock
-                                    Margin="0,0,10,0"
-                                    VerticalAlignment="{TemplateBinding VerticalAlignment}"
-                                    FontFamily="{TemplateBinding FontFamily}"
-                                    FontSize="{TemplateBinding FontSize}"
-                                    Foreground="Black"
-                                    Text="{TemplateBinding Tag}" />
-                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="{TemplateBinding VerticalAlignment}" />
-                            </StackPanel>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="Content" Value="已连接">
-                                    <Setter Property="Foreground" Value="Blue" />
-                                </Trigger>
-                                <Trigger Property="Content" Value="离线">
-                                    <Setter Property="Foreground" Value="Red" />
-                                </Trigger>
-                                <Trigger Property="Content" Value="连接中">
-                                    <Setter Property="Foreground" Value="Orange" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
+            <convert:StringToVisibilityConverter x:Key="StringToVisibilityConverter" />
         </ResourceDictionary>
     </Page.Resources>
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="4*" MinHeight="320" />
-            <RowDefinition Height="Auto" MinHeight="240" />
-            <RowDefinition Height="3*" />
+            <RowDefinition Height="320" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="0,0,0,20">
+        <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1048*" />
                 <ColumnDefinition Width="752*" />
@@ -102,6 +63,7 @@
                             Grid.Row="1"
                             Background="Transparent"
                             BorderThickness="0"
+                            ItemContainerStyle="{StaticResource CustomItemContainerStyleStyle}"
                             ItemsSource="{Binding PLCAddressModels}"
                             SelectionMode="Multiple">
                             <i:Interaction.Triggers>
@@ -109,83 +71,6 @@
                                     <i:InvokeCommandAction Command="{Binding SelectionChangedCommand}" CommandParameter="{Binding SelectedItems, ElementName=plcAddressListView}" />
                                 </i:EventTrigger>
                             </i:Interaction.Triggers>
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                                                <Border
-                                                    Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}">
-                                                    <Border
-                                                        Name="SelectBorder"
-                                                        Margin="1"
-                                                        Padding="2"
-                                                        Background="Transparent"
-                                                        BorderBrush="Transparent"
-                                                        BorderThickness="1"
-                                                        CornerRadius="0">
-                                                        <Grid x:Name="DockPanel1">
-                                                            <Grid.RowDefinitions>
-                                                                <RowDefinition Height="auto" />
-                                                                <RowDefinition />
-                                                            </Grid.RowDefinitions>
-                                                            <DockPanel VerticalAlignment="Center">
-                                                                <TextBlock
-                                                                    Name="SelectText"
-                                                                    Margin="5,0,0,0"
-                                                                    HorizontalAlignment="Center"
-                                                                    FontSize="12"
-                                                                    Foreground="#666666"
-                                                                    Text="{Binding PName}" />
-                                                                <TextBlock
-                                                                    Margin="0,0,20,0"
-                                                                    HorizontalAlignment="Right"
-                                                                    FontSize="12"
-                                                                    Foreground="#3355FF"
-                                                                    Text="{Binding PValue}">
-                                                                    <TextBlock.ToolTip>
-                                                                        <TextBlock
-                                                                            MaxWidth="500"
-                                                                            Text="{Binding PValue}"
-                                                                            TextWrapping="NoWrap" />
-                                                                    </TextBlock.ToolTip>
-                                                                </TextBlock>
-                                                            </DockPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger SourceName="DockPanel1" Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#EAEDFF" />
-                                                    </Trigger>
-                                                    <!--  选中  -->
-                                                    <Trigger Property="Selector.IsSelected" Value="true">
-                                                        <Setter Property="Background" Value="#EAEDFF" />
-                                                        <Setter TargetName="SelectBorder" Property="BorderBrush" Value="Transparent" />
-                                                        <Setter TargetName="SelectText" Property="Foreground" Value="#3355FF" />
-                                                    </Trigger>
-                                                    <!--  多条件触发器  -->
-                                                    <MultiTrigger>
-                                                        <MultiTrigger.Conditions>
-                                                            <!--  是否已被选中，含多选情况  -->
-                                                            <Condition Property="Selector.IsSelected" Value="True" />
-                                                            <!--  是否是当前选中项，多选时为焦点所在项  -->
-                                                            <Condition Property="Selector.IsFocused" Value="False" />
-                                                        </MultiTrigger.Conditions>
-                                                        <Setter Property="Background" Value="Transparent" />
-                                                        <Setter TargetName="SelectBorder" Property="BorderBrush" Value="#14AAE6" />
-                                                        <Setter TargetName="SelectText" Property="Foreground" Value="#14AAE6" />
-                                                    </MultiTrigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
                         </ListBox>
                     </Border>
                 </Grid>
@@ -195,111 +80,29 @@
                 Margin="20,0,0,0"
                 Header="设备信息"
                 Style="{StaticResource SimpleGroupBoxStyle}">
-                <Border
-                    Grid.Row="1"
-                    Grid.Column="1"
-                    Margin="0,20,0,0"
-                    Background="WhiteSmoke"
-                    CornerRadius="20">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="40" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <UniformGrid
-                            Grid.Row="0"
-                            Margin="20,0"
-                            HorizontalAlignment="Right"
-                            Columns="3">
-                            <ContentControl
-                                Margin="10,0"
-                                d:Content="已连接"
-                                Content="{Binding PLCConnectStatus}"
-                                Style="{StaticResource ConnectStatusContentControlStyle}"
-                                Tag="PLC通信状态" />
-                            <ContentControl
-                                Margin="10,0"
-                                d:Content="离线"
-                                Content="{Binding MESConnectStatus}"
-                                Style="{StaticResource ConnectStatusContentControlStyle}"
-                                Tag="MES通信状态" />
-                            <ContentControl
-                                Margin="10,0"
-                                d:Content="离线"
-                                Content="{Binding WEBConnectStatus}"
-                                Style="{StaticResource ConnectStatusContentControlStyle}"
-                                Tag="WEB通信状态" />
-                        </UniformGrid>
-                        <ItemsControl
-                            Grid.Row="1"
-                            d:ItemsSource="{d:SampleData ItemCount=7}"
-                            ItemsSource="{Binding ProductInfoModel}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Columns="2" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="5" CornerRadius="5">
-                                        <StackPanel Margin="2,0" VerticalAlignment="Center">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="2*" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock
-                                                    Grid.Column="0"
-                                                    Margin="0,0,20,0"
-                                                    VerticalAlignment="Center"
-                                                    FontFamily="{StaticResource CCTB.SourceHanSansCN-Medium}"
-                                                    FontSize="14"
-                                                    Text="{Binding PName}"
-                                                    TextAlignment="Right" />
-                                                <TextBlock
-                                                    Grid.Column="1"
-                                                    VerticalAlignment="Center"
-                                                    FontFamily="{StaticResource CCTB.SourceHanSansCN-Bold}"
-                                                    FontSize="14"
-                                                    Text="{Binding PValue}"
-                                                    TextAlignment="Left">
-                                                    <TextBlock.ToolTip>
-                                                        <TextBlock
-                                                            MaxWidth="500"
-                                                            Text="{Binding PValue}"
-                                                            TextWrapping="NoWrap" />
-                                                    </TextBlock.ToolTip>
-                                                </TextBlock>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Grid>
-                </Border>
+                <uc:ProductionInfoControl Margin="0,20,0,0" ItemSource="{Binding ProductionInfoModel}" />
             </GroupBox>
         </Grid>
 
-        <GroupBox
-            Grid.Row="1"
-            Margin="0,0,0,20"
-            Header="闭环配置参数 (可在“设置”界面修改参数)"
-            Style="{StaticResource SimpleGroupBoxStyle}">
-            <Grid>
-                <params:YWParamControl
-                    ParamModel="{Binding ParamSettingModel}"
-                    UserRole="{Binding UserRole}"
-                    Visibility="{Binding JRCWSetting, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=义乌}" />
-            </Grid>
-        </GroupBox>
+        <Grid Grid.Row="1" Margin="0,20,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" LastChildFill="False">
+                <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="日志" />
+                <Button
+                    Command="{Binding BusinessParamCommand}"
+                    CommandParameter="{Binding BusinessType}"
+                    Content="参数配置"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource SimpleButtonStyle}" />
+            </DockPanel>
 
-        <GroupBox
-            Grid.Row="2"
-            Header="日志"
-            Style="{StaticResource SimpleGroupBoxStyle}">
             <DataGrid
                 x:Name="LogDataGrid"
+                Grid.Row="1"
+                Margin="0,20,0,0"
                 AlternatingRowBackground="#F8F9FA"
                 AutoGenerateColumns="False"
                 Background="White"
@@ -516,6 +319,6 @@
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
-        </GroupBox>
+        </Grid>
     </Grid>
 </Page>

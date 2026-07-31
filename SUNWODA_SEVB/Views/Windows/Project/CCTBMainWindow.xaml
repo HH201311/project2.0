@@ -5,6 +5,7 @@
     xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:converter="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;assembly=SUNWODA_SEVB.Core"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
     xmlns:interactivity="clr-namespace:HandyControl.Interactivity;assembly=HandyControl"
@@ -32,14 +33,8 @@
             <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
 
             <Style BasedOn="{StaticResource IndustrialGrowlStyle}" TargetType="hc:Growl" />
-            <Style
-                x:Key="PPairContentControlStyle"
-                BasedOn="{StaticResource ParamPairContentControlStyle}"
-                TargetType="{x:Type uccc:PairContentControl}">
-                <Setter Property="PairKeyWidth" Value="Auto" />
-                <Setter Property="PairSeparateWidth" Value="*" />
-                <Setter Property="PairValueWidth" Value="Auto" />
-                <Setter Property="PairValueMinWidth" Value="50" />
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="PairKeyWidth" Value="85" />
                 <Setter Property="Margin" Value="0,0,20,0" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="VerticalAlignment" Value="Center" />
@@ -194,41 +189,31 @@
                 Opacity="0.8"
                 Text="涂布控制系统" />
             <UniformGrid Margin="100,0,0,0" Rows="1">
-                <ToggleButton
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="True"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="涂布机"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding WMDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding WMDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding WMDeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="测重仪"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding CMDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding CMDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding CMDeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="模头A"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding DHADeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding DHADeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding DHADeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="模头B"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding DHBDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding DHBDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding DHBDeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="CCD"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
+                    AcceptDeviceCount="{Binding CCDDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding CCDDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding CCDDeviceStatus.DeviceStatus}" />
             </UniformGrid>
             <Rectangle
                 Width="1"
@@ -238,22 +223,22 @@
                 Opacity="0.5"
                 Stroke="#CCFFFFFF" />
             <UniformGrid Margin="10,10,0,10" Rows="2">
-                <uccc:PairContentControl PairKeyText="A面-TD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="A面-TD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="A面-MD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="A面-MD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="A面-尺寸闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="A面-尺寸闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="B面-TD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="B面-TD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="B面-MD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="B面-MD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="B面-尺寸闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="B面-尺寸闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
             </UniformGrid>

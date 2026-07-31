@@ -1984,7 +1984,7 @@
                                         <TextBlock
                                             FontSize="14"
                                             Foreground="#475569"
-                                            Text="2.区域内负极缺陷将被系统过滤" />
+                                            Text="2.区域内为当前检测区域" />
                                     </StackPanel>
                                     <StackPanel
                                         Margin="0,0,0,12"

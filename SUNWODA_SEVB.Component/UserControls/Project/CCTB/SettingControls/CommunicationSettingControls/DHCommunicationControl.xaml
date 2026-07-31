@@ -5,6 +5,8 @@
     xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:interfaces="clr-namespace:SUNWODA_SEVB.Core.Interfaces.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
@@ -18,10 +20,24 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBGrowlControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBHCControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
             <convert:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
+
+            <!--  键值对容器样式  -->
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="Width" Value="360" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="PairKeyWidth" Value="180" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="HorizontalContentAlignment" Value="Right" />
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -31,83 +47,180 @@
             <RowDefinition Height="70" />
         </Grid.RowDefinitions>
         <ScrollViewer Grid.Row="0" Margin="20">
-            <StackPanel Orientation="Vertical">
-                <Label
-                    Margin="0,0,0,20"
-                    Content="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    ContentStringFormat="{}{0}头"
-                    Style="{StaticResource ParamTitleLabelStyle}" />
-
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="模头IP" />
-                <TextBox
-                    Width="200"
-                    Height="40"
+            <StackPanel>
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="选择通讯模式" />
+                <hc:ComboBox
+                    Width="360"
                     Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    d:Text="192.168.1.30">
-                    <TextBox.Style>
-                        <Style BasedOn="{StaticResource PValueTextBoxStyle}" TargetType="TextBox">
-                            <Setter Property="Text" Value="{Binding ItemSource.DHIPA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.A}">
-                                    <Setter Property="Text" Value="{Binding ItemSource.DHIPA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.B}">
-                                    <Setter Property="Text" Value="{Binding ItemSource.DHIPB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
+                    d:SelectedIndex="0"
+                    hc:InfoElement.Title="数据采集通信模式"
+                    DisplayMemberPath="DisplayName"
+                    ItemsSource="{Binding CommunicationModeSource, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    SelectedValue="{Binding ItemSource.DHCommunicationMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    SelectedValuePath="ItemValue"
+                    Style="{StaticResource HCParamComboBoxStyle}" />
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="客户端端口" />
-                <TextBox
-                    Width="200"
-                    Height="40"
-                    Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    d:Text="8989">
-                    <TextBox.Style>
-                        <Style BasedOn="{StaticResource PValueTextBoxStyle}" TargetType="TextBox">
-                            <Setter Property="Text" Value="{Binding ItemSource.DHClientPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.A}">
-                                    <Setter Property="Text" Value="{Binding ItemSource.DHClientPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.B}">
-                                    <Setter Property="Text" Value="{Binding ItemSource.DHClientPortB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
-                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+                <!--  Socket 通讯设备  -->
+                <StackPanel d:Visibility="Visible" Visibility="{Binding ItemSource.DHCommunicationMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter={x:Static enums:ECommunicationMode.服务端Socket}}">
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="本地服务端配置" />
+                        <Button
+                            Margin="10,0,0,10"
+                            Command="{Binding SocketServerConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{x:Static interfaces:ICommunicationService.DHSocketServerDeviceName}"
+                            Content="通讯及协议配置"
+                            Style="{StaticResource TextButtonStyle}" />
+                    </StackPanel>
+                    <uccc:PairContentControl PairKeyText="是否启用监听服务">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.DHSocketServerEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="5555"
+                        hc:InfoElement.Placeholder="请输入端口"
+                        hc:InfoElement.Title="本地端口"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHSocketServerPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="服务端端口" />
-                <TextBox
-                    Width="200"
-                    Height="40"
-                    Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    d:Text="5555">
-                    <TextBox.Style>
-                        <Style BasedOn="{StaticResource PValueTextBoxStyle}" TargetType="TextBox">
-                            <Setter Property="Text" Value="{Binding ItemSource.DHServerPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.A}">
-                                    <Setter Property="Text" Value="{Binding ItemSource.DHServerPortA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding SideType, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Static enums:ESideType.B}">
-                                    <Setter Property="Text" Value="{Binding ItemSource.DHServerPortB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="机头A—模头远端设备" />
+                        <Button
+                            Margin="10,0,0,10"
+                            Command="{Binding SocketClientConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{x:Static interfaces:ICommunicationService.DHASocketClientDeviceName}"
+                            Content="通讯及协议配置"
+                            Style="{StaticResource TextButtonStyle}" />
+                    </StackPanel>
+                    <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.DHASocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="192.168.1.30"
+                        hc:InfoElement.Placeholder="请输入IP"
+                        hc:InfoElement.Title="远端IP"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHASocketClientIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="8989"
+                        hc:InfoElement.Placeholder="请输入端口"
+                        hc:InfoElement.Title="远端端口"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHASocketClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="机头B—模头远端设备" />
+                        <Button
+                            Margin="10,0,0,10"
+                            Command="{Binding SocketClientConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{x:Static interfaces:ICommunicationService.DHBSocketClientDeviceName}"
+                            Content="通讯及协议配置"
+                            Style="{StaticResource TextButtonStyle}" />
+                    </StackPanel>
+                    <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.DHBSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="192.168.1.30"
+                        hc:InfoElement.Placeholder="请输入IP"
+                        hc:InfoElement.Title="远端IP"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHBSocketClientIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="8989"
+                        hc:InfoElement.Placeholder="请输入端口"
+                        hc:InfoElement.Title="远端端口"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHBSocketClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+
+                <!--  Mqtt 通讯设备  -->
+                <StackPanel d:Visibility="Collapsed" Visibility="{Binding ItemSource.DHCommunicationMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter={x:Static enums:ECommunicationMode.客户端Mqtt}}">
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="机头A—模头远端设备" />
+                        <Button
+                            Margin="10,0,0,10"
+                            Command="{Binding MqttClientConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{x:Static interfaces:ICommunicationService.DHAMqttClientDeviceName}"
+                            Content="通讯及协议配置"
+                            Style="{StaticResource TextButtonStyle}" />
+                    </StackPanel>
+                    <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.DHAMqttClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="192.168.1.30"
+                        hc:InfoElement.Placeholder="请输入IP"
+                        hc:InfoElement.Title="远端IP"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHAMqttClientIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="8989"
+                        hc:InfoElement.Placeholder="请输入端口"
+                        hc:InfoElement.Title="远端端口"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHAMqttClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="机头B—模头远端设备" />
+                        <Button
+                            Margin="10,0,0,10"
+                            Command="{Binding MqttClientConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{x:Static interfaces:ICommunicationService.DHBMqttClientDeviceName}"
+                            Content="通讯及协议配置"
+                            Style="{StaticResource TextButtonStyle}" />
+                    </StackPanel>
+                    <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                        <uccc:SimpleToggleButton
+                            d:IsChecked="True"
+                            IsChecked="{Binding ItemSource.DHBMqttClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                    </uccc:PairContentControl>
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="192.168.1.30"
+                        hc:InfoElement.Placeholder="请输入IP"
+                        hc:InfoElement.Title="远端IP"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHBMqttClientIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        Width="360"
+                        Margin="0,10,0,0"
+                        d:Text="8989"
+                        hc:InfoElement.Placeholder="请输入端口"
+                        hc:InfoElement.Title="远端端口"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DHBMqttClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 

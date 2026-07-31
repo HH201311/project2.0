@@ -4,13 +4,19 @@ using Microsoft.VisualBasic.ApplicationServices;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
 using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Models;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Core.Models.Services.Project.CCTB;
 using SUNWODA_SEVB.Services;
+using SUNWODA_SEVB.Services.Project.CCTB;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation;
 using SUNWODA_SEVB.ViewModels.Dialogs.Common;
@@ -31,6 +37,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         private readonly IModuleManager _moduleManager;
         private readonly IGlobalSettingRepository _globalSettingRepository;
         private readonly IUsersRepository _usersRepository;
+        private readonly ICommunicationService _communicationService1;
 
         private Page? _navigationPage;
         private ModuleInfo? _selectedModule;
@@ -82,7 +89,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             INavigationService navigationService,
             IModuleManager moduleManager,
             IGlobalSettingRepository globalSettingRepository,
-            IUsersRepository usersRepository
+            IUsersRepository usersRepository,
+            ICommunicationService communicationService
         )
         {
             _logger = logger;
@@ -90,10 +98,14 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             _moduleManager = moduleManager;
             _globalSettingRepository = globalSettingRepository;
             _usersRepository = usersRepository;
+            _communicationService1 = communicationService;
 
             UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
             UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
             OnUserStateChanged("guest");
+
+            _communicationService1.DeviceStatusChanged -= OnDeviceStatusChanged;
+            _communicationService1.DeviceStatusChanged += OnDeviceStatusChanged;
         }
 
         /// <summary>
@@ -217,9 +229,99 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             await base.OnCleanupAsync();
         }
 
+        #region 设备状态
+        private DeviceStatusModel wmDeviceStatus = new("涂布机"), cmDeviceStatus = new("测重仪"), dhADeviceStatus = new("模头A"), dhBDeviceStatus = new("模头B"), ccdDeviceStatus = new("CCD");
+        public DeviceStatusModel WMDeviceStatus { get => wmDeviceStatus; set => SetProperty(ref wmDeviceStatus, value); }
+        public DeviceStatusModel CMDeviceStatus { get => cmDeviceStatus; set => SetProperty(ref cmDeviceStatus, value); }
+        public DeviceStatusModel DHADeviceStatus { get => dhADeviceStatus; set => SetProperty(ref dhADeviceStatus, value); }
+        public DeviceStatusModel DHBDeviceStatus { get => dhBDeviceStatus; set => SetProperty(ref dhBDeviceStatus, value); }
+        public DeviceStatusModel CCDDeviceStatus { get => ccdDeviceStatus; set => SetProperty(ref ccdDeviceStatus, value); }
+
+        /// <summary>
+        /// 更新设备状态
+        /// </summary>
+        private void OnDeviceStatusChanged(object? sender, DeviceStatusEventArgs args)
+        {
+            if (args == null || args.DeviceStatus == null) return;
+
+            var settings = _communicationService1.Settings;
+            var deviceStatus = args.DeviceStatus;
+            switch (args.DeviceStatus.DeviceName)
+            {
+                case ICommunicationService.WMSocketServerDeviceName:
+                    {
+                        if (settings == null || settings.WMCommunicationMode != ECommunicationMode.服务端Socket) break;
+
+                        wmDeviceStatus.DeviceName = "涂布机";
+                        wmDeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        wmDeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.WMSocketClientDeviceName:
+                    {
+                        if (settings == null || settings.WMCommunicationMode != ECommunicationMode.客户端Socket) break;
+
+                        wmDeviceStatus.DeviceName = "涂布机";
+                        wmDeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        wmDeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.DHASocketClientDeviceName:
+                    {
+                        if (settings == null || settings.DHCommunicationMode != ECommunicationMode.服务端Socket) break;
+
+                        dhADeviceStatus.DeviceName = "模头A";
+                        dhADeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        dhADeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.DHBSocketClientDeviceName:
+                    {
+                        if (settings == null || settings.DHCommunicationMode != ECommunicationMode.服务端Socket) break;
+
+                        dhBDeviceStatus.DeviceName = "模头B";
+                        dhBDeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        dhBDeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.DHAMqttClientDeviceName:
+                    {
+                        if (settings == null || settings.DHCommunicationMode != ECommunicationMode.客户端Mqtt) break;
+
+                        dhADeviceStatus.DeviceName = "模头A";
+                        dhADeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        dhADeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.DHBMqttClientDeviceName:
+                    {
+                        if (settings == null || settings.DHCommunicationMode != ECommunicationMode.客户端Mqtt) break;
+
+                        dhBDeviceStatus.DeviceName = "模头B";
+                        dhBDeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        dhBDeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.CCDSocketServerDeviceName:
+                    {
+                        ccdDeviceStatus.DeviceName = "CCD";
+                        ccdDeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        ccdDeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+                case ICommunicationService.CMPLCDeviceName:
+                    {
+                        cmDeviceStatus.DeviceName = "测厚仪";
+                        cmDeviceStatus.DeviceStatus = deviceStatus.DeviceStatus;
+                        cmDeviceStatus.AcceptDeviceCount = deviceStatus.AcceptDeviceCount;
+                        break;
+                    }
+            }
+        }
+        #endregion
+
         #region 用户
-        private string? userName;
-        private string? userIcon;
+        private string? userName, userIcon;
         private Visibility changePasswordVisibility = Visibility.Collapsed;
         private Visibility logoutVisibility = Visibility.Collapsed;
 
@@ -227,7 +329,6 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         public string? UserIcon { get => userIcon; set => SetProperty(ref userIcon, value); }
         public Visibility ChangePasswordVisibility { get => changePasswordVisibility; set => SetProperty(ref changePasswordVisibility, value); }
         public Visibility LogoutVisibility { get => logoutVisibility; set => SetProperty(ref logoutVisibility, value); }
-
 
         /// <summary>
         /// 更新用户显示信息

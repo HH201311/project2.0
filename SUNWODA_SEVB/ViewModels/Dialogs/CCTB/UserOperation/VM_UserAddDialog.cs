@@ -43,7 +43,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation
                 {
                     if ((int)ur < _currentUserRoleID)
                     {
-                        UserRoleSource?.Add(OperationUtil.RoleIDToString((int)ur));
+                        UserRoleSource?.Add(CCTBCore.RoleIDToString((int)ur));
                     }
                 }
             }
@@ -54,7 +54,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation
             get => _account;
             set
             {
-                var isValidAccount = OperationUtil.IsValidAccount(value);
+                var isValidAccount = CCTBCore.IsValidAccount(value);
                 AccountErrorMessage = isValidAccount ? "" : "账号仅可包含数字及大小写字母";
                 if (Result != null) Result.Account = value;
                 SetProperty(ref _account, value);

@@ -39,6 +39,7 @@
     <None Remove="Assets\images\logo.png" />
     <None Remove="Assets\Images\logo1.png" />
     <None Remove="Assets\images\plus.png" />
+    <None Remove="Assets\Images\强电1示意图.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -143,7 +144,13 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Assets\Images\LDCDC示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\Images\shanggai.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Images\强电2示意图.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Assets\model\C06CT\C06CT.mtl">
@@ -216,6 +223,12 @@
     <Content Include="Assets\images\plus.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Images\强电1示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

@@ -29,10 +29,14 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Commu
             InitializeComponent();
         }
 
-        public ObservableCollection<ComboboxItemModel<ECommunicationMode>> CommunicationModeParamSource { get; } =
-            new ObservableCollection<ComboboxItemModel<ECommunicationMode>>(
-            Enum.GetValues(typeof(ECommunicationMode)).Cast<ECommunicationMode>()
-            .Select(v => new ComboboxItemModel<ECommunicationMode>() { ItemValue = v, DisplayName = v.ToString() }));
+        private static readonly ECommunicationMode[] CommunicationModes = new[] { ECommunicationMode.客户端Socket, ECommunicationMode.服务端Socket };
+
+        /// <summary>
+        /// 通讯模式数据源
+        /// </summary>
+        public ObservableCollection<ComboboxItemModel<ECommunicationMode>> CommunicationModeSource { get; } =
+               new ObservableCollection<ComboboxItemModel<ECommunicationMode>>(CommunicationModes.Select(v =>
+               new ComboboxItemModel<ECommunicationMode> { ItemValue = v, DisplayName = v.ToString() }));
 
         #region ItemSource
         public CommunicationSettingModel ItemSource
@@ -49,6 +53,46 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Commu
         );
 
         private static void OnItemSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as WMCommunicationControl;
+        }
+        #endregion
+
+        #region SocketClientConfigCommand
+        public ICommand SocketClientConfigCommand
+        {
+            get { return (ICommand)GetValue(SocketClientConfigCommandProperty); }
+            set { SetValue(SocketClientConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty SocketClientConfigCommandProperty = DependencyProperty.Register(
+            "SocketClientConfigCommand",
+            typeof(ICommand),
+            typeof(WMCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnSocketClientConfigCommandChanged))
+        );
+
+        private static void OnSocketClientConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as WMCommunicationControl;
+        }
+        #endregion
+
+        #region SocketServerConfigCommand
+        public ICommand SocketServerConfigCommand
+        {
+            get { return (ICommand)GetValue(SocketServerConfigCommandProperty); }
+            set { SetValue(SocketServerConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty SocketServerConfigCommandProperty = DependencyProperty.Register(
+            "SocketServerConfigCommand",
+            typeof(ICommand),
+            typeof(WMCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnSocketServerConfigCommandChanged))
+        );
+
+        private static void OnSocketServerConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as WMCommunicationControl;
         }

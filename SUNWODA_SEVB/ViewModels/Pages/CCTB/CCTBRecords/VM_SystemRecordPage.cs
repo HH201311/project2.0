@@ -1,7 +1,9 @@
-﻿using DnsClient.Protocol;
+﻿using ControlzEx.Standard;
+using DnsClient.Protocol;
 using DocumentFormat.OpenXml.Bibliography;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HandyControl.Controls;
+using HandyControl.Tools.Extension;
 using Masuit.Tools;
 using NetTaste;
 using Newtonsoft.Json;
@@ -25,9 +27,11 @@ using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB.CommunicationOptions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -47,7 +51,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         /// <summary>
         /// 查询按钮
@@ -94,8 +97,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         /// <summary>
@@ -104,7 +105,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// <param name="parameter"></param>
         public override void OnNavigatedTo(object? parameter)
         {
-            LoadRecords();
+            LoadRecordsAsync();
             base.OnNavigatedTo(parameter);
         }
 
@@ -120,20 +121,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
             endDateCache = EndDate;
         }
 
-        private CancellationTokenSource? cts = null;
         /// <summary>
         /// 当导出当前页按钮点击时触发
         /// </summary>
         private async void OnExportCurrentPageAsync()
         {
-            if (cts != null)
-            {
-                var result = await VM_CCTBMessageBoxDialog.ShowAsync("[系统操作记录]正在导出中，是否取消？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result != MessageBoxResult.Yes) return;
-                cts.Cancel();
-            }
-
-            cts = new CancellationTokenSource();
             try
             {
                 if (Records.Count == 0)
@@ -157,23 +149,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
                     if (re2 != MessageBoxResult.Yes) return;
                 }
 
-                var task = CsvSaveHelper.WriteToFileAsync(filePath, Records); ;
-                await task.WaitAsync(cts.Token);
-                await VM_CCTBMessageBoxDialog.SuccessAsync($"已成功导出{Records.Count}条[系统操作记录]，导出路径[{filePath}]!", "导出完成");
-            }
-            catch (Exception ex) when (ex is OperationCanceledException)
-            {
-                _logger.UserInfo("用户取消了导出操作[系统操作记录]。");
+                await Dialog.Show(new VM_CCTBProgressBarDialog().UIElement)
+                      .Initialize<VM_CCTBProgressBarDialog>(async o =>
+                      {
+                          await o.StartExportAsync(async (token) =>
+                          {
+                              var sw = new Stopwatch();
+                              sw.Start();
+                              o.UpdateProgress(0, string.Empty);
+                              var task = CsvSaveHelper.WriteToFileAsync(filePath, Records); ;
+                              await task.WaitAsync(token);
+                              sw.Stop();
+                              await Task.Delay((int)(2000 - sw.ElapsedMilliseconds));
+                              o.IsIndeterminate = false;
+                              if (!token.IsCancellationRequested) o.UpdateProgress(100, timeLeft: $"成功导出 {Records.Count} 条数据！");
+                          }, true);
+                      }).GetResultAsync<bool>();
             }
             catch (Exception ex)
             {
                 _logger.UserError($"[系统操作记录]导出过程中发生错误: {ex.Message}");
                 await VM_CCTBMessageBoxDialog.ErrorAsync($"导出失败[系统操作记录]: {ex.Message}", "错误");
-            }
-            finally
-            {
-                cts.Dispose();
-                cts = null;
             }
         }
 
@@ -182,15 +178,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// </summary>
         private async void OnExportCurrentQueryAsync()
         {
-            if (cts != null)
-            {
-                var result = await VM_CCTBMessageBoxDialog.ShowAsync("[系统操作记录]正在导出中，是否取消？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result != MessageBoxResult.Yes) return;
-                cts?.Cancel();
-                cts = null;
-            }
-
-            cts = new CancellationTokenSource();
             try
             {
                 var fileName = $"SystemRecords_{DateTime.Now:yyyyMMddHHmmss}.csv";
@@ -215,37 +202,51 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
                 var re2 = await VM_CCTBMessageBoxDialog.ShowAsync($"已查询到[{count}]条数据，是否确认导出？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (re2 != MessageBoxResult.Yes) return;
 
-                var rows = new List<Dictionary<string, string>>();
-                var pageCount = (count + PageSize - 1) / PageSize;
-                for (int i = 0; i < pageCount; i++)
-                {
-                    rows.Clear();
-                    var records = await _appLogRepository.GetUserRecordsPagedAsync(i + 1, PageSize, startDateCache, endDateCache);
-                    for (int j = 0; j < records.Items.Count; j++)
-                    {
-                        var record = ConvertToRecord(records.Items[j]);
-                        record.ID = i * PageSize + j + 1;
-                        rows.Add(ConvertToDic(record));
-                    }
-                    var task = Task.Run(() => CCTBCsvHelper.WriteCSV(filePath, CCTBCsvHelper.DicToTable(rows.ToArray())));
-                    await task.WaitAsync(cts.Token);
-                }
+                await Dialog.Show(new VM_CCTBProgressBarDialog().UIElement)
+                      .Initialize<VM_CCTBProgressBarDialog>(async o =>
+                      {
+                          await o.StartExportAsync(async (token) =>
+                          {
+                              var sw = new Stopwatch();
+                              sw.Start();
+                              o.UpdateProgress(0, string.Empty);
 
-                await VM_CCTBMessageBoxDialog.SuccessAsync($"已成功导出{count}条[系统操作记录]，导出路径[{filePath}]!", "导出完成");
-            }
-            catch (Exception ex) when (ex is OperationCanceledException)
-            {
-                _logger.UserInfo("用户取消了导出操作[系统操作记录]。");
+                              var rows = new List<Dictionary<string, string>>();
+                              var pageCount = (count + PageSize - 1) / PageSize;
+                              var periodTime = 10000 / pageCount;
+                              o.IsIndeterminate = !(pageCount > 3);
+                              for (int i = 0; i < pageCount; i++)
+                              {
+                                  rows.Clear();
+                                  var records = await _appLogRepository.GetUserRecordsPagedAsync(i + 1, PageSize, startDateCache, endDateCache);
+                                  for (int j = 0; j < records.Items.Count; j++)
+                                  {
+                                      var record = ConvertToRecord(records.Items[j]);
+                                      record.ID = i * PageSize + j + 1;
+                                      rows.Add(ConvertToDic(record));
+                                  }
+                                  var task = Task.Run(() => CCTBCsvHelper.WriteCSV(filePath, CCTBCsvHelper.DicToTable(rows.ToArray())));
+                                  await task.WaitAsync(token);
+                                  if (pageCount > 3)
+                                  {
+                                      var exportCount = i * PageSize + rows.Count;
+                                      o.UpdateProgress((double)exportCount / (double)count * 100, timeLeft: $"成功导出 {exportCount} 条数据！");
+                                      await Task.Delay(periodTime > 1 ? 1 : periodTime);
+                                  }
+                              }
+
+                              sw.Stop();
+                              var delayTime = 2000 - sw.ElapsedMilliseconds;
+                              if (delayTime > 0) await Task.Delay((int)delayTime);
+                              o.IsIndeterminate = false;
+                              if (!token.IsCancellationRequested) o.UpdateProgress(100, timeLeft: $"成功导出 {count} 条数据！");
+                          }, false);
+                      }).GetResultAsync<bool>();
             }
             catch (Exception ex)
             {
                 _logger.UserError($"[系统操作记录]导出过程中发生错误: {ex.Message}");
                 await VM_CCTBMessageBoxDialog.ErrorAsync($"导出失败[系统操作记录]: {ex.Message}", "错误");
-            }
-            finally
-            {
-                cts.Dispose();
-                cts = null;
             }
         }
 
@@ -256,7 +257,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         private async void OnGotoPageAsync(object? arg)
         {
             if (!(arg is int pageNumber)) return;
-            LoadRecords(pageNumber);
+            LoadRecordsAsync(pageNumber);
         }
 
         /// <summary>
@@ -321,14 +322,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// </summary>
         public SystemRecordModel? SelectedRecord { get => selectedRecord; set => SetProperty(ref selectedRecord, value); }
 
+        private CancellationTokenSource? cts_LoadRecords;
         /// <summary>
         /// 加载日志记录
         /// </summary>
         /// <param name="pageNumber"></param>
-        private void LoadRecords(int pageNumber = 1)
+        private async void LoadRecordsAsync(int pageNumber = 1)
         {
-            var records = _appLogRepository.GetUserRecordsPaged(pageNumber, PageSize, StartDate, EndDate);
-            RefreshRecordInfo(pageNumber, records);
+            Records.Clear();
+            if (cts_LoadRecords != null) cts_LoadRecords.Cancel();
+            cts_LoadRecords = new CancellationTokenSource();
+            try
+            {
+                var task = _appLogRepository.GetUserRecordsPagedAsync(pageNumber, PageSize, StartDate, EndDate);
+                var records = await task.WaitAsync(cts_LoadRecords.Token);
+                RefreshRecordInfo(pageNumber, records);
+            }
+            catch (OperationCanceledException ex) when (ex is OperationCanceledException) { return; }
         }
 
         /// <summary>

@@ -156,7 +156,7 @@
                             Grid.Column="1"
                             Margin="10,10,0,0"
                             Content="是否改为压缩tif格式文件"
-                            IsChecked="{Binding IsCompressTif}"                            
+                            IsChecked="{Binding IsCompressTif}"
                             ToolTip="启用后，将只压缩tif格式文件" />
                     </Grid>
 

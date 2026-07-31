@@ -530,10 +530,6 @@ namespace SUNWODA_SEVB.PLC
             {
                 address = $"{rwConfig.AreaName}{rwConfig.StartAddress}";
             }
-            //var result = await Task.Run(
-            //    () => plc.Device?.Read(address, (ushort)rwConfig.Length),
-            //    cancellationToken
-            //);
 
             // 不能触发cancellationToken取消操作，修改为下面的方式执行     -By2210120078  -20260522
             //var result = await Task.Run(

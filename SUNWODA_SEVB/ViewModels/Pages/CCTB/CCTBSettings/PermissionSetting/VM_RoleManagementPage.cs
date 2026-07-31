@@ -38,7 +38,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         /// <summary>
         /// 保存按钮
@@ -63,8 +62,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         /// <summary>
@@ -82,7 +79,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         /// </summary>
         private async void OnParamSaveAsync()
         {
-            var re = _operationUtil.SaveRoleManagementConfigProjectParamrers(RoleManagementConfigs.ToList());
+            var re = _projectSettingRepository.SaveRoleManagementConfigProjectParameters(RoleManagementConfigs.ToList());
             if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
@@ -107,7 +104,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         /// </summary>
         private void LoadRoleManagementSettings()
         {
-            var configs = _operationUtil.LoadRoleManagementConfigWithDefault();
+            var configs = _projectSettingRepository.LoadRoleManagementConfigWithDefault();
 
             RunOnUIThread(() =>
             {

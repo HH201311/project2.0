@@ -5,6 +5,8 @@
     xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:interfaces="clr-namespace:SUNWODA_SEVB.Core.Interfaces.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
@@ -21,6 +23,17 @@
             </ResourceDictionary.MergedDictionaries>
 
             <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+
+            <!--  键值对容器样式  -->
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="Width" Value="360" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="PairKeyWidth" Value="180" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="HorizontalContentAlignment" Value="Right" />
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -31,28 +44,90 @@
         </Grid.RowDefinitions>
         <ScrollViewer Grid.Row="0" Margin="20">
             <StackPanel Orientation="Vertical">
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="IP" />
-                <TextBox
-                    Width="200"
-                    Height="40"
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="本地服务端配置" />
+                    <Button
+                        Margin="10,0,0,10"
+                        Command="{Binding SocketServerConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{x:Static interfaces:ICommunicationService.CCDSocketServerDeviceName}"
+                        Content="通讯及协议配置"
+                        Style="{StaticResource TextButtonStyle}" />
+                </StackPanel>
+                <uccc:PairContentControl PairKeyText="是否启用监听服务">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.CCDSocketServerEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <hc:TextBox
+                    Width="360"
                     Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    d:Text="127.0.0.1"
-                    Style="{StaticResource PValueTextBoxStyle}"
-                    Text="{Binding ItemSource.CCDIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    d:Text="9001"
+                    hc:InfoElement.Placeholder="请输入端口"
+                    hc:InfoElement.Title="本地端口"
+                    Style="{StaticResource HCTitleValueTextBox}"
+                    Text="{Binding ItemSource.CCDSocketServerPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="端口" />
-                <TextBox
-                    Width="200"
-                    Height="40"
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="远端设备配置（一人多机）" />
+                    <Button
+                        Margin="10,0,0,10"
+                        Command="{Binding SocketClientConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{x:Static interfaces:ICommunicationService.OPMMSocketClientDeviceNames}"
+                        Content="通讯配置"
+                        Style="{StaticResource TextButtonStyle}" />
+                </StackPanel>
+                <hc:TextBox
+                    Width="360"
                     Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
+                    d:Text="127.0.0.1"
+                    hc:InfoElement.Placeholder="请输入IP"
+                    hc:InfoElement.Title="远端IP"
+                    Style="{StaticResource HCTitleValueTextBox}"
+                    Text="{Binding ItemSource.OPMMSocketClientIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.OPMMPLCSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <hc:TextBox
+                    Width="360"
+                    Margin="0,10,0,0"
                     d:Text="9001"
-                    Style="{StaticResource PValueTextBoxStyle}"
-                    Text="{Binding ItemSource.CCDPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    hc:InfoElement.Placeholder="请输入端口"
+                    hc:InfoElement.Title="远端端口（PLC）"
+                    Style="{StaticResource HCTitleValueTextBox}"
+                    Text="{Binding ItemSource.OPMMPLCSocketClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.OPMMCCDBSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <hc:TextBox
+                    Width="360"
+                    Margin="0,10,0,0"
+                    d:Text="9001"
+                    hc:InfoElement.Placeholder="请输入端口"
+                    hc:InfoElement.Title="远端端口（CCD）"
+                    Style="{StaticResource HCTitleValueTextBox}"
+                    Text="{Binding ItemSource.OPMMCCDSocketClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <uccc:PairContentControl PairKeyText="是否启用通讯服务">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.OPMMWeightBSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <hc:TextBox
+                    Width="360"
+                    Margin="0,10,0,0"
+                    d:Text="9001"
+                    hc:InfoElement.Placeholder="请输入端口"
+                    hc:InfoElement.Title="远端端口（测厚仪）"
+                    Style="{StaticResource HCTitleValueTextBox}"
+                    Text="{Binding ItemSource.OPMMWeightSocketClientPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
             </StackPanel>
         </ScrollViewer>
 

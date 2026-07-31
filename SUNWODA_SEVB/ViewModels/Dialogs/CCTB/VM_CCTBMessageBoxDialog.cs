@@ -208,7 +208,8 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB
             SetButtonStatus(messageBox, MessageBoxButton.OK, MessageBoxResult.OK);
             messageBox.ShowImage = true;
             messageBox.Image = ResourceHelper.GetResource<Geometry>("FatalGeometry");
-            messageBox.ImageBrush = ResourceHelper.GetResource<Brush>("PrimaryTextBrush");
+            //messageBox.ImageBrush = ResourceHelper.GetResource<Brush>("PrimaryTextBrush");
+            messageBox.ImageBrush = (Brush?)new BrushConverter().ConvertFrom("#FFFFFF");
 
             var result = await Dialog.Show(messageBox.UIElement).GetResultAsync<MessageBoxResult>();
             return result;

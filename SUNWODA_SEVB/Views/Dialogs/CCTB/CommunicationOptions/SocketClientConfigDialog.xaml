@@ -1,0 +1,223 @@
+﻿<Border
+    x:Class="SUNWODA_SEVB.Views.Dialogs.CCTB.CommunicationOptions.SocketClientConfigDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.CoatingOPMM"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB;assembly=SUNWODA_SEVB.Component"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls;assembly=SUNWODA_SEVB.Component"
+    MinWidth="1000"
+    MinHeight="660"
+    d:Height="800"
+    d:Width="1000"
+    Background="Transparent"
+    BorderBrush="#1AFFFFFF"
+    BorderThickness="1"
+    CornerRadius="10"
+    mc:Ignorable="d">
+    <Border.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--  标题样式  -->
+            <Style x:Key="ConfigTitleTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!--  表头样式  -->
+            <Style x:Key="ConfigHeaderTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!--  文本样式  -->
+            <Style BasedOn="{StaticResource HCTitleValueTextBox}" TargetType="{x:Type hc:TextBox}">
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Width" Value="400" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="hc:InfoElement.TitleWidth" Value="220" />
+            </Style>
+
+            <!--  下拉框样式  -->
+            <Style BasedOn="{StaticResource HCParamComboBoxStyle}" TargetType="{x:Type hc:ComboBox}">
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="Width" Value="400" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="hc:InfoElement.TitleWidth" Value="220" />
+            </Style>
+
+            <!--  开关样式  -->
+            <Style
+                x:Key="YNSimpleToggleButtonStyle"
+                BasedOn="{StaticResource ParamValueSimpleToggleButtonStyle}"
+                TargetType="{x:Type uccc:SimpleToggleButton}">
+                <Setter Property="CheckedText" Value="是" />
+                <Setter Property="UnCheckedText" Value="否" />
+            </Style>
+
+            <!--  键值对容器样式  -->
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="Width" Value="400" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="PairKeyWidth" Value="220" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="HorizontalContentAlignment" Value="Right" />
+            </Style>
+        </ResourceDictionary>
+    </Border.Resources>
+
+    <Grid Background="#FF2B2B2B">
+        <Grid Margin="20" Background="Transparent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <DockPanel Grid.Row="0" LastChildFill="False">
+                <TextBlock
+                    DockPanel.Dock="Left"
+                    Style="{StaticResource ConfigTitleTextBlockStyle}"
+                    Text="通讯及协议配置—客户端Socket" />
+                <Button
+                    Command="{Binding CloseCommand}"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource IconClosedButtonStyle}" />
+            </DockPanel>
+
+            <!--  通讯配置  -->
+            <Border
+                Grid.Row="1"
+                Margin="0,20,0,0"
+                Padding="20"
+                Background="#0DFFFFFF"
+                CornerRadius="10">
+                <StackPanel Grid.Row="1" Orientation="Vertical">
+                    <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="通讯配置" />
+                    <Rectangle Margin="0,20,0,0" Style="{StaticResource ParamLineRectangleStyle}" />
+                    <UniformGrid Columns="2">
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="连接超时时间（ms）"
+                            Text="{Binding CommunicationOptions.ConnectTimeoutMilliseconds, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="接收缓冲区大小（字节）"
+                            Text="{Binding CommunicationOptions.ReceiveBufferSize, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="接收超时时间（ms）"
+                            Text="{Binding CommunicationOptions.ReceiveTimeout, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="发送超时时间（ms）"
+                            Text="{Binding CommunicationOptions.SendTimeout, Mode=TwoWay}" />
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <!--  协议配置  -->
+            <Border
+                Grid.Row="2"
+                Margin="0,20,0,0"
+                Padding="20"
+                Background="#0DFFFFFF"
+                CornerRadius="10">
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="协议配置" />
+                    <Rectangle Margin="0,20,0,0" Style="{StaticResource ParamLineRectangleStyle}" />
+                    <UniformGrid Columns="2">
+                        <hc:ComboBox
+                            Width="400"
+                            d:SelectedIndex="0"
+                            hc:InfoElement.Title="数据分包模式"
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{Binding FramingModeSource}"
+                            SelectedValue="{Binding ProtocolOptions.FramingMode, Mode=TwoWay}"
+                            SelectedValuePath="ItemValue" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="可为空，表示无起始符"
+                            hc:InfoElement.Title="起始符"
+                            Text="{Binding ProtocolOptions.StartDelimiter, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="可为空，表示无结束符"
+                            hc:InfoElement.Title="结束符"
+                            Text="{Binding ProtocolOptions.EndDelimiter, Mode=TwoWay}" />
+                        <uccc:PairContentControl PairKeyText="是否在解析后移除起止符">
+                            <uccc:SimpleToggleButton IsChecked="{Binding ProtocolOptions.StripDelimiters, Mode=TwoWay}" Style="{StaticResource YNSimpleToggleButtonStyle}" />
+                        </uccc:PairContentControl>
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="FixedLength模式使用"
+                            hc:InfoElement.Title="固定长度"
+                            Text="{Binding ProtocolOptions.FixedFrameLength, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="LengthPrefixed模式使用"
+                            hc:InfoElement.Title="长度字段偏移量"
+                            Text="{Binding ProtocolOptions.LengthFieldOffset, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="长度字段字节数 (1, 2, 4)"
+                            hc:InfoElement.Title="长度字段字节数"
+                            Text="{Binding ProtocolOptions.LengthFieldSize, Mode=TwoWay}" />
+                        <uccc:PairContentControl PairKeyText="长度值是否包含头部长度">
+                            <uccc:SimpleToggleButton IsChecked="{Binding ProtocolOptions.LengthIncludesHeader, Mode=TwoWay}" Style="{StaticResource YNSimpleToggleButtonStyle}" />
+                        </uccc:PairContentControl>
+                        <uccc:PairContentControl PairKeyText="是否使用大端字节序">
+                            <uccc:SimpleToggleButton IsChecked="{Binding ProtocolOptions.BigEndian, Mode=TwoWay}" Style="{StaticResource YNSimpleToggleButtonStyle}" />
+                        </uccc:PairContentControl>
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="最大帧长度"
+                            Text="{Binding ProtocolOptions.MaxFrameLength, Mode=TwoWay}" />
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <!--  功能按钮  -->
+            <StackPanel
+                Grid.Row="3"
+                Margin="0,20,0,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FlowDirection="LeftToRight"
+                Orientation="Horizontal">
+                <Button
+                    Margin="10,0,0,0"
+                    Command="{Binding ConfirmCommand}"
+                    Content="确认"
+                    Style="{StaticResource ParamOKButtonStyle}" />
+                <Button
+                    Margin="10,0,0,0"
+                    Command="{Binding CancleCommand}"
+                    Content="取消"
+                    Style="{StaticResource ParamCancleButtonStyle}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Border>
+

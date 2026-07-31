@@ -37,6 +37,20 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     "尚未标定「上」视图 ROI，无法执行向量两点（请先在「阶段四视觉对齐」中标定「上」视图区域）");
             }
 
+            // 找点前视角准备：切换到极耳不遮挡角点的斜俯视，再截 3D
+            if (settings.HasPre321ViewPrepPrerequisites)
+            {
+                progress?.Report("3D找点前视角准备：点击切换视图 → 拖拽…");
+                _logger.Info("简单 3-2-1：先执行 Pre321 视角准备");
+                await RunPre321ViewPrepAsync(settings, cancellationToken, progress).ConfigureAwait(false);
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                progress?.Report("跳过找点前视角准备：尚未标定切换点击/拖拽箭头（仍按当前视角截图找点）");
+                _logger.Info("简单 3-2-1：Pre321 未标定齐全，跳过视角准备");
+            }
+
             progress?.Report("截取第四象限 3D 视图 ROI…");
             var capturePath = CaptureVision3dRoiToFile(settings);
             progress?.Report($"3D 截图已保存：{capturePath}");

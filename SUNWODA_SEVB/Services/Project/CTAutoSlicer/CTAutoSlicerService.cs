@@ -123,6 +123,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress,
                 "切片流程正在运行中，请稍后再试");
 
+        public Task TestPre321ViewPrepAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null) =>
+            ExecuteExclusiveAsync(
+                (token, prog) => _vgAutomationService.TestPre321ViewPrepAsync(settings, token, prog),
+                cancellationToken,
+                progress,
+                "切片流程正在运行中，请稍后再试");
+
         public Task TestOfflineCtVisionAnnotationAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,

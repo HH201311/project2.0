@@ -1145,8 +1145,10 @@
                                             Text="算法来源" />
                                         <ComboBox
                                             Grid.Column="1"
-                                            Width="220"
+                                            Width="240"
+                                            MinWidth="240"
                                             HorizontalAlignment="Left"
+                                            HorizontalContentAlignment="Left"
                                             ItemsSource="{Binding Simple321PointSourceOptions}"
                                             SelectedItem="{Binding Simple321PointSourceDisplay, Mode=TwoWay}"
                                             ToolTip="上位机本地：Vision3d / VisionTopView；视觉 DLL：GetSectionReferencePoints / GetObjectTopBottomPoints" />
@@ -1154,323 +1156,504 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Style="{StaticResource CasFormSectionStyle}">
+                            <Border
+                                Style="{StaticResource CasFormSectionStyle}"
+                                BorderBrush="#E67E22"
+                                BorderThickness="1"
+                                Visibility="{Binding IsSimple321LocalPointSource, Converter={StaticResource BoolToVis}}">
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="① 第四象限 3D 视图 ROI" />
-                                    <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="第四象限 3D 视口截图区；用于找三点+原点，是相对坐标换算起点。" />
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="⓪ 3D找点前视角准备（上位机本地算法配置）" Foreground="#E67E22" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        TextWrapping="Wrap"
+                                        Text="极耳预焊遮挡角点时：先点击切换视图，再按箭头拖拽看清上平面。目标视角见下方参考图；找点约定：1左上、2右上、3右下、4原点。" />
+                                    <Border
+                                        Margin="0,0,0,12"
+                                        Padding="8"
+                                        Background="#0A000000"
+                                        CornerRadius="8"
+                                        HorizontalAlignment="Left">
+                                        <StackPanel>
+                                            <TextBlock
+                                                Margin="0,0,0,6"
+                                                FontSize="12"
+                                                Foreground="#E67E22"
+                                                FontWeight="SemiBold"
+                                                Text="目标视角参考（效果图）" />
+                                            <Image
+                                                MaxHeight="200"
+                                                MaxWidth="360"
+                                                Stretch="Uniform"
+                                                Source="{Binding Pre321ViewReferenceImage}"
+                                                ToolTip="找点前应达到的斜俯视效果：顶面四角可见、左侧极耳基本不遮挡" />
+                                        </StackPanel>
+                                    </Border>
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="切换点击标定" />
                                         <TextBlock
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
                                             FontFamily="Consolas"
                                             FontWeight="SemiBold"
-                                            Text="{Binding Vision3dRoiDisplayText}" />
+                                            Text="{Binding Pre321ViewClickDisplayText}" />
+                                    </Grid>
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            VerticalAlignment="Top"
+                                            Margin="0,8,12,0"
+                                            Text="点击坐标" />
+                                        <StackPanel Grid.Column="1">
+                                            <WrapPanel>
+                                                <hc:TextBox
+                                                    Width="100"
+                                                    Margin="0,0,8,8"
+                                                    hc:InfoElement.Title="X"
+                                                    hc:InfoElement.TitlePlacement="Left"
+                                                    IsReadOnly="True">
+                                                    <hc:TextBox.Text>
+                                                        <Binding Path="Pre321ViewClickX" />
+                                                    </hc:TextBox.Text>
+                                                </hc:TextBox>
+                                                <hc:TextBox
+                                                    Width="100"
+                                                    Margin="0,0,8,8"
+                                                    hc:InfoElement.Title="Y"
+                                                    hc:InfoElement.TitlePlacement="Left"
+                                                    IsReadOnly="True">
+                                                    <hc:TextBox.Text>
+                                                        <Binding Path="Pre321ViewClickY" />
+                                                    </hc:TextBox.Text>
+                                                </hc:TextBox>
+                                            </WrapPanel>
+                                            <TextBlock
+                                                Style="{StaticResource CasFormHintStyle}"
+                                                Text="在VG软件3D视图中点击切换“右”视角按钮" />
+                                        </StackPanel>
+                                        <Button
+                                            Grid.Column="2"
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Command="{Binding CalibratePre321ViewClickCommand}"
+                                            Content="标定切换视图点击"
+                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            ToolTip="隐藏上位机 → 十字准星对准切换视图按钮中心" />
                                     </Grid>
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="区域 (X/Y/W/H)" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="X"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="3D 截图区域左上角屏幕 X（相对坐标换算起点）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Vision3dRoiX" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="Y"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="3D 截图区域左上角屏幕 Y（相对坐标换算起点）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Vision3dRoiY" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="W"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Vision3dRoiWidth" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="H"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Vision3dRoiHeight" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                        </StackPanel>
-                                    </Grid>
-                                    <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <Button
-                                                Style="{StaticResource CasFormActionButtonStyle}"
-                                                Margin="0"
-                                                Command="{Binding CalibrateVision3dRoiCommand}"
-                                                Content="标定 3D 区域"
-                                                IsEnabled="{Binding IsEnableSimulationBtn}"
-                                                ToolTip="隐藏上位机 → 全屏遮罩框选第四象限 3D 视图 → ✓提交 / ✕重选" />
-                                            <CheckBox
-                                                Style="{StaticResource CasFormCheckItemStyle}"
-                                                Margin="12,0,0,0"
-                                                Content="预览范围"
-                                                IsChecked="{Binding IsPreviewVision3dRoi}"
-                                                ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前 3D ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource CasFormSectionStyle}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="② 第二象限「上」视图 ROI" />
-                                    <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="第二象限「上」视口截图区；用于黄框优先/剪影回退的向量两点（须在原点之前点击）。" />
-                                    <Grid Style="{StaticResource CasFormRowStyle}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="拖拽箭头标定" />
                                         <TextBlock
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
                                             FontFamily="Consolas"
-                                            FontWeight="SemiBold"
-                                            Text="{Binding VisionTopViewRoiDisplayText}" />
+                                            FontSize="14"
+                                            Text="{Binding Pre321ViewDragDisplayText}"
+                                            TextWrapping="Wrap" />
                                     </Grid>
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="区域 (X/Y/W/H)" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="X"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="「上」视图截图区域左上角屏幕 X（相对坐标换算起点）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="VisionTopViewRoiX" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="Y"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="「上」视图截图区域左上角屏幕 Y（相对坐标换算起点）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="VisionTopViewRoiY" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="W"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="VisionTopViewRoiWidth" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="H"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="VisionTopViewRoiHeight" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                        </StackPanel>
-                                    </Grid>
-                                    <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <Button
-                                                Style="{StaticResource CasFormActionButtonStyle}"
-                                                Margin="0"
-                                                Command="{Binding CalibrateVisionTopViewRoiCommand}"
-                                                Content="标定「上」视图区域"
-                                                IsEnabled="{Binding IsEnableSimulationBtn}"
-                                                ToolTip="隐藏上位机 → 全屏遮罩框选第二象限「上」视图 → ✓提交 / ✕重选" />
-                                            <CheckBox
-                                                Style="{StaticResource CasFormCheckItemStyle}"
-                                                Margin="12,0,0,0"
-                                                Content="预览范围"
-                                                IsChecked="{Binding IsPreviewVisionTopViewRoi}"
-                                                ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前「上」视图 ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource CasFormSectionStyle}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="③ 「简单对齐」下拉点击位置" />
-                                    <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="测量工具栏「简单对齐」下拉中心绝对坐标；Qt 控件 UIA 不可靠，必须屏幕定位。" />
-                                    <Grid Style="{StaticResource CasFormRowStyle}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            FontFamily="Consolas"
-                                            FontWeight="SemiBold"
-                                            Text="{Binding Simple321ToolbarClickDisplayText}" />
-                                    </Grid>
-                                    <Grid Style="{StaticResource CasFormRowStyle}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="点击位置 (X/Y)" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="X"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="「简单对齐」下拉按钮中心屏幕 X（物理像素）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Simple321ToolbarClickX" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="Y"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="「简单对齐」下拉按钮中心屏幕 Y（物理像素）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Simple321ToolbarClickY" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                        </StackPanel>
-                                    </Grid>
-                                    <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="拖拽路径" />
                                         <Button
                                             Grid.Column="1"
                                             HorizontalAlignment="Left"
-                                            Style="{StaticResource CasFormActionButtonStyle}"
                                             Margin="0"
-                                            Command="{Binding CalibrateSimple321ToolbarClickCommand}"
-                                            Content="标定下拉点击位置"
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Command="{Binding CalibratePre321ViewDragArrowCommand}"
+                                            Content="标定拖拽箭头"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="隐藏上位机 → 对准 VG 测量工具栏「简单对齐」下拉中心左键确认；Qt 下拉 UIA 不可靠，必须绝对定位" />
+                                            ToolTip="全屏按住左键拖出黄色箭头：起点→终点即自动化拖拽路径；拖至可清晰看见上平面" />
+                                    </Grid>
+                                    <UniformGrid Columns="2" Margin="0,8,0,0">
+                                        <hc:TextBox
+                                            Margin="0,0,12,0"
+                                            hc:InfoElement.Title="点击后等待ms"
+                                            hc:InfoElement.TitlePlacement="Top">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="Pre321ViewClickWaitMs" UpdateSourceTrigger="PropertyChanged">
+                                                    <Binding.ValidationRules>
+                                                        <hc:RegexRule Type="PInt" />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            hc:InfoElement.Title="拖拽步进ms"
+                                            hc:InfoElement.TitlePlacement="Top">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="Pre321ViewDragStepDelayMs" UpdateSourceTrigger="PropertyChanged">
+                                                    <Binding.ValidationRules>
+                                                        <hc:RegexRule Type="PInt" />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                    </UniformGrid>
+                                    <Grid Style="{StaticResource CasFormRowStyle}" Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="单步验证" />
+                                        <StackPanel Grid.Column="1">
+                                            <Button
+                                                HorizontalAlignment="Left"
+                                                Style="{StaticResource CasFormActionButtonStyle}"
+                                                Background="#33E67E22"
+                                                Command="{Binding TestPre321ViewPrepCommand}"
+                                                Content="测试：点击切换视图 + 拖拽"
+                                                IsEnabled="{Binding IsEnableSimulationBtn}"
+                                                ToolTip="VG 已导入且 3D 可见时：绝对坐标点击切换视图 → 等待 → 沿箭头拖拽；用于验证极耳遮挡场景下的视角效果" />
+                                            <TextBlock
+                                                Margin="0,8,0,0"
+                                                Style="{StaticResource CasFormHintStyle}"
+                                                Text="执行顺序：绝对坐标点击切换视图 → 等待 → 按箭头直线拖拽。标定齐全后方可点击上方测试按钮。"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
                                     </Grid>
                                 </StackPanel>
                             </Border>
 
                             <Border Style="{StaticResource CasFormSectionStyle}">
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="④ 三点后偏移 Edit 置 0" />
-                                    <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="三点后左侧无名「x.xx mm」编辑框中心；自动化点入后输入 0 回车，否则「上」视图不对（须在向量两点前完成）。" />
-                                    <Grid Style="{StaticResource CasFormRowStyle}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            FontFamily="Consolas"
-                                            FontWeight="SemiBold"
-                                            Text="{Binding Simple321OffsetEditDisplayText}" />
-                                    </Grid>
-                                    <Grid Style="{StaticResource CasFormRowStyle}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="编辑框 (X/Y)" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="X"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="左侧无名偏移 Edit 中心屏幕 X（常显示 x.xx mm）">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Simple321OffsetEditX" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
-                                            <hc:TextBox
-                                                Width="100"
-                                                Margin="0,0,8,0"
-                                                hc:InfoElement.Title="Y"
-                                                hc:InfoElement.TitlePlacement="Left"
-                                                IsReadOnly="True"
-                                                ToolTip="左侧无名偏移 Edit 中心屏幕 Y">
-                                                <hc:TextBox.Text>
-                                                    <Binding Path="Simple321OffsetEditY" />
-                                                </hc:TextBox.Text>
-                                            </hc:TextBox>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="视觉对齐标定" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="3D /「上」视图 ROI、「简单对齐」下拉与三点后偏移 Edit。以下四项为同一组标定，须齐全后主流程/单测才可跑 3-2-1。" />
+
+                                    <Border Style="{StaticResource CasFormSubSectionStyle}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="① 第四象限 3D 视图 ROI" />
+                                            <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="第四象限 3D 视口截图区；用于找三点+原点，是相对坐标换算起点。" />
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    FontFamily="Consolas"
+                                                    FontWeight="SemiBold"
+                                                    Text="{Binding Vision3dRoiDisplayText}" />
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="区域 (X/Y/W/H)" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="X"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="3D 截图区域左上角屏幕 X（相对坐标换算起点）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Vision3dRoiX" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="Y"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="3D 截图区域左上角屏幕 Y（相对坐标换算起点）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Vision3dRoiY" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="W"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Vision3dRoiWidth" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="H"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Vision3dRoiHeight" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button
+                                                        Style="{StaticResource CasFormActionButtonStyle}"
+                                                        Margin="0"
+                                                        Command="{Binding CalibrateVision3dRoiCommand}"
+                                                        Content="标定 3D 区域"
+                                                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                                                        ToolTip="隐藏上位机 → 全屏遮罩框选第四象限 3D 视图 → ✓提交 / ✕重选" />
+                                                    <CheckBox
+                                                        Style="{StaticResource CasFormCheckItemStyle}"
+                                                        Margin="12,0,0,0"
+                                                        Content="预览范围"
+                                                        IsChecked="{Binding IsPreviewVision3dRoi}"
+                                                        ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前 3D ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
+                                                </StackPanel>
+                                            </Grid>
                                         </StackPanel>
-                                    </Grid>
-                                    <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
-                                        <Button
-                                            Grid.Column="1"
-                                            HorizontalAlignment="Left"
-                                            Style="{StaticResource CasFormActionButtonStyle}"
-                                            Margin="0"
-                                            Command="{Binding CalibrateSimple321OffsetEditCommand}"
-                                            Content="标定偏移置0编辑框"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="三点完成后左侧「x.xx mm」无名编辑框中心；自动化将点击→输入0→回车，否则「上」视图非预期" />
-                                    </Grid>
+                                    </Border>
+
+                                    <Border Style="{StaticResource CasFormSubSectionStyle}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="② 第二象限「上」视图 ROI" />
+                                            <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="第二象限「上」视口截图区；用于黄框优先/剪影回退的向量两点（须在原点之前点击）。" />
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    FontFamily="Consolas"
+                                                    FontWeight="SemiBold"
+                                                    Text="{Binding VisionTopViewRoiDisplayText}" />
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="区域 (X/Y/W/H)" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="X"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="「上」视图截图区域左上角屏幕 X（相对坐标换算起点）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="VisionTopViewRoiX" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="Y"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="「上」视图截图区域左上角屏幕 Y（相对坐标换算起点）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="VisionTopViewRoiY" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="W"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="VisionTopViewRoiWidth" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="H"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="VisionTopViewRoiHeight" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button
+                                                        Style="{StaticResource CasFormActionButtonStyle}"
+                                                        Margin="0"
+                                                        Command="{Binding CalibrateVisionTopViewRoiCommand}"
+                                                        Content="标定「上」视图区域"
+                                                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                                                        ToolTip="隐藏上位机 → 全屏遮罩框选第二象限「上」视图 → ✓提交 / ✕重选" />
+                                                    <CheckBox
+                                                        Style="{StaticResource CasFormCheckItemStyle}"
+                                                        Margin="12,0,0,0"
+                                                        Content="预览范围"
+                                                        IsChecked="{Binding IsPreviewVisionTopViewRoi}"
+                                                        ToolTip="勾选后最小化本软件，在屏幕上高亮显示当前「上」视图 ROI，便于核对标定是否正确；Esc 或取消勾选关闭" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource CasFormSubSectionStyle}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="③ 「简单对齐」下拉点击位置" />
+                                            <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="测量工具栏「简单对齐」下拉中心绝对坐标；Qt 控件 UIA 不可靠，必须屏幕定位。" />
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    FontFamily="Consolas"
+                                                    FontWeight="SemiBold"
+                                                    Text="{Binding Simple321ToolbarClickDisplayText}" />
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="点击位置 (X/Y)" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="X"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="「简单对齐」下拉按钮中心屏幕 X（物理像素）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Simple321ToolbarClickX" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="Y"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="「简单对齐」下拉按钮中心屏幕 Y（物理像素）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Simple321ToolbarClickY" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
+                                                <Button
+                                                    Grid.Column="1"
+                                                    HorizontalAlignment="Left"
+                                                    Style="{StaticResource CasFormActionButtonStyle}"
+                                                    Margin="0"
+                                                    Command="{Binding CalibrateSimple321ToolbarClickCommand}"
+                                                    Content="标定下拉点击位置"
+                                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                                    ToolTip="隐藏上位机 → 对准 VG 测量工具栏「简单对齐」下拉中心左键确认；Qt 下拉 UIA 不可靠，必须绝对定位" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource CasFormSubSectionStyle}" Margin="0">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="④ 三点后偏移 Edit 置 0" />
+                                            <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="三点后左侧无名「x.xx mm」编辑框中心；自动化点入后输入 0 回车，否则「上」视图不对（须在向量两点前完成）。" />
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="当前标定坐标" />
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    FontFamily="Consolas"
+                                                    FontWeight="SemiBold"
+                                                    Text="{Binding Simple321OffsetEditDisplayText}" />
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="编辑框 (X/Y)" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="X"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="左侧无名偏移 Edit 中心屏幕 X（常显示 x.xx mm）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Simple321OffsetEditX" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Width="100"
+                                                        Margin="0,0,8,0"
+                                                        hc:InfoElement.Title="Y"
+                                                        hc:InfoElement.TitlePlacement="Left"
+                                                        IsReadOnly="True"
+                                                        ToolTip="左侧无名偏移 Edit 中心屏幕 Y">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="Simple321OffsetEditY" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="操作" />
+                                                <Button
+                                                    Grid.Column="1"
+                                                    HorizontalAlignment="Left"
+                                                    Style="{StaticResource CasFormActionButtonStyle}"
+                                                    Margin="0"
+                                                    Command="{Binding CalibrateSimple321OffsetEditCommand}"
+                                                    Content="标定偏移置0编辑框"
+                                                    IsEnabled="{Binding IsEnableSimulationBtn}"
+                                                    ToolTip="三点完成后左侧「x.xx mm」无名编辑框中心；自动化将点击→输入0→回车，否则「上」视图非预期" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
 
@@ -1784,9 +1967,9 @@
                                             <LineBreak />
                                             <Run Text="• 切片导出目录：三视图切片输出根目录；内部按命名规则分子目录/文件。" />
                                             <LineBreak />
-                                            <Run Text="• 上视图交接目录：导出结束后将 OfflineCtTopViewSliceIndex 指定的那一张上视图复制到此目录，供 AI 电脑消费。" />
+                                            <Run Text="• 上视图交接目录：导出结束后将指定文件名的上视图复制到「交接目录/产品名/」下（如 …/导出名/50.jpg），供 AI 电脑消费。" />
                                             <LineBreak />
-                                            <Run Text="• 上视图切片序号：选用「上」视图第几张写入交接目录（1～100，默认 50）。" />
+                                            <Run Text="• 上视图切片序号：按文件名查找，输入 50 即找 50.jpg（不是“第 50 张”）。" />
                                             <LineBreak />
                                             <Run Text="• 图像宽度：导出对话框「图像大小-宽」（默认约 3000）。" />
                                             <LineBreak />
@@ -1844,7 +2027,7 @@
                                         <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图交接目录"
                                                    ToolTip="切图结束后复制送检上视图到此目录，供 AI 标注电脑读取" />
                                         <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True"
-                                                    ToolTip="两机共享目录；文件名形如 {导出名}_{序号}.jpg">
+                                                    ToolTip="两机共享目录；结构为 {交接目录}/{导出名产品文件夹}/50.jpg">
                                             <hc:TextBox.Text>
                                                 <Binding Path="TopViewHandoffFolder" UpdateSourceTrigger="PropertyChanged" />
                                             </hc:TextBox.Text>
@@ -1870,10 +2053,10 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图切片序号"
-                                                   ToolTip="写入交接目录的「上」视图第几张（1～100）" />
+                                                   ToolTip="按文件名查找：输入 50 即找 50.jpg（1～100）" />
                                         <StackPanel Grid.Column="1">
                                             <hc:TextBox Width="160" HorizontalAlignment="Left"
-                                                        ToolTip="1～100，对应导出文件名数字，如 50→50.jpg">
+                                                        ToolTip="按文件名精确匹配，如 50→50.jpg（不是第 50 张）">
                                                 <hc:TextBox.Text>
                                                     <Binding Path="OfflineCtTopViewSliceIndex" UpdateSourceTrigger="PropertyChanged">
                                                         <Binding.ValidationRules>
@@ -1883,7 +2066,7 @@
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Style="{StaticResource CasFormHintStyle}"
-                                                       Text="导出完成后复制该序号上视图到交接目录" />
+                                                       Text="按文件名查找（50→50.jpg），复制到交接目录下的产品名文件夹" />
                                         </StackPanel>
                                     </Grid>
                                     <UniformGrid Columns="2" Margin="0,12,0,0">
@@ -1969,62 +2152,70 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="切片图范围 (mm)" />
                                     <TextBlock Style="{StaticResource CasFormSectionDescStyle}" Text="各 2D 视图切片范围，写入导出表单对应字段。" />
-                                    <UniformGrid Columns="3" Margin="0,0,0,8">
-                                        <hc:TextBox
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="上·开始"
-                                            hc:InfoElement.TitlePlacement="Top"
-                                            ToolTip="「上」视图切片范围开始 [mm]">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="SliceRangeTopStartMm" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="上·结束"
-                                            hc:InfoElement.TitlePlacement="Top"
-                                            ToolTip="「上」视图切片范围结束 [mm]">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="SliceRangeTopEndMm" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Margin="0,0,0,8"
-                                            hc:InfoElement.Title="右·开始"
-                                            hc:InfoElement.TitlePlacement="Top"
-                                            ToolTip="「右」视图切片范围开始 [mm]">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="SliceRangeRightStartMm" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="右·结束"
-                                            hc:InfoElement.TitlePlacement="Top"
-                                            ToolTip="「右」视图切片范围结束 [mm]">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="SliceRangeRightEndMm" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="前·开始"
-                                            hc:InfoElement.TitlePlacement="Top"
-                                            ToolTip="「前」视图切片范围开始 [mm]">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="SliceRangeFrontStartMm" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Margin="0,0,0,8"
-                                            hc:InfoElement.Title="前·结束"
-                                            hc:InfoElement.TitlePlacement="Top"
-                                            ToolTip="「前」视图切片范围结束 [mm]">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="SliceRangeFrontEndMm" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                    </UniformGrid>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <hc:TextBox
+                                                Margin="0,0,0,8"
+                                                hc:InfoElement.Title="上·开始"
+                                                hc:InfoElement.TitlePlacement="Top"
+                                                ToolTip="「上」视图切片范围开始 [mm]">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="SliceRangeTopStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <hc:TextBox
+                                                hc:InfoElement.Title="上·结束"
+                                                hc:InfoElement.TitlePlacement="Top"
+                                                ToolTip="「上」视图切片范围结束 [mm]">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="SliceRangeTopEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <hc:TextBox
+                                                Margin="0,0,0,8"
+                                                hc:InfoElement.Title="右·开始"
+                                                hc:InfoElement.TitlePlacement="Top"
+                                                ToolTip="「右」视图切片范围开始 [mm]">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="SliceRangeRightStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <hc:TextBox
+                                                hc:InfoElement.Title="右·结束"
+                                                hc:InfoElement.TitlePlacement="Top"
+                                                ToolTip="「右」视图切片范围结束 [mm]">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="SliceRangeRightEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <hc:TextBox
+                                                Margin="0,0,0,8"
+                                                hc:InfoElement.Title="前·开始"
+                                                hc:InfoElement.TitlePlacement="Top"
+                                                ToolTip="「前」视图切片范围开始 [mm]">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="SliceRangeFrontStartMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <hc:TextBox
+                                                hc:InfoElement.Title="前·结束"
+                                                hc:InfoElement.TitlePlacement="Top"
+                                                ToolTip="「前」视图切片范围结束 [mm]">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="SliceRangeFrontEndMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                        </StackPanel>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         

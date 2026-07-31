@@ -172,7 +172,6 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
 
                 var resolvedBaseName = exportBaseName;
-                var resolvedQuantity = quantity ?? 0;
                 if (string.IsNullOrWhiteSpace(resolvedBaseName))
                 {
                     if (string.IsNullOrWhiteSpace(vglPath))
@@ -181,25 +180,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
 
                     resolvedBaseName = SliceExportNamingHelper.BuildExportBaseName(Path.GetFileName(vglPath));
-                    resolvedQuantity = SliceExportNamingHelper.ResolveExportQuantity(
-                        Path.GetFileName(vglPath),
-                        settings.SliceExportQuantity,
-                        settings.SliceExportQuantityQj);
                 }
 
                 var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
-                // 若已知导出数量，避免选超出堆栈范围的序号
-                if (resolvedQuantity > 0 && sliceIndex > resolvedQuantity)
-                {
-                    sliceIndex = resolvedQuantity;
-                }
+                var expectedName = $"{sliceIndex}.jpg";
 
                 var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
                     settings.SliceExportFolder,
                     resolvedBaseName);
                 imagePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
                     ?? throw new FileNotFoundException(
-                        $"未在「上」视图目录找到目标序号图（期望序号 {sliceIndex}）：{topFolder}",
+                        $"未在「上」视图目录按文件名找到送检图（期望 {expectedName} 等）：{topFolder}",
                         topFolder);
 
                 annotationFolder = OfflineCtAnnotationHelper.BuildAnnotationFolder(
@@ -207,10 +198,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     resolvedBaseName);
 
                 progress?.Report(
-                    $"AI 标注选用「上」视图第 {sliceIndex} 张：{Path.GetFileName(imagePath)}"
-                    + $"（配置序号 {settings.ResolveOfflineCtTopViewSliceIndex()}，数量基准 {resolvedQuantity}，"
+                    $"AI 标注按文件名选用：{Path.GetFileName(imagePath)}"
+                    + $"（配置={settings.ResolveOfflineCtTopViewSliceIndex()} → {expectedName}，"
                     + $"像素精度 {settings.ResolveOfflineCtPixelSizeUm():G} μm/px）");
-                _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}，sliceIndex={sliceIndex}");
+                _logger.Info($"AI 标注输入图：{imagePath}，输出目录：{annotationFolder}，fileNameIndex={sliceIndex}");
             }
 
             Directory.CreateDirectory(annotationFolder!);

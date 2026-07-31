@@ -400,8 +400,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
 
         /// <summary>
-        /// AI 标注选用「上」视图切片序号（1-based，范围 1～100）。
-        /// 按文件名数字匹配，如 50 → 50.jpg；缺省为中间张 DefaultOfflineCtTopViewSliceIndex。
+        /// AI 标注选用「上」视图切片文件名序号（范围 1～100）。
+        /// 输入 50 表示查找目录下的 <c>50.jpg</c>（按名字精确匹配，不是“第 50 张”）。
         /// </summary>
         public int OfflineCtTopViewSliceIndex { get; set; } = DefaultOfflineCtTopViewSliceIndex;
 
@@ -623,6 +623,50 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>捕捉按钮 + 拖拽箭头标定是否齐全</summary>
         public bool HasPostAlignCaptureDragPrerequisites =>
             HasPostAlignCaptureButton && HasPostAlignDrag;
+
+        // —— 3D 找点前视角准备（临时：点击切换视图 → 拖拽看清上平面；尚未接入主流程）——
+
+        /// <summary>3D 找点前：切换视图的屏幕绝对点击 X（物理像素）</summary>
+        public int Pre321ViewClickX { get; set; }
+
+        /// <summary>3D 找点前：切换视图的屏幕绝对点击 Y（物理像素）</summary>
+        public int Pre321ViewClickY { get; set; }
+
+        /// <summary>是否已完成切换视图点击标定</summary>
+        public bool Pre321ViewClickCalibrated { get; set; }
+
+        /// <summary>切换视图点击坐标是否可用</summary>
+        public bool HasPre321ViewClick => Pre321ViewClickCalibrated;
+
+        /// <summary>切换视图后的拖拽起点 X</summary>
+        public int Pre321ViewDragStartX { get; set; }
+
+        /// <summary>切换视图后的拖拽起点 Y</summary>
+        public int Pre321ViewDragStartY { get; set; }
+
+        /// <summary>切换视图后的拖拽终点 X</summary>
+        public int Pre321ViewDragEndX { get; set; }
+
+        /// <summary>切换视图后的拖拽终点 Y</summary>
+        public int Pre321ViewDragEndY { get; set; }
+
+        /// <summary>是否已完成找点前拖拽箭头标定</summary>
+        public bool Pre321ViewDragCalibrated { get; set; }
+
+        /// <summary>找点前拖拽箭头是否可用</summary>
+        public bool HasPre321ViewDrag =>
+            Pre321ViewDragCalibrated
+            && (Pre321ViewDragStartX != Pre321ViewDragEndX || Pre321ViewDragStartY != Pre321ViewDragEndY);
+
+        /// <summary>点切换视图后、开始拖拽前的等待（毫秒）</summary>
+        public int Pre321ViewClickWaitMs { get; set; } = 400;
+
+        /// <summary>找点前拖拽路径每步间隔（毫秒）</summary>
+        public int Pre321ViewDragStepDelayMs { get; set; } = 8;
+
+        /// <summary>找点前视角准备（点击 + 拖拽）标定是否齐全</summary>
+        public bool HasPre321ViewPrepPrerequisites =>
+            HasPre321ViewClick && HasPre321ViewDrag;
 
         /// <summary>视觉对齐截图落盘目录（空则使用 DefaultVisionCaptureDir）</summary>
         public string VisionCaptureDir { get; set; } = DefaultVisionCaptureDir;

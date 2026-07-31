@@ -1280,7 +1280,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 将 OfflineCtTopViewSliceIndex 指定的上视图送检图复制到交接目录（硬失败）。
+        /// 将 OfflineCtTopViewSliceIndex 对应文件名的上视图送检图复制到交接目录/产品名/（硬失败）。
         /// </summary>
         private async Task MirrorTopViewHandoffAsync(
             CTAutoSlicerSettings settings,
@@ -1289,6 +1289,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
+            // quantity 保留签名兼容调用方；选图已改为按文件名精确匹配，不再用数量钳制序号
+            _ = quantity;
             cancellationToken.ThrowIfCancellationRequested();
 
             if (string.IsNullOrWhiteSpace(settings.TopViewHandoffFolder))
@@ -1302,23 +1304,20 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
-            if (quantity > 0 && sliceIndex > quantity)
-            {
-                sliceIndex = quantity;
-            }
+            var expectedName = $"{sliceIndex}.jpg";
 
             var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
                 settings.SliceExportFolder,
                 exportBaseName);
             var sourcePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
                 ?? throw new FileNotFoundException(
-                    $"未在「上」视图目录找到送检序号图（期望序号 {sliceIndex}）：{topFolder}",
+                    $"未在「上」视图目录按文件名找到送检图（期望 {expectedName} / {sliceIndex}.png 等）：{topFolder}",
                     topFolder);
 
             progress?.Report(
-                $"交接上视图送检图：第 {sliceIndex} 张 → {settings.TopViewHandoffFolder}");
+                $"交接上视图送检图：按文件名查找 {Path.GetFileName(sourcePath)} → 产品目录「{exportBaseName}」");
             _logger.Info(
-                $"交接上视图：源={sourcePath}，序号={sliceIndex}，交接目录={settings.TopViewHandoffFolder}");
+                $"交接上视图：源={sourcePath}，文件名序号={sliceIndex}，交接目录={settings.TopViewHandoffFolder}/{exportBaseName}");
 
             var destPath = await Task.Run(
                     () => OfflineCtAnnotationHelper.CopyTopViewImageToHandoffFolder(

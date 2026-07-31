@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using SUNWODA_SEVB.Tool.Helper;
 
 var inputDir = args.Length > 0
@@ -18,13 +18,13 @@ var files = Directory.GetFiles(inputDir, "vision_3d_*.png")
 
 if (files.Length == 0)
 {
-    Console.WriteLine($"未找到 vision_3d_*.png：{inputDir}");
+    Console.WriteLine($"æœªæ‰¾åˆ° vision_3d_*.pngï¼š{inputDir}");
     return 1;
 }
 
-Console.WriteLine($"输入目录：{inputDir}");
-Console.WriteLine($"调试图：{debugDir}");
-Console.WriteLine($"共 {files.Length} 张");
+Console.WriteLine($"è¾“å…¥ç›®å½•ï¼š{inputDir}");
+Console.WriteLine($"è°ƒè¯•å›¾ï¼š{debugDir}");
+Console.WriteLine($"å…± {files.Length} å¼ ");
 
 var ok = 0;
 foreach (var file in files)
@@ -41,5 +41,9 @@ foreach (var file in files)
     }
 }
 
-Console.WriteLine($"完成：{ok}/{files.Length}");
+Console.WriteLine($"å®Œæˆï¼š{ok}/{files.Length}");
 return ok == files.Length ? 0 : 2;
+
+
+
+

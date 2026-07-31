@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.Tool.Helper
@@ -19,10 +18,6 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper.FinalInputFileNameWithoutExt。</summary>
         [Obsolete("不再单独落盘旋转中间图，请使用 PrepareFinalInputImage(rotateCw90: true)")]
         public const string RotatedInputFileNameWithoutExt = "input_rotated_cw90";
-
-        private static readonly Regex NumericFileName = new(
-            @"^(\d+)",
-            RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"];
 
@@ -45,8 +40,27 @@ namespace SUNWODA_SEVB.Tool.Helper
                 AnnotationFolderName);
 
         /// <summary>
-        /// 交接文件名：{exportBaseName}_{index:D3}{ext}，避免批次重名覆盖。
+        /// 交接相对路径：{导出名产品文件夹}/{源文件名}，例如「0013-Z …/50.jpg」。
+        /// 保留原切片文件名，用产品子目录避免多产品 50.jpg 互相覆盖。
         /// </summary>
+        public static string BuildHandoffRelativePath(string exportBaseName, string sourceImagePath)
+        {
+            var productFolder = string.IsNullOrWhiteSpace(exportBaseName)
+                ? "export"
+                : Path.GetFileName(exportBaseName.Trim());
+            var fileName = Path.GetFileName(sourceImagePath);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                fileName = "slice.jpg";
+            }
+
+            return Path.Combine(productFolder, fileName);
+        }
+
+        /// <summary>
+        /// 兼容旧调用；新交接请用 <see cref="BuildHandoffRelativePath"/>（产品子目录 + 原文件名）。
+        /// </summary>
+        [Obsolete("请使用 BuildHandoffRelativePath：产品文件夹/原文件名，避免 50.jpg 冲突")]
         public static string BuildHandoffFileName(string exportBaseName, int sliceIndex, string sourceImagePath)
         {
             var safeBase = string.IsNullOrWhiteSpace(exportBaseName)
@@ -63,7 +77,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 将上视图送检图复制到交接目录，返回目标路径。
+        /// 将上视图送检图复制到交接目录「产品名」子文件夹，文件名保持为源名（如 50.jpg）。
         /// </summary>
         public static string CopyTopViewImageToHandoffFolder(
             string sourceImagePath,
@@ -82,15 +96,20 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             Directory.CreateDirectory(handoffFolder);
-            var destPath = Path.Combine(
-                handoffFolder,
-                BuildHandoffFileName(exportBaseName, sliceIndex, sourceImagePath));
+            var relative = BuildHandoffRelativePath(exportBaseName, sourceImagePath);
+            var destPath = Path.Combine(handoffFolder, relative);
+            var destDir = Path.GetDirectoryName(destPath);
+            if (!string.IsNullOrWhiteSpace(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
             File.Copy(sourceImagePath, destPath, overwrite: true);
             return destPath;
         }
 
         /// <summary>
-        /// 枚举交接目录一层内的图像文件（不递归，避免扫到结果子目录）。
+        /// 枚举交接图像：优先「产品子目录」内一层图片；兼容根目录遗留的扁平文件。
         /// </summary>
         public static IReadOnlyList<string> EnumerateHandoffImages(string handoffFolder)
         {
@@ -99,24 +118,54 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return Array.Empty<string>();
             }
 
-            return Directory.EnumerateFiles(handoffFolder)
-                .Where(p => ImageExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
+            static bool IsImage(string path) =>
+                ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
+            var fromProductDirs = Directory.EnumerateDirectories(handoffFolder)
+                .SelectMany(dir => Directory.EnumerateFiles(dir).Where(IsImage));
+
+            var fromRoot = Directory.EnumerateFiles(handoffFolder).Where(IsImage);
+
+            return fromProductDirs
+                .Concat(fromRoot)
                 .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
 
         /// <summary>
-        /// AI 批处理输出目录：{resultRoot}/{文件名去扩展}/AI标注
+        /// AI 批处理输出目录：{resultRoot}/{产品名}/AI标注。
+        /// 产品名优先取交接图父目录名（…/产品名/50.jpg）；扁平遗留文件则用文件名去扩展。
         /// </summary>
         public static string BuildBatchAnnotationFolder(string resultRoot, string sourceImagePath)
         {
-            var stem = Path.GetFileNameWithoutExtension(sourceImagePath);
-            if (string.IsNullOrWhiteSpace(stem))
+            var parentDir = Path.GetDirectoryName(sourceImagePath);
+            var parentName = string.IsNullOrWhiteSpace(parentDir)
+                ? null
+                : Path.GetFileName(parentDir);
+            var fileStem = Path.GetFileNameWithoutExtension(sourceImagePath);
+
+            string productName;
+            if (!string.IsNullOrWhiteSpace(parentName)
+                && IsExactNumericSliceFileName(fileStem))
             {
-                stem = "annotation";
+                // …/导出名/50.jpg → 产品名=导出名
+                productName = parentName;
+            }
+            else if (!string.IsNullOrWhiteSpace(parentName)
+                     && !string.Equals(
+                         Path.GetPathRoot(parentDir),
+                         parentDir,
+                         StringComparison.OrdinalIgnoreCase))
+            {
+                // 父目录不是盘符根时，仍优先用父目录名（新产品结构）
+                productName = parentName;
+            }
+            else
+            {
+                productName = string.IsNullOrWhiteSpace(fileStem) ? "annotation" : fileStem;
             }
 
-            return Path.Combine(resultRoot, stem, AnnotationFolderName);
+            return Path.Combine(resultRoot, productName, AnnotationFolderName);
         }
 
         /// <summary>
@@ -190,11 +239,12 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 按文件名数字序号选取「上」视图切片图（1-based）。
-        /// 例如 sliceIndex=50 → 优先取 50.jpg；缺失时取排序后最接近的一张。
+        /// 按<strong>精确文件名</strong>选取「上」视图切片图。
+        /// 例如 sliceIndex=50 → 查找 <c>50.jpg</c> / <c>50.jpeg</c> / <c>50.png</c> 等（文件名主干须等于 "50"）。
+        /// 找不到则返回 null（不再用“最接近序号”兜底，避免误选）。
         /// </summary>
         /// <param name="topViewFolder">「上」视图导出目录</param>
-        /// <param name="sliceIndex">目标序号（建议 1～100；内部会钳制到 ≥1）</param>
+        /// <param name="sliceIndex">目标文件名数字（1～100；对应 50.jpg）</param>
         public static string? TryPickTopViewImageByIndex(string topViewFolder, int sliceIndex)
         {
             if (string.IsNullOrWhiteSpace(topViewFolder) || !Directory.Exists(topViewFolder))
@@ -202,38 +252,58 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return null;
             }
 
-            var files = Directory.EnumerateFiles(topViewFolder)
-                .Where(p => ImageExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
-                .Select(p => (Path: p, Index: TryParseLeadingNumber(Path.GetFileNameWithoutExtension(p))))
-                .Where(x => x.Index > 0)
-                .OrderBy(x => x.Index)
-                .ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (files.Count == 0)
-            {
-                return null;
-            }
-
             var targetIndex = Math.Max(1, sliceIndex);
-            var hit = files.FirstOrDefault(f => f.Index == targetIndex);
-            if (hit.Path != null)
+            var expectedStem = targetIndex.ToString(CultureInfo.InvariantCulture);
+
+            // 1) 直接拼路径：50.jpg / 50.jpeg / …
+            foreach (var ext in ImageExtensions)
             {
-                return hit.Path;
+                var direct = Path.Combine(topViewFolder, expectedStem + ext);
+                if (File.Exists(direct))
+                {
+                    return direct;
+                }
             }
 
-            // 目标序号文件缺失时，取排序后序号最接近的一张
-            var closest = files
-                .OrderBy(f => Math.Abs(f.Index - targetIndex))
-                .ThenBy(f => f.Index)
-                .First();
-            return closest.Path;
+            // 2) 目录枚举：主干名精确等于 "50"（忽略扩展名大小写）
+            foreach (var path in Directory.EnumerateFiles(topViewFolder))
+            {
+                if (!ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var stem = Path.GetFileNameWithoutExtension(path);
+                if (string.Equals(stem, expectedStem, StringComparison.OrdinalIgnoreCase))
+                {
+                    return path;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>文件名主干是否为纯数字切片名（如 50、1、100）。</summary>
+        public static bool IsExactNumericSliceFileName(string? fileNameWithoutExtension)
+        {
+            if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
+            {
+                return false;
+            }
+
+            var stem = fileNameWithoutExtension.Trim();
+            return int.TryParse(stem, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+                   && n >= 1
+                   && string.Equals(
+                       n.ToString(CultureInfo.InvariantCulture),
+                       stem,
+                       StringComparison.Ordinal);
         }
 
         /// <summary>
         /// 兼容旧调用：取中间图（quantity/2）。新代码请用 <see cref="TryPickTopViewImageByIndex"/>。
         /// </summary>
-        [Obsolete("请使用 TryPickTopViewImageByIndex，并由 OfflineCtTopViewSliceIndex 配置目标序号")]
+        [Obsolete("请使用 TryPickTopViewImageByIndex，并由 OfflineCtTopViewSliceIndex 配置目标文件名序号")]
         public static string? TryPickMiddleTopViewImage(string topViewFolder, int quantity)
         {
             var n = quantity > 0 ? quantity : 0;
@@ -345,19 +415,6 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
-        }
-
-        private static int TryParseLeadingNumber(string? name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                return -1;
-            }
-
-            var m = NumericFileName.Match(name.Trim());
-            return m.Success && int.TryParse(m.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
-                ? n
-                : -1;
         }
 
         private static string Csv(string value)

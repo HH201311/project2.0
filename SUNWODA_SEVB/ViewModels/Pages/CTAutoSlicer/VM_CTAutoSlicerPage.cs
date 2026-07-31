@@ -7,6 +7,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using SUNWODA_SEVB.Core.Attributes;
@@ -166,6 +167,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _cutImgDllTestOutputDir = CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir;
         private int _postAlignClickWaitMs = 400;
         private int _postAlignDragStepDelayMs = 8;
+        private int _pre321ViewClickX;
+        private int _pre321ViewClickY;
+        private bool _pre321ViewClickCalibrated;
+        private string _pre321ViewClickDisplayText = "未标定";
+        private int _pre321ViewDragStartX;
+        private int _pre321ViewDragStartY;
+        private int _pre321ViewDragEndX;
+        private int _pre321ViewDragEndY;
+        private bool _pre321ViewDragCalibrated;
+        private string _pre321ViewDragDisplayText = "未标定";
+        private int _pre321ViewClickWaitMs = 400;
+        private int _pre321ViewDragStepDelayMs = 8;
         private bool _mainWindowRememberSize;
         private int _mainWindowWidth = 1280;
         private int _mainWindowHeight = 720;
@@ -1407,9 +1420,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 {
                     SaveSetting(nameof(Simple321PointSource), value);
                     OnPropertyChanged(nameof(Simple321PointSourceDisplay));
+                    OnPropertyChanged(nameof(IsSimple321LocalPointSource));
                 }
             }
         }
+
+        /// <summary>当前是否选择「上位机本地算法」（本地专属配置区显隐用）。</summary>
+        public bool IsSimple321LocalPointSource =>
+            _simple321PointSource == (int)Core.Models.Project.CTAutoSlicer.Simple321PointSource.Local;
 
         public IReadOnlyList<string> Simple321PointSourceOptions { get; } =
         [
@@ -1607,8 +1625,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
-        /// AI 标注选用「上」视图切片序号（1～100，1-based）。
-        /// 与导出文件名数字对应，如 50 → 50.jpg；默认 50（原中间张）。
+        /// AI 标注选用「上」视图切片文件名序号（1～100）。
+        /// 输入 50 → 查找「上」视图目录下的 50.jpg（按名字精确匹配）；默认 50。
         /// </summary>
         public int OfflineCtTopViewSliceIndex
         {
@@ -1906,6 +1924,152 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        public int Pre321ViewClickX
+        {
+            get => _pre321ViewClickX;
+            set
+            {
+                if (SetProperty(ref _pre321ViewClickX, value))
+                {
+                    SaveSetting(nameof(Pre321ViewClickX), value);
+                    RefreshPre321ViewClickDisplay();
+                }
+            }
+        }
+
+        public int Pre321ViewClickY
+        {
+            get => _pre321ViewClickY;
+            set
+            {
+                if (SetProperty(ref _pre321ViewClickY, value))
+                {
+                    SaveSetting(nameof(Pre321ViewClickY), value);
+                    RefreshPre321ViewClickDisplay();
+                }
+            }
+        }
+
+        public string Pre321ViewClickDisplayText
+        {
+            get => _pre321ViewClickDisplayText;
+            private set => SetProperty(ref _pre321ViewClickDisplayText, value);
+        }
+
+        public int Pre321ViewDragStartX
+        {
+            get => _pre321ViewDragStartX;
+            set
+            {
+                if (SetProperty(ref _pre321ViewDragStartX, value))
+                {
+                    SaveSetting(nameof(Pre321ViewDragStartX), value);
+                    RefreshPre321ViewDragDisplay();
+                }
+            }
+        }
+
+        public int Pre321ViewDragStartY
+        {
+            get => _pre321ViewDragStartY;
+            set
+            {
+                if (SetProperty(ref _pre321ViewDragStartY, value))
+                {
+                    SaveSetting(nameof(Pre321ViewDragStartY), value);
+                    RefreshPre321ViewDragDisplay();
+                }
+            }
+        }
+
+        public int Pre321ViewDragEndX
+        {
+            get => _pre321ViewDragEndX;
+            set
+            {
+                if (SetProperty(ref _pre321ViewDragEndX, value))
+                {
+                    SaveSetting(nameof(Pre321ViewDragEndX), value);
+                    RefreshPre321ViewDragDisplay();
+                }
+            }
+        }
+
+        public int Pre321ViewDragEndY
+        {
+            get => _pre321ViewDragEndY;
+            set
+            {
+                if (SetProperty(ref _pre321ViewDragEndY, value))
+                {
+                    SaveSetting(nameof(Pre321ViewDragEndY), value);
+                    RefreshPre321ViewDragDisplay();
+                }
+            }
+        }
+
+        public string Pre321ViewDragDisplayText
+        {
+            get => _pre321ViewDragDisplayText;
+            private set => SetProperty(ref _pre321ViewDragDisplayText, value);
+        }
+
+        /// <summary>找点前目标视角参考图（效果图）。</summary>
+        public ImageSource? Pre321ViewReferenceImage
+        {
+            get
+            {
+                try
+                {
+                    var path = Path.Combine(
+                        AppDomain.CurrentDomain.BaseDirectory,
+                        "Assets",
+                        "images",
+                        "pre321_view_ref.png");
+                    if (!File.Exists(path))
+                    {
+                        return null;
+                    }
+
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.UriSource = new Uri(path, UriKind.Absolute);
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    return bmp;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
+        public int Pre321ViewClickWaitMs
+        {
+            get => _pre321ViewClickWaitMs;
+            set
+            {
+                if (SetProperty(ref _pre321ViewClickWaitMs, value))
+                {
+                    SaveSetting(nameof(Pre321ViewClickWaitMs), value);
+                }
+            }
+        }
+
+        public int Pre321ViewDragStepDelayMs
+        {
+            get => _pre321ViewDragStepDelayMs;
+            set
+            {
+                if (SetProperty(ref _pre321ViewDragStepDelayMs, value))
+                {
+                    SaveSetting(nameof(Pre321ViewDragStepDelayMs), value);
+                }
+            }
+        }
+
         /// <summary>下次进入本项目时是否沿用已保存的主窗尺寸。</summary>
         public bool MainWindowRememberSize
         {
@@ -1992,6 +2156,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand CalibrateSimple321OffsetEditCommand { get; }
         public ICommand CalibratePostAlignCaptureButtonCommand { get; }
         public ICommand CalibratePostAlignDragArrowCommand { get; }
+        public ICommand CalibratePre321ViewClickCommand { get; }
+        public ICommand CalibratePre321ViewDragArrowCommand { get; }
         public ICommand PickHistogramMaskColorCommand { get; }
         public ICommand TestRenderingPresetCommand { get; }
         public ICommand TestThickPlateCommand { get; }
@@ -1999,6 +2165,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestHistogramGrayScaleCommand { get; }
         public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand TestPostAlignCaptureDragCommand { get; }
+        public ICommand TestPre321ViewPrepCommand { get; }
         public ICommand TestOfflineCtVisionAnnotationCommand { get; }
         public ICommand BrowseCutImgDllTestSectionImageCommand { get; }
         public ICommand BrowseCutImgDllTestVectorImageCommand { get; }
@@ -2076,6 +2243,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             CalibrateSimple321OffsetEditCommand = new RelayCommand(ExecuteCalibrateSimple321OffsetEdit);
             CalibratePostAlignCaptureButtonCommand = new RelayCommand(ExecuteCalibratePostAlignCaptureButton);
             CalibratePostAlignDragArrowCommand = new RelayCommand(ExecuteCalibratePostAlignDragArrow);
+            CalibratePre321ViewClickCommand = new RelayCommand(ExecuteCalibratePre321ViewClick);
+            CalibratePre321ViewDragArrowCommand = new RelayCommand(ExecuteCalibratePre321ViewDragArrow);
             PickHistogramMaskColorCommand = new RelayCommand(ExecutePickHistogramMaskColor);
             TestRenderingPresetCommand = new RelayCommandAsync(ExecuteTestRenderingPresetAsync);
             TestThickPlateCommand = new RelayCommandAsync(ExecuteTestThickPlateAsync);
@@ -2083,6 +2252,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestHistogramGrayScaleCommand = new RelayCommandAsync(ExecuteTestHistogramGrayScaleAsync);
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
+            TestPre321ViewPrepCommand = new RelayCommandAsync(ExecuteTestPre321ViewPrepAsync);
             TestOfflineCtVisionAnnotationCommand = new RelayCommandAsync(ExecuteTestOfflineCtVisionAnnotationAsync);
             BrowseCutImgDllTestSectionImageCommand = new RelayCommand(ExecuteBrowseCutImgDllTestSectionImage);
             BrowseCutImgDllTestVectorImageCommand = new RelayCommand(ExecuteBrowseCutImgDllTestVectorImage);
@@ -2772,6 +2942,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 1);
             OnPropertyChanged(nameof(Simple321PointSource));
             OnPropertyChanged(nameof(Simple321PointSourceDisplay));
+            OnPropertyChanged(nameof(IsSimple321LocalPointSource));
 
             _postAlignCaptureButtonX = LoadIntSetting(nameof(PostAlignCaptureButtonX), 0);
             _postAlignCaptureButtonY = LoadIntSetting(nameof(PostAlignCaptureButtonY), 0);
@@ -2802,6 +2973,31 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(EnablePostAlignCaptureDragSteps));
             OnPropertyChanged(nameof(PostAlignClickWaitMs));
             OnPropertyChanged(nameof(PostAlignDragStepDelayMs));
+
+            _pre321ViewClickX = LoadIntSetting(nameof(Pre321ViewClickX), 0);
+            _pre321ViewClickY = LoadIntSetting(nameof(Pre321ViewClickY), 0);
+            _pre321ViewClickCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.Pre321ViewClickCalibrated), 0) != 0;
+            OnPropertyChanged(nameof(Pre321ViewClickX));
+            OnPropertyChanged(nameof(Pre321ViewClickY));
+            RefreshPre321ViewClickDisplay();
+
+            _pre321ViewDragStartX = LoadIntSetting(nameof(Pre321ViewDragStartX), 0);
+            _pre321ViewDragStartY = LoadIntSetting(nameof(Pre321ViewDragStartY), 0);
+            _pre321ViewDragEndX = LoadIntSetting(nameof(Pre321ViewDragEndX), 0);
+            _pre321ViewDragEndY = LoadIntSetting(nameof(Pre321ViewDragEndY), 0);
+            _pre321ViewDragCalibrated =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.Pre321ViewDragCalibrated), 0) != 0;
+            OnPropertyChanged(nameof(Pre321ViewDragStartX));
+            OnPropertyChanged(nameof(Pre321ViewDragStartY));
+            OnPropertyChanged(nameof(Pre321ViewDragEndX));
+            OnPropertyChanged(nameof(Pre321ViewDragEndY));
+            RefreshPre321ViewDragDisplay();
+
+            _pre321ViewClickWaitMs = LoadIntSetting(nameof(Pre321ViewClickWaitMs), 400);
+            _pre321ViewDragStepDelayMs = LoadIntSetting(nameof(Pre321ViewDragStepDelayMs), 8);
+            OnPropertyChanged(nameof(Pre321ViewClickWaitMs));
+            OnPropertyChanged(nameof(Pre321ViewDragStepDelayMs));
 
             _mainWindowRememberSize =
                 LoadIntSetting(nameof(MainWindowRememberSize), 0) != 0;
@@ -3085,6 +3281,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 EnablePostAlignCaptureDragSteps = EnablePostAlignCaptureDragSteps,
                 PostAlignClickWaitMs = PostAlignClickWaitMs,
                 PostAlignDragStepDelayMs = PostAlignDragStepDelayMs,
+                Pre321ViewClickX = Pre321ViewClickX,
+                Pre321ViewClickY = Pre321ViewClickY,
+                Pre321ViewClickCalibrated = _pre321ViewClickCalibrated,
+                Pre321ViewDragStartX = Pre321ViewDragStartX,
+                Pre321ViewDragStartY = Pre321ViewDragStartY,
+                Pre321ViewDragEndX = Pre321ViewDragEndX,
+                Pre321ViewDragEndY = Pre321ViewDragEndY,
+                Pre321ViewDragCalibrated = _pre321ViewDragCalibrated,
+                Pre321ViewClickWaitMs = Pre321ViewClickWaitMs,
+                Pre321ViewDragStepDelayMs = Pre321ViewDragStepDelayMs,
                 MainWindowRememberSize = MainWindowRememberSize,
                 MainWindowWidth = MainWindowWidth,
                 MainWindowHeight = MainWindowHeight,
@@ -3603,6 +3809,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 $"({_postAlignDragStartX},{_postAlignDragStartY}) → ({_postAlignDragEndX},{_postAlignDragEndY}) Δ=({dx},{dy}) L={len:F0}px";
         }
 
+        private void RefreshPre321ViewClickDisplay()
+        {
+            Pre321ViewClickDisplayText = _pre321ViewClickCalibrated
+                ? $"X={_pre321ViewClickX}, Y={_pre321ViewClickY}"
+                : "未标定";
+        }
+
+        private void RefreshPre321ViewDragDisplay()
+        {
+            if (!_pre321ViewDragCalibrated)
+            {
+                Pre321ViewDragDisplayText = "未标定";
+                return;
+            }
+
+            var dx = _pre321ViewDragEndX - _pre321ViewDragStartX;
+            var dy = _pre321ViewDragEndY - _pre321ViewDragStartY;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            Pre321ViewDragDisplayText =
+                $"({_pre321ViewDragStartX},{_pre321ViewDragStartY}) → ({_pre321ViewDragEndX},{_pre321ViewDragEndY}) Δ=({dx},{dy}) L={len:F0}px";
+        }
+
         private static string NormalizeMaskColor(string? value)
         {
             if (HistogramGrayScaleAnalyzer.TryParseHexColor(value, out var c))
@@ -4081,6 +4309,171 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 MessageShower = $"拖拽箭头标定失败：{ex.Message}";
                 _logger.Error("对齐后拖拽箭头标定失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 标定 3D 找点前「切换视图」屏幕绝对点击位置。
+        /// </summary>
+        private void ExecuteCalibratePre321ViewClick(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var picker = new ScreenPointPickerOverlayWindow(
+                        "请将十字准星对准「切换视图」按钮中心，左键确认；右键/Esc 取消");
+                    var ok = picker.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消切换视图点击标定";
+                        AppendFlowLog("3D找点前视角：切换视图点击标定已取消");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(Pre321ViewClickX), 0, "int", nameof(Pre321ViewClickX));
+                    EnsureSettingExists(nameof(Pre321ViewClickY), 0, "int", nameof(Pre321ViewClickY));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.Pre321ViewClickCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.Pre321ViewClickCalibrated));
+
+                    _isLoadingSettings = true;
+                    _pre321ViewClickX = picker.SelectedX;
+                    _pre321ViewClickY = picker.SelectedY;
+                    _pre321ViewClickCalibrated = true;
+                    OnPropertyChanged(nameof(Pre321ViewClickX));
+                    OnPropertyChanged(nameof(Pre321ViewClickY));
+                    RefreshPre321ViewClickDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(Pre321ViewClickX), picker.SelectedX);
+                    SaveSetting(nameof(Pre321ViewClickY), picker.SelectedY);
+                    SaveSetting(nameof(CTAutoSlicerSettings.Pre321ViewClickCalibrated), 1);
+
+                    var msg = $"切换视图点击已标定：X={picker.SelectedX}, Y={picker.SelectedY}";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"切换视图点击标定失败：{ex.Message}";
+                _logger.Error("3D找点前视角：切换视图点击标定失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 标定 3D 找点前视角拖拽方向与距离（全屏箭头）。
+        /// </summary>
+        private void ExecuteCalibratePre321ViewDragArrow(object? _)
+        {
+            if (_ctAutoSlicerService.IsRunning)
+            {
+                MessageShower = "流程运行中，请先结束后再标定";
+                return;
+            }
+
+            try
+            {
+                WinAPIHelper.BlockInput(false);
+
+                var mainWindow = Application.Current.MainWindow;
+                WindowState? previousState = null;
+                if (mainWindow != null)
+                {
+                    previousState = mainWindow.WindowState;
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
+
+                try
+                {
+                    Thread.Sleep(250);
+                    var overlay = new ScreenArrowCalibrationOverlayWindow(
+                        "在 VG 上按住左键拖拽 3D 图：起点→终点；拖至可清晰看见上平面；Esc/右键取消");
+                    var ok = overlay.ShowDialog() == true;
+                    if (!ok)
+                    {
+                        MessageShower = "已取消找点前拖拽箭头标定";
+                        AppendFlowLog("3D找点前视角：拖拽箭头标定已取消");
+                        return;
+                    }
+
+                    EnsureSettingExists(nameof(Pre321ViewDragStartX), 0, "int", nameof(Pre321ViewDragStartX));
+                    EnsureSettingExists(nameof(Pre321ViewDragStartY), 0, "int", nameof(Pre321ViewDragStartY));
+                    EnsureSettingExists(nameof(Pre321ViewDragEndX), 0, "int", nameof(Pre321ViewDragEndX));
+                    EnsureSettingExists(nameof(Pre321ViewDragEndY), 0, "int", nameof(Pre321ViewDragEndY));
+                    EnsureSettingExists(
+                        nameof(CTAutoSlicerSettings.Pre321ViewDragCalibrated),
+                        0,
+                        "int",
+                        nameof(CTAutoSlicerSettings.Pre321ViewDragCalibrated));
+
+                    _isLoadingSettings = true;
+                    _pre321ViewDragStartX = overlay.StartX;
+                    _pre321ViewDragStartY = overlay.StartY;
+                    _pre321ViewDragEndX = overlay.EndX;
+                    _pre321ViewDragEndY = overlay.EndY;
+                    _pre321ViewDragCalibrated = true;
+                    OnPropertyChanged(nameof(Pre321ViewDragStartX));
+                    OnPropertyChanged(nameof(Pre321ViewDragStartY));
+                    OnPropertyChanged(nameof(Pre321ViewDragEndX));
+                    OnPropertyChanged(nameof(Pre321ViewDragEndY));
+                    RefreshPre321ViewDragDisplay();
+                    _isLoadingSettings = false;
+
+                    SaveSetting(nameof(Pre321ViewDragStartX), overlay.StartX);
+                    SaveSetting(nameof(Pre321ViewDragStartY), overlay.StartY);
+                    SaveSetting(nameof(Pre321ViewDragEndX), overlay.EndX);
+                    SaveSetting(nameof(Pre321ViewDragEndY), overlay.EndY);
+                    SaveSetting(nameof(CTAutoSlicerSettings.Pre321ViewDragCalibrated), 1);
+
+                    var msg =
+                        $"找点前拖拽箭头已标定：({overlay.StartX},{overlay.StartY}) → ({overlay.EndX},{overlay.EndY})";
+                    MessageShower = msg;
+                    AppendFlowLog(msg);
+                    _logger.Info(msg);
+                }
+                finally
+                {
+                    if (mainWindow != null)
+                    {
+                        mainWindow.WindowState = previousState ?? WindowState.Maximized;
+                        mainWindow.Activate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"找点前拖拽箭头标定失败：{ex.Message}";
+                _logger.Error("3D找点前视角：拖拽箭头标定失败", ex);
             }
         }
 
@@ -4989,6 +5382,61 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MessageShower = ex.Message;
                 AppendFlowLog($"对齐后拖拽测试失败：{ex.Message}");
                 _logger.Error("对齐后拖拽测试失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
+        private async Task ExecuteTestPre321ViewPrepAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (!_pre321ViewClickCalibrated)
+            {
+                MessageShower = "尚未标定切换视图点击，请先在「视觉对齐」中点击「标定切换视图点击」";
+                return;
+            }
+
+            if (!_pre321ViewDragCalibrated
+                || (_pre321ViewDragStartX == _pre321ViewDragEndX && _pre321ViewDragStartY == _pre321ViewDragEndY))
+            {
+                MessageShower = "尚未标定找点前拖拽箭头，请先「标定拖拽箭头」";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(VGAppPath))
+            {
+                MessageShower = "请先配置 VG 应用路径";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— 临时·3D找点前视角准备测试开始 ———");
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.TestPre321ViewPrepAsync(
+                    BuildSettings(),
+                    flowToken,
+                    progress);
+                AppendFlowLog("——— 临时·3D找点前视角准备测试结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"3D找点前视角准备测试失败：{ex.Message}");
+                _logger.Error("3D找点前视角准备测试失败", ex);
             }
             finally
             {

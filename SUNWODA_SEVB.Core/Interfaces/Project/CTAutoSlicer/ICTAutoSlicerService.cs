@@ -93,6 +93,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         );
 
         /// <summary>
+        /// 临时单测：3D 找点前视角准备 — 绝对坐标点击切换视图 → 按箭头拖拽看清上平面。
+        /// </summary>
+        Task TestPre321ViewPrepAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
         /// 单步测试：对「上」视图配置序号图或指定图片执行 AI 图像标注。
         /// </summary>
         /// <param name="explicitOutputFolder">

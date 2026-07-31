@@ -8,6 +8,12 @@
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
 
+> **2026-07-31 增量（二次手动标注 · 测距）**：  
+> 1. AI 模式侧栏新增「二次手动标注」（`NavManualMeasure=9`；单步测试=10、偏好=11）。  
+> 2. 打开文件夹递归枚举图片 → 全屏工作台：左侧已标/未标列表，中部两点测距（橡皮筋虚线 + CAD 垂直引出线 + 实时 μm/mm）。  
+> 3. 像素精度复用 `OfflineCtPixelSizeUm`；`Shift` 正交；导出 `{根目录}/output/`（`index.json` + 单图 json + `*_annotated.png`）；续标自动加载已有 JSON。  
+> 4. 落点：`ManualMeasureAnnotateWindow` / `VM_ManualMeasureAnnotateWindow` / `ManualMeasureExportHelper`；详规 **§22.8**。
+
 > **2026-07-31 增量（直方图 2c：LUT 关键段中点对齐红线）**：  
 > 1. **问题**：仅 LUT 预设时，峰值左右偏会导致折线关键斜段偏离峰区。  
 > 2. **做法**：应用预设后一次性标定关键段两端点 → 运行时取中点 → 红线到位后水平拖中点到 `TargetScreenX`（整段平移）。  
@@ -1272,7 +1278,7 @@ screenY = Ry + Py
 | `PipelineRunMode` | `SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏胶囊切换；**本机 JSON** `{程序目录}/Config/CTAutoSlicer/local.json`（`CTAutoSlicerLocalConfigService`） |
 | `TopViewHandoffFolder` | 共享交接目录；切图写入 `{exportBaseName}_{index:D3}.ext`，AI 扫描一层 |
 | 切图机 | 侧栏：应用～切片；导出后 `MirrorTopViewHandoffAsync`（硬失败） |
-| AI 机 | 侧栏：AI 图像标注；「开始流程」→ `RunAiAnnotationBatchAsync`（不启 VG） |
+| AI 机 | 侧栏：AI 图像标注、**二次手动标注**；「开始流程」→ `RunAiAnnotationBatchAsync`（不启 VG） |
 | 结果根 | 复用 `SliceExportFolder`（AI 模式下 UI 文案为「标注结果根目录」） |
 
 ### 22.1 接口来源
@@ -1315,6 +1321,7 @@ screenY = Ry + Py
 | `OfflineCtResultImageMode.cs` | Enhance / Origin / Both |
 | `CTAutoSlicerSettings` | `PipelineRunMode` / `TopViewHandoffFolder` / `OfflineCt*` |
 | `CTAutoSlicerPage` 侧栏「AI图像标注」 | NavAiAnnotate=8 |
+| `CTAutoSlicerPage` 侧栏「二次手动标注」 | NavManualMeasure=9；单步=10；偏好=11 |
 | 单步测试「标定采图」 | 截取 3D / 上视图标定图（见 §22.7） |
 
 ### 22.5 接入时序与目录约定
@@ -1350,6 +1357,7 @@ RunAiAnnotationBatchAsync：
 - [x] Halcon `HObject` 释放与 `RunInfo` 日志  
 - [x] 上视图推理前顺时针 90° + 条件提亮 → 仅 `input_for_njct.*`  
 - [x] 上视图切片序号可配（1～100）+ 像素精度（μm/px）与 mm/μm 换算展示  
+- [x] **二次手动标注（测距）**：侧栏页签 + 全屏工作台 + 导出 `output/`（见 §22.8）  
 - [ ] 真机两机联调：切图交接文件名正确；AI 机批处理识别与 `AI标注/` 落盘符合配置  
 
 ### 22.7 UI：标定采图迁入单步测试（2026-07-28）
@@ -1363,6 +1371,32 @@ RunAiAnnotationBatchAsync：
 | 上视图 | 路径 `VisionLearnTopViewSampleDir`，默认 `C:\AutoSlice\cutpicture\上视图`；按钮「截取上视图标定图」 |
 | 行为 | 最小化本软件 → 按已标定 ROI 截图保存到上述路径；路径可浏览并持久化 |
 | 前置 | 须先在「视觉对齐」完成 3D / 上视图 ROI 标定 |
+
+### 22.8 二次手动标注（测距；2026-07-31）
+
+> **状态**：✅ 代码已落地。  
+> **目的**：AI（NJCT）漏检处由人工补两点测距；不并入 `AI标注/annotation.json`，独立导出 `output/`。
+
+| 项 | 说明 |
+|----|------|
+| 侧栏 | AI 模式 →「二次手动标注」`NavManualMeasure=9` |
+| 像素精度 | 复用 `OfflineCtPixelSizeUm`（μm/px）；`L_μm = N_px × s`，`L_mm = L_μm / 1000` |
+| 入口 | 「打开文件夹开始标注」→ 递归枚举 jpg/png/bmp/tif（跳过已有 `output/`） |
+| 窗口 | `ManualMeasureAnnotateWindow` 最大化；左列表（绿=已标/灰=未标）+ 中部画布 |
+| 测距 | 左键定 P1 → 橡皮筋虚线 + CAD 垂直引出线 + 实时距离 → 左键定 P2；`Shift` 正交；`Esc` 取消；`M` 测距模式 |
+| 编辑 | 撤销上一条 / 清空当前 / 浏览模式点选尺寸线后 `Delete`；切换图片内存保留 |
+| 续标 | 打开时若存在 `output/{相对路径}.json` 则自动加载 |
+| 导出 | `{根目录}/output/index.json` + 单图 json + `{名}_annotated.png` |
+
+**关键文件**：
+
+| 文件 | 职责 |
+|------|------|
+| `ManualMeasureModels.cs` | `ManualMeasureItem` / `ImageRecord` / `SessionExport` |
+| `ManualMeasureExportHelper.cs` | 枚举、续标加载、导出 JSON/叠加图 |
+| `VM_ManualMeasureAnnotateWindow.cs` | 会话状态与命令 |
+| `ManualMeasureAnnotateWindow.xaml(.cs)` | 全屏交互与叠加绘制 |
+| `VM_CTAutoSlicerPage.OpenManualMeasureFolder` | 选目录并打开工作台 |
 
 ---
 

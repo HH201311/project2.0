@@ -224,8 +224,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public const int NavPostAlign = 6;
         public const int NavSlice = 7;
         public const int NavAiAnnotate = 8;
-        public const int NavStepTest = 9;
-        public const int NavPreferences = 10;
+        public const int NavManualMeasure = 9;
+        public const int NavStepTest = 10;
+        public const int NavPreferences = 11;
 
         public const int PrefSubColors = 0;
 
@@ -401,6 +402,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public bool IsNavPostAlign => SelectedNavIndex == NavPostAlign;
         public bool IsNavSlice => SelectedNavIndex == NavSlice;
         public bool IsNavAiAnnotate => SelectedNavIndex == NavAiAnnotate;
+        public bool IsNavManualMeasure => SelectedNavIndex == NavManualMeasure;
         public bool IsNavStepTest => SelectedNavIndex == NavStepTest;
         public bool IsNavPreferences => SelectedNavIndex == NavPreferences;
         public bool IsPrefSubColors => IsNavPreferences && SelectedPrefSubIndex == PrefSubColors;
@@ -416,6 +418,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             NavPostAlign => "对齐后拖拽",
             NavSlice => "切片导出",
             NavAiAnnotate => "AI图像标注",
+            NavManualMeasure => "二次手动标注",
             NavStepTest => "单步测试",
             NavPreferences => "偏好设置",
             _ => "CT自动化切片",
@@ -2210,6 +2213,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenCTFileFolderCommand { get; }
         public ICommand OpenSliceExportFolderCommand { get; }
         public ICommand OpenTopViewHandoffFolderCommand { get; }
+        public ICommand OpenManualMeasureFolderCommand { get; }
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand OpenVisionCaptureDirCommand { get; }
         public ICommand OpenVision2dVectorCaptureDirCommand { get; }
@@ -2298,6 +2302,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenCTFileFolderCommand = new RelayCommand(OpenCTFileFolder);
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
             OpenTopViewHandoffFolderCommand = new RelayCommand(OpenTopViewHandoffFolder);
+            OpenManualMeasureFolderCommand = new RelayCommand(OpenManualMeasureFolder);
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
@@ -2425,6 +2430,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(IsNavPostAlign));
             OnPropertyChanged(nameof(IsNavSlice));
             OnPropertyChanged(nameof(IsNavAiAnnotate));
+            OnPropertyChanged(nameof(IsNavManualMeasure));
             OnPropertyChanged(nameof(IsNavStepTest));
             OnPropertyChanged(nameof(IsNavPreferences));
             OnPropertyChanged(nameof(IsPrefSubColors));
@@ -4820,11 +4826,53 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>二次手动标注：选择图片根目录并打开全屏测距工作台。</summary>
+        private void OpenManualMeasureFolder(object? _)
+        {
+            var initial = !string.IsNullOrWhiteSpace(SliceExportFolder) && Directory.Exists(SliceExportFolder)
+                ? SliceExportFolder
+                : (!string.IsNullOrWhiteSpace(TopViewHandoffFolder) && Directory.Exists(TopViewHandoffFolder)
+                    ? TopViewHandoffFolder
+                    : null);
+
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                Title = "选择待手动标注的图片文件夹（含子孙目录）",
+                InitialDirectory = initial,
+            };
+
+            if (dialog.ShowDialog() != CommonFileDialogResult.Ok
+                || string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                return;
+            }
+
+            var root = dialog.FileName;
+            var images = ManualMeasureExportHelper.EnumerateImagesRecursive(root);
+            if (images.Count == 0)
+            {
+                MessageBox.Show(
+                    "所选文件夹（含子目录）未找到图片（jpg/png/bmp/tif）。",
+                    "二次手动标注",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var win = new ManualMeasureAnnotateWindow(root, OfflineCtPixelSizeUm)
+            {
+                Owner = Application.Current?.MainWindow,
+            };
+            win.ShowDialog();
+            MessageShower = $"二次手动标注已结束：{root}（共 {images.Count} 张）";
+        }
+
         private bool IsNavAllowedForCurrentPipeline(int navIndex) =>
             navIndex switch
             {
                 NavOverview or NavPreferences or NavStepTest => true,
-                NavAiAnnotate => IsAiPipelineMode,
+                NavAiAnnotate or NavManualMeasure => IsAiPipelineMode,
                 NavApp or NavImport or NavRender or NavHistogram or NavVision or NavPostAlign or NavSlice
                     => IsSlicePipelineMode,
                 _ => true,

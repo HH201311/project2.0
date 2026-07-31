@@ -37,12 +37,12 @@
                         DockPanel.Dock="Bottom"
                         Margin="0,12,0,0"
                         Command="{Binding SelectNavCommand}"
-                        CommandParameter="10"
+                        CommandParameter="11"
                         ToolTip="偏好设置">
-                        <Button.Style>
-                            <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsNavPreferences}" Value="True">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavPreferences}" Value="True">
                                         <Setter Property="Background" Value="{DynamicResource CasCoralBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -197,9 +197,25 @@
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="AI图像标注" />
                             </StackPanel>
                         </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="9" ToolTip="二次手动标注"
+                                Visibility="{Binding ShowAiPipelineNav, Converter={StaticResource BoolToVis}}">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavManualMeasure}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="Ruler" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="二次手动标注" />
+                            </StackPanel>
+                        </Button>
                         <Button
                             Command="{Binding SelectNavCommand}"
-                            CommandParameter="9"
+                            CommandParameter="10"
                             ToolTip="单步测试（仅调试）"
                             Visibility="{Binding IsDebugMode, Converter={StaticResource BoolToVis}}">
                             <Button.Style>
@@ -2718,6 +2734,80 @@
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
+
+                <!-- 二次手动标注 -->
+                <Border Visibility="{Binding IsNavManualMeasure, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="二次手动标注（测距）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
+                                    <Border.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
+                                                <Run FontWeight="SemiBold" Text="本组作用" />
+                                                <LineBreak />
+                                                <Run Text="AI 标注完成后，对漏检部位进行人工两点测距补标。" />
+                                                <LineBreak />
+                                                <LineBreak />
+                                                <Run FontWeight="SemiBold" Text="操作" />
+                                                <LineBreak />
+                                                <Run Text="打开文件夹 → 全屏工作台；左键定起点/终点；Shift 正交约束；导出到该文件夹下 output/。" />
+                                                <LineBreak />
+                                                <LineBreak />
+                                                <Run FontWeight="SemiBold" Text="距离" />
+                                                <LineBreak />
+                                                <Run Text="N_px = hypot(Δx,Δy)；L_μm = N_px × 像素精度；L_mm = L_μm / 1000。" />
+                                            </TextBlock>
+                                        </ToolTip>
+                                    </Border.ToolTip>
+                                    <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
+                                </Border>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource CasFormSectionStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="开始标注" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="递归读取所选文件夹及子文件夹中的图片；已导出的 output 内标注可自动续标。" />
+
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="像素精度" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Foreground="{StaticResource CasPrimaryTextBrush}"
+                                            Text="{Binding OfflineCtPixelSizeUm, StringFormat={}{0:G} μm/px（来自 AI 图像标注 · 尺寸标定）}" />
+                                    </Grid>
+
+                                    <Border Style="{StaticResource CasInfoCalloutStyle}" Margin="0,8,0,12">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="测距快捷操作" />
+                                            <TextBlock Text="• M：测距模式　• Esc：取消本次　• Shift：水平/竖直约束" />
+                                            <TextBlock Text="• 空格+拖拽 / 中键：平移　• 滚轮：缩放　• ↑↓：切换图片" />
+                                            <TextBlock Text="• 导出：写入 {打开文件夹}/output/（index.json + 单图 json + 叠加图）" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Button
+                                        Style="{StaticResource CasPrimaryButtonStyle}"
+                                        HorizontalAlignment="Left"
+                                        MinWidth="220"
+                                        Command="{Binding OpenManualMeasureFolderCommand}"
+                                        Content="打开文件夹开始标注"
+                                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                                        ToolTip="选择图片根目录，打开全屏测距工作台" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
                 <Grid Visibility="{Binding IsNavStepTest, Converter={StaticResource BoolToVis}}">
 
                 <Border Visibility="{Binding IsNavStepTest, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">

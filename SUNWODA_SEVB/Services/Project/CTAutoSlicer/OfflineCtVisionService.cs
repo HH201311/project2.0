@@ -15,6 +15,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     /// </summary>
     public sealed class OfflineCtVisionService : ICTOfflineVisionService, IDisposable
     {
+         
+
         private const string AlgorithmTypeName = "NJCT.NJSwdCT";
         private const string ModelInitMethodName = "ModelInit";
         private const string ModelActionMethodName = "ModelAction";

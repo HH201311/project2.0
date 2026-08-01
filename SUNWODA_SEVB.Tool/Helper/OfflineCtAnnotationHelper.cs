@@ -13,13 +13,20 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// </summary>
     public static class OfflineCtAnnotationHelper
     {
+        /// <summary>历史子目录名；现已不再创建，结果直接落在产品文件夹下。</summary>
+        [Obsolete("不再生成 AI标注 子目录，请用产品文件夹本身作为输出目录")]
         public const string AnnotationFolderName = "AI标注";
 
         /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper.FinalInputFileNameWithoutExt。</summary>
         [Obsolete("不再单独落盘旋转中间图，请使用 PrepareFinalInputImage(rotateCw90: true)")]
         public const string RotatedInputFileNameWithoutExt = "input_rotated_cw90";
 
+        private const string LegacyAnnotationFolderName = "AI标注";
+
         private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"];
+
+        private static bool IsImageFile(string path) =>
+            ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// 「上」视图文件夹：{exportRoot}/{exportBaseName}/{exportBaseName} 上
@@ -31,13 +38,12 @@ namespace SUNWODA_SEVB.Tool.Helper
                 SliceExportNamingHelper.BuildExportFolderName(exportBaseName, "上"));
 
         /// <summary>
-        /// AI 标注输出目录（与三视图文件夹同级）：{exportRoot}/{exportBaseName}/AI标注
+        /// AI 标注输出目录：{exportRoot}/{exportBaseName}（不再套一层 AI标注）。
         /// </summary>
         public static string BuildAnnotationFolder(string sliceExportFolder, string exportBaseName) =>
             Path.Combine(
                 sliceExportFolder,
-                SliceExportNamingHelper.BuildExportFileRootFolderName(exportBaseName),
-                AnnotationFolderName);
+                SliceExportNamingHelper.BuildExportFileRootFolderName(exportBaseName));
 
         /// <summary>
         /// 交接相对路径：{导出名产品文件夹}/{源文件名}，例如「0013-Z …/50.jpg」。
@@ -109,6 +115,15 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
+        /// 备份根目录名：落在「标注结果根目录」上级 →
+        /// {Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}/图。
+        /// </summary>
+        public const string HandoffBackupFolderName = "交接备份";
+
+        /// <summary>交接备份默认保留天数（一个月）。</summary>
+        public const int DefaultHandoffBackupKeepDays = 30;
+
+        /// <summary>
         /// 枚举交接图像：优先「产品子目录」内一层图片；兼容根目录遗留的扁平文件。
         /// </summary>
         public static IReadOnlyList<string> EnumerateHandoffImages(string handoffFolder)
@@ -118,13 +133,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return Array.Empty<string>();
             }
 
-            static bool IsImage(string path) =>
-                ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
-
             var fromProductDirs = Directory.EnumerateDirectories(handoffFolder)
-                .SelectMany(dir => Directory.EnumerateFiles(dir).Where(IsImage));
+                .SelectMany(dir => Directory.EnumerateFiles(dir).Where(IsImageFile));
 
-            var fromRoot = Directory.EnumerateFiles(handoffFolder).Where(IsImage);
+            var fromRoot = Directory.EnumerateFiles(handoffFolder).Where(IsImageFile);
 
             return fromProductDirs
                 .Concat(fromRoot)
@@ -133,7 +145,173 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// AI 批处理输出目录：{resultRoot}/{产品名}/AI标注。
+        /// 交接备份根：以「标注结果根目录」为锚点 → {Parent(SliceExportFolder)}/交接备份
+        /// </summary>
+        /// <param name="annotationResultRoot">AI 标注界面的标注结果根目录（SliceExportFolder）。</param>
+        public static string BuildHandoffBackupRoot(string annotationResultRoot)
+        {
+            if (string.IsNullOrWhiteSpace(annotationResultRoot))
+            {
+                throw new InvalidOperationException("标注结果根目录为空，无法解析备份路径");
+            }
+
+            var resultFull = Path.GetFullPath(annotationResultRoot.Trim());
+            var parent = Path.GetDirectoryName(
+                resultFull.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(parent))
+            {
+                throw new InvalidOperationException(
+                    $"标注结果根目录无上级路径，无法创建「{HandoffBackupFolderName}」：{resultFull}");
+            }
+
+            return Path.Combine(parent, HandoffBackupFolderName);
+        }
+
+        /// <summary>
+        /// 相对交接根的路径，保持「产品文件夹/文件名」结构；扁平遗留文件则为文件名本身。
+        /// </summary>
+        public static string GetHandoffRelativePath(string handoffFolder, string imagePath)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                throw new ArgumentException("图像路径为空", nameof(imagePath));
+            }
+
+            var handoffFull = Path.GetFullPath(handoffFolder.Trim())
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var imageFull = Path.GetFullPath(imagePath);
+            var prefix = handoffFull + Path.DirectorySeparatorChar;
+            if (imageFull.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return imageFull.Substring(prefix.Length);
+            }
+
+            // 路径不在交接根下时回退：父目录名/文件名 或仅文件名
+            var parentDir = Path.GetDirectoryName(imageFull);
+            var fileName = Path.GetFileName(imageFull);
+            if (!string.IsNullOrWhiteSpace(parentDir)
+                && !string.Equals(
+                    Path.GetPathRoot(parentDir),
+                    parentDir,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return Path.Combine(Path.GetFileName(parentDir), fileName);
+            }
+
+            return fileName;
+        }
+
+        /// <summary>
+        /// 将已标注完成的交接图按原结构复制到「标注结果根目录」上级的
+        /// 「交接备份/yyyy-MM-dd/…」，再删除交接源（空产品夹一并删）。
+        /// </summary>
+        /// <param name="handoffFolder">上视图交接目录（源图所在）。</param>
+        /// <param name="annotationResultRoot">标注结果根目录（决定备份落在其上级）。</param>
+        /// <returns>备份目标完整路径。</returns>
+        public static string BackupAndRemoveHandoffImage(
+            string handoffFolder,
+            string imagePath,
+            string annotationResultRoot,
+            DateTime? now = null)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+            {
+                throw new FileNotFoundException("待备份的交接图不存在", imagePath);
+            }
+
+            var relative = GetHandoffRelativePath(handoffFolder, imagePath);
+            var backupRoot = BuildHandoffBackupRoot(annotationResultRoot);
+            var dayName = (now ?? DateTime.Now).ToString("yyyy-MM-dd");
+            var destPath = Path.Combine(backupRoot, dayName, relative);
+            var destDir = Path.GetDirectoryName(destPath);
+            if (!string.IsNullOrWhiteSpace(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            File.Copy(imagePath, destPath, overwrite: true);
+
+            try
+            {
+                File.Delete(imagePath);
+            }
+            catch (Exception ex)
+            {
+                throw new IOException(
+                    $"交接图已备份到「{destPath}」，但删除交接源失败：{imagePath}",
+                    ex);
+            }
+
+            TryDeleteEmptyHandoffProductDir(handoffFolder, imagePath);
+            return destPath;
+        }
+
+        /// <summary>
+        /// 删除「交接备份」下超过保留天数的 yyyy-MM-dd 子目录（默认 30 天）。
+        /// </summary>
+        /// <param name="annotationResultRoot">标注结果根目录（与备份锚点一致）。</param>
+        public static (int DeletedDirs, int DeletedFiles) CleanupExpiredHandoffBackups(
+            string annotationResultRoot,
+            int keepDays = DefaultHandoffBackupKeepDays)
+        {
+            if (string.IsNullOrWhiteSpace(annotationResultRoot))
+            {
+                return (0, 0);
+            }
+
+            string backupRoot;
+            try
+            {
+                backupRoot = BuildHandoffBackupRoot(annotationResultRoot);
+            }
+            catch
+            {
+                return (0, 0);
+            }
+
+            return CTAutoSlicerSettings.CleanupExpiredCaptureDayFolders(backupRoot, keepDays);
+        }
+
+        /// <summary>产品子目录内图删空后移除该空文件夹（不删交接根）。</summary>
+        private static void TryDeleteEmptyHandoffProductDir(string handoffFolder, string imagePath)
+        {
+            try
+            {
+                var handoffFull = Path.GetFullPath(handoffFolder.Trim())
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var dir = Path.GetDirectoryName(Path.GetFullPath(imagePath));
+                if (string.IsNullOrWhiteSpace(dir))
+                {
+                    return;
+                }
+
+                var dirFull = Path.GetFullPath(dir)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (string.Equals(dirFull, handoffFull, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                var parentOfDir = Path.GetDirectoryName(dirFull);
+                if (!string.Equals(parentOfDir, handoffFull, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                if (Directory.Exists(dirFull)
+                    && !Directory.EnumerateFileSystemEntries(dirFull).Any())
+                {
+                    Directory.Delete(dirFull);
+                }
+            }
+            catch
+            {
+                // 占用中则跳过，不影响主流程
+            }
+        }
+
+        /// <summary>
+        /// AI 批处理输出目录：{resultRoot}/{产品名}（不再套一层 AI标注）。
         /// 产品名优先取交接图父目录名（…/产品名/50.jpg）；扁平遗留文件则用文件名去扩展。
         /// </summary>
         public static string BuildBatchAnnotationFolder(string resultRoot, string sourceImagePath)
@@ -165,7 +343,227 @@ namespace SUNWODA_SEVB.Tool.Helper
                 productName = string.IsNullOrWhiteSpace(fileStem) ? "annotation" : fileStem;
             }
 
-            return Path.Combine(resultRoot, productName, AnnotationFolderName);
+            return Path.Combine(resultRoot, productName);
+        }
+
+        /// <summary>
+        /// 结果图主文件名（无扩展名）：与导入时产品文件夹名一致，避免全是 result_enhance 无法对照。
+        /// 优先 exportBaseName；其次输出目录叶名（兼容旧 …/AI标注 取其父目录）；再回退交接图父目录或文件名主干。
+        /// </summary>
+        public static string ResolveAnnotationResultBaseName(
+            string annotationFolder,
+            string? sourceImagePath = null,
+            string? exportBaseName = null)
+        {
+            if (!string.IsNullOrWhiteSpace(exportBaseName))
+            {
+                var fromExport = Path.GetFileName(exportBaseName.Trim());
+                if (!string.IsNullOrWhiteSpace(fromExport))
+                {
+                    return fromExport;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(annotationFolder))
+            {
+                var trimmed = annotationFolder.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar);
+                var leaf = Path.GetFileName(trimmed);
+                // 兼容旧路径 …/{产品名}/AI标注
+                if (string.Equals(leaf, LegacyAnnotationFolderName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var parent = Path.GetDirectoryName(trimmed);
+                    var product = string.IsNullOrWhiteSpace(parent) ? null : Path.GetFileName(parent);
+                    if (!string.IsNullOrWhiteSpace(product))
+                    {
+                        return product;
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(leaf))
+                {
+                    // 现行：…/{产品名}
+                    return leaf;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceImagePath))
+            {
+                var parentDir = Path.GetDirectoryName(sourceImagePath);
+                var parentName = string.IsNullOrWhiteSpace(parentDir)
+                    ? null
+                    : Path.GetFileName(parentDir);
+                var fileStem = Path.GetFileNameWithoutExtension(sourceImagePath);
+                if (!string.IsNullOrWhiteSpace(parentName)
+                    && IsExactNumericSliceFileName(fileStem))
+                {
+                    return parentName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(fileStem))
+                {
+                    return fileStem;
+                }
+            }
+
+            return "annotation";
+        }
+
+        /// <summary>
+        /// 在标注结果根目录下查找最新一次 AI 标注结果图（优先 annotation.json 同目录的产品结果图）。
+        /// </summary>
+        public static string? TryFindLatestAiResultImage(string? resultRoot)
+        {
+            if (string.IsNullOrWhiteSpace(resultRoot) || !Directory.Exists(resultRoot))
+            {
+                return null;
+            }
+
+            try
+            {
+                var rootFull = Path.GetFullPath(resultRoot);
+                var jsonDirs = Directory
+                    .EnumerateFiles(rootFull, "annotation.json", SearchOption.AllDirectories)
+                    .Select(p => new
+                    {
+                        Dir = Path.GetDirectoryName(p)!,
+                        Time = File.GetLastWriteTimeUtc(p),
+                    })
+                    .Where(x => !IsUnderManualOutputFolder(rootFull, x.Dir))
+                    .OrderByDescending(x => x.Time)
+                    .ToList();
+
+                foreach (var item in jsonDirs)
+                {
+                    var hit = PickResultImageInFolder(item.Dir);
+                    if (hit is not null)
+                    {
+                        return hit;
+                    }
+                }
+
+                // 无 annotation.json 时：取最新 jpg/png（排除 input_for_njct / 手动 output）
+                return Directory
+                    .EnumerateFiles(rootFull, "*.*", SearchOption.AllDirectories)
+                    .Where(IsImageFile)
+                    .Where(p => !IsUnderManualOutputFolder(rootFull, p))
+                    .Where(p =>
+                    {
+                        var name = Path.GetFileName(p);
+                        return !name.StartsWith("input_for_njct", StringComparison.OrdinalIgnoreCase)
+                               && !name.StartsWith("prebrighten", StringComparison.OrdinalIgnoreCase);
+                    })
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .FirstOrDefault();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 是否位于结果根下的二次手动标注导出子目录 <c>output/</c>。
+        /// 注意：结果根本身可以叫 output（如 D:\3Ddeliever\output），不能用绝对路径 Contains("\output\") 误杀。
+        /// </summary>
+        private static bool IsUnderManualOutputFolder(string rootFull, string path)
+        {
+            try
+            {
+                var root = Path.GetFullPath(rootFull)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var full = Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                string relative;
+                if (string.Equals(full, root, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                relative = Path.GetRelativePath(root, full);
+                if (string.IsNullOrWhiteSpace(relative)
+                    || relative == "."
+                    || relative.StartsWith("..", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                // 仅当相对路径中出现独立段「output」时视为手动导出目录（…/output/…）
+                var segments = relative.Split(
+                    [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                    StringSplitOptions.RemoveEmptyEntries);
+                return segments.Any(s =>
+                    string.Equals(s, "output", StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string? PickResultImageInFolder(string folder)
+        {
+            if (!Directory.Exists(folder))
+            {
+                return null;
+            }
+
+            var leaf = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            // 旧路径 …/产品名/AI标注 → 产品名取父目录
+            string productName = leaf;
+            if (string.Equals(leaf, LegacyAnnotationFolderName, StringComparison.OrdinalIgnoreCase))
+            {
+                var parent = Path.GetDirectoryName(folder);
+                productName = string.IsNullOrWhiteSpace(parent) ? leaf : Path.GetFileName(parent);
+            }
+
+            var preferred = new[]
+            {
+                Path.Combine(folder, $"{productName}.jpg"),
+                Path.Combine(folder, $"{productName}.png"),
+                Path.Combine(folder, $"{productName}_enhance.jpg"),
+                Path.Combine(folder, "result_enhance.jpg"),
+                Path.Combine(folder, "result_origin.jpg"),
+            };
+            foreach (var p in preferred)
+            {
+                if (File.Exists(p))
+                {
+                    return p;
+                }
+            }
+
+            return Directory
+                .EnumerateFiles(folder)
+                .Where(IsImageFile)
+                .Where(p =>
+                {
+                    var name = Path.GetFileName(p);
+                    return !name.StartsWith("input_for_njct", StringComparison.OrdinalIgnoreCase);
+                })
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// 构建 AI 结果图路径。默认 <c>{产品名}.jpg</c>；
+        /// 同时导出 enhance+origin 时，origin 为 <c>{产品名}_origin.jpg</c>。
+        /// </summary>
+        public static string BuildAnnotationResultImagePath(
+            string annotationFolder,
+            string resultBaseName,
+            string modeTag,
+            bool bothModes)
+        {
+            var safe = string.IsNullOrWhiteSpace(resultBaseName)
+                ? "annotation"
+                : resultBaseName.Trim();
+            var isOrigin = string.Equals(modeTag, "origin", StringComparison.OrdinalIgnoreCase);
+            var fileName = isOrigin && bothModes
+                ? $"{safe}_origin.jpg"
+                : $"{safe}.jpg";
+            return Path.Combine(annotationFolder, fileName);
         }
 
         /// <summary>

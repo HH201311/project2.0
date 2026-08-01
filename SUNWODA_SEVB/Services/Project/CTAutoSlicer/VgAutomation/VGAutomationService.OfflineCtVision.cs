@@ -7,7 +7,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     public partial class VGAutomationService
     {
         /// <summary>
-        /// AI 标注模式批处理：扫描交接目录一层图像，逐张推理并落盘到标注结果根目录。
+        /// AI 标注模式批处理：扫描交接目录图像，逐张推理并落盘到标注结果根目录；
+        /// 成功后按原结构备份到「标注结果根目录」上级的「交接备份」，并删除交接源（备份保留 30 天）。
         /// </summary>
         public async Task RunAiAnnotationBatchAsync(
             CTAutoSlicerSettings settings,
@@ -39,8 +40,30 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 progress?.Report($"AI 标注批处理开始：共 {images.Count} 张 → {settings.TopViewHandoffFolder}");
                 _logger.Info($"AI 标注批处理开始：count={images.Count}，handoff={settings.TopViewHandoffFolder}");
 
+                // 批处理开始时清理超过一个月的交接备份（锚点=标注结果根目录）
+                try
+                {
+                    var backupRoot = OfflineCtAnnotationHelper.BuildHandoffBackupRoot(
+                        settings.SliceExportFolder);
+                    var cleanup = OfflineCtAnnotationHelper.CleanupExpiredHandoffBackups(
+                        settings.SliceExportFolder);
+                    if (cleanup.DeletedDirs > 0 || cleanup.DeletedFiles > 0)
+                    {
+                        progress?.Report(
+                            $"交接备份清理：删除过期目录 {cleanup.DeletedDirs}、文件 {cleanup.DeletedFiles}"
+                            + $"（保留 {OfflineCtAnnotationHelper.DefaultHandoffBackupKeepDays} 天，根={backupRoot}）");
+                        _logger.Info(
+                            $"交接备份清理：dirs={cleanup.DeletedDirs}, files={cleanup.DeletedFiles}，root={backupRoot}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"交接备份过期清理跳过：{ex.Message}");
+                }
+
                 var ok = 0;
                 var fail = 0;
+                var backupFail = 0;
                 for (var i = 0; i < images.Count; i++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -62,6 +85,25 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                                 explicitOutputFolder: outputFolder)
                             .ConfigureAwait(false);
                         ok++;
+
+                        // 标注成功：备份到「标注结果根目录」上级/交接备份，再删交接源
+                        try
+                        {
+                            var backupPath = OfflineCtAnnotationHelper.BackupAndRemoveHandoffImage(
+                                settings.TopViewHandoffFolder,
+                                imagePath,
+                                settings.SliceExportFolder);
+                            progress?.Report(
+                                $"[{i + 1}/{images.Count}] 已备份并移出交接：{Path.GetFileName(imagePath)} → {backupPath}");
+                            _logger.Info($"交接备份并删除：src={imagePath} → {backupPath}");
+                        }
+                        catch (Exception backupEx)
+                        {
+                            backupFail++;
+                            progress?.Report(
+                                $"[{i + 1}/{images.Count}] 标注成功，但交接备份/删除失败（源仍保留）：{backupEx.Message}");
+                            _logger.Error($"交接备份/删除失败：{imagePath}", backupEx);
+                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -75,8 +117,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
                 }
 
-                progress?.Report($"AI 标注批处理完成：成功 {ok}，失败 {fail}，合计 {images.Count}");
-                _logger.Info($"AI 标注批处理完成：ok={ok}, fail={fail}, total={images.Count}");
+                progress?.Report(
+                    $"AI 标注批处理完成：成功 {ok}，失败 {fail}，备份失败 {backupFail}，合计 {images.Count}");
+                _logger.Info(
+                    $"AI 标注批处理完成：ok={ok}, fail={fail}, backupFail={backupFail}, total={images.Count}");
             }
             finally
             {
@@ -144,6 +188,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             string imagePath;
             string? annotationFolder = null;
+            string? resolvedExportBaseName = exportBaseName;
 
             if (!string.IsNullOrWhiteSpace(explicitImagePath))
             {
@@ -171,15 +216,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("请先配置切片导出目录");
                 }
 
-                var resolvedBaseName = exportBaseName;
-                if (string.IsNullOrWhiteSpace(resolvedBaseName))
+                if (string.IsNullOrWhiteSpace(resolvedExportBaseName))
                 {
                     if (string.IsNullOrWhiteSpace(vglPath))
                     {
                         throw new InvalidOperationException("缺少导出名或 vgl 路径，无法定位「上」视图文件夹");
                     }
 
-                    resolvedBaseName = SliceExportNamingHelper.BuildExportBaseName(Path.GetFileName(vglPath));
+                    resolvedExportBaseName = SliceExportNamingHelper.BuildExportBaseName(Path.GetFileName(vglPath));
                 }
 
                 var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
@@ -188,7 +232,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 var topFolder = OfflineCtAnnotationHelper.BuildTopViewFolder(
                     settings.SliceExportFolder,
-                    resolvedBaseName);
+                    resolvedExportBaseName);
                 imagePath = OfflineCtAnnotationHelper.TryPickTopViewImageByIndex(topFolder, sliceIndex)
                     ?? throw new FileNotFoundException(
                         $"未在「上」视图目录按文件名找到送检图（期望第 {sliceIndex} 张 → {expectedName} 等）：{topFolder}",
@@ -196,7 +240,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 annotationFolder = OfflineCtAnnotationHelper.BuildAnnotationFolder(
                     settings.SliceExportFolder,
-                    resolvedBaseName);
+                    resolvedExportBaseName);
 
                 progress?.Report(
                     $"AI 标注选用第 {sliceIndex} 张：{Path.GetFileName(imagePath)}"
@@ -212,11 +256,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             var originalImagePath = imagePath;
 
-            // 方案 B：内存中可选 CW90 → 算亮度 → 仅落盘最终效果图 input_for_njct → 再推理（不再落盘 input_rotated_cw90）
+            // 方案 B：内存中可选 CW90 → 算亮度 →（可选）落盘 input_for_njct → 再推理
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(
                 settings.OfflineCtRotateTopViewCw90
-                    ? "AI 标注：内存顺时针旋转 90° + 计算 ROI 亮度，生成最终推理图…"
+                    ? "AI 标注：内存顺时针旋转 90° + 计算 ROI 亮度，准备最终推理图…"
                     : "AI 标注：计算 ROI 亮度并准备最终推理图（未旋转）…");
             var preBrighten = await Task.Run(
                     () => OfflineCtPreBrightenHelper.PrepareFinalInputImage(
@@ -226,76 +270,133 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         settings.OfflineCtRotateTopViewCw90,
                         settings.OfflineCtPreBrightenMeanTrigger,
                         settings.OfflineCtPreBrightenP50Trigger,
-                        settings.OfflineCtPreBrightenTargetMean),
+                        settings.OfflineCtPreBrightenTargetMean,
+                        persistFinalInput: settings.OfflineCtExportInputForNjct),
                     cancellationToken)
                 .ConfigureAwait(false);
             imagePath = preBrighten.FinalImagePath;
             progress?.Report(preBrighten.Summary);
-            _logger.Info($"AI 标注预处理：{preBrighten.Summary}；报告={preBrighten.ReportPath}");
+            _logger.Info(
+                $"AI 标注预处理：{preBrighten.Summary}"
+                + (string.IsNullOrEmpty(preBrighten.ReportPath) ? string.Empty : $"；报告={preBrighten.ReportPath}"));
 
-            var modelPath = settings.ResolveOfflineCtModelPath();
-            progress?.Report($"AI 标注初始化模型：{modelPath}");
-            await Task.Run(
-                    () => _offlineCtVisionService.Initialize(modelPath, settings.OfflineCtIsRunCuda),
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            var results = new List<OfflineCtInferResult>();
-            var mode = settings.OfflineCtResultImageMode;
-            var blackHeight = settings.OfflineCtBlackHeight;
-
-            if (mode is OfflineCtResultImageMode.Enhance or OfflineCtResultImageMode.Both)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var enhancePath = Path.Combine(annotationFolder!, "result_enhance.jpg");
-                progress?.Report($"AI 标注：调用 ModelAction（增强图），输入={Path.GetFileName(imagePath)}…");
-                var enhanceResult = await Task.Run(
-                        () => _offlineCtVisionService.InferEnhance(imagePath, blackHeight, enhancePath),
+                var modelPath = settings.ResolveOfflineCtModelPath();
+                progress?.Report($"AI 标注初始化模型：{modelPath}");
+                await Task.Run(
+                        () => _offlineCtVisionService.Initialize(modelPath, settings.OfflineCtIsRunCuda),
                         cancellationToken)
                     .ConfigureAwait(false);
-                results.Add(enhanceResult);
-                progress?.Report(
-                    enhanceResult.IsSuccess
-                        ? $"增强图完成：{enhanceResult.ResultImagePath}"
-                        : $"增强图完成但有 RunInfo：{enhanceResult.RunInfo}");
-            }
 
-            if (mode is OfflineCtResultImageMode.Origin or OfflineCtResultImageMode.Both)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var originPath = Path.Combine(annotationFolder!, "result_origin.jpg");
-                progress?.Report($"AI 标注：调用 ModelAction_origin（原图），输入={Path.GetFileName(imagePath)}…");
-                var originResult = await Task.Run(
-                        () => _offlineCtVisionService.InferOrigin(imagePath, blackHeight, originPath),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                results.Add(originResult);
-                progress?.Report(
-                    originResult.IsSuccess
-                        ? $"原图完成：{originResult.ResultImagePath}"
-                        : $"原图完成但有 RunInfo：{originResult.RunInfo}");
-            }
-
-            if (settings.OfflineCtExportJson)
-            {
-                var jsonPath = Path.Combine(annotationFolder!, "annotation.json");
-                OfflineCtAnnotationHelper.WriteAnnotationJson(
-                    jsonPath,
+                var results = new List<OfflineCtInferResult>();
+                var mode = settings.OfflineCtResultImageMode;
+                // 打黑由上位机「二次手动标注」按 OfflineCtBlackHeight 自绘底部遮罩；
+                // 传给 NJCT 固定 0，避免 DLL 再画一层黑带。
+                const int dllBlackHeight = 0;
+                var bothModes = mode == OfflineCtResultImageMode.Both;
+                // 结果图文件名与导入产品文件夹名一致（…/{导出名}/{导出名}.jpg），不用 result_enhance
+                var resultBaseName = OfflineCtAnnotationHelper.ResolveAnnotationResultBaseName(
+                    annotationFolder!,
                     originalImagePath,
-                    results,
-                    settings.ResolveOfflineCtPixelSizeUm());
-                progress?.Report($"已写入 JSON：{jsonPath}");
-            }
+                    resolvedExportBaseName);
 
-            if (settings.OfflineCtExportCsv)
+                if (mode is OfflineCtResultImageMode.Enhance or OfflineCtResultImageMode.Both)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var enhancePath = OfflineCtAnnotationHelper.BuildAnnotationResultImagePath(
+                        annotationFolder!,
+                        resultBaseName,
+                        "enhance",
+                        bothModes);
+                    progress?.Report($"AI 标注：调用 ModelAction（增强图），输入={Path.GetFileName(imagePath)}…");
+                    var enhanceResult = await Task.Run(
+                            () => _offlineCtVisionService.InferEnhance(imagePath, dllBlackHeight, enhancePath),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    results.Add(enhanceResult);
+                    progress?.Report(
+                        enhanceResult.IsSuccess
+                            ? $"增强图完成：{enhanceResult.ResultImagePath}"
+                            : $"增强图完成但有 RunInfo：{enhanceResult.RunInfo}");
+                    // 落盘后立刻推送预览路径，供 UI 逐张刷新（不必等整批结束）
+                    if (!string.IsNullOrWhiteSpace(enhanceResult.ResultImagePath)
+                        && File.Exists(enhanceResult.ResultImagePath))
+                    {
+                        progress?.Report($"@@AI_RESULT_PREVIEW@@{enhanceResult.ResultImagePath}");
+                    }
+                }
+
+                if (mode is OfflineCtResultImageMode.Origin or OfflineCtResultImageMode.Both)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var originPath = OfflineCtAnnotationHelper.BuildAnnotationResultImagePath(
+                        annotationFolder!,
+                        resultBaseName,
+                        "origin",
+                        bothModes);
+                    progress?.Report($"AI 标注：调用 ModelAction_origin（原图），输入={Path.GetFileName(imagePath)}…");
+                    var originResult = await Task.Run(
+                            () => _offlineCtVisionService.InferOrigin(imagePath, dllBlackHeight, originPath),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    results.Add(originResult);
+                    progress?.Report(
+                        originResult.IsSuccess
+                            ? $"原图完成：{originResult.ResultImagePath}"
+                            : $"原图完成但有 RunInfo：{originResult.RunInfo}");
+                    // Both 模式：增强图已推送过；仅 Origin 模式时用原图推送预览
+                    if (mode == OfflineCtResultImageMode.Origin
+                        && !string.IsNullOrWhiteSpace(originResult.ResultImagePath)
+                        && File.Exists(originResult.ResultImagePath))
+                    {
+                        progress?.Report($"@@AI_RESULT_PREVIEW@@{originResult.ResultImagePath}");
+                    }
+                }
+
+                if (settings.OfflineCtExportJson)
+                {
+                    var jsonPath = Path.Combine(annotationFolder!, "annotation.json");
+                    OfflineCtAnnotationHelper.WriteAnnotationJson(
+                        jsonPath,
+                        originalImagePath,
+                        results,
+                        settings.ResolveOfflineCtPixelSizeUm());
+                    progress?.Report($"已写入 JSON：{jsonPath}");
+                }
+
+                if (settings.OfflineCtExportCsv)
+                {
+                    var csvPath = Path.Combine(annotationFolder!, "annotation.csv");
+                    OfflineCtAnnotationHelper.WriteAnnotationCsv(csvPath, originalImagePath, results);
+                    progress?.Report($"已写入 CSV：{csvPath}");
+                }
+
+                progress?.Report($"AI 图像标注完成 → {annotationFolder}");
+                _logger.Info($"AI 图像标注完成：{annotationFolder}，结果数={results.Count}");
+            }
+            finally
             {
-                var csvPath = Path.Combine(annotationFolder!, "annotation.csv");
-                OfflineCtAnnotationHelper.WriteAnnotationCsv(csvPath, originalImagePath, results);
-                progress?.Report($"已写入 CSV：{csvPath}");
+                if (preBrighten.IsTemporary
+                    && !string.IsNullOrWhiteSpace(preBrighten.FinalImagePath)
+                    && !string.Equals(
+                        preBrighten.FinalImagePath,
+                        originalImagePath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        if (File.Exists(preBrighten.FinalImagePath))
+                        {
+                            File.Delete(preBrighten.FinalImagePath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn($"删除临时推理输入失败：{preBrighten.FinalImagePath}，{ex.Message}");
+                    }
+                }
             }
-
-            progress?.Report($"AI 图像标注完成 → {annotationFolder}");
-            _logger.Info($"AI 图像标注完成：{annotationFolder}，结果数={results.Count}");
         }
 
         /// <summary>

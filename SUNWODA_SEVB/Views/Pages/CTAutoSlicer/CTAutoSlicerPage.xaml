@@ -2326,7 +2326,7 @@
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="输入 / 输出" />
                                             <LineBreak />
-                                            <Run Text="输入：上视图交接目录（一层 jpg/png）。输出：{标注结果根}/{文件名}/AI标注/" />
+                                            <Run Text="输入：上视图交接目录（一层 jpg/png）。输出：{标注结果根}/{产品名}/" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
@@ -2341,13 +2341,15 @@
                                             <LineBreak />
                                             <Run Text="• CUDA：ModelInit 的 IsRunCuda，默认开启。" />
                                             <LineBreak />
-                                            <Run Text="• 打黑高度 BlackHeight：图片下方打黑像素高度，默认 1500。" />
+                                            <Run Text="• 打黑高度：二次手动标注底部信息遮罩高度（图像像素，默认 1500）；NJCT 打黑固定传 0。" />
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
                                             <Run Text="• 顺时针旋转90°：送入 NJCT 前旋转上视图；默认勾选（算法朝向要求）。" />
                                             <LineBreak />
-                                            <Run Text="• 预提亮：调用算法前计算 ROI 均值/P50，偏暗则增益提亮并生成 input_for_njct（方案B，默认开）。" />
+                                            <Run Text="• 预提亮：调用算法前计算 ROI 均值/P50，偏暗则分区提亮（方案B，默认开）。" />
+                                            <LineBreak />
+                                            <Run Text="• 输出 input_for_njct：将预处理后送检图落盘，仅排查对照时勾选（默认关）。" />
                                             <LineBreak />
                                             <Run Text="• 导出 JSON/CSV：坐标与尺寸落盘，默认均勾选。" />
                                         </TextBlock>
@@ -2399,7 +2401,7 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="{Binding SliceExportFolderLabel}" />
                                         <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True"
-                                                    ToolTip="批处理输出根：{本目录}/{文件名}/AI标注/">
+                                                    ToolTip="批处理输出根：{本目录}/{产品名}/">
                                             <hc:TextBox.Text>
                                                 <Binding Path="SliceExportFolder" UpdateSourceTrigger="PropertyChanged" />
                                             </hc:TextBox.Text>
@@ -2486,7 +2488,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="模型与推理" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="ONNX 模型路径、CUDA 与打黑高度；结果图模式决定落盘增强图 / 原图。" />
+                                        Text="ONNX 模型路径、CUDA；打黑高度供二次手动标注底部信息区；结果图模式决定落盘增强图 / 原图。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -2540,12 +2542,12 @@
                                             Grid.Column="2"
                                             Style="{StaticResource CasFormLabelStyle}"
                                             Text="打黑高度"
-                                            ToolTip="BlackHeight，图片下方打黑像素高度" />
+                                            ToolTip="二次手动标注底部信息遮罩高度（图像像素）；不再传给 NJCT" />
                                         <hc:TextBox
                                             Grid.Column="3"
                                             Width="160"
                                             HorizontalAlignment="Left"
-                                            ToolTip="BlackHeight，图片下方打黑像素高度">
+                                            ToolTip="二次手动标注底部信息遮罩高度（图像像素）；不再传给 NJCT">
                                             <hc:TextBox.Text>
                                                 <Binding Path="OfflineCtBlackHeight" UpdateSourceTrigger="PropertyChanged">
                                                     <Binding.ValidationRules>
@@ -2575,84 +2577,93 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 预处理与输出 -->
+                            <!-- 预处理与输出（默认折叠） -->
                             <Border Style="{StaticResource CasFormSectionStyle}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="预处理与输出" />
-                                    <TextBlock
-                                        Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="推理前旋转/提亮开关，以及坐标尺寸落盘格式。" />
+                                <Expander
+                                    Header="预处理与输出"
+                                    IsExpanded="False"
+                                    Foreground="{StaticResource CasPrimaryTextBrush}">
+                                    <StackPanel Margin="0,10,0,0">
+                                        <TextBlock
+                                            Style="{StaticResource CasFormSectionDescStyle}"
+                                            Text="推理前旋转/提亮开关，以及坐标尺寸与 input_for_njct 落盘。" />
 
-                                    <UniformGrid Columns="2" Margin="0,0,0,4">
-                                        <CheckBox
-                                            Style="{StaticResource CasFormCheckItemStyle}"
-                                            Content="上视图顺时针旋转 90°"
-                                            IsChecked="{Binding OfflineCtRotateTopViewCw90}"
-                                            ToolTip="送入 NJCT 前将上视图顺时针旋转90°；算法朝向要求时请勾选。手动选已旋转图时可取消" />
-                                        <CheckBox
-                                            Style="{StaticResource CasFormCheckItemStyle}"
-                                            Content="调用前条件提亮"
-                                            IsChecked="{Binding EnableOfflineCtPreBrighten}"
-                                            ToolTip="方案B：按暗部/中间调/高光/白场分区提亮（类PS），偏暗才处理；保护高光防过曝" />
-                                        <CheckBox
-                                            Style="{StaticResource CasFormCheckItemStyle}"
-                                            Content="输出 annotation.json"
-                                            IsChecked="{Binding OfflineCtExportJson}" />
-                                        <CheckBox
-                                            Style="{StaticResource CasFormCheckItemStyle}"
-                                            Content="输出 annotation.csv"
-                                            IsChecked="{Binding OfflineCtExportCsv}" />
-                                    </UniformGrid>
+                                        <UniformGrid Columns="2" Margin="0,0,0,4">
+                                            <CheckBox
+                                                Style="{StaticResource CasFormCheckItemStyle}"
+                                                Content="上视图顺时针旋转 90°"
+                                                IsChecked="{Binding OfflineCtRotateTopViewCw90}"
+                                                ToolTip="送入 NJCT 前将上视图顺时针旋转90°；算法朝向要求时请勾选。手动选已旋转图时可取消" />
+                                            <CheckBox
+                                                Style="{StaticResource CasFormCheckItemStyle}"
+                                                Content="调用前条件提亮"
+                                                IsChecked="{Binding EnableOfflineCtPreBrighten}"
+                                                ToolTip="方案B：按暗部/中间调/高光/白场分区提亮（类PS），偏暗才处理；保护高光防过曝" />
+                                            <CheckBox
+                                                Style="{StaticResource CasFormCheckItemStyle}"
+                                                Content="输出 annotation.json"
+                                                IsChecked="{Binding OfflineCtExportJson}" />
+                                            <CheckBox
+                                                Style="{StaticResource CasFormCheckItemStyle}"
+                                                Content="输出 annotation.csv"
+                                                IsChecked="{Binding OfflineCtExportCsv}" />
+                                            <CheckBox
+                                                Style="{StaticResource CasFormCheckItemStyle}"
+                                                Content="输出 input_for_njct"
+                                                IsChecked="{Binding OfflineCtExportInputForNjct}"
+                                                ToolTip="将预处理后送检图落盘到产品目录/input_for_njct（含报告）；仅排查对照时勾选，默认关闭" />
+                                        </UniformGrid>
 
-                                    <Expander
-                                        Margin="0,4,0,0"
-                                        Header="预提亮高级参数"
-                                        IsExpanded="False"
-                                        Foreground="{StaticResource CasPrimaryTextBrush}">
-                                        <StackPanel Margin="0,10,0,0">
-                                            <TextBlock
-                                                Style="{StaticResource CasFormHintStyle}"
-                                                Margin="0,0,0,10"
-                                                Text="ROI 亮度低于触发值时提亮；目标均值过高易过曝。" />
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="12" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="12" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <hc:TextBox
-                                                    Grid.Column="0"
-                                                    hc:InfoElement.Title="均值触发"
-                                                    hc:InfoElement.TitlePlacement="Top"
-                                                    ToolTip="ROI 均值低于此值则提亮（默认120）">
-                                                    <hc:TextBox.Text>
-                                                        <Binding Path="OfflineCtPreBrightenMeanTrigger" UpdateSourceTrigger="PropertyChanged" />
-                                                    </hc:TextBox.Text>
-                                                </hc:TextBox>
-                                                <hc:TextBox
-                                                    Grid.Column="2"
-                                                    hc:InfoElement.Title="P50 触发"
-                                                    hc:InfoElement.TitlePlacement="Top"
-                                                    ToolTip="ROI P50 低于此值则提亮（默认110）">
-                                                    <hc:TextBox.Text>
-                                                        <Binding Path="OfflineCtPreBrightenP50Trigger" UpdateSourceTrigger="PropertyChanged" />
-                                                    </hc:TextBox.Text>
-                                                </hc:TextBox>
-                                                <hc:TextBox
-                                                    Grid.Column="4"
-                                                    hc:InfoElement.Title="目标均值"
-                                                    hc:InfoElement.TitlePlacement="Top"
-                                                    ToolTip="提亮目标 ROI 均值（默认132；过高易过曝）">
-                                                    <hc:TextBox.Text>
-                                                        <Binding Path="OfflineCtPreBrightenTargetMean" UpdateSourceTrigger="PropertyChanged" />
-                                                    </hc:TextBox.Text>
-                                                </hc:TextBox>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Expander>
-                                </StackPanel>
+                                        <Expander
+                                            Margin="0,4,0,0"
+                                            Header="预提亮高级参数"
+                                            IsExpanded="False"
+                                            Foreground="{StaticResource CasPrimaryTextBrush}">
+                                            <StackPanel Margin="0,10,0,0">
+                                                <TextBlock
+                                                    Style="{StaticResource CasFormHintStyle}"
+                                                    Margin="0,0,0,10"
+                                                    Text="ROI 亮度低于触发值时提亮；目标均值过高易过曝。" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="12" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="12" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <hc:TextBox
+                                                        Grid.Column="0"
+                                                        hc:InfoElement.Title="均值触发"
+                                                        hc:InfoElement.TitlePlacement="Top"
+                                                        ToolTip="ROI 均值低于此值则提亮（默认120）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="OfflineCtPreBrightenMeanTrigger" UpdateSourceTrigger="PropertyChanged" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Grid.Column="2"
+                                                        hc:InfoElement.Title="P50 触发"
+                                                        hc:InfoElement.TitlePlacement="Top"
+                                                        ToolTip="ROI P50 低于此值则提亮（默认110）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="OfflineCtPreBrightenP50Trigger" UpdateSourceTrigger="PropertyChanged" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                    <hc:TextBox
+                                                        Grid.Column="4"
+                                                        hc:InfoElement.Title="目标均值"
+                                                        hc:InfoElement.TitlePlacement="Top"
+                                                        ToolTip="提亮目标 ROI 均值（默认132；过高易过曝）">
+                                                        <hc:TextBox.Text>
+                                                            <Binding Path="OfflineCtPreBrightenTargetMean" UpdateSourceTrigger="PropertyChanged" />
+                                                        </hc:TextBox.Text>
+                                                    </hc:TextBox>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Expander>
+                                    </StackPanel>
+                                </Expander>
                             </Border>
 
                             <!-- 独立标注 -->
@@ -2737,8 +2748,13 @@
 
                 <!-- 二次手动标注 -->
                 <Border Visibility="{Binding IsNavManualMeasure, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="220" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                 <TextBlock Text="二次手动标注（测距）" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
                                 <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
@@ -2785,11 +2801,59 @@
                                             Text="{Binding OfflineCtPixelSizeUm, StringFormat={}{0:G} μm/px（来自 AI 图像标注 · 尺寸标定）}" />
                                     </Grid>
 
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            Text="{Binding SliceExportFolderLabel}"
+                                            ToolTip="与「AI图像标注」中的标注结果根目录同步；有路径则下方按钮直开，清空后弹窗自选" />
+                                        <hc:TextBox
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            ToolTip="与 AI 图像标注页「标注结果根目录」为同一配置">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="SliceExportFolder" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                            <Button
+                                                Style="{StaticResource CasFormActionButtonStyle}"
+                                                Width="40"
+                                                MinWidth="40"
+                                                Padding="0"
+                                                Command="{Binding OpenSliceExportFolderCommand}"
+                                                ToolTip="选择标注结果根目录">
+                                                <Image Width="18">
+                                                    <Image.Source>
+                                                        <DrawingImage>
+                                                            <DrawingImage.Drawing>
+                                                                <DrawingGroup>
+                                                                    <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                                </DrawingGroup>
+                                                            </DrawingImage.Drawing>
+                                                        </DrawingImage>
+                                                    </Image.Source>
+                                                </Image>
+                                            </Button>
+                                            <Button
+                                                Style="{StaticResource CasFormActionButtonStyle}"
+                                                Command="{Binding ClearSliceExportFolderCommand}"
+                                                Content="清空"
+                                                ToolTip="清空标注结果根目录；下次打开将弹窗自选" />
+                                        </StackPanel>
+                                    </Grid>
+
                                     <Border Style="{StaticResource CasInfoCalloutStyle}" Margin="0,8,0,12">
                                         <StackPanel>
                                             <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="测距快捷操作" />
-                                            <TextBlock Text="• M：测距模式　• Esc：取消本次　• Shift：水平/竖直约束" />
-                                            <TextBlock Text="• 空格+拖拽 / 中键：平移　• 滚轮：缩放　• ↑↓：切换图片" />
+                                            <TextBlock Text="• 标注模式 (A) / 移动模式 (H)　• 空格或中键拖拽：平移" />
+                                            <TextBlock Text="• 定 P1 后右键或 Esc：取消起点　• 滚轮缩放　• Ctrl+Z：撤回　• ↑↓：切换图片" />
+                                            <TextBlock Text="• 拖拽标签避挡 / 双击改名；底部遮罩汇总 mm（打黑高度本机绘制）" />
                                             <TextBlock Text="• 导出：写入 {打开文件夹}/output/（index.json + 单图 json + 叠加图）" />
                                         </StackPanel>
                                     </Border>
@@ -2801,11 +2865,96 @@
                                         Command="{Binding OpenManualMeasureFolderCommand}"
                                         Content="打开文件夹开始标注"
                                         IsEnabled="{Binding IsEnableSimulationBtn}"
-                                        ToolTip="选择图片根目录，打开全屏测距工作台" />
+                                        ToolTip="使用上方标注结果根目录；有路径直开，无路径弹窗自选并写回" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-                    </ScrollViewer>
+
+                        <!-- 最新 AI 标注结果预览 -->
+                        <Border
+                            Grid.Row="1"
+                            Margin="0,14,0,0"
+                            Style="{StaticResource CasFormSectionStyle}"
+                            Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
+                                    <Button
+                                        DockPanel.Dock="Right"
+                                        Style="{StaticResource CasFormActionButtonStyle}"
+                                        Content="刷新预览"
+                                        Command="{Binding RefreshLatestAiAnnotationPreviewCommand}"
+                                        ToolTip="重新扫描标注结果根目录，显示最新 AI 结果图" />
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="最新 AI 标注预览" Margin="0" />
+                                        <TextBlock
+                                            Style="{StaticResource CasFormHintStyle}"
+                                            Text="{Binding LatestAiAnnotationPreviewInfo}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTip="{Binding LatestAiAnnotationPreviewPath}" />
+                                    </StackPanel>
+                                </DockPanel>
+                                <Border
+                                    Grid.Row="1"
+                                    Background="#FF1A1A1A"
+                                    BorderBrush="{StaticResource CasBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    ClipToBounds="True"
+                                    MinHeight="200">
+                                    <Grid>
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Foreground="{StaticResource CasMutedTextBrush}"
+                                            Text="{Binding LatestAiAnnotationPreviewInfo}"
+                                            TextWrapping="Wrap"
+                                            Margin="16"
+                                            TextAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasLatestAiAnnotationPreview}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <!-- Viewbox + 原图像素尺寸：区域内等比缩放，保持原图宽高比 -->
+                                        <Viewbox
+                                            Stretch="Uniform"
+                                            StretchDirection="Both"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Margin="6">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasLatestAiAnnotationPreview}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Viewbox.Style>
+                                            <Image
+                                                Source="{Binding LatestAiAnnotationPreview}"
+                                                Width="{Binding LatestAiAnnotationPreviewPixelWidth}"
+                                                Height="{Binding LatestAiAnnotationPreviewPixelHeight}"
+                                                Stretch="Fill"
+                                                SnapsToDevicePixels="True"
+                                                RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Viewbox>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Border>
 
                 <Grid Visibility="{Binding IsNavStepTest, Converter={StaticResource BoolToVis}}">

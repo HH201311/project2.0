@@ -21,6 +21,19 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 
         /// <summary>物理长度（mm）= LengthUm / 1000。</summary>
         public double LengthMm { get; set; }
+
+        /// <summary>
+        /// 标签中心 X（图像像素）。null 表示使用默认垂直引出位置。
+        /// </summary>
+        public double? LabelX { get; set; }
+
+        /// <summary>
+        /// 标签中心 Y（图像像素）。null 表示使用默认垂直引出位置。
+        /// </summary>
+        public double? LabelY { get; set; }
+
+        /// <summary>是否已手动拖拽过标签位置。</summary>
+        public bool HasCustomLabelPosition => LabelX.HasValue && LabelY.HasValue;
     }
 
     /// <summary>单张图片的手动测距记录。</summary>

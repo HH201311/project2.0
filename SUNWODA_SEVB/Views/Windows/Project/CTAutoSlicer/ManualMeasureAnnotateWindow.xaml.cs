@@ -4,14 +4,16 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer;
 using Point = System.Windows.Point;
 
 namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 {
     /// <summary>
-    /// 二次手动标注全屏工作台：两点测距 + 实时橡皮筋虚线。
+    /// 二次手动标注全屏工作台：两点测距；底部遮罩汇总；标签可改名。
     /// </summary>
     public partial class ManualMeasureAnnotateWindow : Window
     {
@@ -25,16 +27,32 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         private Point _panStart;
         private bool _spaceDown;
         private Line? _previewDash;
+        private Line? _previewLeader;
         private Ellipse? _anchorMarker;
         private TextBlock? _previewLabel;
 
-        private const double MinZoom = 0.1;
-        private const double MaxZoom = 8.0;
+        /// <summary>正在拖拽的测距标签 Id；空表示未拖拽。</summary>
+        private string? _draggingLabelMeasureId;
+        private bool _labelDragMoved;
 
-        public ManualMeasureAnnotateWindow(string rootFolder, double pixelSizeUm)
+        private static readonly SolidColorBrush ActiveModeBrush = new(Color.FromRgb(0x0E, 0x63, 0x9C));
+        private static readonly SolidColorBrush IdleModeBrush = new(Color.FromRgb(0x2D, 0x2D, 0x30));
+        private static readonly SolidColorBrush ActiveModeBorder = new(Color.FromRgb(0x11, 0x77, 0xBB));
+        private static readonly SolidColorBrush IdleModeBorder = new(Color.FromRgb(0x3F, 0x3F, 0x46));
+
+        private const double MinZoom = 0.05;
+        private const double MaxZoom = 32.0;
+        /// <summary>文字引出虚线长度（屏幕像素）。</summary>
+        private const double LabelLeaderLength = 42.0;
+        private const string MeasureLabelTagPrefix = "measure:";
+
+        public ManualMeasureAnnotateWindow(
+            string rootFolder,
+            double pixelSizeUm,
+            int bottomBlackHeightPx = 0)
         {
             InitializeComponent();
-            _vm = new VM_ManualMeasureAnnotateWindow(rootFolder, pixelSizeUm);
+            _vm = new VM_ManualMeasureAnnotateWindow(rootFolder, pixelSizeUm, bottomBlackHeightPx);
             DataContext = _vm;
             _vm.ImageSelectionChanged += (_, _) => LoadSelectedImage();
             _vm.MeasuresChanged += (_, _) =>
@@ -42,8 +60,45 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 CancelPendingMeasure();
                 RedrawCommittedOverlays();
             };
-            Loaded += (_, _) => LoadSelectedImage();
+            _vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(VM_ManualMeasureAnnotateWindow.IsMeasureMode))
+                {
+                    UpdateModeUi();
+                }
+            };
+            Loaded += (_, _) =>
+            {
+                LoadSelectedImage();
+                UpdateModeUi();
+            };
             Closing += OnClosing;
+        }
+
+        private void UpdateModeUi()
+        {
+            if (_vm.IsMeasureMode)
+            {
+                BtnAnnotateMode.Background = ActiveModeBrush;
+                BtnAnnotateMode.BorderBrush = ActiveModeBorder;
+                BtnMoveMode.Background = IdleModeBrush;
+                BtnMoveMode.BorderBrush = IdleModeBorder;
+                if (!_spaceDown && !_isPanning)
+                {
+                    Cursor = Cursors.Cross;
+                }
+            }
+            else
+            {
+                BtnMoveMode.Background = ActiveModeBrush;
+                BtnMoveMode.BorderBrush = ActiveModeBorder;
+                BtnAnnotateMode.Background = IdleModeBrush;
+                BtnAnnotateMode.BorderBrush = IdleModeBorder;
+                if (!_spaceDown && !_isPanning)
+                {
+                    Cursor = Cursors.Hand;
+                }
+            }
         }
 
         private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -70,6 +125,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             CancelPendingMeasure();
             OverlayCanvas.Children.Clear();
             _previewDash = null;
+            _previewLeader = null;
             _anchorMarker = null;
             _previewLabel = null;
             LiveDistanceText.Text = string.Empty;
@@ -91,56 +147,98 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             _bitmap = bmp;
             MainImage.Source = bmp;
 
-            FitToViewport();
-            ApplyZoomTransform();
+            FitToViewportAndCenter();
             RedrawCommittedOverlays();
             ImageListBox.ScrollIntoView(_vm.SelectedImage);
         }
 
-        private void FitToViewport()
+        /// <summary>适应视口并居中（默认打开效果）。</summary>
+        private void FitToViewportAndCenter()
         {
             if (_bitmap is null)
             {
                 return;
             }
 
-            var vw = ImageScrollViewer.ViewportWidth;
-            var vh = ImageScrollViewer.ViewportHeight;
-            if (vw <= 1 || vh <= 1)
+            void Apply()
             {
-                _zoom = 1.0;
+                var vw = ImageScrollViewer.ViewportWidth;
+                var vh = ImageScrollViewer.ViewportHeight;
+                if (vw <= 1 || vh <= 1)
+                {
+                    _zoom = 1.0;
+                }
+                else
+                {
+                    var zx = vw / _bitmap.PixelWidth;
+                    var zy = vh / _bitmap.PixelHeight;
+                    // 略小于 1 留边，保证完整可见并居中
+                    _zoom = Math.Clamp(Math.Min(zx, zy) * 0.96, MinZoom, MaxZoom);
+                }
+
+                ApplyZoomTransform(centerAfter: true);
+            }
+
+            if (ImageScrollViewer.ViewportWidth <= 1)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, Apply);
             }
             else
             {
-                var zx = vw / _bitmap.PixelWidth;
-                var zy = vh / _bitmap.PixelHeight;
-                _zoom = Math.Clamp(Math.Min(zx, zy), MinZoom, MaxZoom);
+                Apply();
             }
-
-            SyncZoomPercent();
         }
 
-        private void ApplyZoomTransform()
+        private void ApplyZoomTransform(bool centerAfter = false)
         {
             if (_bitmap is null)
             {
                 return;
             }
 
-            var w = _bitmap.PixelWidth * _zoom;
-            var h = _bitmap.PixelHeight * _zoom;
+            // 同步放大 ImageHost 宽高 = 滚动边界；叠加 Canvas 与图片同尺寸，标注随边界一起缩放
+            var w = Math.Max(1, _bitmap.PixelWidth * _zoom);
+            var h = Math.Max(1, _bitmap.PixelHeight * _zoom);
+            ImageHost.Width = w;
+            ImageHost.Height = h;
             MainImage.Width = w;
             MainImage.Height = h;
             OverlayCanvas.Width = w;
             OverlayCanvas.Height = h;
-            ImageHost.Width = w;
-            ImageHost.Height = h;
+
+            // 强制重新布局，使 ScrollViewer Extent（可滚动边界）立即跟上内容尺寸
+            ImageHost.InvalidateMeasure();
+            ImageHost.InvalidateArrange();
+            ImageScrollViewer.InvalidateMeasure();
+            ImageScrollViewer.UpdateLayout();
+
             SyncZoomPercent();
             RedrawCommittedOverlays();
             if (_hasAnchor)
             {
                 UpdatePreviewGraphics(_cursorImagePx);
             }
+
+            if (centerAfter)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, CenterViewport);
+            }
+        }
+
+        private void CenterViewport()
+        {
+            if (_bitmap is null)
+            {
+                return;
+            }
+
+            ImageScrollViewer.UpdateLayout();
+            var w = ImageHost.ActualWidth > 0 ? ImageHost.ActualWidth : ImageHost.Width;
+            var h = ImageHost.ActualHeight > 0 ? ImageHost.ActualHeight : ImageHost.Height;
+            var vw = ImageScrollViewer.ViewportWidth;
+            var vh = ImageScrollViewer.ViewportHeight;
+            ImageScrollViewer.ScrollToHorizontalOffset(Math.Max(0, (w - vw) / 2));
+            ImageScrollViewer.ScrollToVerticalOffset(Math.Max(0, (h - vh) / 2));
         }
 
         private void SyncZoomPercent() => _vm.ZoomPercent = _zoom * 100.0;
@@ -150,7 +248,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             // 保留预览元素，先清再重画已确认 + 恢复预览
             var previewEls = new UIElement?[]
             {
-                _previewDash, _anchorMarker, _previewLabel,
+                _previewDash, _previewLeader, _anchorMarker, _previewLabel,
             };
             OverlayCanvas.Children.Clear();
 
@@ -163,12 +261,75 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 }
             }
 
+            // 底部遮罩与汇总压在测距线之上（图像像素高度 × 缩放）
+            DrawBottomInfoBand(measures);
+
             foreach (var el in previewEls)
             {
                 if (el is not null && !OverlayCanvas.Children.Contains(el))
                 {
                     OverlayCanvas.Children.Add(el);
                 }
+            }
+        }
+
+        /// <summary>按打黑高度在图像底部绘制黑色遮罩，并列出全部测距（mm）。</summary>
+        private void DrawBottomInfoBand(IReadOnlyList<ManualMeasureItem>? measures)
+        {
+            if (_bitmap is null)
+            {
+                return;
+            }
+
+            var bandPx = Math.Clamp(_vm.BottomBlackHeightPx, 0, _bitmap.PixelHeight);
+            if (bandPx <= 0)
+            {
+                return;
+            }
+
+            var canvasW = OverlayCanvas.Width;
+            var canvasH = OverlayCanvas.Height;
+            var bandH = bandPx * _zoom;
+            var bandY = canvasH - bandH;
+
+            var band = new System.Windows.Shapes.Rectangle
+            {
+                Width = canvasW,
+                Height = bandH,
+                Fill = Brushes.Black,
+                IsHitTestVisible = false,
+            };
+            Canvas.SetLeft(band, 0);
+            Canvas.SetTop(band, bandY);
+            OverlayCanvas.Children.Add(band);
+
+            var lines = measures is { Count: > 0 }
+                ? measures.Select(ManualMeasureExportHelper.FormatMeasureLabelMm).ToList()
+                : ["（暂无测距 · 标注后显示于此）"];
+
+            var fontSize = Math.Clamp(12.0 * Math.Sqrt(_zoom), 11, 22);
+            var lineH = fontSize + 6;
+            var y = bandY + 8;
+            foreach (var line in lines)
+            {
+                if (y + lineH > canvasH - 4)
+                {
+                    break;
+                }
+
+                var tb = new TextBlock
+                {
+                    Text = line,
+                    Foreground = Brushes.White,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = fontSize,
+                    FontWeight = FontWeights.SemiBold,
+                    IsHitTestVisible = false,
+                };
+                Canvas.SetLeft(tb, 10);
+                Canvas.SetTop(tb, y);
+                OverlayCanvas.Children.Add(tb);
+                y += lineH;
             }
         }
 
@@ -179,6 +340,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var stroke = selected
                 ? new SolidColorBrush(Color.FromRgb(255, 200, 0))
                 : new SolidColorBrush(Color.FromRgb(0, 220, 255));
+            var leaderStroke = new SolidColorBrush(Color.FromRgb(180, 220, 255));
 
             var main = MakeLine(p1, p2, stroke, null, selected ? 2.5 : 2);
             main.IsHitTestVisible = false;
@@ -187,20 +349,102 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             AddEndpointCross(p2, stroke);
 
             var mid = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+            Point labelCenter;
+            if (m.HasCustomLabelPosition)
+            {
+                labelCenter = ImageToCanvas(new Point(m.LabelX!.Value, m.LabelY!.Value));
+            }
+            else
+            {
+                (_, labelCenter) = GetPerpendicularLeader(p1, p2, LabelLeaderLength);
+            }
+
+            var dash = new DoubleCollection { 4, 3 };
+            var leader = MakeLine(mid, labelCenter, leaderStroke, dash, 1.2);
+            leader.IsHitTestVisible = false;
+            OverlayCanvas.Children.Add(leader);
+
+            // 上方标签：仅毫米；拖拽改位置，双击改名
             var label = new TextBlock
             {
-                Text = $"{m.Label}: {m.PixelLength:F1}px / {m.LengthUm:F2}μm / {m.LengthMm:F4}mm",
+                Text = ManualMeasureExportHelper.FormatMeasureLabelMm(m),
                 Foreground = Brushes.Yellow,
                 Background = new SolidColorBrush(Color.FromArgb(180, 0, 0, 0)),
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = 12,
                 Padding = new Thickness(4, 2, 4, 2),
-                IsHitTestVisible = false,
+                Cursor = Cursors.SizeAll,
+                Tag = MeasureLabelTagPrefix + m.Id,
+                ToolTip = "拖拽移动位置；双击修改名称",
+                IsHitTestVisible = true,
             };
             OverlayCanvas.Children.Add(label);
             label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(label, mid.X - label.DesiredSize.Width / 2);
-            Canvas.SetTop(label, mid.Y - label.DesiredSize.Height - 6);
+            PlaceLabelCentered(label, labelCenter);
+        }
+
+        private static void PlaceLabelCentered(TextBlock label, Point center)
+        {
+            var w = label.DesiredSize.Width;
+            var h = label.DesiredSize.Height;
+            Canvas.SetLeft(label, center.X - w / 2);
+            Canvas.SetTop(label, center.Y - h / 2);
+        }
+
+        /// <summary>
+        /// 从连线中点沿垂直方向拉出引出线；优先朝屏幕上方（Y 减小），避免文字压在测距线上。
+        /// </summary>
+        private static (Point Mid, Point LabelPos) GetPerpendicularLeader(Point p1, Point p2, double length)
+        {
+            var mid = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+            var dx = p2.X - p1.X;
+            var dy = p2.Y - p1.Y;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            double nx;
+            double ny;
+            if (len < 1e-3)
+            {
+                nx = 0;
+                ny = -1;
+            }
+            else
+            {
+                nx = -dy / len;
+                ny = dx / len;
+                // 优先朝上（屏幕 Y 减小）
+                if (ny > 0 || (Math.Abs(ny) < 1e-6 && nx < 0))
+                {
+                    nx = -nx;
+                    ny = -ny;
+                }
+            }
+
+            return (mid, new Point(mid.X + nx * length, mid.Y + ny * length));
+        }
+
+        private static void PlaceLabelAtLeaderEnd(TextBlock label, Point mid, Point labelPos)
+        {
+            var w = label.DesiredSize.Width;
+            var h = label.DesiredSize.Height;
+            // 文字中心落在引出线末端外侧：按引出方向偏移半个文本框
+            var ox = labelPos.X - mid.X;
+            var oy = labelPos.Y - mid.Y;
+            var olen = Math.Sqrt(ox * ox + oy * oy);
+            var pad = 4.0;
+            if (olen > 1e-3)
+            {
+                var ux = ox / olen;
+                var uy = oy / olen;
+                var cx = labelPos.X + ux * (w * 0.5 + pad);
+                var cy = labelPos.Y + uy * (h * 0.5 + pad);
+                Canvas.SetLeft(label, cx - w / 2);
+                Canvas.SetTop(label, cy - h / 2);
+            }
+            else
+            {
+                Canvas.SetLeft(label, labelPos.X - w / 2);
+                Canvas.SetTop(label, labelPos.Y - h - pad);
+            }
         }
 
         private void AddEndpointCross(Point c, Brush stroke)
@@ -261,11 +505,24 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         {
             var dash = new DoubleCollection { 6, 4 };
             var cyan = new SolidColorBrush(Color.FromRgb(0, 230, 255));
+            var leaderCyan = new SolidColorBrush(Color.FromRgb(180, 220, 255));
 
             if (_previewDash is null)
             {
                 _previewDash = new Line { Stroke = cyan, StrokeThickness = 1.5, StrokeDashArray = dash, IsHitTestVisible = false };
                 OverlayCanvas.Children.Add(_previewDash);
+            }
+
+            if (_previewLeader is null)
+            {
+                _previewLeader = new Line
+                {
+                    Stroke = leaderCyan,
+                    StrokeThickness = 1.2,
+                    StrokeDashArray = new DoubleCollection { 4, 3 },
+                    IsHitTestVisible = false,
+                };
+                OverlayCanvas.Children.Add(_previewLeader);
             }
 
             if (_anchorMarker is null)
@@ -319,15 +576,20 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var nPx = Math.Sqrt(
                 (imagePx.X - _anchorImagePx.X) * (imagePx.X - _anchorImagePx.X)
                 + (imagePx.Y - _anchorImagePx.Y) * (imagePx.Y - _anchorImagePx.Y));
-            var um = nPx * _vm.PixelSizeUm;
-            var mm = um / 1000.0;
-            var text = $"{nPx:F1} px  |  {um:F2} μm  |  {mm:F4} mm";
-            LiveDistanceText.Text = text;
+            var mm = nPx * _vm.PixelSizeUm / 1000.0;
+            // 预览与定稿一致：仅毫米（左上角实时条可附带像素供校对）
+            var text = $"{mm:F4} mm";
+            LiveDistanceText.Text = $"{nPx:F1} px  ·  {text}";
             _previewLabel!.Text = text;
-            var mid = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+
+            var (mid, labelPos) = GetPerpendicularLeader(p1, p2, LabelLeaderLength);
+            _previewLeader!.X1 = mid.X;
+            _previewLeader.Y1 = mid.Y;
+            _previewLeader.X2 = labelPos.X;
+            _previewLeader.Y2 = labelPos.Y;
+
             _previewLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(_previewLabel, mid.X - _previewLabel.DesiredSize.Width / 2);
-            Canvas.SetTop(_previewLabel, mid.Y - _previewLabel.DesiredSize.Height - 6);
+            PlaceLabelAtLeaderEnd(_previewLabel, mid, labelPos);
         }
 
         private void ClearPreviewElements()
@@ -341,9 +603,11 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             }
 
             Remove(_previewDash);
+            Remove(_previewLeader);
             Remove(_anchorMarker);
             Remove(_previewLabel);
             _previewDash = null;
+            _previewLeader = null;
             _anchorMarker = null;
             _previewLabel = null;
             LiveDistanceText.Text = string.Empty;
@@ -358,14 +622,14 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         private void BtnMeasureMode_Click(object sender, RoutedEventArgs e)
         {
             _vm.IsMeasureMode = true;
-            Cursor = Cursors.Cross;
+            UpdateModeUi();
         }
 
         private void BtnBrowseMode_Click(object sender, RoutedEventArgs e)
         {
             CancelPendingMeasure();
             _vm.IsMeasureMode = false;
-            Cursor = Cursors.Arrow;
+            UpdateModeUi();
         }
 
         private void BtnExport_Click(object sender, RoutedEventArgs e)
@@ -390,15 +654,41 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 if (_hasAnchor)
                 {
                     CancelPendingMeasure();
+                    _vm.StatusText = "已取消起点，可重新左键定 P1";
                     e.Handled = true;
                     return;
                 }
             }
 
-            if (e.Key == Key.M && Keyboard.Modifiers == ModifierKeys.None)
+            // Ctrl+Z：撤回当前图上一条测距
+            if (e.Key == Key.Z && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control
+                && (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.None
+                && (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.None)
+            {
+                if (_vm.UndoLastMeasureCommand.CanExecute(null))
+                {
+                    _vm.UndoLastMeasureCommand.Execute(null);
+                }
+
+                e.Handled = true;
+                return;
+            }
+
+            // 标注模式：A / M
+            if ((e.Key == Key.A || e.Key == Key.M) && Keyboard.Modifiers == ModifierKeys.None)
             {
                 _vm.IsMeasureMode = true;
-                Cursor = Cursors.Cross;
+                UpdateModeUi();
+                e.Handled = true;
+                return;
+            }
+
+            // 移动/抓手：H
+            if (e.Key == Key.H && Keyboard.Modifiers == ModifierKeys.None)
+            {
+                CancelPendingMeasure();
+                _vm.IsMeasureMode = false;
+                UpdateModeUi();
                 e.Handled = true;
                 return;
             }
@@ -429,10 +719,12 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
+            // 空格：临时抓手（同 PS），吞掉按键避免按钮/列表滚动
             if (e.Key == Key.Space)
             {
                 _spaceDown = true;
                 Cursor = Cursors.Hand;
+                e.Handled = true;
             }
         }
 
@@ -442,7 +734,12 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             if (e.Key == Key.Space)
             {
                 _spaceDown = false;
-                Cursor = _vm.IsMeasureMode ? Cursors.Cross : Cursors.Arrow;
+                if (!_isPanning)
+                {
+                    UpdateModeUi();
+                }
+
+                e.Handled = true;
             }
         }
 
@@ -453,21 +750,60 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
-            var factor = e.Delta > 0 ? 1.1 : 1 / 1.1;
-            _zoom = Math.Clamp(_zoom * factor, MinZoom, MaxZoom);
-            ApplyZoomTransform();
+            // 直接滚轮缩放（以鼠标位置为中心），同步扩大/缩小可滚动边界
             e.Handled = true;
+            var mouseInViewer = e.GetPosition(ImageScrollViewer);
+            var posInHost = e.GetPosition(ImageHost);
+            var oldZoom = _zoom;
+            var factor = e.Delta > 0 ? 1.12 : 1 / 1.12;
+            var newZoom = Math.Clamp(oldZoom * factor, MinZoom, MaxZoom);
+            if (Math.Abs(newZoom - oldZoom) < 1e-9)
+            {
+                return;
+            }
+
+            var ratio = newZoom / oldZoom;
+            _zoom = newZoom;
+            ApplyZoomTransform(centerAfter: false);
+
+            // 布局完成后按比例校正滚动，使鼠标下像素点仍对准光标
+            ImageScrollViewer.UpdateLayout();
+            var newPosInHostX = posInHost.X * ratio;
+            var newPosInHostY = posInHost.Y * ratio;
+            var maxH = Math.Max(0, ImageScrollViewer.ExtentWidth - ImageScrollViewer.ViewportWidth);
+            var maxV = Math.Max(0, ImageScrollViewer.ExtentHeight - ImageScrollViewer.ViewportHeight);
+            ImageScrollViewer.ScrollToHorizontalOffset(Math.Clamp(newPosInHostX - mouseInViewer.X, 0, maxH));
+            ImageScrollViewer.ScrollToVerticalOffset(Math.Clamp(newPosInHostY - mouseInViewer.Y, 0, maxV));
         }
+
+        private bool ShouldPanWithLeftButton() =>
+            _spaceDown || !_vm.IsMeasureMode;
 
         private void Viewport_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             var pos = e.GetPosition(ImageScrollViewer);
 
-            if (e.ChangedButton == MouseButton.Middle || (e.ChangedButton == MouseButton.Left && _spaceDown))
+            // 右键：已定起点、未定终点时取消本次测距（与 Esc 相同）
+            if (e.ChangedButton == MouseButton.Right)
+            {
+                if (_hasAnchor && _vm.IsMeasureMode)
+                {
+                    CancelPendingMeasure();
+                    _vm.StatusText = "已右键取消起点，可重新左键定 P1";
+                    e.Handled = true;
+                }
+
+                return;
+            }
+
+            // 中键按住拖拽 / 空格+左键 / 移动模式下左键 → 平移
+            if (e.ChangedButton == MouseButton.Middle
+                || (e.ChangedButton == MouseButton.Left && ShouldPanWithLeftButton()))
             {
                 _isPanning = true;
                 _panStart = pos;
-                ImageScrollViewer.CaptureMouse();
+                Cursor = Cursors.Hand;
+                Mouse.Capture(ImageScrollViewer, CaptureMode.SubTree);
                 e.Handled = true;
                 return;
             }
@@ -477,20 +813,36 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
-            // 允许命中已有测距线：若点在 Overlay 透明线上，由 hit 处理
+            // 标签：双击改名；单击按下开始拖拽（未在定 P2 过程中）
+            if (!_hasAnchor && TryHitMeasureLabel(pos, out var hitMeasureId))
+            {
+                if (e.ClickCount >= 2)
+                {
+                    EndLabelDrag(commit: false);
+                    PromptRenameMeasure(hitMeasureId);
+                    e.Handled = true;
+                    return;
+                }
+
+                BeginLabelDrag(hitMeasureId, pos);
+                e.Handled = true;
+                return;
+            }
+
             var imgPt = TryGetImagePixel(pos);
             if (imgPt is null)
             {
                 return;
             }
 
-            if (!_vm.IsMeasureMode)
+            // 落在底部信息遮罩内：不开始测距，避免点到汇总区误标
+            if (!_hasAnchor && IsInBottomBlackBand(imgPt.Value))
             {
-                TrySelectNearestMeasure(imgPt.Value);
                 e.Handled = true;
                 return;
             }
 
+            // 标注模式：测距
             var pt = imgPt.Value;
             if ((Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift && _hasAnchor)
             {
@@ -516,71 +868,249 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             e.Handled = true;
         }
 
-        private void TrySelectNearestMeasure(Point imagePx)
+        private bool IsInBottomBlackBand(Point imagePx)
         {
-            var measures = _vm.SelectedImage?.Measures;
-            if (measures is null || measures.Count == 0)
+            if (_bitmap is null || _vm.BottomBlackHeightPx <= 0)
+            {
+                return false;
+            }
+
+            var bandPx = Math.Clamp(_vm.BottomBlackHeightPx, 0, _bitmap.PixelHeight);
+            return imagePx.Y >= _bitmap.PixelHeight - bandPx;
+        }
+
+        private bool TryHitMeasureLabel(Point viewportPos, out string measureId)
+        {
+            measureId = string.Empty;
+            var posInCanvas = ImageScrollViewer.TranslatePoint(viewportPos, OverlayCanvas);
+            var hit = OverlayCanvas.InputHitTest(posInCanvas);
+            DependencyObject? current = hit as DependencyObject;
+            while (current is not null && current != OverlayCanvas)
+            {
+                if (current is FrameworkElement fe
+                    && fe.Tag is string tag
+                    && tag.StartsWith(MeasureLabelTagPrefix, StringComparison.Ordinal))
+                {
+                    measureId = tag[MeasureLabelTagPrefix.Length..];
+                    return !string.IsNullOrEmpty(measureId);
+                }
+
+                current = VisualTreeHelper.GetParent(current);
+            }
+
+            return false;
+        }
+
+        private void BeginLabelDrag(string measureId, Point viewportPos)
+        {
+            _draggingLabelMeasureId = measureId;
+            _labelDragMoved = false;
+            _vm.SelectedMeasureId = measureId;
+            Cursor = Cursors.SizeAll;
+            Mouse.Capture(ImageScrollViewer, CaptureMode.SubTree);
+            RedrawCommittedOverlays();
+            // 不在按下瞬间改坐标：仅 MouseMove 超过阈值后才写入，避免单击/双击误改位置
+            _ = viewportPos;
+        }
+
+        private void UpdateDraggingLabelPosition(Point viewportPos)
+        {
+            if (string.IsNullOrEmpty(_draggingLabelMeasureId) || _bitmap is null)
             {
                 return;
             }
 
-            const double thresholdPx = 8.0;
-            string? bestId = null;
-            var bestDist = double.MaxValue;
-            foreach (var m in measures)
+            var target = _vm.SelectedImage?.Measures.FirstOrDefault(m => m.Id == _draggingLabelMeasureId);
+            if (target is null)
             {
-                var d = DistancePointToSegment(imagePx, new Point(m.X1, m.Y1), new Point(m.X2, m.Y2));
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    bestId = m.Id;
-                }
+                return;
             }
 
-            if (bestId is not null && bestDist <= thresholdPx / Math.Max(_zoom, 0.01))
+            var posInHost = ImageScrollViewer.TranslatePoint(viewportPos, ImageHost);
+            var ix = Math.Clamp(posInHost.X / _zoom, 0, _bitmap.PixelWidth);
+            var iy = Math.Clamp(posInHost.Y / _zoom, 0, _bitmap.PixelHeight);
+
+            // 尚未自定义位置时：相对默认位置移动超过约 3px（图像系）才开始跟手
+            if (!_labelDragMoved)
             {
-                _vm.SelectedMeasureId = bestId;
-                RedrawCommittedOverlays();
+                Point defaultCenter;
+                if (target.HasCustomLabelPosition)
+                {
+                    defaultCenter = new Point(target.LabelX!.Value, target.LabelY!.Value);
+                }
+                else
+                {
+                    var p1 = new Point(target.X1, target.Y1);
+                    var p2 = new Point(target.X2, target.Y2);
+                    var c1 = ImageToCanvas(p1);
+                    var c2 = ImageToCanvas(p2);
+                    var (_, cLabel) = GetPerpendicularLeader(c1, c2, LabelLeaderLength);
+                    defaultCenter = new Point(cLabel.X / _zoom, cLabel.Y / _zoom);
+                }
+
+                var dist = Math.Sqrt((ix - defaultCenter.X) * (ix - defaultCenter.X)
+                                     + (iy - defaultCenter.Y) * (iy - defaultCenter.Y));
+                if (dist < 3.0)
+                {
+                    return;
+                }
+
+                _labelDragMoved = true;
             }
+
+            target.LabelX = ix;
+            target.LabelY = iy;
+            RedrawCommittedOverlays();
         }
 
-        private static double DistancePointToSegment(Point p, Point a, Point b)
+        private void EndLabelDrag(bool commit)
         {
-            var dx = b.X - a.X;
-            var dy = b.Y - a.Y;
-            var len2 = dx * dx + dy * dy;
-            if (len2 < 1e-9)
+            if (string.IsNullOrEmpty(_draggingLabelMeasureId))
             {
-                var ddx = p.X - a.X;
-                var ddy = p.Y - a.Y;
-                return Math.Sqrt(ddx * ddx + ddy * ddy);
+                return;
             }
 
-            var t = Math.Clamp(((p.X - a.X) * dx + (p.Y - a.Y) * dy) / len2, 0, 1);
-            var projX = a.X + t * dx;
-            var projY = a.Y + t * dy;
-            var ex = p.X - projX;
-            var ey = p.Y - projY;
-            return Math.Sqrt(ex * ex + ey * ey);
+            if (commit && _labelDragMoved)
+            {
+                _vm.MarkDirty();
+                _vm.StatusText = "已移动标签位置（导出时保留）";
+            }
+
+            _draggingLabelMeasureId = null;
+            _labelDragMoved = false;
+            if (Mouse.Captured == ImageScrollViewer)
+            {
+                Mouse.Capture(null);
+            }
+
+            UpdateModeUi();
+        }
+
+        private void PromptRenameMeasure(string measureId)
+        {
+            var target = _vm.SelectedImage?.Measures.FirstOrDefault(m => m.Id == measureId);
+            if (target is null)
+            {
+                return;
+            }
+
+            _vm.SelectedMeasureId = measureId;
+            RedrawCommittedOverlays();
+
+            var dialog = new Window
+            {
+                Title = "修改测距名称",
+                Width = 360,
+                Height = 160,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize,
+                Background = new SolidColorBrush(Color.FromRgb(0x2D, 0x2D, 0x30)),
+            };
+            var box = new TextBox
+            {
+                Text = target.Label,
+                Margin = new Thickness(16, 20, 16, 8),
+                FontSize = 14,
+            };
+            var ok = new Button
+            {
+                Content = "确定",
+                Width = 80,
+                Height = 28,
+                Margin = new Thickness(0, 0, 8, 0),
+                IsDefault = true,
+            };
+            var cancel = new Button
+            {
+                Content = "取消",
+                Width = 80,
+                Height = 28,
+                IsCancel = true,
+            };
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(16, 8, 16, 16),
+                Children = { ok, cancel },
+            };
+            var panel = new StackPanel();
+            panel.Children.Add(new TextBlock
+            {
+                Text = "测距名称",
+                Foreground = Brushes.White,
+                Margin = new Thickness(16, 16, 16, 4),
+            });
+            panel.Children.Add(box);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "名称将同步到图上标签与底部信息区",
+                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+                Margin = new Thickness(16, 4, 16, 0),
+                FontSize = 11,
+            });
+            panel.Children.Add(buttons);
+            dialog.Content = panel;
+
+            ok.Click += (_, _) =>
+            {
+                if (_vm.RenameMeasure(measureId, box.Text))
+                {
+                    dialog.DialogResult = true;
+                    dialog.Close();
+                }
+                else
+                {
+                    MessageBox.Show(dialog, "名称不能为空。", "修改名称", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            };
+            cancel.Click += (_, _) =>
+            {
+                dialog.DialogResult = false;
+                dialog.Close();
+            };
+
+            box.SelectAll();
+            box.Focus();
+            dialog.ShowDialog();
         }
 
         private void Viewport_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             var pos = e.GetPosition(ImageScrollViewer);
 
-            if (_isPanning && e.MiddleButton == MouseButtonState.Pressed
-                || _isPanning && e.LeftButton == MouseButtonState.Pressed && _spaceDown)
+            if (!string.IsNullOrEmpty(_draggingLabelMeasureId)
+                && e.LeftButton == MouseButtonState.Pressed)
             {
-                var dx = pos.X - _panStart.X;
-                var dy = pos.Y - _panStart.Y;
-                _panStart = pos;
-                ImageScrollViewer.ScrollToHorizontalOffset(ImageScrollViewer.HorizontalOffset - dx);
-                ImageScrollViewer.ScrollToVerticalOffset(ImageScrollViewer.VerticalOffset - dy);
+                UpdateDraggingLabelPosition(pos);
                 e.Handled = true;
                 return;
             }
 
-            if (!_vm.IsMeasureMode || !_hasAnchor)
+            if (_isPanning
+                && (e.MiddleButton == MouseButtonState.Pressed
+                    || e.LeftButton == MouseButtonState.Pressed
+                    || Mouse.Captured == ImageScrollViewer))
+            {
+                var dx = pos.X - _panStart.X;
+                var dy = pos.Y - _panStart.Y;
+                if (Math.Abs(dx) > 0.01 || Math.Abs(dy) > 0.01)
+                {
+                    _panStart = pos;
+                    var maxH = Math.Max(0, ImageScrollViewer.ExtentWidth - ImageScrollViewer.ViewportWidth);
+                    var maxV = Math.Max(0, ImageScrollViewer.ExtentHeight - ImageScrollViewer.ViewportHeight);
+                    ImageScrollViewer.ScrollToHorizontalOffset(
+                        Math.Clamp(ImageScrollViewer.HorizontalOffset - dx, 0, maxH));
+                    ImageScrollViewer.ScrollToVerticalOffset(
+                        Math.Clamp(ImageScrollViewer.VerticalOffset - dy, 0, maxV));
+                }
+
+                e.Handled = true;
+                return;
+            }
+
+            if (!_vm.IsMeasureMode || !_hasAnchor || _spaceDown)
             {
                 return;
             }
@@ -603,17 +1133,35 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         private void Viewport_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
+            if (e.ChangedButton == MouseButton.Left && !string.IsNullOrEmpty(_draggingLabelMeasureId))
+            {
+                EndLabelDrag(commit: true);
+                e.Handled = true;
+                return;
+            }
+
             if (_isPanning && (e.ChangedButton == MouseButton.Middle || e.ChangedButton == MouseButton.Left))
             {
                 _isPanning = false;
-                ImageScrollViewer.ReleaseMouseCapture();
+                if (Mouse.Captured == ImageScrollViewer)
+                {
+                    Mouse.Capture(null);
+                }
+
+                UpdateModeUi();
                 e.Handled = true;
             }
         }
 
         private void Viewport_LostMouseCapture(object sender, MouseEventArgs e)
         {
+            if (!string.IsNullOrEmpty(_draggingLabelMeasureId))
+            {
+                EndLabelDrag(commit: true);
+            }
+
             _isPanning = false;
+            UpdateModeUi();
         }
     }
 }

@@ -60,6 +60,9 @@ namespace SUNWODA_SEVB.Tool.Helper
             public BrightnessStats? After { get; init; }
             public string ReportPath { get; init; } = string.Empty;
             public string Summary { get; init; } = string.Empty;
+
+            /// <summary>为 true 时 <see cref="FinalImagePath"/> 为临时文件，推理结束后应由调用方删除。</summary>
+            public bool IsTemporary { get; init; }
         }
 
         /// <summary>
@@ -141,11 +144,14 @@ namespace SUNWODA_SEVB.Tool.Helper
             stats.Mean < meanTrigger || stats.P50 < p50Trigger;
 
         /// <summary>
-        /// 可选 CW90 → 计算亮度 →（必要时）提亮 → 仅落盘最终效果图 <c>input_for_njct.*</c> 与报告（不再单独落盘旋转中间图）。
+        /// 可选 CW90 → 计算亮度 →（必要时）提亮 → 得到送检图。
+        /// <paramref name="persistFinalInput"/> 为 true 时落盘 <c>input_for_njct.*</c> 与报告；
+        /// 为 false 时：无需改图则直接用源路径，否则写临时文件（调用方负责删除）。
         /// </summary>
         /// <param name="sourceImagePath">原始上视图（或已朝向正确的图）</param>
-        /// <param name="outputFolder">AI标注目录</param>
+        /// <param name="outputFolder">AI标注目录（仅 persist 时写入）</param>
         /// <param name="rotateCw90">是否先在内存中顺时针旋转 90°</param>
+        /// <param name="persistFinalInput">是否将预处理图落盘到标注目录</param>
         public static PrepareResult PrepareFinalInputImage(
             string sourceImagePath,
             string outputFolder,
@@ -153,23 +159,22 @@ namespace SUNWODA_SEVB.Tool.Helper
             bool rotateCw90 = false,
             double meanTrigger = DefaultMeanTrigger,
             double p50Trigger = DefaultP50Trigger,
-            double targetMean = DefaultTargetMean)
+            double targetMean = DefaultTargetMean,
+            bool persistFinalInput = true)
         {
             if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
             {
                 throw new FileNotFoundException("预提亮输入图不存在", sourceImagePath);
             }
 
-            Directory.CreateDirectory(outputFolder);
             var ext = Path.GetExtension(sourceImagePath);
             if (string.IsNullOrWhiteSpace(ext))
             {
                 ext = ".jpg";
             }
 
-            var finalPath = Path.Combine(outputFolder, FinalInputFileNameWithoutExt + ext.ToLowerInvariant());
-            var reportPath = Path.Combine(outputFolder, BrightenReportFileName);
-            var format = ResolveImageFormat(finalPath);
+            ext = ext.ToLowerInvariant();
+            var rotateTag = rotateCw90 ? "已CW90；" : "未旋转；";
 
             using var working = LoadBitmapUnlocked(sourceImagePath);
             if (rotateCw90)
@@ -179,9 +184,50 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             var before = MeasureRoi(working);
             var need = enableBrighten && NeedsBrighten(before, meanTrigger, p50Trigger);
+
+            // 不落盘且图未改动：直接送源图，避免多余 IO
+            if (!persistFinalInput && !rotateCw90 && !need)
+            {
+                var summaryPassthrough = enableBrighten
+                    ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（未落盘 input_for_njct）"
+                    : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0}（未落盘 input_for_njct）";
+                return new PrepareResult
+                {
+                    FinalImagePath = sourceImagePath,
+                    BrightenApplied = false,
+                    GainUsed = 0.0,
+                    Before = before,
+                    After = before,
+                    ReportPath = string.Empty,
+                    Summary = summaryPassthrough,
+                    IsTemporary = false,
+                };
+            }
+
+            string finalPath;
+            string reportPath;
+            bool isTemporary;
+            if (persistFinalInput)
+            {
+                Directory.CreateDirectory(outputFolder);
+                finalPath = Path.Combine(outputFolder, FinalInputFileNameWithoutExt + ext);
+                reportPath = Path.Combine(outputFolder, BrightenReportFileName);
+                isTemporary = false;
+            }
+            else
+            {
+                var tempDir = Path.Combine(Path.GetTempPath(), "OfflineCtInput");
+                Directory.CreateDirectory(tempDir);
+                finalPath = Path.Combine(
+                    tempDir,
+                    $"{FinalInputFileNameWithoutExt}_{Guid.NewGuid():N}{ext}");
+                reportPath = string.Empty;
+                isTemporary = true;
+            }
+
+            var format = ResolveImageFormat(finalPath);
             double toneLift = 0.0;
             BrightnessStats? after = null;
-            var rotateTag = rotateCw90 ? "已CW90；" : "未旋转；";
 
             if (!need)
             {
@@ -189,7 +235,11 @@ namespace SUNWODA_SEVB.Tool.Helper
                 var summary = enableBrighten
                     ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（触发线 均值<{meanTrigger:F0} 或 P50<{p50Trigger:F0}）→ {Path.GetFileName(finalPath)}"
                     : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0} → {Path.GetFileName(finalPath)}";
-                WriteReport(reportPath, summary, before, null, toneLift, brightenApplied: false, rotateCw90);
+                if (persistFinalInput)
+                {
+                    WriteReport(reportPath, summary, before, null, toneLift, brightenApplied: false, rotateCw90);
+                }
+
                 return new PrepareResult
                 {
                     FinalImagePath = finalPath,
@@ -199,6 +249,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     After = before,
                     ReportPath = reportPath,
                     Summary = summary,
+                    IsTemporary = isTemporary,
                 };
             }
 
@@ -213,7 +264,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 $"{rotateTag}分区提亮(暗部/中间调抬升，高光白场保护)：强度={toneLift:F3}；"
                 + $"前 均值={before.Mean:F1}/P50={before.P50:F0}/P95={before.P95:F0}"
                 + $" → 后 均值={after!.Mean:F1}/P50={after.P50:F0}/P95={after.P95:F0} → {Path.GetFileName(finalPath)}";
-            WriteReport(reportPath, summaryBright, before, after, toneLift, brightenApplied: true, rotateCw90);
+            if (persistFinalInput)
+            {
+                WriteReport(reportPath, summaryBright, before, after, toneLift, brightenApplied: true, rotateCw90);
+            }
 
             return new PrepareResult
             {
@@ -224,6 +278,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 After = after,
                 ReportPath = reportPath,
                 Summary = summaryBright,
+                IsTemporary = isTemporary,
             };
         }
 

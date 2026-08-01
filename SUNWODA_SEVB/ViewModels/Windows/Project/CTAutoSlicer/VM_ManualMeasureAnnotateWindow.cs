@@ -19,10 +19,15 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private double _zoomPercent = 100;
         private string? _selectedMeasureId;
 
-        public VM_ManualMeasureAnnotateWindow(string rootFolder, double pixelSizeUm)
+        public VM_ManualMeasureAnnotateWindow(
+            string rootFolder,
+            double pixelSizeUm,
+            int bottomBlackHeightPx)
         {
             RootFolder = Path.GetFullPath(rootFolder);
             PixelSizeUm = pixelSizeUm > 0 ? pixelSizeUm : 1.0;
+            // 底部信息遮罩高度（图像像素）；≤0 时仍留最小可读区
+            BottomBlackHeightPx = Math.Max(0, bottomBlackHeightPx);
 
             SelectImageCommand = new RelayCommand(o =>
             {
@@ -47,6 +52,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         public string RootFolder { get; }
 
         public double PixelSizeUm { get; }
+
+        /// <summary>底部信息遮罩高度（图像像素，来自 OfflineCtBlackHeight）。</summary>
+        public int BottomBlackHeightPx { get; }
 
         public ObservableCollection<ManualMeasureImageListItem> Images { get; } = [];
 
@@ -111,7 +119,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         public string StatusText
         {
             get => _statusText;
-            private set
+            set
             {
                 if (_statusText == value)
                 {
@@ -192,6 +200,39 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             MeasuresChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        /// <summary>修改指定测距的显示名称；底部信息区与图上标签同步。</summary>
+        public bool RenameMeasure(string measureId, string newLabel)
+        {
+            if (SelectedImage is null || string.IsNullOrWhiteSpace(measureId))
+            {
+                return false;
+            }
+
+            var target = SelectedImage.Measures.FirstOrDefault(m => m.Id == measureId);
+            if (target is null)
+            {
+                return false;
+            }
+
+            var trimmed = (newLabel ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return false;
+            }
+
+            if (string.Equals(target.Label, trimmed, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            target.Label = trimmed;
+            SelectedMeasureId = target.Id;
+            HasUnsavedChanges = true;
+            MeasuresChanged?.Invoke(this, EventArgs.Empty);
+            StatusText = $"已改名：{trimmed}";
+            return true;
+        }
+
         public event EventHandler? MeasuresChanged;
 
         public void MarkDirty()
@@ -208,7 +249,11 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 Measures = i.Measures.ToList(),
             }).ToList();
 
-            ManualMeasureExportHelper.ExportSession(RootFolder, PixelSizeUm, records);
+            ManualMeasureExportHelper.ExportSession(
+                RootFolder,
+                PixelSizeUm,
+                records,
+                BottomBlackHeightPx);
             HasUnsavedChanges = false;
             var output = ManualMeasureExportHelper.BuildOutputDir(RootFolder);
             StatusText = $"已导出到 {output}";
@@ -278,21 +323,13 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             }
 
             SelectedImage.Measures.Remove(target);
-            Relabel(SelectedImage);
+            // 删除后不重编号，保留用户自定义名称
             SelectedImage.NotifyAnnotatedChanged();
             SelectedMeasureId = null;
             HasUnsavedChanges = true;
             OnPropertyChanged(nameof(AnnotatedCountText));
             RaiseCommandCanExecute();
             MeasuresChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        private static void Relabel(ManualMeasureImageListItem image)
-        {
-            for (var i = 0; i < image.Measures.Count; i++)
-            {
-                image.Measures[i].Label = $"M{i + 1}";
-            }
         }
 
         private void MoveSelection(int delta)
@@ -315,8 +352,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private void UpdateStatusHint()
         {
             StatusText = IsMeasureMode
-                ? "测距模式：左键定起点 → 移动预览 → 左键定终点；Shift 正交；Esc 取消本次；Delete 删选中"
-                : "浏览模式：滚轮缩放，中键/空格拖拽平移；按 M 进入测距";
+                ? "标注模式：左键两点测距；拖拽标签避挡；双击标签改名；底部黑带汇总 mm"
+                : "移动模式：左键拖拽平移；滚轮缩放；中键拖拽；Ctrl+Z 撤回；按 A 回标注";
         }
 
         private void RaiseCommandCanExecute()

@@ -31,7 +31,7 @@
 > **2026-07-31 增量（切图 / AI 两机拆分）**：  
 > 1. 流水线模式 `PipelineRunMode`：`SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏单选胶囊切换；**本机** `Config/CTAutoSlicer/local.json` 持久化（不落共享 DB，避免两机互盖）。  
 > 2. 切图终点：三视图导出后按「前缀+序号」复制「上」视图第 `OfflineCtTopViewSliceIndex` 张（前缀 `ImageStackBaseFileName=0`，如 50→`050.jpg`）到 `TopViewHandoffFolder/{导出名}/`（硬失败），**不再**串行 NJCT。  
-> 3. AI 模式：「开始流程」扫描交接目录产品子文件夹内图像 → CW90/预提亮/NJCT → `{SliceExportFolder}/{产品名}/AI标注/`（不启 VG）。  
+> 3. AI 模式：「开始流程」扫描交接目录产品子文件夹内图像 → CW90/预提亮/NJCT → `{SliceExportFolder}/{产品名}/`（不启 VG；不再套 AI标注 子目录）。  
 > 4. 侧栏按模式显隐；同一「开始流程」按模式分发。
 
 > **重要更正（2026-07-22）**：早期文档将阶段四拆成「4a / 4b」是误解。  
@@ -420,7 +420,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 
 ✅ 6. 阶段七 · AI 图像标注（独立模式，见 §22）
       `PipelineRunMode=AiAnnotateOnly` → `RunAiAnnotationBatchAsync`
-      扫描 TopViewHandoffFolder → CW90° → NJCT → `{结果根}/{文件名}/AI标注/`
+      扫描 TopViewHandoffFolder → CW90° → NJCT → `{结果根}/{产品名}/`
       （不启 VG；与切图主链解耦）
 
 ❌ 7. 收尾：导入成功后 .vgl 处理、文件夹监控自动跑批等（见 §8 阶段六，可选）
@@ -1306,7 +1306,7 @@ screenY = Ry + Py
 
 - 反射 `Assembly.LoadFrom(Dlls\NJCT.dll)` + `SetDllDirectory(Dlls)`  
 - `CF.dll`、`halcondotnet.dll`（22.11）、ONNX Runtime（Cuda 可选）  
-- **方案 B 预提亮**（默认开）：内存 CW90（可选）→ 算 ROI 均值/P50 → 偏暗则增益提亮 → **仅**落盘 `input_for_njct.*` + `prebrighten_report.txt` → 再调 NJCT（不再生成 `input_rotated_cw90`）  
+- **方案 B 预提亮**（默认开）：内存 CW90（可选）→ 算 ROI 均值/P50 → 偏暗则增益提亮 → 再调 NJCT；`input_for_njct.*` 落盘由配置 `OfflineCtExportInputForNjct` 控制（默认关，排查时勾选）  
 - 注意：仓库 `Dlls\NJCT.dll` 已覆盖为惠州正极包；CTNCLX 若共用该 DLL，联调时需确认兼容性
 
 ### 22.4 实现文件
@@ -1337,16 +1337,23 @@ RunPostImportPipelineAsync：
 
 【AI 机 · AiAnnotateOnly】
 RunAiAnnotationBatchAsync：
-  → 枚举 TopViewHandoffFolder 一层 jpg/png
+  → 清理 {Parent(标注结果根)}/交接备份/ 下超过 30 天的 yyyy-MM-dd 目录
+  → 枚举 TopViewHandoffFolder 产品子目录（及根遗留）jpg/png
   → 逐张 RunOfflineCtVisionAnnotationAsync(explicitImagePath, explicitOutputFolder)
-      → 预处理：内存 CW90° + 条件提亮 → AI标注/input_for_njct.*
-      → 输出：{SliceExportFolder}/{文件名去扩展}/AI标注/
-           input_for_njct.* / result_*.jpg / annotation.json|csv / prebrighten_report.txt
+      → 预处理：内存 CW90° + 条件提亮（可选落盘 input_for_njct，默认关）
+      → 输出：{SliceExportFolder}/{产品名}/
+           {产品名}.jpg（及可选 {产品名}_origin.jpg）/ annotation.json|csv
+           （勾选时另有 input_for_njct.* / prebrighten_report.txt）
+      → 【成功后】备份并移出交接：
+           源：{TopViewHandoffFolder}/{产品名}/{原文件名}
+           备：{Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}/{原文件名}
+           再删交接源（空产品夹一并删）；备份失败则保留源以便重试
 ```
 
-切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}/{原文件名}`。AI 批处理输出 `{结果根}/{产品名}/AI标注/`。  
+切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}/{原文件名}`。AI 批处理输出 `{结果根}/{产品名}/`，结果图名为 `{产品名}.jpg`（不再用 `result_enhance.jpg`，也不再套 `AI标注/`）。  
 **朝向**：送检图须 **顺时针 90°** 后再送 NJCT（AI 侧内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
-失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。
+失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。  
+**交接备份**：标注成功一项即按原文件夹结构备份到 **标注结果根目录（SliceExportFolder）上级** 的 `交接备份`，保留 **30 天**，超时按日子目录自动删除；交接源仍从「上视图交接目录」删除。
 
 ### 22.6 清单
 
@@ -1358,7 +1365,8 @@ RunAiAnnotationBatchAsync：
 - [x] 上视图推理前顺时针 90° + 条件提亮 → 仅 `input_for_njct.*`  
 - [x] 上视图切片序号可配（1～100）+ 像素精度（μm/px）与 mm/μm 换算展示  
 - [x] **二次手动标注（测距）**：侧栏页签 + 全屏工作台 + 导出 `output/`（见 §22.8）  
-- [ ] 真机两机联调：切图交接文件名正确；AI 机批处理识别与 `AI标注/` 落盘符合配置  
+- [x] **交接完成即备份**：标注成功 → `{Parent(标注结果根)}/交接备份/yyyy-MM-dd/{产品名}/图` → 删交接源；保留 30 天  
+- [ ] 真机两机联调：切图交接文件名正确；AI 机批处理识别与 `{产品名}/` 落盘符合配置  
 
 ### 22.7 UI：标定采图迁入单步测试（2026-07-28）
 
@@ -1383,7 +1391,7 @@ RunAiAnnotationBatchAsync：
 | 像素精度 | 复用 `OfflineCtPixelSizeUm`（μm/px）；`L_μm = N_px × s`，`L_mm = L_μm / 1000` |
 | 入口 | 「打开文件夹开始标注」→ 递归枚举 jpg/png/bmp/tif（跳过已有 `output/`） |
 | 窗口 | `ManualMeasureAnnotateWindow` 最大化；左列表（绿=已标/灰=未标）+ 中部画布 |
-| 测距 | 左键定 P1 → 橡皮筋虚线 + CAD 垂直引出线 + 实时距离 → 左键定 P2；`Shift` 正交；`Esc` 取消；`M` 测距模式 |
+| 测距 | 左键定 P1 → 橡皮筋虚线 + 实时距离 → 左键定 P2；`Shift` 正交；定 P1 后**右键**或 `Esc` 取消起点；`M`/`A` 测距模式 |
 | 编辑 | 撤销上一条 / 清空当前 / 浏览模式点选尺寸线后 `Delete`；切换图片内存保留 |
 | 续标 | 打开时若存在 `output/{相对路径}.json` 则自动加载 |
 | 导出 | `{根目录}/output/index.json` + 单图 json + `{名}_annotated.png` |

@@ -99,15 +99,18 @@
                         VerticalAlignment="Center"
                         Margin="0,0,16,0" />
                     <Button
+                        x:Name="BtnAnnotateMode"
                         Style="{StaticResource PrimaryToolBtnStyle}"
-                        Content="测距 (M)"
+                        Content="标注模式 (A)"
                         Click="BtnMeasureMode_Click"
-                        ToolTip="进入两点测距模式" />
+                        ToolTip="标注模式：左键两点测距。快捷键 A / M&#x0a;定 P1 后右键或 Esc 取消起点&#x0a;滚轮缩放；中键/空格拖拽平移；Ctrl+Z 撤回" />
                     <Button
+                        x:Name="BtnMoveMode"
                         Style="{StaticResource ToolBtnStyle}"
-                        Content="浏览"
+                        Content="移动模式 (H)"
                         Click="BtnBrowseMode_Click"
-                        ToolTip="仅浏览 / 平移缩放" />
+                        ToolTip="移动模式：左键拖拽平移。快捷键 H&#x0a;滚轮缩放；中键拖拽；Ctrl+Z 撤回" />
+                    <Border Width="1" Background="#FF3F3F46" Margin="8,4" />
                     <Button
                         Style="{StaticResource ToolBtnStyle}"
                         Content="撤销上一条"
@@ -132,6 +135,8 @@
                         Click="BtnClose_Click" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
+                               Text="滚轮缩放 · 中键/空格拖拽 · Ctrl+Z撤回" />
                     <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
                                Text="{Binding AnnotatedCountText}" />
                     <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
@@ -230,10 +235,15 @@
                     PreviewMouseMove="Viewport_PreviewMouseMove"
                     PreviewMouseUp="Viewport_PreviewMouseUp"
                     LostMouseCapture="Viewport_LostMouseCapture">
-                    <Grid x:Name="ImageHost" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <!-- Left/Top：放大时滚动范围（边界）随内容同步扩大；居中靠滚动偏移实现 -->
+                    <Grid
+                        x:Name="ImageHost"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        ClipToBounds="False">
                         <Image
                             x:Name="MainImage"
-                            Stretch="None"
+                            Stretch="Fill"
                             RenderOptions.BitmapScalingMode="NearestNeighbor"
                             SnapsToDevicePixels="True" />
                         <Canvas

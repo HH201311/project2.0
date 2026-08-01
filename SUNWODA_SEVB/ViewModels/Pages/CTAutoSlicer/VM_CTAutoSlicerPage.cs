@@ -161,6 +161,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _offlineCtResultImageMode = (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance;
         private bool _offlineCtExportJson = true;
         private bool _offlineCtExportCsv = true;
+        private bool _offlineCtExportInputForNjct;
         private bool _offlineCtRotateTopViewCw90 = true;
         private bool _enableOfflineCtPreBrighten = true;
         private double _offlineCtPreBrightenMeanTrigger = 120.0;
@@ -168,6 +169,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private double _offlineCtPreBrightenTargetMean = 132.0;
         private string _offlineCtManualInputImagePath = string.Empty;
         private string _offlineCtManualOutputFolder = string.Empty;
+        private ImageSource? _latestAiAnnotationPreview;
+        private string _latestAiAnnotationPreviewPath = string.Empty;
+        private string _latestAiAnnotationPreviewInfo = "暂无 AI 标注结果预览";
+        private double _latestAiAnnotationPreviewPixelWidth = 1;
+        private double _latestAiAnnotationPreviewPixelHeight = 1;
         private string _cutImgDllTestSectionImagePath = string.Empty;
         private string _cutImgDllTestVectorImagePath = string.Empty;
         private string _cutImgDllTestOutputDir = CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir;
@@ -389,6 +395,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _selectedNavIndex, value))
                 {
                     NotifyNavSectionChanged();
+                    if (value == NavManualMeasure)
+                    {
+                        RefreshLatestAiAnnotationPreview();
+                    }
                 }
             }
         }
@@ -935,6 +945,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _sliceExportFolder, value))
                 {
                     SaveSetting(nameof(SliceExportFolder), value);
+                    if (IsNavManualMeasure)
+                    {
+                        RefreshLatestAiAnnotationPreview();
+                    }
                 }
             }
         }
@@ -1811,6 +1825,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>是否落盘 input_for_njct（排查对照用，默认关）。</summary>
+        public bool OfflineCtExportInputForNjct
+        {
+            get => _offlineCtExportInputForNjct;
+            set
+            {
+                if (SetProperty(ref _offlineCtExportInputForNjct, value))
+                {
+                    SaveSetting(nameof(OfflineCtExportInputForNjct), value ? 1 : 0);
+                }
+            }
+        }
+
         /// <summary>送入 NJCT 前是否将上视图顺时针旋转 90°。</summary>
         public bool OfflineCtRotateTopViewCw90
         {
@@ -1824,7 +1851,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        /// <summary>调用 NJCT 前是否按 ROI 亮度条件提亮并生成 input_for_njct。</summary>
+        /// <summary>调用 NJCT 前是否按 ROI 亮度条件提亮。</summary>
         public bool EnableOfflineCtPreBrighten
         {
             get => _enableOfflineCtPreBrighten;
@@ -2214,6 +2241,46 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenSliceExportFolderCommand { get; }
         public ICommand OpenTopViewHandoffFolderCommand { get; }
         public ICommand OpenManualMeasureFolderCommand { get; }
+        public ICommand ClearSliceExportFolderCommand { get; }
+        public ICommand RefreshLatestAiAnnotationPreviewCommand { get; }
+
+        /// <summary>二次手动标注页：最新 AI 标注结果图预览。</summary>
+        public ImageSource? LatestAiAnnotationPreview
+        {
+            get => _latestAiAnnotationPreview;
+            private set => SetProperty(ref _latestAiAnnotationPreview, value);
+        }
+
+        /// <summary>最新 AI 结果图完整路径。</summary>
+        public string LatestAiAnnotationPreviewPath
+        {
+            get => _latestAiAnnotationPreviewPath;
+            private set => SetProperty(ref _latestAiAnnotationPreviewPath, value);
+        }
+
+        /// <summary>预览区说明（路径/时间或空状态）。</summary>
+        public string LatestAiAnnotationPreviewInfo
+        {
+            get => _latestAiAnnotationPreviewInfo;
+            private set => SetProperty(ref _latestAiAnnotationPreviewInfo, value);
+        }
+
+        public bool HasLatestAiAnnotationPreview => LatestAiAnnotationPreview is not null;
+
+        /// <summary>预览原图像素宽（供 Viewbox 按原图比例缩放）。</summary>
+        public double LatestAiAnnotationPreviewPixelWidth
+        {
+            get => _latestAiAnnotationPreviewPixelWidth;
+            private set => SetProperty(ref _latestAiAnnotationPreviewPixelWidth, value);
+        }
+
+        /// <summary>预览原图像素高（供 Viewbox 按原图比例缩放）。</summary>
+        public double LatestAiAnnotationPreviewPixelHeight
+        {
+            get => _latestAiAnnotationPreviewPixelHeight;
+            private set => SetProperty(ref _latestAiAnnotationPreviewPixelHeight, value);
+        }
+
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand OpenVisionCaptureDirCommand { get; }
         public ICommand OpenVision2dVectorCaptureDirCommand { get; }
@@ -2303,6 +2370,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenSliceExportFolderCommand = new RelayCommand(OpenSliceExportFolder);
             OpenTopViewHandoffFolderCommand = new RelayCommand(OpenTopViewHandoffFolder);
             OpenManualMeasureFolderCommand = new RelayCommand(OpenManualMeasureFolder);
+            ClearSliceExportFolderCommand = new RelayCommand(_ =>
+            {
+                SliceExportFolder = string.Empty;
+                MessageShower = "已清空标注结果根目录；二次手动标注将弹窗自选";
+            });
+            RefreshLatestAiAnnotationPreviewCommand = new RelayCommand(_ => RefreshLatestAiAnnotationPreview());
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
@@ -3119,6 +3192,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance);
             _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 1) != 0;
             _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 1) != 0;
+            _offlineCtExportInputForNjct = LoadIntSetting(nameof(OfflineCtExportInputForNjct), 0) != 0;
             _offlineCtRotateTopViewCw90 = LoadIntSetting(nameof(OfflineCtRotateTopViewCw90), 1) != 0;
             _enableOfflineCtPreBrighten = LoadIntSetting(nameof(EnableOfflineCtPreBrighten), 1) != 0;
             _offlineCtPreBrightenMeanTrigger = LoadDoubleSetting(nameof(OfflineCtPreBrightenMeanTrigger), 120.0);
@@ -3179,6 +3253,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtResultImageModeDisplay));
             OnPropertyChanged(nameof(OfflineCtExportJson));
             OnPropertyChanged(nameof(OfflineCtExportCsv));
+            OnPropertyChanged(nameof(OfflineCtExportInputForNjct));
             OnPropertyChanged(nameof(OfflineCtRotateTopViewCw90));
             OnPropertyChanged(nameof(EnableOfflineCtPreBrighten));
             OnPropertyChanged(nameof(OfflineCtPreBrightenMeanTrigger));
@@ -3396,6 +3471,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     2),
                 OfflineCtExportJson = OfflineCtExportJson,
                 OfflineCtExportCsv = OfflineCtExportCsv,
+                OfflineCtExportInputForNjct = OfflineCtExportInputForNjct,
                 OfflineCtRotateTopViewCw90 = OfflineCtRotateTopViewCw90,
                 EnableOfflineCtPreBrighten = EnableOfflineCtPreBrighten,
                 OfflineCtPreBrightenMeanTrigger = OfflineCtPreBrightenMeanTrigger,
@@ -4826,29 +4902,136 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        /// <summary>二次手动标注：选择图片根目录并打开全屏测距工作台。</summary>
-        private void OpenManualMeasureFolder(object? _)
+        /// <summary>扫描标注结果根目录，刷新最新 AI 结果图预览。</summary>
+        private void RefreshLatestAiAnnotationPreview()
         {
-            var initial = !string.IsNullOrWhiteSpace(SliceExportFolder) && Directory.Exists(SliceExportFolder)
-                ? SliceExportFolder
-                : (!string.IsNullOrWhiteSpace(TopViewHandoffFolder) && Directory.Exists(TopViewHandoffFolder)
-                    ? TopViewHandoffFolder
-                    : null);
-
-            var dialog = new CommonOpenFileDialog
+            try
             {
-                IsFolderPicker = true,
-                Title = "选择待手动标注的图片文件夹（含子孙目录）",
-                InitialDirectory = initial,
-            };
-
-            if (dialog.ShowDialog() != CommonFileDialogResult.Ok
-                || string.IsNullOrWhiteSpace(dialog.FileName))
+                var path = OfflineCtAnnotationHelper.TryFindLatestAiResultImage(SliceExportFolder);
+                ApplyAiAnnotationPreviewPath(path, allowClearWhenMissing: true);
+            }
+            catch (Exception ex)
             {
+                LatestAiAnnotationPreview = null;
+                LatestAiAnnotationPreviewPath = string.Empty;
+                LatestAiAnnotationPreviewPixelWidth = 1;
+                LatestAiAnnotationPreviewPixelHeight = 1;
+                LatestAiAnnotationPreviewInfo = $"预览加载失败：{ex.Message}";
+                OnPropertyChanged(nameof(HasLatestAiAnnotationPreview));
+                _logger.Warn($"最新 AI 标注预览加载失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 用指定结果图路径立即更新预览（批处理逐张推送）；路径无效时按 <paramref name="allowClearWhenMissing"/> 决定是否清空。
+        /// </summary>
+        private void ApplyAiAnnotationPreviewPath(string? path, bool allowClearWhenMissing)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                if (!allowClearWhenMissing)
+                {
+                    return;
+                }
+
+                LatestAiAnnotationPreview = null;
+                LatestAiAnnotationPreviewPath = string.Empty;
+                LatestAiAnnotationPreviewPixelWidth = 1;
+                LatestAiAnnotationPreviewPixelHeight = 1;
+                LatestAiAnnotationPreviewInfo = string.IsNullOrWhiteSpace(SliceExportFolder)
+                    ? "请先配置标注结果根目录，并完成 AI 标注"
+                    : "暂无 AI 标注结果图（请先「开始流程」生成标注）";
+                OnPropertyChanged(nameof(HasLatestAiAnnotationPreview));
                 return;
             }
 
-            var root = dialog.FileName;
+            var source = LoadAiAnnotationPreviewBitmap(path);
+            LatestAiAnnotationPreview = source;
+            LatestAiAnnotationPreviewPath = path;
+            LatestAiAnnotationPreviewPixelWidth = Math.Max(1, source.PixelWidth);
+            LatestAiAnnotationPreviewPixelHeight = Math.Max(1, source.PixelHeight);
+            var time = File.GetLastWriteTime(path);
+            LatestAiAnnotationPreviewInfo =
+                $"{Path.GetFileName(path)}  ·  {source.PixelWidth}×{source.PixelHeight}  ·  {time:yyyy-MM-dd HH:mm:ss}";
+            OnPropertyChanged(nameof(HasLatestAiAnnotationPreview));
+        }
+
+        /// <summary>
+        /// 加载预览图：按像素尺寸显示，并将 DPI 归一为 96，避免元数据导致宽高比失真。
+        /// </summary>
+        private static BitmapSource LoadAiAnnotationPreviewBitmap(string path)
+        {
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bmp.UriSource = new Uri(path, UriKind.Absolute);
+            bmp.EndInit();
+            bmp.Freeze();
+
+            if (Math.Abs(bmp.DpiX - 96.0) < 0.01
+                && Math.Abs(bmp.DpiY - 96.0) < 0.01)
+            {
+                return bmp;
+            }
+
+            var stride = (bmp.PixelWidth * bmp.Format.BitsPerPixel + 31) / 32 * 4;
+            var pixels = new byte[stride * bmp.PixelHeight];
+            bmp.CopyPixels(pixels, stride, 0);
+            var normalized = BitmapSource.Create(
+                bmp.PixelWidth,
+                bmp.PixelHeight,
+                96,
+                96,
+                bmp.Format,
+                bmp.Palette,
+                pixels,
+                stride);
+            normalized.Freeze();
+            return normalized;
+        }
+
+        /// <summary>
+        /// 二次手动标注：与「标注结果根目录」(SliceExportFolder) 同步；
+        /// 有路径则直开，无路径则弹窗自选并写回结果根目录。
+        /// </summary>
+        private void OpenManualMeasureFolder(object? _)
+        {
+            string? root = null;
+            if (!string.IsNullOrWhiteSpace(SliceExportFolder))
+            {
+                root = SliceExportFolder.Trim();
+                if (!Directory.Exists(root))
+                {
+                    MessageBox.Show(
+                        $"标注结果根目录不存在：\n{root}\n\n请在「AI图像标注」中重新选择，或清空后自选。",
+                        "二次手动标注",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+            }
+            else
+            {
+                var dialog = new CommonOpenFileDialog
+                {
+                    IsFolderPicker = true,
+                    Title = "选择标注结果根目录（二次手动标注将打开此文件夹）",
+                    InitialDirectory = Directory.Exists(@"D:\3Ddeliever\output")
+                        ? @"D:\3Ddeliever\output"
+                        : null,
+                };
+
+                if (dialog.ShowDialog() != CommonFileDialogResult.Ok
+                    || string.IsNullOrWhiteSpace(dialog.FileName))
+                {
+                    return;
+                }
+
+                root = dialog.FileName;
+                SliceExportFolder = root;
+            }
+
             var images = ManualMeasureExportHelper.EnumerateImagesRecursive(root);
             if (images.Count == 0)
             {
@@ -4860,12 +5043,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            var win = new ManualMeasureAnnotateWindow(root, OfflineCtPixelSizeUm)
+            var win = new ManualMeasureAnnotateWindow(
+                root,
+                OfflineCtPixelSizeUm,
+                OfflineCtBlackHeight)
             {
                 Owner = Application.Current?.MainWindow,
             };
             win.ShowDialog();
             MessageShower = $"二次手动标注已结束：{root}（共 {images.Count} 张）";
+            RefreshLatestAiAnnotationPreview();
         }
 
         private bool IsNavAllowedForCurrentPipeline(int navIndex) =>
@@ -5839,7 +6026,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(() =>
+                {
+                    IsEnableSimulationBtn = true;
+                    RefreshLatestAiAnnotationPreview();
+                });
             }
         }
 
@@ -5908,7 +6099,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(() =>
+                {
+                    IsEnableSimulationBtn = true;
+                    RefreshLatestAiAnnotationPreview();
+                });
             }
         }
 
@@ -5970,7 +6165,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(() =>
+                {
+                    IsEnableSimulationBtn = true;
+                    RefreshLatestAiAnnotationPreview();
+                });
             }
         }
 
@@ -6093,6 +6292,29 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     {
                         MessageShower = $"导入失败：{fileName}（等待人工处理）";
                         AppendFlowLog($"{fileName} — {reason}", isFailure: true);
+                    });
+                    return;
+                }
+
+                // 单张结果图已落盘：立刻刷新「最新 AI 标注预览」，不必等整批结束
+                if (message.StartsWith("@@AI_RESULT_PREVIEW@@", StringComparison.Ordinal))
+                {
+                    var previewPath = message["@@AI_RESULT_PREVIEW@@".Length..].Trim();
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            ApplyAiAnnotationPreviewPath(previewPath, allowClearWhenMissing: false);
+                            if (!string.IsNullOrWhiteSpace(previewPath) && File.Exists(previewPath))
+                            {
+                                MessageShower = $"已更新预览：{Path.GetFileName(previewPath)}";
+                                AppendFlowLog($"预览已更新：{previewPath}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Warn($"AI 结果预览即时刷新失败：{ex.Message}");
+                        }
                     });
                     return;
                 }

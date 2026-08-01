@@ -42,6 +42,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const string DefaultCutImgDllTestOutputDir = @"C:\AutoSlice\cutpicture\CutImgDllTest";
         public const string OfflineCtDllFileName = "NJCT.dll";
         public const string OfflineCtModelRelativePath = @"Models\CTOffline\model_500000_900.onnx";
+        /// <summary>
+        /// 二次手动标注底部信息遮罩默认高度（图像像素）。
+        /// 不再传给 NJCT（DLL 打黑固定 0）。
+        /// </summary>
         public const int DefaultOfflineCtBlackHeight = 1500;
         /// <summary>AI 标注取「上」视图切片序号默认值（1-based；对应导出数量 100 时的中间张）。</summary>
         public const int DefaultOfflineCtTopViewSliceIndex = 50;
@@ -320,6 +324,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// AI 模式从此目录批量读取输入图。
         /// </summary>
         public string TopViewHandoffFolder { get; set; } = string.Empty;
+
         /// <summary>切片导出图像宽度（像素）</summary>
         public int SliceExportImageWidth { get; set; } = 3000;
         /// <summary>局部图像（非 QJ）导出数量</summary>
@@ -396,7 +401,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>是否启用 GPU CUDA（ModelInit IsRunCuda）</summary>
         public bool OfflineCtIsRunCuda { get; set; } = true;
 
-        /// <summary>图片下方打黑高度（像素）</summary>
+        /// <summary>
+        /// 二次手动标注：结果图底部信息遮罩高度（图像像素）。
+        /// 仅上位机使用；调用 NJCT 时 BlackHeight 固定传 0。
+        /// </summary>
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
 
         /// <summary>
@@ -420,10 +428,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>是否输出 annotation.csv</summary>
         public bool OfflineCtExportCsv { get; set; } = true;
 
+        /// <summary>
+        /// 是否将送入 NJCT 的预处理图落盘为 <c>input_for_njct.*</c>（及 prebrighten_report）。
+        /// 仅排查/侧视对照时需要；默认关，推理仍在内存/临时文件完成。
+        /// </summary>
+        public bool OfflineCtExportInputForNjct { get; set; }
+
         /// <summary>送入 NJCT 前是否将上视图顺时针旋转 90°（默认开；算法朝向要求）</summary>
         public bool OfflineCtRotateTopViewCw90 { get; set; } = true;
 
-        /// <summary>方案 B：调用 NJCT 前是否按 ROI 亮度条件提亮并生成 input_for_njct（默认开）</summary>
+        /// <summary>方案 B：调用 NJCT 前是否按 ROI 亮度条件提亮（默认开；与是否落盘 input_for_njct 无关）</summary>
         public bool EnableOfflineCtPreBrighten { get; set; } = true;
 
         /// <summary>预提亮触发：ROI 均值低于此值</summary>

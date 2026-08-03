@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
@@ -46,8 +47,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                 SliceExportNamingHelper.BuildExportFileRootFolderName(exportBaseName));
 
         /// <summary>
-        /// 交接相对路径：{导出名产品文件夹}/{源文件名}，例如「0013-Z …/50.jpg」。
-        /// 保留原切片文件名，用产品子目录避免多产品 50.jpg 互相覆盖。
+        /// 交接相对路径：{导出名产品文件夹}/{源文件名}，例如「1161-F/050.jpg」。
+        /// 保留原切片文件名，用产品子目录避免多产品 050.jpg 互相覆盖。
         /// </summary>
         public static string BuildHandoffRelativePath(string exportBaseName, string sourceImagePath)
         {
@@ -809,6 +810,353 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
+        }
+
+        /// <summary>
+        /// AI 出图后进程内缓存（按结果图路径 / 所在目录），标注左栏直接取，不落中间文件。
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, string> AiSummaryByPath =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly ConcurrentDictionary<string, string> AiSummaryByDir =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 底部遮罩字号（图像像素）。左中右三栏布局用：比旧预览 bandH/10 更小，避免越界。
+        /// </summary>
+        public static int ComputeBottomBandFontSizeImagePx(int bandHeightPx, int imageWidthPx = 0)
+        {
+            var byHeight = Math.Clamp(bandHeightPx / 16, 36, 120);
+            if (imageWidthPx <= 0)
+            {
+                return byHeight;
+            }
+
+            // 单栏约 1/3 宽，按「L1: 0.0200mm」约 14 字符估上限
+            var colW = imageWidthPx / 3.0;
+            var byWidth = Math.Max(28, (int)(colW / 10.0));
+            return Math.Min(byHeight, byWidth);
+        }
+
+        /// <summary>
+        /// 标注界面屏幕字号：与出图字号同步（×zoom），介于旧预览与旧标注页之间。
+        /// </summary>
+        public static double ComputeBottomBandFontSizeScreen(int bandHeightPx, double zoom, int imageWidthPx = 0)
+        {
+            var imgPx = ComputeBottomBandFontSizeImagePx(bandHeightPx, imageWidthPx);
+            return Math.Clamp(imgPx * Math.Max(zoom, 0.05), 16, 42);
+        }
+
+        /// <summary>按 AllPrintfValue 拼汇总文字（与结果图底部一致：仅 mm，不显 px）。</summary>
+        public static string FormatAiDimensionSummaryText(
+            IReadOnlyList<double[]>? printfValues,
+            double pixelSizeUm)
+        {
+            var umPerPx = pixelSizeUm > 0 ? pixelSizeUm : 1.0;
+            if (printfValues is null || printfValues.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine("AI尺寸汇总");
+            var any = false;
+            for (var i = 0; i < printfValues.Count; i++)
+            {
+                var vals = printfValues[i];
+                if (vals is null || vals.Length == 0)
+                {
+                    continue;
+                }
+
+                any = true;
+                sb.Append(CultureInfo.InvariantCulture, $"电芯{i + 1}");
+                for (var k = 0; k < vals.Length; k++)
+                {
+                    var px = vals[k];
+                    var mm = px * umPerPx / 1000.0;
+                    sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{mm:F4}mm");
+                }
+
+                sb.AppendLine();
+            }
+
+            if (!any)
+            {
+                return string.Empty;
+            }
+
+            sb.Append(CultureInfo.InvariantCulture, $"精度 {umPerPx:F3} μm/px | L_mm=L_px×μm/px/1000");
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>AI 出图成功后调用：把汇总记入内存，供二次标注左栏立刻显示。</summary>
+        public static void RememberAiDimensionSummary(string? resultImagePath, string summaryText)
+        {
+            if (string.IsNullOrWhiteSpace(resultImagePath) || string.IsNullOrWhiteSpace(summaryText))
+            {
+                return;
+            }
+
+            try
+            {
+                var full = Path.GetFullPath(resultImagePath);
+                AiSummaryByPath[full] = summaryText;
+                var dir = Path.GetDirectoryName(full);
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    AiSummaryByDir[dir] = summaryText;
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        /// <summary>
+        /// 取 AI 尺寸汇总：优先内存（出图时写入），其次 annotation.json（若已导出）。
+        /// </summary>
+        public static string TryBuildAiDimensionSummaryText(
+            string resultImageOrFolderPath,
+            double pixelSizeUmFallback = 1.0)
+        {
+            if (TryGetRememberedAiSummary(resultImageOrFolderPath, out var remembered))
+            {
+                return remembered;
+            }
+
+            var fromJson = TryBuildAiDimensionSummaryTextFromJson(
+                resultImageOrFolderPath,
+                pixelSizeUmFallback);
+            if (!string.IsNullOrWhiteSpace(fromJson))
+            {
+                RememberAiDimensionSummary(resultImageOrFolderPath, fromJson);
+            }
+
+            return fromJson;
+        }
+
+        /// <summary>打开标注目录时：把各产品 annotation.json 载入内存，左栏可显示。</summary>
+        public static void PreloadAiSummariesUnderFolder(string? rootFolder, double pixelSizeUmFallback = 1.0)
+        {
+            if (string.IsNullOrWhiteSpace(rootFolder) || !Directory.Exists(rootFolder))
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (var jsonPath in Directory.EnumerateFiles(
+                             Path.GetFullPath(rootFolder),
+                             "annotation.json",
+                             SearchOption.AllDirectories))
+                {
+                    var text = TryBuildAiDimensionSummaryTextFromJson(jsonPath, pixelSizeUmFallback);
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        continue;
+                    }
+
+                    var dir = Path.GetDirectoryName(jsonPath);
+                    if (!string.IsNullOrEmpty(dir))
+                    {
+                        AiSummaryByDir[dir] = text;
+                    }
+
+                    // 若 json 内带了 resultImage，再按文件路径记一份
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(File.ReadAllText(jsonPath, Encoding.UTF8));
+                        if (!doc.RootElement.TryGetProperty("results", out var results)
+                            || results.ValueKind != JsonValueKind.Array)
+                        {
+                            continue;
+                        }
+
+                        foreach (var r in results.EnumerateArray())
+                        {
+                            if (!r.TryGetProperty("resultImage", out var img)
+                                || img.ValueKind != JsonValueKind.String)
+                            {
+                                continue;
+                            }
+
+                            var p = img.GetString();
+                            if (!string.IsNullOrWhiteSpace(p))
+                            {
+                                RememberAiDimensionSummary(p, text);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // dir 级已缓存即可
+                    }
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private static bool TryGetRememberedAiSummary(string resultImageOrFolderPath, out string text)
+        {
+            text = string.Empty;
+            if (string.IsNullOrWhiteSpace(resultImageOrFolderPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                var full = Path.GetFullPath(resultImageOrFolderPath.Trim());
+                if (AiSummaryByPath.TryGetValue(full, out var byPath)
+                    && !string.IsNullOrWhiteSpace(byPath))
+                {
+                    text = byPath;
+                    return true;
+                }
+
+                var dir = Directory.Exists(full) ? full : Path.GetDirectoryName(full);
+                if (!string.IsNullOrEmpty(dir)
+                    && AiSummaryByDir.TryGetValue(dir, out var byDir)
+                    && !string.IsNullOrWhiteSpace(byDir))
+                {
+                    text = byDir;
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        private static string TryBuildAiDimensionSummaryTextFromJson(
+            string resultImageOrFolderPath,
+            double pixelSizeUmFallback)
+        {
+            var jsonPath = ResolveAnnotationJsonPath(resultImageOrFolderPath);
+            if (jsonPath is null)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(jsonPath, Encoding.UTF8));
+                var root = doc.RootElement;
+                var umPerPx = pixelSizeUmFallback > 0 ? pixelSizeUmFallback : 1.0;
+                if (root.TryGetProperty("pixelSizeUm", out var umNode)
+                    && umNode.ValueKind == JsonValueKind.Number
+                    && umNode.TryGetDouble(out var umFromJson)
+                    && umFromJson > 0)
+                {
+                    umPerPx = umFromJson;
+                }
+
+                if (!root.TryGetProperty("results", out var results)
+                    || results.ValueKind != JsonValueKind.Array
+                    || results.GetArrayLength() == 0)
+                {
+                    return string.Empty;
+                }
+
+                JsonElement? chosen = null;
+                foreach (var r in results.EnumerateArray())
+                {
+                    var ok = !r.TryGetProperty("success", out var s) || s.ValueKind != JsonValueKind.False;
+                    if (ok)
+                    {
+                        chosen = r;
+                    }
+                }
+
+                chosen ??= results[results.GetArrayLength() - 1];
+                if (!chosen.Value.TryGetProperty("cells", out var cells)
+                    || cells.ValueKind != JsonValueKind.Array
+                    || cells.GetArrayLength() == 0)
+                {
+                    return string.Empty;
+                }
+
+                var lists = new List<double[]>();
+                foreach (var cell in cells.EnumerateArray())
+                {
+                    if (!cell.TryGetProperty("printfValues", out var vals)
+                        || vals.ValueKind != JsonValueKind.Array)
+                    {
+                        lists.Add([]);
+                        continue;
+                    }
+
+                    var arr = new double[vals.GetArrayLength()];
+                    for (var k = 0; k < arr.Length; k++)
+                    {
+                        arr[k] = vals[k].ValueKind == JsonValueKind.Number && vals[k].TryGetDouble(out var d)
+                            ? d
+                            : 0;
+                    }
+
+                    lists.Add(arr);
+                }
+
+                return FormatAiDimensionSummaryText(lists, umPerPx);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string? ResolveAnnotationJsonPath(string resultImageOrFolderPath)
+        {
+            if (string.IsNullOrWhiteSpace(resultImageOrFolderPath))
+            {
+                return null;
+            }
+
+            string? dir;
+            try
+            {
+                var full = Path.GetFullPath(resultImageOrFolderPath.Trim());
+                // 若本身就是 annotation.json
+                if (File.Exists(full)
+                    && string.Equals(Path.GetFileName(full), "annotation.json", StringComparison.OrdinalIgnoreCase))
+                {
+                    return full;
+                }
+
+                dir = Directory.Exists(full) ? full : Path.GetDirectoryName(full);
+            }
+            catch
+            {
+                return null;
+            }
+
+            for (var i = 0; i < 6 && !string.IsNullOrEmpty(dir); i++)
+            {
+                var beside = Path.Combine(dir, "annotation.json");
+                if (File.Exists(beside))
+                {
+                    return beside;
+                }
+
+                var parent = Path.GetDirectoryName(dir);
+                if (string.IsNullOrEmpty(parent)
+                    || string.Equals(parent, dir, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                dir = parent;
+            }
+
+            return null;
         }
 
         private static string Csv(string value)

@@ -273,7 +273,10 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             }
         }
 
-        /// <summary>按打黑高度在图像底部绘制黑色遮罩，并列出全部测距（mm）。</summary>
+        /// <summary>
+        /// 底部仅遮罩右 1/3：显示手动测距。左/中 2/3 保留 AI 出图烧录的电芯1/电芯2。
+        /// 字号与出图 <see cref="OfflineCtAnnotationHelper.ComputeBottomBandFontSizeScreen"/> 同步。
+        /// </summary>
         private void DrawBottomInfoBand(IReadOnlyList<ManualMeasureItem>? measures)
         {
             if (_bitmap is null)
@@ -292,27 +295,55 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var bandH = bandPx * _zoom;
             var bandY = canvasH - bandH;
 
+            // 只盖右边三分之一，左边/中间露出结果图上的 AI 电芯数据
+            var rightX = canvasW * (2.0 / 3.0);
+            var rightW = canvasW - rightX;
             var band = new System.Windows.Shapes.Rectangle
             {
-                Width = canvasW,
+                Width = rightW,
                 Height = bandH,
                 Fill = Brushes.Black,
                 IsHitTestVisible = false,
             };
-            Canvas.SetLeft(band, 0);
+            Canvas.SetLeft(band, rightX);
             Canvas.SetTop(band, bandY);
             OverlayCanvas.Children.Add(band);
 
-            var lines = measures is { Count: > 0 }
-                ? measures.Select(ManualMeasureExportHelper.FormatMeasureLabelMm).ToList()
-                : ["（暂无测距 · 标注后显示于此）"];
-
-            var fontSize = Math.Clamp(12.0 * Math.Sqrt(_zoom), 11, 22);
-            var lineH = fontSize + 6;
-            var y = bandY + 8;
-            foreach (var line in lines)
+            var divider = new System.Windows.Shapes.Line
             {
-                if (y + lineH > canvasH - 4)
+                X1 = rightX,
+                Y1 = bandY + 4,
+                X2 = rightX,
+                Y2 = canvasH - 4,
+                Stroke = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
+                StrokeThickness = 1,
+                IsHitTestVisible = false,
+            };
+            OverlayCanvas.Children.Add(divider);
+
+            var measureLines = new List<string> { "手动标注" };
+            if (measures is { Count: > 0 })
+            {
+                measureLines.AddRange(measures.Select(ManualMeasureExportHelper.FormatMeasureLabelMm));
+            }
+            else
+            {
+                measureLines.Add("（标注后显示于此）");
+            }
+
+            var fontSize = OfflineCtAnnotationHelper.ComputeBottomBandFontSizeScreen(
+                bandPx,
+                _zoom,
+                _bitmap.PixelWidth);
+            var lineH = fontSize + 6;
+            var yTop = bandY + 8;
+            var yLimit = canvasH - 4;
+            var textX = rightX + 10;
+
+            var y = yTop;
+            foreach (var line in measureLines)
+            {
+                if (y + lineH > yLimit)
                 {
                     break;
                 }
@@ -320,13 +351,17 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 var tb = new TextBlock
                 {
                     Text = line,
-                    Foreground = Brushes.White,
+                    Foreground = line.StartsWith("手动", StringComparison.Ordinal)
+                        ? Brushes.Orange
+                        : Brushes.White,
                     FontFamily = new FontFamily("Consolas"),
                     FontSize = fontSize,
                     FontWeight = FontWeights.SemiBold,
                     IsHitTestVisible = false,
+                    MaxWidth = Math.Max(40, rightW - 20),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
                 };
-                Canvas.SetLeft(tb, 10);
+                Canvas.SetLeft(tb, textX);
                 Canvas.SetTop(tb, y);
                 OverlayCanvas.Children.Add(tb);
                 y += lineH;

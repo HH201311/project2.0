@@ -223,7 +223,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         throw new InvalidOperationException("缺少导出名或 vgl 路径，无法定位「上」视图文件夹");
                     }
 
-                    resolvedExportBaseName = SliceExportNamingHelper.BuildExportBaseName(Path.GetFileName(vglPath));
+                    // 兼容旧单机路径：仅有导入路径时仍按前 6 字符规则生成导出名
+                    resolvedExportBaseName = SliceExportNamingHelper.BuildExportBaseName(
+                        Path.GetFileName(vglPath));
                 }
 
                 var sliceIndex = settings.ResolveOfflineCtTopViewSliceIndex();
@@ -291,9 +293,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 var results = new List<OfflineCtInferResult>();
                 var mode = settings.OfflineCtResultImageMode;
-                // 打黑由上位机「二次手动标注」按 OfflineCtBlackHeight 自绘底部遮罩；
-                // 传给 NJCT 固定 0，避免 DLL 再画一层黑带。
+                // NJCT 打黑固定传 0；底部信息遮罩由上位机按 OfflineCtBlackHeight
+                // 在 ResultImg 底部覆盖打黑并写入 L1~L5（与二次手动标注同一配置项）。
                 const int dllBlackHeight = 0;
+                var pixelSizeUm = settings.ResolveOfflineCtPixelSizeUm();
+                var bottomInfoBlackHeight = Math.Max(0, settings.OfflineCtBlackHeight);
+                var rangeCheck = settings.BuildOfflineCtLRangeCheckOptions();
                 var bothModes = mode == OfflineCtResultImageMode.Both;
                 // 结果图文件名与导入产品文件夹名一致（…/{导出名}/{导出名}.jpg），不用 result_enhance
                 var resultBaseName = OfflineCtAnnotationHelper.ResolveAnnotationResultBaseName(
@@ -309,15 +314,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         resultBaseName,
                         "enhance",
                         bothModes);
-                    progress?.Report($"AI 标注：调用 ModelAction（增强图），输入={Path.GetFileName(imagePath)}…");
+                    progress?.Report(
+                        $"AI 标注：调用 ModelAction（增强图+抓点/尺寸+底部遮罩），输入={Path.GetFileName(imagePath)}…");
                     var enhanceResult = await Task.Run(
-                            () => _offlineCtVisionService.InferEnhance(imagePath, dllBlackHeight, enhancePath),
+                            () => _offlineCtVisionService.InferEnhance(
+                                imagePath,
+                                dllBlackHeight,
+                                enhancePath,
+                                pixelSizeUm,
+                                bottomInfoBlackHeight,
+                                rangeCheck),
                             cancellationToken)
                         .ConfigureAwait(false);
                     results.Add(enhanceResult);
                     progress?.Report(
                         enhanceResult.IsSuccess
-                            ? $"增强图完成：{enhanceResult.ResultImagePath}"
+                            ? $"增强标注图完成：{enhanceResult.ResultImagePath}"
                             : $"增强图完成但有 RunInfo：{enhanceResult.RunInfo}");
                     // 落盘后立刻推送预览路径，供 UI 逐张刷新（不必等整批结束）
                     if (!string.IsNullOrWhiteSpace(enhanceResult.ResultImagePath)
@@ -335,15 +347,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         resultBaseName,
                         "origin",
                         bothModes);
-                    progress?.Report($"AI 标注：调用 ModelAction_origin（原图），输入={Path.GetFileName(imagePath)}…");
+                    progress?.Report(
+                        $"AI 标注：调用 ModelAction_origin（原图+抓点/尺寸+底部遮罩），输入={Path.GetFileName(imagePath)}…");
                     var originResult = await Task.Run(
-                            () => _offlineCtVisionService.InferOrigin(imagePath, dllBlackHeight, originPath),
+                            () => _offlineCtVisionService.InferOrigin(
+                                imagePath,
+                                dllBlackHeight,
+                                originPath,
+                                pixelSizeUm,
+                                bottomInfoBlackHeight,
+                                rangeCheck),
                             cancellationToken)
                         .ConfigureAwait(false);
                     results.Add(originResult);
                     progress?.Report(
                         originResult.IsSuccess
-                            ? $"原图完成：{originResult.ResultImagePath}"
+                            ? $"原图标注完成：{originResult.ResultImagePath}"
                             : $"原图完成但有 RunInfo：{originResult.RunInfo}");
                     // Both 模式：增强图已推送过；仅 Origin 模式时用原图推送预览
                     if (mode == OfflineCtResultImageMode.Origin
@@ -425,10 +444,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     var volumeItems = GetVolumeQueueItems(settings.CTFileFolder);
                     if (volumeItems.Count > 0)
                     {
-                        vglPath = volumeItems[0].ImportPath;
-                        exportBaseName = SliceExportNamingHelper.BuildExportBaseName(Path.GetFileName(vglPath));
+                        var volumeItem = volumeItems[0];
+                        vglPath = volumeItem.ImportPath;
+                        // 导出名取排队条目显示名前 6 字符（快捷方式与真实文件一致）
+                        var namingFileName = Path.GetFileName(volumeItem.QueueEntryPath);
+                        exportBaseName = SliceExportNamingHelper.BuildExportBaseName(namingFileName);
                         quantity = SliceExportNamingHelper.ResolveExportQuantity(
-                            Path.GetFileName(vglPath),
+                            namingFileName,
                             settings.SliceExportQuantity,
                             settings.SliceExportQuantityQj);
                     }

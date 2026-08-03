@@ -7,6 +7,7 @@
     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CTAutoSlicer"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:oxy="clr-namespace:OxyPlot.Wpf;assembly=OxyPlot.Wpf"
     Title="CTAutoSlicerPage"
     d:DesignHeight="800"
     d:DesignWidth="1200"
@@ -211,6 +212,22 @@
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="Ruler" VerticalAlignment="Center" />
                                 <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="二次手动标注" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding SelectNavCommand}" CommandParameter="12" ToolTip="检测统计（当日 OK/NG）"
+                                Visibility="{Binding ShowAiPipelineNav, Converter={StaticResource BoolToVis}}">
+                            <Button.Style>
+                                <Style BasedOn="{StaticResource CasNavButtonStyle}" TargetType="Button">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavStats}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CasCoralBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Width="20" Height="20" Foreground="White" Kind="ChartBar" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CasNavLabelStyle}" Text="检测统计" />
                             </StackPanel>
                         </Button>
                         <Button
@@ -2341,7 +2358,7 @@
                                             <LineBreak />
                                             <Run Text="• CUDA：ModelInit 的 IsRunCuda，默认开启。" />
                                             <LineBreak />
-                                            <Run Text="• 打黑高度：二次手动标注底部信息遮罩高度（图像像素，默认 1500）；NJCT 打黑固定传 0。" />
+                                            <Run Text="• 打黑高度：界面自控（OfflineCtBlackHeight），上位机在结果图底部覆盖打黑并写 L1~L5（仅 mm）；开启范围判断后合格绿/超差红；二次手动标注共用；传给 NJCT 的 BlackHeight 固定 0。" />
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
@@ -2488,7 +2505,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="模型与推理" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="ONNX 模型路径、CUDA；打黑高度供二次手动标注底部信息区；结果图模式决定落盘增强图 / 原图。" />
+                                        Text="ONNX 模型路径、CUDA；打黑高度=结果图底部覆盖信息区（AI 汇总/二次手动共用）；结果图模式决定落盘增强图 / 原图。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -2542,12 +2559,12 @@
                                             Grid.Column="2"
                                             Style="{StaticResource CasFormLabelStyle}"
                                             Text="打黑高度"
-                                            ToolTip="二次手动标注底部信息遮罩高度（图像像素）；不再传给 NJCT" />
+                                            ToolTip="结果图底部覆盖打黑高度（写入 L1~L5）；二次手动标注共用；不传给 NJCT" />
                                         <hc:TextBox
                                             Grid.Column="3"
                                             Width="160"
                                             HorizontalAlignment="Left"
-                                            ToolTip="二次手动标注底部信息遮罩高度（图像像素）；不再传给 NJCT">
+                                            ToolTip="结果图底部覆盖打黑高度（写入 L1~L5）；二次手动标注共用；不传给 NJCT">
                                             <hc:TextBox.Text>
                                                 <Binding Path="OfflineCtBlackHeight" UpdateSourceTrigger="PropertyChanged">
                                                     <Binding.ValidationRules>
@@ -2574,6 +2591,171 @@
                                             ItemsSource="{Binding OfflineCtResultImageModeOptions}"
                                             SelectedItem="{Binding OfflineCtResultImageModeDisplay, Mode=TwoWay}" />
                                     </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- L1~L5 范围判断 -->
+                            <Border Style="{StaticResource CasFormSectionStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="L1~L5 范围判断" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="开启后按 mm 校验尺寸：合格线段/数值为绿色，超差为红色；名称保持原色。底部遮罩仅显示 mm。" />
+
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            Text="范围判断" />
+                                        <CheckBox
+                                            Grid.Column="1"
+                                            Style="{StaticResource CasFormCheckItemStyle}"
+                                            Content="开启范围判断"
+                                            IsChecked="{Binding EnableOfflineCtLRangeCheck}"
+                                            ToolTip="勾选后显示 L1~L5 左右限；出图时按 mm 范围给线段与数值标色" />
+                                    </Grid>
+
+                                    <StackPanel
+                                        Visibility="{Binding EnableOfflineCtLRangeCheck, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock
+                                            Style="{StaticResource CasFormHintStyle}"
+                                            Margin="0,0,0,6"
+                                            Text="单位：mm；左=下限，右=上限（可对调，内部按较小/较大值判断）。" />
+
+                                        <!-- L1 -->
+                                        <Grid Style="{StaticResource CasFormRowStyle}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L1" />
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L1 下限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL1MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L1 上限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL1MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource CasMutedTextBrush}" Text="mm" />
+                                        </Grid>
+
+                                        <!-- L2 -->
+                                        <Grid Style="{StaticResource CasFormRowStyle}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L2" />
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L2 下限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL2MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L2 上限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL2MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource CasMutedTextBrush}" Text="mm" />
+                                        </Grid>
+
+                                        <!-- L3 -->
+                                        <Grid Style="{StaticResource CasFormRowStyle}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L3" />
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L3 下限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL3MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L3 上限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL3MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource CasMutedTextBrush}" Text="mm" />
+                                        </Grid>
+
+                                        <!-- L4 -->
+                                        <Grid Style="{StaticResource CasFormRowStyle}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L4" />
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L4 下限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL4MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L4 上限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL4MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource CasMutedTextBrush}" Text="mm" />
+                                        </Grid>
+
+                                        <!-- L5 -->
+                                        <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L5" />
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L5 下限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL5MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L5 上限 mm">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtL5MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource CasMutedTextBrush}" Text="mm" />
+                                        </Grid>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 
@@ -2955,6 +3137,93 @@
                             </Grid>
                         </Border>
                     </Grid>
+                </Border>
+
+                <!-- 检测统计（Demo 假数据） -->
+                <Border Visibility="{Binding IsNavStats, Converter={StaticResource BoolToVis}}" Style="{StaticResource CasWhiteCardStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="检测统计" Style="{StaticResource CasSectionHeaderStyle}" Margin="0"/>
+                                <Border Style="{StaticResource CasParamHelpIconBorderStyle}">
+                                    <Border.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
+                                                <Run FontWeight="SemiBold" Text="当前状态" />
+                                                <LineBreak />
+                                                <Run Text="Demo 界面：展示当日总数 / OK / NG 与统计图。真实检测判定接入后改为读库。" />
+                                            </TextBlock>
+                                        </ToolTip>
+                                    </Border.ToolTip>
+                                    <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
+                                </Border>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource CasInfoCalloutStyle}" Margin="0,0,0,14">
+                                <DockPanel LastChildFill="True">
+                                    <Button
+                                        DockPanel.Dock="Right"
+                                        Style="{StaticResource CasFormActionButtonStyle}"
+                                        Content="刷新假数据"
+                                        Command="{Binding RefreshStatsDemoCommand}"
+                                        ToolTip="重新随机生成 Demo 数据，便于预览界面效果" />
+                                    <StackPanel>
+                                        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CasPrimaryTextBrush}"
+                                                   Text="{Binding StatsDemoDateText, StringFormat=统计日期：{0}}" />
+                                        <TextBlock Margin="0,4,0,0" Text="{Binding StatsDemoNote}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <UniformGrid Columns="3" Margin="0,0,0,16">
+                                <Border Margin="0,0,8,0" Padding="16" Background="#F3F6FB" CornerRadius="8" BorderBrush="#D9E2EF" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Foreground="{StaticResource CasMutedTextBrush}" FontSize="13" Text="当日检测总数" />
+                                        <TextBlock Margin="0,8,0,0" FontSize="32" FontWeight="Bold"
+                                                   Foreground="{StaticResource CasPrimaryTextBrush}"
+                                                   Text="{Binding StatsTodayTotal}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Margin="4,0" Padding="16" Background="#EAF7EF" CornerRadius="8" BorderBrush="#B7E0C2" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Foreground="#2EA85A" FontSize="13" Text="OK" />
+                                        <TextBlock Margin="0,8,0,0" FontSize="32" FontWeight="Bold" Foreground="#2EA85A"
+                                                   Text="{Binding StatsTodayOk}" />
+                                        <TextBlock Margin="0,4,0,0" Foreground="{StaticResource CasMutedTextBrush}"
+                                                   Text="{Binding StatsOkRateText, StringFormat=占比 {0}}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Margin="8,0,0,0" Padding="16" Background="#FDECEC" CornerRadius="8" BorderBrush="#F5C2C2" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Foreground="#D32F2F" FontSize="13" Text="NG" />
+                                        <TextBlock Margin="0,8,0,0" FontSize="32" FontWeight="Bold" Foreground="#D32F2F"
+                                                   Text="{Binding StatsTodayNg}" />
+                                        <TextBlock Margin="0,4,0,0" Foreground="{StaticResource CasMutedTextBrush}"
+                                                   Text="{Binding StatsNgRateText, StringFormat=占比 {0}}" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="280" />
+                                    <ColumnDefinition Width="1.4*" MinWidth="320" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Margin="0,0,8,0" Padding="12"
+                                        Style="{StaticResource CasFormSectionStyle}">
+                                    <oxy:PlotView Height="320"
+                                                  Model="{Binding StatsOkNgPieModel}"
+                                                  IsHitTestVisible="False" />
+                                </Border>
+                                <Border Grid.Column="1" Margin="8,0,0,0" Padding="12"
+                                        Style="{StaticResource CasFormSectionStyle}">
+                                    <oxy:PlotView Height="320"
+                                                  Model="{Binding StatsHourlyBarModel}"
+                                                  IsHitTestVisible="False" />
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Border>
 
                 <Grid Visibility="{Binding IsNavStepTest, Converter={StaticResource BoolToVis}}">

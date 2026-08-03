@@ -10,6 +10,7 @@
 
 > **2026-07-31 增量（二次手动标注 · 测距）**：  
 > 1. AI 模式侧栏新增「二次手动标注」（`NavManualMeasure=9`；单步测试=10、偏好=11）。  
+> 2. AI 模式侧栏新增「检测统计」Demo（`NavStats=12`）：当日总数/OK/NG KPI + OK/NG 饼图 + 分时段产量图；假数据，可刷新。  
 > 2. 打开文件夹递归枚举图片 → 全屏工作台：左侧已标/未标列表，中部两点测距（橡皮筋虚线 + CAD 垂直引出线 + 实时 μm/mm）。  
 > 3. 像素精度复用 `OfflineCtPixelSizeUm`；`Shift` 正交；导出 `{根目录}/output/`（`index.json` + 单图 json + `*_annotated.png`）；续标自动加载已有 JSON。  
 > 4. 落点：`ManualMeasureAnnotateWindow` / `VM_ManualMeasureAnnotateWindow` / `ManualMeasureExportHelper`；详规 **§22.8**。
@@ -544,7 +545,7 @@ await ExportImageStackSlicesAsync(...);
 
 - **`OpenSaveImageStackDialogAsync`** — **Alt+F+T**，等待「保存影片/图像堆栈」对话框。
 - **`ExportImageStackSlicesAsync`** — 循环 **前 / 右 / 上** 三视图：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
-- 命名规则见 `SliceExportNamingHelper`：`{导出根}/{主文件夹}/{主文件夹} 前|右|上/1…`（三视图套一层主文件夹）。
+- 命名规则见 `SliceExportNamingHelper`：导出名取导入文件名主干**前 6 字符**（例 `1161-F 2026-7-25….vgi - 快捷方式` → `1161-F`）；路径 `{导出根}/{1161-F}/{1161-F} 前|右|上/…`；阶段七结果图 `{1161-F}/{1161-F}.jpg`；二次标注叠加图亦以该名为主干。
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
 **说明**：主流程在简单 3-2-1 之后导出；三视图共用同一 UI 切片范围。

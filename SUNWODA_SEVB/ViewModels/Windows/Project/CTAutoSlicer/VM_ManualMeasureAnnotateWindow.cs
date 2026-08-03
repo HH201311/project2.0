@@ -44,6 +44,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             SelectNextImageCommand = new RelayCommand(_ => MoveSelection(1), _ => Images.Count > 0);
             ExportCommand = new RelayCommand(_ => Export(), _ => Images.Count > 0);
 
+            // 把目录下已有 annotation.json / 本进程 AI 出图缓存载入，左栏显示 AI 尺寸
+            OfflineCtAnnotationHelper.PreloadAiSummariesUnderFolder(RootFolder, PixelSizeUm);
             LoadImages();
         }
 

@@ -15,12 +15,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     {
         // 阶段五：切片导出 + TestSliceExport + 上视图交接
         /// <returns>导出名与实际数量，供交接复制 OfflineCtTopViewSliceIndex 送检图。</returns>
+        /// <param name="namingSourcePath">
+        /// 命名来源路径；快捷方式时应传排队条目（.lnk）显示名，以取前 6 字符作主文件夹。
+        /// 空则回退 <paramref name="vglPath"/>。
+        /// </param>
         private async Task<(string ExportBaseName, int Quantity)> ExportImageStackSlicesAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             string vglPath,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            string? namingSourcePath = null)
         {
             if (string.IsNullOrWhiteSpace(settings.SliceExportFolder))
             {
@@ -29,25 +34,35 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             Directory.CreateDirectory(settings.SliceExportFolder);
 
-            var vglFileName = Path.GetFileName(vglPath);
+            // 命名优先用排队条目名（快捷方式显示名）；QJ 判定同时看条目名与实际导入路径
+            var namingPath = string.IsNullOrWhiteSpace(namingSourcePath) ? vglPath : namingSourcePath;
+            var namingFileName = Path.GetFileName(namingPath);
+            var importFileName = Path.GetFileName(vglPath);
             var exportBaseName = SliceExportNamingHelper.BuildExportBaseName(
-                vglFileName,
+                namingFileName,
                 now: null,
                 out var usedDefaultName);
             if (usedDefaultName)
             {
                 progress?.Report(
-                    $"导入文件名不符合命名规则，已使用默认导出名「{exportBaseName}」（原文件：{vglFileName}）");
+                    $"导入文件名无法提取前 {SliceExportNamingHelper.ExportBaseNameLength} 字符，已使用默认导出名「{exportBaseName}」（命名源：{namingFileName}）");
                 _logger.Info(
-                    $"切片导出命名回退默认：原文件「{vglFileName}」→「{exportBaseName}」");
+                    $"切片导出命名回退默认：命名源「{namingFileName}」→「{exportBaseName}」");
+            }
+            else
+            {
+                _logger.Info(
+                    $"切片导出命名：命名源「{namingFileName}」→ 主文件夹「{exportBaseName}」");
             }
 
-            var quantity = SliceExportNamingHelper.ResolveExportQuantity(
-                vglFileName,
-                settings.SliceExportQuantity,
-                settings.SliceExportQuantityQj);
+            // QJ 判定：排队条目显示名或实际导入路径任一含 QJ 即按全局数量
+            var isGlobalImage = SliceExportNamingHelper.IsGlobalImage(namingFileName)
+                || SliceExportNamingHelper.IsGlobalImage(importFileName);
+            var quantity = isGlobalImage
+                ? settings.SliceExportQuantityQj
+                : settings.SliceExportQuantity;
 
-            if (SliceExportNamingHelper.IsGlobalImage(vglFileName))
+            if (isGlobalImage)
             {
                 progress?.Report($"{SliceExportQtyProgressPrefix}{quantity}");
                 _logger.Info($"检测到 QJ 全局图像，导出数量同步为 {quantity}");
@@ -1245,9 +1260,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         "CT 体素文件夹内未找到 .vgl/.vgi 文件或体素快捷方式（用于命名规则）");
                 }
 
-                var vglPath = volumeItems[0].ImportPath;
-                progress?.Report($"切片导出单步测试：请确保 VG 已导入体积、已应用预设并完成厚板设置；命名参考 {Path.GetFileName(vglPath)}");
-                _logger.Info($"切片导出单步测试开始，参考文件 {vglPath}");
+                var volumeItem = volumeItems[0];
+                var vglPath = volumeItem.ImportPath;
+                var namingSource = volumeItem.QueueEntryPath;
+                progress?.Report(
+                    $"切片导出单步测试：请确保 VG 已导入体积、已应用预设并完成厚板设置；命名参考 {Path.GetFileName(namingSource)}");
+                _logger.Info($"切片导出单步测试开始，导入={vglPath}，命名源={namingSource}");
 
                 var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
                 _activeVgProcess = ctViewerProcess;
@@ -1258,7 +1276,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         ctViewerProcess,
                         vglPath,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSourcePath: namingSource)
                     .ConfigureAwait(false);
 
                 await MirrorTopViewHandoffAsync(

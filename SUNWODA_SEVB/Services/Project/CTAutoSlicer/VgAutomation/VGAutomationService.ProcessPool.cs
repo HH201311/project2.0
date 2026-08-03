@@ -71,7 +71,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                                     readySlot.Process,
                                     readySlot.FilePath,
                                     cancellationToken,
-                                    progress)
+                                    progress,
+                                    namingSourcePath: readySlot.QueueEntryPath)
                                 .ConfigureAwait(false);
 
                             await OnImportSucceededAsync(readySlot.QueueEntryPath).ConfigureAwait(false);
@@ -535,12 +536,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         /// 阶段七 AI 标注已拆至独立「AI 标注模式」，本流程不再调用 NJCT。
         /// 独占期间暂停其他槽位的导入 UIA 轮询，禁止切换进程焦点。
         /// </summary>
+        /// <param name="namingSourcePath">
+        /// 导出命名来源（快捷方式请传 .lnk 排队条目路径，取前 6 字符作主文件夹）。
+        /// </param>
         private async Task RunPostImportPipelineAsync(
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             string vglPath,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            string? namingSourcePath = null)
         {
             EnterPostPipelineExclusive(ctViewerProcess);
             try
@@ -601,7 +606,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         ctViewerProcess,
                         vglPath,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSourcePath: namingSourcePath)
                     .ConfigureAwait(false);
 
                 // 切图模式终点：复制上视图送检图到交接目录；阶段七已拆到 AI 标注模式独立执行

@@ -43,10 +43,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const string OfflineCtDllFileName = "NJCT.dll";
         public const string OfflineCtModelRelativePath = @"Models\CTOffline\model_500000_900.onnx";
         /// <summary>
-        /// 二次手动标注底部信息遮罩默认高度（图像像素）。
-        /// 不再传给 NJCT（DLL 打黑固定 0）。
+        /// 界面「打黑高度」未配置时的初始值（图像像素，仅上位机遮罩用）。
+        /// 传给 NJCT 的 BlackHeight 始终为 0，与本常量无关。
         /// </summary>
         public const int DefaultOfflineCtBlackHeight = 1500;
+        /// <summary>L1~L5 范围判断默认下限（mm）。</summary>
+        public const double DefaultOfflineCtLMinMm = 0.0;
+        /// <summary>L1~L5 范围判断默认上限（mm）。</summary>
+        public const double DefaultOfflineCtLMaxMm = 10.0;
         /// <summary>AI 标注取「上」视图切片序号默认值（1-based；对应导出数量 100 时的中间张）。</summary>
         public const int DefaultOfflineCtTopViewSliceIndex = 50;
         /// <summary>「上」视图切片序号下限（含）。</summary>
@@ -402,10 +406,48 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public bool OfflineCtIsRunCuda { get; set; } = true;
 
         /// <summary>
-        /// 二次手动标注：结果图底部信息遮罩高度（图像像素）。
-        /// 仅上位机使用；调用 NJCT 时 BlackHeight 固定传 0。
+        /// 底部信息遮罩高度（图像像素）：
+        /// 上位机在结果图底部覆盖打黑（不扩展画布、不传 NJCT），
+        /// AI 标注写入 L1~L5 汇总；二次手动标注工作台同步使用。
         /// </summary>
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
+
+        /// <summary>是否开启 L1~L5 尺寸范围判断（mm）；开启后超差线/数值标红，合格标绿。</summary>
+        public bool EnableOfflineCtLRangeCheck { get; set; }
+
+        public double OfflineCtL1MinMm { get; set; } = DefaultOfflineCtLMinMm;
+        public double OfflineCtL1MaxMm { get; set; } = DefaultOfflineCtLMaxMm;
+        public double OfflineCtL2MinMm { get; set; } = DefaultOfflineCtLMinMm;
+        public double OfflineCtL2MaxMm { get; set; } = DefaultOfflineCtLMaxMm;
+        public double OfflineCtL3MinMm { get; set; } = DefaultOfflineCtLMinMm;
+        public double OfflineCtL3MaxMm { get; set; } = DefaultOfflineCtLMaxMm;
+        public double OfflineCtL4MinMm { get; set; } = DefaultOfflineCtLMinMm;
+        public double OfflineCtL4MaxMm { get; set; } = DefaultOfflineCtLMaxMm;
+        public double OfflineCtL5MinMm { get; set; } = DefaultOfflineCtLMinMm;
+        public double OfflineCtL5MaxMm { get; set; } = DefaultOfflineCtLMaxMm;
+
+        /// <summary>组装 L1~L5 范围判断选项，供叠加出图使用。</summary>
+        public OfflineCtLRangeCheckOptions BuildOfflineCtLRangeCheckOptions() =>
+            new()
+            {
+                Enabled = EnableOfflineCtLRangeCheck,
+                MinMm =
+                [
+                    OfflineCtL1MinMm,
+                    OfflineCtL2MinMm,
+                    OfflineCtL3MinMm,
+                    OfflineCtL4MinMm,
+                    OfflineCtL5MinMm,
+                ],
+                MaxMm =
+                [
+                    OfflineCtL1MaxMm,
+                    OfflineCtL2MaxMm,
+                    OfflineCtL3MaxMm,
+                    OfflineCtL4MaxMm,
+                    OfflineCtL5MaxMm,
+                ],
+            };
 
         /// <summary>
         /// AI 标注选用「上」视图第几张（范围 1～100）。

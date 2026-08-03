@@ -1,0 +1,453 @@
+using System.Globalization;
+using System.IO;
+using HalconDotNet;
+using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
+
+namespace SUNWODA_SEVB.Tool.Helper
+{
+    /// <summary>
+    /// 将 NJCT 四参数叠到 ResultImg：AllPointRegion + L1~L5 线段 + AllPrintfValue；
+    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（与二次手动标注 ManualMeasureExportHelper 一致，不扩展画布），
+    /// 并在遮罩区内写入尺寸汇总（仅 mm；可选 L1~L5 范围绿/红判色）。
+    /// </summary>
+    public static class OfflineCtResultOverlayHelper
+    {
+        /// <param name="bottomInfoBlackHeight">
+        /// 底部信息遮罩高度（OfflineCtBlackHeight，图像像素）。
+        /// 在 ResultImg <b>底部覆盖</b>黑色矩形后写字；0 则不打黑。
+        /// </param>
+        /// <param name="rangeCheck">L1~L5 mm 范围判断；null/未开启时线段保持青色、数值保持白/品红。</param>
+        public static string WriteAnnotatedResultImage(
+            HObject resultImg,
+            IReadOnlyList<HObject>? pointRegions,
+            IReadOnlyList<double[]> regionRows,
+            IReadOnlyList<double[]> regionCols,
+            IReadOnlyList<double[]> printfValues,
+            string resultImagePath,
+            double pixelSizeUm = 1.0,
+            int bottomInfoBlackHeight = 0,
+            OfflineCtLRangeCheckOptions? rangeCheck = null)
+        {
+            ArgumentNullException.ThrowIfNull(resultImg);
+            if (string.IsNullOrWhiteSpace(resultImagePath))
+            {
+                throw new ArgumentException("结果图路径不能为空", nameof(resultImagePath));
+            }
+
+            rangeCheck ??= OfflineCtLRangeCheckOptions.Disabled;
+            var umPerPx = pixelSizeUm > 0 ? pixelSizeUm : 1.0;
+
+            HOperatorSet.GetImageSize(resultImg, out HTuple width, out HTuple height);
+            var imgWidth = width.I;
+            var imgHeight = height.I;
+            // 与 ManualMeasureExportHelper 一致：clamp 到图像高度，在底部覆盖，不追加画布
+            var bandH = Math.Clamp(bottomInfoBlackHeight, 0, imgHeight);
+            var bandTop = imgHeight - bandH;
+
+            HWindow? window = null;
+            string? tempFile = null;
+            try
+            {
+                window = new HWindow();
+                var windowWidth = Math.Max(imgWidth, 100);
+                var windowHeight = Math.Max(imgHeight, 100);
+                window.OpenWindow(0, 0, windowWidth, windowHeight, new HTuple(0), "invisible", "");
+                window.SetPart(0, 0, imgHeight - 1, imgWidth - 1);
+                window.DispObj(resultImg);
+
+                // ① 抓点 Region
+                if (pointRegions != null)
+                {
+                    window.SetDraw("margin");
+                    window.SetLineWidth(2);
+                    foreach (var region in pointRegions)
+                    {
+                        if (region is null || !region.IsInitialized())
+                        {
+                            continue;
+                        }
+
+                        window.SetColor("green");
+                        window.DispObj(region);
+                    }
+                }
+
+                // ② L1~L5 竖线段 + 图上旁注（画在打黑之前，遮罩区内的旁注会被盖住，属预期）
+                // 旁注：名称保持品红；数值按范围绿/红（未开启仍品红）
+                var labelFont = Math.Clamp(imgHeight / 55, 36, 72);
+                ApplyWindowFont(window, labelFont);
+                var cellCount = Math.Max(
+                    regionRows?.Count ?? 0,
+                    Math.Max(regionCols?.Count ?? 0, printfValues?.Count ?? 0));
+                for (var cell = 0; cell < cellCount; cell++)
+                {
+                    var rows = regionRows != null && cell < regionRows.Count
+                        ? regionRows[cell]
+                        : Array.Empty<double>();
+                    var cols = regionCols != null && cell < regionCols.Count
+                        ? regionCols[cell]
+                        : Array.Empty<double>();
+                    var vals = printfValues != null && cell < printfValues.Count
+                        ? printfValues[cell]
+                        : Array.Empty<double>();
+
+                    var pairCount = Math.Min(rows.Length, cols.Length) / 2;
+                    for (var k = 0; k < pairCount; k++)
+                    {
+                        var r1 = rows[2 * k];
+                        var c1 = cols[2 * k];
+                        var r2 = rows[2 * k + 1];
+                        var c2 = cols[2 * k + 1];
+
+                        var mm = k < vals.Length ? vals[k] * umPerPx / 1000.0 : double.NaN;
+                        var lineColor = double.IsNaN(mm)
+                            ? "cyan"
+                            : rangeCheck.ResolveLineColor(k, mm);
+
+                        window.SetColor(lineColor);
+                        window.SetLineWidth(2);
+                        window.DispLine(r1, c1, r2, c2);
+
+                        window.SetColor(lineColor);
+                        window.DispCross(r1, c1, 12, 0);
+                        window.DispCross(r2, c2, 12, 0);
+
+                        // 旁注仅画在遮罩上方，避免被打黑盖掉
+                        var midRow = (r1 + r2) / 2.0;
+                        if (bandH > 0 && midRow >= bandTop)
+                        {
+                            continue;
+                        }
+
+                        var textCol = Math.Max(c1, c2) + 18;
+                        if (textCol > imgWidth - 80)
+                        {
+                            textCol = Math.Min(c1, c2) - 120;
+                        }
+
+                        DrawNameAndValue(
+                            window,
+                            midRow,
+                            textCol,
+                            $"L{k + 1}:",
+                            double.IsNaN(mm)
+                                ? string.Empty
+                                : string.Create(CultureInfo.InvariantCulture, $"{mm:F4}mm"),
+                            nameColor: "magenta",
+                            valueColor: double.IsNaN(mm)
+                                ? "magenta"
+                                : rangeCheck.ResolveSideValueColor(k, mm),
+                            fontSize: labelFont,
+                            coordSystem: "image");
+                    }
+                }
+
+                // ③ 底部覆盖打黑 + 汇总文字（仅 mm；数值按范围绿/红）
+                if (bandH > 0)
+                {
+                    window.SetColor("black");
+                    window.SetDraw("fill");
+                    window.DispRectangle1(
+                        (double)bandTop,
+                        0.0,
+                        imgHeight - 1.0,
+                        imgWidth - 1.0);
+
+                    DrawBottomInfoBand(
+                        window,
+                        imgWidth,
+                        bandTop,
+                        bandH,
+                        printfValues,
+                        umPerPx,
+                        rangeCheck);
+                }
+
+                // ④ 落盘（画布尺寸与 ResultImg 相同）
+                var dir = Path.GetDirectoryName(resultImagePath);
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                var ext = Path.GetExtension(resultImagePath);
+                var isPng = ext.Equals(".png", StringComparison.OrdinalIgnoreCase);
+                var finalPath = isPng
+                    ? Path.ChangeExtension(resultImagePath, ".png")
+                    : Path.ChangeExtension(resultImagePath, ".jpg");
+
+                tempFile = Path.Combine(Path.GetTempPath(), $"njct_overlay_{Guid.NewGuid():N}.tif");
+                window.DumpWindow("tiff", tempFile);
+
+                HOperatorSet.ReadImage(out HObject dumped, tempFile);
+                try
+                {
+                    var writeArg = Path.Combine(
+                        Path.GetDirectoryName(finalPath) ?? string.Empty,
+                        Path.GetFileNameWithoutExtension(finalPath));
+                    HOperatorSet.WriteImage(dumped, isPng ? "png" : "jpeg 90", 0, writeArg);
+                }
+                finally
+                {
+                    dumped.Dispose();
+                }
+
+                // 出图即记住汇总（内存），二次标注左栏立刻可显示，不落中间文件
+                var summary = OfflineCtAnnotationHelper.FormatAiDimensionSummaryText(
+                    printfValues,
+                    umPerPx);
+                OfflineCtAnnotationHelper.RememberAiDimensionSummary(finalPath, summary);
+
+                return finalPath;
+            }
+            finally
+            {
+                try { window?.CloseWindow(); } catch { /* ignore */ }
+                try { window?.Dispose(); } catch { /* ignore */ }
+                if (!string.IsNullOrEmpty(tempFile) && File.Exists(tempFile))
+                {
+                    try { File.Delete(tempFile); } catch { /* ignore */ }
+                }
+
+                width.Dispose();
+                height.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 底部遮罩左中右三栏：左=电芯1，中=电芯2，右 1/3 留空给二次标注手动数据。
+        /// 字号与标注页同步（OfflineCtAnnotationHelper.ComputeBottomBandFontSizeImagePx）。
+        /// </summary>
+        private static void DrawBottomInfoBand(
+            HWindow window,
+            int imgWidth,
+            int bandTop,
+            int bandH,
+            IReadOnlyList<double[]>? printfValues,
+            double umPerPx,
+            OfflineCtLRangeCheckOptions rangeCheck)
+        {
+            var fontSize = OfflineCtAnnotationHelper.ComputeBottomBandFontSizeImagePx(bandH, imgWidth);
+            ApplyWindowFont(window, fontSize);
+
+            var lineHeight = fontSize * 1.22;
+            var startRow = bandTop + Math.Max(12.0, fontSize * 0.25);
+            var bandBottom = bandTop + bandH - 8.0;
+            // 左 / 中 / 右 各约 1/3；右栏不出 AI 字
+            var colLeft = Math.Max(24.0, imgWidth * 0.02);
+            var colMid = imgWidth * (1.0 / 3.0) + 16.0;
+            var colMaxLeft = imgWidth * (1.0 / 3.0) - 12.0;
+            var colMaxMid = imgWidth * (2.0 / 3.0) - 12.0;
+
+            window.DispText(
+                "AI尺寸汇总",
+                "window",
+                startRow,
+                colLeft,
+                "orange",
+                new HTuple("box"),
+                new HTuple("false"));
+
+            var cellCount = printfValues?.Count ?? 0;
+            if (cellCount == 0)
+            {
+                window.DispText(
+                    "（无尺寸数据）",
+                    "window",
+                    startRow + lineHeight,
+                    colLeft,
+                    "white",
+                    new HTuple("box"),
+                    new HTuple("false"));
+                return;
+            }
+
+            DrawCellColumn(
+                window,
+                printfValues!,
+                cellIndex: 0,
+                col: colLeft,
+                colMax: colMaxLeft,
+                startRow + lineHeight,
+                bandBottom,
+                lineHeight,
+                umPerPx,
+                fontSize,
+                rangeCheck);
+
+            if (cellCount >= 2)
+            {
+                DrawCellColumn(
+                    window,
+                    printfValues!,
+                    cellIndex: 1,
+                    col: colMid,
+                    colMax: colMaxMid,
+                    startRow + lineHeight,
+                    bandBottom,
+                    lineHeight,
+                    umPerPx,
+                    fontSize,
+                    rangeCheck);
+            }
+
+            var tipRow = bandBottom - fontSize;
+            if (tipRow > startRow + lineHeight)
+            {
+                var tip = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"精度 {umPerPx:F3} μm/px | L_mm=L_px×μm/px/1000");
+                window.DispText(
+                    tip,
+                    "window",
+                    tipRow,
+                    colLeft,
+                    "cyan",
+                    new HTuple("box"),
+                    new HTuple("false"));
+            }
+        }
+
+        private static void DrawCellColumn(
+            HWindow window,
+            IReadOnlyList<double[]> printfValues,
+            int cellIndex,
+            double col,
+            double colMax,
+            double startY,
+            double bandBottom,
+            double lineHeight,
+            double umPerPx,
+            int fontSize,
+            OfflineCtLRangeCheckOptions rangeCheck)
+        {
+            if (cellIndex < 0 || cellIndex >= printfValues.Count)
+            {
+                return;
+            }
+
+            var y = startY;
+            window.DispText(
+                $"电芯{cellIndex + 1}",
+                "window",
+                y,
+                col,
+                "yellow",
+                new HTuple("box"),
+                new HTuple("false"));
+            y += lineHeight;
+
+            var vals = printfValues[cellIndex] ?? Array.Empty<double>();
+            for (var k = 0; k < vals.Length; k++)
+            {
+                if (y + lineHeight > bandBottom - lineHeight * 0.5)
+                {
+                    break;
+                }
+
+                var px = vals[k];
+                var mm = px * umPerPx / 1000.0;
+                // 仅 mm，不显示 px；名称白、数值按范围绿/红
+                var name = $"L{k + 1}:";
+                var value = colMax - col < 220
+                    ? string.Create(CultureInfo.InvariantCulture, $"{mm:F4}mm")
+                    : string.Create(CultureInfo.InvariantCulture, $" {mm:F4}mm");
+
+                DrawNameAndValue(
+                    window,
+                    y,
+                    col,
+                    name,
+                    value,
+                    nameColor: "white",
+                    valueColor: rangeCheck.ResolveValueColor(k, mm),
+                    fontSize: fontSize,
+                    coordSystem: "window");
+                y += lineHeight;
+            }
+        }
+
+        /// <summary>
+        /// 名称与数值分两次 DispText，使仅数值可按范围变色。
+        /// </summary>
+        private static void DrawNameAndValue(
+            HWindow window,
+            double row,
+            double col,
+            string name,
+            string value,
+            string nameColor,
+            string valueColor,
+            int fontSize,
+            string coordSystem)
+        {
+            if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(name))
+            {
+                window.DispText(
+                    name,
+                    coordSystem,
+                    row,
+                    col,
+                    nameColor,
+                    new HTuple("box"),
+                    new HTuple("false"));
+            }
+
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            // 按字号估算「L1:」宽度，数值紧随其后（Halcon 无可靠跨字体 GetStringExtents 回退）
+            var nameWidth = EstimateTextWidthPx(name, fontSize);
+            window.DispText(
+                value,
+                coordSystem,
+                row,
+                col + nameWidth,
+                valueColor,
+                new HTuple("box"),
+                new HTuple("false"));
+        }
+
+        private static double EstimateTextWidthPx(string text, int fontSize)
+        {
+            if (string.IsNullOrEmpty(text) || fontSize <= 0)
+            {
+                return 0;
+            }
+
+            // Times New Roman 等宽近似：字母数字约 0.55×字号
+            return text.Length * fontSize * 0.55;
+        }
+
+        /// <summary>优先 Times New Roman（与 CTNCLX 相同），失败再回退。</summary>
+        private static void ApplyWindowFont(HWindow window, int fontSize)
+        {
+            var candidates = new[]
+            {
+                $"Times New Roman-{fontSize}",
+                $"Arial-{fontSize}",
+                $"Courier New-{fontSize}",
+                $"-*-courier-bold-r-*-*-{fontSize}-*-*-*-*-*-*-*",
+            };
+            foreach (var font in candidates)
+            {
+                try
+                {
+                    window.SetFont(font);
+                    return;
+                }
+                catch
+                {
+                    // try next
+                }
+            }
+        }
+    }
+}

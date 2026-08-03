@@ -10,6 +10,10 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.Legends;
+using OxyPlot.Series;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
@@ -155,6 +159,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _offlineCtModelPath = string.Empty;
         private bool _offlineCtIsRunCuda = true;
         private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
+        private bool _enableOfflineCtLRangeCheck;
+        private double _offlineCtL1MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
+        private double _offlineCtL1MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
+        private double _offlineCtL2MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
+        private double _offlineCtL2MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
+        private double _offlineCtL3MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
+        private double _offlineCtL3MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
+        private double _offlineCtL4MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
+        private double _offlineCtL4MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
+        private double _offlineCtL5MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
+        private double _offlineCtL5MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
         private int _offlineCtTopViewSliceIndex = CTAutoSlicerSettings.DefaultOfflineCtTopViewSliceIndex;
         private double _offlineCtPixelSizeUm = CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
         // 使用完全限定枚举名，避免与同名属性 OfflineCtResultImageMode 冲突（CS0236）
@@ -172,8 +187,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private ImageSource? _latestAiAnnotationPreview;
         private string _latestAiAnnotationPreviewPath = string.Empty;
         private string _latestAiAnnotationPreviewInfo = "暂无 AI 标注结果预览";
+        private string _latestAiAnnotationSummaryText = string.Empty;
         private double _latestAiAnnotationPreviewPixelWidth = 1;
         private double _latestAiAnnotationPreviewPixelHeight = 1;
+        // 检测统计 Demo（假数据；后续接真实判定）
+        private bool _statsDemoInitialized;
+        private int _statsTodayTotal;
+        private int _statsTodayOk;
+        private int _statsTodayNg;
+        private string _statsDemoDateText = string.Empty;
+        private string _statsDemoNote = "当前为 Demo 假数据，尚未接入真实检测判定。";
+        private PlotModel? _statsOkNgPieModel;
+        private PlotModel? _statsHourlyBarModel;
         private string _cutImgDllTestSectionImagePath = string.Empty;
         private string _cutImgDllTestVectorImagePath = string.Empty;
         private string _cutImgDllTestOutputDir = CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir;
@@ -233,6 +258,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public const int NavManualMeasure = 9;
         public const int NavStepTest = 10;
         public const int NavPreferences = 11;
+        /// <summary>当日检测统计（AI 模式侧栏；当前为 Demo 假数据）。</summary>
+        public const int NavStats = 12;
 
         public const int PrefSubColors = 0;
 
@@ -399,6 +426,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     {
                         RefreshLatestAiAnnotationPreview();
                     }
+
+                    if (value == NavStats)
+                    {
+                        EnsureStatsDemoInitialized();
+                    }
                 }
             }
         }
@@ -415,6 +447,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public bool IsNavManualMeasure => SelectedNavIndex == NavManualMeasure;
         public bool IsNavStepTest => SelectedNavIndex == NavStepTest;
         public bool IsNavPreferences => SelectedNavIndex == NavPreferences;
+        public bool IsNavStats => SelectedNavIndex == NavStats;
         public bool IsPrefSubColors => IsNavPreferences && SelectedPrefSubIndex == PrefSubColors;
 
         public string CurrentSectionTitle => SelectedNavIndex switch
@@ -431,6 +464,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             NavManualMeasure => "二次手动标注",
             NavStepTest => "单步测试",
             NavPreferences => "偏好设置",
+            NavStats => "检测统计",
             _ => "CT自动化切片",
         };
 
@@ -1705,6 +1739,139 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>开启后对 L1~L5 做 mm 范围判断：合格绿 / 超差红。</summary>
+        public bool EnableOfflineCtLRangeCheck
+        {
+            get => _enableOfflineCtLRangeCheck;
+            set
+            {
+                if (SetProperty(ref _enableOfflineCtLRangeCheck, value))
+                {
+                    SaveSetting(nameof(EnableOfflineCtLRangeCheck), value ? 1 : 0);
+                }
+            }
+        }
+
+        public double OfflineCtL1MinMm
+        {
+            get => _offlineCtL1MinMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL1MinMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL1MinMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL1MaxMm
+        {
+            get => _offlineCtL1MaxMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL1MaxMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL1MaxMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL2MinMm
+        {
+            get => _offlineCtL2MinMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL2MinMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL2MinMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL2MaxMm
+        {
+            get => _offlineCtL2MaxMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL2MaxMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL2MaxMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL3MinMm
+        {
+            get => _offlineCtL3MinMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL3MinMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL3MinMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL3MaxMm
+        {
+            get => _offlineCtL3MaxMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL3MaxMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL3MaxMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL4MinMm
+        {
+            get => _offlineCtL4MinMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL4MinMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL4MinMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL4MaxMm
+        {
+            get => _offlineCtL4MaxMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL4MaxMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL4MaxMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL5MinMm
+        {
+            get => _offlineCtL5MinMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL5MinMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL5MinMm), value);
+                }
+            }
+        }
+
+        public double OfflineCtL5MaxMm
+        {
+            get => _offlineCtL5MaxMm;
+            set
+            {
+                if (SetProperty(ref _offlineCtL5MaxMm, value))
+                {
+                    SaveSetting(nameof(OfflineCtL5MaxMm), value);
+                }
+            }
+        }
+
         /// <summary>
         /// AI 标注选用「上」视图第几张（1～100）。
         /// 输入 50 = 第 50 张；实际查找文件名 = 前缀0 + 50 → 050.jpg；默认 50。
@@ -2243,6 +2410,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenManualMeasureFolderCommand { get; }
         public ICommand ClearSliceExportFolderCommand { get; }
         public ICommand RefreshLatestAiAnnotationPreviewCommand { get; }
+        public ICommand RefreshStatsDemoCommand { get; }
 
         /// <summary>二次手动标注页：最新 AI 标注结果图预览。</summary>
         public ImageSource? LatestAiAnnotationPreview
@@ -2265,7 +2433,93 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _latestAiAnnotationPreviewInfo, value);
         }
 
+        /// <summary>从 annotation.json 解析的 AI 尺寸汇总（标注界面再显示一遍）。</summary>
+        public string LatestAiAnnotationSummaryText
+        {
+            get => _latestAiAnnotationSummaryText;
+            private set => SetProperty(ref _latestAiAnnotationSummaryText, value);
+        }
+
+        public bool HasLatestAiAnnotationSummary =>
+            !string.IsNullOrWhiteSpace(LatestAiAnnotationSummaryText);
+
         public bool HasLatestAiAnnotationPreview => LatestAiAnnotationPreview is not null;
+
+        /// <summary>当日检测总数（Demo）。</summary>
+        public int StatsTodayTotal
+        {
+            get => _statsTodayTotal;
+            private set
+            {
+                if (SetProperty(ref _statsTodayTotal, value))
+                {
+                    OnPropertyChanged(nameof(StatsOkRateText));
+                    OnPropertyChanged(nameof(StatsNgRateText));
+                }
+            }
+        }
+
+        /// <summary>当日 OK 数（Demo）。</summary>
+        public int StatsTodayOk
+        {
+            get => _statsTodayOk;
+            private set
+            {
+                if (SetProperty(ref _statsTodayOk, value))
+                {
+                    OnPropertyChanged(nameof(StatsOkRateText));
+                }
+            }
+        }
+
+        /// <summary>当日 NG 数（Demo）。</summary>
+        public int StatsTodayNg
+        {
+            get => _statsTodayNg;
+            private set
+            {
+                if (SetProperty(ref _statsTodayNg, value))
+                {
+                    OnPropertyChanged(nameof(StatsNgRateText));
+                }
+            }
+        }
+
+        public string StatsOkRateText =>
+            StatsTodayTotal <= 0
+                ? "—"
+                : $"{100.0 * StatsTodayOk / StatsTodayTotal:F1}%";
+
+        public string StatsNgRateText =>
+            StatsTodayTotal <= 0
+                ? "—"
+                : $"{100.0 * StatsTodayNg / StatsTodayTotal:F1}%";
+
+        public string StatsDemoDateText
+        {
+            get => _statsDemoDateText;
+            private set => SetProperty(ref _statsDemoDateText, value);
+        }
+
+        public string StatsDemoNote
+        {
+            get => _statsDemoNote;
+            private set => SetProperty(ref _statsDemoNote, value);
+        }
+
+        /// <summary>OK/NG 占比饼图（OxyPlot）。</summary>
+        public PlotModel? StatsOkNgPieModel
+        {
+            get => _statsOkNgPieModel;
+            private set => SetProperty(ref _statsOkNgPieModel, value);
+        }
+
+        /// <summary>当日各时段产量柱状图（OxyPlot）。</summary>
+        public PlotModel? StatsHourlyBarModel
+        {
+            get => _statsHourlyBarModel;
+            private set => SetProperty(ref _statsHourlyBarModel, value);
+        }
 
         /// <summary>预览原图像素宽（供 Viewbox 按原图比例缩放）。</summary>
         public double LatestAiAnnotationPreviewPixelWidth
@@ -2376,6 +2630,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MessageShower = "已清空标注结果根目录；二次手动标注将弹窗自选";
             });
             RefreshLatestAiAnnotationPreviewCommand = new RelayCommand(_ => RefreshLatestAiAnnotationPreview());
+            RefreshStatsDemoCommand = new RelayCommand(_ => RefreshStatsDemoData(randomize: true));
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
@@ -2504,6 +2759,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(IsNavSlice));
             OnPropertyChanged(nameof(IsNavAiAnnotate));
             OnPropertyChanged(nameof(IsNavManualMeasure));
+            OnPropertyChanged(nameof(IsNavStats));
             OnPropertyChanged(nameof(IsNavStepTest));
             OnPropertyChanged(nameof(IsNavPreferences));
             OnPropertyChanged(nameof(IsPrefSubColors));
@@ -3175,6 +3431,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtBlackHeight = LoadIntSetting(
                 nameof(OfflineCtBlackHeight),
                 CTAutoSlicerSettings.DefaultOfflineCtBlackHeight);
+            _enableOfflineCtLRangeCheck =
+                LoadIntSetting(nameof(EnableOfflineCtLRangeCheck), 0) != 0;
+            _offlineCtL1MinMm = LoadDoubleSetting(
+                nameof(OfflineCtL1MinMm), CTAutoSlicerSettings.DefaultOfflineCtLMinMm);
+            _offlineCtL1MaxMm = LoadDoubleSetting(
+                nameof(OfflineCtL1MaxMm), CTAutoSlicerSettings.DefaultOfflineCtLMaxMm);
+            _offlineCtL2MinMm = LoadDoubleSetting(
+                nameof(OfflineCtL2MinMm), CTAutoSlicerSettings.DefaultOfflineCtLMinMm);
+            _offlineCtL2MaxMm = LoadDoubleSetting(
+                nameof(OfflineCtL2MaxMm), CTAutoSlicerSettings.DefaultOfflineCtLMaxMm);
+            _offlineCtL3MinMm = LoadDoubleSetting(
+                nameof(OfflineCtL3MinMm), CTAutoSlicerSettings.DefaultOfflineCtLMinMm);
+            _offlineCtL3MaxMm = LoadDoubleSetting(
+                nameof(OfflineCtL3MaxMm), CTAutoSlicerSettings.DefaultOfflineCtLMaxMm);
+            _offlineCtL4MinMm = LoadDoubleSetting(
+                nameof(OfflineCtL4MinMm), CTAutoSlicerSettings.DefaultOfflineCtLMinMm);
+            _offlineCtL4MaxMm = LoadDoubleSetting(
+                nameof(OfflineCtL4MaxMm), CTAutoSlicerSettings.DefaultOfflineCtLMaxMm);
+            _offlineCtL5MinMm = LoadDoubleSetting(
+                nameof(OfflineCtL5MinMm), CTAutoSlicerSettings.DefaultOfflineCtLMinMm);
+            _offlineCtL5MaxMm = LoadDoubleSetting(
+                nameof(OfflineCtL5MaxMm), CTAutoSlicerSettings.DefaultOfflineCtLMaxMm);
             _offlineCtTopViewSliceIndex = Math.Clamp(
                 LoadIntSetting(
                     nameof(OfflineCtTopViewSliceIndex),
@@ -3244,6 +3522,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
+            OnPropertyChanged(nameof(EnableOfflineCtLRangeCheck));
+            OnPropertyChanged(nameof(OfflineCtL1MinMm));
+            OnPropertyChanged(nameof(OfflineCtL1MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL2MinMm));
+            OnPropertyChanged(nameof(OfflineCtL2MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL3MinMm));
+            OnPropertyChanged(nameof(OfflineCtL3MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL4MinMm));
+            OnPropertyChanged(nameof(OfflineCtL4MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL5MinMm));
+            OnPropertyChanged(nameof(OfflineCtL5MaxMm));
             OnPropertyChanged(nameof(OfflineCtTopViewSliceIndex));
             OnPropertyChanged(nameof(OfflineCtPixelSizeUm));
             OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
@@ -3463,6 +3752,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 OfflineCtModelPath = OfflineCtModelPath,
                 OfflineCtIsRunCuda = OfflineCtIsRunCuda,
                 OfflineCtBlackHeight = OfflineCtBlackHeight,
+                EnableOfflineCtLRangeCheck = EnableOfflineCtLRangeCheck,
+                OfflineCtL1MinMm = OfflineCtL1MinMm,
+                OfflineCtL1MaxMm = OfflineCtL1MaxMm,
+                OfflineCtL2MinMm = OfflineCtL2MinMm,
+                OfflineCtL2MaxMm = OfflineCtL2MaxMm,
+                OfflineCtL3MinMm = OfflineCtL3MinMm,
+                OfflineCtL3MaxMm = OfflineCtL3MaxMm,
+                OfflineCtL4MinMm = OfflineCtL4MinMm,
+                OfflineCtL4MaxMm = OfflineCtL4MaxMm,
+                OfflineCtL5MinMm = OfflineCtL5MinMm,
+                OfflineCtL5MaxMm = OfflineCtL5MaxMm,
                 OfflineCtTopViewSliceIndex = OfflineCtTopViewSliceIndex,
                 OfflineCtPixelSizeUm = OfflineCtPixelSizeUm,
                 OfflineCtResultImageMode = (Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode)Math.Clamp(
@@ -4917,7 +5217,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 LatestAiAnnotationPreviewPixelWidth = 1;
                 LatestAiAnnotationPreviewPixelHeight = 1;
                 LatestAiAnnotationPreviewInfo = $"预览加载失败：{ex.Message}";
+                LatestAiAnnotationSummaryText = string.Empty;
                 OnPropertyChanged(nameof(HasLatestAiAnnotationPreview));
+                OnPropertyChanged(nameof(HasLatestAiAnnotationSummary));
                 _logger.Warn($"最新 AI 标注预览加载失败：{ex.Message}");
             }
         }
@@ -4941,7 +5243,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 LatestAiAnnotationPreviewInfo = string.IsNullOrWhiteSpace(SliceExportFolder)
                     ? "请先配置标注结果根目录，并完成 AI 标注"
                     : "暂无 AI 标注结果图（请先「开始流程」生成标注）";
+                LatestAiAnnotationSummaryText = string.Empty;
                 OnPropertyChanged(nameof(HasLatestAiAnnotationPreview));
+                OnPropertyChanged(nameof(HasLatestAiAnnotationSummary));
                 return;
             }
 
@@ -4953,7 +5257,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             var time = File.GetLastWriteTime(path);
             LatestAiAnnotationPreviewInfo =
                 $"{Path.GetFileName(path)}  ·  {source.PixelWidth}×{source.PixelHeight}  ·  {time:yyyy-MM-dd HH:mm:ss}";
+            LatestAiAnnotationSummaryText = OfflineCtAnnotationHelper.TryBuildAiDimensionSummaryText(
+                path,
+                OfflineCtPixelSizeUm);
             OnPropertyChanged(nameof(HasLatestAiAnnotationPreview));
+            OnPropertyChanged(nameof(HasLatestAiAnnotationSummary));
         }
 
         /// <summary>
@@ -5055,11 +5363,202 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             RefreshLatestAiAnnotationPreview();
         }
 
+        private void EnsureStatsDemoInitialized()
+        {
+            if (_statsDemoInitialized)
+            {
+                return;
+            }
+
+            RefreshStatsDemoData(randomize: false);
+            _statsDemoInitialized = true;
+        }
+
+        /// <summary>
+        /// 刷新检测统计 Demo 假数据（后续可替换为真实 OK/NG 判定落库查询）。
+        /// </summary>
+        private void RefreshStatsDemoData(bool randomize)
+        {
+            var today = DateTime.Today;
+            StatsDemoDateText = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+            int total;
+            int ok;
+            int ng;
+            int[] hourlyOk;
+            int[] hourlyNg;
+
+            if (randomize)
+            {
+                var rng = new Random();
+                total = rng.Next(80, 180);
+                ng = rng.Next(5, Math.Max(6, total / 8));
+                ok = Math.Max(0, total - ng);
+                hourlyOk = new int[8];
+                hourlyNg = new int[8];
+                var remainOk = ok;
+                var remainNg = ng;
+                for (var i = 0; i < 8; i++)
+                {
+                    var last = i == 7;
+                    hourlyOk[i] = last ? remainOk : rng.Next(0, remainOk + 1);
+                    hourlyNg[i] = last ? remainNg : rng.Next(0, remainNg + 1);
+                    remainOk -= hourlyOk[i];
+                    remainNg -= hourlyNg[i];
+                }
+            }
+            else
+            {
+                // 固定种子 Demo，便于首次打开对照
+                total = 128;
+                ok = 115;
+                ng = 13;
+                hourlyOk = [8, 12, 15, 18, 16, 14, 17, 15];
+                hourlyNg = [1, 2, 1, 2, 1, 2, 2, 2];
+            }
+
+            StatsTodayTotal = total;
+            StatsTodayOk = ok;
+            StatsTodayNg = ng;
+            StatsDemoNote = randomize
+                ? $"已刷新 Demo 假数据（{DateTime.Now:HH:mm:ss}）。真实检测判定接入后将改为读库。"
+                : "当前为 Demo 假数据，尚未接入真实检测判定。";
+
+            StatsOkNgPieModel = BuildOkNgPieModel(ok, ng);
+            StatsHourlyBarModel = BuildHourlyBarModel(hourlyOk, hourlyNg);
+
+            if (randomize)
+            {
+                MessageShower = $"统计 Demo 已刷新：今日 {total}（OK {ok} / NG {ng}）";
+            }
+        }
+
+        private static PlotModel BuildOkNgPieModel(int ok, int ng)
+        {
+            var model = new PlotModel
+            {
+                Title = "当日 OK / NG 占比",
+                TitleFontSize = 14,
+                PlotMargins = new OxyThickness(8, 8, 8, 8),
+            };
+            model.Legends.Add(new Legend
+            {
+                LegendPosition = LegendPosition.BottomCenter,
+                LegendOrientation = LegendOrientation.Horizontal,
+                LegendPlacement = LegendPlacement.Outside,
+            });
+
+            var pie = new PieSeries
+            {
+                StrokeThickness = 1,
+                Stroke = OxyColors.White,
+                InsideLabelFormat = "{1}",
+                OutsideLabelFormat = "{0}: {1} ({2:0.0}%)",
+                AngleSpan = 360,
+                StartAngle = 90,
+                FontSize = 12,
+            };
+
+            if (ok + ng <= 0)
+            {
+                pie.Slices.Add(new PieSlice("无数据", 1) { Fill = OxyColors.LightGray });
+            }
+            else
+            {
+                if (ok > 0)
+                {
+                    pie.Slices.Add(new PieSlice("OK", ok)
+                    {
+                        Fill = OxyColor.FromRgb(0x2E, 0xA8, 0x5A),
+                    });
+                }
+
+                if (ng > 0)
+                {
+                    pie.Slices.Add(new PieSlice("NG", ng)
+                    {
+                        Fill = OxyColor.FromRgb(0xD3, 0x2F, 0x2F),
+                    });
+                }
+            }
+
+            model.Series.Add(pie);
+            return model;
+        }
+
+        private static PlotModel BuildHourlyBarModel(IReadOnlyList<int> hourlyOk, IReadOnlyList<int> hourlyNg)
+        {
+            var model = new PlotModel
+            {
+                Title = "当日分时段产量（Demo）",
+                TitleFontSize = 14,
+                PlotMargins = new OxyThickness(56, 8, 16, 16),
+            };
+            model.Legends.Add(new Legend
+            {
+                LegendPosition = LegendPosition.TopRight,
+                LegendPlacement = LegendPlacement.Inside,
+            });
+
+            // OxyPlot 2.x：BarSeries 为水平条；类别轴放左侧
+            var categoryAxis = new CategoryAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "时段",
+                FontSize = 11,
+                GapWidth = 0.25,
+            };
+            var nowHour = DateTime.Now.Hour;
+            var startHour = Math.Max(0, nowHour - 7);
+            for (var i = 0; i < 8; i++)
+            {
+                var h = startHour + i;
+                categoryAxis.Labels.Add($"{h:00}:00");
+            }
+
+            var valueAxis = new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "数量",
+                MinimumPadding = 0.05,
+                AbsoluteMinimum = 0,
+                FontSize = 11,
+            };
+
+            var okSeries = new BarSeries
+            {
+                Title = "OK",
+                FillColor = OxyColor.FromRgb(0x2E, 0xA8, 0x5A),
+                StrokeThickness = 0,
+                IsStacked = true,
+            };
+            var ngSeries = new BarSeries
+            {
+                Title = "NG",
+                FillColor = OxyColor.FromRgb(0xD3, 0x2F, 0x2F),
+                StrokeThickness = 0,
+                IsStacked = true,
+            };
+
+            var n = Math.Min(8, Math.Min(hourlyOk.Count, hourlyNg.Count));
+            for (var i = 0; i < n; i++)
+            {
+                okSeries.Items.Add(new BarItem(hourlyOk[i]));
+                ngSeries.Items.Add(new BarItem(hourlyNg[i]));
+            }
+
+            model.Axes.Add(categoryAxis);
+            model.Axes.Add(valueAxis);
+            model.Series.Add(okSeries);
+            model.Series.Add(ngSeries);
+            return model;
+        }
+
         private bool IsNavAllowedForCurrentPipeline(int navIndex) =>
             navIndex switch
             {
                 NavOverview or NavPreferences or NavStepTest => true,
-                NavAiAnnotate or NavManualMeasure => IsAiPipelineMode,
+                NavAiAnnotate or NavManualMeasure or NavStats => IsAiPipelineMode,
                 NavApp or NavImport or NavRender or NavHistogram or NavVision or NavPostAlign or NavSlice
                     => IsSlicePipelineMode,
                 _ => true,

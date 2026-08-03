@@ -107,11 +107,39 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 + (string.IsNullOrEmpty(exInfo) ? string.Empty : $"，ExInfo={exInfo}"));
         }
 
-        public OfflineCtInferResult InferEnhance(string imagePath, int blackHeight, string? resultImagePath = null) =>
-            Infer(ModelActionMethodName, "enhance", imagePath, blackHeight, resultImagePath);
+        public OfflineCtInferResult InferEnhance(
+            string imagePath,
+            int blackHeight,
+            string? resultImagePath = null,
+            double pixelSizeUm = 1.0,
+            int bottomInfoBlackHeight = 0,
+            OfflineCtLRangeCheckOptions? rangeCheck = null) =>
+            Infer(
+                ModelActionMethodName,
+                "enhance",
+                imagePath,
+                blackHeight,
+                resultImagePath,
+                pixelSizeUm,
+                bottomInfoBlackHeight,
+                rangeCheck);
 
-        public OfflineCtInferResult InferOrigin(string imagePath, int blackHeight, string? resultImagePath = null) =>
-            Infer(ModelActionOriginMethodName, "origin", imagePath, blackHeight, resultImagePath);
+        public OfflineCtInferResult InferOrigin(
+            string imagePath,
+            int blackHeight,
+            string? resultImagePath = null,
+            double pixelSizeUm = 1.0,
+            int bottomInfoBlackHeight = 0,
+            OfflineCtLRangeCheckOptions? rangeCheck = null) =>
+            Infer(
+                ModelActionOriginMethodName,
+                "origin",
+                imagePath,
+                blackHeight,
+                resultImagePath,
+                pixelSizeUm,
+                bottomInfoBlackHeight,
+                rangeCheck);
 
         public void DisposeModel()
         {
@@ -148,7 +176,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             string modeTag,
             string imagePath,
             int blackHeight,
-            string? resultImagePath)
+            string? resultImagePath,
+            double pixelSizeUm,
+            int bottomInfoBlackHeight,
+            OfflineCtLRangeCheckOptions? rangeCheck)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             EnsureInitialized();
@@ -242,7 +273,41 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
                     else if (!string.IsNullOrWhiteSpace(resultImagePath) && resultImg is not null)
                     {
-                        writtenPath = WriteResultImage(resultImg, resultImagePath);
+                        // 成功：叠 AllPointRegion + L1~L5 线 + PrintfValue 后落盘（主流程最终展示图）
+                        try
+                        {
+                            writtenPath = OfflineCtResultOverlayHelper.WriteAnnotatedResultImage(
+                                resultImg,
+                                pointRegions,
+                                regionRows,
+                                regionCols,
+                                printfValues,
+                                resultImagePath,
+                                pixelSizeUm > 0 ? pixelSizeUm : 1.0,
+                                bottomInfoBlackHeight,
+                                rangeCheck);
+                            _logger.Info(
+                                $"离线 CT AI 标注结果图已叠加抓点/尺寸"
+                                + (bottomInfoBlackHeight > 0
+                                    ? $"（底部遮罩 {bottomInfoBlackHeight}px）"
+                                    : string.Empty)
+                                + $"：{writtenPath}");
+                        }
+                        catch (Exception overlayEx)
+                        {
+                            _logger.Warn(
+                                $"叠加抓点/尺寸失败，回退写裸 ResultImg：{overlayEx.Message}");
+                            writtenPath = WriteResultImage(resultImg, resultImagePath);
+                        }
+                    }
+
+                    // 出图后立刻把尺寸汇总记入内存，二次标注左栏可直接显示
+                    if (!string.IsNullOrWhiteSpace(writtenPath) && printfValues.Count > 0)
+                    {
+                        var summary = OfflineCtAnnotationHelper.FormatAiDimensionSummaryText(
+                            printfValues,
+                            pixelSizeUm > 0 ? pixelSizeUm : 1.0);
+                        OfflineCtAnnotationHelper.RememberAiDimensionSummary(writtenPath, summary);
                     }
 
                     return new OfflineCtInferResult

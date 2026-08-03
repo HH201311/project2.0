@@ -14,11 +14,30 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// </summary>
         void Initialize(string modelPath, bool isRunCuda = true);
 
-        /// <summary>增强图推理（ModelAction）。</summary>
-        OfflineCtInferResult InferEnhance(string imagePath, int blackHeight, string? resultImagePath = null);
+        /// <summary>
+        /// 增强图推理（ModelAction）；成功时叠抓点/尺寸，并按 bottomInfoBlackHeight 追加底部信息遮罩后落盘。
+        /// </summary>
+        /// <param name="blackHeight">传给 NJCT 的打黑高度（主流程固定 0）。</param>
+        /// <param name="bottomInfoBlackHeight">上位机底部信息遮罩高度（OfflineCtBlackHeight）。</param>
+        /// <param name="rangeCheck">L1~L5 mm 范围判断（可选）。</param>
+        OfflineCtInferResult InferEnhance(
+            string imagePath,
+            int blackHeight,
+            string? resultImagePath = null,
+            double pixelSizeUm = 1.0,
+            int bottomInfoBlackHeight = 0,
+            OfflineCtLRangeCheckOptions? rangeCheck = null);
 
-        /// <summary>原图推理（ModelAction_origin）。</summary>
-        OfflineCtInferResult InferOrigin(string imagePath, int blackHeight, string? resultImagePath = null);
+        /// <summary>
+        /// 原图推理（ModelAction_origin）；成功时叠抓点/尺寸，并按 bottomInfoBlackHeight 追加底部信息遮罩后落盘。
+        /// </summary>
+        OfflineCtInferResult InferOrigin(
+            string imagePath,
+            int blackHeight,
+            string? resultImagePath = null,
+            double pixelSizeUm = 1.0,
+            int bottomInfoBlackHeight = 0,
+            OfflineCtLRangeCheckOptions? rangeCheck = null);
 
         /// <summary>释放模型句柄。</summary>
         void DisposeModel();

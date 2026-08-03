@@ -1,32 +1,32 @@
 using System.Globalization;
 using System.IO;
-using System.Text.RegularExpressions;
+using System.Text;
 
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 切片导出文件名解析与生成（基于 .vgl 导入命名规则）。
+    /// 切片导出文件名解析与生成（基于导入体积/快捷方式显示名）。
+    /// 导出名固定取文件名主干前 <see cref="ExportBaseNameLength"/> 个字符，
+    /// 例如「1161-F 2026-7-25 2-28-56.vgi - 快捷方式」→「1161-F」。
     /// </summary>
     public static class SliceExportNamingHelper
     {
-        /// <summary>命名不合规时的默认型号前缀。</summary>
+        /// <summary>命名不合规时的默认型号前缀（4 位数字）。</summary>
         public const string DefaultModelCode = "0000";
 
-        // 示例：0657-FD 2026-7-12 15-35-16.vgl / 0987-QJ 2026-7-13 8-10-19.vgl
-        private static readonly Regex VglNamePattern = new(
-            @"^(?<model>\d{4})-(?<type>FD|QJ)\s+\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}-\d{1,2}-\d{1,2}$",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        /// <summary>导出主文件夹 / 结果图名使用的前缀长度。</summary>
+        public const int ExportBaseNameLength = 6;
 
         /// <summary>文件名是否含 QJ（全局图像，不区分大小写）。</summary>
         public static bool IsGlobalImage(string vglFileName)
         {
-            var nameWithoutExt = Path.GetFileNameWithoutExtension(vglFileName);
+            var nameWithoutExt = Path.GetFileNameWithoutExtension(vglFileName ?? string.Empty);
             return nameWithoutExt.Contains("QJ", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        /// 保留「型号-类型」前缀，日期段替换为当前时间（用作导出文件夹名）。
-        /// 不符合规则时回退默认名（0000-FD/QJ + 当前时间），不抛异常，避免卡住流程。
+        /// 导出名：导入文件名主干的前 6 个字符（用作主文件夹、AI 结果图名等）。
+        /// 不符合规则时回退默认名（0000-F / 0000-Q），不抛异常，避免卡住流程。
         /// </summary>
         public static string BuildExportBaseName(string vglFileName, DateTime? now = null) =>
             BuildExportBaseName(vglFileName, now, out _);
@@ -34,33 +34,64 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 同 <see cref="BuildExportBaseName(string, DateTime?)"/>；
         /// <paramref name="usedDefaultName"/> 为 true 表示已回退默认命名。
+        /// <paramref name="now"/> 保留兼容，当前规则不再拼时间戳。
         /// </summary>
         public static string BuildExportBaseName(
             string vglFileName,
             DateTime? now,
             out bool usedDefaultName)
         {
+            _ = now;
             usedDefaultName = false;
-            var timestamp = FormatExportTimestamp(now ?? DateTime.Now);
-            var nameWithoutExt = Path.GetFileNameWithoutExtension(vglFileName ?? string.Empty);
+            var stem = NormalizeImportFileStem(vglFileName);
 
-            if (string.IsNullOrWhiteSpace(nameWithoutExt))
+            if (string.IsNullOrWhiteSpace(stem))
             {
                 usedDefaultName = true;
-                return $"{DefaultModelCode}-FD {timestamp}";
+                return BuildDefaultExportBaseName(vglFileName);
             }
 
-            var match = VglNamePattern.Match(nameWithoutExt.Trim());
-            if (!match.Success)
+            var prefix = stem.Length <= ExportBaseNameLength
+                ? stem
+                : stem[..ExportBaseNameLength];
+            prefix = SanitizeFileName(prefix).Trim();
+
+            if (string.IsNullOrWhiteSpace(prefix))
             {
                 usedDefaultName = true;
-                var type = IsGlobalImage(vglFileName ?? string.Empty) ? "QJ" : "FD";
-                return $"{DefaultModelCode}-{type} {timestamp}";
+                return BuildDefaultExportBaseName(vglFileName);
             }
 
-            var model = match.Groups["model"].Value;
-            var matchedType = match.Groups["type"].Value.ToUpperInvariant();
-            return $"{model}-{matchedType} {timestamp}";
+            return prefix;
+        }
+
+        /// <summary>
+        /// 从导入路径/文件名提取主干，供取前缀使用。
+        /// 支持真实 .vgl/.vgi，以及「xxx.vgi - 快捷方式.lnk」。
+        /// </summary>
+        public static string NormalizeImportFileStem(string? fileNameOrPath)
+        {
+            var name = Path.GetFileName(fileNameOrPath ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return string.Empty;
+            }
+
+            // 「a.vgi - 快捷方式.lnk」→ 去 .lnk
+            if (name.EndsWith(
+                    CTAutoSlicerSettingsShortcutExtension,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                name = name[..^CTAutoSlicerSettingsShortcutExtension.Length].TrimEnd();
+            }
+
+            // 「a.vgi - 快捷方式」→ 去「 - 快捷方式」/「 - Shortcut」
+            name = StripShortcutCaptionSuffix(name);
+
+            // 「a.vgi」/「a.vgl」或其它扩展 → 去扩展名
+            name = Path.GetFileNameWithoutExtension(name);
+
+            return name.Trim();
         }
 
         /// <summary>
@@ -79,7 +110,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return ImageStackBaseFileName + index.ToString(CultureInfo.InvariantCulture);
         }
 
-        /// <summary>生成单个视图的导出文件夹名（不含根目录与主文件夹），如「0657-FD 2026-7-13 10-58-00 前」。</summary>
+        /// <summary>生成单个视图的导出文件夹名（不含根目录与主文件夹），如「1161-F 前」。</summary>
         public static string BuildExportFolderName(string exportBaseName, string viewSuffix)
         {
             if (string.IsNullOrWhiteSpace(viewSuffix))
@@ -106,7 +137,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 保存对话框完整路径：
         /// {导出根目录}/{主文件夹}/{视图文件夹}/0
-        /// 例如 …/0657-FD 2026-7-13 10-58-00/0657-FD 2026-7-13 10-58-00 前/0
+        /// 例如 …/1161-F/1161-F 前/0
         /// （不含扩展名；前缀为 ImageStackBaseFileName，堆栈图为 01、02…050…）。
         /// </summary>
         public static string BuildExportSavePath(string exportRootFolder, string exportBaseName, string viewSuffix)
@@ -126,7 +157,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return IsGlobalImage(vglFileName) ? qjQuantity : defaultQuantity;
         }
 
-        /// <summary>格式化为与样例一致的时间串：yyyy-M-d H-mm-ss</summary>
+        /// <summary>格式化为与样例一致的时间串：yyyy-M-d H-mm-ss（保留供其它调用）。</summary>
         public static string FormatExportTimestamp(DateTime dateTime)
         {
             return string.Format(
@@ -139,6 +170,53 @@ namespace SUNWODA_SEVB.Tool.Helper
                 dateTime.Minute,
                 dateTime.Second);
         }
-    }
 
+        private const string CTAutoSlicerSettingsShortcutExtension = ".lnk";
+
+        private static string BuildDefaultExportBaseName(string? vglFileName)
+        {
+            // 与前 6 字符规则对齐：0000-F / 0000-Q
+            var typeLetter = IsGlobalImage(vglFileName ?? string.Empty) ? "Q" : "F";
+            return $"{DefaultModelCode}-{typeLetter}";
+        }
+
+        private static string StripShortcutCaptionSuffix(string name)
+        {
+            const string cn = " - 快捷方式";
+            const string en = " - Shortcut";
+            if (name.EndsWith(cn, StringComparison.OrdinalIgnoreCase))
+            {
+                return name[..^cn.Length].TrimEnd();
+            }
+
+            if (name.EndsWith(en, StringComparison.OrdinalIgnoreCase))
+            {
+                return name[..^en.Length].TrimEnd();
+            }
+
+            return name;
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return string.Empty;
+            }
+
+            var invalid = Path.GetInvalidFileNameChars();
+            var sb = new StringBuilder(name.Length);
+            foreach (var ch in name)
+            {
+                if (Array.IndexOf(invalid, ch) >= 0)
+                {
+                    continue;
+                }
+
+                sb.Append(ch);
+            }
+
+            return sb.ToString();
+        }
+    }
 }

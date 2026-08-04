@@ -8,7 +8,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// <summary>
     /// 将 NJCT 四参数叠到 ResultImg：AllPointRegion + L1~L5 线段 + AllPrintfValue；
     /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（与二次手动标注 ManualMeasureExportHelper 一致，不扩展画布），
-    /// 并在遮罩区内写入尺寸汇总（仅物理长度 μm/mm，不显 px；可选 L1~L5 范围绿/红判色）。
+    /// 并在遮罩区内写入尺寸汇总（仅物理长度 mm，不显 px；可选 L1~L5 范围绿/红判色）。
     /// </summary>
     public static class OfflineCtResultOverlayHelper
     {
@@ -352,18 +352,12 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 将像素距离换算为物理长度文案（μm 或 mm），不出现 px。
+        /// 将像素距离换算为物理长度文案（统一 mm），不出现 px / μm。
         /// </summary>
         private static string FormatPhysicalLength(double lengthPx, double umPerPx)
         {
             var um = lengthPx * (umPerPx > 0 ? umPerPx : 1.0);
             var mm = um / 1000.0;
-            // 小于 0.1 mm 时用 μm 更易读（如 20.1μm），否则用 mm
-            if (Math.Abs(mm) < 0.1)
-            {
-                return string.Create(CultureInfo.InvariantCulture, $"{um:F1}μm");
-            }
-
             return string.Create(CultureInfo.InvariantCulture, $"{mm:F4}mm");
         }
 

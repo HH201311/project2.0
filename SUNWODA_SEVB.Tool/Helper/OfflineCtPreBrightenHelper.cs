@@ -8,10 +8,15 @@ using System.Text;
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 方案 B：调用 NJCT 前按 ROI 亮度统计；偏暗时用类 PS 分区（阴影/中间调/高光/白场）提亮，落盘 input_for_njct。
+    /// 方案 B：调用 NJCT 前固定 CW90° → 按 ROI 亮度统计；偏暗时分区提亮；
+    /// 落盘到产品目录下 <c>input/</c> 供视觉 DLL 读取。
     /// </summary>
     public static class OfflineCtPreBrightenHelper
     {
+        /// <summary>送检图落盘子目录名（相对产品标注目录）。</summary>
+        public const string InputSubFolderName = "input";
+
+        /// <summary>历史文件名主干；现优先使用源图文件名落在 input/ 下。</summary>
         public const string FinalInputFileNameWithoutExt = "input_for_njct";
         public const string BrightenReportFileName = "prebrighten_report.txt";
         public const string AlgorithmCropFileNameWithoutExt = "njct_algo_crop_1844x1500";
@@ -144,19 +149,17 @@ namespace SUNWODA_SEVB.Tool.Helper
             stats.Mean < meanTrigger || stats.P50 < p50Trigger;
 
         /// <summary>
-        /// 可选 CW90 → 计算亮度 →（必要时）提亮 → 得到送检图。
-        /// <paramref name="persistFinalInput"/> 为 true 时落盘 <c>input_for_njct.*</c> 与报告；
-        /// 为 false 时：无需改图则直接用源路径，否则写临时文件（调用方负责删除）。
+        /// 固定 CW90° → 计算亮度 →（必要时）提亮 → 得到送检图。
+        /// <paramref name="persistFinalInput"/> 为 true 时落盘到 <c>{outputFolder}/input/</c>（供视觉 DLL），
+        /// 并写报告；为 false 时写临时文件（调用方负责删除）。
         /// </summary>
-        /// <param name="sourceImagePath">原始上视图（或已朝向正确的图）</param>
-        /// <param name="outputFolder">AI标注目录（仅 persist 时写入）</param>
-        /// <param name="rotateCw90">是否先在内存中顺时针旋转 90°</param>
-        /// <param name="persistFinalInput">是否将预处理图落盘到标注目录</param>
+        /// <param name="sourceImagePath">原始上视图</param>
+        /// <param name="outputFolder">产品标注目录</param>
+        /// <param name="persistFinalInput">是否落盘到 input/ 供 DLL 与排查</param>
         public static PrepareResult PrepareFinalInputImage(
             string sourceImagePath,
             string outputFolder,
             bool enableBrighten,
-            bool rotateCw90 = false,
             double meanTrigger = DefaultMeanTrigger,
             double p50Trigger = DefaultP50Trigger,
             double targetMean = DefaultTargetMean,
@@ -174,44 +177,30 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             ext = ext.ToLowerInvariant();
-            var rotateTag = rotateCw90 ? "已CW90；" : "未旋转；";
+            const string rotateTag = "已CW90；";
 
             using var working = LoadBitmapUnlocked(sourceImagePath);
-            if (rotateCw90)
-            {
-                working.RotateFlip(RotateFlipType.Rotate90FlipNone);
-            }
+            // 送入视觉 DLL 前固定顺时针 90°（不再由界面开关控制）
+            working.RotateFlip(RotateFlipType.Rotate90FlipNone);
 
             var before = MeasureRoi(working);
             var need = enableBrighten && NeedsBrighten(before, meanTrigger, p50Trigger);
-
-            // 不落盘且图未改动：直接送源图，避免多余 IO
-            if (!persistFinalInput && !rotateCw90 && !need)
-            {
-                var summaryPassthrough = enableBrighten
-                    ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（未落盘 input_for_njct）"
-                    : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0}（未落盘 input_for_njct）";
-                return new PrepareResult
-                {
-                    FinalImagePath = sourceImagePath,
-                    BrightenApplied = false,
-                    GainUsed = 0.0,
-                    Before = before,
-                    After = before,
-                    ReportPath = string.Empty,
-                    Summary = summaryPassthrough,
-                    IsTemporary = false,
-                };
-            }
 
             string finalPath;
             string reportPath;
             bool isTemporary;
             if (persistFinalInput)
             {
-                Directory.CreateDirectory(outputFolder);
-                finalPath = Path.Combine(outputFolder, FinalInputFileNameWithoutExt + ext);
-                reportPath = Path.Combine(outputFolder, BrightenReportFileName);
+                var inputDir = Path.Combine(outputFolder, InputSubFolderName);
+                Directory.CreateDirectory(inputDir);
+                var fileName = Path.GetFileName(sourceImagePath);
+                if (string.IsNullOrWhiteSpace(fileName))
+                {
+                    fileName = FinalInputFileNameWithoutExt + ext;
+                }
+
+                finalPath = Path.Combine(inputDir, fileName);
+                reportPath = Path.Combine(inputDir, BrightenReportFileName);
                 isTemporary = false;
             }
             else
@@ -233,11 +222,18 @@ namespace SUNWODA_SEVB.Tool.Helper
             {
                 working.Save(finalPath, format);
                 var summary = enableBrighten
-                    ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（触发线 均值<{meanTrigger:F0} 或 P50<{p50Trigger:F0}）→ {Path.GetFileName(finalPath)}"
-                    : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0} → {Path.GetFileName(finalPath)}";
+                    ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（触发线 均值<{meanTrigger:F0} 或 P50<{p50Trigger:F0}）→ input/{Path.GetFileName(finalPath)}"
+                    : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0} → input/{Path.GetFileName(finalPath)}";
+                if (!persistFinalInput)
+                {
+                    summary = enableBrighten
+                        ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（临时推理图）"
+                        : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0}（临时推理图）";
+                }
+
                 if (persistFinalInput)
                 {
-                    WriteReport(reportPath, summary, before, null, toneLift, brightenApplied: false, rotateCw90);
+                    WriteReport(reportPath, summary, before, null, toneLift, brightenApplied: false, rotateCw90: true);
                 }
 
                 return new PrepareResult
@@ -260,13 +256,16 @@ namespace SUNWODA_SEVB.Tool.Helper
                 after = MeasureRoi(bright);
             }
 
+            var outName = persistFinalInput
+                ? $"input/{Path.GetFileName(finalPath)}"
+                : Path.GetFileName(finalPath);
             var summaryBright =
                 $"{rotateTag}分区提亮(暗部/中间调抬升，高光白场保护)：强度={toneLift:F3}；"
                 + $"前 均值={before.Mean:F1}/P50={before.P50:F0}/P95={before.P95:F0}"
-                + $" → 后 均值={after!.Mean:F1}/P50={after.P50:F0}/P95={after.P95:F0} → {Path.GetFileName(finalPath)}";
+                + $" → 后 均值={after!.Mean:F1}/P50={after.P50:F0}/P95={after.P95:F0} → {outName}";
             if (persistFinalInput)
             {
-                WriteReport(reportPath, summaryBright, before, after, toneLift, brightenApplied: true, rotateCw90);
+                WriteReport(reportPath, summaryBright, before, after, toneLift, brightenApplied: true, rotateCw90: true);
             }
 
             return new PrepareResult
@@ -281,6 +280,28 @@ namespace SUNWODA_SEVB.Tool.Helper
                 IsTemporary = isTemporary,
             };
         }
+
+        /// <summary>
+        /// 兼容旧签名：忽略 <paramref name="rotateCw90"/>（现已固定旋转）。
+        /// </summary>
+        [Obsolete("请使用不带 rotateCw90 的重载；CW90 已固定执行")]
+        public static PrepareResult PrepareFinalInputImage(
+            string sourceImagePath,
+            string outputFolder,
+            bool enableBrighten,
+            bool rotateCw90,
+            double meanTrigger = DefaultMeanTrigger,
+            double p50Trigger = DefaultP50Trigger,
+            double targetMean = DefaultTargetMean,
+            bool persistFinalInput = true) =>
+            PrepareFinalInputImage(
+                sourceImagePath,
+                outputFolder,
+                enableBrighten,
+                meanTrigger,
+                p50Trigger,
+                targetMean,
+                persistFinalInput);
 
         /// <summary>
         /// 由目标均值差估算「暗部抬升强度」(0~MaxToneLift)。

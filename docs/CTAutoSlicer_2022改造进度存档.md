@@ -1,12 +1,33 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-04（本地算法 3D 初始原图）  
+> **文档版本**：2026-08-04（VM partial 拆分）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；CW90° + 预提亮）；进程池并行导入 ✅。  
 > **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-04 增量（AI 标注：固定 CW90 → input/）**：  
+> 1. 取消界面「上视图顺时针旋转 90°」开关；预处理**固定** CW90°。  
+> 2. 旋转（+可选提亮）后写入 **`{产品}/input/{源文件名}`**，再交给 NJCT（视觉 DLL）；报告同目录。  
+> 3. 不再依赖 `OfflineCtExportInputForNjct` / `OfflineCtRotateTopViewCw90`（历史配置保留但不影响主流程）。  
+> 4. 落点：`OfflineCtPreBrightenHelper` / `VGAutomationService.OfflineCtVision` / AI 侧栏 UI。
+
+> **2026-08-04 增量（二次手动标注导出目录）**：  
+> 1. 默认导出由 `{根}/output/` 改为 **`{根}/result/`**，避免打开目录本身已是 `output` 时出现 `output/output`。  
+> 2. 全屏标注工具栏可浏览/改选导出目录，并一键恢复默认 `result`；续标仍兼容历史 `output/`。  
+> 3. 落点：`ManualMeasureExportHelper` / `VM_ManualMeasureAnnotateWindow` / `ManualMeasureAnnotateWindow.xaml`。
+
+> **2026-08-04 增量（阶段七 AI 尺寸单位统一为 mm）**：  
+> 1. 原 `FormatPhysicalLength` / `FormatAiDimensionSummaryText` 在 `< 0.1 mm` 时切 μm，导致汇总栏 L1～L5 单位混用。  
+> 2. 现统一为 **mm**（`F4`）：结果图旁注、底部「AI尺寸汇总」、二次标注左栏内存汇总一致。  
+> 3. 落点：`OfflineCtResultOverlayHelper`、`OfflineCtAnnotationHelper`。
+
+> **2026-08-04 增量（VM_CTAutoSlicerPage partial 拆分）**：  
+> 1. 原约 **7294** 行单文件改为 `partial class`（零行为变更；`[Module]`/DI/XAML 绑定路径不变）。  
+> 2. 主文件保留字段、属性、Command、构造与切图主流程入口；方法按职责迁入 Theme / Settings / RoiPreview / Calibration / AiAnnotate / StageTests / CutImgDllTest / FlowControl。  
+> 3. 策略与 `VGAutomationService`（2026-07-24）一致；编译已通过（0 error）。
 
 > **2026-08-04 增量（本地算法：直方图后保存 3D 初始原图）**：  
 > 1. `Simple321PointSource=Local` 时，`RunSimple321AlignmentAsync` 在 **Pre321 切视角之前**：等待 `Vision3dInitialCaptureWaitMs`（默认 **2000**）→ 按 `Vision3dRoi*` 截一张**默认视角** 3D 原图。  
@@ -32,7 +53,7 @@
 > 1. AI 模式侧栏新增「二次手动标注」（`NavManualMeasure=9`；单步测试=10、偏好=11）。  
 > 2. AI 模式侧栏新增「检测统计」Demo（`NavStats=12`）：当日总数/OK/NG KPI + OK/NG 饼图 + 分时段产量图；假数据，可刷新。  
 > 2. 打开文件夹递归枚举图片 → 全屏工作台：左侧已标/未标列表，中部两点测距（橡皮筋虚线 + CAD 垂直引出线 + 实时 μm/mm）。  
-> 3. 像素精度复用 `OfflineCtPixelSizeUm`；`Shift` 正交；导出 `{根目录}/output/`（`index.json` + 单图 json + `*_annotated.png`）；续标自动加载已有 JSON。  
+> 3. 像素精度复用 `OfflineCtPixelSizeUm`；`Shift` 正交；默认导出 `{根目录}/result/`（标注界面可改选；兼容历史 `output/`）。  
 > 4. 落点：`ManualMeasureAnnotateWindow` / `VM_ManualMeasureAnnotateWindow` / `ManualMeasureExportHelper`；详规 **§22.8**。
 
 > **2026-07-31 增量（直方图 2c：LUT 关键段中点对齐红线）**：  
@@ -285,7 +306,15 @@ flowchart TD
 
 | 文件 | 方法 | 说明 |
 |------|------|------|
-| `SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/VM_CTAutoSlicerPage.cs` | `ExecuteRunSimulationAsync` | 页面按钮入口；校验 `.vgl`；写流程日志 |
+| `SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/VM_CTAutoSlicerPage.cs` | `ExecuteRunSimulationAsync` / `ExecuteSlicePipelineAsync` | 页面核心：字段/属性/构造；切图主流程入口 |
+| `.../VM_CTAutoSlicerPage.Settings.cs` | `LoadSettings` / `BuildSettings` | 参数加载与 `CTAutoSlicerSettings` 组装 |
+| `.../VM_CTAutoSlicerPage.Theme.cs` | 主题色 / 预设 | 偏好配色 |
+| `.../VM_CTAutoSlicerPage.RoiPreview.cs` | ROI 预览 Overlay / 主窗尺寸 | 截图标定预览与窗体记忆 |
+| `.../VM_CTAutoSlicerPage.Calibration.cs` | `ExecuteCalibrate*` | 直方图/LUT/3D/上视图/321/Pre321/PostAlign 标定 |
+| `.../VM_CTAutoSlicerPage.StageTests.cs` | `ExecuteTest*` | 单步测试命令 |
+| `.../VM_CTAutoSlicerPage.CutImgDllTest.cs` | CutImg DLL 离线批量测 | 3D/2D 文件夹批量 |
+| `.../VM_CTAutoSlicerPage.AiAnnotate.cs` | AI 预览 / 批处理 / 统计 Demo | 阶段七 UI 与入口 |
+| `.../VM_CTAutoSlicerPage.FlowControl.cs` | 日志 / 人工干预 / 热键 | `AppendFlowLog`、暂停、Esc/Alt+P |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/CTAutoSlicerService.cs` | `RunSimulationAsync` | 门面；管理 `IsRunning` / Cancel |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | （partial 核心） | 字段/常量/构造/`WaitUntil*`；对外类型仍为 `VGAutomationService` |
 | `.../VgAutomation/VGAutomationService.ProcessPool.cs` | `RunSimulationAsync` / `RunPostImportPipelineAsync` | **核心**：进程池调度 + 后处理串行编排 |
@@ -301,7 +330,8 @@ flowchart TD
 | `.../VgAutomation/VgElementFinder.cs` | `FindWindowByNameScoped` 等 | **内部**通用查找类（不改动 `Tool/Helper`） |
 | `.../VgAutomation/VGAutomationService.StageTests.cs` / `PublicApi.cs` | `Test*` / `CaptureHistogramRoiAsync` / Lock | 单测入口与公开辅助 API |
 
-> **拆分说明（2026-07-24）**：原约 7000 行单文件已按阶段拆为 `partial class`（零行为变更，DI/`ICTAutoSlicerService` 不变）。Phase 2 已抽出 `VgElementFinder`；Import/导出/3-2-1 等仍以 partial 文件为边界（共享 UIA 宿主私有方法，暂不强行拆独立类以免改公共可见性）。
+> **拆分说明（2026-07-24）**：`VGAutomationService` 原约 7000 行单文件已按阶段拆为 `partial class`（零行为变更，DI/`ICTAutoSlicerService` 不变）。Phase 2 已抽出 `VgElementFinder`；Import/导出/3-2-1 等仍以 partial 文件为边界（共享 UIA 宿主私有方法，暂不强行拆独立类以免改公共可见性）。  
+> **拆分说明（2026-08-04）**：`VM_CTAutoSlicerPage` 同样按职责拆为 `partial class`（见上表）；对外类型名与模块注册不变。
 
 ### 4.2 UI Automation 工具
 
@@ -794,7 +824,15 @@ SUNWODA_SEVB.Tool/Helper/
   ScreenCaptureHelper.cs
   …
 SUNWODA_SEVB/ViewModels/Pages/CTAutoSlicer/
-  VM_CTAutoSlicerPage.cs             ← ✅ IsSimple321LocalPointSource；Pre321 标定/单测
+  VM_CTAutoSlicerPage.cs             ← ✅ 核心：字段/属性/构造/切图入口（partial）
+  VM_CTAutoSlicerPage.Settings.cs    ← ✅ Load/BuildSettings
+  VM_CTAutoSlicerPage.Theme.cs       ← ✅ 主题色
+  VM_CTAutoSlicerPage.RoiPreview.cs  ← ✅ ROI 预览 / 主窗尺寸
+  VM_CTAutoSlicerPage.Calibration.cs ← ✅ 标定 Overlay
+  VM_CTAutoSlicerPage.StageTests.cs  ← ✅ 单步测试
+  VM_CTAutoSlicerPage.CutImgDllTest.cs ← ✅ CutImg DLL 离线测
+  VM_CTAutoSlicerPage.AiAnnotate.cs  ← ✅ AI 预览/批处理/统计
+  VM_CTAutoSlicerPage.FlowControl.cs ← ✅ 日志/热键/人工干预
 SUNWODA_SEVB/Views/Pages/CTAutoSlicer/
   CTAutoSlicerPage.xaml              ← ✅ ⓪ 条件显隐；视觉对齐大框四小卡；算法来源下拉
   CTAutoSlicerPageStyles.xaml        ← ✅ CasComboBoxStyle / CasFormSubSectionStyle
@@ -1336,7 +1374,7 @@ screenY = Ry + Py
 
 - 反射 `Assembly.LoadFrom(Dlls\NJCT.dll)` + `SetDllDirectory(Dlls)`  
 - `CF.dll`、`halcondotnet.dll`（22.11）、ONNX Runtime（Cuda 可选）  
-- **方案 B 预提亮**（默认开）：内存 CW90（可选）→ 算 ROI 均值/P50 → 偏暗则增益提亮 → 再调 NJCT；`input_for_njct.*` 落盘由配置 `OfflineCtExportInputForNjct` 控制（默认关，排查时勾选）  
+- **方案 B 预提亮**（默认开）：**固定 CW90°** → 算 ROI 均值/P50 → 偏暗则增益提亮 → 落盘 `{产品}/input/` → 再调 NJCT；历史开关 `OfflineCtRotateTopViewCw90` / `OfflineCtExportInputForNjct` 已不影响主流程  
 - 注意：仓库 `Dlls\NJCT.dll` 已覆盖为惠州正极包；CTNCLX 若共用该 DLL，联调时需确认兼容性
 
 ### 22.4 实现文件
@@ -1370,10 +1408,11 @@ RunAiAnnotationBatchAsync：
   → 清理 {Parent(标注结果根)}/交接备份/ 下超过 30 天的 yyyy-MM-dd 目录
   → 枚举 TopViewHandoffFolder 根下一层 jpg/png
   → 逐张 RunOfflineCtVisionAnnotationAsync(explicitImagePath, explicitOutputFolder)
-      → 预处理：内存 CW90° + 条件提亮（可选落盘 input_for_njct，默认关）
+      → 预处理：固定 CW90° + 条件提亮 → 落盘 {产品}/input/ → NJCT
       → 输出：{SliceExportFolder}/{产品名}/
            {产品名}.jpg（及可选 {产品名}_origin.jpg）/ annotation.json|csv
-           （勾选时另有 input_for_njct.* / prebrighten_report.txt）
+           input/{源文件名} + prebrighten_report.txt
+           （勾选时另有… 已取消；input 固定写出）
       → 【成功后】备份并移出交接：
            源：{TopViewHandoffFolder}/{产品名}.*
            备：{Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}.*
@@ -1381,7 +1420,7 @@ RunAiAnnotationBatchAsync：
 ```
 
 切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}.jpg`（以产品名前六字符命名，避免多产品 050.jpg 冲突）。AI 批处理输出 `{结果根}/{产品名}/`，结果图名为 `{产品名}.jpg`（不再用 `result_enhance.jpg`，也不再套 `AI标注/`）。  
-**朝向**：送检图须 **顺时针 90°** 后再送 NJCT（AI 侧内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
+**朝向**：送检图须 **顺时针 90°** 后再送 NJCT；现固定在写入 `{产品}/input/` 前执行（无界面开关）。  
 失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。  
 **交接备份**：标注成功一项即备份到 **标注结果根目录（SliceExportFolder）上级** 的 `交接备份`，保留 **30 天**，超时按日子目录自动删除；交接源仍从「上视图交接目录」删除。
 
@@ -1392,9 +1431,9 @@ RunAiAnnotationBatchAsync：
 - [x] 单测：「测试 AI 图像标注」  
 - [x] **两机拆分**：`PipelineRunMode` + `TopViewHandoffFolder`；切图交接硬失败；AI 批处理独立入口  
 - [x] Halcon `HObject` 释放与 `RunInfo` 日志  
-- [x] 上视图推理前顺时针 90° + 条件提亮 → 仅 `input_for_njct.*`  
+- [x] 上视图推理前固定顺时针 90° + 条件提亮 → 落盘 `{产品}/input/` 供视觉 DLL  
 - [x] 上视图切片序号可配（1～100）+ 像素精度（μm/px）与 mm/μm 换算展示  
-- [x] **二次手动标注（测距）**：侧栏页签 + 全屏工作台 + 导出 `output/`（见 §22.8）  
+- [x] **二次手动标注（测距）**：侧栏页签 + 全屏工作台 + 导出 `result/`（可改选；见 §22.8）  
 - [x] **交接完成即备份**：标注成功 → `{Parent(标注结果根)}/交接备份/yyyy-MM-dd/{产品名}.*` → 删交接源；保留 30 天  
 - [ ] 真机两机联调：切图交接 `{产品名}.jpg` 扁平落盘；AI 机批处理识别与 `{产品名}/` 落盘符合配置  
 
@@ -1413,18 +1452,18 @@ RunAiAnnotationBatchAsync：
 ### 22.8 二次手动标注（测距；2026-07-31）
 
 > **状态**：✅ 代码已落地。  
-> **目的**：AI（NJCT）漏检处由人工补两点测距；不并入 `AI标注/annotation.json`，独立导出 `output/`。
+> **目的**：AI（NJCT）漏检处由人工补两点测距；不并入 `AI标注/annotation.json`，独立导出 `result/`（可改选）。
 
 | 项 | 说明 |
 |----|------|
 | 侧栏 | AI 模式 →「二次手动标注」`NavManualMeasure=9` |
 | 像素精度 | 复用 `OfflineCtPixelSizeUm`（μm/px）；`L_μm = N_px × s`，`L_mm = L_μm / 1000` |
-| 入口 | 「打开文件夹开始标注」→ 递归枚举 jpg/png/bmp/tif（跳过已有 `output/`） |
+| 入口 | 「打开文件夹开始标注」→ 递归枚举 jpg/png/bmp/tif（跳过已有 `result/` 与历史 `output/`） |
 | 窗口 | `ManualMeasureAnnotateWindow` 最大化；左列表（绿=已标/灰=未标）+ 中部画布 |
 | 测距 | 左键定 P1 → 橡皮筋虚线 + 实时距离 → 左键定 P2；`Shift` 正交；定 P1 后**右键**或 `Esc` 取消起点；`M`/`A` 测距模式 |
 | 编辑 | 撤销上一条 / 清空当前 / 浏览模式点选尺寸线后 `Delete`；切换图片内存保留 |
-| 续标 | 打开时若存在 `output/{相对路径}.json` 则自动加载 |
-| 导出 | `{根目录}/output/index.json` + 单图 json + `{名}_annotated.png` |
+| 续标 | 打开时优先读当前导出目录；无则回退历史 `output/{相对路径}.json` |
+| 导出 | 默认 `{根目录}/result/`；工具栏可浏览改选；写入 `index.json` + 单图 json + `{名}_annotated.png` |
 
 **关键文件**：
 

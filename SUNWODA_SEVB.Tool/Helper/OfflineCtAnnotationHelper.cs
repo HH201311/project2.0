@@ -18,8 +18,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         [Obsolete("不再生成 AI标注 子目录，请用产品文件夹本身作为输出目录")]
         public const string AnnotationFolderName = "AI标注";
 
-        /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper.FinalInputFileNameWithoutExt。</summary>
-        [Obsolete("不再单独落盘旋转中间图，请使用 PrepareFinalInputImage(rotateCw90: true)")]
+        /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper（固定 CW90 → input/）。</summary>
+        [Obsolete("不再单独落盘旋转中间图，请使用 OfflineCtPreBrightenHelper.PrepareFinalInputImage")]
         public const string RotatedInputFileNameWithoutExt = "input_rotated_cw90";
 
         private const string LegacyAnnotationFolderName = "AI标注";
@@ -425,7 +425,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     }
                 }
 
-                // 无 annotation.json 时：取最新 jpg/png（排除 input_for_njct / 手动 output）
+                // 无 annotation.json 时：取最新 jpg/png（排除 input_for_njct / input/ / 手动 result|output）
                 return Directory
                     .EnumerateFiles(rootFull, "*.*", SearchOption.AllDirectories)
                     .Where(IsImageFile)
@@ -446,8 +446,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 是否位于结果根下的二次手动标注导出子目录 <c>output/</c>。
-        /// 注意：结果根本身可以叫 output（如 D:\3Ddeliever\output），不能用绝对路径 Contains("\output\") 误杀。
+        /// 是否位于结果根下的二次手动标注导出子目录 <c>result/</c>、历史 <c>output/</c>，
+        /// 或 AI 预处理送检子目录 <c>input/</c>。
+        /// 注意：结果根本身可以叫 output/result，不能用绝对路径 Contains 误杀。
         /// </summary>
         private static bool IsUnderManualOutputFolder(string rootFull, string path)
         {
@@ -472,12 +473,14 @@ namespace SUNWODA_SEVB.Tool.Helper
                     return false;
                 }
 
-                // 仅当相对路径中出现独立段「output」时视为手动导出目录（…/output/…）
+                // 相对路径中出现独立段 result / output / input 时视为导出或预处理目录
                 var segments = relative.Split(
                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
                     StringSplitOptions.RemoveEmptyEntries);
                 return segments.Any(s =>
-                    string.Equals(s, "output", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(s, ManualMeasureExportHelper.DefaultExportFolderName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(s, ManualMeasureExportHelper.LegacyExportFolderName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(s, OfflineCtPreBrightenHelper.InputSubFolderName, StringComparison.OrdinalIgnoreCase));
             }
             catch
             {
@@ -575,7 +578,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 已废弃：勿再生成 input_rotated_cw90；请用 OfflineCtPreBrightenHelper.PrepareFinalInputImage(..., rotateCw90: true)。
+        /// 已废弃：勿再生成 input_rotated_cw90；请用 OfflineCtPreBrightenHelper.PrepareFinalInputImage（固定 CW90 → input/）。
         /// </summary>
         [Obsolete("不再落盘 input_rotated_cw90，请使用 OfflineCtPreBrightenHelper.PrepareFinalInputImage")]
         public static string CreateRotatedInputForAnnotation(string sourceImagePath, string annotationFolder)
@@ -856,16 +859,9 @@ namespace SUNWODA_SEVB.Tool.Helper
                 for (var k = 0; k < vals.Length; k++)
                 {
                     var px = vals[k];
-                    var um = px * umPerPx;
-                    var mm = um / 1000.0;
-                    if (Math.Abs(mm) < 0.1)
-                    {
-                        sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{um:F1}μm");
-                    }
-                    else
-                    {
-                        sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{mm:F4}mm");
-                    }
+                    var mm = px * umPerPx / 1000.0;
+                    // 统一 mm（与结果图底部/旁注一致，不再按阈值切 μm）
+                    sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{mm:F4}mm");
                 }
 
                 sb.AppendLine();

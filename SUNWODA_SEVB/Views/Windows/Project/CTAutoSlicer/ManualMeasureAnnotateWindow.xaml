@@ -124,11 +124,37 @@
                         Style="{StaticResource ToolBtnStyle}"
                         Content="删除选中"
                         Command="{Binding DeleteSelectedMeasureCommand}" />
+                    <Border Width="1" Background="#FF3F3F46" Margin="8,4" />
+                    <TextBlock
+                        Text="导出目录"
+                        Foreground="#FFAAAAAA"
+                        VerticalAlignment="Center"
+                        Margin="0,0,6,0" />
+                    <TextBox
+                        Width="280"
+                        Height="28"
+                        VerticalContentAlignment="Center"
+                        Padding="6,2"
+                        Background="#FF2D2D30"
+                        Foreground="White"
+                        BorderBrush="#FF3F3F46"
+                        Text="{Binding ExportFolder, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{Binding ExportFolder}" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="浏览…"
+                        Command="{Binding BrowseExportFolderCommand}"
+                        ToolTip="选择手动标注导出目录（默认 {根目录}/result）" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="默认"
+                        Command="{Binding ResetExportFolderCommand}"
+                        ToolTip="恢复为 {根目录}/result" />
                     <Button
                         Style="{StaticResource PrimaryToolBtnStyle}"
                         Content="导出"
                         Click="BtnExport_Click"
-                        ToolTip="导出到当前文件夹下的 output/" />
+                        ToolTip="导出到上方所选目录（index.json + 单图 json + 叠加图）" />
                     <Button
                         Style="{StaticResource ToolBtnStyle}"
                         Content="关闭"

@@ -87,6 +87,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             _step++;
+            // 正式路径已采纳后，⑧～⑫ 回退与主算法一致：不再执行，直接跳最终汇总
+            if (_acceptedQuad != null && _step is >= 7 and <= 11)
+            {
+                _step = 12;
+            }
+
             return _step switch
             {
                 0 => Step0_Load(),
@@ -296,20 +302,20 @@ namespace SUNWODA_SEVB.Tool.Helper
             if (plausible)
             {
                 _acceptedQuad = q;
-                _acceptedPath = "中灰 MidGray";
-                StampStatus(canvas, "ADOPT MidGray", new Scalar(0, 200, 0));
+                _acceptedPath = "MidGray";
+                StampStatus(canvas, "ADOPT MidGray -> next = FINAL", new Scalar(0, 200, 0));
             }
             else
             {
                 // 与主算法一致：保留近失配供最终兜底
                 _midNearMiss = q;
-                StampStatus(canvas, "NEAR-MISS MidGray (not adopted yet)", new Scalar(0, 165, 255));
+                StampStatus(canvas, "NEAR-MISS MidGray (try fallbacks)", new Scalar(0, 165, 255));
             }
 
             return Frame(
                 canvas,
                 plausible
-                    ? $"中灰路径成功，已采纳。{reason}"
+                    ? $"中灰路径成功，已采纳。{reason} 再点「下一步」将跳过回退，直接出最终三点+原点（与主流程一致）。"
                     : $"中灰角点已检出（绿框）但未过 IsPlausibleTopQuad：{reason}。" +
                       "未采纳，故继续⑧～⑫回退；若回退全失败，最终步会兜底采用本绿框。",
                 isTerminal: false,
@@ -350,7 +356,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             if (_acceptedQuad != null)
             {
                 DrawQuad(canvas, _acceptedQuad.Value, new Scalar(0, 255, 0));
-                StampStatus(canvas, $"SKIP Lines: already adopted {_acceptedPath}", new Scalar(0, 200, 0));
+                StampStatus(canvas, "SKIP Lines: already adopted", new Scalar(0, 200, 0));
                 return Frame(
                     canvas,
                     $"已有采纳路径「{_acceptedPath}」，跳过直线回退。",
@@ -414,7 +420,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             if (_acceptedQuad == null && _midNearMiss != null)
             {
                 _acceptedQuad = _midNearMiss;
-                _acceptedPath = "中灰 MidGray（近失配兜底）";
+                _acceptedPath = "MidGray-nearMiss-fallback";
             }
 
             if (_acceptedQuad == null)
@@ -484,7 +490,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             if (_acceptedQuad != null)
             {
                 DrawQuad(canvas, _acceptedQuad.Value, new Scalar(0, 255, 0));
-                StampStatus(canvas, $"SKIP {name}: already adopted {_acceptedPath}", new Scalar(0, 200, 0));
+                StampStatus(canvas, $"SKIP {name}: already adopted", new Scalar(0, 200, 0));
                 return Frame(
                     canvas,
                     $"已有采纳路径「{_acceptedPath}」，跳过回退「{name}」。图上绿框=已采纳结果。",
@@ -635,17 +641,41 @@ namespace SUNWODA_SEVB.Tool.Helper
             return $"合理 area={area:F0} dy={maxY - minY} side={sideRatio:F2} tb={tbRatio:F2}";
         }
 
+        /// <summary>
+        /// OpenCV PutText 仅支持 ASCII；中文会触发 Cannot marshal: unmappable character。
+        /// </summary>
         private static void StampStatus(Mat canvas, string text, Scalar color)
         {
-            Cv2.Rectangle(canvas, new Rect(8, 8, Math.Min(canvas.Cols - 16, 720), 36), new Scalar(0, 0, 0), -1);
+            var ascii = ToAsciiSafe(text);
+            var width = Math.Min(canvas.Cols - 16, Math.Max(200, ascii.Length * 14 + 24));
+            Cv2.Rectangle(canvas, new Rect(8, 8, width, 36), new Scalar(0, 0, 0), -1);
             Cv2.PutText(
                 canvas,
-                text,
+                ascii,
                 new Point(16, 34),
                 HersheyFonts.HersheySimplex,
                 0.7,
                 color,
                 2);
+        }
+
+        private static string ToAsciiSafe(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return "?";
+            }
+
+            var chars = text.ToCharArray();
+            for (var i = 0; i < chars.Length; i++)
+            {
+                if (chars[i] > 0x7F)
+                {
+                    chars[i] = '?';
+                }
+            }
+
+            return new string(chars);
         }
 
         private static Mat OverlayMask(Mat src, Mat mask)

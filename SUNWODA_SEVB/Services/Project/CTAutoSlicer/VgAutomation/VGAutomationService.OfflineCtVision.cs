@@ -258,22 +258,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             var originalImagePath = imagePath;
 
-            // 方案 B：内存中可选 CW90 → 算亮度 →（可选）落盘 input_for_njct → 再推理
+            // 方案 B：固定 CW90 → 算亮度 → 落盘 {产品}/input/ → 再推理（供视觉 DLL）
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(
-                settings.OfflineCtRotateTopViewCw90
-                    ? "AI 标注：内存顺时针旋转 90° + 计算 ROI 亮度，准备最终推理图…"
-                    : "AI 标注：计算 ROI 亮度并准备最终推理图（未旋转）…");
+            progress?.Report("AI 标注：顺时针旋转 90° → 写入 input/ → 计算 ROI 亮度，准备送检图…");
             var preBrighten = await Task.Run(
                     () => OfflineCtPreBrightenHelper.PrepareFinalInputImage(
                         originalImagePath,
                         annotationFolder!,
                         settings.EnableOfflineCtPreBrighten,
-                        settings.OfflineCtRotateTopViewCw90,
                         settings.OfflineCtPreBrightenMeanTrigger,
                         settings.OfflineCtPreBrightenP50Trigger,
                         settings.OfflineCtPreBrightenTargetMean,
-                        persistFinalInput: settings.OfflineCtExportInputForNjct),
+                        // 始终写入 input/，供视觉 DLL 使用（不再走临时文件旁路）
+                        persistFinalInput: true),
                     cancellationToken)
                 .ConfigureAwait(false);
             imagePath = preBrighten.FinalImagePath;

@@ -2402,11 +2402,11 @@
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
-                                            <Run Text="• 顺时针旋转90°：送入 NJCT 前旋转上视图；默认勾选（算法朝向要求）。" />
+                                            <Run Text="• 顺时针旋转90°：写入 input/ 前固定执行（不再提供开关）；送检图落盘 {产品}/input/ 供视觉 DLL。" />
                                             <LineBreak />
                                             <Run Text="• 预提亮：调用算法前计算 ROI 均值/P50，偏暗则分区提亮（方案B，默认开）。" />
                                             <LineBreak />
-                                            <Run Text="• 输出 input_for_njct：将预处理后送检图落盘，仅排查对照时勾选（默认关）。" />
+                                            <Run Text="• input 目录：预处理后送检图固定写入产品目录/input/（含报告）。" />
                                             <LineBreak />
                                             <Run Text="• 导出 JSON/CSV：坐标与尺寸落盘，默认均勾选。" />
                                         </TextBlock>
@@ -2808,14 +2808,9 @@
                                     <StackPanel Margin="0,10,0,0">
                                         <TextBlock
                                             Style="{StaticResource CasFormSectionDescStyle}"
-                                            Text="推理前旋转/提亮开关，以及坐标尺寸与 input_for_njct 落盘。" />
+                                            Text="推理前固定 CW90° 并写入 input/；提亮与坐标尺寸导出可在此开关。" />
 
                                         <UniformGrid Columns="2" Margin="0,0,0,4">
-                                            <CheckBox
-                                                Style="{StaticResource CasFormCheckItemStyle}"
-                                                Content="上视图顺时针旋转 90°"
-                                                IsChecked="{Binding OfflineCtRotateTopViewCw90}"
-                                                ToolTip="送入 NJCT 前将上视图顺时针旋转90°；算法朝向要求时请勾选。手动选已旋转图时可取消" />
                                             <CheckBox
                                                 Style="{StaticResource CasFormCheckItemStyle}"
                                                 Content="调用前条件提亮"
@@ -2829,11 +2824,11 @@
                                                 Style="{StaticResource CasFormCheckItemStyle}"
                                                 Content="输出 annotation.csv"
                                                 IsChecked="{Binding OfflineCtExportCsv}" />
-                                            <CheckBox
-                                                Style="{StaticResource CasFormCheckItemStyle}"
-                                                Content="输出 input_for_njct"
-                                                IsChecked="{Binding OfflineCtExportInputForNjct}"
-                                                ToolTip="将预处理后送检图落盘到产品目录/input_for_njct（含报告）；仅排查对照时勾选，默认关闭" />
+                                            <TextBlock
+                                                Style="{StaticResource CasFormHintStyle}"
+                                                VerticalAlignment="Center"
+                                                Text="送检图：固定 CW90° → {产品}/input/（供视觉 DLL）"
+                                                ToolTip="上视图顺时针旋转 90° 后写入产品目录下 input/ 子文件夹，再交给 NJCT；不再提供旋转开关" />
                                         </UniformGrid>
 
                                         <Expander
@@ -2990,7 +2985,7 @@
                                                 <LineBreak />
                                                 <Run FontWeight="SemiBold" Text="操作" />
                                                 <LineBreak />
-                                                <Run Text="打开文件夹 → 全屏工作台；左键定起点/终点；Shift 正交约束；导出到该文件夹下 output/。" />
+                                                <Run Text="打开文件夹 → 全屏工作台；左键定起点/终点；Shift 正交约束；默认导出到该文件夹下 result/（可在标注界面改选）。" />
                                                 <LineBreak />
                                                 <LineBreak />
                                                 <Run FontWeight="SemiBold" Text="距离" />
@@ -3008,7 +3003,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="开始标注" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="递归读取所选文件夹及子文件夹中的图片；已导出的 output 内标注可自动续标。" />
+                                        Text="递归读取所选文件夹及子文件夹中的图片；已导出的 result（及历史 output）内标注可自动续标。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -3076,7 +3071,7 @@
                                             <TextBlock Text="• 标注模式 (A) / 移动模式 (H)　• 空格或中键拖拽：平移" />
                                             <TextBlock Text="• 定 P1 后右键或 Esc：取消起点　• 滚轮缩放　• Ctrl+Z：撤回　• ↑↓：切换图片" />
                                             <TextBlock Text="• 拖拽标签避挡 / 双击改名；底部遮罩汇总 mm（打黑高度本机绘制）" />
-                                            <TextBlock Text="• 导出：写入 {打开文件夹}/output/（index.json + 单图 json + 叠加图）" />
+                                            <TextBlock Text="• 导出：默认写入 {打开文件夹}/result/（index.json + 单图 json + 叠加图）；标注界面可改选目录" />
                                         </StackPanel>
                                     </Border>
 

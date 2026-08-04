@@ -477,12 +477,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public bool OfflineCtExportCsv { get; set; } = true;
 
         /// <summary>
-        /// 是否将送入 NJCT 的预处理图落盘为 <c>input_for_njct.*</c>（及 prebrighten_report）。
-        /// 仅排查/侧视对照时需要；默认关，推理仍在内存/临时文件完成。
+        /// 历史项：是否将送入 NJCT 的预处理图落盘。现已固定写入 <c>{产品}/input/</c>，本开关不再影响主流程。
         /// </summary>
-        public bool OfflineCtExportInputForNjct { get; set; }
+        public bool OfflineCtExportInputForNjct { get; set; } = true;
 
-        /// <summary>送入 NJCT 前是否将上视图顺时针旋转 90°（默认开；算法朝向要求）</summary>
+        /// <summary>
+        /// 历史项：送入 NJCT 前是否 CW90°。现已固定旋转并写入 input/，本开关不再影响主流程。
+        /// </summary>
         public bool OfflineCtRotateTopViewCw90 { get; set; } = true;
 
         /// <summary>方案 B：调用 NJCT 前是否按 ROI 亮度条件提亮（默认开；与是否落盘 input_for_njct 无关）</summary>

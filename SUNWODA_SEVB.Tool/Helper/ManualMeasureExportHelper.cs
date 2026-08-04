@@ -11,10 +11,18 @@ namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
     /// 二次手动标注：递归枚举图片、续标加载、导出 index/单图 JSON 与叠加图。
+    /// 默认导出目录名为 <see cref="DefaultExportFolderName"/>（result）；可在标注界面改选任意绝对路径。
     /// </summary>
     public static class ManualMeasureExportHelper
     {
-        public const string OutputFolderName = "output";
+        /// <summary>默认导出子目录名（相对打开的根目录）。</summary>
+        public const string DefaultExportFolderName = "result";
+
+        /// <summary>历史导出子目录名；枚举跳过与续标回退时仍识别。</summary>
+        public const string LegacyExportFolderName = "output";
+
+        [Obsolete("请使用 DefaultExportFolderName（result）")]
+        public const string OutputFolderName = DefaultExportFolderName;
 
         private static readonly string[] ImageExtensions =
             [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"];
@@ -25,7 +33,17 @@ namespace SUNWODA_SEVB.Tool.Helper
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
 
-        public static IReadOnlyList<string> EnumerateImagesRecursive(string rootFolder)
+        /// <summary>默认导出目录：{rootFolder}/result</summary>
+        public static string ResolveDefaultExportDir(string rootFolder) =>
+            Path.Combine(rootFolder, DefaultExportFolderName);
+
+        /// <summary>历史导出目录：{rootFolder}/output（仅续标兼容）</summary>
+        public static string ResolveLegacyExportDir(string rootFolder) =>
+            Path.Combine(rootFolder, LegacyExportFolderName);
+
+        public static IReadOnlyList<string> EnumerateImagesRecursive(
+            string rootFolder,
+            string? exportDirToSkip = null)
         {
             if (string.IsNullOrWhiteSpace(rootFolder) || !Directory.Exists(rootFolder))
             {
@@ -33,7 +51,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             var rootFull = Path.GetFullPath(rootFolder);
-            var outputFull = Path.GetFullPath(Path.Combine(rootFull, OutputFolderName));
+            var skipDirs = BuildSkipDirs(rootFull, exportDirToSkip);
 
             return Directory
                 .EnumerateFiles(rootFull, "*.*", SearchOption.AllDirectories)
@@ -46,10 +64,37 @@ namespace SUNWODA_SEVB.Tool.Helper
                         return false;
                     }
 
-                    // 跳过 output 目录内已生成的叠加图，避免二次打开时再扫入
+                    // 跳过导出目录 / 预处理 input 内已生成图，避免二次打开时再扫入
                     var full = Path.GetFullPath(p);
-                    return !full.StartsWith(outputFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                           && !string.Equals(full, outputFull, StringComparison.OrdinalIgnoreCase);
+                    if (skipDirs.Any(skip =>
+                        full.StartsWith(skip + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(full, skip, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return false;
+                    }
+
+                    // 任意层级 …/input/…（各产品下的预处理送检图）
+                    try
+                    {
+                        var relative = Path.GetRelativePath(rootFull, full);
+                        var segments = relative.Split(
+                            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                            StringSplitOptions.RemoveEmptyEntries);
+                        if (segments.Any(s =>
+                            string.Equals(
+                                s,
+                                OfflineCtPreBrightenHelper.InputSubFolderName,
+                                StringComparison.OrdinalIgnoreCase)))
+                        {
+                            return false;
+                        }
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+
+                    return true;
                 })
                 .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -68,27 +113,28 @@ namespace SUNWODA_SEVB.Tool.Helper
             return full[(root.Length + 1)..].Replace('\\', '/');
         }
 
+        /// <summary>兼容旧调用：等同 <see cref="ResolveDefaultExportDir"/>。</summary>
         public static string BuildOutputDir(string rootFolder) =>
-            Path.Combine(rootFolder, OutputFolderName);
+            ResolveDefaultExportDir(rootFolder);
 
-        /// <summary>单图 JSON 落盘路径：output/{相对目录}/{文件名去扩展}.json</summary>
-        public static string BuildImageJsonPath(string rootFolder, string relativePath)
+        /// <summary>单图 JSON：{exportDir}/{相对目录}/{文件名去扩展}.json</summary>
+        public static string BuildImageJsonPath(string exportDir, string relativePath)
         {
             var relNoExt = Path.ChangeExtension(relativePath.Replace('/', Path.DirectorySeparatorChar), null)
                            ?? relativePath;
-            return Path.Combine(BuildOutputDir(rootFolder), relNoExt + ".json");
+            return Path.Combine(NormalizeExportDir(exportDir), relNoExt + ".json");
         }
 
-        /// <summary>叠加图：output/{相对目录}/{文件名去扩展}_annotated.png</summary>
-        public static string BuildAnnotatedImagePath(string rootFolder, string relativePath)
+        /// <summary>叠加图：{exportDir}/{相对目录}/{文件名去扩展}_annotated.png</summary>
+        public static string BuildAnnotatedImagePath(string exportDir, string relativePath)
         {
             var relNoExt = Path.ChangeExtension(relativePath.Replace('/', Path.DirectorySeparatorChar), null)
                            ?? relativePath;
-            return Path.Combine(BuildOutputDir(rootFolder), relNoExt + "_annotated.png");
+            return Path.Combine(NormalizeExportDir(exportDir), relNoExt + "_annotated.png");
         }
 
-        public static string BuildIndexJsonPath(string rootFolder) =>
-            Path.Combine(BuildOutputDir(rootFolder), "index.json");
+        public static string BuildIndexJsonPath(string exportDir) =>
+            Path.Combine(NormalizeExportDir(exportDir), "index.json");
 
         public static ManualMeasureItem CreateMeasure(
             double x1,
@@ -123,40 +169,60 @@ namespace SUNWODA_SEVB.Tool.Helper
             item.LengthMm = item.LengthUm / 1000.0;
         }
 
-        /// <summary>若存在单图 JSON 则加载测量列表；否则返回空列表。</summary>
-        public static List<ManualMeasureItem> TryLoadImageMeasures(string rootFolder, string relativePath)
+        /// <summary>
+        /// 若存在单图 JSON 则加载测量列表；否则返回空列表。
+        /// <paramref name="legacyExportDir"/> 非空且主目录无数据时，回退读取历史 output。
+        /// </summary>
+        public static List<ManualMeasureItem> TryLoadImageMeasures(
+            string exportDir,
+            string relativePath,
+            string? legacyExportDir = null)
         {
-            var jsonPath = BuildImageJsonPath(rootFolder, relativePath);
-            if (!File.Exists(jsonPath))
+            var loaded = TryLoadImageMeasuresFromDir(exportDir, relativePath);
+            if (loaded.Count > 0)
+            {
+                return loaded;
+            }
+
+            if (string.IsNullOrWhiteSpace(legacyExportDir))
             {
                 return [];
             }
 
             try
             {
-                var json = File.ReadAllText(jsonPath, Encoding.UTF8);
-                var record = JsonSerializer.Deserialize<ManualMeasureImageRecord>(json, JsonOptions);
-                return record?.Measures ?? [];
+                var primary = Path.GetFullPath(NormalizeExportDir(exportDir));
+                var legacy = Path.GetFullPath(NormalizeExportDir(legacyExportDir));
+                if (string.Equals(primary, legacy, StringComparison.OrdinalIgnoreCase))
+                {
+                    return [];
+                }
             }
             catch
             {
                 return [];
             }
+
+            return TryLoadImageMeasuresFromDir(legacyExportDir, relativePath);
         }
 
         public static void ExportSession(
             string rootFolder,
             double pixelSizeUm,
             IReadOnlyList<ManualMeasureImageRecord> images,
-            int bottomBlackHeightPx = 0)
+            int bottomBlackHeightPx = 0,
+            string? exportDir = null)
         {
             if (string.IsNullOrWhiteSpace(rootFolder))
             {
                 throw new ArgumentException("根目录不能为空", nameof(rootFolder));
             }
 
-            var outputDir = BuildOutputDir(rootFolder);
-            Directory.CreateDirectory(outputDir);
+            var outDir = NormalizeExportDir(
+                string.IsNullOrWhiteSpace(exportDir)
+                    ? ResolveDefaultExportDir(rootFolder)
+                    : exportDir);
+            Directory.CreateDirectory(outDir);
 
             var export = new ManualMeasureSessionExport
             {
@@ -174,22 +240,87 @@ namespace SUNWODA_SEVB.Tool.Helper
                     RecalcLengths(m, pixelSizeUm);
                 }
 
-                WriteImageJson(rootFolder, img);
+                WriteImageJson(outDir, img);
                 if (img.Measures.Count > 0 && File.Exists(img.AbsolutePath))
                 {
                     RenderAnnotatedImage(
                         img.AbsolutePath,
-                        BuildAnnotatedImagePath(rootFolder, img.RelativePath),
+                        BuildAnnotatedImagePath(outDir, img.RelativePath),
                         img.Measures,
                         bottomBlackHeightPx);
                 }
             }
 
-            var indexPath = BuildIndexJsonPath(rootFolder);
+            var indexPath = BuildIndexJsonPath(outDir);
             File.WriteAllText(
                 indexPath,
                 JsonSerializer.Serialize(export, JsonOptions),
                 Encoding.UTF8);
+        }
+
+        private static List<ManualMeasureItem> TryLoadImageMeasuresFromDir(
+            string exportDir,
+            string relativePath)
+        {
+            var jsonPath = BuildImageJsonPath(exportDir, relativePath);
+            if (!File.Exists(jsonPath))
+            {
+                return [];
+            }
+
+            try
+            {
+                var json = File.ReadAllText(jsonPath, Encoding.UTF8);
+                var record = JsonSerializer.Deserialize<ManualMeasureImageRecord>(json, JsonOptions);
+                return record?.Measures ?? [];
+            }
+            catch
+            {
+                return [];
+            }
+        }
+
+        private static List<string> BuildSkipDirs(string rootFull, string? exportDirToSkip)
+        {
+            var list = new List<string>();
+            void AddIfValid(string? path)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return;
+                }
+
+                try
+                {
+                    var full = Path.GetFullPath(path)
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (!list.Any(x => string.Equals(x, full, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        list.Add(full);
+                    }
+                }
+                catch
+                {
+                    // ignore invalid path
+                }
+            }
+
+            AddIfValid(ResolveDefaultExportDir(rootFull));
+            AddIfValid(ResolveLegacyExportDir(rootFull));
+            AddIfValid(Path.Combine(rootFull, OfflineCtPreBrightenHelper.InputSubFolderName));
+            AddIfValid(exportDirToSkip);
+            return list;
+        }
+
+        private static string NormalizeExportDir(string exportDir)
+        {
+            if (string.IsNullOrWhiteSpace(exportDir))
+            {
+                throw new ArgumentException("导出目录不能为空", nameof(exportDir));
+            }
+
+            return Path.GetFullPath(exportDir.Trim())
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
         private static ManualMeasureImageRecord CloneRecord(ManualMeasureImageRecord src) =>
@@ -224,9 +355,9 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
         }
 
-        private static void WriteImageJson(string rootFolder, ManualMeasureImageRecord record)
+        private static void WriteImageJson(string exportDir, ManualMeasureImageRecord record)
         {
-            var path = BuildImageJsonPath(rootFolder, record.RelativePath);
+            var path = BuildImageJsonPath(exportDir, record.RelativePath);
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir))
             {
@@ -365,24 +496,6 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             return (mid, new PointF(mid.X + nx * length, mid.Y + ny * length));
-        }
-
-        private static PointF PlaceLabelAtLeaderEnd(PointF mid, PointF labelPos, float textW, float textH)
-        {
-            const float pad = 4f;
-            var ox = labelPos.X - mid.X;
-            var oy = labelPos.Y - mid.Y;
-            var olen = MathF.Sqrt(ox * ox + oy * oy);
-            if (olen < 1e-3f)
-            {
-                return new PointF(labelPos.X - textW / 2f, labelPos.Y - textH - pad);
-            }
-
-            var ux = ox / olen;
-            var uy = oy / olen;
-            var cx = labelPos.X + ux * (textW * 0.5f + pad);
-            var cy = labelPos.Y + uy * (textH * 0.5f + pad);
-            return new PointF(cx - textW / 2f, cy - textH / 2f);
         }
 
         private static void DrawCross(Graphics g, Pen pen, PointF c, float r)

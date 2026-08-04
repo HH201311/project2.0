@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Microsoft.WindowsAPICodePack.Dialogs;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Tool.Helper;
@@ -18,16 +19,19 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private string _statusText = string.Empty;
         private double _zoomPercent = 100;
         private string? _selectedMeasureId;
+        private string _exportFolder = string.Empty;
 
         public VM_ManualMeasureAnnotateWindow(
             string rootFolder,
             double pixelSizeUm,
-            int bottomBlackHeightPx)
+            int bottomBlackHeightPx,
+            string? exportFolder = null)
         {
             RootFolder = Path.GetFullPath(rootFolder);
             PixelSizeUm = pixelSizeUm > 0 ? pixelSizeUm : 1.0;
             // 底部信息遮罩高度（图像像素）；≤0 时仍留最小可读区
             BottomBlackHeightPx = Math.Max(0, bottomBlackHeightPx);
+            _exportFolder = ResolveInitialExportFolder(exportFolder);
 
             SelectImageCommand = new RelayCommand(o =>
             {
@@ -43,6 +47,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             SelectPreviousImageCommand = new RelayCommand(_ => MoveSelection(-1), _ => Images.Count > 0);
             SelectNextImageCommand = new RelayCommand(_ => MoveSelection(1), _ => Images.Count > 0);
             ExportCommand = new RelayCommand(_ => Export(), _ => Images.Count > 0);
+            BrowseExportFolderCommand = new RelayCommand(_ => BrowseExportFolder());
+            ResetExportFolderCommand = new RelayCommand(_ =>
+                ExportFolder = ManualMeasureExportHelper.ResolveDefaultExportDir(RootFolder));
 
             // 把目录下已有 annotation.json / 本进程 AI 出图缓存载入，左栏显示 AI 尺寸
             OfflineCtAnnotationHelper.PreloadAiSummariesUnderFolder(RootFolder, PixelSizeUm);
@@ -52,6 +59,24 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public string RootFolder { get; }
+
+        /// <summary>手动标注导出目录（绝对路径）；默认 {RootFolder}/result，可在界面改选。</summary>
+        public string ExportFolder
+        {
+            get => _exportFolder;
+            set
+            {
+                var normalized = NormalizeExportFolderInput(value);
+                if (string.Equals(_exportFolder, normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                _exportFolder = normalized;
+                OnPropertyChanged();
+                StatusText = $"导出目录：{_exportFolder}";
+            }
+        }
 
         public double PixelSizeUm { get; }
 
@@ -183,6 +208,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         public ICommand SelectPreviousImageCommand { get; }
         public ICommand SelectNextImageCommand { get; }
         public ICommand ExportCommand { get; }
+        public ICommand BrowseExportFolderCommand { get; }
+        public ICommand ResetExportFolderCommand { get; }
 
         public void AddMeasure(double x1, double y1, double x2, double y2)
         {
@@ -251,25 +278,100 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 Measures = i.Measures.ToList(),
             }).ToList();
 
+            var outDir = ResolveExportFolderForWrite();
             ManualMeasureExportHelper.ExportSession(
                 RootFolder,
                 PixelSizeUm,
                 records,
-                BottomBlackHeightPx);
+                BottomBlackHeightPx,
+                outDir);
+            // 写回规范化后的绝对路径，便于状态栏与下次导出一致
+            if (!string.Equals(_exportFolder, outDir, StringComparison.OrdinalIgnoreCase))
+            {
+                _exportFolder = outDir;
+                OnPropertyChanged(nameof(ExportFolder));
+            }
+
             HasUnsavedChanges = false;
-            var output = ManualMeasureExportHelper.BuildOutputDir(RootFolder);
-            StatusText = $"已导出到 {output}";
-            return output;
+            StatusText = $"已导出到 {outDir}";
+            return outDir;
+        }
+
+        private void BrowseExportFolder()
+        {
+            using var dialog = new CommonOpenFileDialog
+            {
+                Title = "选择手动标注导出目录（默认 result）",
+                IsFolderPicker = true,
+            };
+            if (!string.IsNullOrWhiteSpace(ExportFolder) && Directory.Exists(ExportFolder))
+            {
+                dialog.InitialDirectory = ExportFolder;
+            }
+            else if (Directory.Exists(RootFolder))
+            {
+                dialog.InitialDirectory = RootFolder;
+            }
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok
+                && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                ExportFolder = dialog.FileName;
+            }
+        }
+
+        private string ResolveInitialExportFolder(string? exportFolder) =>
+            NormalizeExportFolderInput(exportFolder);
+
+        /// <summary>导出前把路径规范为绝对路径；空则回退默认 result。</summary>
+        private string ResolveExportFolderForWrite()
+        {
+            if (string.IsNullOrWhiteSpace(ExportFolder))
+            {
+                return ManualMeasureExportHelper.ResolveDefaultExportDir(RootFolder);
+            }
+
+            try
+            {
+                return Path.GetFullPath(ExportFolder.Trim());
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"导出目录无效：{ExportFolder}", ex);
+            }
+        }
+
+        private string NormalizeExportFolderInput(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return ManualMeasureExportHelper.ResolveDefaultExportDir(RootFolder);
+            }
+
+            var trimmed = value.Trim();
+            try
+            {
+                return Path.GetFullPath(trimmed);
+            }
+            catch
+            {
+                // 输入过程中路径可能暂不合法，先原样保留
+                return trimmed;
+            }
         }
 
         private void LoadImages()
         {
             Images.Clear();
-            var files = ManualMeasureExportHelper.EnumerateImagesRecursive(RootFolder);
+            var files = ManualMeasureExportHelper.EnumerateImagesRecursive(RootFolder, ExportFolder);
+            var legacyDir = ManualMeasureExportHelper.ResolveLegacyExportDir(RootFolder);
             foreach (var abs in files)
             {
                 var rel = ManualMeasureExportHelper.ToRelativePath(RootFolder, abs);
-                var measures = ManualMeasureExportHelper.TryLoadImageMeasures(RootFolder, rel);
+                var measures = ManualMeasureExportHelper.TryLoadImageMeasures(
+                    ExportFolder,
+                    rel,
+                    legacyDir);
                 var item = new ManualMeasureImageListItem(abs, rel, measures);
                 Images.Add(item);
             }

@@ -17,7 +17,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         public Task<HistogramCaptureResult> CaptureHistogramRoiAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
-            IProgress<string>? progress = null)
+            IProgress<string>? progress = null,
+            string? namingSourcePath = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!settings.HasHistogramRoi)
@@ -48,13 +49,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     $"keepDays={settings.HistogramCaptureKeepDays}");
             }
 
+            var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSourcePath);
             var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
-            var filePath = Path.Combine(dir, $"histogram_{stamp}.png");
-            var comparePath = Path.Combine(dir, $"histogram_compare_{stamp}.png");
-            var peaksPath = Path.Combine(dir, $"histogram_peaks_{stamp}.png");
+            var filePath = Path.Combine(dir, $"histogram_{productTag}_{stamp}.png");
+            var comparePath = Path.Combine(dir, $"histogram_compare_{productTag}_{stamp}.png");
+            var peaksPath = Path.Combine(dir, $"histogram_peaks_{productTag}_{stamp}.png");
 
-            progress?.Report($"截取直方图 ROI ({roiX},{roiY},{roiW}x{roiH}) → {dir}");
-            _logger.Info($"截取直方图 ROI → {filePath}");
+            progress?.Report(
+                $"截取直方图 ROI ({roiX},{roiY},{roiW}x{roiH}) → {dir}（产品={productTag}）");
+            _logger.Info($"截取直方图 ROI → {filePath}（产品标签={productTag}）");
 
             ScreenCaptureHelper.CaptureRegionAndSave(filePath, roiX, roiY, roiW, roiH);
 

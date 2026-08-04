@@ -8,7 +8,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// <summary>
     /// 将 NJCT 四参数叠到 ResultImg：AllPointRegion + L1~L5 线段 + AllPrintfValue；
     /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（与二次手动标注 ManualMeasureExportHelper 一致，不扩展画布），
-    /// 并在遮罩区内写入尺寸汇总（仅 mm；可选 L1~L5 范围绿/红判色）。
+    /// 并在遮罩区内写入尺寸汇总（仅物理长度 μm/mm，不显 px；可选 L1~L5 范围绿/红判色）。
     /// </summary>
     public static class OfflineCtResultOverlayHelper
     {
@@ -132,7 +132,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                             $"L{k + 1}:",
                             double.IsNaN(mm)
                                 ? string.Empty
-                                : string.Create(CultureInfo.InvariantCulture, $"{mm:F4}mm"),
+                                : FormatPhysicalLength(vals[k], umPerPx),
                             nameColor: "magenta",
                             valueColor: double.IsNaN(mm)
                                 ? "magenta"
@@ -291,21 +291,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     rangeCheck);
             }
 
-            var tipRow = bandBottom - fontSize;
-            if (tipRow > startRow + lineHeight)
-            {
-                var tip = string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"精度 {umPerPx:F3} μm/px | L_mm=L_px×μm/px/1000");
-                window.DispText(
-                    tip,
-                    "window",
-                    tipRow,
-                    colLeft,
-                    "cyan",
-                    new HTuple("box"),
-                    new HTuple("false"));
-            }
+            // 底部不再写「μm/px / L_px」公式，图上只保留尺寸长度
         }
 
         private static void DrawCellColumn(
@@ -347,11 +333,9 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                 var px = vals[k];
                 var mm = px * umPerPx / 1000.0;
-                // 仅 mm，不显示 px；名称白、数值按范围绿/红
+                // 仅物理长度，绝不带 px；名称白、数值按范围绿/红
                 var name = $"L{k + 1}:";
-                var value = colMax - col < 220
-                    ? string.Create(CultureInfo.InvariantCulture, $"{mm:F4}mm")
-                    : string.Create(CultureInfo.InvariantCulture, $" {mm:F4}mm");
+                var value = " " + FormatPhysicalLength(px, umPerPx);
 
                 DrawNameAndValue(
                     window,
@@ -365,6 +349,22 @@ namespace SUNWODA_SEVB.Tool.Helper
                     coordSystem: "window");
                 y += lineHeight;
             }
+        }
+
+        /// <summary>
+        /// 将像素距离换算为物理长度文案（μm 或 mm），不出现 px。
+        /// </summary>
+        private static string FormatPhysicalLength(double lengthPx, double umPerPx)
+        {
+            var um = lengthPx * (umPerPx > 0 ? umPerPx : 1.0);
+            var mm = um / 1000.0;
+            // 小于 0.1 mm 时用 μm 更易读（如 20.1μm），否则用 mm
+            if (Math.Abs(mm) < 0.1)
+            {
+                return string.Create(CultureInfo.InvariantCulture, $"{um:F1}μm");
+            }
+
+            return string.Create(CultureInfo.InvariantCulture, $"{mm:F4}mm");
         }
 
         /// <summary>

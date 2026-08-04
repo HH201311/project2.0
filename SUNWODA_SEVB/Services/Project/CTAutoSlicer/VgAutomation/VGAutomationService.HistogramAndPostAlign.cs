@@ -19,7 +19,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             Process ctViewerProcess,
             CancellationToken cancellationToken,
             IProgress<string>? progress,
-            bool softFailOnError = false)
+            bool softFailOnError = false,
+            string? namingSourcePath = null)
         {
             if (!settings.HasHistogramRoi)
             {
@@ -28,9 +29,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            progress?.Report("开始直方图灰度调整（截图→峰谷→拖红线→LUT中点对齐）");
+            var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSourcePath);
+            progress?.Report($"开始直方图灰度调整（截图→峰谷→拖红线→LUT中点对齐；产品={productTag}）");
             _logger.Info(
-                $"直方图灰度调整：ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
+                $"直方图灰度调整：产品={productTag}，ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
                 $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight})");
 
             try
@@ -38,7 +40,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
                 await Task.Delay(300, cancellationToken).ConfigureAwait(false);
 
-                var capture = await CaptureHistogramRoiAsync(settings, cancellationToken, progress)
+                var capture = await CaptureHistogramRoiAsync(
+                        settings,
+                        cancellationToken,
+                        progress,
+                        namingSourcePath)
                     .ConfigureAwait(false);
 
                 progress?.Report($"截图已保存：{capture.FilePath}");

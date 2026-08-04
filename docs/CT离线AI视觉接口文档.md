@@ -232,8 +232,8 @@ L 段展开（origin）：
 1. `DispObj(ResultImg)`  
 2. `DispObj(AllPointRegion[i])`（绿色 Region）  
 3. `DispLine` + `DispCross`：L1~L5 端点对  
-4. `DispText`：图上旁注 `Lk:xx.xpx`  
-5. **底部信息遮罩**：高度由界面 **`OfflineCtBlackHeight`（你自行配置）** 决定；上位机在 ResultImg **底部覆盖**打黑并写 L1~L5（与二次手动标注同一项）。传给 NJCT 的 `BlackHeight` **固定 0**，不用 DLL 打黑。  
+4. `DispText`：图上旁注仅物理长度（`Lk:xx.xμm` 或 `Lk:x.xxxxmm`），**不显示 px**  
+5. **底部信息遮罩**：高度由界面 **`OfflineCtBlackHeight`** 决定；上位机在 ResultImg **底部覆盖**打黑并写 L1~L5（仅物理长度，无 px 公式）。传给 NJCT 的 `BlackHeight` **固定 0**。  
 
 
 

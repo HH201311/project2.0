@@ -1,12 +1,32 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-07-31（LUT 关键段中点对齐红线 + Pre321 + 斜俯视找点）  
+> **文档版本**：2026-08-04（本地算法 3D 初始原图）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；CW90° + 预提亮）；进程池并行导入 ✅。  
-> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**。  
+> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-04 增量（本地算法：直方图后保存 3D 初始原图）**：  
+> 1. `Simple321PointSource=Local` 时，`RunSimple321AlignmentAsync` 在 **Pre321 切视角之前**：等待 `Vision3dInitialCaptureWaitMs`（默认 **2000**）→ 按 `Vision3dRoi*` 截一张**默认视角** 3D 原图。  
+> 2. 独立目录 `Vision3dInitialCaptureDir`（默认 `C:\AutoSlice\cutpicture\3D初始`），与找点用的 `jietu` 分离；按日保留 7 天；文件名 `vision_3d_initial_{产品标签}_*.png`。  
+> 3. 截图失败仅打日志，**不阻断** 3-2-1；`VisionDll` 路径不执行。UI「截图目录」可改路径。
+
+> **2026-08-04 增量（DLL 离线测：单图 → 文件夹批量 + 命名）**：  
+> 1. 「CTAutoCutImg DLL 离线测试」输入由单图改为**文件夹**：对目录顶层全部图片（png/jpg/bmp/tif）顺序跑通，单张失败不中断。  
+> 2. 标签更名：**3D侧视图**（`GetSectionReferencePoints`）/ **2D侧视图**（`GetObjectTopBottomPoints`）；配置项 `CutImgDllTestSectionFolder` / `CutImgDllTestVectorFolder`（兼容旧单图路径，自动取所在目录）。  
+> 3. 标注仍输出到 `CutImgDllTestOutputDir`（默认 `C:\AutoSlice\cutpicture\CutImgDllTest`）；流程栏汇总成功/失败数。
+
+> **2026-08-04 增量（Pre321 门控 + 找点算法日志 + DLL 向量上→下 + 截图前等待 + 截图产品前缀）**：  
+> 1. **缺陷**：`RunSimple321AlignmentAsync` 原先只要 `HasPre321ViewPrepPrerequisites` 就切视角，**未判断** `Simple321PointSource`；选「视觉 DLL」时也会跑 Pre321。  
+> 2. **修复**：Pre321 **仅** `Simple321PointSource=Local` 且标定齐全才执行；`VisionDll` 一律跳过，**保持默认视角**截图找点（与源 DLL 约定一致）。  
+> 3. **日志**：入口 / 3D 找点 / 向量找点 / 结束统一前缀 `【找点算法】`，明确写「上位机本地算法（OpenCV…）」或「视觉 DLL 算法（CTAutoCutImg.dll）」及具体方法名；流程栏与 `_logger` 同步。  
+> 4. **DLL 向量点击**：`GetObjectTopBottomPoints` 原始 `[0]→[1]` 真机为下→上；点击前按屏幕 **Y 重排为上→下**（与本地一致）。  
+> 5. **截图前等待**：3D /「上」视图截图前统一 `VisionCaptureWaitMs`（默认 **2000**），等 VG 画面坐标消失；Local / VisionDll 均生效。  
+> 6. **截图产品前缀**：直方图 / 视觉对齐落盘文件名嵌入导入文件名主干前 **6** 字符（与导出名 `BuildExportBaseName` 同规则），如 `histogram_1161-F_….png`、`vision_3d_1161-F_….png`；主流程传排队条目路径，单测尽量取 CT 体素夹首个文件，否则 `unknown`。  
+> 7. **本地 3D 找点分步调试**：调试→单步测试「4b 本地3D找点分步调试」弹窗；对 `vision_3d_*.png` 逐步执行 Mask/中灰/FloodFill/ROI/边缘/直线/Harris/最终三点，每步显示中间图与失败原因。落点 `Vision3dSectionPointsStepProbe` + `Vision3dPointsStepDebugWindow`。  
+> 8. 落点：`SliceExportNamingHelper.BuildCaptureProductTag`；`VGAutomationService` 直方图/Simple321/ProcessPool/StageTests。
 
 > **2026-07-31 增量（二次手动标注 · 测距）**：  
 > 1. AI 模式侧栏新增「二次手动标注」（`NavManualMeasure=9`；单步测试=10、偏好=11）。  
@@ -23,7 +43,7 @@
 > 5. **单测**：「测试直方图灰度调整」同步要求 ROI + LUT 两点，覆盖拖红线 + 中点对齐。
 
 > **2026-07-31 增量（Pre321 + 斜俯视找点 + UI）**：  
-> 1. **找点前视角准备（Pre321）**：配置前缀 `Pre321View*`（点击坐标 + 箭头拖拽起终点 + 等待/步进）；服务 `VGAutomationService.Pre321ViewPrep.cs`；主流程在截 3D 前若标定齐全则先执行；单测在「视觉对齐 → ⓪」内。  
+> 1. **找点前视角准备（Pre321）**：配置前缀 `Pre321View*`（点击坐标 + 箭头拖拽起终点 + 等待/步进）；服务 `VGAutomationService.Pre321ViewPrep.cs`；主流程在截 3D 前若 **Local 且** 标定齐全则先执行（**VisionDll 不跑**，见 2026-08-04）；单测在「视觉对齐 → ⓪」内。  
 > 2. **仅本地算法可见**：`IsSimple321LocalPointSource`；「算法来源」=「上位机本地算法」时才显示 ⓪ 卡片；标题「（上位机本地算法配置）」。  
 > 3. **本地 3D 找点重写**：极耳预焊遮挡下旧水平肩线法不适用斜俯视；主路径改为 **上平面种子 → FloodFill → 凸包极端四点**（`Vision3dSectionPointsDetector`）；输出约定不变 `[0]左上 [1]右上 [2]右下 [3]原点`。  
 > 4. **UI**：①～④ ROI/下拉/偏移收进「视觉对齐标定」大卡片内四个子卡片；`CasComboBoxStyle` 修复「算法来源」下拉文字落在白底外。  
@@ -31,7 +51,7 @@
 
 > **2026-07-31 增量（切图 / AI 两机拆分）**：  
 > 1. 流水线模式 `PipelineRunMode`：`SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏单选胶囊切换；**本机** `Config/CTAutoSlicer/local.json` 持久化（不落共享 DB，避免两机互盖）。  
-> 2. 切图终点：三视图导出后按「前缀+序号」复制「上」视图第 `OfflineCtTopViewSliceIndex` 张（前缀 `ImageStackBaseFileName=0`，如 50→`050.jpg`）到 `TopViewHandoffFolder/{导出名}/`（硬失败），**不再**串行 NJCT。  
+> 2. 切图终点：三视图导出后按「前缀+序号」取「上」视图第 `OfflineCtTopViewSliceIndex` 张（前缀 `ImageStackBaseFileName=0`，如 50→`050.jpg`），**改名为 `{导出名}.jpg`** 写入 `TopViewHandoffFolder/` 根目录（硬失败），**不再**串行 NJCT、**不再**套产品子文件夹。  
 > 3. AI 模式：「开始流程」扫描交接目录产品子文件夹内图像 → CW90/预提亮/NJCT → `{SliceExportFolder}/{产品名}/`（不启 VG；不再套 AI标注 子目录）。  
 > 4. 侧栏按模式显隐；同一「开始流程」按模式分发。
 
@@ -125,7 +145,7 @@ flowchart TD
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
 | Settings：`LutSegmentPoint1/2 X/Y` / `LutSegmentPointsCalibrated` | LUT 关键段两端；主流程未标定则跳过 2c |
 | Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `Simple321OffsetEditX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
-| Settings：`Pre321View*`（Click / Drag / WaitMs） | 找点前视角准备；仅 `Simple321PointSource=Local` 时 UI 显示；主流程截 3D 前执行 |
+| Settings：`Pre321View*`（Click / Drag / WaitMs） | 找点前视角准备；仅 `Simple321PointSource=Local` 时 UI 显示 **且** 主流程执行；VisionDll 跳过 |
 | Settings：`PostAlignCaptureButton*` / `PostAlignDrag*` / **`EnablePostAlignCaptureDragSteps`（默认开）** | 对齐后捕捉按钮 + 箭头拖拽；主流程在 3-2-1 后、导出前 |
 
 **真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **应用预设后标定 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
@@ -148,9 +168,10 @@ flowchart TD
 **阶段四（视觉对齐）**：✅ **全部完成**（即简单 3-2-1，无独立「4b」）。  
 - 单测 + 主流程（`EnableVisionAlignmentSteps`，默认开；厚板后、导出前）  
 - **本地路径**：Pre321 斜俯视准备（仅 `Simple321PointSource=Local`）→ `Vision3dSectionPointsDetector`（FloodFill/凸包四点）+ `VisionTopViewVectorPointsDetector`（**黄框优先**）  
-- 顺序：⓪Pre321 → 截 3D → Ctrl+三点 → **偏移 Edit 置 0** →「上」Ctrl+两点（上→下）→ Ctrl+原点 → 完成 → 警告「是」  
+- **视觉 DLL 路径**：`Simple321PointSource=VisionDll` → **跳过 Pre321**，默认视角截图 → `GetSectionReferencePoints` + `GetObjectTopBottomPoints`（`CTAutoCutImg.dll`）  
+- 顺序（Local）：⓪Pre321 → 截 3D → Ctrl+三点 → **偏移 Edit 置 0** →「上」Ctrl+两点 → Ctrl+原点 → 完成 → 警告「是」  
 - 之后：**捕捉按钮 + 箭头拖拽**（`EnablePostAlignCaptureDragSteps`）  
-- 未标定齐全时跳过并对该文件打日志  
+- 未标定齐全时跳过并对该文件打日志；日志前缀 `【找点算法】` 标明当前路径  
 
 **阶段五切片范围**：UI「切片导出参数」中按视角分别配置（`SliceRangeFront*Mm` / `Right*` / `Top*`）；导出时写入对应视图。见 §7.1 / §11 / §16～§23。
 
@@ -272,7 +293,7 @@ flowchart TD
 | `.../VgAutomation/VGAutomationService.Import.cs` | `OpenQuickImportAsync` / `WaitForImportCompleteAsync` | 阶段一：快速导入 |
 | `.../VgAutomation/VGAutomationService.LutAndHistogram.cs` | `ApplyRenderingPresetAsync` | 阶段二：LUT 预设 |
 | `.../VgAutomation/VGAutomationService.ThickPlate.cs` | `ApplyThickPlateForQuadrantsAsync` | 阶段三：厚板 |
-| `.../VgAutomation/VGAutomationService.Simple321.cs` | `RunSimple321AlignmentAsync` | 阶段四：简单 3-2-1（截 3D 前可接 Pre321） |
+| `.../VgAutomation/VGAutomationService.Simple321.cs` | `RunSimple321AlignmentAsync` | 阶段四：简单 3-2-1（Local 截 3D 前可接 Pre321；VisionDll 跳过） |
 | `.../VgAutomation/VGAutomationService.Pre321ViewPrep.cs` | `RunPre321ViewPrepAsync` | 找点前视角准备（点击+拖拽） |
 | `.../VgAutomation/VGAutomationService.HistogramAndPostAlign.cs` | `ApplyHistogramGrayScaleAdjustAsync` / `DragLutSegmentMidpointToRedLineAsync` / `RunPostAlignCaptureDragAsync` | 直方图灰度（含 LUT 中点）+ 对齐后捕捉拖拽 |
 | `.../VgAutomation/VGAutomationService.SliceExport.cs` | `ExportImageStackSlicesAsync` | 阶段五：切片导出 |
@@ -401,14 +422,15 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
       （`ApplyThickPlateForQuadrantsAsync`）
 
 ✅ 4. 阶段四 · 简单 3-2-1 对齐（全部完成，无独立 4b）
-      **⓪ Pre321（仅本地算法）**：点击切换视图 + 箭头拖拽至斜俯视（`RunPre321ViewPrepAsync`；标定齐全才跑）
-      → 第四象限 3D ROI 截图 → Vision3dSectionPointsDetector（斜俯视：FloodFill/凸包四点）
+      **⓪ Pre321（仅本地算法）**：`Simple321PointSource=Local` 且标定齐全 → 点击切换视图 + 箭头拖拽至斜俯视；
+      **VisionDll 一律跳过 Pre321**，按 **默认视角** 截图找点（`CTAutoCutImg`）
+      → 第四象限 3D ROI 截图 → Local：Vision3dSectionPointsDetector / VisionDll：GetSectionReferencePoints
       → 绝对坐标打开「简单对齐」→ 重置
       → Ctrl+三点（左上→右上→右下）
       → **偏移 Edit 置 0 + Enter**（`Simple321OffsetEdit*`；否则「上」视图非预期）
-      → 「上」视图 ROI 截图 → VisionTopViewVectorPointsDetector（**黄框右缘优先**）→ Ctrl+两点（上→下）
+      → 「上」视图 ROI 截图 → Local：VisionTopViewVectorPointsDetector（黄框优先）/ VisionDll：GetObjectTopBottomPoints → Ctrl+两点
       → Ctrl+原点 → 完成(F) → 警告「是(Y)」
-      （`RunSimple321AlignmentAsync`；主流程开关 `EnableVisionAlignmentSteps`；找点源 `Simple321PointSource`）
+      （`RunSimple321AlignmentAsync`；开关 `EnableVisionAlignmentSteps`；找点源 `Simple321PointSource`；日志前缀 `【找点算法】`）
 
 ✅ 4b'. 对齐后捕捉与拖拽（非旧「4b」）
       点视口底部无名捕捉按钮（UIA 索引/Invoke，失败绝对坐标）→ 按箭头标定直线拖拽
@@ -522,7 +544,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 **已落地清单**：
 
 1. ✅ 本地 3D 找点（斜俯视）+「上」视图向量找点（黄框优先，§18 / §19）  
-2. ✅ Pre321 视角准备：`RunPre321ViewPrepAsync` / 标定 UI / 主流程截 3D 前接入（§23）  
+2. ✅ Pre321 视角准备：`RunPre321ViewPrepAsync` / 标定 UI / 主流程仅 Local 接入（VisionDll 跳过，§23）  
 3. ✅ `RunSimple321AlignmentAsync` / `ResetSimple321PlaneOffsetEditAsync` / `ClickTopViewVectorPointsAsync` / `TryRunVisionAlignmentInMainFlowAsync`  
 4. ✅ Settings + UI：ROI、下拉、**偏移 Edit**、`VisionCaptureDir`、`Vision2dVectorCaptureDir`、`EnableVisionAlignmentSteps`、`Simple321PointSource`  
 5. ✅ 对齐后捕捉拖拽：标定 + `RunPostAlignCaptureDragAsync` + 主流程 + 单测（§20）  
@@ -693,7 +715,7 @@ await ExportImageStackSlicesAsync(...);
 
 - [x] 流程文档：时序、采图、点击换算、主流程接入（§7.1 / §8 / §16～§21 / §23）
 - [x] 标定：3D ROI、「上」视图 ROI、`Simple321ToolbarClickX/Y`、**`Simple321OffsetEditX/Y`**
-- [x] **Pre321**：`Pre321View*` 点击 + 箭头拖拽标定；单测在 ⓪；主流程截 3D 前执行（标定齐全）
+- [x] **Pre321**：`Pre321View*` 点击 + 箭头拖拽标定；单测在 ⓪；主流程仅 Local 且标定齐全时执行（VisionDll 跳过，2026-08-04）
 - [x] **UI**：⓪ 仅「上位机本地算法」显示；①～④「视觉对齐标定」大框套四小卡片；算法来源下拉样式
 - [x] 落盘：`VisionCaptureDir`（jietu）、`Vision2dVectorCaptureDir`（2Dxianglaing），均 **7 天**
 - [x] 本地找点：`Vision3dSectionPointsDetector`（**斜俯视 FloodFill/凸包**）+ `VisionTopViewVectorPointsDetector`（**黄框优先**）+ 探针
@@ -753,7 +775,7 @@ SUNWODA_SEVB/Services/Project/CTAutoSlicer/
   VGAutomationService.cs
   VgAutomation/VGAutomationService.OfflineCtVision.cs
   VgAutomation/VGAutomationService.Pre321ViewPrep.cs  ← ✅ 找点前视角准备
-  VgAutomation/VGAutomationService.Simple321.cs       ← ✅ 截 3D 前接 Pre321
+  VgAutomation/VGAutomationService.Simple321.cs       ← ✅ 截 3D 前接 Pre321（仅 Local；VisionDll 跳过）
   OfflineCtVisionService.cs
   AngleAlgorithmService.cs
   CutImgAlgorithmService.cs
@@ -958,10 +980,11 @@ Alt+F 完成文件选择
 
 | 索引 | 含义 |
 |:----:|------|
-| 0 | **起点** `(X, Y)` 像素 |
-| 1 | **终点** `(X, Y)` 像素 |
+| 0 | DLL 返回点 A `(X, Y)` 像素 |
+| 1 | DLL 返回点 B `(X, Y)` 像素 |
 
-上位机点击顺序：**起点→终点**（`[0]` → `[1]`）。
+**上位机点击顺序（2026-08-04）**：**上→下**（按屏幕 Y 重排后再 Ctrl）。  
+真机观察 DLL 原始 `[0]→[1]` 常为下→上，与 VG 向量方向要求不符；故**不再按索引原样点击**，与本地算法统一为「先上后下」。
 
 坐标单位：像素；相对**输入截图像素坐标系**。
 
@@ -970,10 +993,10 @@ Alt+F 完成文件选择
 | 步骤 | DLL | 点击 |
 |:----:|-----|------|
 | 1 | `GetSectionReferencePoints` `[0..2]` | Ctrl 三点定平面 |
-| 2 | `GetObjectTopBottomPoints`：先 `[0]` 起点再 `[1]` 终点 | Ctrl 向量两点 |
+| 2 | `GetObjectTopBottomPoints` → 按 Y 重排 | Ctrl **上点→下点** |
 | 3 | `GetSectionReferencePoints` `[3]` 原点 | Ctrl 原点 |
 
-**离线单测（不跑 VG）**：单步测试页「CTAutoCutImg DLL 离线测试」两个按钮分别测上述两方法，标注图默认输出 `C:\AutoSlice\cutpicture\CutImgDllTest`。
+**离线单测（不跑 VG）**：单步测试页「CTAutoCutImg DLL 离线测试」——**3D侧视图** / **2D侧视图** 各选一文件夹，两个按钮分别对该目录内全部图片批量测 `GetSectionReferencePoints` / `GetObjectTopBottomPoints`；标注图默认输出 `C:\AutoSlice\cutpicture\CutImgDllTest`。
 
 ### 16.2 简单 3-2-1 对齐流程（✅ 单测 + 主流程）
 
@@ -982,7 +1005,9 @@ Alt+F 完成文件选择
 
 ```mermaid
 flowchart TD
-    A[单测/主流程入口] --> P{"Local 且 Pre321 标定齐全?"}
+    A[单测/主流程入口] --> S{"Simple321PointSource?"}
+    S -->|VisionDll| B
+    S -->|Local| P{"Pre321 标定齐全?"}
     P -->|是| P2[点击切换视图 + 箭头拖拽]
     P -->|否| B
     P2 --> B[按 Vision3dRoi 截取第四象限 3D]
@@ -994,7 +1019,7 @@ flowchart TD
     G --> H[点击「重置」]
     H --> I["步骤1：Ctrl+三点（左上→右上→右下）"]
     I --> I2["步骤1.5：偏移 Edit 置 0 + Enter"]
-    I2 --> J["步骤2：截「上」视图 → 黄框向量两点 → Ctrl+两点（上→下）"]
+    I2 --> J["步骤2：截「上」视图 → 向量两点 → Ctrl+两点"]
     J --> K["步骤3：Ctrl+原点（3D）"]
     K --> L[点击「完成(F)」]
     L --> M{警告对话框?}
@@ -1005,17 +1030,18 @@ flowchart TD
 
 **操作要点**：
 
-1. **⓪ Pre321（仅 Local）**：截 3D 前点击切换视图 + 箭头拖拽至斜俯视（§23）；未标定则跳过打日志。
-2. **采图（3D）**：第四象限 **3D** 有效范围（`Vision3dRoi*`）→ `VisionCaptureDir`（默认 `jietu`，**7 天**）。
-3. **找点（3D）**：本地斜俯视 FloodFill/凸包（§18）；`points[0..2]` 上盖三点（**左上 / 右上 / 右下**），`points[3]` 原点。
+1. **⓪ Pre321（仅 Local）**：截 3D 前点击切换视图 + 箭头拖拽至斜俯视（§23）；未标定则跳过打日志。**`VisionDll` 禁止跑 Pre321**，保持默认视角直接截图（2026-08-04 已门控）。  
+   - **Local 额外**：Pre321 **之前**先等 `Vision3dInitialCaptureWaitMs`（默认 2s）→ 截默认视角 3D 原图到 `Vision3dInitialCaptureDir`（`3D初始`，强化学习样本；失败不阻断）。  
+2. **采图（3D）**：截图前等待 `VisionCaptureWaitMs`（默认 2s，等坐标消失）→ 第四象限 **3D** 有效范围（`Vision3dRoi*`）→ `VisionCaptureDir`（默认 `jietu`，**7 天**）。
+3. **找点（3D）**：Local 斜俯视 FloodFill/凸包（§18）；VisionDll `GetSectionReferencePoints`。`points[0..2]` 上盖三点（**左上 / 右上 / 右下**），`points[3]` 原点。日志带 `【找点算法】`。
 4. **步骤顺序（关键）**：在「简单 3-2-1 对齐」对话框打开期间完成；**仅原点完成后才点「完成」**。**步骤2 必须先于步骤3**。
 5. **步骤1.5 偏移置0**：三点后点击左侧无名 Edit（`Simple321OffsetEdit*`）→ 输入 `0` → Enter；否则「上」视图非预期。
-6. **步骤2 向量**：截取 **`VisionTopViewRoi*`** → `VisionTopViewVectorPointsDetector`（**优先黄框右缘旁侧**，§19）→ Ctrl+从上到下 → 落盘 **`Vision2dVectorCaptureDir`**。
+6. **步骤2 向量**：截图前同样等待 `VisionCaptureWaitMs` → 截取 **`VisionTopViewRoi*`** → Local：`VisionTopViewVectorPointsDetector`（**优先黄框右缘旁侧**，§19）/ VisionDll：`GetObjectTopBottomPoints`（按 Y 上→下）→ Ctrl 点击 → 落盘 **`Vision2dVectorCaptureDir`**。
 7. **UI**：「简单对齐」下拉须 **`Simple321ToolbarClickX/Y` 绝对屏幕坐标**。
 8. **重置**：进入对齐后先点 **重置**，再 Ctrl+选点。
 9. **完成与警告**：点 **完成(F)** 后若出现 **警告**，须点 **是(Y)**。
 10. **失败策略**：算法/点击异常 → 日志；主流程未标定齐全则跳过该段。
-
+11. **核对算法**：流程日志搜 `【找点算法】`，应与界面「算法来源」下拉一致；切 DLL 后不应再出现 Pre321 拖拽日志。
 ### 16.3 ~~子步骤旧 4b~~（已取消）
 
 > **2026-07-22 终版**：不存在独立旧 4b。简单 3-2-1 的「2」=「上」视图向量两点（§16.2 步骤2 / §19）。  
@@ -1064,7 +1090,10 @@ screenY = Ry + Py
 | `Simple321ToolbarClickX/Y` | 真机标定 | 「简单对齐」下拉 **绝对坐标** |
 | `Simple321OffsetEditX/Y` + Calibrated | 真机标定 | 三点后偏移 Edit **绝对坐标**（置 0） |
 | `VisionClickIntervalMs` | `300` | 多点点击间隔 |
+| `VisionCaptureWaitMs` | `2000` | 3D/「上」视图截图前等待（等画面坐标消失；Local/DLL 共用） |
 | `VisionCaptureDir` | `C:\AutoSlice\cutpicture\jietu` | 3D 调试图；按日，**7 天** |
+| `Vision3dInitialCaptureDir` | `C:\AutoSlice\cutpicture\3D初始` | Local：Pre321 前默认视角 3D 原图（强化学习）；按日，**7 天** |
+| `Vision3dInitialCaptureWaitMs` | `2000` | 保存 3D 初始原图前等待 |
 | `Vision2dVectorCaptureDir` | `C:\AutoSlice\cutpicture\2Dxianglaing` | 向量截图/标注；按日，**7 天** |
 | `EnablePostAlignCaptureDragSteps` | `true` | 主流程是否执行对齐后捕捉拖拽 |
 | `PostAlignCaptureButtonX/Y` + Index | 真机标定 | 无名捕捉按钮坐标 / UIA 索引 |
@@ -1092,7 +1121,7 @@ screenY = Ry + Py
 - [x] 真机：ROI 与视口一致
 - [x] 真机：绝对下拉 + 重置 + 完整 3-2-1（含偏移置0）+ 完成 + 警告是
 - [x] `EnableVisionAlignmentSteps=true` 时主流程执行 3-2-1
-- [x] Pre321 标定 + 单测 + 主流程截 3D 前接入（§23）
+- [x] Pre321 标定 + 单测 + 主流程仅 Local 接入；VisionDll 跳过（§23，2026-08-04）
 - [x] 对齐后捕捉拖拽单测 + 主流程
 - [x] 主/单测一致性（§21）
 - [ ] 真机：斜俯视四点与人工标注一致性（尤其原点）
@@ -1277,7 +1306,7 @@ screenY = Ry + Py
 | 项 | 说明 |
 |----|------|
 | `PipelineRunMode` | `SliceOnly`（默认）/ `AiAnnotateOnly`；调试顶栏胶囊切换；**本机 JSON** `{程序目录}/Config/CTAutoSlicer/local.json`（`CTAutoSlicerLocalConfigService`） |
-| `TopViewHandoffFolder` | 共享交接目录；切图写入 `{exportBaseName}_{index:D3}.ext`，AI 扫描一层 |
+| `TopViewHandoffFolder` | 共享交接目录；切图写入 `{exportBaseName}.ext`（扁平），AI 扫描根一层 |
 | 切图机 | 侧栏：应用～切片；导出后 `MirrorTopViewHandoffAsync`（硬失败） |
 | AI 机 | 侧栏：AI 图像标注、**二次手动标注**；「开始流程」→ `RunAiAnnotationBatchAsync`（不启 VG） |
 | 结果根 | 复用 `SliceExportFolder`（AI 模式下 UI 文案为「标注结果根目录」） |
@@ -1333,28 +1362,28 @@ RunPostImportPipelineAsync：
   … → ExportImageStackSlicesAsync → (exportBaseName, quantity)
   → MirrorTopViewHandoffAsync
       → 源：{导出根}/{exportBaseName}/{exportBaseName} 上/{OfflineCtTopViewSliceIndex}.*
-      → 目标：{TopViewHandoffFolder}/{exportBaseName}_{index:D3}.*
+      → 目标：{TopViewHandoffFolder}/{exportBaseName}.*（扁平，无产品子目录）
       → 硬失败（交接目录未配 / 源图缺失 / 复制失败则中断该文件）
 
 【AI 机 · AiAnnotateOnly】
 RunAiAnnotationBatchAsync：
   → 清理 {Parent(标注结果根)}/交接备份/ 下超过 30 天的 yyyy-MM-dd 目录
-  → 枚举 TopViewHandoffFolder 产品子目录（及根遗留）jpg/png
+  → 枚举 TopViewHandoffFolder 根下一层 jpg/png
   → 逐张 RunOfflineCtVisionAnnotationAsync(explicitImagePath, explicitOutputFolder)
       → 预处理：内存 CW90° + 条件提亮（可选落盘 input_for_njct，默认关）
       → 输出：{SliceExportFolder}/{产品名}/
            {产品名}.jpg（及可选 {产品名}_origin.jpg）/ annotation.json|csv
            （勾选时另有 input_for_njct.* / prebrighten_report.txt）
       → 【成功后】备份并移出交接：
-           源：{TopViewHandoffFolder}/{产品名}/{原文件名}
-           备：{Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}/{原文件名}
-           再删交接源（空产品夹一并删）；备份失败则保留源以便重试
+           源：{TopViewHandoffFolder}/{产品名}.*
+           备：{Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}.*
+           再删交接源；备份失败则保留源以便重试
 ```
 
-切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}/{原文件名}`。AI 批处理输出 `{结果根}/{产品名}/`，结果图名为 `{产品名}.jpg`（不再用 `result_enhance.jpg`，也不再套 `AI标注/`）。  
+切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}.jpg`（以产品名前六字符命名，避免多产品 050.jpg 冲突）。AI 批处理输出 `{结果根}/{产品名}/`，结果图名为 `{产品名}.jpg`（不再用 `result_enhance.jpg`，也不再套 `AI标注/`）。  
 **朝向**：送检图须 **顺时针 90°** 后再送 NJCT（AI 侧内存旋转，**不再**单独落盘 `input_rotated_cw90`）。  
 失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。  
-**交接备份**：标注成功一项即按原文件夹结构备份到 **标注结果根目录（SliceExportFolder）上级** 的 `交接备份`，保留 **30 天**，超时按日子目录自动删除；交接源仍从「上视图交接目录」删除。
+**交接备份**：标注成功一项即备份到 **标注结果根目录（SliceExportFolder）上级** 的 `交接备份`，保留 **30 天**，超时按日子目录自动删除；交接源仍从「上视图交接目录」删除。
 
 ### 22.6 清单
 
@@ -1366,8 +1395,8 @@ RunAiAnnotationBatchAsync：
 - [x] 上视图推理前顺时针 90° + 条件提亮 → 仅 `input_for_njct.*`  
 - [x] 上视图切片序号可配（1～100）+ 像素精度（μm/px）与 mm/μm 换算展示  
 - [x] **二次手动标注（测距）**：侧栏页签 + 全屏工作台 + 导出 `output/`（见 §22.8）  
-- [x] **交接完成即备份**：标注成功 → `{Parent(标注结果根)}/交接备份/yyyy-MM-dd/{产品名}/图` → 删交接源；保留 30 天  
-- [ ] 真机两机联调：切图交接文件名正确；AI 机批处理识别与 `{产品名}/` 落盘符合配置  
+- [x] **交接完成即备份**：标注成功 → `{Parent(标注结果根)}/交接备份/yyyy-MM-dd/{产品名}.*` → 删交接源；保留 30 天  
+- [ ] 真机两机联调：切图交接 `{产品名}.jpg` 扁平落盘；AI 机批处理识别与 `{产品名}/` 落盘符合配置  
 
 ### 22.7 UI：标定采图迁入单步测试（2026-07-28）
 
@@ -1409,10 +1438,11 @@ RunAiAnnotationBatchAsync：
 
 ---
 
-## 23. 找点前视角准备 Pre321 + 视觉对齐 UI（2026-07-31）
+## 23. 找点前视角准备 Pre321 + 视觉对齐 UI（2026-07-31；2026-08-04 门控修订）
 
 > **状态**：✅ 代码已落地；真机斜俯视四点待巩固。  
-> **动机**：极耳预焊遮挡默认视角角点 → 先切到斜俯视再采 3D 图找点。
+> **动机**：极耳预焊遮挡默认视角角点 → 先切到斜俯视再采 3D 图找点（**仅本地 OpenCV 路径**）。  
+> **约定**：视觉 DLL（`CTAutoCutImg`）在 **默认视角** 下找点，**不得**执行 Pre321。
 
 ### 23.1 Pre321 行为
 
@@ -1420,7 +1450,7 @@ RunAiAnnotationBatchAsync：
 |----|------|
 | 配置前缀 | `Pre321View*`（Click / Drag / WaitMs / DragStepDelayMs） |
 | 服务 | `VGAutomationService.Pre321ViewPrep.cs`：`TestPre321ViewPrepAsync` / `RunPre321ViewPrepAsync` |
-| 主流程 | `RunSimple321AlignmentAsync` 在截 3D **之前**：若 `HasPre321ViewPrepPrerequisites` 则先跑 |
+| 主流程门控 | `RunSimple321AlignmentAsync` 截 3D **之前**：仅当 **`!UseVisionDllForSimple321`（Local）且** `HasPre321ViewPrepPrerequisites` 才跑；VisionDll → 打日志跳过 |
 | 单测入口 | 调试 → 视觉对齐 → **⓪ 3D找点前视角准备（上位机本地算法配置）** |
 | 标定 | 屏幕绝对点击 + `ScreenArrowCalibrationOverlayWindow` 箭头拖拽（对齐「对齐后拖拽」交互） |
 | 参考图 | `Assets/images/pre321_view_ref.png`；VM `Pre321ViewReferenceImage` |
@@ -1432,6 +1462,7 @@ RunAiAnnotationBatchAsync：
 | 条件 | 仅当 `Simple321PointSource == Local`（界面「上位机本地算法」）时显示 ⓪ |
 | VM | `IsSimple321LocalPointSource`；`Simple321PointSource` 变更时 `OnPropertyChanged` |
 | 标题 | 「⓪ 3D找点前视角准备（上位机本地算法配置）」 |
+| 运行时 | UI 隐藏不足以保证安全：服务层必须再判 `UseVisionDllForSimple321`（2026-08-04 已修） |
 
 ### 23.3 UI 结构
 
@@ -1448,4 +1479,7 @@ RunAiAnnotationBatchAsync：
 - [x] 仅本地算法显示；标题文案  
 - [x] ①～④ 大框套小框；下拉样式修复  
 - [x] 斜俯视 `Vision3dSectionPointsDetector` 重写（§18）  
+- [x] **VisionDll 路径跳过 Pre321**（服务层门控，2026-08-04）  
+- [x] 流程/文件日志标明当前找点算法（`【找点算法】` 前缀）  
 - [ ] 真机：Pre321 后 `*_points.png` 与人工标注一致  
+- [ ] 真机：VisionDll 默认视角找点与 DLL 离线单测一致  

@@ -47,32 +47,24 @@ namespace SUNWODA_SEVB.Tool.Helper
                 SliceExportNamingHelper.BuildExportFileRootFolderName(exportBaseName));
 
         /// <summary>
-        /// 交接相对路径：{导出名产品文件夹}/{源文件名}，例如「1161-F/050.jpg」。
-        /// 保留原切片文件名，用产品子目录避免多产品 050.jpg 互相覆盖。
+        /// 交接文件名（扁平，无子目录）：{导出名}.{源扩展名}，例如「1161-F.jpg」。
+        /// 用产品名作文件名，避免多产品共用 050.jpg 冲突。
         /// </summary>
-        public static string BuildHandoffRelativePath(string exportBaseName, string sourceImagePath)
-        {
-            var productFolder = string.IsNullOrWhiteSpace(exportBaseName)
-                ? "export"
-                : Path.GetFileName(exportBaseName.Trim());
-            var fileName = Path.GetFileName(sourceImagePath);
-            if (string.IsNullOrWhiteSpace(fileName))
-            {
-                fileName = "slice.jpg";
-            }
-
-            return Path.Combine(productFolder, fileName);
-        }
-
-        /// <summary>
-        /// 兼容旧调用；新交接请用 <see cref="BuildHandoffRelativePath"/>（产品子目录 + 原文件名）。
-        /// </summary>
-        [Obsolete("请使用 BuildHandoffRelativePath：产品文件夹/原文件名，避免 50.jpg 冲突")]
-        public static string BuildHandoffFileName(string exportBaseName, int sliceIndex, string sourceImagePath)
+        public static string BuildHandoffFileName(string exportBaseName, string sourceImagePath)
         {
             var safeBase = string.IsNullOrWhiteSpace(exportBaseName)
                 ? "export"
                 : Path.GetFileName(exportBaseName.Trim());
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                safeBase = safeBase.Replace(c, '_');
+            }
+
+            if (string.IsNullOrWhiteSpace(safeBase))
+            {
+                safeBase = "export";
+            }
+
             var ext = Path.GetExtension(sourceImagePath);
             if (string.IsNullOrWhiteSpace(ext)
                 || !ImageExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
@@ -80,11 +72,28 @@ namespace SUNWODA_SEVB.Tool.Helper
                 ext = ".jpg";
             }
 
-            return $"{safeBase}_{Math.Max(1, sliceIndex):D3}{ext.ToLowerInvariant()}";
+            return safeBase + ext.ToLowerInvariant();
         }
 
         /// <summary>
-        /// 将上视图送检图复制到交接目录「产品名」子文件夹，文件名保持为源名（如 50.jpg）。
+        /// 兼容旧签名：忽略 <paramref name="sliceIndex"/>，等同 <see cref="BuildHandoffFileName(string, string)"/>。
+        /// </summary>
+        [Obsolete("请使用 BuildHandoffFileName(exportBaseName, sourceImagePath)：扁平 {产品名}.jpg")]
+        public static string BuildHandoffFileName(string exportBaseName, int sliceIndex, string sourceImagePath)
+        {
+            _ = sliceIndex;
+            return BuildHandoffFileName(exportBaseName, sourceImagePath);
+        }
+
+        /// <summary>
+        /// 兼容旧相对路径 API；现行返回扁平文件名（无子目录）。
+        /// </summary>
+        [Obsolete("请使用 BuildHandoffFileName：交接目录根下直接放 {产品名}.jpg")]
+        public static string BuildHandoffRelativePath(string exportBaseName, string sourceImagePath) =>
+            BuildHandoffFileName(exportBaseName, sourceImagePath);
+
+        /// <summary>
+        /// 将上视图送检图复制到交接目录根，文件名改为产品名（如 1161-F.jpg）。
         /// </summary>
         public static string CopyTopViewImageToHandoffFolder(
             string sourceImagePath,
@@ -92,6 +101,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             string exportBaseName,
             int sliceIndex)
         {
+            _ = sliceIndex; // 选图序号仅影响源图，交接落盘名用产品名
             if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
             {
                 throw new FileNotFoundException("待交接的上视图送检图不存在", sourceImagePath);
@@ -103,21 +113,15 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             Directory.CreateDirectory(handoffFolder);
-            var relative = BuildHandoffRelativePath(exportBaseName, sourceImagePath);
-            var destPath = Path.Combine(handoffFolder, relative);
-            var destDir = Path.GetDirectoryName(destPath);
-            if (!string.IsNullOrWhiteSpace(destDir))
-            {
-                Directory.CreateDirectory(destDir);
-            }
-
+            var fileName = BuildHandoffFileName(exportBaseName, sourceImagePath);
+            var destPath = Path.Combine(handoffFolder, fileName);
             File.Copy(sourceImagePath, destPath, overwrite: true);
             return destPath;
         }
 
         /// <summary>
         /// 备份根目录名：落在「标注结果根目录」上级 →
-        /// {Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}/图。
+        /// {Parent(SliceExportFolder)}/交接备份/{yyyy-MM-dd}/{产品名}.jpg。
         /// </summary>
         public const string HandoffBackupFolderName = "交接备份";
 
@@ -125,7 +129,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         public const int DefaultHandoffBackupKeepDays = 30;
 
         /// <summary>
-        /// 枚举交接图像：优先「产品子目录」内一层图片；兼容根目录遗留的扁平文件。
+        /// 枚举交接图像：仅扫描交接目录根下一层 jpg/png（扁平 {产品名}.jpg）。
+        /// 不再扫描产品子目录。
         /// </summary>
         public static IReadOnlyList<string> EnumerateHandoffImages(string handoffFolder)
         {
@@ -134,13 +139,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return Array.Empty<string>();
             }
 
-            var fromProductDirs = Directory.EnumerateDirectories(handoffFolder)
-                .SelectMany(dir => Directory.EnumerateFiles(dir).Where(IsImageFile));
-
-            var fromRoot = Directory.EnumerateFiles(handoffFolder).Where(IsImageFile);
-
-            return fromProductDirs
-                .Concat(fromRoot)
+            return Directory.EnumerateFiles(handoffFolder)
+                .Where(IsImageFile)
                 .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -169,7 +169,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 相对交接根的路径，保持「产品文件夹/文件名」结构；扁平遗留文件则为文件名本身。
+        /// 相对交接根的路径；现行扁平结构即为文件名本身。
         /// </summary>
         public static string GetHandoffRelativePath(string handoffFolder, string imagePath)
         {
@@ -187,24 +187,12 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return imageFull.Substring(prefix.Length);
             }
 
-            // 路径不在交接根下时回退：父目录名/文件名 或仅文件名
-            var parentDir = Path.GetDirectoryName(imageFull);
-            var fileName = Path.GetFileName(imageFull);
-            if (!string.IsNullOrWhiteSpace(parentDir)
-                && !string.Equals(
-                    Path.GetPathRoot(parentDir),
-                    parentDir,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return Path.Combine(Path.GetFileName(parentDir), fileName);
-            }
-
-            return fileName;
+            return Path.GetFileName(imageFull);
         }
 
         /// <summary>
-        /// 将已标注完成的交接图按原结构复制到「标注结果根目录」上级的
-        /// 「交接备份/yyyy-MM-dd/…」，再删除交接源（空产品夹一并删）。
+        /// 将已标注完成的交接图复制到「标注结果根目录」上级的
+        /// 「交接备份/yyyy-MM-dd/{产品名}.jpg」，再删除交接源。
         /// </summary>
         /// <param name="handoffFolder">上视图交接目录（源图所在）。</param>
         /// <param name="annotationResultRoot">标注结果根目录（决定备份落在其上级）。</param>
@@ -243,6 +231,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     ex);
             }
 
+            // 兼容清理：若仍有旧版产品子目录且已空，则删除
             TryDeleteEmptyHandoffProductDir(handoffFolder, imagePath);
             return destPath;
         }
@@ -312,8 +301,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// AI 批处理输出目录：{resultRoot}/{产品名}（不再套一层 AI标注）。
-        /// 产品名优先取交接图父目录名（…/产品名/50.jpg）；扁平遗留文件则用文件名去扩展。
+        /// AI 批处理输出目录：{resultRoot}/{产品名}。
+        /// 现行扁平交接：产品名=文件名去扩展（…/1161-F.jpg → 1161-F）；
+        /// 兼容旧路径：…/产品名/050.jpg → 产品名取父目录。
         /// </summary>
         public static string BuildBatchAnnotationFolder(string resultRoot, string sourceImagePath)
         {
@@ -327,20 +317,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             if (!string.IsNullOrWhiteSpace(parentName)
                 && IsExactNumericSliceFileName(fileStem))
             {
-                // …/导出名/50.jpg → 产品名=导出名
-                productName = parentName;
-            }
-            else if (!string.IsNullOrWhiteSpace(parentName)
-                     && !string.Equals(
-                         Path.GetPathRoot(parentDir),
-                         parentDir,
-                         StringComparison.OrdinalIgnoreCase))
-            {
-                // 父目录不是盘符根时，仍优先用父目录名（新产品结构）
+                // 兼容旧：…/导出名/050.jpg → 产品名=导出名
                 productName = parentName;
             }
             else
             {
+                // 现行扁平：…/1161-F.jpg → 产品名=1161-F
                 productName = string.IsNullOrWhiteSpace(fileStem) ? "annotation" : fileStem;
             }
 
@@ -874,8 +856,16 @@ namespace SUNWODA_SEVB.Tool.Helper
                 for (var k = 0; k < vals.Length; k++)
                 {
                     var px = vals[k];
-                    var mm = px * umPerPx / 1000.0;
-                    sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{mm:F4}mm");
+                    var um = px * umPerPx;
+                    var mm = um / 1000.0;
+                    if (Math.Abs(mm) < 0.1)
+                    {
+                        sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{um:F1}μm");
+                    }
+                    else
+                    {
+                        sb.Append(CultureInfo.InvariantCulture, $"  L{k + 1}:{mm:F4}mm");
+                    }
                 }
 
                 sb.AppendLine();
@@ -886,7 +876,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return string.Empty;
             }
 
-            sb.Append(CultureInfo.InvariantCulture, $"精度 {umPerPx:F3} μm/px | L_mm=L_px×μm/px/1000");
             return sb.ToString().TrimEnd();
         }
 

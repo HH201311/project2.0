@@ -151,6 +151,21 @@ namespace SUNWODA_SEVB.Tool.Helper
             return Path.Combine(viewFolderPath, ImageStackBaseFileName);
         }
 
+        /// <summary>
+        /// 调试截图文件名中的产品标签：与导出主文件夹相同规则（导入文件名主干前 6 字符）。
+        /// 空输入时返回 <c>unknown</c>，便于与无导入上下文的单测截图区分。
+        /// </summary>
+        public static string BuildCaptureProductTag(string? namingSourcePathOrFileName)
+        {
+            if (string.IsNullOrWhiteSpace(namingSourcePathOrFileName))
+            {
+                return "unknown";
+            }
+
+            var tag = BuildExportBaseName(namingSourcePathOrFileName);
+            return string.IsNullOrWhiteSpace(tag) ? "unknown" : tag;
+        }
+
         /// <summary>根据是否 QJ 解析导出数量。</summary>
         public static int ResolveExportQuantity(string vglFileName, int defaultQuantity, int qjQuantity)
         {

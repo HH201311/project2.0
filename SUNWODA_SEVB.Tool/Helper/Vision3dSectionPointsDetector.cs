@@ -1,43 +1,43 @@
-using System.IO;
+﻿using System.IO;
 using OpenCvSharp;
 using Point = OpenCvSharp.Point;
 
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 从 VG 第四象限 3D 视口截图估计上盖平面三点 + 原点。
-    /// 适配「找点前视角准备」后的斜俯视：顶面中灰连通域 + 下边界峰。
-    /// 输出约定：[0]近尖点平面点、[1]右角、[2]近左角(近边)、[3]原点=最上方尖点。
-    /// （与人工标注一致：原点在尖点，非旧版近 TL。）
+    /// ä»Ž VG ç¬¬å››è±¡é™ 3D è§†å£æˆªå›¾ä¼°è®¡ä¸Šç›–å¹³é¢ä¸‰ç‚¹ + åŽŸç‚¹ã€‚
+    /// é€‚é…ã€Œæ‰¾ç‚¹å‰è§†è§’å‡†å¤‡ã€åŽçš„æ–œä¿¯è§†ï¼šé¡¶é¢ä¸­ç°è¿žé€šåŸŸ + ä¸‹è¾¹ç•Œå³°ã€‚
+    /// è¾“å‡ºçº¦å®šï¼š[0]è¿‘å°–ç‚¹å¹³é¢ç‚¹ã€[1]å³è§’ã€[2]è¿‘å·¦è§’(è¿‘è¾¹)ã€[3]åŽŸç‚¹=æœ€ä¸Šæ–¹å°–ç‚¹ã€‚
+    /// ï¼ˆä¸Žäººå·¥æ ‡æ³¨ä¸€è‡´ï¼šåŽŸç‚¹åœ¨å°–ç‚¹ï¼Œéžæ—§ç‰ˆè¿‘ TLã€‚ï¼‰
     /// </summary>
     public static class Vision3dSectionPointsDetector
     {
-        /// <summary>原点相对尖点向中心微内偏（几乎贴尖点）。</summary>
+        /// <summary>åŽŸç‚¹ç›¸å¯¹å°–ç‚¹å‘ä¸­å¿ƒå¾®å†…åï¼ˆå‡ ä¹Žè´´å°–ç‚¹ï¼‰ã€‚</summary>
         public const int OriginInsetPixels = 2;
 
-        /// <summary>近尖点平面点：自尖点向中心内偏。</summary>
+        /// <summary>è¿‘å°–ç‚¹å¹³é¢ç‚¹ï¼šè‡ªå°–ç‚¹å‘ä¸­å¿ƒå†…åã€‚</summary>
         public const int NearTipPlaneInsetPx = 28;
 
-        /// <summary>右角平面点：自右极端向中心内偏（避开外壳弧边）。</summary>
+        /// <summary>å³è§’å¹³é¢ç‚¹ï¼šè‡ªå³æžç«¯å‘ä¸­å¿ƒå†…åï¼ˆé¿å¼€å¤–å£³å¼§è¾¹ï¼‰ã€‚</summary>
         public const int RightCornerInsetPx = 36;
 
-        /// <summary>近左角平面点：自下边界峰向中心内偏。</summary>
+        /// <summary>è¿‘å·¦è§’å¹³é¢ç‚¹ï¼šè‡ªä¸‹è¾¹ç•Œå³°å‘ä¸­å¿ƒå†…åã€‚</summary>
         public const int NearLeftCornerInsetPx = 28;
 
-        /// <summary>角点 UV 内缩（回退路径 PointOnQuad 用）。</summary>
+        /// <summary>è§’ç‚¹ UV å†…ç¼©ï¼ˆå›žé€€è·¯å¾„ PointOnQuad ç”¨ï¼‰ã€‚</summary>
         public const double CornerUvInset = 0.04;
 
-        /// <summary>角点外缘向中心再收像素，抗噪点。</summary>
+        /// <summary>è§’ç‚¹å¤–ç¼˜å‘ä¸­å¿ƒå†æ”¶åƒç´ ï¼ŒæŠ—å™ªç‚¹ã€‚</summary>
         public const int CornerPullInPx = 3;
 
-        /// <summary>顶面中灰阈值（排除极耳高亮与侧壁过暗）。</summary>
+        /// <summary>é¡¶é¢ä¸­ç°é˜ˆå€¼ï¼ˆæŽ’é™¤æžè€³é«˜äº®ä¸Žä¾§å£è¿‡æš—ï¼‰ã€‚</summary>
         public const int MidGrayLo = 95;
         public const int MidGrayHi = 175;
         public const int BrightExclude = 200;
 
         public sealed class DetectResult
         {
-            /// <summary>[0..2] 上盖三点；[3] 原点</summary>
+            /// <summary>[0..2] ä¸Šç›–ä¸‰ç‚¹ï¼›[3] åŽŸç‚¹</summary>
             public (int X, int Y)[] Points { get; init; } = Array.Empty<(int X, int Y)>();
 
             public Point TopLeft { get; init; }
@@ -53,13 +53,13 @@ namespace SUNWODA_SEVB.Tool.Helper
         {
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             {
-                throw new FileNotFoundException("3D 截图不存在", imagePath);
+                throw new FileNotFoundException("3D æˆªå›¾ä¸å­˜åœ¨", imagePath);
             }
 
             using var src = Cv2.ImRead(imagePath, ImreadModes.Color);
             if (src.Empty())
             {
-                throw new InvalidOperationException($"无法读取图像：{imagePath}");
+                throw new InvalidOperationException($"æ— æ³•è¯»å–å›¾åƒï¼š{imagePath}");
             }
 
             using var gray = new Mat();
@@ -75,7 +75,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             if (contours.Length == 0)
             {
-                throw new InvalidOperationException("未分割到物体剪影");
+                throw new InvalidOperationException("æœªåˆ†å‰²åˆ°ç‰©ä½“å‰ªå½±");
             }
 
             var objectContour = contours.OrderByDescending(c => Cv2.ContourArea(c)).First();
@@ -83,12 +83,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             var objectBounds = Cv2.BoundingRect(smoothed);
             if (objectBounds.Width < 40 || objectBounds.Height < 40)
             {
-                throw new InvalidOperationException($"物体外接框过小：{objectBounds.Width}x{objectBounds.Height}");
+                throw new InvalidOperationException($"ç‰©ä½“å¤–æŽ¥æ¡†è¿‡å°ï¼š{objectBounds.Width}x{objectBounds.Height}");
             }
 
             var (tl, tr, sr, sl) = DetectTopFaceCornersOblique(smoothed, objectBounds, mask, gray);
 
-            // 斜俯视：最上方尖点 = 四角中 Y 最小者（并列取更靠右）
+            // æ–œä¿¯è§†ï¼šæœ€ä¸Šæ–¹å°–ç‚¹ = å››è§’ä¸­ Y æœ€å°è€…ï¼ˆå¹¶åˆ—å–æ›´é å³ï¼‰
             var tip = PickTopmostTip(tl, tr, sr, sl);
 
             var roughCenter = new Point2f(
@@ -104,10 +104,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 (tl.X + tr.X + sr.X + sl.X) / 4f,
                 (tl.Y + tr.Y + sr.Y + sl.Y) / 4f);
 
-            // 三点：近尖点 / 右角 / 近左角；原点：最上方尖点（对齐人工标注）
+            // ä¸‰ç‚¹ï¼šè¿‘å°–ç‚¹ / å³è§’ / è¿‘å·¦è§’ï¼›åŽŸç‚¹ï¼šæœ€ä¸Šæ–¹å°–ç‚¹ï¼ˆå¯¹é½äººå·¥æ ‡æ³¨ï¼‰
             var p0 = InsetToward(tip, center, NearTipPlaneInsetPx);
             var p1 = InsetToward(sr, center, RightCornerInsetPx);
-            // 近左角：沿图像向上内收（近边在下，向顶面内部），避免被中心吸引偏到右侧
+            // è¿‘å·¦è§’ï¼šæ²¿å›¾åƒå‘ä¸Šå†…æ”¶ï¼ˆè¿‘è¾¹åœ¨ä¸‹ï¼Œå‘é¡¶é¢å†…éƒ¨ï¼‰ï¼Œé¿å…è¢«ä¸­å¿ƒå¸å¼•ååˆ°å³ä¾§
             var p2 = new Point(sl.X + 2, Math.Max(0, sl.Y - NearLeftCornerInsetPx));
             var origin = InsetToward(tip, center, OriginInsetPixels);
 
@@ -154,10 +154,10 @@ namespace SUNWODA_SEVB.Tool.Helper
         private static string Fmt(Point p) => $"({p.X},{p.Y})";
         private static string Fmt((int X, int Y) p) => $"({p.X},{p.Y})";
 
-        private static Point PickTopmostTip(params Point[] pts)
+        internal static Point PickTopmostTip(params Point[] pts)
             => pts.OrderBy(p => p.Y).ThenByDescending(p => p.X).First();
 
-        private static Mat BuildSilhouetteMask(Mat gray)
+        internal static Mat BuildSilhouetteMask(Mat gray)
         {
             var mask = new Mat();
             Cv2.Threshold(gray, mask, 12, 255, ThresholdTypes.Binary);
@@ -168,7 +168,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return mask;
         }
 
-        private static Point[] SmoothContour(Point[] contour, int window)
+        internal static Point[] SmoothContour(Point[] contour, int window)
         {
             if (contour.Length < window * 2)
             {
@@ -196,9 +196,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 斜俯视顶面四角：优先中灰顶面分割；失败再 FloodFill / ROI / 边缘 / 直线 / Harris。
+        /// æ–œä¿¯è§†é¡¶é¢å››è§’ï¼šä¼˜å…ˆä¸­ç°é¡¶é¢åˆ†å‰²ï¼›å¤±è´¥å† FloodFill / ROI / è¾¹ç¼˜ / ç›´çº¿ / Harrisã€‚
         /// </summary>
-        private static (Point Tl, Point Tr, Point Br, Point Bl) DetectTopFaceCornersOblique(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl) DetectTopFaceCornersOblique(
             Point[] contour,
             Rect objectBounds,
             Mat mask,
@@ -210,9 +210,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             var fromMid = TryDetectTopPlateByMidGray(gray, mask, objectBounds, bodyLeft);
             if (fromMid != null && IsPlausibleTopQuad(fromMid.Value, objectBounds))
             {
-                // 中灰路径角点已在顶面内，不做强边缘吸附（易吸到侧壁）
+                // mid-gray path: corners already on top face
                 return fromMid.Value;
             }
+
+            // Keep mid-gray near-miss: often visually correct but barely fails height-span check
+            var midNearMiss = fromMid;
 
             var fromFlood = TryDetectTopPlateByFloodFill(gray, mask, objectBounds, bodyLeft);
             if (fromFlood != null && IsPlausibleTopQuad(fromFlood.Value, objectBounds))
@@ -251,15 +254,20 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return SnapQuad(gray, mask, harrisQuad.Value);
             }
 
+            if (midNearMiss != null)
+            {
+                return midNearMiss.Value;
+            }
+
             throw new InvalidOperationException(
                 "未能在斜俯视中稳定检出顶面四角，请确认已完成「找点前视角准备」且 3D ROI 截图含清晰上平面");
         }
 
         /// <summary>
-        /// 中灰顶面：排除极耳高亮与下部侧壁，取连通域；
-        /// 尖点=minY，右角=maxX，近左角=下边界峰，TL=min(x+y)。
+        /// ä¸­ç°é¡¶é¢ï¼šæŽ’é™¤æžè€³é«˜äº®ä¸Žä¸‹éƒ¨ä¾§å£ï¼Œå–è¿žé€šåŸŸï¼›
+        /// å°–ç‚¹=minYï¼Œå³è§’=maxXï¼Œè¿‘å·¦è§’=ä¸‹è¾¹ç•Œå³°ï¼ŒTL=min(x+y)ã€‚
         /// </summary>
-        private static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByMidGray(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByMidGray(
             Mat gray,
             Mat mask,
             Rect bounds,
@@ -274,7 +282,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             Cv2.BitwiseNot(bright, bright);
             Cv2.BitwiseAnd(mid, bright, mid);
 
-            // 切掉极耳左侧 + 主体过左缘
+            // åˆ‡æŽ‰æžè€³å·¦ä¾§ + ä¸»ä½“è¿‡å·¦ç¼˜
             var cutX = Math.Min(gray.Cols - 1, bodyLeft + Math.Max(16, bounds.Width / 24));
             for (var y = 0; y < gray.Rows; y++)
             {
@@ -284,7 +292,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            // 只保留物体上 60% 高度，避免下沿肩面
+            // åªä¿ç•™ç‰©ä½“ä¸Š 60% é«˜åº¦ï¼Œé¿å…ä¸‹æ²¿è‚©é¢
             var yCut = bounds.Y + (int)(bounds.Height * 0.60);
             for (var y = Math.Max(0, yCut); y < gray.Rows; y++)
             {
@@ -347,8 +355,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             return IsPlausibleTopQuad(q, bounds) ? q : null;
         }
 
-        /// <summary>中灰顶面每列最大 Y 形成下边界，取其峰值（近边最低处 ≈ 近左角）。</summary>
-        private static Point? FindBottomBoundaryPeak(Mat mid, Point[] plateContour)
+        /// <summary>ä¸­ç°é¡¶é¢æ¯åˆ—æœ€å¤§ Y å½¢æˆä¸‹è¾¹ç•Œï¼Œå–å…¶å³°å€¼ï¼ˆè¿‘è¾¹æœ€ä½Žå¤„ â‰ˆ è¿‘å·¦è§’ï¼‰ã€‚</summary>
+        internal static Point? FindBottomBoundaryPeak(Mat mid, Point[] plateContour)
         {
             var plateRect = Cv2.BoundingRect(plateContour);
             if (plateRect.Width < 20 || plateRect.Height < 20)
@@ -395,7 +403,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 sm.Add(new Point(bottom[i].X, (int)Math.Round(sy / (i1 - i0 + 1))));
             }
 
-            // 排除左侧壁：只在顶面中段找下边界峰（近左角在近边中左，不在侧壁脚）
+            // æŽ’é™¤å·¦ä¾§å£ï¼šåªåœ¨é¡¶é¢ä¸­æ®µæ‰¾ä¸‹è¾¹ç•Œå³°ï¼ˆè¿‘å·¦è§’åœ¨è¿‘è¾¹ä¸­å·¦ï¼Œä¸åœ¨ä¾§å£è„šï¼‰
             var xMin = plateRect.X + (int)(plateRect.Width * 0.18);
             var xMax = plateRect.X + (int)(plateRect.Width * 0.72);
             var band = sm.Where(p => p.X >= xMin && p.X <= xMax).ToList();
@@ -410,14 +418,14 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             var peakY = band.Max(p => p.Y);
-            // 近左角：高峰带上靠近「中偏左」目标 X（避开侧壁与右角）
+            // è¿‘å·¦è§’ï¼šé«˜å³°å¸¦ä¸Šé è¿‘ã€Œä¸­åå·¦ã€ç›®æ ‡ Xï¼ˆé¿å¼€ä¾§å£ä¸Žå³è§’ï¼‰
             var targetX = xMin + (int)((xMax - xMin) * 0.22);
             return band.Where(p => p.Y >= peakY - 5)
                 .OrderBy(p => Math.Abs(p.X - targetX))
                 .First();
         }
 
-        private static (Point Tl, Point Tr, Point Br, Point Bl) SnapQuad(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl) SnapQuad(
             Mat gray,
             Mat mask,
             (Point Tl, Point Tr, Point Br, Point Bl) q)
@@ -427,7 +435,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 SnapToStrongEdge(gray, mask, q.Br),
                 SnapToStrongEdge(gray, mask, q.Bl));
 
-        private static bool IsPlausibleTopQuad((Point Tl, Point Tr, Point Br, Point Bl) q, Rect bounds)
+        internal static bool IsPlausibleTopQuad((Point Tl, Point Tr, Point Br, Point Bl) q, Rect bounds)
         {
             var pts = new[] { q.Tl, q.Tr, q.Br, q.Bl };
             if (pts.Distinct().Count() < 4)
@@ -435,7 +443,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return false;
             }
 
-            // 四角必须落在物体外接框内（允许少量外扩）
+            // 四角须落在物体外接框内（允许少量外扩）
             foreach (var p in pts)
             {
                 if (p.X < bounds.X - 5 || p.X > bounds.X + bounds.Width + 5
@@ -451,15 +459,15 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return false;
             }
 
-            // 顶面高度跨度不应吞掉下半身肩面（旧 FloodFill 失败模式）
+            // 顶面高度跨度：斜俯视可略大；原 0.58 过紧（真机 dy 仅超 1～2px 就被拒）
             var minY = pts.Min(p => p.Y);
             var maxY = pts.Max(p => p.Y);
-            if (maxY - minY > bounds.Height * 0.58)
+            if (maxY - minY > bounds.Height * 0.66)
             {
                 return false;
             }
 
-            if (maxY > bounds.Y + bounds.Height * 0.72)
+            if (maxY > bounds.Y + bounds.Height * 0.78)
             {
                 return false;
             }
@@ -470,13 +478,13 @@ namespace SUNWODA_SEVB.Tool.Helper
             var rightLen = Dist(q.Tr, q.Br);
             var sideRatio = Math.Min(leftLen, rightLen) / Math.Max(1.0, Math.Max(leftLen, rightLen));
             var tbRatio = Math.Min(topLen, botLen) / Math.Max(1.0, Math.Max(topLen, botLen));
-            return sideRatio >= 0.30 && tbRatio >= 0.30 && topLen >= bounds.Width * 0.15;
+            return sideRatio >= 0.28 && tbRatio >= 0.28 && topLen >= bounds.Width * 0.12;
         }
 
         /// <summary>
-        /// 从上平面种子点区域生长，取连通域外轮廓逼近四边形。
+        /// ä»Žä¸Šå¹³é¢ç§å­ç‚¹åŒºåŸŸç”Ÿé•¿ï¼Œå–è¿žé€šåŸŸå¤–è½®å»“é€¼è¿‘å››è¾¹å½¢ã€‚
         /// </summary>
-        private static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByFloodFill(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByFloodFill(
             Mat gray,
             Mat mask,
             Rect bounds,
@@ -489,9 +497,9 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             using var work = gray.Clone();
-            // floodFill 需要 mask 比图像大 2 像素
+            // floodFill éœ€è¦ mask æ¯”å›¾åƒå¤§ 2 åƒç´ 
             using var floodMask = new Mat(gray.Rows + 2, gray.Cols + 2, MatType.CV_8UC1, Scalar.All(0));
-            // 禁止长到剪影外，并挡住极耳尖端左侧
+            // ç¦æ­¢é•¿åˆ°å‰ªå½±å¤–ï¼Œå¹¶æŒ¡ä½æžè€³å°–ç«¯å·¦ä¾§
             var blockLeft = Math.Max(0, bodyLeft - 2);
             for (var y = 0; y < gray.Rows; y++)
             {
@@ -515,7 +523,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 new Scalar(22),
                 flags);
 
-            // floodMask：预先屏蔽的非物体=1；新填充像素=(flags>>8)=4
+            // floodMaskï¼šé¢„å…ˆå±è”½çš„éžç‰©ä½“=1ï¼›æ–°å¡«å……åƒç´ =(flags>>8)=4
             using var regionFull = new Mat();
             Cv2.InRange(floodMask, new Scalar(4), new Scalar(4), regionFull);
             using var regionRoi = new Mat(regionFull, new Rect(1, 1, gray.Cols, gray.Rows));
@@ -542,7 +550,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             var plate = cs.OrderByDescending(c => Cv2.ContourArea(c)).First();
 
-            // 优先：轮廓/凸包极端四点（比 ApproxPolyDP=4 / MinAreaRect 更稳）
+            // ä¼˜å…ˆï¼šè½®å»“/å‡¸åŒ…æžç«¯å››ç‚¹ï¼ˆæ¯” ApproxPolyDP=4 / MinAreaRect æ›´ç¨³ï¼‰
             var hull = Cv2.ConvexHull(plate);
             var extremeSource = hull.Length >= 4 ? hull.ToList() : plate.ToList();
             var extremes = PickExtremeCorners(extremeSource);
@@ -610,7 +618,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     continue;
                 }
 
-                // 进入剪影后再向下走一段，落到上平面内部（避开远边亮棱）
+                // è¿›å…¥å‰ªå½±åŽå†å‘ä¸‹èµ°ä¸€æ®µï¼Œè½åˆ°ä¸Šå¹³é¢å†…éƒ¨ï¼ˆé¿å¼€è¿œè¾¹äº®æ£±ï¼‰
                 var seedY = enteredY + Math.Max(18, bounds.Height / 18);
                 if (seedY >= gray.Rows || mask.At<byte>(seedY, x) == 0)
                 {
@@ -626,7 +634,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return null;
         }
 
-        private static Rect BuildTopFaceSearchRoi(Rect bounds, int bodyLeft)
+        internal static Rect BuildTopFaceSearchRoi(Rect bounds, int bodyLeft)
         {
             var left = Math.Max(bounds.X, bodyLeft + (int)(bounds.Width * 0.04));
             var top = bounds.Y + (int)(bounds.Height * 0.10);
@@ -640,9 +648,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 在顶面搜索 ROI 内：中值滤波 + Canny + 四边形逼近 / Harris。
+        /// åœ¨é¡¶é¢æœç´¢ ROI å†…ï¼šä¸­å€¼æ»¤æ³¢ + Canny + å››è¾¹å½¢é€¼è¿‘ / Harrisã€‚
         /// </summary>
-        private static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateInRoi(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateInRoi(
             Mat gray,
             Mat mask,
             Rect bounds,
@@ -666,7 +674,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 RetrievalModes.List,
                 ContourApproximationModes.ApproxNone);
 
-            // 顶面应占搜索区相当比例，避免贴到上缘小碎块
+            // é¡¶é¢åº”å æœç´¢åŒºç›¸å½“æ¯”ä¾‹ï¼Œé¿å…è´´åˆ°ä¸Šç¼˜å°ç¢Žå—
             var minArea = faceRoi.Width * faceRoi.Height * 0.12;
             var maxArea = faceRoi.Width * faceRoi.Height * 0.92;
             (Point Tl, Point Tr, Point Br, Point Bl)? best = null;
@@ -702,7 +710,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                         continue;
                     }
 
-                    // 左右边长不应差太多数量级（拒绝楔形退化）
+                    // å·¦å³è¾¹é•¿ä¸åº”å·®å¤ªå¤šæ•°é‡çº§ï¼ˆæ‹’ç»æ¥”å½¢é€€åŒ–ï¼‰
                     var ordered = OrderQuadCorners(approx);
                     var leftLen = Dist(ordered.Tl, ordered.Bl);
                     var rightLen = Dist(ordered.Tr, ordered.Br);
@@ -737,7 +745,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return Math.Sqrt(dx * dx + dy * dy);
         }
 
-        private static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByHarris(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByHarris(
             Mat gray,
             Mat mask,
             Rect faceRoi)
@@ -790,9 +798,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 双边滤波降噪 → Canny → 找近似四边形轮廓（顶面平行四边形）。
+        /// åŒè¾¹æ»¤æ³¢é™å™ª â†’ Canny â†’ æ‰¾è¿‘ä¼¼å››è¾¹å½¢è½®å»“ï¼ˆé¡¶é¢å¹³è¡Œå››è¾¹å½¢ï¼‰ã€‚
         /// </summary>
-        private static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByEdgeContour(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByEdgeContour(
             Mat gray,
             Mat mask,
             Rect bounds,
@@ -809,7 +817,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             Cv2.Erode(mask, inner, kErode);
             Cv2.BitwiseAnd(edges, inner, edges);
 
-            // 去掉极耳尖端与底部
+            // åŽ»æŽ‰æžè€³å°–ç«¯ä¸Žåº•éƒ¨
             var xCut = Math.Max(bounds.X, bodyLeft);
             var yBottom = bounds.Y + (int)(bounds.Height * 0.75);
             for (var y = 0; y < edges.Rows; y++)
@@ -828,7 +836,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            // 连接断裂边
+            // è¿žæŽ¥æ–­è£‚è¾¹
             using var kDilate = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
             Cv2.Dilate(edges, edges, kDilate);
 
@@ -903,7 +911,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                         continue;
                     }
 
-                    // 四角须都在物体内
+                    // å››è§’é¡»éƒ½åœ¨ç‰©ä½“å†…
                     if (approx.Any(p =>
                             p.X < 0 || p.Y < 0 || p.X >= mask.Cols || p.Y >= mask.Rows
                             || mask.At<byte>(p.Y, p.X) == 0))
@@ -926,9 +934,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// Canny+Hough：两组平行线求交 → 顶面平行四边形四角。
+        /// Canny+Houghï¼šä¸¤ç»„å¹³è¡Œçº¿æ±‚äº¤ â†’ é¡¶é¢å¹³è¡Œå››è¾¹å½¢å››è§’ã€‚
         /// </summary>
-        private static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByLines(
+        internal static (Point Tl, Point Tr, Point Br, Point Bl)? TryDetectTopPlateByLines(
             Mat gray,
             Mat mask,
             Rect bounds,
@@ -1187,7 +1195,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return best;
         }
 
-        private static int EstimateMainBodyLeftX(Mat mask, Rect bounds)
+        internal static int EstimateMainBodyLeftX(Mat mask, Rect bounds)
         {
             var heights = new int[bounds.Width];
             var maxH = 0;
@@ -1215,8 +1223,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return bounds.X;
             }
 
-            // 从左侧找第一段「达到主体高度」的连续列，其起点作为主体左界；
-            // 若左侧先出现矮尖再变高，则跳过矮尖（极耳）。
+            // ä»Žå·¦ä¾§æ‰¾ç¬¬ä¸€æ®µã€Œè¾¾åˆ°ä¸»ä½“é«˜åº¦ã€çš„è¿žç»­åˆ—ï¼Œå…¶èµ·ç‚¹ä½œä¸ºä¸»ä½“å·¦ç•Œï¼›
+            // è‹¥å·¦ä¾§å…ˆå‡ºçŽ°çŸ®å°–å†å˜é«˜ï¼Œåˆ™è·³è¿‡çŸ®å°–ï¼ˆæžè€³ï¼‰ã€‚
             var thr = (int)(maxH * 0.55);
             var runNeed = Math.Max(8, bounds.Width / 25);
             var i0 = 0;
@@ -1240,7 +1248,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     j++;
                 }
 
-                // 左侧短而窄的高柱更像极耳根部局部，继续找下一段
+                // å·¦ä¾§çŸ­è€Œçª„çš„é«˜æŸ±æ›´åƒæžè€³æ ¹éƒ¨å±€éƒ¨ï¼Œç»§ç»­æ‰¾ä¸‹ä¸€æ®µ
                 var runWidthRatio = run / (double)bounds.Width;
                 if (run >= runNeed && runWidthRatio >= 0.18)
                 {
@@ -1250,7 +1258,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 i0 = j;
             }
 
-            // 回退：按面积从右累计到 88%
+            // å›žé€€ï¼šæŒ‰é¢ç§¯ä»Žå³ç´¯è®¡åˆ° 88%
             long total = heights.Sum(h => (long)h);
             long acc = 0;
             for (var i = heights.Length - 1; i >= 0; i--)
@@ -1271,7 +1279,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             public double Score { get; init; }
         }
 
-        /// <summary>k-cosine 角点：夹角越尖分数越高。</summary>
+        /// <summary>k-cosine è§’ç‚¹ï¼šå¤¹è§’è¶Šå°–åˆ†æ•°è¶Šé«˜ã€‚</summary>
         private static List<CornerScore> FindKCosineCorners(Point[] contour, int k)
         {
             var n = contour.Length;
@@ -1295,11 +1303,11 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                 var cos = (v1x * v2x + v1y * v2y) / (n1 * n2);
                 cos = Math.Clamp(cos, -1.0, 1.0);
-                // cos 越小（越接近 -1 越尖）→ 分数越高；过滤近似共线
+                // cos è¶Šå°ï¼ˆè¶ŠæŽ¥è¿‘ -1 è¶Šå°–ï¼‰â†’ åˆ†æ•°è¶Šé«˜ï¼›è¿‡æ»¤è¿‘ä¼¼å…±çº¿
                 raw[i] = cos > 0.55 ? 0 : (1.0 - cos);
             }
 
-            // 非极大抑制
+            // éžæžå¤§æŠ‘åˆ¶
             var minSep = Math.Max(k, n / 40);
             var result = new List<CornerScore>();
             for (var i = 0; i < n; i++)
@@ -1329,7 +1337,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 在候选角点中选最优顶板四边形：偏上、面积适中、近似凸平行四边形。
+        /// åœ¨å€™é€‰è§’ç‚¹ä¸­é€‰æœ€ä¼˜é¡¶æ¿å››è¾¹å½¢ï¼šåä¸Šã€é¢ç§¯é€‚ä¸­ã€è¿‘ä¼¼å‡¸å¹³è¡Œå››è¾¹å½¢ã€‚
         /// </summary>
         private static Point[] SelectBestTopPlateQuad(List<Point> pool, Rect bounds)
         {
@@ -1338,7 +1346,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return pool.ToArray();
             }
 
-            // 候选过多时先按 Y 取偏上的点，再限制组合数
+            // å€™é€‰è¿‡å¤šæ—¶å…ˆæŒ‰ Y å–åä¸Šçš„ç‚¹ï¼Œå†é™åˆ¶ç»„åˆæ•°
             var work = pool
                 .OrderBy(p => p.Y)
                 .ThenByDescending(p => p.X)
@@ -1381,7 +1389,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     continue;
                 }
 
-                // 顶板应偏上；高宽比不宜像竖条
+                // é¡¶æ¿åº”åä¸Šï¼›é«˜å®½æ¯”ä¸å®œåƒç«–æ¡
                 var aspect = widthSpan / (double)Math.Max(1, heightSpan);
                 if (aspect < 0.45)
                 {
@@ -1400,7 +1408,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             if (best == null)
             {
-                // 回退：从候选中取 x±y 四个极端点（去重后若不足则补齐）
+                // å›žé€€ï¼šä»Žå€™é€‰ä¸­å– xÂ±y å››ä¸ªæžç«¯ç‚¹ï¼ˆåŽ»é‡åŽè‹¥ä¸è¶³åˆ™è¡¥é½ï¼‰
                 var extremes = PickExtremeCorners(work);
                 return extremes;
             }
@@ -1408,17 +1416,17 @@ namespace SUNWODA_SEVB.Tool.Helper
             return best;
         }
 
-        /// <summary>从候选点中取 TL/TR/BR/BL 四个极端点。</summary>
+        /// <summary>ä»Žå€™é€‰ç‚¹ä¸­å– TL/TR/BR/BL å››ä¸ªæžç«¯ç‚¹ã€‚</summary>
         private static Point[] PickExtremeCorners(List<Point> pts)
         {
             if (pts.Count == 0)
             {
-                throw new InvalidOperationException("无候选角点");
+                throw new InvalidOperationException("æ— å€™é€‰è§’ç‚¹");
             }
 
             if (pts.Count <= 4)
             {
-                // 不足 4 个时用包围盒角补齐
+                // ä¸è¶³ 4 ä¸ªæ—¶ç”¨åŒ…å›´ç›’è§’è¡¥é½
                 while (pts.Count < 4)
                 {
                     pts.Add(pts[^1]);
@@ -1465,14 +1473,14 @@ namespace SUNWODA_SEVB.Tool.Helper
             return new[] { tl, tr, br, bl };
         }
 
-        private static (Point Tl, Point Tr, Point Br, Point Bl) OrderQuadCorners(Point[] pts)
+        internal static (Point Tl, Point Tr, Point Br, Point Bl) OrderQuadCorners(Point[] pts)
         {
             if (pts.Length != 4)
             {
-                throw new ArgumentException("需要恰好 4 个点", nameof(pts));
+                throw new ArgumentException("éœ€è¦æ°å¥½ 4 ä¸ªç‚¹", nameof(pts));
             }
 
-            // 经典分配：TL=min(x+y), TR=min(-x+y), BR=max(x+y), BL=max(-x+y)
+            // ç»å…¸åˆ†é…ï¼šTL=min(x+y), TR=min(-x+y), BR=max(x+y), BL=max(-x+y)
             Point tl = pts[0], tr = pts[0], br = pts[0], bl = pts[0];
             var minSum = int.MaxValue;
             var maxSum = int.MinValue;
@@ -1494,8 +1502,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                     br = p;
                 }
 
-                // TR: 偏右上 → x 大 y 小 → x-y 大；BL: 偏左下 → x 小 y 大 → x-y 小
-                // 注意：对倾斜四边形，TR 常用 max(x-y)，BL 用 min(x-y)
+                // TR: åå³ä¸Š â†’ x å¤§ y å° â†’ x-y å¤§ï¼›BL: åå·¦ä¸‹ â†’ x å° y å¤§ â†’ x-y å°
+                // æ³¨æ„ï¼šå¯¹å€¾æ–œå››è¾¹å½¢ï¼ŒTR å¸¸ç”¨ max(x-y)ï¼ŒBL ç”¨ min(x-y)
                 if (diff > maxDiff)
                 {
                     maxDiff = diff;
@@ -1509,7 +1517,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            // 若极端公式撞点（退化），改用质心极角排序
+            // è‹¥æžç«¯å…¬å¼æ’žç‚¹ï¼ˆé€€åŒ–ï¼‰ï¼Œæ”¹ç”¨è´¨å¿ƒæžè§’æŽ’åº
             if (PointsEqual(tl, tr) || PointsEqual(tr, br) || PointsEqual(br, bl) || PointsEqual(bl, tl)
                 || PointsEqual(tl, br) || PointsEqual(tr, bl))
             {
@@ -1529,7 +1537,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 .Select(t => t.P)
                 .ToArray();
 
-            // 极角排序后，取 y 最小的为起点附近的上边，再按顺时针/逆时针找 TL
+            // æžè§’æŽ’åºåŽï¼Œå– y æœ€å°çš„ä¸ºèµ·ç‚¹é™„è¿‘çš„ä¸Šè¾¹ï¼Œå†æŒ‰é¡ºæ—¶é’ˆ/é€†æ—¶é’ˆæ‰¾ TL
             var start = 0;
             for (var i = 1; i < 4; i++)
             {
@@ -1541,12 +1549,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             Point At(int i) => ordered[(start + i) % 4];
-            // 从最上点起，按极角顺序的下一点应更偏右 → TR；再 BR；再 BL
+            // ä»Žæœ€ä¸Šç‚¹èµ·ï¼ŒæŒ‰æžè§’é¡ºåºçš„ä¸‹ä¸€ç‚¹åº”æ›´åå³ â†’ TRï¼›å† BRï¼›å† BL
             var p0 = At(0);
             var p1 = At(1);
             var p2 = At(2);
             var p3 = At(3);
-            // 保证 p0-p1 为上边：若 p1 在 p0 左侧，则反向
+            // ä¿è¯ p0-p1 ä¸ºä¸Šè¾¹ï¼šè‹¥ p1 åœ¨ p0 å·¦ä¾§ï¼Œåˆ™åå‘
             if (p1.X < p0.X)
             {
                 return (p0, p3, p2, p1);
@@ -1591,7 +1599,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             return sign != 0;
         }
 
-        /// <summary>对边向量夹角接近 → 更像平行四边形（0~1）。</summary>
+        /// <summary>å¯¹è¾¹å‘é‡å¤¹è§’æŽ¥è¿‘ â†’ æ›´åƒå¹³è¡Œå››è¾¹å½¢ï¼ˆ0~1ï¼‰ã€‚</summary>
         private static double ParallelogramScore(Point[] pts)
         {
             static double Len(Point a, Point b)
@@ -1617,7 +1625,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return Math.Abs((ax * bx + ay * by) / (na * nb));
             }
 
-            // 对边平行度 + 对边长度比
+            // å¯¹è¾¹å¹³è¡Œåº¦ + å¯¹è¾¹é•¿åº¦æ¯”
             var parallel1 = DotNorm(pts[0], pts[1], pts[3], pts[2]);
             var parallel2 = DotNorm(pts[1], pts[2], pts[0], pts[3]);
             var len01 = Len(pts[0], pts[1]);
@@ -1664,7 +1672,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 (int)Math.Round(a.Y + (b.Y - a.Y) * t));
         }
 
-        private static Point InsetToward(Point corner, Point2f center, int insetPx)
+        internal static Point InsetToward(Point corner, Point2f center, int insetPx)
         {
             var dx = center.X - corner.X;
             var dy = center.Y - corner.Y;
@@ -1680,13 +1688,13 @@ namespace SUNWODA_SEVB.Tool.Helper
                 (int)Math.Round(corner.Y + dy * t));
         }
 
-        private static void ValidateNonCollinear((int X, int Y) a, (int X, int Y) b, (int X, int Y) c)
+        internal static void ValidateNonCollinear((int X, int Y) a, (int X, int Y) b, (int X, int Y) c)
         {
             var area2 = Math.Abs(
                 (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X));
             if (area2 < 80)
             {
-                throw new InvalidOperationException($"上盖三点近似共线（area2={area2}），无法定平面");
+                throw new InvalidOperationException($"ä¸Šç›–ä¸‰ç‚¹è¿‘ä¼¼å…±çº¿ï¼ˆarea2={area2}ï¼‰ï¼Œæ— æ³•å®šå¹³é¢");
             }
         }
 
@@ -1746,3 +1754,4 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
     }
 }
+

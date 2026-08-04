@@ -572,7 +572,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         ctViewerProcess,
                         cancellationToken,
                         progress,
-                        softFailOnError: true)
+                        softFailOnError: true,
+                        namingSourcePath: namingSourcePath ?? vglPath)
                     .ConfigureAwait(false);
 
                 progress?.Report("直方图灰度步骤已结束，继续厚板设置");
@@ -591,7 +592,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         settings,
                         ctViewerProcess,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSourcePath: namingSourcePath ?? vglPath)
                     .ConfigureAwait(false);
 
                 await TryRunPostAlignCaptureDragInMainFlowAsync(
@@ -694,7 +696,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CTAutoSlicerSettings settings,
             Process ctViewerProcess,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            string? namingSourcePath = null)
         {
             if (!settings.EnableVisionAlignmentSteps)
             {
@@ -732,9 +735,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            progress?.Report("开始阶段四视觉对齐（简单 3-2-1）…");
+            var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSourcePath);
+            var algoLabel = settings.UseVisionDllForSimple321
+                ? "视觉 DLL 算法（CTAutoCutImg.dll）"
+                : "上位机本地算法（OpenCV：Vision3d / VisionTopView）";
+            progress?.Report(
+                $"开始阶段四视觉对齐（简单 3-2-1）；【找点算法】当前调用：{algoLabel}；产品={productTag}");
             _logger.Info(
-                $"主流程执行阶段四：简单 3-2-1 对齐（Simple321PointSource={settings.Simple321PointSource}）");
+                $"主流程执行阶段四：简单 3-2-1 对齐；【找点算法】当前调用={algoLabel}" +
+                $"（Simple321PointSource={settings.Simple321PointSource}；产品标签={productTag}）");
 
             try
             {
@@ -745,7 +754,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         ctViewerProcess,
                         mainWindow,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSourcePath)
                     .ConfigureAwait(false);
 
                 progress?.Report("阶段四视觉对齐完成，继续后续步骤");

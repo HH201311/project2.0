@@ -44,12 +44,13 @@ Dll依赖环境： C#8.0 + .NET 8.0 + halcondotnet.dll【20.11版本】
 2	Y	Out	points	Point[]	输出点坐标
 points结果说明：
 索引	数据类型	字段说明
-0	(int X, int Y)[]	起点坐标
-1	(int X, int Y)[]	终点坐标
-说明：上位机点击顺序为「起点 → 终点」，即先点索引0，再点索引1。
+0	(int X, int Y)[]	点A（DLL 原始索引0）
+1	(int X, int Y)[]	点B（DLL 原始索引1）
+说明（上位机 2026-08-04）：VG 向量须「上→下」。真机 DLL 原始 [0]→[1] 常为下→上，
+上位机点击前按屏幕 Y 重排为先上后下，不再按索引原样点击。
 
 【上位机 3-2-1 对应关系】
 步骤1：GetSectionReferencePoints → 点击 points[0..2] 三点定平面
-步骤2：GetObjectTopBottomPoints → 点击 起点(points[0]) → 终点(points[1])
+步骤2：GetObjectTopBottomPoints → 按 Y 重排后点击 上点 → 下点
 步骤3：GetSectionReferencePoints 的 points[3] → 点击原点
 

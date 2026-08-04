@@ -1299,7 +1299,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 将 OfflineCtTopViewSliceIndex 对应文件名的上视图送检图复制到交接目录/产品名/（硬失败）。
+        /// 将 OfflineCtTopViewSliceIndex 对应文件名的上视图送检图复制到交接目录根，
+        /// 并改名为 {产品名}.jpg（硬失败）。
         /// </summary>
         private async Task MirrorTopViewHandoffAsync(
             CTAutoSlicerSettings settings,
@@ -1334,10 +1335,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     $"未在「上」视图目录按文件名找到送检图（期望第 {sliceIndex} 张 → {expectedName} 等）：{topFolder}",
                     topFolder);
 
+            var handoffFileName = OfflineCtAnnotationHelper.BuildHandoffFileName(
+                exportBaseName,
+                sourcePath);
             progress?.Report(
-                $"交接上视图送检图：第 {sliceIndex} 张 → {Path.GetFileName(sourcePath)} → 产品目录「{exportBaseName}」");
+                $"交接上视图送检图：第 {sliceIndex} 张 → {Path.GetFileName(sourcePath)} → 「{handoffFileName}」");
             _logger.Info(
-                $"交接上视图：源={sourcePath}，序号={sliceIndex}，文件名={expectedStem}.*，交接目录={settings.TopViewHandoffFolder}/{exportBaseName}");
+                $"交接上视图：源={sourcePath}，序号={sliceIndex}，交接文件={settings.TopViewHandoffFolder}/{handoffFileName}");
 
             var destPath = await Task.Run(
                     () => OfflineCtAnnotationHelper.CopyTopViewImageToHandoffFolder(

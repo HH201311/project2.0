@@ -93,11 +93,23 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
                 _activeVgProcess = ctViewerProcess;
+                var namingSource = TryResolveNamingSourceFromCtFolder(settings);
+                var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSource);
+                if (!string.IsNullOrWhiteSpace(namingSource))
+                {
+                    progress?.Report($"直方图单测命名参考：{Path.GetFileName(namingSource)} → 产品标签={productTag}");
+                }
+                else
+                {
+                    progress?.Report($"直方图单测未找到体素文件，截图产品标签={productTag}");
+                }
+
                 await ApplyHistogramGrayScaleAdjustAsync(
                         settings,
                         ctViewerProcess,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSourcePath: namingSource)
                     .ConfigureAwait(false);
 
                 progress?.Report("直方图灰度调整单步测试完成（截图+峰谷+拖红线+LUT中点对齐）");
@@ -150,12 +162,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
 
                 var sourceLabel = settings.UseVisionDllForSimple321
-                    ? "视觉 DLL（CTAutoCutImg）"
-                    : "上位机本地（OpenCV）";
+                    ? "视觉 DLL 算法（CTAutoCutImg.dll）"
+                    : "上位机本地算法（OpenCV：Vision3d / VisionTopView）";
+                var namingSource = TryResolveNamingSourceFromCtFolder(settings);
+                var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSource);
                 progress?.Report(
-                    $"简单 3-2-1 对齐测试（找点={sourceLabel}）：请确保 VG 已导入体积且第四象限 3D 可见");
+                    $"【找点算法】当前调用：{sourceLabel}；产品标签={productTag}；请确保 VG 已导入体积且第四象限 3D 可见");
                 _logger.Info(
-                    $"简单 3-2-1 对齐测试开始（Simple321PointSource={settings.Simple321PointSource}），" +
+                    $"【找点算法】简单 3-2-1 对齐测试开始：当前调用={sourceLabel}" +
+                    $"（Simple321PointSource={settings.Simple321PointSource}；产品标签={productTag}），" +
                     $"3D ROI=({settings.Vision3dRoiX},{settings.Vision3dRoiY}," +
                     $"{settings.Vision3dRoiWidth}x{settings.Vision3dRoiHeight})，" +
                     $"下拉点击=({settings.Simple321ToolbarClickX},{settings.Simple321ToolbarClickY})");
@@ -170,7 +185,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         ctViewerProcess,
                         mainWindow,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSource)
                     .ConfigureAwait(false);
 
                 progress?.Report("简单 3-2-1 对齐测试完成");

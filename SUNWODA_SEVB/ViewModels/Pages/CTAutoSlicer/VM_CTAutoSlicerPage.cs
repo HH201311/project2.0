@@ -104,6 +104,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _histogramCaptureDir = string.Empty;
         private string _visionCaptureDir = CTAutoSlicerSettings.DefaultVisionCaptureDir;
         private string _vision2dVectorCaptureDir = CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir;
+        private string _vision3dInitialCaptureDir = CTAutoSlicerSettings.DefaultVision3dInitialCaptureDir;
         private string _visionLearn3dSampleDir = CTAutoSlicerSettings.DefaultVisionLearn3dSampleDir;
         private string _visionLearnTopViewSampleDir = CTAutoSlicerSettings.DefaultVisionLearnTopViewSampleDir;
         private string _histogramMaskColor = "#6E6E6E";
@@ -199,9 +200,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _statsDemoNote = "当前为 Demo 假数据，尚未接入真实检测判定。";
         private PlotModel? _statsOkNgPieModel;
         private PlotModel? _statsHourlyBarModel;
-        private string _cutImgDllTestSectionImagePath = string.Empty;
-        private string _cutImgDllTestVectorImagePath = string.Empty;
+        private string _cutImgDllTestSectionFolder = string.Empty;
+        private string _cutImgDllTestVectorFolder = string.Empty;
         private string _cutImgDllTestOutputDir = CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir;
+        private static readonly string[] CutImgDllTestImageExtensions =
+            [".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"];
         private int _postAlignClickWaitMs = 400;
         private int _postAlignDragStepDelayMs = 8;
         private int _pre321ViewClickX;
@@ -391,6 +394,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OverviewHeroTitle));
             OnPropertyChanged(nameof(SliceExportFolderLabel));
             EnsureNavValidForPipelineMode();
+
+            // AI 模式默认进入带结果图预览的「二次手动标注」页
+            if (IsAiPipelineMode && SelectedNavIndex == NavOverview)
+            {
+                SelectedNavIndex = NavManualMeasure;
+            }
         }
 
         public int SelectedNavIndex
@@ -400,12 +409,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 if (value == NavStepTest && !IsDebugMode)
                 {
-                    value = NavOverview;
+                    value = IsAiPipelineMode ? NavManualMeasure : NavOverview;
                 }
 
                 if (!IsNavAllowedForCurrentPipeline(value))
                 {
-                    value = NavOverview;
+                    // AI 模式主界面为带图预览的「二次手动标注」
+                    value = IsAiPipelineMode ? NavManualMeasure : NavOverview;
                 }
 
                 if (value == _selectedNavIndex)
@@ -1216,6 +1226,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _vision2dVectorCaptureDir, value))
                 {
                     SaveSetting(nameof(Vision2dVectorCaptureDir), value);
+                }
+            }
+        }
+
+        /// <summary>本地算法：直方图后、Pre321 前保存的默认视角 3D 原图目录。</summary>
+        public string Vision3dInitialCaptureDir
+        {
+            get => _vision3dInitialCaptureDir;
+            set
+            {
+                if (SetProperty(ref _vision3dInitialCaptureDir, value))
+                {
+                    SaveSetting(nameof(Vision3dInitialCaptureDir), value);
                 }
             }
         }
@@ -2096,28 +2119,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        /// <summary>CTAutoCutImg 离线测：GetSectionReferencePoints 输入图（通常为 3D 截图）。</summary>
-        public string CutImgDllTestSectionImagePath
+        /// <summary>CTAutoCutImg 离线测：3D侧视图输入文件夹（GetSectionReferencePoints 批量）。</summary>
+        public string CutImgDllTestSectionFolder
         {
-            get => _cutImgDllTestSectionImagePath;
+            get => _cutImgDllTestSectionFolder;
             set
             {
-                if (SetProperty(ref _cutImgDllTestSectionImagePath, value ?? string.Empty))
+                if (SetProperty(ref _cutImgDllTestSectionFolder, value ?? string.Empty))
                 {
-                    SaveSetting(nameof(CutImgDllTestSectionImagePath), value ?? string.Empty);
+                    SaveSetting(nameof(CutImgDllTestSectionFolder), value ?? string.Empty);
                 }
             }
         }
 
-        /// <summary>CTAutoCutImg 离线测：GetObjectTopBottomPoints 输入图（通常为「上」视图截图）。</summary>
-        public string CutImgDllTestVectorImagePath
+        /// <summary>CTAutoCutImg 离线测：2D侧视图输入文件夹（GetObjectTopBottomPoints 批量）。</summary>
+        public string CutImgDllTestVectorFolder
         {
-            get => _cutImgDllTestVectorImagePath;
+            get => _cutImgDllTestVectorFolder;
             set
             {
-                if (SetProperty(ref _cutImgDllTestVectorImagePath, value ?? string.Empty))
+                if (SetProperty(ref _cutImgDllTestVectorFolder, value ?? string.Empty))
                 {
-                    SaveSetting(nameof(CutImgDllTestVectorImagePath), value ?? string.Empty);
+                    SaveSetting(nameof(CutImgDllTestVectorFolder), value ?? string.Empty);
                 }
             }
         }
@@ -2538,6 +2561,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand OpenHistogramCaptureDirCommand { get; }
         public ICommand OpenVisionCaptureDirCommand { get; }
         public ICommand OpenVision2dVectorCaptureDirCommand { get; }
+        public ICommand OpenVision3dInitialCaptureDirCommand { get; }
         public ICommand CalibrateHistogramRoiCommand { get; }
         public ICommand CalibrateLutSegmentPointsCommand { get; }
         public ICommand CalibrateVision3dRoiCommand { get; }
@@ -2556,9 +2580,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand TestPostAlignCaptureDragCommand { get; }
         public ICommand TestPre321ViewPrepCommand { get; }
+        public ICommand OpenVision3dPointsStepDebugCommand { get; }
         public ICommand TestOfflineCtVisionAnnotationCommand { get; }
-        public ICommand BrowseCutImgDllTestSectionImageCommand { get; }
-        public ICommand BrowseCutImgDllTestVectorImageCommand { get; }
+        public ICommand BrowseCutImgDllTestSectionFolderCommand { get; }
+        public ICommand BrowseCutImgDllTestVectorFolderCommand { get; }
         public ICommand BrowseCutImgDllTestOutputDirCommand { get; }
         public ICommand TestCutImgGetSectionReferencePointsCommand { get; }
         public ICommand TestCutImgGetObjectTopBottomPointsCommand { get; }
@@ -2634,6 +2659,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OpenHistogramCaptureDirCommand = new RelayCommand(OpenHistogramCaptureDir);
             OpenVisionCaptureDirCommand = new RelayCommand(OpenVisionCaptureDir);
             OpenVision2dVectorCaptureDirCommand = new RelayCommand(OpenVision2dVectorCaptureDir);
+            OpenVision3dInitialCaptureDirCommand = new RelayCommand(OpenVision3dInitialCaptureDir);
             CalibrateHistogramRoiCommand = new RelayCommand(ExecuteCalibrateHistogramRoi);
             CalibrateLutSegmentPointsCommand = new RelayCommand(ExecuteCalibrateLutSegmentPoints);
             CalibrateVision3dRoiCommand = new RelayCommand(ExecuteCalibrateVision3dRoi);
@@ -2652,9 +2678,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
             TestPre321ViewPrepCommand = new RelayCommandAsync(ExecuteTestPre321ViewPrepAsync);
+            OpenVision3dPointsStepDebugCommand = new RelayCommand(_ => ExecuteOpenVision3dPointsStepDebug());
             TestOfflineCtVisionAnnotationCommand = new RelayCommandAsync(ExecuteTestOfflineCtVisionAnnotationAsync);
-            BrowseCutImgDllTestSectionImageCommand = new RelayCommand(ExecuteBrowseCutImgDllTestSectionImage);
-            BrowseCutImgDllTestVectorImageCommand = new RelayCommand(ExecuteBrowseCutImgDllTestVectorImage);
+            BrowseCutImgDllTestSectionFolderCommand = new RelayCommand(ExecuteBrowseCutImgDllTestSectionFolder);
+            BrowseCutImgDllTestVectorFolderCommand = new RelayCommand(ExecuteBrowseCutImgDllTestVectorFolder);
             BrowseCutImgDllTestOutputDirCommand = new RelayCommand(ExecuteBrowseCutImgDllTestOutputDir);
             TestCutImgGetSectionReferencePointsCommand = new RelayCommandAsync(ExecuteTestCutImgGetSectionReferencePointsAsync);
             TestCutImgGetObjectTopBottomPointsCommand = new RelayCommandAsync(ExecuteTestCutImgGetObjectTopBottomPointsAsync);
@@ -3293,6 +3320,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             Vision2dVectorCaptureDir = LoadStringSetting(
                 nameof(Vision2dVectorCaptureDir),
                 CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir);
+            Vision3dInitialCaptureDir = LoadStringSetting(
+                nameof(Vision3dInitialCaptureDir),
+                CTAutoSlicerSettings.DefaultVision3dInitialCaptureDir);
             HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
             HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 2);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
@@ -3478,8 +3508,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtPreBrightenTargetMean = LoadDoubleSetting(nameof(OfflineCtPreBrightenTargetMean), 132.0);
             OfflineCtManualInputImagePath = LoadStringSetting(nameof(OfflineCtManualInputImagePath), string.Empty);
             OfflineCtManualOutputFolder = LoadStringSetting(nameof(OfflineCtManualOutputFolder), string.Empty);
-            CutImgDllTestSectionImagePath = LoadStringSetting(nameof(CutImgDllTestSectionImagePath), string.Empty);
-            CutImgDllTestVectorImagePath = LoadStringSetting(nameof(CutImgDllTestVectorImagePath), string.Empty);
+            CutImgDllTestSectionFolder = LoadCutImgDllTestFolderSetting(
+                nameof(CutImgDllTestSectionFolder),
+                legacyKey: "CutImgDllTestSectionImagePath");
+            CutImgDllTestVectorFolder = LoadCutImgDllTestFolderSetting(
+                nameof(CutImgDllTestVectorFolder),
+                legacyKey: "CutImgDllTestVectorImagePath");
             CutImgDllTestOutputDir = LoadStringSetting(
                 nameof(CutImgDllTestOutputDir),
                 CTAutoSlicerSettings.DefaultCutImgDllTestOutputDir);
@@ -3702,6 +3736,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 VisionCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 Vision2dVectorCaptureDir = Vision2dVectorCaptureDir,
                 Vision2dVectorCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
+                Vision3dInitialCaptureDir = Vision3dInitialCaptureDir,
+                Vision3dInitialCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
+                Vision3dInitialCaptureWaitMs = CTAutoSlicerSettings.DefaultVision3dInitialCaptureWaitMs,
                 EnableVisionAlignmentSteps = true,
                 Simple321PointSource = (Core.Models.Project.CTAutoSlicer.Simple321PointSource)Math.Clamp(
                     _simple321PointSource,
@@ -3778,6 +3815,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 OfflineCtPreBrightenP50Trigger = OfflineCtPreBrightenP50Trigger,
                 OfflineCtPreBrightenTargetMean = OfflineCtPreBrightenTargetMean,
                 VisionClickIntervalMs = 300,
+                VisionCaptureWaitMs = 2000,
                 VisionAlignmentDialogWaitTime = 8000,
                 DllDownloadBaseUrl = _dllDownloadBaseUrl,
             };
@@ -5568,7 +5606,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             if (!IsNavAllowedForCurrentPipeline(SelectedNavIndex))
             {
-                SelectedNavIndex = NavOverview;
+                // AI 模式回落带预览的主界面；切图模式回落总览
+                SelectedNavIndex = IsAiPipelineMode ? NavManualMeasure : NavOverview;
             }
         }
 
@@ -5629,6 +5668,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
             {
                 Vision2dVectorCaptureDir = dialog.FileName;
+            }
+        }
+
+        private void OpenVision3dInitialCaptureDir(object? _)
+        {
+            var initial = Vision3dInitialCaptureDir;
+            if (string.IsNullOrWhiteSpace(initial))
+            {
+                initial = CTAutoSlicerSettings.DefaultVision3dInitialCaptureDir;
+            }
+
+            var dialog = new CommonOpenFileDialog
+            {
+                IsFolderPicker = true,
+                Title = "选择 3D 初始原图保存文件夹（未切视角）",
+                InitialDirectory = Directory.Exists(initial) ? initial : null,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                Vision3dInitialCaptureDir = dialog.FileName;
             }
         }
 
@@ -5999,7 +6059,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 var sourceLabel = Simple321PointSourceDisplay;
-                AppendFlowLog($"——— 简单 3-2-1 对齐测试开始（三点→偏移置0→向量两点→原点，找点={sourceLabel}） ———");
+                AppendFlowLog(
+                    $"——— 简单 3-2-1 对齐测试开始（三点→偏移置0→向量两点→原点） ———");
+                AppendFlowLog($"【找点算法】当前调用：{sourceLabel}");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestSimple321AlignmentAsync(
@@ -6024,57 +6086,81 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        private void ExecuteBrowseCutImgDllTestSectionImage(object? _)
+        /// <summary>
+        /// 打开本地 3D 斜俯视找点分步调试窗：对 vision_3d 截图逐步执行算法并显示中间图。
+        /// </summary>
+        private void ExecuteOpenVision3dPointsStepDebug()
         {
-            var dialog = new OpenFileDialog
+            string? initial = null;
+            try
             {
-                Title = "选择 GetSectionReferencePoints 测试图（3D）",
-                Filter = "图像文件|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|所有文件|*.*",
-            };
-            if (!string.IsNullOrWhiteSpace(CutImgDllTestSectionImagePath))
-            {
-                var dir = Path.GetDirectoryName(CutImgDllTestSectionImagePath);
-                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                var root = string.IsNullOrWhiteSpace(VisionCaptureDir)
+                    ? CTAutoSlicerSettings.DefaultVisionCaptureDir
+                    : VisionCaptureDir.Trim();
+                if (Directory.Exists(root))
                 {
-                    dialog.InitialDirectory = dir;
-                    dialog.FileName = Path.GetFileName(CutImgDllTestSectionImagePath);
+                    var latest = Directory.EnumerateFiles(root, "vision_3d_*.png", SearchOption.AllDirectories)
+                        .OrderByDescending(File.GetLastWriteTimeUtc)
+                        .FirstOrDefault();
+                    initial = latest;
                 }
             }
-            else if (Directory.Exists(CTAutoSlicerSettings.DefaultVisionCaptureDir))
+            catch (Exception ex)
             {
-                dialog.InitialDirectory = CTAutoSlicerSettings.DefaultVisionCaptureDir;
+                _logger.Warn($"查找最新 vision_3d 截图失败：{ex.Message}");
             }
 
-            if (dialog.ShowDialog() == true)
+            var win = new Vision3dPointsStepDebugWindow(initial)
             {
-                CutImgDllTestSectionImagePath = dialog.FileName;
+                Owner = Application.Current?.MainWindow,
+            };
+            win.Show();
+            MessageShower = initial == null
+                ? "已打开本地 3D 找点分步调试（请自行浏览截图）"
+                : $"已打开本地 3D 找点分步调试：{Path.GetFileName(initial)}";
+        }
+
+        private void ExecuteBrowseCutImgDllTestSectionFolder(object? _)
+        {
+            using var dialog = new CommonOpenFileDialog
+            {
+                Title = "选择 3D侧视图测试文件夹（GetSectionReferencePoints）",
+                IsFolderPicker = true,
+            };
+            var initial = ResolveExistingDirectoryOrParent(CutImgDllTestSectionFolder)
+                ?? (Directory.Exists(CTAutoSlicerSettings.DefaultVisionCaptureDir)
+                    ? CTAutoSlicerSettings.DefaultVisionCaptureDir
+                    : null);
+            if (!string.IsNullOrWhiteSpace(initial))
+            {
+                dialog.InitialDirectory = initial;
+            }
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                CutImgDllTestSectionFolder = dialog.FileName;
             }
         }
 
-        private void ExecuteBrowseCutImgDllTestVectorImage(object? _)
+        private void ExecuteBrowseCutImgDllTestVectorFolder(object? _)
         {
-            var dialog = new OpenFileDialog
+            using var dialog = new CommonOpenFileDialog
             {
-                Title = "选择 GetObjectTopBottomPoints 测试图（上视图）",
-                Filter = "图像文件|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|所有文件|*.*",
+                Title = "选择 2D侧视图测试文件夹（GetObjectTopBottomPoints）",
+                IsFolderPicker = true,
             };
-            if (!string.IsNullOrWhiteSpace(CutImgDllTestVectorImagePath))
+            var initial = ResolveExistingDirectoryOrParent(CutImgDllTestVectorFolder)
+                ?? (Directory.Exists(CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir)
+                    ? CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir
+                    : null);
+            if (!string.IsNullOrWhiteSpace(initial))
             {
-                var dir = Path.GetDirectoryName(CutImgDllTestVectorImagePath);
-                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
-                {
-                    dialog.InitialDirectory = dir;
-                    dialog.FileName = Path.GetFileName(CutImgDllTestVectorImagePath);
-                }
-            }
-            else if (Directory.Exists(CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir))
-            {
-                dialog.InitialDirectory = CTAutoSlicerSettings.DefaultVision2dVectorCaptureDir;
+                dialog.InitialDirectory = initial;
             }
 
-            if (dialog.ShowDialog() == true)
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                CutImgDllTestVectorImagePath = dialog.FileName;
+                CutImgDllTestVectorFolder = dialog.FileName;
             }
         }
 
@@ -6119,7 +6205,98 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
-        /// 离线测 GetSectionReferencePoints：不跑 VG，选图 → DLL → 标注四点落盘。
+        /// 读取文件夹配置；兼容旧版单图路径（自动取所在目录）。
+        /// </summary>
+        private string LoadCutImgDllTestFolderSetting(string key, string legacyKey)
+        {
+            var raw = LoadStringSetting(key, string.Empty);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                raw = LoadStringSetting(legacyKey, string.Empty);
+            }
+
+            return NormalizeCutImgDllTestFolderPath(raw);
+        }
+
+        /// <summary>
+        /// 若曾保存为单图路径，归一化为所在文件夹；已是目录则原样返回。
+        /// </summary>
+        private static string NormalizeCutImgDllTestFolderPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            var trimmed = path.Trim();
+            if (Directory.Exists(trimmed))
+            {
+                return trimmed;
+            }
+
+            if (File.Exists(trimmed))
+            {
+                return Path.GetDirectoryName(trimmed) ?? string.Empty;
+            }
+
+            var ext = Path.GetExtension(trimmed);
+            if (!string.IsNullOrEmpty(ext)
+                && CutImgDllTestImageExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            {
+                return Path.GetDirectoryName(trimmed) ?? string.Empty;
+            }
+
+            return trimmed;
+        }
+
+        private static string? ResolveExistingDirectoryOrParent(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            var trimmed = path.Trim();
+            if (Directory.Exists(trimmed))
+            {
+                return trimmed;
+            }
+
+            if (File.Exists(trimmed))
+            {
+                var parent = Path.GetDirectoryName(trimmed);
+                return Directory.Exists(parent) ? parent : null;
+            }
+
+            var dir = Path.GetDirectoryName(trimmed);
+            return Directory.Exists(dir) ? dir : null;
+        }
+
+        /// <summary>
+        /// 枚举文件夹顶层图片（不递归），按文件名排序。
+        /// </summary>
+        private static IReadOnlyList<string> EnumerateCutImgDllTestImages(string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            {
+                return [];
+            }
+
+            return Directory
+                .EnumerateFiles(folder)
+                .Where(p =>
+                {
+                    var ext = Path.GetExtension(p);
+                    return !string.IsNullOrEmpty(ext)
+                           && CutImgDllTestImageExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase);
+                })
+                .OrderBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// 离线批量测 GetSectionReferencePoints：不跑 VG，对 3D侧视图文件夹内全部图片 → DLL → 标注四点落盘。
+        /// 单张失败不中断，继续后续图片。
         /// </summary>
         private async Task ExecuteTestCutImgGetSectionReferencePointsAsync()
         {
@@ -6128,63 +6305,95 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(CutImgDllTestSectionImagePath)
-                || !File.Exists(CutImgDllTestSectionImagePath))
+            var folder = CutImgDllTestSectionFolder?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
             {
-                MessageShower = "请先选择 GetSectionReferencePoints 测试图（3D 截图）";
+                MessageShower = "请先选择 3D侧视图测试文件夹";
                 return;
             }
 
-            var imagePath = CutImgDllTestSectionImagePath.Trim();
+            var images = EnumerateCutImgDllTestImages(folder);
+            if (images.Count == 0)
+            {
+                MessageShower = $"3D侧视图文件夹内未找到图片：{folder}";
+                return;
+            }
+
             try
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— CTAutoCutImg 离线测：GetSectionReferencePoints 开始 ———");
-                AppendFlowLog($"输入图：{imagePath}");
+                AppendFlowLog("——— CTAutoCutImg 离线批量测：GetSectionReferencePoints（3D侧视图）开始 ———");
+                AppendFlowLog($"输入目录：{folder}（共 {images.Count} 张）");
 
-                var (pointLines, destPath) = await Task.Run(() =>
+                var (logLines, okCount, failCount) = await Task.Run(() =>
                 {
                     EnsureCutImgDllReadyForOfflineTest();
-                    var points = _cutImgAlgorithmService.GetSectionReferencePoints(imagePath);
-                    if (points.Length < 4)
-                    {
-                        throw new InvalidOperationException(
-                            $"GetSectionReferencePoints 返回点数不足：期望 4，实际 {points.Length}");
-                    }
-
-                    var labels = new[] { "上盖1", "上盖2", "上盖3", "原点" };
-                    var annotate = new (int X, int Y, string Label)[4];
-                    var lines = new List<string>(4);
-                    for (var i = 0; i < 4; i++)
-                    {
-                        annotate[i] = (points[i].X, points[i].Y, labels[i]);
-                        lines.Add($"{labels[i]}：({points[i].X},{points[i].Y})");
-                    }
-
                     var outDir = ResolveCutImgDllTestOutputDir();
-                    var stamp = DateTime.Now.ToString("HHmmss_fff");
-                    var dest = Path.Combine(
-                        outDir,
-                        Path.GetFileNameWithoutExtension(imagePath) + $"_section_{stamp}.png");
-                    ScreenCaptureHelper.SaveAnnotatedPointsImage(imagePath, dest, annotate);
-                    return (lines, dest);
+                    var lines = new List<string>(images.Count * 3);
+                    var ok = 0;
+                    var fail = 0;
+                    var labels = new[] { "上盖1", "上盖2", "上盖3", "原点" };
+
+                    for (var i = 0; i < images.Count; i++)
+                    {
+                        var imagePath = images[i];
+                        var indexTag = $"{i + 1}/{images.Count}";
+                        try
+                        {
+                            var points = _cutImgAlgorithmService.GetSectionReferencePoints(imagePath);
+                            if (points.Length < 4)
+                            {
+                                throw new InvalidOperationException(
+                                    $"返回点数不足：期望 4，实际 {points.Length}");
+                            }
+
+                            var annotate = new (int X, int Y, string Label)[4];
+                            for (var p = 0; p < 4; p++)
+                            {
+                                annotate[p] = (points[p].X, points[p].Y, labels[p]);
+                            }
+
+                            var stamp = DateTime.Now.ToString("HHmmss_fff");
+                            var dest = Path.Combine(
+                                outDir,
+                                Path.GetFileNameWithoutExtension(imagePath) + $"_section_{stamp}.png");
+                            ScreenCaptureHelper.SaveAnnotatedPointsImage(imagePath, dest, annotate);
+
+                            ok++;
+                            lines.Add($"OK [{indexTag}] {Path.GetFileName(imagePath)}");
+                            for (var p = 0; p < 4; p++)
+                            {
+                                lines.Add($"  {labels[p]}：({points[p].X},{points[p].Y})");
+                            }
+
+                            lines.Add($"  标注图：{dest}");
+                        }
+                        catch (Exception ex)
+                        {
+                            fail++;
+                            lines.Add($"NG [{indexTag}] {Path.GetFileName(imagePath)}：{ex.Message}");
+                        }
+                    }
+
+                    return (lines, ok, fail);
                 }).ConfigureAwait(true);
 
-                foreach (var line in pointLines)
+                foreach (var line in logLines)
                 {
                     AppendFlowLog(line);
                 }
 
-                AppendFlowLog($"标注图已保存：{destPath}");
-                MessageShower = $"GetSectionReferencePoints 完成，标注图：{destPath}";
-                AppendFlowLog("——— CTAutoCutImg 离线测：GetSectionReferencePoints 结束 ———");
+                MessageShower = $"GetSectionReferencePoints 批量完成：成功 {okCount}，失败 {failCount}，共 {images.Count}";
+                AppendFlowLog(
+                    $"汇总：成功 {okCount}，失败 {failCount}，共 {images.Count}");
+                AppendFlowLog("——— CTAutoCutImg 离线批量测：GetSectionReferencePoints 结束 ———");
             }
             catch (Exception ex)
             {
                 MessageShower = ex.Message;
-                AppendFlowLog($"GetSectionReferencePoints 离线测失败：{ex.Message}");
-                _logger.Error("GetSectionReferencePoints 离线测失败", ex);
+                AppendFlowLog($"GetSectionReferencePoints 离线批量测失败：{ex.Message}");
+                _logger.Error("GetSectionReferencePoints 离线批量测失败", ex);
             }
             finally
             {
@@ -6193,8 +6402,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
-        /// 离线测 GetObjectTopBottomPoints：不跑 VG，选图 → DLL → 标注起点/终点落盘。
-        /// [0]=起点，[1]=终点。
+        /// 离线批量测 GetObjectTopBottomPoints：不跑 VG，对 2D侧视图文件夹内全部图片 → DLL → 标注起点/终点落盘。
+        /// [0]=起点，[1]=终点。单张失败不中断。
         /// </summary>
         private async Task ExecuteTestCutImgGetObjectTopBottomPointsAsync()
         {
@@ -6203,63 +6412,94 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(CutImgDllTestVectorImagePath)
-                || !File.Exists(CutImgDllTestVectorImagePath))
+            var folder = CutImgDllTestVectorFolder?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
             {
-                MessageShower = "请先选择 GetObjectTopBottomPoints 测试图（上视图截图）";
+                MessageShower = "请先选择 2D侧视图测试文件夹";
                 return;
             }
 
-            var imagePath = CutImgDllTestVectorImagePath.Trim();
+            var images = EnumerateCutImgDllTestImages(folder);
+            if (images.Count == 0)
+            {
+                MessageShower = $"2D侧视图文件夹内未找到图片：{folder}";
+                return;
+            }
+
             try
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— CTAutoCutImg 离线测：GetObjectTopBottomPoints 开始 ———");
-                AppendFlowLog($"输入图：{imagePath}");
+                AppendFlowLog("——— CTAutoCutImg 离线批量测：GetObjectTopBottomPoints（2D侧视图）开始 ———");
+                AppendFlowLog($"输入目录：{folder}（共 {images.Count} 张）");
 
-                var (startLine, endLine, destPath) = await Task.Run(() =>
+                var (logLines, okCount, failCount) = await Task.Run(() =>
                 {
                     EnsureCutImgDllReadyForOfflineTest();
-                    var points = _cutImgAlgorithmService.GetObjectTopBottomPoints(imagePath);
-                    if (points.Length < 2)
+                    var outDir = ResolveCutImgDllTestOutputDir();
+                    var lines = new List<string>(images.Count * 3);
+                    var ok = 0;
+                    var fail = 0;
+
+                    for (var i = 0; i < images.Count; i++)
                     {
-                        throw new InvalidOperationException(
-                            $"GetObjectTopBottomPoints 返回点数不足：期望 2，实际 {points.Length}");
+                        var imagePath = images[i];
+                        var indexTag = $"{i + 1}/{images.Count}";
+                        try
+                        {
+                            var points = _cutImgAlgorithmService.GetObjectTopBottomPoints(imagePath);
+                            if (points.Length < 2)
+                            {
+                                throw new InvalidOperationException(
+                                    $"返回点数不足：期望 2，实际 {points.Length}");
+                            }
+
+                            // [0]=起点，[1]=终点
+                            var start = points[0];
+                            var end = points[1];
+                            var annotate = new (int X, int Y, string Label)[]
+                            {
+                                (start.X, start.Y, "起点"),
+                                (end.X, end.Y, "终点"),
+                            };
+
+                            var stamp = DateTime.Now.ToString("HHmmss_fff");
+                            var dest = Path.Combine(
+                                outDir,
+                                Path.GetFileNameWithoutExtension(imagePath) + $"_topbottom_{stamp}.png");
+                            ScreenCaptureHelper.SaveAnnotatedPointsImage(imagePath, dest, annotate);
+
+                            ok++;
+                            lines.Add($"OK [{indexTag}] {Path.GetFileName(imagePath)}");
+                            lines.Add($"  起点[0]：({start.X},{start.Y})");
+                            lines.Add($"  终点[1]：({end.X},{end.Y})");
+                            lines.Add($"  标注图：{dest}");
+                        }
+                        catch (Exception ex)
+                        {
+                            fail++;
+                            lines.Add($"NG [{indexTag}] {Path.GetFileName(imagePath)}：{ex.Message}");
+                        }
                     }
 
-                    // [0]=起点，[1]=终点
-                    var start = points[0];
-                    var end = points[1];
-                    var annotate = new (int X, int Y, string Label)[]
-                    {
-                        (start.X, start.Y, "起点"),
-                        (end.X, end.Y, "终点"),
-                    };
-
-                    var outDir = ResolveCutImgDllTestOutputDir();
-                    var stamp = DateTime.Now.ToString("HHmmss_fff");
-                    var dest = Path.Combine(
-                        outDir,
-                        Path.GetFileNameWithoutExtension(imagePath) + $"_topbottom_{stamp}.png");
-                    ScreenCaptureHelper.SaveAnnotatedPointsImage(imagePath, dest, annotate);
-                    return (
-                        $"起点[0]：({start.X},{start.Y})",
-                        $"终点[1]：({end.X},{end.Y})",
-                        dest);
+                    return (lines, ok, fail);
                 }).ConfigureAwait(true);
 
-                AppendFlowLog(startLine);
-                AppendFlowLog(endLine);
-                AppendFlowLog($"标注图已保存：{destPath}");
-                MessageShower = $"GetObjectTopBottomPoints 完成，标注图：{destPath}";
-                AppendFlowLog("——— CTAutoCutImg 离线测：GetObjectTopBottomPoints 结束 ———");
+                foreach (var line in logLines)
+                {
+                    AppendFlowLog(line);
+                }
+
+                MessageShower = $"GetObjectTopBottomPoints 批量完成：成功 {okCount}，失败 {failCount}，共 {images.Count}";
+                AppendFlowLog(
+                    $"汇总：成功 {okCount}，失败 {failCount}，共 {images.Count}");
+                AppendFlowLog("——— CTAutoCutImg 离线批量测：GetObjectTopBottomPoints 结束 ———");
             }
             catch (Exception ex)
             {
                 MessageShower = ex.Message;
-                AppendFlowLog($"GetObjectTopBottomPoints 离线测失败：{ex.Message}");
-                _logger.Error("GetObjectTopBottomPoints 离线测失败", ex);
+                AppendFlowLog($"GetObjectTopBottomPoints 离线批量测失败：{ex.Message}");
+                _logger.Error("GetObjectTopBottomPoints 离线批量测失败", ex);
             }
             finally
             {

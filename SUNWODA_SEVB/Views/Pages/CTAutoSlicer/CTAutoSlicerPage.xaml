@@ -1804,6 +1804,46 @@
                                             </Image>
                                         </Button>
                                     </Grid>
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            Text="3D初始原图目录"
+                                            ToolTip="本地算法：直方图后、Pre321 切视角前保存的默认视角 3D 原图（强化学习样本）；默认 C:\AutoSlice\cutpicture\3D初始；按日保留 7 天" />
+                                        <hc:TextBox
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            ToolTip="本地算法：直方图后、Pre321 切视角前保存的默认视角 3D 原图（强化学习样本）；默认 C:\AutoSlice\cutpicture\3D初始；按日保留 7 天">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="Vision3dInitialCaptureDir" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button
+                                            Grid.Column="2"
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Width="40"
+                                            MinWidth="40"
+                                            Padding="0"
+                                            Command="{Binding OpenVision3dInitialCaptureDirCommand}"
+                                            ToolTip="选择 3D 初始原图保存文件夹">
+                                            <Image Width="18">
+                                                <Image.Source>
+                                                    <DrawingImage>
+                                                        <DrawingImage.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="Black" Geometry="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z" />
+                                                            </DrawingGroup>
+                                                        </DrawingImage.Drawing>
+                                                    </DrawingImage>
+                                                </Image.Source>
+                                            </Image>
+                                        </Button>
+                                    </Grid>
                                     <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
@@ -1847,7 +1887,7 @@
                                     <TextBlock
                                         Margin="0,12,0,0"
                                         Style="{StaticResource CasFormHintStyle}"
-                                        Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。三点后须标定左侧偏移 Edit 并置 0，否则向量两点时「上」视图不对。主流程厚板后自动执行简单 3-2-1。3D 图存「3D图标定截图目录」；上视图存「上视图截图目录」；均按日分子目录，超过 7 天自动删除。"
+                                        Text="标定前请露出 VG 对应视口与测量工具栏。「简单对齐」下拉为 Qt 控件，UIA 常无法识别，须用绝对坐标点击。三点后须标定左侧偏移 Edit 并置 0，否则向量两点时「上」视图不对。主流程厚板后自动执行简单 3-2-1。3D 找点图存「3D图标定截图目录」；默认视角原图（本地算法、未切 Pre321）存「3D初始原图目录」；上视图存「上视图截图目录」；均按日分子目录，超过 7 天自动删除。"
                                         TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
@@ -2070,7 +2110,7 @@
                                             <LineBreak />
                                             <Run Text="• 切片导出目录：三视图切片输出根目录；内部按命名规则分子目录/文件。" />
                                             <LineBreak />
-                                            <Run Text="• 上视图交接目录：导出结束后将第 N 张上视图复制到「交接目录/产品名/」下（如 …/导出名/050.jpg），供 AI 电脑消费。" />
+                                            <Run Text="• 上视图交接目录：导出结束后将第 N 张上视图复制为「交接目录/{产品名}.jpg」（如 …/1161-F.jpg），供 AI 电脑消费。" />
                                             <LineBreak />
                                             <Run Text="• 上视图切片序号：填 50 = 第 50 张；因导出前缀为 0，实际文件名为 050.jpg。" />
                                             <LineBreak />
@@ -2128,9 +2168,9 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="上视图交接目录"
-                                                   ToolTip="切图结束后复制送检上视图到此目录，供 AI 标注电脑读取" />
+                                                   ToolTip="两机共享目录；切图写入 {交接目录}/{导出名}.jpg，AI 扫描根目录一层图片" />
                                         <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" hc:InfoElement.Necessary="True"
-                                                    ToolTip="两机共享目录；结构为 {交接目录}/{导出名产品文件夹}/050.jpg">
+                                                    ToolTip="两机共享目录；结构为 {交接目录}/{导出名}.jpg">
                                             <hc:TextBox.Text>
                                                 <Binding Path="TopViewHandoffFolder" UpdateSourceTrigger="PropertyChanged" />
                                             </hc:TextBox.Text>
@@ -2169,7 +2209,7 @@
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Style="{StaticResource CasFormHintStyle}"
-                                                       Text="填 50 = 第 50 张 → 文件 050.jpg；复制到交接目录下的产品名文件夹" />
+                                                       Text="填 50 = 第 50 张 → 源文件 050.jpg；交接时改名为 {产品名}.jpg 写入交接目录根" />
                                         </StackPanel>
                                     </Grid>
                                     <UniformGrid Columns="2" Margin="0,12,0,0">
@@ -2343,7 +2383,7 @@
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="输入 / 输出" />
                                             <LineBreak />
-                                            <Run Text="输入：上视图交接目录（一层 jpg/png）。输出：{标注结果根}/{产品名}/" />
+                                            <Run Text="输入：上视图交接目录根下一层 jpg/png（{产品名}.jpg）。输出：{标注结果根}/{产品名}/" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
@@ -2382,7 +2422,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="输入与输出目录" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="「开始流程」扫描交接目录一层图像，结果写入标注结果根目录下各子文件夹。" />
+                                        Text="「开始流程」扫描交接目录根下一层图像（{产品名}.jpg），结果写入标注结果根目录下各子文件夹。" />
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
@@ -3257,7 +3297,7 @@
                                             <LineBreak />
                                             <Run Text="• 测试简单3-2-1对齐：需标定 3D ROI +「上」ROI + 下拉 + 偏移 Edit。" />
                                             <LineBreak />
-                                            <Run Text="• CTAutoCutImg 离线测：不跑 VG，分别测 GetSectionReferencePoints / GetObjectTopBottomPoints 并落盘标注图。" />
+                                            <Run Text="• CTAutoCutImg 离线测：不跑 VG，按文件夹批量测 GetSectionReferencePoints（3D侧视图）/ GetObjectTopBottomPoints（2D侧视图）并落盘标注图。" />
                                             <LineBreak />
                                             <Run Text="• 测试对齐后拖拽：需标定 3D图正视图切换按钮位置与拖拽箭头。" />
                                             <LineBreak />
@@ -3318,6 +3358,12 @@
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
+                                            Command="{Binding OpenVision3dPointsStepDebugCommand}"
+                                            Content="4b 本地3D找点分步调试"
+                                            ToolTip="不跑 VG：对 vision_3d 截图逐步执行 Vision3dSectionPointsDetector，查看每步中间图定位失败点"
+                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
+                                        <Button
+                                            Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestPostAlignCaptureDragCommand}"
                                             Content="5  测试对齐后拖拽"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
@@ -3347,7 +3393,7 @@
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
                                         TextWrapping="Wrap"
-                                        Text="仅调用视觉 DLL 找点并落盘标注图，不打开 VG、不执行 3-2-1 点击流程。GetSectionReferencePoints 标四点（上盖三点+原点）；GetObjectTopBottomPoints 标起点[0]、终点[1]。" />
+                                        Text="仅调用视觉 DLL 找点并落盘标注图，不打开 VG、不执行 3-2-1 点击流程。选择文件夹后对该目录下全部图片批量跑通：GetSectionReferencePoints（3D侧视图）标四点（上盖三点+原点）；GetObjectTopBottomPoints（2D侧视图）标起点[0]、终点[1]。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -3355,10 +3401,10 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="Section 测试图" ToolTip="GetSectionReferencePoints 输入，通常为 3D ROI 截图" />
-                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" ToolTip="GetSectionReferencePoints 输入图路径">
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="3D侧视图" ToolTip="GetSectionReferencePoints 输入文件夹，通常为 3D ROI 截图目录" />
+                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" ToolTip="3D侧视图测试图文件夹（目录内全部图片批量测）">
                                             <hc:TextBox.Text>
-                                                <Binding Path="CutImgDllTestSectionImagePath" UpdateSourceTrigger="PropertyChanged" />
+                                                <Binding Path="CutImgDllTestSectionFolder" UpdateSourceTrigger="PropertyChanged" />
                                             </hc:TextBox.Text>
                                         </hc:TextBox>
                                         <Button
@@ -3366,7 +3412,7 @@
                                             Margin="8,0,0,0"
                                             Style="{StaticResource CasSecondaryButtonStyle}"
                                             Content="浏览…"
-                                            Command="{Binding BrowseCutImgDllTestSectionImageCommand}" />
+                                            Command="{Binding BrowseCutImgDllTestSectionFolderCommand}" />
                                     </Grid>
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
@@ -3375,10 +3421,10 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="TopBottom 测试图" ToolTip="GetObjectTopBottomPoints 输入，通常为「上」视图截图" />
-                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" ToolTip="GetObjectTopBottomPoints 输入图路径">
+                                        <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="2D侧视图" ToolTip="GetObjectTopBottomPoints 输入文件夹，通常为「上」视图截图目录" />
+                                        <hc:TextBox Grid.Column="1" HorizontalAlignment="Stretch" ToolTip="2D侧视图测试图文件夹（目录内全部图片批量测）">
                                             <hc:TextBox.Text>
-                                                <Binding Path="CutImgDllTestVectorImagePath" UpdateSourceTrigger="PropertyChanged" />
+                                                <Binding Path="CutImgDllTestVectorFolder" UpdateSourceTrigger="PropertyChanged" />
                                             </hc:TextBox.Text>
                                         </hc:TextBox>
                                         <Button
@@ -3386,7 +3432,7 @@
                                             Margin="8,0,0,0"
                                             Style="{StaticResource CasSecondaryButtonStyle}"
                                             Content="浏览…"
-                                            Command="{Binding BrowseCutImgDllTestVectorImageCommand}" />
+                                            Command="{Binding BrowseCutImgDllTestVectorFolderCommand}" />
                                     </Grid>
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
@@ -3415,13 +3461,13 @@
                                             Command="{Binding TestCutImgGetSectionReferencePointsCommand}"
                                             Content="测 GetSectionReferencePoints"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="调用 DLL 标上盖三点+原点，输出 *_section_*.png" />
+                                            ToolTip="对 3D侧视图文件夹内全部图片调用 DLL 标上盖三点+原点，输出 *_section_*.png" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestCutImgGetObjectTopBottomPointsCommand}"
                                             Content="测 GetObjectTopBottomPoints"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="调用 DLL 标起点[0]+终点[1]，输出 *_topbottom_*.png" />
+                                            ToolTip="对 2D侧视图文件夹内全部图片调用 DLL 标起点[0]+终点[1]，输出 *_topbottom_*.png" />
                                     </UniformGrid>
                                 </StackPanel>
                             </Border>

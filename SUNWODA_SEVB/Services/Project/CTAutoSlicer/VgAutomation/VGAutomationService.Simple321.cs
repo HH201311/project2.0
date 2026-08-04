@@ -24,7 +24,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             Process ctViewerProcess,
             AutomationElement mainWindow,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            string? namingSourcePath = null)
         {
             if (!settings.HasVision3dRoi)
             {
@@ -37,22 +38,48 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     "尚未标定「上」视图 ROI，无法执行向量两点（请先在「阶段四视觉对齐」中标定「上」视图区域）");
             }
 
-            // 找点前视角准备：切换到极耳不遮挡角点的斜俯视，再截 3D
-            if (settings.HasPre321ViewPrepPrerequisites)
+            var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSourcePath);
+            var algoLabel = FormatSimple321PointSourceLabel(settings);
+            progress?.Report($"【找点算法】当前调用：{algoLabel}；截图产品标签={productTag}");
+            _logger.Info(
+                $"【找点算法】简单 3-2-1 当前调用：{algoLabel}" +
+                $"（Simple321PointSource={settings.Simple321PointSource}；产品标签={productTag}）");
+
+            // 本地算法：直方图已完成，切视角前先等 2s 存一张默认视角 3D 原图（供视觉强化学习；失败不阻断主流程）
+            if (!settings.UseVisionDllForSimple321)
             {
-                progress?.Report("3D找点前视角准备：点击切换视图 → 拖拽…");
-                _logger.Info("简单 3-2-1：先执行 Pre321 视角准备");
+                await CaptureVision3dInitialRoiForReinforcementAsync(
+                        settings,
+                        productTag,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+            }
+
+            // Pre321 仅本地算法：切到斜俯视再找点。视觉 DLL 约定默认视角直接截图，禁止切视角。
+            if (settings.UseVisionDllForSimple321)
+            {
+                progress?.Report("跳过找点前视角准备：当前为视觉 DLL，按默认视角截图找点");
+                _logger.Info("简单 3-2-1：视觉 DLL 路径，跳过 Pre321，保持默认视角");
+            }
+            else if (settings.HasPre321ViewPrepPrerequisites)
+            {
+                progress?.Report("3D找点前视角准备（本地算法）：点击切换视图 → 拖拽…");
+                _logger.Info("简单 3-2-1：本地算法，先执行 Pre321 视角准备");
                 await RunPre321ViewPrepAsync(settings, cancellationToken, progress).ConfigureAwait(false);
                 await Task.Delay(300, cancellationToken).ConfigureAwait(false);
             }
             else
             {
                 progress?.Report("跳过找点前视角准备：尚未标定切换点击/拖拽箭头（仍按当前视角截图找点）");
-                _logger.Info("简单 3-2-1：Pre321 未标定齐全，跳过视角准备");
+                _logger.Info("简单 3-2-1：本地算法但 Pre321 未标定齐全，跳过视角准备");
             }
 
+            // 截图前等待：等 VG 画面坐标/标注消失（Local / VisionDll 均需要）
+            await WaitBeforeVisionCaptureAsync(settings, "3D", cancellationToken, progress)
+                .ConfigureAwait(false);
             progress?.Report("截取第四象限 3D 视图 ROI…");
-            var capturePath = CaptureVision3dRoiToFile(settings);
+            var capturePath = CaptureVision3dRoiToFile(settings, productTag);
             progress?.Report($"3D 截图已保存：{capturePath}");
             _logger.Info($"3D ROI 截图：{capturePath}");
 
@@ -153,16 +180,16 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ConfigureAwait(false);
             progress?.Report(
                 settings.UseVisionDllForSimple321
-                    ? "步骤2/3：调用 GetObjectTopBottomPoints → Ctrl 起点→终点（须先于原点）…"
-                    : "步骤2/3：「上」视图向量两点（须先于原点，否则标定区会变）…");
-            await ClickTopViewVectorPointsAsync(settings, cancellationToken, progress)
+                    ? "【找点算法=视觉 DLL】步骤2/3：GetObjectTopBottomPoints → Ctrl 上→下（须先于原点）…"
+                    : "【找点算法=本地】步骤2/3：「上」视图向量两点（须先于原点，否则标定区会变）…");
+            await ClickTopViewVectorPointsAsync(settings, cancellationToken, progress, productTag)
                 .ConfigureAwait(false);
 
             // —— 步骤3：3D 原点（GetSectionReferencePoints 返回的第 4 点 / 索引 3）——
             progress?.Report(
                 settings.UseVisionDllForSimple321
-                    ? $"步骤3/3：Ctrl+点击原点（GetSectionReferencePoints[3]）@({originSx},{originSy})…"
-                    : $"步骤3/3：Ctrl+点击原点 @({originSx},{originSy})…");
+                    ? $"【找点算法=视觉 DLL】步骤3/3：Ctrl+点击原点（GetSectionReferencePoints[3]）@({originSx},{originSy})…"
+                    : $"【找点算法=本地】步骤3/3：Ctrl+点击原点 @({originSx},{originSy})…");
             await CtrlClickScreenAsync(originSx, originSy, cancellationToken).ConfigureAwait(false);
             await Task.Delay(Math.Max(100, settings.VisionClickIntervalMs), cancellationToken)
                 .ConfigureAwait(false);
@@ -178,7 +205,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     progress)
                 .ConfigureAwait(false);
 
-            progress?.Report("简单 3-2-1 对齐流程完成（3 平面点 + 偏移置0 + 2 向量点 + 1 原点）");
+            var doneAlgo = FormatSimple321PointSourceLabel(settings);
+            progress?.Report($"简单 3-2-1 对齐流程完成（找点算法={doneAlgo}）");
+            _logger.Info($"简单 3-2-1 对齐流程完成；【找点算法】本次调用={doneAlgo}");
         }
 
         /// <summary>
@@ -349,16 +378,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>简单 3-2-1 步骤2：截取「上」视图 → 按配置找向量两点 → 标注落盘 → Ctrl 点击。
-        /// 视觉 DLL：按「起点→终点」点击（DLL [0]=起点、[1]=终点）。
-        /// 本地：按屏幕从上到下点击。
+        /// 本地 / 视觉 DLL 均按屏幕 Y「上→下」点击（DLL 原始索引可能为下→上，点击前重排）。
         /// </summary>
         private async Task ClickTopViewVectorPointsAsync(
             CTAutoSlicerSettings settings,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            string productTag = "unknown")
         {
+            // 截图前等待：等「上」视图坐标/标注消失（Local / VisionDll 均需要）
+            await WaitBeforeVisionCaptureAsync(settings, "上视图", cancellationToken, progress)
+                .ConfigureAwait(false);
             progress?.Report("截取第二象限「上」视图 ROI（步骤2 向量找点）…");
-            var capturePath = CaptureVisionTopViewRoiToFile(settings);
+            var capturePath = CaptureVisionTopViewRoiToFile(settings, productTag);
             progress?.Report($"「上」视图截图已保存：{capturePath}");
             _logger.Info($"「上」视图 ROI 截图：{capturePath}");
 
@@ -372,25 +404,25 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             (int X, int Y) first;
             (int X, int Y) second;
-            string[] labels;
+            // VG 简单 3-2-1 向量须「上→下」；DLL 的 [0]/[1] 常为下→上，按屏幕 Y 强制重排（与本地一致）
+            first = relativePoints[0];
+            second = relativePoints[1];
+            if (second.Y < first.Y)
+            {
+                (first, second) = (second, first);
+            }
+
+            string[] labels = ["向量上", "向量下"];
+
             if (settings.UseVisionDllForSimple321)
             {
-                // DetectTopViewVectorPoints 已归一化为 [起点, 终点]，禁止再按 Y 重排
-                first = relativePoints[0];
-                second = relativePoints[1];
-                labels = ["向量起点", "向量终点"];
-            }
-            else
-            {
-                // 本地：强制从上到下
-                first = relativePoints[0];
-                second = relativePoints[1];
-                if (second.Y < first.Y)
-                {
-                    (first, second) = (second, first);
-                }
-
-                labels = ["向量上", "向量下"];
+                progress?.Report(
+                    $"视觉 DLL 向量点击顺序：上→下（已按 Y 重排；DLL 原始 [0]=({relativePoints[0].X},{relativePoints[0].Y}) " +
+                    $"[1]=({relativePoints[1].X},{relativePoints[1].Y})）");
+                _logger.Info(
+                    $"视觉 DLL 向量点击：上→下 first=({first.X},{first.Y}) second=({second.X},{second.Y})；" +
+                    $"DLL 原始 [0]=({relativePoints[0].X},{relativePoints[0].Y}) " +
+                    $"[1]=({relativePoints[1].X},{relativePoints[1].Y})");
             }
 
             progress?.Report($"向量找点：{vectorSummary}");
@@ -429,9 +461,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 _logger.Warn($"「上」视图向量标注图保存失败：{annotateEx.Message}");
             }
 
-            var clickHint = settings.UseVisionDllForSimple321
-                ? "Ctrl+左键按「起点→终点」点击向量两点…"
-                : "Ctrl+左键从上到下点击向量两点…";
+            var clickHint = "Ctrl+左键从上到下点击向量两点…";
             progress?.Report(clickHint);
             foreach (var point in screenPoints)
             {
@@ -441,6 +471,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 var interval = Math.Max(100, settings.VisionClickIntervalMs);
                 await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        /// <summary>简单 3-2-1 找点算法中文说明（日志/进度条共用）。</summary>
+        private static string FormatSimple321PointSourceLabel(CTAutoSlicerSettings settings)
+        {
+            return settings.UseVisionDllForSimple321
+                ? "视觉 DLL 算法（CTAutoCutImg.dll）"
+                : "上位机本地算法（OpenCV：Vision3d / VisionTopView）";
         }
 
         /// <summary>
@@ -456,8 +494,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             if (settings.UseVisionDllForSimple321)
             {
                 EnsureCutImgAlgorithmReady();
-                progress?.Report("步骤1/3 视觉 DLL：GetSectionReferencePoints（三点+原点，原点稍后点）…");
-                _logger.Info("简单 3-2-1：调用视觉 DLL GetSectionReferencePoints");
+                progress?.Report(
+                    "【找点算法=视觉 DLL】步骤1/3：CTAutoCutImg.GetSectionReferencePoints（三点+原点，原点稍后点）…");
+                _logger.Info(
+                    "【找点算法=视觉 DLL】调用 CTAutoCutImg.GetSectionReferencePoints（3D 四点）");
                 var dllPoints = _cutImgAlgorithmService.GetSectionReferencePoints(capturePath);
                 if (dllPoints.Length < 4)
                 {
@@ -466,7 +506,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
 
                 var summary =
-                    $"VisionDll GetSectionReferencePoints " +
+                    $"【视觉 DLL】GetSectionReferencePoints " +
                     $"P0=({dllPoints[0].X},{dllPoints[0].Y}) " +
                     $"P1=({dllPoints[1].X},{dllPoints[1].Y}) " +
                     $"P2=({dllPoints[2].X},{dllPoints[2].Y}) " +
@@ -474,15 +514,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return (dllPoints, summary);
             }
 
-            progress?.Report("本地剪影算法找点（Vision3dSectionPointsDetector）…");
-            _logger.Info("简单 3-2-1：使用本地 Vision3dSectionPointsDetector");
+            progress?.Report(
+                "【找点算法=本地】步骤1/3：Vision3dSectionPointsDetector（FloodFill/凸包四点）…");
+            _logger.Info(
+                "【找点算法=本地】调用 Vision3dSectionPointsDetector.Detect（3D 四点）");
             var detectResult = Vision3dSectionPointsDetector.Detect(capturePath, debugDir: captureDir);
-            return (detectResult.Points, detectResult.Summary);
+            return (detectResult.Points, $"【本地】{detectResult.Summary}");
         }
 
         /// <summary>
         /// 「上」视图向量两点：按 <see cref="CTAutoSlicerSettings.Simple321PointSource"/> 二选一。
-        /// 视觉 DLL：调用 GetObjectTopBottomPoints；[0]=起点、[1]=终点，点击顺序起点→终点。
+        /// 视觉 DLL：调用 GetObjectTopBottomPoints；返回原始 [0]/[1]。
+        /// 实际 Ctrl 点击顺序由调用方按屏幕 Y 重排为「上→下」（DLL 常为下→上）。
         /// </summary>
         private ((int X, int Y)[] Points, string Summary) DetectTopViewVectorPoints(
             CTAutoSlicerSettings settings,
@@ -493,8 +536,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             if (settings.UseVisionDllForSimple321)
             {
                 EnsureCutImgAlgorithmReady();
-                progress?.Report("步骤2/3 视觉 DLL：GetObjectTopBottomPoints（向量两点）…");
-                _logger.Info("简单 3-2-1：调用视觉 DLL GetObjectTopBottomPoints");
+                progress?.Report(
+                    "【找点算法=视觉 DLL】步骤2/3：CTAutoCutImg.GetObjectTopBottomPoints（向量两点）…");
+                _logger.Info(
+                    "【找点算法=视觉 DLL】调用 CTAutoCutImg.GetObjectTopBottomPoints（向量两点）");
                 var dllPoints = _cutImgAlgorithmService.GetObjectTopBottomPoints(capturePath);
                 if (dllPoints.Length < 2)
                 {
@@ -502,22 +547,22 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         $"GetObjectTopBottomPoints 返回点数不足：期望 2，实际 {dllPoints.Length}");
                 }
 
-                // 视觉约定（已更正）：索引0=起点，索引1=终点
-                var start = dllPoints[0];
-                var end = dllPoints[1];
-                var normalized = new[] { start, end };
+                var p0 = dllPoints[0];
+                var p1 = dllPoints[1];
                 var summary =
-                    $"VisionDll GetObjectTopBottomPoints " +
-                    $"[0]起点=({start.X},{start.Y}) [1]终点=({end.X},{end.Y}) " +
-                    $"→ 点击顺序 起点→终点";
+                    $"【视觉 DLL】GetObjectTopBottomPoints " +
+                    $"[0]=({p0.X},{p0.Y}) [1]=({p1.X},{p1.Y}) " +
+                    $"→ 点击前按 Y 重排为上→下";
                 _logger.Info(summary);
-                return (normalized, summary);
+                return (new[] { p0, p1 }, summary);
             }
 
-            progress?.Report("本地算法找右侧外缘向量两点（VisionTopViewVectorPointsDetector）…");
-            _logger.Info("简单 3-2-1：使用本地 VisionTopViewVectorPointsDetector");
+            progress?.Report(
+                "【找点算法=本地】步骤2/3：VisionTopViewVectorPointsDetector（黄框优先）…");
+            _logger.Info(
+                "【找点算法=本地】调用 VisionTopViewVectorPointsDetector.Detect（向量两点）");
             var detectResult = VisionTopViewVectorPointsDetector.Detect(capturePath, debugDir: captureDir);
-            return (detectResult.Points, detectResult.Summary);
+            return (detectResult.Points, $"【本地】{detectResult.Summary}");
         }
 
         /// <summary>视觉 DLL 未初始化时再尝试一次；仍失败则抛出明确错误。</summary>
@@ -547,7 +592,97 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
-        private string CaptureVision3dRoiToFile(CTAutoSlicerSettings settings)
+        /// <summary>
+        /// 视觉找点截图前等待：等 VG 画面坐标/标注自行消失。
+        /// Local / VisionDll 共用；时长取 <see cref="CTAutoSlicerSettings.VisionCaptureWaitMs"/>（默认 2000）。
+        /// </summary>
+        private async Task WaitBeforeVisionCaptureAsync(
+            CTAutoSlicerSettings settings,
+            string captureLabel,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            var waitMs = Math.Max(0, settings.VisionCaptureWaitMs);
+            if (waitMs <= 0)
+            {
+                return;
+            }
+
+            progress?.Report(
+                $"截图前等待 {waitMs} ms（等画面坐标消失后再截 {captureLabel}）…");
+            _logger.Info(
+                $"视觉截图前等待 {waitMs} ms（{captureLabel}；VisionCaptureWaitMs）");
+            await Task.Delay(waitMs, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 本地算法专用：直方图后、Pre321 切视角前，等待并保存一张默认视角 3D 原图（强化学习样本）。
+        /// 截图失败仅记日志，不中断 3-2-1。
+        /// </summary>
+        private async Task CaptureVision3dInitialRoiForReinforcementAsync(
+            CTAutoSlicerSettings settings,
+            string productTag,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            if (!settings.HasVision3dRoi)
+            {
+                progress?.Report("跳过 3D 初始原图：尚未标定 3D ROI");
+                _logger.Info("跳过 3D 初始原图保存：尚未标定 Vision3dRoi");
+                return;
+            }
+
+            var waitMs = Math.Max(0, settings.Vision3dInitialCaptureWaitMs);
+            if (waitMs > 0)
+            {
+                progress?.Report(
+                    $"本地算法：直方图后保存 3D 初始原图前等待 {waitMs} ms（未切视角）…");
+                _logger.Info(
+                    $"3D 初始原图前等待 {waitMs} ms（Vision3dInitialCaptureWaitMs）");
+                await Task.Delay(waitMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            try
+            {
+                var path = CaptureVision3dInitialRoiToFile(settings, productTag);
+                progress?.Report($"3D 初始原图已保存（强化学习/未切视角）：{path}");
+                _logger.Info($"3D 初始原图已保存：{path}");
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"3D 初始原图保存失败（继续 3-2-1）：{ex.Message}");
+                _logger.Warn($"3D 初始原图保存失败（不阻断主流程）：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 截取默认视角 3D ROI 到「3D初始」目录（与 jietu 找点截图分离）。
+        /// </summary>
+        private string CaptureVision3dInitialRoiToFile(CTAutoSlicerSettings settings, string productTag)
+        {
+            var dayDir = settings.EnsureVision3dInitialCaptureDayDir();
+            var cleanup = settings.CleanupExpiredVision3dInitialCaptures();
+            if (cleanup.DeletedDirs > 0 || cleanup.DeletedFiles > 0)
+            {
+                _logger.Info(
+                    $"3D 初始原图清理：删除目录 {cleanup.DeletedDirs}、文件 {cleanup.DeletedFiles}" +
+                    $"（保留 {settings.Vision3dInitialCaptureKeepDays} 天）");
+            }
+
+            var tag = string.IsNullOrWhiteSpace(productTag) ? "unknown" : productTag.Trim();
+            var filePath = Path.Combine(
+                dayDir,
+                $"vision_3d_initial_{tag}_{DateTime.Now:HHmmss_fff}.png");
+            ScreenCaptureHelper.CaptureRegionAndSave(
+                filePath,
+                settings.Vision3dRoiX,
+                settings.Vision3dRoiY,
+                settings.Vision3dRoiWidth,
+                settings.Vision3dRoiHeight);
+            return filePath;
+        }
+
+        private string CaptureVision3dRoiToFile(CTAutoSlicerSettings settings, string productTag)
         {
             var dayDir = settings.EnsureVisionCaptureDayDir();
             var cleanup = settings.CleanupExpiredVisionCaptures();
@@ -558,7 +693,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     $"（保留 {settings.VisionCaptureKeepDays} 天）");
             }
 
-            var filePath = Path.Combine(dayDir, $"vision_3d_{DateTime.Now:HHmmss_fff}.png");
+            var tag = string.IsNullOrWhiteSpace(productTag) ? "unknown" : productTag.Trim();
+            var filePath = Path.Combine(dayDir, $"vision_3d_{tag}_{DateTime.Now:HHmmss_fff}.png");
             ScreenCaptureHelper.CaptureRegionAndSave(
                 filePath,
                 settings.Vision3dRoiX,
@@ -568,7 +704,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return filePath;
         }
 
-        private string CaptureVisionTopViewRoiToFile(CTAutoSlicerSettings settings)
+        private string CaptureVisionTopViewRoiToFile(CTAutoSlicerSettings settings, string productTag)
         {
             var dayDir = settings.EnsureVision2dVectorCaptureDayDir();
             var cleanup = settings.CleanupExpiredVision2dVectorCaptures();
@@ -579,7 +715,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     $"（保留 {settings.Vision2dVectorCaptureKeepDays} 天）");
             }
 
-            var filePath = Path.Combine(dayDir, $"vision_top_{DateTime.Now:HHmmss_fff}.png");
+            var tag = string.IsNullOrWhiteSpace(productTag) ? "unknown" : productTag.Trim();
+            var filePath = Path.Combine(dayDir, $"vision_top_{tag}_{DateTime.Now:HHmmss_fff}.png");
             ScreenCaptureHelper.CaptureRegionAndSave(
                 filePath,
                 settings.VisionTopViewRoiX,

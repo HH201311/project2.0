@@ -20,10 +20,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public const string DefaultVisionCaptureDir = @"C:\AutoSlice\cutpicture\jietu";
         /// <summary>简单 3-2-1「2」向量标点（「上」视图）截图默认目录</summary>
         public const string DefaultVision2dVectorCaptureDir = @"C:\AutoSlice\cutpicture\2Dxianglaing";
+        /// <summary>
+        /// 本地算法：直方图后、Pre321 切视角前，保存的默认视角 3D 原图目录（供视觉强化学习）。
+        /// </summary>
+        public const string DefaultVision3dInitialCaptureDir = @"C:\AutoSlice\cutpicture\3D初始";
         /// <summary>单步测试：截取 3D 标定图默认保存目录</summary>
         public const string DefaultVisionLearn3dSampleDir = @"C:\AutoSlice\cutpicture\3D";
         /// <summary>单步测试：截取上视图标定图默认保存目录</summary>
         public const string DefaultVisionLearnTopViewSampleDir = @"C:\AutoSlice\cutpicture\上视图";
+        /// <summary>本地算法保存 3D 初始原图前的固定等待（毫秒）。</summary>
+        public const int DefaultVision3dInitialCaptureWaitMs = 2000;
 
         /// <summary>体素文件夹内：运行失败文件归档子目录名（避免下次重复导入）。</summary>
         public const string FailedFilesSubFolderName = "运行失败的文件";
@@ -580,6 +586,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>阶段四多点点击间隔（毫秒）</summary>
         public int VisionClickIntervalMs { get; set; } = 300;
 
+        /// <summary>
+        /// 视觉找点截图前等待（毫秒）。等 VG 画面坐标/标注自行消失后再截；
+        /// Local / VisionDll 共用。默认 2000。
+        /// </summary>
+        public int VisionCaptureWaitMs { get; set; } = 2000;
+
         /// <summary>等待「简单 3-2-1 对齐」菜单/对话框出现的超时（毫秒）</summary>
         public int VisionAlignmentDialogWaitTime { get; set; } = 8000;
 
@@ -760,6 +772,19 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int Vision2dVectorCaptureKeepDays { get; set; } = DefaultCaptureKeepDays;
 
         /// <summary>
+        /// 本地算法 3D 初始原图（未切 Pre321 视角）落盘目录；空则使用 DefaultVision3dInitialCaptureDir。
+        /// </summary>
+        public string Vision3dInitialCaptureDir { get; set; } = DefaultVision3dInitialCaptureDir;
+
+        /// <summary>3D 初始原图按日目录保留天数（超过则删除）</summary>
+        public int Vision3dInitialCaptureKeepDays { get; set; } = DefaultCaptureKeepDays;
+
+        /// <summary>
+        /// 本地算法保存 3D 初始原图前等待毫秒（直方图后、Pre321 前；默认 2000）。
+        /// </summary>
+        public int Vision3dInitialCaptureWaitMs { get; set; } = DefaultVision3dInitialCaptureWaitMs;
+
+        /// <summary>
         /// 将算法返回的相对像素坐标换算为屏幕物理像素点击位置。
         /// screen = (roiX + relativeX, roiY + relativeY)
         /// </summary>
@@ -790,6 +815,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             return DefaultVision2dVectorCaptureDir;
         }
 
+        public string ResolveVision3dInitialCaptureDir()
+        {
+            if (!string.IsNullOrWhiteSpace(Vision3dInitialCaptureDir))
+            {
+                return Vision3dInitialCaptureDir.Trim();
+            }
+
+            return DefaultVision3dInitialCaptureDir;
+        }
+
         public string ResolveHistogramCaptureDir()
         {
             if (!string.IsNullOrWhiteSpace(HistogramCaptureDir))
@@ -814,6 +849,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public string EnsureVision2dVectorCaptureDayDir(DateTime? now = null)
         {
             return EnsureCaptureDayDir(ResolveVision2dVectorCaptureDir(), now);
+        }
+
+        /// <summary>
+        /// 确保 3D 初始原图根目录与当日子目录存在，返回当日保存目录（yyyy-MM-dd）。
+        /// </summary>
+        public string EnsureVision3dInitialCaptureDayDir(DateTime? now = null)
+        {
+            return EnsureCaptureDayDir(ResolveVision3dInitialCaptureDir(), now);
         }
 
         /// <summary>
@@ -846,6 +889,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
                 ResolveVision2dVectorCaptureDir(),
                 keepDays ?? Vision2dVectorCaptureKeepDays,
                 rootFilePatterns: ["vision_top*.png", "*_vector_*.png", "*_click_points.png"]);
+
+        /// <summary>删除超过保留天数的 3D 初始原图按日文件夹。</summary>
+        public (int DeletedDirs, int DeletedFiles) CleanupExpiredVision3dInitialCaptures(int? keepDays = null) =>
+            CleanupExpiredCaptureDayFolders(
+                ResolveVision3dInitialCaptureDir(),
+                keepDays ?? Vision3dInitialCaptureKeepDays,
+                rootFilePatterns: ["vision_3d_initial_*.png"]);
 
         /// <summary>
         /// 删除超过保留天数的直方图按日文件夹，以及根目录下过期的散落截图文件。

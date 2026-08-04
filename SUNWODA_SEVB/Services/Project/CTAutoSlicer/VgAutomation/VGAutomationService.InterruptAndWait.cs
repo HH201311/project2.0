@@ -474,5 +474,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ToList();
         }
 
+        /// <summary>
+        /// 单测用：从 CT 体素文件夹取第一个排队条目路径，供截图文件名产品前缀（与导出名规则一致）。
+        /// </summary>
+        private string? TryResolveNamingSourceFromCtFolder(CTAutoSlicerSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.CTFileFolder))
+            {
+                return null;
+            }
+
+            var items = GetVolumeQueueItems(settings.CTFileFolder);
+            return items.Count > 0 ? items[0].QueueEntryPath : null;
+        }
     }
 }

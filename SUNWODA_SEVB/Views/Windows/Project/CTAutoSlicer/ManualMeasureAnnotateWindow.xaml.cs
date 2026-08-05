@@ -35,6 +35,36 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         private string? _draggingLabelMeasureId;
         private bool _labelDragMoved;
 
+        /// <summary>测距线几何编辑：拖端点或整体平移。</summary>
+        private enum LineEditKind
+        {
+            None,
+            Endpoint1,
+            Endpoint2,
+            Translate,
+        }
+
+        private enum MeasureHitPart
+        {
+            None,
+            Endpoint1,
+            Endpoint2,
+            Segment,
+        }
+
+        private LineEditKind _lineEditKind;
+        private string? _editingMeasureId;
+        private Point _editStartImagePx;
+        private Point _editOrigP1;
+        private Point _editOrigP2;
+        private bool _lineEditMoved;
+
+        /// <summary>端点命中半径（屏幕像素）。</summary>
+        private const double EndpointHitRadiusPx = 10.0;
+
+        /// <summary>线段命中半宽（屏幕像素）。</summary>
+        private const double SegmentHitHalfWidthPx = 6.0;
+
         private static readonly SolidColorBrush ActiveModeBrush = new(Color.FromRgb(0x0E, 0x63, 0x9C));
         private static readonly SolidColorBrush IdleModeBrush = new(Color.FromRgb(0x2D, 0x2D, 0x30));
         private static readonly SolidColorBrush ActiveModeBorder = new(Color.FromRgb(0x11, 0x77, 0xBB));
@@ -380,8 +410,8 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var main = MakeLine(p1, p2, stroke, null, selected ? 2.5 : 2);
             main.IsHitTestVisible = false;
             OverlayCanvas.Children.Add(main);
-            AddEndpointCross(p1, stroke);
-            AddEndpointCross(p2, stroke);
+            AddEndpointCross(p1, stroke, selected);
+            AddEndpointCross(p2, stroke, selected);
 
             var mid = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
             Point labelCenter;
@@ -482,15 +512,33 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             }
         }
 
-        private void AddEndpointCross(Point c, Brush stroke)
+        private void AddEndpointCross(Point c, Brush stroke, bool selected = false)
         {
-            const double r = 6;
-            var h = MakeLine(new Point(c.X - r, c.Y), new Point(c.X + r, c.Y), stroke, null, 1.5);
-            var v = MakeLine(new Point(c.X, c.Y - r), new Point(c.X, c.Y + r), stroke, null, 1.5);
+            var r = selected ? 8.0 : 6.0;
+            var thickness = selected ? 2.0 : 1.5;
+            var h = MakeLine(new Point(c.X - r, c.Y), new Point(c.X + r, c.Y), stroke, null, thickness);
+            var v = MakeLine(new Point(c.X, c.Y - r), new Point(c.X, c.Y + r), stroke, null, thickness);
             h.IsHitTestVisible = false;
             v.IsHitTestVisible = false;
             OverlayCanvas.Children.Add(h);
             OverlayCanvas.Children.Add(v);
+
+            // 选中时加空心圆，提示端点可拖
+            if (selected)
+            {
+                var ring = new Ellipse
+                {
+                    Width = r * 2 + 4,
+                    Height = r * 2 + 4,
+                    Stroke = stroke,
+                    StrokeThickness = 1.2,
+                    Fill = Brushes.Transparent,
+                    IsHitTestVisible = false,
+                };
+                Canvas.SetLeft(ring, c.X - r - 2);
+                Canvas.SetTop(ring, c.Y - r - 2);
+                OverlayCanvas.Children.Add(ring);
+            }
         }
 
         private static Line MakeLine(Point a, Point b, Brush stroke, DoubleCollection? dash, double thickness = 1.5) =>
@@ -686,6 +734,13 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         {
             if (e.Key == Key.Escape)
             {
+                if (_lineEditKind != LineEditKind.None)
+                {
+                    EndLineEdit(commit: false);
+                    e.Handled = true;
+                    return;
+                }
+
                 if (_hasAnchor)
                 {
                     CancelPendingMeasure();
@@ -848,8 +903,8 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
-            // 标签：双击改名；单击按下开始拖拽（未在定 P2 过程中）
-            if (!_hasAnchor && TryHitMeasureLabel(pos, out var hitMeasureId))
+            // 标签：双击改名；单击按下开始拖拽（未在定 P2 / 线编辑过程中）
+            if (!_hasAnchor && _lineEditKind == LineEditKind.None && TryHitMeasureLabel(pos, out var hitMeasureId))
             {
                 if (e.ClickCount >= 2)
                 {
@@ -862,6 +917,39 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 BeginLabelDrag(hitMeasureId, pos);
                 e.Handled = true;
                 return;
+            }
+
+            // 已有测距：端点拖拽 / 单击选中 / 双击整段拖（优先于新建）
+            if (!_hasAnchor && _lineEditKind == LineEditKind.None
+                && TryHitMeasureGeometry(pos, out var geoId, out var hitPart))
+            {
+                if (hitPart is MeasureHitPart.Endpoint1 or MeasureHitPart.Endpoint2)
+                {
+                    BeginLineEdit(
+                        geoId,
+                        hitPart == MeasureHitPart.Endpoint1 ? LineEditKind.Endpoint1 : LineEditKind.Endpoint2,
+                        pos);
+                    e.Handled = true;
+                    return;
+                }
+
+                // 线段：单击选中；双击开始整体平移
+                if (hitPart == MeasureHitPart.Segment)
+                {
+                    _vm.SelectedMeasureId = geoId;
+                    RedrawCommittedOverlays();
+                    if (e.ClickCount >= 2)
+                    {
+                        BeginLineEdit(geoId, LineEditKind.Translate, pos);
+                    }
+                    else
+                    {
+                        _vm.StatusText = "已选中测距，可拖端点微调 / 双击直线整体拖 / Delete 删除";
+                    }
+
+                    e.Handled = true;
+                    return;
+                }
             }
 
             var imgPt = TryGetImagePixel(pos);
@@ -934,6 +1022,228 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 几何命中已提交测距（屏幕像素容差，后绘制的优先）。
+        /// </summary>
+        private bool TryHitMeasureGeometry(Point viewportPos, out string measureId, out MeasureHitPart part)
+        {
+            measureId = string.Empty;
+            part = MeasureHitPart.None;
+            if (_bitmap is null || _vm.SelectedImage is null || _vm.SelectedImage.Measures.Count == 0)
+            {
+                return false;
+            }
+
+            var posInCanvas = ImageScrollViewer.TranslatePoint(viewportPos, OverlayCanvas);
+            for (var i = _vm.SelectedImage.Measures.Count - 1; i >= 0; i--)
+            {
+                var m = _vm.SelectedImage.Measures[i];
+                var c1 = ImageToCanvas(new Point(m.X1, m.Y1));
+                var c2 = ImageToCanvas(new Point(m.X2, m.Y2));
+                var d1 = Distance(posInCanvas, c1);
+                var d2 = Distance(posInCanvas, c2);
+                if (d1 <= EndpointHitRadiusPx || d2 <= EndpointHitRadiusPx)
+                {
+                    measureId = m.Id;
+                    part = d1 <= d2 ? MeasureHitPart.Endpoint1 : MeasureHitPart.Endpoint2;
+                    return true;
+                }
+
+                if (DistancePointToSegment(posInCanvas, c1, c2) <= SegmentHitHalfWidthPx)
+                {
+                    measureId = m.Id;
+                    part = MeasureHitPart.Segment;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static double Distance(Point a, Point b)
+        {
+            var dx = a.X - b.X;
+            var dy = a.Y - b.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private static double DistancePointToSegment(Point p, Point a, Point b)
+        {
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var len2 = dx * dx + dy * dy;
+            if (len2 < 1e-9)
+            {
+                return Distance(p, a);
+            }
+
+            var t = Math.Clamp(((p.X - a.X) * dx + (p.Y - a.Y) * dy) / len2, 0.0, 1.0);
+            var qx = a.X + t * dx;
+            var qy = a.Y + t * dy;
+            return Distance(p, new Point(qx, qy));
+        }
+
+        private void BeginLineEdit(string measureId, LineEditKind kind, Point viewportPos)
+        {
+            var target = _vm.SelectedImage?.Measures.FirstOrDefault(m => m.Id == measureId);
+            if (target is null || kind == LineEditKind.None)
+            {
+                return;
+            }
+
+            var imgPt = TryGetImagePixel(viewportPos);
+            if (imgPt is null && _bitmap is not null)
+            {
+                // 端点可能略出图外仍允许抓住：投影到图像边界
+                var posInHost = ImageScrollViewer.TranslatePoint(viewportPos, ImageHost);
+                imgPt = new Point(
+                    Math.Clamp(posInHost.X / _zoom, 0, Math.Max(0, _bitmap.PixelWidth - 1)),
+                    Math.Clamp(posInHost.Y / _zoom, 0, Math.Max(0, _bitmap.PixelHeight - 1)));
+            }
+
+            if (imgPt is null)
+            {
+                return;
+            }
+
+            CancelPendingMeasure();
+            _editingMeasureId = measureId;
+            _lineEditKind = kind;
+            _lineEditMoved = false;
+            _editStartImagePx = imgPt.Value;
+            _editOrigP1 = new Point(target.X1, target.Y1);
+            _editOrigP2 = new Point(target.X2, target.Y2);
+            _vm.SelectedMeasureId = measureId;
+            Cursor = kind == LineEditKind.Translate ? Cursors.SizeAll : Cursors.Cross;
+            Mouse.Capture(ImageScrollViewer, CaptureMode.SubTree);
+            RedrawCommittedOverlays();
+        }
+
+        private void UpdateLineEdit(Point viewportPos)
+        {
+            if (_lineEditKind == LineEditKind.None
+                || string.IsNullOrEmpty(_editingMeasureId)
+                || _bitmap is null)
+            {
+                return;
+            }
+
+            var posInHost = ImageScrollViewer.TranslatePoint(viewportPos, ImageHost);
+            var ix = Math.Clamp(posInHost.X / _zoom, 0, Math.Max(0, _bitmap.PixelWidth - 1));
+            var iy = Math.Clamp(posInHost.Y / _zoom, 0, Math.Max(0, _bitmap.PixelHeight - 1));
+            var cur = new Point(ix, iy);
+
+            double x1 = _editOrigP1.X;
+            double y1 = _editOrigP1.Y;
+            double x2 = _editOrigP2.X;
+            double y2 = _editOrigP2.Y;
+
+            switch (_lineEditKind)
+            {
+                case LineEditKind.Endpoint1:
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+                    {
+                        cur = ConstrainOrthogonal(_editOrigP2, cur);
+                    }
+
+                    x1 = cur.X;
+                    y1 = cur.Y;
+                    break;
+                case LineEditKind.Endpoint2:
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+                    {
+                        cur = ConstrainOrthogonal(_editOrigP1, cur);
+                    }
+
+                    x2 = cur.X;
+                    y2 = cur.Y;
+                    break;
+                case LineEditKind.Translate:
+                {
+                    var rawDx = cur.X - _editStartImagePx.X;
+                    var rawDy = cur.Y - _editStartImagePx.Y;
+                    var maxX = Math.Max(0, _bitmap.PixelWidth - 1);
+                    var maxY = Math.Max(0, _bitmap.PixelHeight - 1);
+                    var dx = ClampAxisDelta(rawDx, _editOrigP1.X, _editOrigP2.X, maxX);
+                    var dy = ClampAxisDelta(rawDy, _editOrigP1.Y, _editOrigP2.Y, maxY);
+                    x1 = _editOrigP1.X + dx;
+                    y1 = _editOrigP1.Y + dy;
+                    x2 = _editOrigP2.X + dx;
+                    y2 = _editOrigP2.Y + dy;
+                    break;
+                }
+            }
+
+            if (Math.Abs(x1 - _editOrigP1.X) > 1e-6
+                || Math.Abs(y1 - _editOrigP1.Y) > 1e-6
+                || Math.Abs(x2 - _editOrigP2.X) > 1e-6
+                || Math.Abs(y2 - _editOrigP2.Y) > 1e-6)
+            {
+                _lineEditMoved = true;
+            }
+
+            if (_vm.TryApplyMeasureGeometry(_editingMeasureId, x1, y1, x2, y2, raiseChanged: false))
+            {
+                RedrawCommittedOverlays();
+                var target = _vm.SelectedImage?.Measures.FirstOrDefault(m => m.Id == _editingMeasureId);
+                if (target is not null)
+                {
+                    LiveDistanceText.Text = $"{target.PixelLength:F1} px  ·  {target.LengthMm:F4} mm";
+                }
+            }
+        }
+
+        private static double ClampAxisDelta(double delta, double o1, double o2, double maxCoord)
+        {
+            var minD = Math.Max(-o1, -o2);
+            var maxD = Math.Min(maxCoord - o1, maxCoord - o2);
+            if (minD > maxD)
+            {
+                return 0;
+            }
+
+            return Math.Clamp(delta, minD, maxD);
+        }
+
+        private void EndLineEdit(bool commit)
+        {
+            if (_lineEditKind == LineEditKind.None)
+            {
+                return;
+            }
+
+            if (commit && _lineEditMoved)
+            {
+                _vm.MarkDirty();
+                _vm.StatusText = _lineEditKind == LineEditKind.Translate
+                    ? "已整体移动测距线"
+                    : "已微调测距端点";
+            }
+            else if (!commit && _lineEditMoved && !string.IsNullOrEmpty(_editingMeasureId))
+            {
+                // Esc：还原到按下时几何
+                _vm.TryApplyMeasureGeometry(
+                    _editingMeasureId,
+                    _editOrigP1.X,
+                    _editOrigP1.Y,
+                    _editOrigP2.X,
+                    _editOrigP2.Y,
+                    raiseChanged: false);
+                RedrawCommittedOverlays();
+                _vm.StatusText = "已取消测距线编辑";
+            }
+
+            _lineEditKind = LineEditKind.None;
+            _editingMeasureId = null;
+            _lineEditMoved = false;
+            if (Mouse.Captured == ImageScrollViewer)
+            {
+                Mouse.Capture(null);
+            }
+
+            UpdateModeUi();
         }
 
         private void BeginLabelDrag(string measureId, Point viewportPos)
@@ -1115,6 +1425,13 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         {
             var pos = e.GetPosition(ImageScrollViewer);
 
+            if (_lineEditKind != LineEditKind.None && e.LeftButton == MouseButtonState.Pressed)
+            {
+                UpdateLineEdit(pos);
+                e.Handled = true;
+                return;
+            }
+
             if (!string.IsNullOrEmpty(_draggingLabelMeasureId)
                 && e.LeftButton == MouseButtonState.Pressed)
             {
@@ -1145,6 +1462,30 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
+            // 悬停提示：端点 / 线段可编辑
+            if (!_hasAnchor
+                && _lineEditKind == LineEditKind.None
+                && string.IsNullOrEmpty(_draggingLabelMeasureId)
+                && !_isPanning
+                && !_spaceDown
+                && _vm.IsMeasureMode)
+            {
+                if (TryHitMeasureLabel(pos, out _))
+                {
+                    Cursor = Cursors.SizeAll;
+                }
+                else if (TryHitMeasureGeometry(pos, out _, out var hoverPart))
+                {
+                    Cursor = hoverPart is MeasureHitPart.Endpoint1 or MeasureHitPart.Endpoint2
+                        ? Cursors.Cross
+                        : Cursors.Hand;
+                }
+                else
+                {
+                    Cursor = Cursors.Cross;
+                }
+            }
+
             if (!_vm.IsMeasureMode || !_hasAnchor || _spaceDown)
             {
                 return;
@@ -1168,6 +1509,13 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         private void Viewport_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
+            if (e.ChangedButton == MouseButton.Left && _lineEditKind != LineEditKind.None)
+            {
+                EndLineEdit(commit: true);
+                e.Handled = true;
+                return;
+            }
+
             if (e.ChangedButton == MouseButton.Left && !string.IsNullOrEmpty(_draggingLabelMeasureId))
             {
                 EndLabelDrag(commit: true);
@@ -1190,6 +1538,11 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         private void Viewport_LostMouseCapture(object sender, MouseEventArgs e)
         {
+            if (_lineEditKind != LineEditKind.None)
+            {
+                EndLineEdit(commit: true);
+            }
+
             if (!string.IsNullOrEmpty(_draggingLabelMeasureId))
             {
                 EndLabelDrag(commit: true);

@@ -2669,7 +2669,7 @@
                                         <TextBlock
                                             Style="{StaticResource CasFormHintStyle}"
                                             Margin="0,0,0,6"
-                                            Text="单位：mm；左=下限，右=上限（可对调，内部按较小/较大值判断）。" />
+                                            Text="单位：mm（可填小数，如 0.35）；左=下限，右=上限（可对调，内部按较小/较大值判断）。" />
 
                                         <!-- L1 -->
                                         <Grid Style="{StaticResource CasFormRowStyle}">
@@ -2682,15 +2682,15 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L1" />
-                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L1 下限 mm">
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L1 下限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL1MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL1MinMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
-                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L1 上限 mm">
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L1 上限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL1MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL1MaxMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
@@ -2708,15 +2708,15 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L2" />
-                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L2 下限 mm">
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L2 下限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL2MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL2MinMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
-                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L2 上限 mm">
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L2 上限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL2MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL2MaxMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
@@ -2734,15 +2734,15 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L3" />
-                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L3 下限 mm">
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L3 下限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL3MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL3MinMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
-                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L3 上限 mm">
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L3 上限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL3MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL3MaxMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
@@ -2760,15 +2760,15 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L4" />
-                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L4 下限 mm">
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L4 下限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL4MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL4MinMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
-                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L4 上限 mm">
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L4 上限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL4MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL4MaxMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"
@@ -2786,15 +2786,15 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Style="{StaticResource CasFormLabelStyle}" Text="L5" />
-                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L5 下限 mm">
+                                            <hc:TextBox Grid.Column="1" Width="100" ToolTip="L5 下限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL5MinMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL5MinMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Text="~" />
-                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L5 上限 mm">
+                                            <hc:TextBox Grid.Column="3" Width="100" ToolTip="L5 上限 mm（可小数）">
                                                 <hc:TextBox.Text>
-                                                    <Binding Path="OfflineCtL5MaxMm" UpdateSourceTrigger="PropertyChanged" />
+                                                    <Binding Path="OfflineCtL5MaxMmText" UpdateSourceTrigger="PropertyChanged" Mode="TwoWay" />
                                                 </hc:TextBox.Text>
                                             </hc:TextBox>
                                             <TextBlock Grid.Column="4" Margin="8,0,0,0" VerticalAlignment="Center"

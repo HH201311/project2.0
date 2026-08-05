@@ -275,6 +275,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 nameof(OfflineCtL5MinMm), CTAutoSlicerSettings.DefaultOfflineCtLMinMm);
             _offlineCtL5MaxMm = LoadDoubleSetting(
                 nameof(OfflineCtL5MaxMm), CTAutoSlicerSettings.DefaultOfflineCtLMaxMm);
+            _offlineCtL1MinMmText = null;
+            _offlineCtL1MaxMmText = null;
+            _offlineCtL2MinMmText = null;
+            _offlineCtL2MaxMmText = null;
+            _offlineCtL3MinMmText = null;
+            _offlineCtL3MaxMmText = null;
+            _offlineCtL4MinMmText = null;
+            _offlineCtL4MaxMmText = null;
+            _offlineCtL5MinMmText = null;
+            _offlineCtL5MaxMmText = null;
             _offlineCtTopViewSliceIndex = Math.Clamp(
                 LoadIntSetting(
                     nameof(OfflineCtTopViewSliceIndex),
@@ -352,15 +362,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtContentShiftUpPx));
             OnPropertyChanged(nameof(EnableOfflineCtLRangeCheck));
             OnPropertyChanged(nameof(OfflineCtL1MinMm));
+            OnPropertyChanged(nameof(OfflineCtL1MinMmText));
             OnPropertyChanged(nameof(OfflineCtL1MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL1MaxMmText));
             OnPropertyChanged(nameof(OfflineCtL2MinMm));
+            OnPropertyChanged(nameof(OfflineCtL2MinMmText));
             OnPropertyChanged(nameof(OfflineCtL2MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL2MaxMmText));
             OnPropertyChanged(nameof(OfflineCtL3MinMm));
+            OnPropertyChanged(nameof(OfflineCtL3MinMmText));
             OnPropertyChanged(nameof(OfflineCtL3MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL3MaxMmText));
             OnPropertyChanged(nameof(OfflineCtL4MinMm));
+            OnPropertyChanged(nameof(OfflineCtL4MinMmText));
             OnPropertyChanged(nameof(OfflineCtL4MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL4MaxMmText));
             OnPropertyChanged(nameof(OfflineCtL5MinMm));
+            OnPropertyChanged(nameof(OfflineCtL5MinMmText));
             OnPropertyChanged(nameof(OfflineCtL5MaxMm));
+            OnPropertyChanged(nameof(OfflineCtL5MaxMmText));
             OnPropertyChanged(nameof(OfflineCtTopViewSliceIndex));
             OnPropertyChanged(nameof(OfflineCtPixelSizeUm));
             OnPropertyChanged(nameof(OfflineCtPixelSizeUmText));

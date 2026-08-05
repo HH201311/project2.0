@@ -229,6 +229,44 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             MeasuresChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        /// <summary>
+        /// 更新测距两端点并重算长度（拖拽微调时调用）。
+        /// <paramref name="raiseChanged"/> 为 false 时不触发全量刷新，由界面自行重绘。
+        /// </summary>
+        public bool TryApplyMeasureGeometry(
+            string measureId,
+            double x1,
+            double y1,
+            double x2,
+            double y2,
+            bool raiseChanged = false)
+        {
+            if (SelectedImage is null || string.IsNullOrWhiteSpace(measureId))
+            {
+                return false;
+            }
+
+            var target = SelectedImage.Measures.FirstOrDefault(m => m.Id == measureId);
+            if (target is null)
+            {
+                return false;
+            }
+
+            target.X1 = x1;
+            target.Y1 = y1;
+            target.X2 = x2;
+            target.Y2 = y2;
+            ManualMeasureExportHelper.RecalcLengths(target, PixelSizeUm);
+            SelectedMeasureId = target.Id;
+            if (raiseChanged)
+            {
+                HasUnsavedChanges = true;
+                MeasuresChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            return true;
+        }
+
         /// <summary>修改指定测距的显示名称；底部信息区与图上标签同步。</summary>
         public bool RenameMeasure(string measureId, string newLabel)
         {
@@ -456,7 +494,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private void UpdateStatusHint()
         {
             StatusText = IsMeasureMode
-                ? "标注模式：左键两点测距；拖拽标签避挡；双击标签改名；底部黑带汇总 mm"
+                ? "标注：左键两点测距；拖端点微调；双击直线整体拖；单击选中后 Delete 删除；拖标签/双击改名"
                 : "移动模式：左键拖拽平移；滚轮缩放；中键拖拽；Ctrl+Z 撤回；按 A 回标注";
         }
 

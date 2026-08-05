@@ -103,7 +103,7 @@
                         Style="{StaticResource PrimaryToolBtnStyle}"
                         Content="标注模式 (A)"
                         Click="BtnMeasureMode_Click"
-                        ToolTip="标注模式：左键两点测距。快捷键 A / M&#x0a;定 P1 后右键或 Esc 取消起点&#x0a;滚轮缩放；中键/空格拖拽平移；Ctrl+Z 撤回" />
+                        ToolTip="标注模式：左键两点测距。快捷键 A / M&#x0a;拖端点微调；双击直线整体拖移；单击选中后 Delete 删除&#x0a;拖标签避挡；双击标签改名&#x0a;定 P1 后右键或 Esc 取消起点" />
                     <Button
                         x:Name="BtnMoveMode"
                         Style="{StaticResource ToolBtnStyle}"

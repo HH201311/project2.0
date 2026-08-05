@@ -172,6 +172,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private double _offlineCtL4MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
         private double _offlineCtL5MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
         private double _offlineCtL5MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
+        private string? _offlineCtL1MinMmText;
+        private string? _offlineCtL1MaxMmText;
+        private string? _offlineCtL2MinMmText;
+        private string? _offlineCtL2MaxMmText;
+        private string? _offlineCtL3MinMmText;
+        private string? _offlineCtL3MaxMmText;
+        private string? _offlineCtL4MinMmText;
+        private string? _offlineCtL4MaxMmText;
+        private string? _offlineCtL5MinMmText;
+        private string? _offlineCtL5MaxMmText;
         private int _offlineCtTopViewSliceIndex = CTAutoSlicerSettings.DefaultOfflineCtTopViewSliceIndex;
         private double _offlineCtPixelSizeUm = CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
         /// <summary>像素精度文本框编辑缓冲（允许输入「1.」「0.」等中间态）。</summary>
@@ -1797,121 +1807,185 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public double OfflineCtL1MinMm
         {
             get => _offlineCtL1MinMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL1MinMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL1MinMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL1MinMm, ref _offlineCtL1MinMmText, value, nameof(OfflineCtL1MinMm), nameof(OfflineCtL1MinMmText));
+        }
+
+        public string OfflineCtL1MinMmText
+        {
+            get => GetDecimalEditText(_offlineCtL1MinMmText, _offlineCtL1MinMm);
+            set => SetDecimalEditText(ref _offlineCtL1MinMmText, ref _offlineCtL1MinMm, value, nameof(OfflineCtL1MinMm), nameof(OfflineCtL1MinMmText));
         }
 
         public double OfflineCtL1MaxMm
         {
             get => _offlineCtL1MaxMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL1MaxMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL1MaxMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL1MaxMm, ref _offlineCtL1MaxMmText, value, nameof(OfflineCtL1MaxMm), nameof(OfflineCtL1MaxMmText));
+        }
+
+        public string OfflineCtL1MaxMmText
+        {
+            get => GetDecimalEditText(_offlineCtL1MaxMmText, _offlineCtL1MaxMm);
+            set => SetDecimalEditText(ref _offlineCtL1MaxMmText, ref _offlineCtL1MaxMm, value, nameof(OfflineCtL1MaxMm), nameof(OfflineCtL1MaxMmText));
         }
 
         public double OfflineCtL2MinMm
         {
             get => _offlineCtL2MinMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL2MinMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL2MinMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL2MinMm, ref _offlineCtL2MinMmText, value, nameof(OfflineCtL2MinMm), nameof(OfflineCtL2MinMmText));
+        }
+
+        public string OfflineCtL2MinMmText
+        {
+            get => GetDecimalEditText(_offlineCtL2MinMmText, _offlineCtL2MinMm);
+            set => SetDecimalEditText(ref _offlineCtL2MinMmText, ref _offlineCtL2MinMm, value, nameof(OfflineCtL2MinMm), nameof(OfflineCtL2MinMmText));
         }
 
         public double OfflineCtL2MaxMm
         {
             get => _offlineCtL2MaxMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL2MaxMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL2MaxMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL2MaxMm, ref _offlineCtL2MaxMmText, value, nameof(OfflineCtL2MaxMm), nameof(OfflineCtL2MaxMmText));
+        }
+
+        public string OfflineCtL2MaxMmText
+        {
+            get => GetDecimalEditText(_offlineCtL2MaxMmText, _offlineCtL2MaxMm);
+            set => SetDecimalEditText(ref _offlineCtL2MaxMmText, ref _offlineCtL2MaxMm, value, nameof(OfflineCtL2MaxMm), nameof(OfflineCtL2MaxMmText));
         }
 
         public double OfflineCtL3MinMm
         {
             get => _offlineCtL3MinMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL3MinMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL3MinMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL3MinMm, ref _offlineCtL3MinMmText, value, nameof(OfflineCtL3MinMm), nameof(OfflineCtL3MinMmText));
+        }
+
+        public string OfflineCtL3MinMmText
+        {
+            get => GetDecimalEditText(_offlineCtL3MinMmText, _offlineCtL3MinMm);
+            set => SetDecimalEditText(ref _offlineCtL3MinMmText, ref _offlineCtL3MinMm, value, nameof(OfflineCtL3MinMm), nameof(OfflineCtL3MinMmText));
         }
 
         public double OfflineCtL3MaxMm
         {
             get => _offlineCtL3MaxMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL3MaxMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL3MaxMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL3MaxMm, ref _offlineCtL3MaxMmText, value, nameof(OfflineCtL3MaxMm), nameof(OfflineCtL3MaxMmText));
+        }
+
+        public string OfflineCtL3MaxMmText
+        {
+            get => GetDecimalEditText(_offlineCtL3MaxMmText, _offlineCtL3MaxMm);
+            set => SetDecimalEditText(ref _offlineCtL3MaxMmText, ref _offlineCtL3MaxMm, value, nameof(OfflineCtL3MaxMm), nameof(OfflineCtL3MaxMmText));
         }
 
         public double OfflineCtL4MinMm
         {
             get => _offlineCtL4MinMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL4MinMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL4MinMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL4MinMm, ref _offlineCtL4MinMmText, value, nameof(OfflineCtL4MinMm), nameof(OfflineCtL4MinMmText));
+        }
+
+        public string OfflineCtL4MinMmText
+        {
+            get => GetDecimalEditText(_offlineCtL4MinMmText, _offlineCtL4MinMm);
+            set => SetDecimalEditText(ref _offlineCtL4MinMmText, ref _offlineCtL4MinMm, value, nameof(OfflineCtL4MinMm), nameof(OfflineCtL4MinMmText));
         }
 
         public double OfflineCtL4MaxMm
         {
             get => _offlineCtL4MaxMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL4MaxMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL4MaxMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL4MaxMm, ref _offlineCtL4MaxMmText, value, nameof(OfflineCtL4MaxMm), nameof(OfflineCtL4MaxMmText));
+        }
+
+        public string OfflineCtL4MaxMmText
+        {
+            get => GetDecimalEditText(_offlineCtL4MaxMmText, _offlineCtL4MaxMm);
+            set => SetDecimalEditText(ref _offlineCtL4MaxMmText, ref _offlineCtL4MaxMm, value, nameof(OfflineCtL4MaxMm), nameof(OfflineCtL4MaxMmText));
         }
 
         public double OfflineCtL5MinMm
         {
             get => _offlineCtL5MinMm;
-            set
-            {
-                if (SetProperty(ref _offlineCtL5MinMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL5MinMm), value);
-                }
-            }
+            set => SetOfflineCtLRangeMm(ref _offlineCtL5MinMm, ref _offlineCtL5MinMmText, value, nameof(OfflineCtL5MinMm), nameof(OfflineCtL5MinMmText));
+        }
+
+        public string OfflineCtL5MinMmText
+        {
+            get => GetDecimalEditText(_offlineCtL5MinMmText, _offlineCtL5MinMm);
+            set => SetDecimalEditText(ref _offlineCtL5MinMmText, ref _offlineCtL5MinMm, value, nameof(OfflineCtL5MinMm), nameof(OfflineCtL5MinMmText));
         }
 
         public double OfflineCtL5MaxMm
         {
             get => _offlineCtL5MaxMm;
-            set
+            set => SetOfflineCtLRangeMm(ref _offlineCtL5MaxMm, ref _offlineCtL5MaxMmText, value, nameof(OfflineCtL5MaxMm), nameof(OfflineCtL5MaxMmText));
+        }
+
+        public string OfflineCtL5MaxMmText
+        {
+            get => GetDecimalEditText(_offlineCtL5MaxMmText, _offlineCtL5MaxMm);
+            set => SetDecimalEditText(ref _offlineCtL5MaxMmText, ref _offlineCtL5MaxMm, value, nameof(OfflineCtL5MaxMm), nameof(OfflineCtL5MaxMmText));
+        }
+
+        private static string GetDecimalEditText(string? editBuf, double value) =>
+            editBuf ?? value.ToString("G", CultureInfo.InvariantCulture);
+
+        private void SetOfflineCtLRangeMm(
+            ref double field,
+            ref string? editBuf,
+            double value,
+            string valuePropName,
+            string textPropName)
+        {
+            if (!SetProperty(ref field, value, valuePropName))
             {
-                if (SetProperty(ref _offlineCtL5MaxMm, value))
-                {
-                    SaveSetting(nameof(OfflineCtL5MaxMm), value);
-                }
+                return;
             }
+
+            editBuf = null;
+            SaveDoubleSetting(valuePropName, value);
+            OnPropertyChanged(textPropName);
+        }
+
+        /// <summary>
+        /// 小数文本框提交：允许「1.」「-」等中间态；合法有限数值才写回并持久化。
+        /// 范围限允许 0 与负数。
+        /// </summary>
+        private void SetDecimalEditText(
+            ref string? editBuf,
+            ref double field,
+            string? text,
+            string valuePropName,
+            string textPropName)
+        {
+            if (!SetProperty(ref editBuf, text, textPropName))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            var raw = text.Trim().Replace(',', '.');
+            if (raw is "." or "-" or "-." || raw.EndsWith('.'))
+            {
+                return;
+            }
+
+            if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                || double.IsNaN(parsed)
+                || double.IsInfinity(parsed))
+            {
+                return;
+            }
+
+            if (Math.Abs(field - parsed) < 1e-15)
+            {
+                return;
+            }
+
+            field = parsed;
+            SaveDoubleSetting(valuePropName, parsed);
+            OnPropertyChanged(valuePropName);
         }
 
         /// <summary>

@@ -115,6 +115,18 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
             string? explicitOutputFolder = null
         );
 
+        /// <summary>
+        /// NJCT DLL 直调批量测试：不走主流程预处理/上位机叠加；dllBlackHeight 传给 ModelAction.BlackHeight。
+        /// </summary>
+        Task RunOfflineCtDllBatchTestAsync(
+            CTAutoSlicerSettings settings,
+            string inputFolder,
+            string outputFolder,
+            int dllBlackHeight,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
         void Cancel();
     }
 }

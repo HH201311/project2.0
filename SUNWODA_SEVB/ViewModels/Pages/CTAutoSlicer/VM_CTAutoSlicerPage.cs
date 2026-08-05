@@ -198,6 +198,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private double _offlineCtPreBrightenTargetMean = 132.0;
         private string _offlineCtManualInputImagePath = string.Empty;
         private string _offlineCtManualOutputFolder = string.Empty;
+        private string _offlineCtDllTestInputFolder = string.Empty;
+        private string _offlineCtDllTestOutputFolder = string.Empty;
+        private int _offlineCtDllTestBlackHeight;
         private ImageSource? _latestAiAnnotationPreview;
         private string _latestAiAnnotationPreviewPath = string.Empty;
         private string _latestAiAnnotationPreviewInfo = "暂无 AI 标注结果预览";
@@ -1771,9 +1774,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _offlineCtBlackHeight, value))
                 {
                     SaveSetting(nameof(OfflineCtBlackHeight), value);
+                    OnPropertyChanged(nameof(OfflineCtOriginBlackHeightHint));
                 }
             }
         }
+
+        /// <summary>界面提示：原图打黑高度 = 增强图配置值 ÷ 2。</summary>
+        public string OfflineCtOriginBlackHeightHint =>
+            $"增强图用此高度；原图自动减半 → {CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtBlackHeight))} px（默认规则）";
 
         /// <summary>
         /// 喂给视觉前内容上移像素：画布不变、底部黑填；0=不上移。
@@ -2270,6 +2278,53 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>NJCT DLL 直调批量：输入图片文件夹。</summary>
+        public string OfflineCtDllTestInputFolder
+        {
+            get => _offlineCtDllTestInputFolder;
+            set
+            {
+                if (SetProperty(ref _offlineCtDllTestInputFolder, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(OfflineCtDllTestInputFolder), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>NJCT DLL 直调批量：输出目录。</summary>
+        public string OfflineCtDllTestOutputFolder
+        {
+            get => _offlineCtDllTestOutputFolder;
+            set
+            {
+                if (SetProperty(ref _offlineCtDllTestOutputFolder, value ?? string.Empty))
+                {
+                    SaveSetting(nameof(OfflineCtDllTestOutputFolder), value ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>
+        /// NJCT DLL 直调批量：传给 ModelAction 的 BlackHeight（与主流程 OfflineCtBlackHeight 无关）。
+        /// </summary>
+        public int OfflineCtDllTestBlackHeight
+        {
+            get => _offlineCtDllTestBlackHeight;
+            set
+            {
+                var clamped = Math.Max(0, value);
+                if (SetProperty(ref _offlineCtDllTestBlackHeight, clamped))
+                {
+                    SaveSetting(nameof(OfflineCtDllTestBlackHeight), clamped);
+                    OnPropertyChanged(nameof(OfflineCtDllTestOriginBlackHeightHint));
+                }
+            }
+        }
+
+        /// <summary>DLL 直调：原图 BlackHeight = 增强配置 ÷ 2。</summary>
+        public string OfflineCtDllTestOriginBlackHeightHint =>
+            $"增强图用此高度传 DLL；原图自动减半 → {CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtDllTestBlackHeight))} px";
+
         /// <summary>CTAutoCutImg 离线测：3D侧视图输入文件夹（GetSectionReferencePoints 批量）。</summary>
         public string CutImgDllTestSectionFolder
         {
@@ -2744,6 +2799,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand BrowseOfflineCtManualOutputFolderCommand { get; }
         public ICommand ClearOfflineCtManualOutputFolderCommand { get; }
         public ICommand RunOfflineCtManualAnnotationCommand { get; }
+        public ICommand BrowseOfflineCtDllTestInputFolderCommand { get; }
+        public ICommand BrowseOfflineCtDllTestOutputFolderCommand { get; }
+        public ICommand RunOfflineCtDllBatchTestCommand { get; }
         /// <summary>单步测试：最小化本软件后截取 3D ROI 标定图。</summary>
         public ICommand CaptureVision3dSampleCommand { get; }
         /// <summary>单步测试：最小化本软件后截取「上」视图 ROI 标定图。</summary>
@@ -2842,6 +2900,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             BrowseOfflineCtManualOutputFolderCommand = new RelayCommand(ExecuteBrowseOfflineCtManualOutputFolder);
             ClearOfflineCtManualOutputFolderCommand = new RelayCommand(_ => OfflineCtManualOutputFolder = string.Empty);
             RunOfflineCtManualAnnotationCommand = new RelayCommandAsync(ExecuteRunOfflineCtManualAnnotationAsync);
+            BrowseOfflineCtDllTestInputFolderCommand = new RelayCommand(ExecuteBrowseOfflineCtDllTestInputFolder);
+            BrowseOfflineCtDllTestOutputFolderCommand = new RelayCommand(ExecuteBrowseOfflineCtDllTestOutputFolder);
+            RunOfflineCtDllBatchTestCommand = new RelayCommandAsync(ExecuteRunOfflineCtDllBatchTestAsync);
             CaptureVision3dSampleCommand = new RelayCommand(ExecuteCaptureVision3dSample);
             CaptureVisionTopViewSampleCommand = new RelayCommand(ExecuteCaptureVisionTopViewSample);
             BrowseVisionLearn3dSampleDirCommand = new RelayCommand(BrowseVisionLearn3dSampleDir);

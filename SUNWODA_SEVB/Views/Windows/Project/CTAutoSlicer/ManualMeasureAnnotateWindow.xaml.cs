@@ -522,23 +522,6 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             v.IsHitTestVisible = false;
             OverlayCanvas.Children.Add(h);
             OverlayCanvas.Children.Add(v);
-
-            // 选中时加空心圆，提示端点可拖
-            if (selected)
-            {
-                var ring = new Ellipse
-                {
-                    Width = r * 2 + 4,
-                    Height = r * 2 + 4,
-                    Stroke = stroke,
-                    StrokeThickness = 1.2,
-                    Fill = Brushes.Transparent,
-                    IsHitTestVisible = false,
-                };
-                Canvas.SetLeft(ring, c.X - r - 2);
-                Canvas.SetTop(ring, c.Y - r - 2);
-                OverlayCanvas.Children.Add(ring);
-            }
         }
 
         private static Line MakeLine(Point a, Point b, Brush stroke, DoubleCollection? dash, double thickness = 1.5) =>
@@ -720,12 +703,108 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             try
             {
                 var path = _vm.Export();
-                MessageBox.Show(this, $"已导出到：\n{path}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                var captured = CaptureAnnotatedImagesToExportDir(path);
+                MessageBox.Show(
+                    this,
+                    $"已导出到：\n{path}\n\n"
+                    + $"· 叠加图：全部图片均导出（截屏 {captured} 张，含未手动标注）\n"
+                    + $"· {OfflineCtCsvExportHelper.ProductDimensionFileName}\n"
+                    + $"· {OfflineCtCsvExportHelper.ManualMeasureFileName}",
+                    "导出成功",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(this, $"导出失败：{ex.Message}", "导出失败", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// 逐张切换全部图片（无论是否已手动标注），zoom=1 后把 ImageHost 截成 PNG。
+        /// </summary>
+        private int CaptureAnnotatedImagesToExportDir(string exportDir)
+        {
+            CancelPendingMeasure();
+            EndLineEdit(commit: true);
+            EndLabelDrag(commit: true);
+
+            var targets = _vm.Images.ToList();
+            if (targets.Count == 0)
+            {
+                return 0;
+            }
+
+            var prevImage = _vm.SelectedImage;
+            var prevMeasureId = _vm.SelectedMeasureId;
+            var prevZoom = _zoom;
+            var count = 0;
+
+            try
+            {
+                _vm.SelectedMeasureId = null;
+                foreach (var item in targets)
+                {
+                    _vm.SelectedImage = item;
+                    // LoadSelectedImage 已跑完；强制 1:1 像素再截，避免缩放采样差
+                    if (_bitmap is null)
+                    {
+                        continue;
+                    }
+
+                    _zoom = 1.0;
+                    ApplyZoomTransform(centerAfter: false);
+                    RedrawCommittedOverlays();
+                    ImageHost.UpdateLayout();
+                    OverlayCanvas.UpdateLayout();
+
+                    var outPath = ManualMeasureExportHelper.BuildAnnotatedImagePath(
+                        exportDir,
+                        item.RelativePath);
+                    SaveVisualAsPng(ImageHost, _bitmap.PixelWidth, _bitmap.PixelHeight, outPath);
+                    count++;
+                }
+            }
+            finally
+            {
+                _vm.SelectedMeasureId = prevMeasureId;
+                if (prevImage is not null)
+                {
+                    _vm.SelectedImage = prevImage;
+                }
+
+                _zoom = Math.Clamp(prevZoom, MinZoom, MaxZoom);
+                ApplyZoomTransform(centerAfter: false);
+                RedrawCommittedOverlays();
+            }
+
+            return count;
+        }
+
+        private static void SaveVisualAsPng(FrameworkElement visual, int pixelWidth, int pixelHeight, string outputPath)
+        {
+            if (pixelWidth <= 0 || pixelHeight <= 0)
+            {
+                throw new InvalidOperationException("截屏尺寸无效");
+            }
+
+            visual.Measure(new Size(pixelWidth, pixelHeight));
+            visual.Arrange(new Rect(0, 0, pixelWidth, pixelHeight));
+            visual.UpdateLayout();
+
+            var rtb = new RenderTargetBitmap(pixelWidth, pixelHeight, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(visual);
+
+            var dir = System.IO.Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+            }
+
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(rtb));
+            using var fs = System.IO.File.Create(outputPath);
+            encoder.Save(fs);
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
@@ -919,7 +998,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
-            // 已有测距：端点拖拽 / 单击选中 / 双击整段拖（优先于新建）
+            // 已有测距：端点拖拽 / 单击线段整体拖（优先于新建）
             if (!_hasAnchor && _lineEditKind == LineEditKind.None
                 && TryHitMeasureGeometry(pos, out var geoId, out var hitPart))
             {
@@ -933,20 +1012,10 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                     return;
                 }
 
-                // 线段：单击选中；双击开始整体平移
+                // 线段：单击即可选中并整体平移
                 if (hitPart == MeasureHitPart.Segment)
                 {
-                    _vm.SelectedMeasureId = geoId;
-                    RedrawCommittedOverlays();
-                    if (e.ClickCount >= 2)
-                    {
-                        BeginLineEdit(geoId, LineEditKind.Translate, pos);
-                    }
-                    else
-                    {
-                        _vm.StatusText = "已选中测距，可拖端点微调 / 双击直线整体拖 / Delete 删除";
-                    }
-
+                    BeginLineEdit(geoId, LineEditKind.Translate, pos);
                     e.Handled = true;
                     return;
                 }
@@ -1346,7 +1415,8 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             {
                 Title = "修改测距名称",
                 Width = 360,
-                Height = 160,
+                MinHeight = 200,
+                SizeToContent = SizeToContent.Height,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Owner = this,
                 ResizeMode = ResizeMode.NoResize,
@@ -1355,8 +1425,9 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var box = new TextBox
             {
                 Text = target.Label,
-                Margin = new Thickness(16, 20, 16, 8),
+                Margin = new Thickness(16, 8, 16, 8),
                 FontSize = 14,
+                MinHeight = 28,
             };
             var ok = new Button
             {
@@ -1377,7 +1448,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Margin = new Thickness(16, 8, 16, 16),
+                Margin = new Thickness(16, 12, 16, 16),
                 Children = { ok, cancel },
             };
             var panel = new StackPanel();

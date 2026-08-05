@@ -64,5 +64,37 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 : PipelineRunMode.SliceOnly;
             Save(config);
         }
+
+        /// <summary>
+        /// 读取手动标注导出目录；未配置时返回内置 UNC 默认路径。
+        /// </summary>
+        public string LoadManualMeasureExportFolder()
+        {
+            var saved = Load().ManualMeasureExportFolder?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(saved)
+                ? ManualMeasureExportHelper.DefaultManualExportFolder
+                : saved;
+        }
+
+        public void SaveManualMeasureExportFolder(string? folder)
+        {
+            var config = Load();
+            var trimmed = folder?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                trimmed = ManualMeasureExportHelper.DefaultManualExportFolder;
+            }
+
+            if (string.Equals(
+                    config.ManualMeasureExportFolder?.Trim(),
+                    trimmed,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            config.ManualMeasureExportFolder = trimmed;
+            Save(config);
+        }
     }
 }

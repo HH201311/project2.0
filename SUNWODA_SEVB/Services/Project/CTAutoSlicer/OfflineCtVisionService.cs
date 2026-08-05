@@ -113,7 +113,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             string? resultImagePath = null,
             double pixelSizeUm = 1.0,
             int bottomInfoBlackHeight = 0,
-            OfflineCtLRangeCheckOptions? rangeCheck = null) =>
+            OfflineCtLRangeCheckOptions? rangeCheck = null,
+            bool applyHostOverlay = true) =>
             Infer(
                 ModelActionMethodName,
                 "enhance",
@@ -122,7 +123,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 resultImagePath,
                 pixelSizeUm,
                 bottomInfoBlackHeight,
-                rangeCheck);
+                rangeCheck,
+                applyHostOverlay);
 
         public OfflineCtInferResult InferOrigin(
             string imagePath,
@@ -130,7 +132,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             string? resultImagePath = null,
             double pixelSizeUm = 1.0,
             int bottomInfoBlackHeight = 0,
-            OfflineCtLRangeCheckOptions? rangeCheck = null) =>
+            OfflineCtLRangeCheckOptions? rangeCheck = null,
+            bool applyHostOverlay = true) =>
             Infer(
                 ModelActionOriginMethodName,
                 "origin",
@@ -139,7 +142,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 resultImagePath,
                 pixelSizeUm,
                 bottomInfoBlackHeight,
-                rangeCheck);
+                rangeCheck,
+                applyHostOverlay);
 
         public void DisposeModel()
         {
@@ -179,7 +183,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             string? resultImagePath,
             double pixelSizeUm,
             int bottomInfoBlackHeight,
-            OfflineCtLRangeCheckOptions? rangeCheck)
+            OfflineCtLRangeCheckOptions? rangeCheck,
+            bool applyHostOverlay)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             EnsureInitialized();
@@ -258,31 +263,41 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
                     else if (!string.IsNullOrWhiteSpace(resultImagePath) && resultImg is not null)
                     {
-                        // 成功：叠 AllPointRegion + L1~L5 线 + PrintfValue 后落盘（主流程最终展示图）
-                        try
+                        if (!applyHostOverlay)
                         {
-                            writtenPath = OfflineCtResultOverlayHelper.WriteAnnotatedResultImage(
-                                resultImg,
-                                pointRegions,
-                                regionRows,
-                                regionCols,
-                                printfValues,
-                                resultImagePath,
-                                pixelSizeUm > 0 ? pixelSizeUm : 1.0,
-                                bottomInfoBlackHeight,
-                                rangeCheck);
-                            _logger.Info(
-                                $"离线 CT AI 标注结果图已叠加抓点/尺寸"
-                                + (bottomInfoBlackHeight > 0
-                                    ? $"（底部遮罩 {bottomInfoBlackHeight}px）"
-                                    : string.Empty)
-                                + $"：{writtenPath}");
-                        }
-                        catch (Exception overlayEx)
-                        {
-                            _logger.Warn(
-                                $"叠加抓点/尺寸失败，回退写裸 ResultImg：{overlayEx.Message}");
+                            // DLL 直调：仅落盘算法返回的 ResultImg，不做上位机叠加
                             writtenPath = WriteResultImage(resultImg, resultImagePath);
+                            _logger.Info(
+                                $"离线 CT AI 裸结果图已落盘（DLL 直调 {modeTag}，BlackHeight={blackHeight}）：{writtenPath}");
+                        }
+                        else
+                        {
+                            // 成功：叠 AllPointRegion + L1~L5 线 + PrintfValue 后落盘（主流程最终展示图）
+                            try
+                            {
+                                writtenPath = OfflineCtResultOverlayHelper.WriteAnnotatedResultImage(
+                                    resultImg,
+                                    pointRegions,
+                                    regionRows,
+                                    regionCols,
+                                    printfValues,
+                                    resultImagePath,
+                                    pixelSizeUm > 0 ? pixelSizeUm : 1.0,
+                                    bottomInfoBlackHeight,
+                                    rangeCheck);
+                                _logger.Info(
+                                    $"离线 CT AI 标注结果图已叠加抓点/尺寸"
+                                    + (bottomInfoBlackHeight > 0
+                                        ? $"（底部遮罩 {bottomInfoBlackHeight}px）"
+                                        : string.Empty)
+                                    + $"：{writtenPath}");
+                            }
+                            catch (Exception overlayEx)
+                            {
+                                _logger.Warn(
+                                    $"叠加抓点/尺寸失败，回退写裸 ResultImg：{overlayEx.Message}");
+                                writtenPath = WriteResultImage(resultImg, resultImagePath);
+                            }
                         }
                     }
 

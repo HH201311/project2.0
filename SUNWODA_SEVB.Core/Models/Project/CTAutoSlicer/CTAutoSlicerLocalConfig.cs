@@ -8,5 +8,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
     {
         /// <summary>流水线模式：切图 / AI 标注。</summary>
         public PipelineRunMode PipelineRunMode { get; set; } = PipelineRunMode.SliceOnly;
+
+        /// <summary>
+        /// 二次手动标注导出目录（本机持久化）。
+        /// 空则使用内置默认 <c>\\192.168.1.120\3Ddeliever\result</c>。
+        /// </summary>
+        public string ManualMeasureExportFolder { get; set; } = string.Empty;
     }
 }

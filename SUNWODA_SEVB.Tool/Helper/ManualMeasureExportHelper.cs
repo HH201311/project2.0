@@ -10,13 +10,16 @@ using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 二次手动标注：递归枚举图片、续标加载、导出 index/单图 JSON 与叠加图。
-    /// 默认导出目录名为 <see cref="DefaultExportFolderName"/>（result）；可在标注界面改选任意绝对路径。
+    /// 二次手动标注：递归枚举图片、从 CSV 续标、导出扁平叠加图与 CSV（无 json/index）。
+    /// 默认导出目录名为 <see cref="DefaultExportFolderName"/>（result）。
     /// </summary>
     public static class ManualMeasureExportHelper
     {
-        /// <summary>默认导出子目录名（相对打开的根目录）。</summary>
+        /// <summary>默认导出子目录名（相对打开的根目录；仅作枚举跳过兼容）。</summary>
         public const string DefaultExportFolderName = "result";
+
+        /// <summary>二次手动标注导出目录内置默认（UNC，本机可改并持久化）。</summary>
+        public const string DefaultManualExportFolder = @"\\192.168.1.120\3Ddeliever\result";
 
         /// <summary>历史导出子目录名；枚举跳过与续标回退时仍识别。</summary>
         public const string LegacyExportFolderName = "output";
@@ -33,8 +36,12 @@ namespace SUNWODA_SEVB.Tool.Helper
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
 
-        /// <summary>默认导出目录：{rootFolder}/result</summary>
+        /// <summary>默认导出目录：优先内置 UNC；兼容旧调用仍保留 Root 相对 result 解析。</summary>
         public static string ResolveDefaultExportDir(string rootFolder) =>
+            DefaultManualExportFolder;
+
+        /// <summary>相对根目录的 result 子目录（枚举时跳过用）。</summary>
+        public static string ResolveRootResultDir(string rootFolder) =>
             Path.Combine(rootFolder, DefaultExportFolderName);
 
         /// <summary>历史导出目录：{rootFolder}/output（仅续标兼容）</summary>
@@ -64,7 +71,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                         return false;
                     }
 
-                    // 跳过导出目录 / 预处理 input 内已生成图，避免二次打开时再扫入
                     var full = Path.GetFullPath(p);
                     if (skipDirs.Any(skip =>
                         full.StartsWith(skip + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
@@ -73,7 +79,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                         return false;
                     }
 
-                    // 任意层级 …/input/…（各产品下的预处理送检图）
                     try
                     {
                         var relative = Path.GetRelativePath(rootFull, full);
@@ -117,24 +122,15 @@ namespace SUNWODA_SEVB.Tool.Helper
         public static string BuildOutputDir(string rootFolder) =>
             ResolveDefaultExportDir(rootFolder);
 
-        /// <summary>单图 JSON：{exportDir}/{相对目录}/{文件名去扩展}.json</summary>
-        public static string BuildImageJsonPath(string exportDir, string relativePath)
-        {
-            var relNoExt = Path.ChangeExtension(relativePath.Replace('/', Path.DirectorySeparatorChar), null)
-                           ?? relativePath;
-            return Path.Combine(NormalizeExportDir(exportDir), relNoExt + ".json");
-        }
-
-        /// <summary>叠加图：{exportDir}/{相对目录}/{文件名去扩展}_annotated.png</summary>
+        /// <summary>
+        /// 叠加图扁平输出：{exportDir}/{产品名}.png（无子目录、无 _annotated 后缀）。
+        /// </summary>
         public static string BuildAnnotatedImagePath(string exportDir, string relativePath)
         {
-            var relNoExt = Path.ChangeExtension(relativePath.Replace('/', Path.DirectorySeparatorChar), null)
-                           ?? relativePath;
-            return Path.Combine(NormalizeExportDir(exportDir), relNoExt + "_annotated.png");
+            var product = OfflineCtCsvExportHelper.ResolveProductName(relativePath);
+            var safe = SanitizeFileName(product);
+            return Path.Combine(NormalizeExportDir(exportDir), safe + ".png");
         }
-
-        public static string BuildIndexJsonPath(string exportDir) =>
-            Path.Combine(NormalizeExportDir(exportDir), "index.json");
 
         public static ManualMeasureItem CreateMeasure(
             double x1,
@@ -170,15 +166,21 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 若存在单图 JSON 则加载测量列表；否则返回空列表。
-        /// <paramref name="legacyExportDir"/> 非空且主目录无数据时，回退读取历史 output。
+        /// 续标：优先从导出目录 <c>CT手动测距.csv</c> 加载；兼容历史单图 JSON。
         /// </summary>
         public static List<ManualMeasureItem> TryLoadImageMeasures(
             string exportDir,
             string relativePath,
             string? legacyExportDir = null)
         {
-            var loaded = TryLoadImageMeasuresFromDir(exportDir, relativePath);
+            var product = OfflineCtCsvExportHelper.ResolveProductName(relativePath);
+            var fromCsv = OfflineCtCsvExportHelper.TryLoadManualMeasures(exportDir, product);
+            if (fromCsv.Count > 0)
+            {
+                return fromCsv;
+            }
+
+            var loaded = TryLoadLegacyImageJson(exportDir, relativePath);
             if (loaded.Count > 0)
             {
                 return loaded;
@@ -203,15 +205,27 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return [];
             }
 
-            return TryLoadImageMeasuresFromDir(legacyExportDir, relativePath);
+            fromCsv = OfflineCtCsvExportHelper.TryLoadManualMeasures(legacyExportDir, product);
+            if (fromCsv.Count > 0)
+            {
+                return fromCsv;
+            }
+
+            return TryLoadLegacyImageJson(legacyExportDir, relativePath);
         }
 
+        /// <summary>
+        /// 导出：CSV +（可选）叠加图。界面导出请将 <paramref name="renderImages"/> 置 false，
+        /// 由窗口把当前标注画布截屏保存，保证与预览一致。
+        /// </summary>
         public static void ExportSession(
             string rootFolder,
             double pixelSizeUm,
             IReadOnlyList<ManualMeasureImageRecord> images,
             int bottomBlackHeightPx = 0,
-            string? exportDir = null)
+            string? exportDir = null,
+            OfflineCtLRangeCheckOptions? rangeCheck = null,
+            bool renderImages = true)
         {
             if (string.IsNullOrWhiteSpace(rootFolder))
             {
@@ -224,15 +238,12 @@ namespace SUNWODA_SEVB.Tool.Helper
                     : exportDir);
             Directory.CreateDirectory(outDir);
 
-            var export = new ManualMeasureSessionExport
-            {
-                RootFolder = Path.GetFullPath(rootFolder),
-                PixelSizeUm = pixelSizeUm,
-                GeneratedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-                Images = images.Select(CloneRecord).ToList(),
-            };
+            var exportedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            var range = rangeCheck ?? OfflineCtLRangeCheckOptions.Disabled;
+            var productNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var manualRows = new List<string[]>();
 
-            foreach (var img in export.Images)
+            foreach (var img in images)
             {
                 EnsureLabels(img.Measures);
                 foreach (var m in img.Measures)
@@ -240,8 +251,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                     RecalcLengths(m, pixelSizeUm);
                 }
 
-                WriteImageJson(outDir, img);
-                if (img.Measures.Count > 0 && File.Exists(img.AbsolutePath))
+                var product = OfflineCtCsvExportHelper.ResolveProductName(img.RelativePath);
+                productNames.Add(product);
+
+                if (File.Exists(img.AbsolutePath) && renderImages)
                 {
                     RenderAnnotatedImage(
                         img.AbsolutePath,
@@ -249,23 +262,162 @@ namespace SUNWODA_SEVB.Tool.Helper
                         img.Measures,
                         bottomBlackHeightPx);
                 }
+
+                foreach (var m in img.Measures)
+                {
+                    manualRows.Add(
+                        OfflineCtCsvExportHelper.BuildManualMeasureFields(product, m, exportedAt));
+                }
             }
 
-            var indexPath = BuildIndexJsonPath(outDir);
-            File.WriteAllText(
-                indexPath,
-                JsonSerializer.Serialize(export, JsonOptions),
-                Encoding.UTF8);
+            OfflineCtCsvExportHelper.ReplaceManualMeasures(outDir, productNames, manualRows);
+            EnsureProductRowsExist(outDir, productNames, pixelSizeUm, range, exportedAt);
+            TryMergeProductDimensionsFromRoot(rootFolder, outDir);
         }
 
-        private static List<ManualMeasureItem> TryLoadImageMeasuresFromDir(
-            string exportDir,
-            string relativePath)
+        private static void EnsureProductRowsExist(
+            string outDir,
+            IEnumerable<string> productNames,
+            double pixelSizeUm,
+            OfflineCtLRangeCheckOptions range,
+            string exportedAt)
         {
-            var jsonPath = BuildImageJsonPath(exportDir, relativePath);
+            var path = OfflineCtCsvExportHelper.BuildProductDimensionCsvPath(outDir);
+            foreach (var name in productNames)
+            {
+                if (string.IsNullOrWhiteSpace(name) || ProductDimensionContains(path, name))
+                {
+                    continue;
+                }
+
+                var row = OfflineCtCsvExportHelper.BuildProductRow(
+                    name,
+                    pixelSizeUm,
+                    range,
+                    printfValuesPx: null,
+                    resultImagePath: string.Empty,
+                    generatedAt: DateTime.TryParse(
+                        exportedAt,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out var dt)
+                        ? dt
+                        : DateTime.Now);
+                OfflineCtCsvExportHelper.UpsertProductDimensionRow(outDir, row);
+            }
+        }
+
+        private static bool ProductDimensionContains(string csvPath, string productName)
+        {
+            if (!File.Exists(csvPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                foreach (var line in File.ReadLines(csvPath, Encoding.UTF8))
+                {
+                    if (string.IsNullOrWhiteSpace(line) || line.Contains("产品名", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var comma = line.IndexOf(',');
+                    var name = comma > 0 ? line[..comma].Trim().Trim('"') : line.Trim().Trim('"');
+                    if (string.Equals(name, productName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        private static void TryMergeProductDimensionsFromRoot(string rootFolder, string outDir)
+        {
+            try
+            {
+                var rootCsv = OfflineCtCsvExportHelper.BuildProductDimensionCsvPath(rootFolder);
+                var outCsv = OfflineCtCsvExportHelper.BuildProductDimensionCsvPath(outDir);
+                if (!File.Exists(rootCsv))
+                {
+                    return;
+                }
+
+                if (string.Equals(
+                        Path.GetFullPath(rootCsv),
+                        Path.GetFullPath(outCsv),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                var rootLines = File.ReadAllLines(rootCsv, Encoding.UTF8);
+                if (rootLines.Length <= 1)
+                {
+                    return;
+                }
+
+                for (var i = 1; i < rootLines.Length; i++)
+                {
+                    var line = rootLines[i];
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        continue;
+                    }
+
+                    var comma = line.IndexOf(',');
+                    var name = comma > 0 ? line[..comma].Trim().Trim('"') : line.Trim().Trim('"');
+                    if (string.IsNullOrWhiteSpace(name) || ProductDimensionContains(outCsv, name))
+                    {
+                        continue;
+                    }
+
+                    AppendRawProductLine(outCsv, rootLines[0], line);
+                }
+            }
+            catch
+            {
+                // 合并失败不影响主导出
+            }
+        }
+
+        private static void AppendRawProductLine(string outCsv, string header, string dataLine)
+        {
+            if (!File.Exists(outCsv))
+            {
+                File.WriteAllText(
+                    outCsv,
+                    header + Environment.NewLine + dataLine + Environment.NewLine,
+                    new UTF8Encoding(true));
+                return;
+            }
+
+            File.AppendAllText(outCsv, dataLine + Environment.NewLine, new UTF8Encoding(true));
+        }
+
+        private static List<ManualMeasureItem> TryLoadLegacyImageJson(string exportDir, string relativePath)
+        {
+            var relNoExt = Path.ChangeExtension(relativePath.Replace('/', Path.DirectorySeparatorChar), null)
+                           ?? relativePath;
+            var jsonPath = Path.Combine(NormalizeExportDir(exportDir), relNoExt + ".json");
             if (!File.Exists(jsonPath))
             {
-                return [];
+                var flat = Path.Combine(
+                    NormalizeExportDir(exportDir),
+                    OfflineCtCsvExportHelper.ResolveProductName(relativePath) + ".json");
+                if (!File.Exists(flat))
+                {
+                    return [];
+                }
+
+                jsonPath = flat;
             }
 
             try
@@ -301,12 +453,13 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 catch
                 {
-                    // ignore invalid path
+                    // ignore
                 }
             }
 
-            AddIfValid(ResolveDefaultExportDir(rootFull));
+            AddIfValid(ResolveRootResultDir(rootFull));
             AddIfValid(ResolveLegacyExportDir(rootFull));
+            AddIfValid(DefaultManualExportFolder);
             AddIfValid(Path.Combine(rootFull, OfflineCtPreBrightenHelper.InputSubFolderName));
             AddIfValid(exportDirToSkip);
             return list;
@@ -323,26 +476,18 @@ namespace SUNWODA_SEVB.Tool.Helper
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
-        private static ManualMeasureImageRecord CloneRecord(ManualMeasureImageRecord src) =>
-            new()
+        private static string SanitizeFileName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sb = new StringBuilder(name.Length);
+            foreach (var c in name)
             {
-                RelativePath = src.RelativePath,
-                AbsolutePath = src.AbsolutePath,
-                Measures = src.Measures.Select(m => new ManualMeasureItem
-                {
-                    Id = m.Id,
-                    Label = m.Label,
-                    X1 = m.X1,
-                    Y1 = m.Y1,
-                    X2 = m.X2,
-                    Y2 = m.Y2,
-                    PixelLength = m.PixelLength,
-                    LengthUm = m.LengthUm,
-                    LengthMm = m.LengthMm,
-                    LabelX = m.LabelX,
-                    LabelY = m.LabelY,
-                }).ToList(),
-            };
+                sb.Append(Array.IndexOf(invalid, c) >= 0 ? '_' : c);
+            }
+
+            var s = sb.ToString().Trim();
+            return string.IsNullOrWhiteSpace(s) ? "unnamed" : s;
+        }
 
         private static void EnsureLabels(IList<ManualMeasureItem> measures)
         {
@@ -355,20 +500,9 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
         }
 
-        private static void WriteImageJson(string exportDir, ManualMeasureImageRecord record)
-        {
-            var path = BuildImageJsonPath(exportDir, record.RelativePath);
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            File.WriteAllText(path, JsonSerializer.Serialize(record, JsonOptions), Encoding.UTF8);
-        }
-
         /// <summary>
-        /// 在原图上绘制测距线；上方标签仅 mm；底部按 blackHeight 打黑并汇总测距信息。
+        /// 在结果图上绘制测距线，布局与二次手动标注预览一致：
+        /// 测距线/引出/黄标签；底部仅遮罩右 1/4 写「手动标注」汇总，左 3/4 保留 AI 烧录内容。
         /// </summary>
         public static void RenderAnnotatedImage(
             string sourceImagePath,
@@ -376,26 +510,29 @@ namespace SUNWODA_SEVB.Tool.Helper
             IReadOnlyList<ManualMeasureItem> measures,
             int bottomBlackHeightPx = 0)
         {
-            const float leaderLength = 42f;
+            // 与界面 LabelLeaderLength=42（zoom≈1 时图像像素）对齐
+            const float leaderLengthImg = 42f;
 
             using var src = Image.FromFile(sourceImagePath);
             using var bmp = new Bitmap(src.Width, src.Height, PixelFormat.Format24bppRgb);
             using (var g = Graphics.FromImage(bmp))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
                 g.Clear(Color.Black);
                 g.DrawImage(src, 0, 0, src.Width, src.Height);
 
-                using var pen = new Pen(Color.FromArgb(255, 0, 200, 255), 2f);
-                using var leaderPen = new Pen(Color.FromArgb(220, 180, 220, 255), 1.5f)
+                // 与界面一致：青色测距线 + 浅青虚线引出 + 黄字黑底标签
+                using var pen = new Pen(Color.FromArgb(255, 0, 220, 255), 2f);
+                using var leaderPen = new Pen(Color.FromArgb(255, 180, 220, 255), 1.2f)
                 {
                     DashStyle = DashStyle.Dash,
+                    DashPattern = [4f, 3f],
                 };
-                using var font = new Font("Consolas", 14f, FontStyle.Bold, GraphicsUnit.Pixel);
-                using var summaryFont = new Font("Consolas", 16f, FontStyle.Bold, GraphicsUnit.Pixel);
-                using var brush = new SolidBrush(Color.FromArgb(230, 255, 255, 0));
-                using var summaryBrush = new SolidBrush(Color.FromArgb(240, 255, 255, 255));
-                using var bgBrush = new SolidBrush(Color.FromArgb(160, 0, 0, 0));
+                var labelFontSize = Math.Clamp(src.Width / 160f, 12f, 28f);
+                using var font = new Font("Consolas", labelFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+                using var brush = new SolidBrush(Color.Yellow);
+                using var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
 
                 foreach (var m in measures)
                 {
@@ -411,12 +548,11 @@ namespace SUNWODA_SEVB.Tool.Helper
                     }
                     else
                     {
-                        (_, labelCenter) = GetPerpendicularLeader(p1, p2, leaderLength);
+                        (_, labelCenter) = GetPerpendicularLeader(p1, p2, leaderLengthImg);
                     }
 
                     g.DrawLine(leaderPen, mid, labelCenter);
 
-                    // 上方标签：仅毫米；中心落在 labelCenter
                     var text = FormatMeasureLabelMm(m);
                     var size = g.MeasureString(text, font);
                     var textOrigin = new PointF(labelCenter.X - size.Width / 2f, labelCenter.Y - size.Height / 2f);
@@ -428,23 +564,39 @@ namespace SUNWODA_SEVB.Tool.Helper
                     DrawCross(g, pen, p2, 6f);
                 }
 
-                // 底部遮罩 + 汇总（上位机打黑，与 OfflineCtBlackHeight 一致）
+                // 底部：仅右 1/4 打黑 + 手动汇总（与 ManualMeasureAnnotateWindow.DrawBottomInfoBand 一致）
                 var bandH = Math.Clamp(bottomBlackHeightPx, 0, src.Height);
                 if (bandH > 0)
                 {
                     var bandY = src.Height - bandH;
-                    g.FillRectangle(Brushes.Black, 0, bandY, src.Width, bandH);
+                    var rightX = src.Width * 3f / 4f;
+                    var rightW = src.Width - rightX;
 
-                    var lines = measures
-                        .Select(FormatMeasureLabelMm)
-                        .ToList();
-                    if (lines.Count == 0)
+                    g.FillRectangle(Brushes.Black, rightX, bandY, rightW, bandH);
+
+                    using var dividerPen = new Pen(Color.FromArgb(255, 0x66, 0x66, 0x66), 1f);
+                    g.DrawLine(dividerPen, rightX, bandY + 4f, rightX, src.Height - 4f);
+
+                    var fontPx = OfflineCtAnnotationHelper.ComputeBottomBandFontSizeImagePx(bandH, src.Width);
+                    using var summaryFont = new Font("Consolas", fontPx, FontStyle.Bold, GraphicsUnit.Pixel);
+                    using var titleBrush = new SolidBrush(Color.Orange);
+                    using var summaryBrush = new SolidBrush(Color.White);
+
+                    var lines = new List<string> { "手动标注" };
+                    if (measures.Count > 0)
                     {
-                        lines.Add("（暂无测距）");
+                        lines.AddRange(measures.Select(FormatMeasureLabelMm));
+                    }
+                    else
+                    {
+                        lines.Add("（标注后显示于此）");
                     }
 
-                    var lineH = summaryFont.GetHeight(g) + 4f;
+                    var lineH = summaryFont.GetHeight(g) + 6f;
                     var startY = bandY + 8f;
+                    var textX = rightX + 10f;
+                    var maxTextW = Math.Max(40f, rightW - 20f);
+
                     for (var i = 0; i < lines.Count; i++)
                     {
                         var y = startY + i * lineH;
@@ -453,15 +605,29 @@ namespace SUNWODA_SEVB.Tool.Helper
                             break;
                         }
 
-                        g.DrawString(lines[i], summaryFont, summaryBrush, 12f, y);
+                        var line = lines[i];
+                        var brushLine = i == 0 ? titleBrush : summaryBrush;
+                        // 超宽截断，避免溢出到左三栏
+                        var drawn = line;
+                        while (drawn.Length > 1 && g.MeasureString(drawn, summaryFont).Width > maxTextW)
+                        {
+                            drawn = drawn[..^1];
+                        }
+
+                        if (drawn.Length < line.Length && drawn.Length > 3)
+                        {
+                            drawn = drawn[..^3] + "...";
+                        }
+
+                        g.DrawString(drawn, summaryFont, brushLine, textX, y);
                     }
                 }
             }
 
-            var outDir = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(outDir))
+            var outParent = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(outParent))
             {
-                Directory.CreateDirectory(outDir);
+                Directory.CreateDirectory(outParent);
             }
 
             bmp.Save(outputPath, ImageFormat.Png);

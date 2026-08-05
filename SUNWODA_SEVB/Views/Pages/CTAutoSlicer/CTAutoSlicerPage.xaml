@@ -2398,7 +2398,7 @@
                                             <LineBreak />
                                             <Run Text="• CUDA：ModelInit 的 IsRunCuda，默认开启。" />
                                             <LineBreak />
-                                            <Run Text="• 打黑高度：界面自控（OfflineCtBlackHeight），底部四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；开启范围判断后汇总数值合格绿/超差红，未启用白；二次手动标注共用右栏；传给 NJCT 的 BlackHeight 固定 0。" />
+                                            <Run Text="• 打黑高度：界面自控（OfflineCtBlackHeight），增强图用全高；原图默认减半。底部四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；开启范围判断后汇总数值合格绿/超差红，未启用白；二次手动标注共用右栏；传给 NJCT 的 BlackHeight 固定 0。" />
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
@@ -2550,7 +2550,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="模型与推理" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="ONNX 模型路径、CUDA；打黑高度=结果图底部覆盖信息区（AI 汇总/二次手动共用）；结果图模式决定落盘增强图 / 原图。" />
+                                        Text="ONNX 模型路径、CUDA；打黑高度=增强图底部覆盖高度（原图自动减半）；结果图模式决定落盘增强图 / 原图。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -2604,20 +2604,27 @@
                                             Grid.Column="2"
                                             Style="{StaticResource CasFormLabelStyle}"
                                             Text="打黑高度"
-                                            ToolTip="结果图底部覆盖打黑高度（写入 L1~L5）；二次手动标注共用；不传给 NJCT" />
-                                        <hc:TextBox
-                                            Grid.Column="3"
-                                            Width="160"
-                                            HorizontalAlignment="Left"
-                                            ToolTip="结果图底部覆盖打黑高度（写入 L1~L5）；二次手动标注共用；不传给 NJCT">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="OfflineCtBlackHeight" UpdateSourceTrigger="PropertyChanged">
-                                                    <Binding.ValidationRules>
-                                                        <hc:RegexRule Type="PInt" />
-                                                    </Binding.ValidationRules>
-                                                </Binding>
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
+                                            ToolTip="增强图底部覆盖打黑高度（写入 L1~L5）；原图自动减半；二次手动标注共用增强图高度；不传给 NJCT" />
+                                        <StackPanel Grid.Column="3" Orientation="Vertical" HorizontalAlignment="Left">
+                                            <hc:TextBox
+                                                Width="160"
+                                                HorizontalAlignment="Left"
+                                                ToolTip="增强图底部覆盖打黑高度（写入 L1~L5）；原图自动减半；二次手动标注共用增强图高度；不传给 NJCT">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtBlackHeight" UpdateSourceTrigger="PropertyChanged">
+                                                        <Binding.ValidationRules>
+                                                            <hc:RegexRule Type="PInt" />
+                                                        </Binding.ValidationRules>
+                                                    </Binding>
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock
+                                                Margin="0,4,0,0"
+                                                Style="{StaticResource CasFormHintStyle}"
+                                                Text="{Binding OfflineCtOriginBlackHeightHint}"
+                                                TextWrapping="Wrap"
+                                                MaxWidth="360" />
+                                        </StackPanel>
                                     </Grid>
 
                                     <Grid Style="{StaticResource CasFormRowStyle}" Margin="0">
@@ -2913,6 +2920,112 @@
                                         </Expander>
                                     </StackPanel>
                                 </Expander>
+                            </Border>
+
+                            <!-- NJCT DLL 直调批量测试（不走主流程） -->
+                            <Border Style="{StaticResource CasFormSectionStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="NJCT DLL 直调批量测试" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="仅测试 DLL：批量读入文件夹图片 → 直接调用 ModelAction / ModelAction_origin。下方「DLL打黑高度」为增强图传给 NJCT 的 BlackHeight；原图自动减半。不做竖图/提亮/内容上移，也不做上位机底部叠加。结果图模式沿用上方「模型与推理」。" />
+
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            Text="输入文件夹"
+                                            ToolTip="递归扫描 jpg/png/bmp/tif" />
+                                        <hc:TextBox
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            ToolTip="递归扫描 jpg/png/bmp/tif">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="OfflineCtDllTestInputFolder" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button
+                                            Grid.Column="2"
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Command="{Binding BrowseOfflineCtDllTestInputFolderCommand}"
+                                            Content="浏览"
+                                            IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            Text="输出文件夹"
+                                            ToolTip="DLL 返回 ResultImg 直接落盘到此目录" />
+                                        <hc:TextBox
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            ToolTip="DLL 返回 ResultImg 直接落盘到此目录">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="OfflineCtDllTestOutputFolder" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button
+                                            Grid.Column="2"
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Command="{Binding BrowseOfflineCtDllTestOutputFolderCommand}"
+                                            Content="浏览"
+                                            IsEnabled="{Binding IsEnableSimulationBtn}" />
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource CasFormRowStyle}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Style="{StaticResource CasFormLabelStyle}"
+                                            Text="DLL打黑高度"
+                                            ToolTip="增强图传给 NJCT 的 BlackHeight；原图自动减半（与主流程打黑高度规则一致）" />
+                                        <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Left">
+                                            <hc:TextBox
+                                                Width="160"
+                                                HorizontalAlignment="Left"
+                                                ToolTip="增强图传给 NJCT 的 BlackHeight；原图自动减半（与主流程打黑高度规则一致）">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtDllTestBlackHeight" UpdateSourceTrigger="PropertyChanged">
+                                                        <Binding.ValidationRules>
+                                                            <hc:RegexRule Type="Int" />
+                                                        </Binding.ValidationRules>
+                                                    </Binding>
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock
+                                                Margin="0,4,0,0"
+                                                Style="{StaticResource CasFormHintStyle}"
+                                                Text="{Binding OfflineCtDllTestOriginBlackHeightHint}"
+                                                TextWrapping="Wrap"
+                                                MaxWidth="420" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Button
+                                        Style="{StaticResource CasPrimaryButtonStyle}"
+                                        HorizontalAlignment="Left"
+                                        MinWidth="200"
+                                        Margin="152,4,0,0"
+                                        Command="{Binding RunOfflineCtDllBatchTestCommand}"
+                                        Content="批量直调 DLL"
+                                        IsEnabled="{Binding IsEnableSimulationBtn}"
+                                        ToolTip="批量调用 NJCT.dll；BlackHeight=本区「DLL打黑高度」；不接入主程序预处理与叠加" />
+                                </StackPanel>
                             </Border>
 
                             <!-- 独立标注 -->

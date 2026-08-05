@@ -293,9 +293,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 var mode = settings.OfflineCtResultImageMode;
                 // NJCT 打黑固定传 0；底部信息遮罩由上位机按 OfflineCtBlackHeight
                 // 在 ResultImg 底部覆盖打黑并写入 L1~L5（与二次手动标注同一配置项）。
+                // 增强图用全高；原图默认减半。
                 const int dllBlackHeight = 0;
                 var pixelSizeUm = settings.ResolveOfflineCtPixelSizeUm();
-                var bottomInfoBlackHeight = Math.Max(0, settings.OfflineCtBlackHeight);
+                var bottomInfoBlackHeightEnhance = Math.Max(0, settings.OfflineCtBlackHeight);
+                var bottomInfoBlackHeightOrigin =
+                    CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(bottomInfoBlackHeightEnhance);
                 var rangeCheck = settings.BuildOfflineCtLRangeCheckOptions();
                 var bothModes = mode == OfflineCtResultImageMode.Both;
                 // 结果图文件名与导入产品文件夹名一致（…/{导出名}/{导出名}.jpg），不用 result_enhance
@@ -313,14 +316,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         "enhance",
                         bothModes);
                     progress?.Report(
-                        $"AI 标注：调用 ModelAction（增强图+抓点/尺寸+底部遮罩），输入={Path.GetFileName(imagePath)}…");
+                        $"AI 标注：调用 ModelAction（增强图+抓点/尺寸+底部遮罩 {bottomInfoBlackHeightEnhance}px），输入={Path.GetFileName(imagePath)}…");
                     var enhanceResult = await Task.Run(
                             () => _offlineCtVisionService.InferEnhance(
                                 imagePath,
                                 dllBlackHeight,
                                 enhancePath,
                                 pixelSizeUm,
-                                bottomInfoBlackHeight,
+                                bottomInfoBlackHeightEnhance,
                                 rangeCheck),
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -346,14 +349,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         "origin",
                         bothModes);
                     progress?.Report(
-                        $"AI 标注：调用 ModelAction_origin（原图+抓点/尺寸+底部遮罩），输入={Path.GetFileName(imagePath)}…");
+                        $"AI 标注：调用 ModelAction_origin（原图+抓点/尺寸+底部遮罩 {bottomInfoBlackHeightOrigin}px=增强一半），输入={Path.GetFileName(imagePath)}…");
                     var originResult = await Task.Run(
                             () => _offlineCtVisionService.InferOrigin(
                                 imagePath,
                                 dllBlackHeight,
                                 originPath,
                                 pixelSizeUm,
-                                bottomInfoBlackHeight,
+                                bottomInfoBlackHeightOrigin,
                                 rangeCheck),
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -387,6 +390,33 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     var csvPath = Path.Combine(annotationFolder!, "annotation.csv");
                     OfflineCtAnnotationHelper.WriteAnnotationCsv(csvPath, originalImagePath, results);
                     progress?.Report($"已写入 CSV：{csvPath}");
+                }
+
+                // 汇总表：结果根目录 CT产品尺寸.csv（按产品名 upsert，便于追加）
+                try
+                {
+                    var csvRoot = !string.IsNullOrWhiteSpace(settings.SliceExportFolder)
+                        ? settings.SliceExportFolder.Trim()
+                        : Path.GetDirectoryName(annotationFolder!) ?? annotationFolder!;
+                    var successResult = results.FirstOrDefault(r => r.IsSuccess)
+                                        ?? results.FirstOrDefault();
+                    if (successResult is not null)
+                    {
+                        var row = OfflineCtCsvExportHelper.BuildProductRow(
+                            resultBaseName,
+                            pixelSizeUm,
+                            rangeCheck,
+                            successResult.PrintfValues,
+                            successResult.ResultImagePath);
+                        OfflineCtCsvExportHelper.UpsertProductDimensionRow(csvRoot, row);
+                        progress?.Report(
+                            $"已更新尺寸汇总：{OfflineCtCsvExportHelper.BuildProductDimensionCsvPath(csvRoot)}");
+                    }
+                }
+                catch (Exception csvEx)
+                {
+                    progress?.Report($"尺寸汇总 CSV 写入失败：{csvEx.Message}");
+                    _logger.Warn($"CT产品尺寸.csv 写入失败：{csvEx.Message}");
                 }
 
                 progress?.Report($"AI 图像标注完成 → {annotationFolder}");
@@ -467,6 +497,169 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 progress?.Report("AI 图像标注单步测试完成");
                 _logger.Info("AI 图像标注单步测试完成");
+            }
+            finally
+            {
+                Unlock();
+            }
+        }
+
+        /// <summary>
+        /// NJCT DLL 直调批量测试：不走预处理/交接/上位机打黑叠加；
+        /// <paramref name="dllBlackHeight"/> 直接传给 ModelAction 的 BlackHeight。
+        /// </summary>
+        public async Task RunOfflineCtDllBatchTestAsync(
+            CTAutoSlicerSettings settings,
+            string inputFolder,
+            string outputFolder,
+            int dllBlackHeight,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null)
+        {
+            if (string.IsNullOrWhiteSpace(inputFolder) || !Directory.Exists(inputFolder))
+            {
+                throw new DirectoryNotFoundException($"DLL 直调输入目录不存在：{inputFolder}");
+            }
+
+            if (string.IsNullOrWhiteSpace(outputFolder))
+            {
+                throw new ArgumentException("DLL 直调输出目录不能为空", nameof(outputFolder));
+            }
+
+            var inFull = Path.GetFullPath(inputFolder.Trim());
+            var outFull = Path.GetFullPath(outputFolder.Trim());
+            Directory.CreateDirectory(outFull);
+
+            var images = Directory
+                .EnumerateFiles(inFull, "*.*", SearchOption.AllDirectories)
+                .Where(p =>
+                {
+                    var ext = Path.GetExtension(p);
+                    return !string.IsNullOrEmpty(ext)
+                           && (ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                               || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
+                               || ext.Equals(".png", StringComparison.OrdinalIgnoreCase)
+                               || ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase)
+                               || ext.Equals(".tif", StringComparison.OrdinalIgnoreCase)
+                               || ext.Equals(".tiff", StringComparison.OrdinalIgnoreCase));
+                })
+                .Where(p =>
+                {
+                    var full = Path.GetFullPath(p);
+                    return !full.StartsWith(
+                        outFull + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(full, outFull, StringComparison.OrdinalIgnoreCase);
+                })
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (images.Count == 0)
+            {
+                throw new InvalidOperationException($"输入目录下未找到图片：{inFull}");
+            }
+
+            var blackHeight = Math.Max(0, dllBlackHeight);
+            var mode = settings.OfflineCtResultImageMode;
+            var modelPath = settings.ResolveOfflineCtModelPath();
+
+            Lock();
+            try
+            {
+                progress?.Report(
+                    $"NJCT DLL 直调批量开始：共 {images.Count} 张，BlackHeight={blackHeight}，模式={mode}");
+                _logger.Info(
+                    $"NJCT DLL 直调批量：input={inFull}，output={outFull}，black={blackHeight}，count={images.Count}");
+
+                await Task.Run(
+                        () => _offlineCtVisionService.Initialize(modelPath, settings.OfflineCtIsRunCuda),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                var ok = 0;
+                var fail = 0;
+                for (var i = 0; i < images.Count; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var src = images[i];
+                    var stem = Path.GetFileNameWithoutExtension(src);
+                    progress?.Report($"[{i + 1}/{images.Count}] DLL 推理：{Path.GetFileName(src)}");
+
+                    try
+                    {
+                        if (mode is OfflineCtResultImageMode.Enhance or OfflineCtResultImageMode.Both)
+                        {
+                            var outPath = Path.Combine(
+                                outFull,
+                                mode == OfflineCtResultImageMode.Both
+                                    ? $"{stem}_enhance.jpg"
+                                    : $"{stem}.jpg");
+                            var r = await Task.Run(
+                                    () => _offlineCtVisionService.InferEnhance(
+                                        src,
+                                        blackHeight,
+                                        outPath,
+                                        pixelSizeUm: settings.ResolveOfflineCtPixelSizeUm(),
+                                        bottomInfoBlackHeight: 0,
+                                        rangeCheck: null,
+                                        applyHostOverlay: false),
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                            if (r.IsSuccess)
+                            {
+                                ok++;
+                                progress?.Report($"  增强 OK → {r.ResultImagePath}");
+                            }
+                            else
+                            {
+                                fail++;
+                                progress?.Report($"  增强失败：{r.RunInfo}");
+                            }
+                        }
+
+                        if (mode is OfflineCtResultImageMode.Origin or OfflineCtResultImageMode.Both)
+                        {
+                            var originDllBlack =
+                                CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(blackHeight);
+                            var outPath = Path.Combine(
+                                outFull,
+                                mode == OfflineCtResultImageMode.Both
+                                    ? $"{stem}_origin.jpg"
+                                    : $"{stem}.jpg");
+                            var r = await Task.Run(
+                                    () => _offlineCtVisionService.InferOrigin(
+                                        src,
+                                        originDllBlack,
+                                        outPath,
+                                        pixelSizeUm: settings.ResolveOfflineCtPixelSizeUm(),
+                                        bottomInfoBlackHeight: 0,
+                                        rangeCheck: null,
+                                        applyHostOverlay: false),
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                            if (r.IsSuccess)
+                            {
+                                ok++;
+                                progress?.Report(
+                                    $"  原图 OK（DLL BlackHeight={originDllBlack}=增强一半）→ {r.ResultImagePath}");
+                            }
+                            else
+                            {
+                                fail++;
+                                progress?.Report($"  原图失败：{r.RunInfo}");
+                            }
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        fail++;
+                        progress?.Report($"  异常：{ex.Message}");
+                        _logger.Warn($"DLL 直调失败：{src}，{ex.Message}");
+                    }
+                }
+
+                progress?.Report($"NJCT DLL 直调批量结束：成功 {ok}，失败 {fail}，输出={outFull}");
+                _logger.Info($"NJCT DLL 直调批量结束：ok={ok}，fail={fail}");
             }
             finally
             {

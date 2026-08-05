@@ -311,6 +311,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtPreBrightenTargetMean = LoadDoubleSetting(nameof(OfflineCtPreBrightenTargetMean), 132.0);
             OfflineCtManualInputImagePath = LoadStringSetting(nameof(OfflineCtManualInputImagePath), string.Empty);
             OfflineCtManualOutputFolder = LoadStringSetting(nameof(OfflineCtManualOutputFolder), string.Empty);
+            OfflineCtDllTestInputFolder = LoadStringSetting(nameof(OfflineCtDllTestInputFolder), string.Empty);
+            OfflineCtDllTestOutputFolder = LoadStringSetting(nameof(OfflineCtDllTestOutputFolder), string.Empty);
+            OfflineCtDllTestBlackHeight = LoadIntSetting(nameof(OfflineCtDllTestBlackHeight), 0);
             CutImgDllTestSectionFolder = LoadCutImgDllTestFolderSetting(
                 nameof(CutImgDllTestSectionFolder),
                 legacyKey: "CutImgDllTestSectionImagePath");
@@ -359,6 +362,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
+            OnPropertyChanged(nameof(OfflineCtOriginBlackHeightHint));
             OnPropertyChanged(nameof(OfflineCtContentShiftUpPx));
             OnPropertyChanged(nameof(EnableOfflineCtLRangeCheck));
             OnPropertyChanged(nameof(OfflineCtL1MinMm));
@@ -400,6 +404,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtPreBrightenMeanTrigger));
             OnPropertyChanged(nameof(OfflineCtPreBrightenP50Trigger));
             OnPropertyChanged(nameof(OfflineCtPreBrightenTargetMean));
+            OnPropertyChanged(nameof(OfflineCtDllTestInputFolder));
+            OnPropertyChanged(nameof(OfflineCtDllTestOutputFolder));
+            OnPropertyChanged(nameof(OfflineCtDllTestBlackHeight));
+            OnPropertyChanged(nameof(OfflineCtDllTestOriginBlackHeightHint));
 
             _isLoadingSettings = false;
 

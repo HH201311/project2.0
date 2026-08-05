@@ -103,7 +103,7 @@
                         Style="{StaticResource PrimaryToolBtnStyle}"
                         Content="标注模式 (A)"
                         Click="BtnMeasureMode_Click"
-                        ToolTip="标注模式：左键两点测距。快捷键 A / M&#x0a;拖端点微调；双击直线整体拖移；单击选中后 Delete 删除&#x0a;拖标签避挡；双击标签改名&#x0a;定 P1 后右键或 Esc 取消起点" />
+                        ToolTip="标注模式：左键两点测距。快捷键 A / M&#x0a;拖端点微调；单击直线整体拖移；选中后 Delete 删除&#x0a;拖标签避挡；双击标签改名&#x0a;定 P1 后右键或 Esc 取消起点" />
                     <Button
                         x:Name="BtnMoveMode"
                         Style="{StaticResource ToolBtnStyle}"
@@ -144,17 +144,17 @@
                         Style="{StaticResource ToolBtnStyle}"
                         Content="浏览…"
                         Command="{Binding BrowseExportFolderCommand}"
-                        ToolTip="选择手动标注导出目录（默认 {根目录}/result）" />
+                        ToolTip="选择手动标注导出目录（默认 \\192.168.1.120\3Ddeliever\result，改后本机记住）" />
                     <Button
                         Style="{StaticResource ToolBtnStyle}"
                         Content="默认"
                         Command="{Binding ResetExportFolderCommand}"
-                        ToolTip="恢复为 {根目录}/result" />
+                        ToolTip="恢复为默认导出目录 \\192.168.1.120\3Ddeliever\result" />
                     <Button
                         Style="{StaticResource PrimaryToolBtnStyle}"
                         Content="导出"
                         Click="BtnExport_Click"
-                        ToolTip="导出到上方所选目录（index.json + 单图 json + 叠加图）" />
+                        ToolTip="导出到上方所选目录：扁平叠加图（产品名.png）+ CT产品尺寸.csv + CT手动测距.csv" />
                     <Button
                         Style="{StaticResource ToolBtnStyle}"
                         Content="关闭"

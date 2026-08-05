@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Services.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Tool.Helper;
 
 namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
@@ -13,6 +14,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
     /// <summary>二次手动标注全屏工作台 ViewModel。</summary>
     public sealed class VM_ManualMeasureAnnotateWindow : INotifyPropertyChanged
     {
+        private readonly CTAutoSlicerLocalConfigService _localConfig = new();
         private ManualMeasureImageListItem? _selectedImage;
         private bool _isMeasureMode = true;
         private bool _hasUnsavedChanges;
@@ -20,6 +22,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private double _zoomPercent = 100;
         private string? _selectedMeasureId;
         private string _exportFolder = string.Empty;
+        private bool _persistExportFolderEnabled;
 
         public VM_ManualMeasureAnnotateWindow(
             string rootFolder,
@@ -31,7 +34,12 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             PixelSizeUm = pixelSizeUm > 0 ? pixelSizeUm : 1.0;
             // 底部信息遮罩高度（图像像素）；≤0 时仍留最小可读区
             BottomBlackHeightPx = Math.Max(0, bottomBlackHeightPx);
-            _exportFolder = ResolveInitialExportFolder(exportFolder);
+
+            // 优先：调用方传入 → 本机 local.json → UNC 默认
+            var initial = !string.IsNullOrWhiteSpace(exportFolder)
+                ? exportFolder
+                : _localConfig.LoadManualMeasureExportFolder();
+            _exportFolder = NormalizeExportFolderInput(initial);
 
             SelectImageCommand = new RelayCommand(o =>
             {
@@ -49,18 +57,21 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             ExportCommand = new RelayCommand(_ => Export(), _ => Images.Count > 0);
             BrowseExportFolderCommand = new RelayCommand(_ => BrowseExportFolder());
             ResetExportFolderCommand = new RelayCommand(_ =>
-                ExportFolder = ManualMeasureExportHelper.ResolveDefaultExportDir(RootFolder));
+                ExportFolder = ManualMeasureExportHelper.DefaultManualExportFolder);
 
             // 把目录下已有 annotation.json / 本进程 AI 出图缓存载入，左栏显示 AI 尺寸
             OfflineCtAnnotationHelper.PreloadAiSummariesUnderFolder(RootFolder, PixelSizeUm);
             LoadImages();
+            _persistExportFolderEnabled = true;
+            // 首次打开若尚无本机记录，把当前默认写入 local.json
+            PersistExportFolder(_exportFolder);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public string RootFolder { get; }
 
-        /// <summary>手动标注导出目录（绝对路径）；默认 {RootFolder}/result，可在界面改选。</summary>
+        /// <summary>手动标注导出目录；默认 UNC，改选后写入本机 local.json。</summary>
         public string ExportFolder
         {
             get => _exportFolder;
@@ -74,6 +85,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
 
                 _exportFolder = normalized;
                 OnPropertyChanged();
+                PersistExportFolder(_exportFolder);
                 StatusText = $"导出目录：{_exportFolder}";
             }
         }
@@ -322,7 +334,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 PixelSizeUm,
                 records,
                 BottomBlackHeightPx,
-                outDir);
+                outDir,
+                rangeCheck: null,
+                renderImages: false);
             // 写回规范化后的绝对路径，便于状态栏与下次导出一致
             if (!string.Equals(_exportFolder, outDir, StringComparison.OrdinalIgnoreCase))
             {
@@ -331,7 +345,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             }
 
             HasUnsavedChanges = false;
-            StatusText = $"已导出到 {outDir}";
+            StatusText =
+                $"已导出到 {outDir}（扁平图截屏 + {OfflineCtCsvExportHelper.ProductDimensionFileName} + {OfflineCtCsvExportHelper.ManualMeasureFileName}）";
             return outDir;
         }
 
@@ -361,17 +376,34 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private string ResolveInitialExportFolder(string? exportFolder) =>
             NormalizeExportFolderInput(exportFolder);
 
-        /// <summary>导出前把路径规范为绝对路径；空则回退默认 result。</summary>
-        private string ResolveExportFolderForWrite()
+        private void PersistExportFolder(string folder)
         {
-            if (string.IsNullOrWhiteSpace(ExportFolder))
+            if (!_persistExportFolderEnabled || string.IsNullOrWhiteSpace(folder))
             {
-                return ManualMeasureExportHelper.ResolveDefaultExportDir(RootFolder);
+                return;
             }
 
             try
             {
-                return Path.GetFullPath(ExportFolder.Trim());
+                _localConfig.SaveManualMeasureExportFolder(folder);
+            }
+            catch
+            {
+                // 本机配置写失败不阻断标注
+            }
+        }
+
+        /// <summary>导出前把路径规范为绝对路径；空则回退 UNC 默认。</summary>
+        private string ResolveExportFolderForWrite()
+        {
+            if (string.IsNullOrWhiteSpace(ExportFolder))
+            {
+                return ManualMeasureExportHelper.DefaultManualExportFolder;
+            }
+
+            try
+            {
+                return NormalizeUncOrFullPath(ExportFolder.Trim());
             }
             catch (Exception ex)
             {
@@ -383,19 +415,26 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                return ManualMeasureExportHelper.ResolveDefaultExportDir(RootFolder);
+                return ManualMeasureExportHelper.DefaultManualExportFolder;
             }
 
             var trimmed = value.Trim();
             try
             {
-                return Path.GetFullPath(trimmed);
+                return NormalizeUncOrFullPath(trimmed);
             }
             catch
             {
                 // 输入过程中路径可能暂不合法，先原样保留
                 return trimmed;
             }
+        }
+
+        /// <summary>UNC 与本地路径统一规范化；保留 \\server\share 形态。</summary>
+        private static string NormalizeUncOrFullPath(string path)
+        {
+            var full = Path.GetFullPath(path.Trim());
+            return full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
         private void LoadImages()
@@ -494,7 +533,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private void UpdateStatusHint()
         {
             StatusText = IsMeasureMode
-                ? "标注：左键两点测距；拖端点微调；双击直线整体拖；单击选中后 Delete 删除；拖标签/双击改名"
+                ? "标注：左键两点测距；拖端点微调；单击直线整体拖；选中后 Delete 删除；拖标签/双击改名"
                 : "移动模式：左键拖拽平移；滚轮缩放；中键拖拽；Ctrl+Z 撤回；按 A 回标注";
         }
 

@@ -417,11 +417,22 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public bool OfflineCtIsRunCuda { get; set; } = true;
 
         /// <summary>
-        /// 底部信息遮罩高度（图像像素）：
+        /// 底部信息遮罩高度（图像像素，增强图用全高）：
         /// 上位机在结果图底部覆盖打黑（不扩展画布、不传 NJCT），
         /// AI 标注写入 L1~L5 汇总；二次手动标注工作台同步使用。
+        /// 原图结果自动使用 <see cref="ResolveOriginBottomBlackHeight"/>（减半）。
         /// </summary>
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
+
+        /// <summary>
+        /// 原图底部遮罩 / DLL 打黑高度：在增强图高度基础上整除减半（默认规则，不可关）。
+        /// </summary>
+        public static int ResolveOriginBottomBlackHeight(int enhanceBlackHeightPx) =>
+            Math.Max(0, enhanceBlackHeightPx / 2);
+
+        /// <summary>当前配置下原图应使用的底部遮罩高度。</summary>
+        public int ResolveOriginOfflineCtBlackHeight() =>
+            ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtBlackHeight));
 
         /// <summary>是否开启 L1~L5 尺寸范围判断（mm）；开启后超差线/数值标红，合格标绿。</summary>
         public bool EnableOfflineCtLRangeCheck { get; set; }

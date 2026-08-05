@@ -559,6 +559,121 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        private void ExecuteBrowseOfflineCtDllTestInputFolder()
+        {
+            using var dialog = new CommonOpenFileDialog
+            {
+                Title = "选择 NJCT DLL 直调输入图片文件夹",
+                IsFolderPicker = true,
+            };
+            if (!string.IsNullOrWhiteSpace(OfflineCtDllTestInputFolder)
+                && Directory.Exists(OfflineCtDllTestInputFolder))
+            {
+                dialog.InitialDirectory = OfflineCtDllTestInputFolder;
+            }
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok
+                && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                OfflineCtDllTestInputFolder = dialog.FileName;
+            }
+        }
+
+        private void ExecuteBrowseOfflineCtDllTestOutputFolder()
+        {
+            using var dialog = new CommonOpenFileDialog
+            {
+                Title = "选择 NJCT DLL 直调输出目录",
+                IsFolderPicker = true,
+            };
+            if (!string.IsNullOrWhiteSpace(OfflineCtDllTestOutputFolder)
+                && Directory.Exists(OfflineCtDllTestOutputFolder))
+            {
+                dialog.InitialDirectory = OfflineCtDllTestOutputFolder;
+            }
+            else if (!string.IsNullOrWhiteSpace(OfflineCtDllTestInputFolder)
+                     && Directory.Exists(OfflineCtDllTestInputFolder))
+            {
+                dialog.InitialDirectory = OfflineCtDllTestInputFolder;
+            }
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok
+                && !string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                OfflineCtDllTestOutputFolder = dialog.FileName;
+            }
+        }
+
+        /// <summary>
+        /// AI 标注配置页：批量直调 NJCT.dll（传 DLL BlackHeight，无预处理/上位机叠加）。
+        /// </summary>
+        private async Task ExecuteRunOfflineCtDllBatchTestAsync()
+        {
+            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(OfflineCtDllTestInputFolder)
+                || !Directory.Exists(OfflineCtDllTestInputFolder))
+            {
+                MessageShower = "请先选择有效的 DLL 直调输入文件夹";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(OfflineCtDllTestOutputFolder))
+            {
+                MessageShower = "请先选择 DLL 直调输出目录";
+                return;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(OfflineCtDllTestOutputFolder.Trim());
+            }
+            catch (Exception ex)
+            {
+                MessageShower = $"无法创建输出目录：{ex.Message}";
+                return;
+            }
+
+            try
+            {
+                IsEnableSimulationBtn = false;
+                _lastFlowLogMessage = null;
+                AppendFlowLog("——— NJCT DLL 直调批量开始 ———");
+                AppendFlowLog($"输入目录：{OfflineCtDllTestInputFolder}");
+                AppendFlowLog($"输出目录：{OfflineCtDllTestOutputFolder}");
+                AppendFlowLog($"DLL BlackHeight={OfflineCtDllTestBlackHeight}；结果图模式={OfflineCtResultImageModeDisplay}");
+
+                var progress = new Progress<string>(HandleSimulationProgress);
+                var flowToken = BeginActiveFlow();
+                await _ctAutoSlicerService.RunOfflineCtDllBatchTestAsync(
+                        BuildSettings(),
+                        OfflineCtDllTestInputFolder.Trim(),
+                        OfflineCtDllTestOutputFolder.Trim(),
+                        OfflineCtDllTestBlackHeight,
+                        flowToken,
+                        progress)
+                    .ConfigureAwait(false);
+                AppendFlowLog("——— NJCT DLL 直调批量结束 ———");
+            }
+            catch (OperationCanceledException)
+            {
+                await HandleFlowCanceledAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                MessageShower = ex.Message;
+                AppendFlowLog($"NJCT DLL 直调失败：{ex.Message}");
+                _logger.Error("NJCT DLL 直调批量失败", ex);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+            }
+        }
+
         private async Task ExecuteAiAnnotationBatchAsync()
         {
             if (string.IsNullOrWhiteSpace(TopViewHandoffFolder) || !Directory.Exists(TopViewHandoffFolder))

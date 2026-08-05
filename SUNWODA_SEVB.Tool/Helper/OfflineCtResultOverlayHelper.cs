@@ -7,8 +7,9 @@ namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
     /// 将 NJCT 四参数叠到 ResultImg：AllPointRegion + L1~L5 线段 + AllPrintfValue；
-    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（与二次手动标注 ManualMeasureExportHelper 一致，不扩展画布），
-    /// 并在遮罩区内写入尺寸汇总（仅物理长度 mm，不显 px；可选 L1~L5 范围绿/红判色）。
+    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（与二次手动标注一致，不扩展画布），
+    /// 遮罩四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；
+    /// AI 汇总数值：开启范围→合格绿/超差红，未启用→白。
     /// </summary>
     public static class OfflineCtResultOverlayHelper
     {
@@ -215,8 +216,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 底部遮罩左中右三栏：左=电芯1，中=电芯2，右 1/3 留空给二次标注手动数据。
+        /// 底部遮罩四栏：①L1~L5范围 ②电芯1 ③电芯2 ④右 1/4 留空给二次标注手动数据。
         /// 字号与标注页同步（OfflineCtAnnotationHelper.ComputeBottomBandFontSizeImagePx）。
+        /// AI 尺寸数值：开启范围判断后合格绿/超差红；未开启为白色。
         /// </summary>
         private static void DrawBottomInfoBand(
             HWindow window,
@@ -233,20 +235,35 @@ namespace SUNWODA_SEVB.Tool.Helper
             var lineHeight = fontSize * 1.22;
             var startRow = bandTop + Math.Max(12.0, fontSize * 0.25);
             var bandBottom = bandTop + bandH - 8.0;
-            // 左 / 中 / 右 各约 1/3；右栏不出 AI 字
-            var colLeft = Math.Max(24.0, imgWidth * 0.02);
-            var colMid = imgWidth * (1.0 / 3.0) + 16.0;
-            var colMaxLeft = imgWidth * (1.0 / 3.0) - 12.0;
-            var colMaxMid = imgWidth * (2.0 / 3.0) - 12.0;
+            // 四等分：范围 / 电芯1 / 电芯2 / 手动预留
+            var colW = imgWidth / 4.0;
+            var pad = Math.Max(12.0, imgWidth * 0.008);
+            var col0 = pad;
+            var col1 = colW + pad;
+            var col2 = colW * 2.0 + pad;
+            var colMax0 = colW - pad;
+            var colMax1 = colW * 2.0 - pad;
+            var colMax2 = colW * 3.0 - pad;
 
             window.DispText(
                 "AI尺寸汇总",
                 "window",
                 startRow,
-                colLeft,
+                col0,
                 "orange",
                 new HTuple("box"),
                 new HTuple("false"));
+
+            // ① L1~L5 配置范围
+            DrawRangeColumn(
+                window,
+                rangeCheck,
+                col0,
+                colMax0,
+                startRow + lineHeight,
+                bandBottom,
+                lineHeight,
+                fontSize);
 
             var cellCount = printfValues?.Count ?? 0;
             if (cellCount == 0)
@@ -255,19 +272,20 @@ namespace SUNWODA_SEVB.Tool.Helper
                     "（无尺寸数据）",
                     "window",
                     startRow + lineHeight,
-                    colLeft,
+                    col1,
                     "white",
                     new HTuple("box"),
                     new HTuple("false"));
                 return;
             }
 
+            // ② 电芯1
             DrawCellColumn(
                 window,
                 printfValues!,
                 cellIndex: 0,
-                col: colLeft,
-                colMax: colMaxLeft,
+                col: col1,
+                colMax: colMax1,
                 startRow + lineHeight,
                 bandBottom,
                 lineHeight,
@@ -275,14 +293,15 @@ namespace SUNWODA_SEVB.Tool.Helper
                 fontSize,
                 rangeCheck);
 
+            // ③ 电芯2
             if (cellCount >= 2)
             {
                 DrawCellColumn(
                     window,
                     printfValues!,
                     cellIndex: 1,
-                    col: colMid,
-                    colMax: colMaxMid,
+                    col: col2,
+                    colMax: colMax2,
                     startRow + lineHeight,
                     bandBottom,
                     lineHeight,
@@ -291,7 +310,83 @@ namespace SUNWODA_SEVB.Tool.Helper
                     rangeCheck);
             }
 
-            // 底部不再写「μm/px / L_px」公式，图上只保留尺寸长度
+            // ④ 右栏留给二次手动标注，出图时不写
+        }
+
+        /// <summary>
+        /// 第一栏：显示 L1~L5 配置范围（mm）。未启用时提示「未启用」。
+        /// </summary>
+        private static void DrawRangeColumn(
+            HWindow window,
+            OfflineCtLRangeCheckOptions rangeCheck,
+            double col,
+            double colMax,
+            double startY,
+            double bandBottom,
+            double lineHeight,
+            int fontSize)
+        {
+            var y = startY;
+            window.DispText(
+                "L1~L5范围",
+                "window",
+                y,
+                col,
+                "yellow",
+                new HTuple("box"),
+                new HTuple("false"));
+            y += lineHeight;
+
+            if (!rangeCheck.Enabled)
+            {
+                if (y + lineHeight <= bandBottom)
+                {
+                    window.DispText(
+                        "（未启用）",
+                        "window",
+                        y,
+                        col,
+                        "white",
+                        new HTuple("box"),
+                        new HTuple("false"));
+                }
+
+                return;
+            }
+
+            for (var k = 0; k < OfflineCtLRangeCheckOptions.DimensionCount; k++)
+            {
+                if (y + lineHeight > bandBottom - lineHeight * 0.5)
+                {
+                    break;
+                }
+
+                var lo = k < rangeCheck.MinMm.Length ? rangeCheck.MinMm[k] : 0.0;
+                var hi = k < rangeCheck.MaxMm.Length ? rangeCheck.MaxMm[k] : 0.0;
+                if (lo > hi)
+                {
+                    (lo, hi) = (hi, lo);
+                }
+
+                var name = $"L{k + 1}:";
+                var value = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $" {lo:F4}~{hi:F4}mm");
+                // 范围本身用白色；绿/红留给尺寸汇总数值
+                DrawNameAndValue(
+                    window,
+                    y,
+                    col,
+                    name,
+                    value,
+                    nameColor: "white",
+                    valueColor: "white",
+                    fontSize: fontSize,
+                    coordSystem: "window");
+                y += lineHeight;
+            }
+
+            _ = colMax; // 预留裁切宽度，当前由 Halcon 自然截断
         }
 
         private static void DrawCellColumn(
@@ -333,7 +428,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                 var px = vals[k];
                 var mm = px * umPerPx / 1000.0;
-                // 仅物理长度，绝不带 px；名称白、数值按范围绿/红
+                // 仅物理长度；名称白；数值：开范围→绿/红，未开→白
                 var name = $"L{k + 1}:";
                 var value = " " + FormatPhysicalLength(px, umPerPx);
 
@@ -349,6 +444,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                     coordSystem: "window");
                 y += lineHeight;
             }
+
+            _ = colMax;
         }
 
         /// <summary>

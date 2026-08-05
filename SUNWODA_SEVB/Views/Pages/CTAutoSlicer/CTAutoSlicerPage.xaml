@@ -2398,17 +2398,19 @@
                                             <LineBreak />
                                             <Run Text="• CUDA：ModelInit 的 IsRunCuda，默认开启。" />
                                             <LineBreak />
-                                            <Run Text="• 打黑高度：界面自控（OfflineCtBlackHeight），上位机在结果图底部覆盖打黑并写 L1~L5（仅 mm）；开启范围判断后合格绿/超差红；二次手动标注共用；传给 NJCT 的 BlackHeight 固定 0。" />
+                                            <Run Text="• 打黑高度：界面自控（OfflineCtBlackHeight），底部四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；开启范围判断后汇总数值合格绿/超差红，未启用白；二次手动标注共用右栏；传给 NJCT 的 BlackHeight 固定 0。" />
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
-                                            <Run Text="• 顺时针旋转90°：写入 input/ 前固定执行（不再提供开关）；送检图落盘 {产品}/input/ 供视觉 DLL。" />
+                                            <Run Text="• 竖图校验：宽&gt;高则 CW90°；已竖不转。送检图用临时文件，推理后删除，不写 input/。" />
+                                            <LineBreak />
+                                            <Run Text="• 内容上移：OfflineCtContentShiftUpPx（px）。主体向上平移，画布不变、底部黑填，适配 DLL 偏上裁切；0=不上移。" />
                                             <LineBreak />
                                             <Run Text="• 预提亮：调用算法前计算 ROI 均值/P50，偏暗则分区提亮（方案B，默认开）。" />
                                             <LineBreak />
-                                            <Run Text="• input 目录：预处理后送检图固定写入产品目录/input/（含报告）。" />
+                                            <Run Text="• 产品目录默认只保留成功结果图；失败不落盘。JSON/CSV 默认关，可在「预处理与输出」勾选。" />
                                             <LineBreak />
-                                            <Run Text="• 导出 JSON/CSV：坐标与尺寸落盘，默认均勾选。" />
+                                            <Run Text="• 导出 JSON/CSV：可选，默认不导出。" />
                                         </TextBlock>
                                     </ToolTip>
                                 </Border.ToolTip>
@@ -2504,9 +2506,12 @@
                                                 <hc:TextBox
                                                     Width="160"
                                                     DockPanel.Dock="Left"
-                                                    ToolTip="单位：μm/px（微米 / 像素）">
+                                                    ToolTip="单位：μm/px（微米/像素），可填小数，如 1.65 或 0.5">
                                                     <hc:TextBox.Text>
-                                                        <Binding Path="OfflineCtPixelSizeUm" UpdateSourceTrigger="PropertyChanged" />
+                                                        <Binding
+                                                            Path="OfflineCtPixelSizeUmText"
+                                                            UpdateSourceTrigger="PropertyChanged"
+                                                            Mode="TwoWay" />
                                                     </hc:TextBox.Text>
                                                 </hc:TextBox>
                                                 <TextBlock
@@ -2656,7 +2661,7 @@
                                             Style="{StaticResource CasFormCheckItemStyle}"
                                             Content="开启范围判断"
                                             IsChecked="{Binding EnableOfflineCtLRangeCheck}"
-                                            ToolTip="勾选后显示 L1~L5 左右限；出图时按 mm 范围给线段与数值标色" />
+                                            ToolTip="勾选后显示 L1~L5 左右限，并在打黑区第一栏写出范围；出图时 AI 汇总数值：合格绿 / 超差红 / 未开白" />
                                     </Grid>
 
                                     <StackPanel
@@ -2808,7 +2813,32 @@
                                     <StackPanel Margin="0,10,0,0">
                                         <TextBlock
                                             Style="{StaticResource CasFormSectionDescStyle}"
-                                            Text="推理前固定 CW90° 并写入 input/；提亮与坐标尺寸导出可在此开关。" />
+                                            Text="推理前保证竖图（临时送检，不落盘 input/）；主体偏下时可上移内容、底部黑填。产品目录默认只留成功结果图。" />
+
+                                        <Grid Style="{StaticResource CasFormRowStyle}" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                Style="{StaticResource CasFormLabelStyle}"
+                                                Text="内容上移" />
+                                            <hc:TextBox
+                                                Grid.Column="1"
+                                                ToolTip="喂给视觉前：内容向上平移的像素数。画布高宽不变，底部用黑边填充，便于 DLL 裁掉无效底边。0=不上移。">
+                                                <hc:TextBox.Text>
+                                                    <Binding Path="OfflineCtContentShiftUpPx" UpdateSourceTrigger="PropertyChanged" />
+                                                </hc:TextBox.Text>
+                                            </hc:TextBox>
+                                            <TextBlock
+                                                Grid.Column="2"
+                                                Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Foreground="{StaticResource CasMutedTextBrush}"
+                                                Text="px（底部黑填）" />
+                                        </Grid>
 
                                         <UniformGrid Columns="2" Margin="0,0,0,4">
                                             <CheckBox
@@ -2818,17 +2848,19 @@
                                                 ToolTip="方案B：按暗部/中间调/高光/白场分区提亮（类PS），偏暗才处理；保护高光防过曝" />
                                             <CheckBox
                                                 Style="{StaticResource CasFormCheckItemStyle}"
-                                                Content="输出 annotation.json"
-                                                IsChecked="{Binding OfflineCtExportJson}" />
+                                                Content="输出 annotation.json（可选）"
+                                                IsChecked="{Binding OfflineCtExportJson}"
+                                                ToolTip="默认关闭；勾选才额外写 JSON" />
                                             <CheckBox
                                                 Style="{StaticResource CasFormCheckItemStyle}"
-                                                Content="输出 annotation.csv"
-                                                IsChecked="{Binding OfflineCtExportCsv}" />
+                                                Content="输出 annotation.csv（可选）"
+                                                IsChecked="{Binding OfflineCtExportCsv}"
+                                                ToolTip="默认关闭；勾选才额外写 CSV" />
                                             <TextBlock
                                                 Style="{StaticResource CasFormHintStyle}"
                                                 VerticalAlignment="Center"
-                                                Text="送检图：固定 CW90° → {产品}/input/（供视觉 DLL）"
-                                                ToolTip="上视图顺时针旋转 90° 后写入产品目录下 input/ 子文件夹，再交给 NJCT；不再提供旋转开关" />
+                                                Text="默认只落盘成功结果图"
+                                                ToolTip="预处理用临时文件；失败不写图；JSON/CSV 需手动勾选" />
                                         </UniformGrid>
 
                                         <Expander
@@ -3070,7 +3102,7 @@
                                             <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="测距快捷操作" />
                                             <TextBlock Text="• 标注模式 (A) / 移动模式 (H)　• 空格或中键拖拽：平移" />
                                             <TextBlock Text="• 定 P1 后右键或 Esc：取消起点　• 滚轮缩放　• Ctrl+Z：撤回　• ↑↓：切换图片" />
-                                            <TextBlock Text="• 拖拽标签避挡 / 双击改名；底部遮罩汇总 mm（打黑高度本机绘制）" />
+            <TextBlock Text="• 拖拽标签避挡 / 双击改名；底部右 1/4 遮罩汇总手动 mm（左 3/4 为 AI 范围与电芯）" />
                                             <TextBlock Text="• 导出：默认写入 {打开文件夹}/result/（index.json + 单图 json + 叠加图）；标注界面可改选目录" />
                                         </StackPanel>
                                     </Border>

@@ -274,7 +274,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 底部仅遮罩右 1/3：显示手动测距。左/中 2/3 保留 AI 出图烧录的电芯1/电芯2。
+        /// 底部仅遮罩右 1/4：显示手动测距。左 3/4 保留 AI 出图烧录的「范围/电芯1/电芯2」。
         /// 字号与出图 <see cref="OfflineCtAnnotationHelper.ComputeBottomBandFontSizeScreen"/> 同步。
         /// </summary>
         private void DrawBottomInfoBand(IReadOnlyList<ManualMeasureItem>? measures)
@@ -295,8 +295,8 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var bandH = bandPx * _zoom;
             var bandY = canvasH - bandH;
 
-            // 只盖右边三分之一，左边/中间露出结果图上的 AI 电芯数据
-            var rightX = canvasW * (2.0 / 3.0);
+            // 只盖右边四分之一，左边三栏露出结果图上的 AI 范围/电芯数据
+            var rightX = canvasW * (3.0 / 4.0);
             var rightW = canvasW - rightX;
             var band = new System.Windows.Shapes.Rectangle
             {

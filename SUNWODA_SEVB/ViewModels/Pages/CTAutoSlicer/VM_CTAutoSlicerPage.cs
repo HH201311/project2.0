@@ -160,6 +160,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _offlineCtModelPath = string.Empty;
         private bool _offlineCtIsRunCuda = true;
         private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
+        private int _offlineCtContentShiftUpPx = CTAutoSlicerSettings.DefaultOfflineCtContentShiftUpPx;
         private bool _enableOfflineCtLRangeCheck;
         private double _offlineCtL1MinMm = CTAutoSlicerSettings.DefaultOfflineCtLMinMm;
         private double _offlineCtL1MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
@@ -173,10 +174,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private double _offlineCtL5MaxMm = CTAutoSlicerSettings.DefaultOfflineCtLMaxMm;
         private int _offlineCtTopViewSliceIndex = CTAutoSlicerSettings.DefaultOfflineCtTopViewSliceIndex;
         private double _offlineCtPixelSizeUm = CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
+        /// <summary>像素精度文本框编辑缓冲（允许输入「1.」「0.」等中间态）。</summary>
+        private string? _offlineCtPixelSizeUmText;
         // 使用完全限定枚举名，避免与同名属性 OfflineCtResultImageMode 冲突（CS0236）
         private int _offlineCtResultImageMode = (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance;
-        private bool _offlineCtExportJson = true;
-        private bool _offlineCtExportCsv = true;
+        private bool _offlineCtExportJson;
+        private bool _offlineCtExportCsv;
         private bool _offlineCtExportInputForNjct;
         private bool _offlineCtRotateTopViewCw90 = true;
         private bool _enableOfflineCtPreBrighten = true;
@@ -1762,6 +1765,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
+        /// <summary>
+        /// 喂给视觉前内容上移像素：画布不变、底部黑填；0=不上移。
+        /// </summary>
+        public int OfflineCtContentShiftUpPx
+        {
+            get => _offlineCtContentShiftUpPx;
+            set
+            {
+                var clamped = Math.Max(0, value);
+                if (SetProperty(ref _offlineCtContentShiftUpPx, clamped))
+                {
+                    SaveSetting(nameof(OfflineCtContentShiftUpPx), clamped);
+                }
+            }
+        }
+
         /// <summary>开启后对 L1~L5 做 mm 范围判断：合格绿 / 超差红。</summary>
         public bool EnableOfflineCtLRangeCheck
         {
@@ -1931,12 +1950,70 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 var normalized = value > 0 ? value : CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
                 if (SetProperty(ref _offlineCtPixelSizeUm, normalized))
                 {
-                    SaveSetting(nameof(OfflineCtPixelSizeUm), normalized);
+                    _offlineCtPixelSizeUmText = null;
+                    SaveDoubleSetting(nameof(OfflineCtPixelSizeUm), normalized);
+                    OnPropertyChanged(nameof(OfflineCtPixelSizeUmText));
                     OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
                     OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaUm));
                     OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaMm));
                 }
             }
+        }
+
+        /// <summary>
+        /// 像素精度界面编辑（字符串）：支持小数点与逗号输入，合法数值才写回 <see cref="OfflineCtPixelSizeUm"/>。
+        /// </summary>
+        public string OfflineCtPixelSizeUmText
+        {
+            get => _offlineCtPixelSizeUmText
+                ?? _offlineCtPixelSizeUm.ToString("G", CultureInfo.InvariantCulture);
+            set
+            {
+                if (SetProperty(ref _offlineCtPixelSizeUmText, value))
+                {
+                    TryCommitOfflineCtPixelSizeUmText(value);
+                }
+            }
+        }
+
+        /// <summary>尝试把文本框内容提交为像素精度；中间态（如「1.」）不强制回滚。</summary>
+        private void TryCommitOfflineCtPixelSizeUmText(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            var raw = text.Trim().Replace(',', '.');
+            // 允许正在输入小数点 / 负号前缀
+            if (raw is "." or "-" or "-." || raw.EndsWith('.'))
+            {
+                return;
+            }
+
+            if (!double.TryParse(
+                    raw,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var parsed)
+                || parsed <= 0
+                || double.IsNaN(parsed)
+                || double.IsInfinity(parsed))
+            {
+                return;
+            }
+
+            if (Math.Abs(_offlineCtPixelSizeUm - parsed) < 1e-15)
+            {
+                return;
+            }
+
+            _offlineCtPixelSizeUm = parsed;
+            SaveDoubleSetting(nameof(OfflineCtPixelSizeUm), parsed);
+            OnPropertyChanged(nameof(OfflineCtPixelSizeUm));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaUm));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaMm));
         }
 
         /// <summary>像素精度换算为 mm/px（1 mm = 1000 μm）。</summary>
@@ -2015,7 +2092,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        /// <summary>历史配置：现已固定写入 input/，本开关不再影响主流程。</summary>
+        /// <summary>历史配置：现主流程用临时送检图，本开关不再影响主流程。</summary>
         public bool OfflineCtExportInputForNjct
         {
             get => _offlineCtExportInputForNjct;
@@ -2028,7 +2105,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        /// <summary>历史配置：现已固定 CW90° 后写入 input/，本开关不再影响主流程。</summary>
+        /// <summary>历史配置：现按宽&gt;高自动竖图，本开关不再影响主流程。</summary>
         public bool OfflineCtRotateTopViewCw90
         {
             get => _offlineCtRotateTopViewCw90;

@@ -8,15 +8,15 @@ using System.Text;
 namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
-    /// 方案 B：调用 NJCT 前固定 CW90° → 按 ROI 亮度统计；偏暗时分区提亮；
-    /// 落盘到产品目录下 <c>input/</c> 供视觉 DLL 读取。
+    /// 方案 B：调用 NJCT 前保证竖图（宽&gt;高则 CW90°）→ 内容上移（可选）→ 按 ROI 亮度条件提亮。
+    /// 主流程默认写入临时文件并在推理后删除；产品目录只保留成功结果图。
     /// </summary>
     public static class OfflineCtPreBrightenHelper
     {
-        /// <summary>送检图落盘子目录名（相对产品标注目录）。</summary>
+        /// <summary>历史：曾用于落盘排查的子目录名；主流程已不再创建。</summary>
         public const string InputSubFolderName = "input";
 
-        /// <summary>历史文件名主干；现优先使用源图文件名落在 input/ 下。</summary>
+        /// <summary>历史文件名主干；现优先使用源图文件名。</summary>
         public const string FinalInputFileNameWithoutExt = "input_for_njct";
         public const string BrightenReportFileName = "prebrighten_report.txt";
         public const string AlgorithmCropFileNameWithoutExt = "njct_algo_crop_1844x1500";
@@ -68,6 +68,12 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             /// <summary>为 true 时 <see cref="FinalImagePath"/> 为临时文件，推理结束后应由调用方删除。</summary>
             public bool IsTemporary { get; init; }
+
+            /// <summary>本次因横图（宽&gt;高）执行了顺时针 90°。</summary>
+            public bool RotatedCw90 { get; init; }
+
+            /// <summary>实际应用的内容上移像素（钳制后；0 表示未上移）。</summary>
+            public int ContentShiftUpPx { get; init; }
         }
 
         /// <summary>
@@ -149,12 +155,13 @@ namespace SUNWODA_SEVB.Tool.Helper
             stats.Mean < meanTrigger || stats.P50 < p50Trigger;
 
         /// <summary>
-        /// 固定 CW90° → 计算亮度 →（必要时）提亮 → 得到送检图。
+        /// 保证竖图（宽&gt;高则 CW90°）→ 内容上移（可选，底部黑填）→ 计算亮度 →（必要时）提亮 → 送检图。
         /// <paramref name="persistFinalInput"/> 为 true 时落盘到 <c>{outputFolder}/input/</c>（供视觉 DLL），
         /// 并写报告；为 false 时写临时文件（调用方负责删除）。
         /// </summary>
-        /// <param name="sourceImagePath">原始上视图</param>
+        /// <param name="sourceImagePath">原始上视图（或已竖图的交接图）</param>
         /// <param name="outputFolder">产品标注目录</param>
+        /// <param name="contentShiftUpPx">内容上移像素；画布不变，底部黑边；≤0 不上移</param>
         /// <param name="persistFinalInput">是否落盘到 input/ 供 DLL 与排查</param>
         public static PrepareResult PrepareFinalInputImage(
             string sourceImagePath,
@@ -163,7 +170,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             double meanTrigger = DefaultMeanTrigger,
             double p50Trigger = DefaultP50Trigger,
             double targetMean = DefaultTargetMean,
-            bool persistFinalInput = true)
+            bool persistFinalInput = true,
+            int contentShiftUpPx = 0)
         {
             if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
             {
@@ -177,114 +185,196 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             ext = ext.ToLowerInvariant();
-            const string rotateTag = "已CW90；";
 
-            using var working = LoadBitmapUnlocked(sourceImagePath);
-            // 送入视觉 DLL 前固定顺时针 90°（不再由界面开关控制）
-            working.RotateFlip(RotateFlipType.Rotate90FlipNone);
-
-            var before = MeasureRoi(working);
-            var need = enableBrighten && NeedsBrighten(before, meanTrigger, p50Trigger);
-
-            string finalPath;
-            string reportPath;
-            bool isTemporary;
-            if (persistFinalInput)
+            var working = LoadBitmapUnlocked(sourceImagePath);
+            try
             {
-                var inputDir = Path.Combine(outputFolder, InputSubFolderName);
-                Directory.CreateDirectory(inputDir);
-                var fileName = Path.GetFileName(sourceImagePath);
-                if (string.IsNullOrWhiteSpace(fileName))
+                // 1) 竖图约定：仅当宽>高时 CW90
+                var rotatedCw90 = OfflineCtAnnotationHelper.EnsurePortraitByClockwise90IfLandscape(working);
+                var rotateTag = rotatedCw90
+                    ? "已CW90(横→竖)；"
+                    : $"已竖图无需转({working.Width}x{working.Height})；";
+
+                // 2) 内容上移：适配 DLL 偏上裁切（主体抬到上方，底部黑边被裁）
+                var shiftApplied = 0;
+                var shiftTag = string.Empty;
+                if (contentShiftUpPx > 0)
                 {
-                    fileName = FinalInputFileNameWithoutExt + ext;
+                    var shifted = ShiftContentUpFillBlackBottom(working, contentShiftUpPx, out shiftApplied);
+                    if (!ReferenceEquals(shifted, working))
+                    {
+                        working.Dispose();
+                        working = shifted;
+                    }
+
+                    shiftTag = shiftApplied > 0
+                        ? $"内容上移{shiftApplied}px(底黑填)；"
+                        : string.Empty;
                 }
 
-                finalPath = Path.Combine(inputDir, fileName);
-                reportPath = Path.Combine(inputDir, BrightenReportFileName);
-                isTemporary = false;
-            }
-            else
-            {
-                var tempDir = Path.Combine(Path.GetTempPath(), "OfflineCtInput");
-                Directory.CreateDirectory(tempDir);
-                finalPath = Path.Combine(
-                    tempDir,
-                    $"{FinalInputFileNameWithoutExt}_{Guid.NewGuid():N}{ext}");
-                reportPath = string.Empty;
-                isTemporary = true;
-            }
+                var before = MeasureRoi(working);
+                var need = enableBrighten && NeedsBrighten(before, meanTrigger, p50Trigger);
+                var prefixTag = rotateTag + shiftTag;
 
-            var format = ResolveImageFormat(finalPath);
-            double toneLift = 0.0;
-            BrightnessStats? after = null;
-
-            if (!need)
-            {
-                working.Save(finalPath, format);
-                var summary = enableBrighten
-                    ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（触发线 均值<{meanTrigger:F0} 或 P50<{p50Trigger:F0}）→ input/{Path.GetFileName(finalPath)}"
-                    : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0} → input/{Path.GetFileName(finalPath)}";
-                if (!persistFinalInput)
-                {
-                    summary = enableBrighten
-                        ? $"{rotateTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（临时推理图）"
-                        : $"{rotateTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0}（临时推理图）";
-                }
-
+                string finalPath;
+                string reportPath;
+                bool isTemporary;
                 if (persistFinalInput)
                 {
-                    WriteReport(reportPath, summary, before, null, toneLift, brightenApplied: false, rotateCw90: true);
+                    var inputDir = Path.Combine(outputFolder, InputSubFolderName);
+                    Directory.CreateDirectory(inputDir);
+                    var fileName = Path.GetFileName(sourceImagePath);
+                    if (string.IsNullOrWhiteSpace(fileName))
+                    {
+                        fileName = FinalInputFileNameWithoutExt + ext;
+                    }
+
+                    finalPath = Path.Combine(inputDir, fileName);
+                    reportPath = Path.Combine(inputDir, BrightenReportFileName);
+                    isTemporary = false;
+                }
+                else
+                {
+                    var tempDir = Path.Combine(Path.GetTempPath(), "OfflineCtInput");
+                    Directory.CreateDirectory(tempDir);
+                    finalPath = Path.Combine(
+                        tempDir,
+                        $"{FinalInputFileNameWithoutExt}_{Guid.NewGuid():N}{ext}");
+                    reportPath = string.Empty;
+                    isTemporary = true;
+                }
+
+                var format = ResolveImageFormat(finalPath);
+                double toneLift = 0.0;
+                BrightnessStats? after = null;
+
+                if (!need)
+                {
+                    working.Save(finalPath, format);
+                    var summary = enableBrighten
+                        ? $"{prefixTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（触发线 均值<{meanTrigger:F0} 或 P50<{p50Trigger:F0}）→ input/{Path.GetFileName(finalPath)}"
+                        : $"{prefixTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0} → input/{Path.GetFileName(finalPath)}";
+                    if (!persistFinalInput)
+                    {
+                        summary = enableBrighten
+                            ? $"{prefixTag}亮度合格，未提亮：ROI均值={before.Mean:F1}，P50={before.P50:F0}（临时推理图）"
+                            : $"{prefixTag}预提亮关闭：ROI均值={before.Mean:F1}，P50={before.P50:F0}（临时推理图）";
+                    }
+
+                    if (persistFinalInput)
+                    {
+                        WriteReport(
+                            reportPath,
+                            summary,
+                            before,
+                            null,
+                            toneLift,
+                            brightenApplied: false,
+                            rotateCw90: rotatedCw90,
+                            contentShiftUpPx: shiftApplied);
+                    }
+
+                    return new PrepareResult
+                    {
+                        FinalImagePath = finalPath,
+                        BrightenApplied = false,
+                        GainUsed = 0.0,
+                        Before = before,
+                        After = before,
+                        ReportPath = reportPath,
+                        Summary = summary,
+                        IsTemporary = isTemporary,
+                        RotatedCw90 = rotatedCw90,
+                        ContentShiftUpPx = shiftApplied,
+                    };
+                }
+
+                toneLift = ComputeToneLiftAmount(before.Mean, targetMean);
+                using (var bright = ApplyToneZoneBrighten(working, toneLift))
+                {
+                    bright.Save(finalPath, format);
+                    after = MeasureRoi(bright);
+                }
+
+                var outName = persistFinalInput
+                    ? $"input/{Path.GetFileName(finalPath)}"
+                    : Path.GetFileName(finalPath);
+                var summaryBright =
+                    $"{prefixTag}分区提亮(暗部/中间调抬升，高光白场保护)：强度={toneLift:F3}；"
+                    + $"前 均值={before.Mean:F1}/P50={before.P50:F0}/P95={before.P95:F0}"
+                    + $" → 后 均值={after!.Mean:F1}/P50={after.P50:F0}/P95={after.P95:F0} → {outName}";
+                if (persistFinalInput)
+                {
+                    WriteReport(
+                        reportPath,
+                        summaryBright,
+                        before,
+                        after,
+                        toneLift,
+                        brightenApplied: true,
+                        rotateCw90: rotatedCw90,
+                        contentShiftUpPx: shiftApplied);
                 }
 
                 return new PrepareResult
                 {
                     FinalImagePath = finalPath,
-                    BrightenApplied = false,
-                    GainUsed = 0.0,
+                    BrightenApplied = true,
+                    GainUsed = toneLift,
                     Before = before,
-                    After = before,
+                    After = after,
                     ReportPath = reportPath,
-                    Summary = summary,
+                    Summary = summaryBright,
                     IsTemporary = isTemporary,
+                    RotatedCw90 = rotatedCw90,
+                    ContentShiftUpPx = shiftApplied,
                 };
             }
-
-            toneLift = ComputeToneLiftAmount(before.Mean, targetMean);
-            using (var bright = ApplyToneZoneBrighten(working, toneLift))
+            finally
             {
-                bright.Save(finalPath, format);
-                after = MeasureRoi(bright);
+                working.Dispose();
             }
-
-            var outName = persistFinalInput
-                ? $"input/{Path.GetFileName(finalPath)}"
-                : Path.GetFileName(finalPath);
-            var summaryBright =
-                $"{rotateTag}分区提亮(暗部/中间调抬升，高光白场保护)：强度={toneLift:F3}；"
-                + $"前 均值={before.Mean:F1}/P50={before.P50:F0}/P95={before.P95:F0}"
-                + $" → 后 均值={after!.Mean:F1}/P50={after.P50:F0}/P95={after.P95:F0} → {outName}";
-            if (persistFinalInput)
-            {
-                WriteReport(reportPath, summaryBright, before, after, toneLift, brightenApplied: true, rotateCw90: true);
-            }
-
-            return new PrepareResult
-            {
-                FinalImagePath = finalPath,
-                BrightenApplied = true,
-                GainUsed = toneLift,
-                Before = before,
-                After = after,
-                ReportPath = reportPath,
-                Summary = summaryBright,
-                IsTemporary = isTemporary,
-            };
         }
 
         /// <summary>
-        /// 兼容旧签名：忽略 <paramref name="rotateCw90"/>（现已固定旋转）。
+        /// 内容整体上移 <paramref name="shiftUpPx"/> 像素：画布尺寸不变，顶部溢出裁掉，底部黑边填充。
         /// </summary>
-        [Obsolete("请使用不带 rotateCw90 的重载；CW90 已固定执行")]
+        /// <returns>新位图（调用方负责 Dispose）；若无需上移则返回原引用。</returns>
+        public static Bitmap ShiftContentUpFillBlackBottom(
+            Bitmap source,
+            int shiftUpPx,
+            out int appliedShiftPx)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            appliedShiftPx = 0;
+            if (shiftUpPx <= 0)
+            {
+                return source;
+            }
+
+            var h = source.Height;
+            var w = source.Width;
+            if (h <= 0 || w <= 0)
+            {
+                return source;
+            }
+
+            appliedShiftPx = Math.Min(shiftUpPx, h);
+            var dest = new Bitmap(w, h, PixelFormat.Format24bppRgb);
+            using (var g = Graphics.FromImage(dest))
+            {
+                g.Clear(Color.Black);
+                // 目标点 (0, -applied)：内容上移，底部露出黑底
+                g.DrawImageUnscaled(source, 0, -appliedShiftPx);
+            }
+
+            return dest;
+        }
+
+        /// <summary>
+        /// 兼容旧签名：忽略 <paramref name="rotateCw90"/>（现按宽高自动保证竖图）。
+        /// </summary>
+        [Obsolete("请使用不带 rotateCw90 的重载；现按宽>高自动 CW90")]
         public static PrepareResult PrepareFinalInputImage(
             string sourceImagePath,
             string outputFolder,
@@ -301,7 +391,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                 meanTrigger,
                 p50Trigger,
                 targetMean,
-                persistFinalInput);
+                persistFinalInput,
+                contentShiftUpPx: 0);
 
         /// <summary>
         /// 由目标均值差估算「暗部抬升强度」(0~MaxToneLift)。
@@ -596,13 +687,15 @@ namespace SUNWODA_SEVB.Tool.Helper
             BrightnessStats? after,
             double gain,
             bool brightenApplied,
-            bool rotateCw90 = false)
+            bool rotateCw90 = false,
+            int contentShiftUpPx = 0)
         {
             var sb = new StringBuilder();
             sb.AppendLine("Offline CT 预提亮报告（方案 B）");
             sb.AppendLine("generatedAt=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
             sb.AppendLine("summary=" + summary);
             sb.AppendLine("rotateCw90=" + rotateCw90);
+            sb.AppendLine("contentShiftUpPx=" + contentShiftUpPx);
             sb.AppendLine("mode=toneZones(shadows/midtones/highlights/whites)");
             sb.AppendLine("toneLiftAmount=" + gain.ToString("F4", CultureInfo.InvariantCulture));
             sb.AppendLine("brightenApplied=" + brightenApplied);

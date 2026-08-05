@@ -258,9 +258,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             var originalImagePath = imagePath;
 
-            // 方案 B：固定 CW90 → 算亮度 → 落盘 {产品}/input/ → 再推理（供视觉 DLL）
+            // 方案 B：竖图校验 → 内容上移 → 条件提亮；送检图仅用临时文件，推理后删除，不落盘 input/
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report("AI 标注：顺时针旋转 90° → 写入 input/ → 计算 ROI 亮度，准备送检图…");
+            progress?.Report("AI 标注：校验竖图 → 内容上移(可选) → 预处理送检（临时文件）…");
             var preBrighten = await Task.Run(
                     () => OfflineCtPreBrightenHelper.PrepareFinalInputImage(
                         originalImagePath,
@@ -269,8 +269,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         settings.OfflineCtPreBrightenMeanTrigger,
                         settings.OfflineCtPreBrightenP50Trigger,
                         settings.OfflineCtPreBrightenTargetMean,
-                        // 始终写入 input/，供视觉 DLL 使用（不再走临时文件旁路）
-                        persistFinalInput: true),
+                        // 不落盘 input/：临时文件推理后删除，产品目录只保留成功结果图
+                        persistFinalInput: false,
+                        contentShiftUpPx: settings.ResolveOfflineCtContentShiftUpPx()),
                     cancellationToken)
                 .ConfigureAwait(false);
             imagePath = preBrighten.FinalImagePath;

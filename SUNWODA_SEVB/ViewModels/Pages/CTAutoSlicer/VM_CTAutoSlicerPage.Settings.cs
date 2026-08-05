@@ -250,6 +250,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtBlackHeight = LoadIntSetting(
                 nameof(OfflineCtBlackHeight),
                 CTAutoSlicerSettings.DefaultOfflineCtBlackHeight);
+            _offlineCtContentShiftUpPx = LoadIntSetting(
+                nameof(OfflineCtContentShiftUpPx),
+                CTAutoSlicerSettings.DefaultOfflineCtContentShiftUpPx);
             _enableOfflineCtLRangeCheck =
                 LoadIntSetting(nameof(EnableOfflineCtLRangeCheck), 0) != 0;
             _offlineCtL1MinMm = LoadDoubleSetting(
@@ -284,11 +287,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _offlineCtPixelSizeUm = loadedPixelSizeUm > 0
                 ? loadedPixelSizeUm
                 : CTAutoSlicerSettings.DefaultOfflineCtPixelSizeUm;
+            _offlineCtPixelSizeUmText = null;
             _offlineCtResultImageMode = LoadIntSetting(
                 nameof(OfflineCtResultImageMode),
                 (int)Core.Models.Project.CTAutoSlicer.OfflineCtResultImageMode.Enhance);
-            _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 1) != 0;
-            _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 1) != 0;
+            _offlineCtExportJson = LoadIntSetting(nameof(OfflineCtExportJson), 0) != 0;
+            _offlineCtExportCsv = LoadIntSetting(nameof(OfflineCtExportCsv), 0) != 0;
             _offlineCtExportInputForNjct = LoadIntSetting(nameof(OfflineCtExportInputForNjct), 0) != 0;
             _offlineCtRotateTopViewCw90 = LoadIntSetting(nameof(OfflineCtRotateTopViewCw90), 1) != 0;
             _enableOfflineCtPreBrighten = LoadIntSetting(nameof(EnableOfflineCtPreBrighten), 1) != 0;
@@ -345,6 +349,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
+            OnPropertyChanged(nameof(OfflineCtContentShiftUpPx));
             OnPropertyChanged(nameof(EnableOfflineCtLRangeCheck));
             OnPropertyChanged(nameof(OfflineCtL1MinMm));
             OnPropertyChanged(nameof(OfflineCtL1MaxMm));
@@ -358,6 +363,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtL5MaxMm));
             OnPropertyChanged(nameof(OfflineCtTopViewSliceIndex));
             OnPropertyChanged(nameof(OfflineCtPixelSizeUm));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeUmText));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaUm));
+            OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaMm));
             OnPropertyChanged(nameof(OfflineCtPixelSizeMmPerPx));
             OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaUm));
             OnPropertyChanged(nameof(OfflineCtPixelSizeFormulaMm));
@@ -395,8 +404,88 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private double LoadDoubleSetting(string name, double defaultValue)
         {
             EnsureSettingExists(name, defaultValue, "double", name);
+            var model = _projectSettingRepository.GetByNameAndVM(name, VmName);
+            if (model == null)
+            {
+                return defaultValue;
+            }
+
+            // 历史若误存为 int，读取会截断小数；升级为 double + Invariant 字符串
+            var type = model.Type ?? string.Empty;
+            var isFloatType = type.Equals("double", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("float", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("decimal", StringComparison.OrdinalIgnoreCase);
+            if (!isFloatType
+                && TryParseFlexibleDouble(model.Value, out var upgraded))
+            {
+                model.Type = "double";
+                model.Value = upgraded.ToString("G17", CultureInfo.InvariantCulture);
+                _projectSettingRepository.Update(model);
+                return upgraded;
+            }
+
+            if (TryParseFlexibleDouble(model.Value, out var parsed))
+            {
+                return parsed;
+            }
+
             var value = _projectSettingRepository.GetSettingValue(name, VmName);
-            return value == null ? defaultValue : Convert.ToDouble(value);
+            if (value == null)
+            {
+                return defaultValue;
+            }
+
+            try
+            {
+                return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                try
+                {
+                    return Convert.ToDouble(value, CultureInfo.CurrentCulture);
+                }
+                catch
+                {
+                    return defaultValue;
+                }
+            }
+        }
+
+        /// <summary>持久化 double：InvariantCulture，并强制 Type=double（避免小数被 int 截断）。</summary>
+        private void SaveDoubleSetting(string name, double value)
+        {
+            if (_isLoadingSettings)
+            {
+                return;
+            }
+
+            var text = value.ToString("G17", CultureInfo.InvariantCulture);
+            var model = _projectSettingRepository.GetByNameAndVM(name, VmName);
+            if (model == null)
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(name, VmName, text, "double", 1) { Remark = name });
+                return;
+            }
+
+            model.Value = text;
+            model.Type = "double";
+            _projectSettingRepository.Update(model);
+        }
+
+        private static bool TryParseFlexibleDouble(string? text, out double value)
+        {
+            value = 0;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            var raw = text.Trim();
+            return double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                || double.TryParse(raw.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                || double.TryParse(raw, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
         }
 
         private void EnsureSettingExists(string name, object defaultValue, string type, string remark)
@@ -578,6 +667,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 OfflineCtModelPath = OfflineCtModelPath,
                 OfflineCtIsRunCuda = OfflineCtIsRunCuda,
                 OfflineCtBlackHeight = OfflineCtBlackHeight,
+                OfflineCtContentShiftUpPx = OfflineCtContentShiftUpPx,
                 EnableOfflineCtLRangeCheck = EnableOfflineCtLRangeCheck,
                 OfflineCtL1MinMm = OfflineCtL1MinMm,
                 OfflineCtL1MaxMm = OfflineCtL1MaxMm,

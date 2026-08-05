@@ -18,7 +18,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         [Obsolete("不再生成 AI标注 子目录，请用产品文件夹本身作为输出目录")]
         public const string AnnotationFolderName = "AI标注";
 
-        /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper（固定 CW90 → input/）。</summary>
+        /// <summary>已废弃中间落盘名；最终推理图请用 OfflineCtPreBrightenHelper（横图 CW90 → input/）。</summary>
         [Obsolete("不再单独落盘旋转中间图，请使用 OfflineCtPreBrightenHelper.PrepareFinalInputImage")]
         public const string RotatedInputFileNameWithoutExt = "input_rotated_cw90";
 
@@ -93,15 +93,19 @@ namespace SUNWODA_SEVB.Tool.Helper
             BuildHandoffFileName(exportBaseName, sourceImagePath);
 
         /// <summary>
-        /// 将上视图送检图复制到交接目录根，文件名改为产品名（如 1161-F.jpg）。
+        /// 将上视图送检图写入交接目录根，文件名改为产品名（如 1161-F.jpg）。
+        /// 若源图宽 &gt; 高（横图），落盘前顺时针 90°，保证中转目录给视觉的是竖图。
         /// </summary>
+        /// <param name="rotatedCw90ForPortrait">true=本次因横图执行了 CW90°。</param>
         public static string CopyTopViewImageToHandoffFolder(
             string sourceImagePath,
             string handoffFolder,
             string exportBaseName,
-            int sliceIndex)
+            int sliceIndex,
+            out bool rotatedCw90ForPortrait)
         {
             _ = sliceIndex; // 选图序号仅影响源图，交接落盘名用产品名
+            rotatedCw90ForPortrait = false;
             if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
             {
                 throw new FileNotFoundException("待交接的上视图送检图不存在", sourceImagePath);
@@ -115,8 +119,44 @@ namespace SUNWODA_SEVB.Tool.Helper
             Directory.CreateDirectory(handoffFolder);
             var fileName = BuildHandoffFileName(exportBaseName, sourceImagePath);
             var destPath = Path.Combine(handoffFolder, fileName);
-            File.Copy(sourceImagePath, destPath, overwrite: true);
+
+            // 不能只 File.Copy：VG 导出上视图常为横图，视觉要求竖图
+            using var bmp = LoadBitmapUnlocked(sourceImagePath);
+            rotatedCw90ForPortrait = EnsurePortraitByClockwise90IfLandscape(bmp);
+            bmp.Save(destPath, ResolveImageFormat(destPath));
             return destPath;
+        }
+
+        /// <summary>
+        /// 兼容旧签名（忽略是否旋转）。
+        /// </summary>
+        public static string CopyTopViewImageToHandoffFolder(
+            string sourceImagePath,
+            string handoffFolder,
+            string exportBaseName,
+            int sliceIndex) =>
+            CopyTopViewImageToHandoffFolder(
+                sourceImagePath,
+                handoffFolder,
+                exportBaseName,
+                sliceIndex,
+                out _);
+
+        /// <summary>
+        /// 若宽 &gt; 高（横图），顺时针 90° 转为竖图；已竖（高 ≥ 宽）则不动。
+        /// 切图交接与阶段七送检共用，避免固定旋转导致竖图再转成横图。
+        /// </summary>
+        /// <returns>true 表示执行了旋转。</returns>
+        public static bool EnsurePortraitByClockwise90IfLandscape(Bitmap bitmap)
+        {
+            ArgumentNullException.ThrowIfNull(bitmap);
+            if (bitmap.Width > bitmap.Height)
+            {
+                bitmap.RotateFlip(RotateFlipType.Rotate90FlipNone);
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -553,7 +593,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 将上视图顺时针旋转 90° 后保存到 outputPath（原图不变）。主流程已改为内存旋转+input_for_njct，一般不再调用。
+        /// 将上视图按「竖图约定」保存到 outputPath（原图不变）：横图则 CW90°，已竖则原样写入。
         /// </summary>
         public static string SaveClockwiseRotated90(string sourceImagePath, string outputPath)
         {
@@ -570,7 +610,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             // 先读入内存再释放文件锁，避免 Image.FromFile 长期占用源文件
             using var source = LoadBitmapUnlocked(sourceImagePath);
-            source.RotateFlip(RotateFlipType.Rotate90FlipNone);
+            EnsurePortraitByClockwise90IfLandscape(source);
 
             var format = ResolveImageFormat(outputPath);
             source.Save(outputPath, format);
@@ -578,7 +618,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 已废弃：勿再生成 input_rotated_cw90；请用 OfflineCtPreBrightenHelper.PrepareFinalInputImage（固定 CW90 → input/）。
+        /// 已废弃：勿再生成 input_rotated_cw90；请用 OfflineCtPreBrightenHelper.PrepareFinalInputImage（横图 CW90 → input/）。
         /// </summary>
         [Obsolete("不再落盘 input_rotated_cw90，请使用 OfflineCtPreBrightenHelper.PrepareFinalInputImage")]
         public static string CreateRotatedInputForAnnotation(string sourceImagePath, string annotationFolder)

@@ -53,6 +53,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// 传给 NJCT 的 BlackHeight 始终为 0，与本常量无关。
         /// </summary>
         public const int DefaultOfflineCtBlackHeight = 1500;
+        /// <summary>
+        /// 送检图内容上移像素默认值：0=不上移。
+        /// 用于适配 NJCT 偏上裁切：内容上移、画布不变、底部黑边填充。
+        /// </summary>
+        public const int DefaultOfflineCtContentShiftUpPx = 0;
         /// <summary>L1~L5 范围判断默认下限（mm）。</summary>
         public const double DefaultOfflineCtLMinMm = 0.0;
         /// <summary>L1~L5 范围判断默认上限（mm）。</summary>
@@ -470,16 +475,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>结果图模式：增强 / 原图 / 两者</summary>
         public OfflineCtResultImageMode OfflineCtResultImageMode { get; set; } = OfflineCtResultImageMode.Enhance;
 
-        /// <summary>是否输出 annotation.json</summary>
-        public bool OfflineCtExportJson { get; set; } = true;
+        /// <summary>是否输出 annotation.json（默认关；产品目录默认只保留成功结果图）</summary>
+        public bool OfflineCtExportJson { get; set; }
 
-        /// <summary>是否输出 annotation.csv</summary>
-        public bool OfflineCtExportCsv { get; set; } = true;
+        /// <summary>是否输出 annotation.csv（默认关；产品目录默认只保留成功结果图）</summary>
+        public bool OfflineCtExportCsv { get; set; }
 
         /// <summary>
-        /// 历史项：是否将送入 NJCT 的预处理图落盘。现已固定写入 <c>{产品}/input/</c>，本开关不再影响主流程。
+        /// 历史项：是否将送入 NJCT 的预处理图落盘。现主流程用临时文件，本开关不再影响主流程。
         /// </summary>
-        public bool OfflineCtExportInputForNjct { get; set; } = true;
+        public bool OfflineCtExportInputForNjct { get; set; }
 
         /// <summary>
         /// 历史项：送入 NJCT 前是否 CW90°。现已固定旋转并写入 input/，本开关不再影响主流程。
@@ -497,6 +502,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 
         /// <summary>预提亮目标 ROI 均值</summary>
         public double OfflineCtPreBrightenTargetMean { get; set; } = 132.0;
+
+        /// <summary>
+        /// 喂给 NJCT 前：将图像内容向上平移的像素数（画布高宽不变，底部黑边填充）。
+        /// 0=不上移。用于主体偏下、DLL 裁底部时把有效区域抬到上方。
+        /// </summary>
+        public int OfflineCtContentShiftUpPx { get; set; } = DefaultOfflineCtContentShiftUpPx;
+
+        /// <summary>钳制内容上移像素为非负。</summary>
+        public int ResolveOfflineCtContentShiftUpPx() => Math.Max(0, OfflineCtContentShiftUpPx);
 
         /// <summary>解析模型路径：配置非空则用之，否则默认部署路径。</summary>
         public string ResolveOfflineCtModelPath()

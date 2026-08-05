@@ -1299,8 +1299,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 将 OfflineCtTopViewSliceIndex 对应文件名的上视图送检图复制到交接目录根，
-        /// 并改名为 {产品名}.jpg（硬失败）。
+        /// 将 OfflineCtTopViewSliceIndex 对应文件名的上视图送检图写入交接目录根，
+        /// 改名为 {产品名}.jpg；横图（宽&gt;高）则 CW90° 后落盘为竖图（硬失败）。
         /// </summary>
         private async Task MirrorTopViewHandoffAsync(
             CTAutoSlicerSettings settings,
@@ -1344,16 +1344,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 $"交接上视图：源={sourcePath}，序号={sliceIndex}，交接文件={settings.TopViewHandoffFolder}/{handoffFileName}");
 
             var destPath = await Task.Run(
-                    () => OfflineCtAnnotationHelper.CopyTopViewImageToHandoffFolder(
-                        sourcePath,
-                        settings.TopViewHandoffFolder,
-                        exportBaseName,
-                        sliceIndex),
+                    () =>
+                    {
+                        var path = OfflineCtAnnotationHelper.CopyTopViewImageToHandoffFolder(
+                            sourcePath,
+                            settings.TopViewHandoffFolder,
+                            exportBaseName,
+                            sliceIndex,
+                            out var rotatedCw90);
+                        return (Path: path, RotatedCw90: rotatedCw90);
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            progress?.Report($"上视图交接完成：{destPath}");
-            _logger.Info($"上视图交接完成：{destPath}");
+            var orientNote = destPath.RotatedCw90
+                ? "（源为横图，已顺时针90°落盘为竖图）"
+                : "（源已竖图，未再旋转）";
+            progress?.Report($"上视图交接完成：{destPath.Path}{orientNote}");
+            _logger.Info($"上视图交接完成：{destPath.Path}{orientNote}");
         }
 
     }

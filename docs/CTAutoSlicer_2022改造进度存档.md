@@ -1,12 +1,25 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-04（VM partial 拆分）  
-> **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；CW90° + 预提亮）；进程池并行导入 ✅。  
-> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**。  
+> **文档版本**：2026-08-05（送检内容上移）  
+> **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；竖图校验 + 内容上移 + 预提亮）；进程池并行导入 ✅。  
+> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**；**内容上移像素真机调参**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-05 增量（送检内容上移 OfflineCtContentShiftUpPx）**：  
+> 1. **背景**：NJCT 测试图主体偏上并裁底部；现场图主体偏下 → 上方空、下方有效区被裁。  
+> 2. **做法**：喂 AI 前（竖图校验之后）将内容向上平移 N 像素，**画布尺寸不变**，底部黑边填充；DLL 裁掉黑边而非有效区。  
+> 3. **配置**：AI 标注 →「预处理与输出」→「内容上移」px；默认 **0**；持久化 `OfflineCtContentShiftUpPx`。  
+> 4. 落点：`OfflineCtPreBrightenHelper.ShiftContentUpFillBlackBottom` / `PrepareFinalInputImage`；`CTAutoSlicerSettings` / VM / XAML。
+
+> **2026-08-05 增量（送检竖图：宽&gt;高才 CW90）**：  
+> 1. **根因**：切图交接 `CopyTopViewImageToHandoffFolder` 原先只 `File.Copy`，**不旋转**；CW90 仅在 AI 机 `PrepareFinalInputImage` 固定执行。看中转目录会以为「提前转向没生效」。  
+> 2. **约定**：给视觉的最终图必须是**竖图**（高 ≥ 宽）。宽 &gt; 高则顺时针 90°；已竖则不转（避免交接已转后再固定转一次变回横图）。  
+> 3. **切图**：交接落盘前 `EnsurePortraitByClockwise90IfLandscape`。  
+> 4. **阶段七**：预处理改为同一规则（不再无条件固定旋转）。  
+> 5. 落点：`OfflineCtAnnotationHelper` / `OfflineCtPreBrightenHelper` / `SliceExport.MirrorTopViewHandoffAsync` / `OfflineCtVision`。
 
 > **2026-08-04 增量（AI 标注：固定 CW90 → input/）**：  
 > 1. 取消界面「上视图顺时针旋转 90°」开关；预处理**固定** CW90°。  
@@ -1420,7 +1433,7 @@ RunAiAnnotationBatchAsync：
 ```
 
 切图侧选图规则：填 N = 第 N 张；实际文件名 = `ImageStackBaseFileName` + N（默认前缀 `0`，如 50 → `050.jpg`/`050.png`…）；找不到则硬失败。交接落盘为 `{TopViewHandoffFolder}/{导出名}.jpg`（以产品名前六字符命名，避免多产品 050.jpg 冲突）。AI 批处理输出 `{结果根}/{产品名}/`，结果图名为 `{产品名}.jpg`（不再用 `result_enhance.jpg`，也不再套 `AI标注/`）。  
-**朝向**：送检图须 **顺时针 90°** 后再送 NJCT；现固定在写入 `{产品}/input/` 前执行（无界面开关）。  
+**朝向**：送检图须为**竖图**（高 ≥ 宽）；宽 &gt; 高时顺时针 90°。切图写入交接目录时即校验；阶段七写入 `{产品}/input/` 前再校验一次（已竖不重复转）。  
 失败策略：切图交接**硬失败**；AI 批处理**单张软失败**继续下一张。  
 **交接备份**：标注成功一项即备份到 **标注结果根目录（SliceExportFolder）上级** 的 `交接备份`，保留 **30 天**，超时按日子目录自动删除；交接源仍从「上视图交接目录」删除。
 

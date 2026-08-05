@@ -40,15 +40,21 @@ namespace SUNWODA_SEVB.Views.Pages.HawkEye
             }
         }
 
-        // 获取 ScaleTransform 和 TranslateTransform
+        // 获取 ScaleTransform 和 TranslateTransform        
         private (ScaleTransform scale, TranslateTransform translate) GetTransforms(Image img)
         {
             EnsureTransforms(img);
 
-            var group = img.RenderTransform as TransformGroup;
+            // 保证存在 TransformGroup 且至少有 2 个子元素
+            if (img.RenderTransform is not TransformGroup group || group.Children.Count < 2)
+            {
+                throw new InvalidOperationException("RenderTransform is not a valid TransformGroup.");
+            }
 
-            var scale = group.Children[0] as ScaleTransform;
-            var translate = group.Children[1] as TranslateTransform;
+            if (group.Children[0] is not ScaleTransform scale || group.Children[1] is not TranslateTransform translate)
+            {
+                throw new InvalidOperationException("Transform children are not of expected types.");
+            }
 
             return (scale, translate);
         }

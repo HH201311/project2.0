@@ -1,23 +1,25 @@
-﻿using Newtonsoft.Json;
+﻿using HandyControl.Controls;
+using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
-using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
+using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
+using SUNWODA_SEVB.Tool.Extension;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using HandyControl.Controls;
-using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
 {
@@ -30,7 +32,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         private string? controlPageName;
         public string? ControlPageName { get => controlPageName; set => SetProperty(ref controlPageName, value); }
@@ -38,27 +39,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <summary>
         /// 界面导航按钮
         /// </summary>
-        public ICommand? ControlPageNavigateCommand { get; set; }
+        public ICommand? ControlPageNavigateCommand => new RelayCommand(OnControlPageNavigate);
 
         /// <summary>
         /// 保存按钮
         /// </summary>
-        public ICommand? ParamSaveCommand { get; set; }
+        public ICommand? ParamSaveCommand => new RelayCommand(OnParamSaveAsync);
 
         /// <summary>
         /// 取消按钮
         /// </summary>
-        public ICommand? ParamCancleCommand { get; set; }
+        public ICommand? ParamCancleCommand => new RelayCommand(OnParamCancle);
 
         /// <summary>
         /// FTP手动上传
         /// </summary>
-        public ICommand? FTPUpLoadCommand { get; set; }
+        public ICommand? FTPUpLoadCommand => new RelayCommand(OnFTPUpLoad);
 
         /// <summary>
         /// 膜卷号读取地址验证
         /// </summary>
-        public ICommand? RollNumPathVerifyCommand { get; set; }
+        public ICommand? RollNumPathVerifyCommand => new RelayCommand(OnRollNumPathVerify);
 
         /// <summary>
         /// 构造函数
@@ -78,23 +79,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
-        }
-
-        /// <summary>
-        /// 初始化
-        /// </summary>
-        public override void OnInitialize()
-        {
-            ControlPageNavigateCommand = new RelayCommand(OnControlPageNavigate);
-            ParamSaveCommand = new RelayCommand(OnParamSave);
-            ParamCancleCommand = new RelayCommand(OnParamCancle);
-            FTPUpLoadCommand = new RelayCommand(OnFTPUpLoad);
-            RollNumPathVerifyCommand = new RelayCommand(OnRollNumPathVerify);
-
-            NavigateToDefault();
-            base.OnInitialize();
         }
 
         /// <summary>
@@ -128,11 +112,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <summary>
         /// 当参数保存时触发
         /// </summary>
-        private void OnParamSave()
+        private async void OnParamSaveAsync()
         {
-            var re = _operationUtil.SaveBasicFunctionSettingProjectParamrers(FunctionModel);
-            if (re) MessageBox.Show("保存成功");
-            else MessageBox.Show("保存失败");
+            var re = _projectSettingRepository.SaveBasicFunctionSettingProjectParameters(FunctionModel);
+            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 
         /// <summary>
@@ -163,7 +147,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <returns></returns>
         private void LoadFunctionSettingModel()
         {
-            var settingModel = _operationUtil.LoadBasicFunctionSettingProjectParamrers();
+            var settingModel = _projectSettingRepository.LoadBasicFunctionSettingProjectParameters();
             if (settingModel == null) return;
 
             FunctionModel = settingModel;

@@ -9,6 +9,23 @@ namespace SUNWODA_SEVB.Core.Interfaces.Socket
     public interface ISocketServer : IAsyncDisposable
     {
         /// <summary>
+        /// 获取或设置一个值，该值指示是否启用内置的默认心跳检测与自动回复功能。
+        /// 该功能由帮助类提供，通常不需要使用。如需自定义心跳逻辑，可禁用此功能并自行实现。
+        /// </summary>
+        bool IsBuiltInHeartbeatEnabled { get; set; }
+
+        /// <summary>
+        /// 获取或设置一个值，该值指示收到消息后是否启用内置的自动回复功能。
+        /// 该功能由帮助类提供，通常不需要使用。如需自定义自动回复逻辑，可禁用此属性并自行实现。
+        /// </summary>
+        bool IsBuiltInAutoReplyEnabled { get; set; }
+
+        /// <summary>
+        /// 获取当前生效的服务器配置。
+        /// </summary>
+        SocketServerOptions ActiveOptions { get; }
+
+        /// <summary>
         /// 服务是否正在运行
         /// </summary>
         bool IsRunning { get; }

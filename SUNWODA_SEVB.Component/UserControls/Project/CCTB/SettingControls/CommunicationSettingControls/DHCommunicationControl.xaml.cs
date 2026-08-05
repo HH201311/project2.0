@@ -29,25 +29,14 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Commu
             InitializeComponent();
         }
 
-        #region SideType
-        public ESideType SideType
-        {
-            get { return (ESideType)GetValue(SideTypeProperty); }
-            set { SetValue(SideTypeProperty, value); }
-        }
+        private static readonly ECommunicationMode[] CommunicationModes = new[] { ECommunicationMode.服务端Socket, ECommunicationMode.客户端Mqtt };
 
-        public static readonly DependencyProperty SideTypeProperty = DependencyProperty.Register(
-            "SideType",
-            typeof(ESideType),
-            typeof(DHCommunicationControl),
-            new PropertyMetadata(ESideType.A, new PropertyChangedCallback(OnSideTypeChanged))
-        );
-
-        private static void OnSideTypeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            var uc = d as DHCommunicationControl;
-        }
-        #endregion
+        /// <summary>
+        /// 通讯模式数据源
+        /// </summary>
+        public ObservableCollection<ComboboxItemModel<ECommunicationMode>> CommunicationModeSource { get; } =
+               new ObservableCollection<ComboboxItemModel<ECommunicationMode>>(CommunicationModes.Select(v =>
+               new ComboboxItemModel<ECommunicationMode> { ItemValue = v, DisplayName = v.ToString() }));
 
         #region ItemSource
         public CommunicationSettingModel ItemSource
@@ -64,6 +53,66 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Commu
         );
 
         private static void OnItemSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as DHCommunicationControl;
+        }
+        #endregion
+
+        #region SocketClientConfigCommand
+        public ICommand SocketClientConfigCommand
+        {
+            get { return (ICommand)GetValue(SocketClientConfigCommandProperty); }
+            set { SetValue(SocketClientConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty SocketClientConfigCommandProperty = DependencyProperty.Register(
+            "SocketClientConfigCommand",
+            typeof(ICommand),
+            typeof(DHCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnSocketClientConfigCommandChanged))
+        );
+
+        private static void OnSocketClientConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as DHCommunicationControl;
+        }
+        #endregion
+
+        #region SocketServerConfigCommand
+        public ICommand SocketServerConfigCommand
+        {
+            get { return (ICommand)GetValue(SocketServerConfigCommandProperty); }
+            set { SetValue(SocketServerConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty SocketServerConfigCommandProperty = DependencyProperty.Register(
+            "SocketServerConfigCommand",
+            typeof(ICommand),
+            typeof(DHCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnSocketServerConfigCommandChanged))
+        );
+
+        private static void OnSocketServerConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as DHCommunicationControl;
+        }
+        #endregion
+
+        #region MqttClientConfigCommand
+        public ICommand MqttClientConfigCommand
+        {
+            get { return (ICommand)GetValue(MqttClientConfigCommandProperty); }
+            set { SetValue(MqttClientConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty MqttClientConfigCommandProperty = DependencyProperty.Register(
+            "MqttClientConfigCommand",
+            typeof(ICommand),
+            typeof(DHCommunicationControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnMqttClientConfigCommandChanged))
+        );
+
+        private static void OnMqttClientConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as DHCommunicationControl;
         }

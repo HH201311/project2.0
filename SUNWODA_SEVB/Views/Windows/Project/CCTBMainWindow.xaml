@@ -5,6 +5,7 @@
     xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:converter="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;assembly=SUNWODA_SEVB.Core"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
     xmlns:interactivity="clr-namespace:HandyControl.Interactivity;assembly=HandyControl"
@@ -17,7 +18,6 @@
     d:DesignWidth="1920"
     AllowsTransparency="True"
     Background="#FF121212"
-    Foreground="White"
     WindowState="Maximized"
     WindowStyle="None"
     mc:Ignorable="d">
@@ -33,26 +33,76 @@
             <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
 
             <Style BasedOn="{StaticResource IndustrialGrowlStyle}" TargetType="hc:Growl" />
-            <Style
-                x:Key="PPairContentControlStyle"
-                BasedOn="{StaticResource ParamPairContentControlStyle}"
-                TargetType="{x:Type uccc:PairContentControl}">
-                <Setter Property="PairKeyWidth" Value="Auto" />
-                <Setter Property="PairSeparateWidth" Value="*" />
-                <Setter Property="PairValueWidth" Value="Auto" />
-                <Setter Property="PairValueMinWidth" Value="50" />
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="PairKeyWidth" Value="85" />
                 <Setter Property="Margin" Value="0,0,20,0" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="HorizontalContentAlignment" Value="Right" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
             </Style>
+
+            <Style x:Key="AccountMenuItemStyle" TargetType="MenuItem">
+                <Setter Property="MinWidth" Value="100" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="MenuItem">
+                            <Border
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="5">
+                                <ContentPresenter
+                                    Margin="10,13"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#0DFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="AccountButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <ContentControl
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Content="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Opacity" Value="0.8" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="20" />
             <RowDefinition Height="80" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
@@ -66,10 +116,7 @@
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Orientation="Vertical">
-            <DockPanel
-                Height="20"
-                Background="#0DFFFFFF"
-                LastChildFill="True">
+            <DockPanel Background="#0DFFFFFF" LastChildFill="True">
                 <TextBlock
                     Margin="5,0,0,0"
                     HorizontalAlignment="Left"
@@ -142,41 +189,31 @@
                 Opacity="0.8"
                 Text="涂布控制系统" />
             <UniformGrid Margin="100,0,0,0" Rows="1">
-                <ToggleButton
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="True"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="涂布机"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding WMDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding WMDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding WMDeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="测重仪"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding CMDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding CMDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding CMDeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="模头A"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding DHADeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding DHADeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding DHADeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="模头B"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
-                <ToggleButton
+                    AcceptDeviceCount="{Binding DHBDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding DHBDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding DHBDeviceStatus.DeviceStatus}" />
+                <uccc:DeviceStatusControl
                     Margin="0,0,10,0"
-                    d:IsChecked="False"
-                    Command="{Binding DeviceSwitchoverCommand}"
-                    CommandParameter="{Binding}"
-                    Content="CCD"
-                    Style="{StaticResource DeviceToggleButtonStyle}" />
+                    AcceptDeviceCount="{Binding CCDDeviceStatus.AcceptDeviceCount}"
+                    DeviceName="{Binding CCDDeviceStatus.DeviceName}"
+                    DeviceStatus="{Binding CCDDeviceStatus.DeviceStatus}" />
             </UniformGrid>
             <Rectangle
                 Width="1"
@@ -186,22 +223,22 @@
                 Opacity="0.5"
                 Stroke="#CCFFFFFF" />
             <UniformGrid Margin="10,10,0,10" Rows="2">
-                <uccc:PairContentControl PairKeyText="A面-TD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="A面-TD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="A面-MD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="A面-MD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="A面-尺寸闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="A面-尺寸闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="B面-TD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="B面-TD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="B面-MD闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="B面-MD闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="B面-尺寸闭环" Style="{StaticResource PPairContentControlStyle}">
+                <uccc:PairContentControl PairKeyText="B面-尺寸闭环">
                     <uccc:SimpleToggleButton Command="{Binding ControlSwitchoverCommand}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
             </UniformGrid>
@@ -218,24 +255,70 @@
                         Height="40"
                         Fill="#FF29CC7A"
                         Opacity="0.1" />
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontFamily="{StaticResource CCTB.SourceHanSansCN-Bold}"
-                        FontSize="20"
-                        Foreground="#FF29CC7A"
-                        Text="小"
-                        TextAlignment="Center" />
+
+                    <Button
+                        x:Name="AccountButton"
+                        Click="AccountButton_Click"
+                        Style="{StaticResource AccountButtonStyle}">
+                        <Button.Content>
+                            <TextBlock
+                                d:Text="小"
+                                FontFamily="{StaticResource CCTB.SourceHanSansCN-Bold}"
+                                FontSize="20"
+                                Foreground="#FF29CC7A"
+                                Text="{Binding UserIcon}"
+                                TextAlignment="Center" />
+                        </Button.Content>
+                        <Button.ContextMenu>
+                            <ContextMenu
+                                x:Name="contextMenu"
+                                Background="#FF2B2B2B"
+                                BorderThickness="0">
+                                <MenuItem
+                                    Command="{Binding ChangeAccountCommand}"
+                                    Header="切换用户"
+                                    Style="{StaticResource AccountMenuItemStyle}" />
+                                <MenuItem
+                                    Command="{Binding ChangePasswordCommand}"
+                                    Header="修改密码"
+                                    Style="{StaticResource AccountMenuItemStyle}"
+                                    Visibility="{Binding ChangePasswordVisibility}" />
+                                <MenuItem
+                                    Command="{Binding LogoutCommand}"
+                                    Header="退出登录"
+                                    Style="{StaticResource AccountMenuItemStyle}"
+                                    Visibility="{Binding LogoutVisibility}" />
+                                <ContextMenu.Template>
+                                    <ControlTemplate TargetType="ContextMenu">
+                                        <Border
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="5">
+                                            <ItemsPresenter Margin="10,13" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ContextMenu.Template>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <Button.ToolTip>
+                            <TextBlock
+                                MaxWidth="500"
+                                Text="用户选项"
+                                TextWrapping="NoWrap" />
+                        </Button.ToolTip>
+                    </Button>
                 </Grid>
 
                 <TextBlock
                     Margin="10,0,0,0"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
+                    d:Text="林小小"
                     FontFamily="{StaticResource CCTB.SourceHanSansCN-Bold}"
                     FontSize="20"
                     Foreground="#CCFFFFFF"
-                    Text="林小小"
+                    Text="{Binding UserName}"
                     TextAlignment="Center" />
             </StackPanel>
         </DockPanel>

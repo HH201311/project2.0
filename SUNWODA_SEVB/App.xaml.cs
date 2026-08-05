@@ -12,7 +12,6 @@ using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Data;
 using SUNWODA_SEVB.Logging;
 using SUNWODA_SEVB.Logging.Targets;
-using SUNWODA_SEVB.MES.Extensions;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Services.Project;
@@ -31,6 +30,7 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using SUNWODA_SEVB.MES;
 
 namespace SUNWODA_SEVB
 {
@@ -53,7 +53,7 @@ namespace SUNWODA_SEVB
             //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
-                //MonitorAppIsRunning();
+                MonitorAppIsRunning();
                 // 确保配置文件存在且有效
                 ConfigurationService.EnsureValidConfig();
                 // 步骤1：构建Host
@@ -121,6 +121,12 @@ namespace SUNWODA_SEVB
                         WinApiHelper.SetForegroundWindow(process.MainWindowHandle);
                     }
                 }
+                // 显示提示信息
+                MessageBox.Show(
+                    "软件已在运行中，请勿重复启动。\n已为您切换到运行中的窗口。",
+                    "提示",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 Shutdown();
                 Environment.Exit(0);
             }
@@ -211,7 +217,10 @@ namespace SUNWODA_SEVB
             services.AddMvvmFramework();
 
             // 添加CTOL远程文件监控服务，后续开发（利用 appsettings.json 来决定是否添加）
-            services.AddCTOLRemoteFileMonitor(configuration);
+            //services.AddCTOLRemoteFileMonitor(configuration);
+
+            // 添加JRRY远程文件监控服务
+            //services.AddJRRYRemoteFileMonitor(configuration);
 
             // 注册项目相关服务(后期合并)
             services.AddProjectServices();

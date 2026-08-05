@@ -5,6 +5,7 @@
     xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
@@ -21,6 +22,25 @@
             </ResourceDictionary.MergedDictionaries>
 
             <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+
+            <!--  文本样式  -->
+            <Style BasedOn="{StaticResource HCTitleValueTextBox}" TargetType="{x:Type hc:TextBox}">
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Width" Value="360" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="IsReadOnly" Value="True" />
+            </Style>
+
+            <!--  键值对容器样式  -->
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="Width" Value="360" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="PairKeyWidth" Value="180" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="HorizontalContentAlignment" Value="Right" />
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -31,28 +51,35 @@
         </Grid.RowDefinitions>
         <ScrollViewer Grid.Row="0" Margin="20">
             <StackPanel Orientation="Vertical">
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="涂布机IP" />
-                <TextBox
-                    Width="200"
-                    Height="40"
-                    Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    d:Text="127.0.0.1"
-                    Style="{StaticResource PValueTextBoxStyle}"
-                    Text="{Binding ItemSource.CMIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
-
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="端口" />
-                <TextBox
-                    Width="200"
-                    Height="40"
-                    Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    d:Text="9600"
-                    Style="{StaticResource PValueTextBoxStyle}"
-                    Text="{Binding ItemSource.CMPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="远端设备配置（PLC）" />
+                <uccc:PairContentControl IsEnabled="False" PairKeyText="是否启用PLC">
+                    <uccc:SimpleToggleButton IsChecked="{Binding ItemSource.CMIsEnable, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <hc:TextBox
+                    Width="360"
+                    hc:InfoElement.Placeholder="请输入IP"
+                    hc:InfoElement.Title="远端IP"
+                    Text="{Binding ItemSource.CMPLCIP, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <hc:TextBox
+                    Width="360"
+                    hc:InfoElement.Placeholder="请输入端口"
+                    hc:InfoElement.Title="远端端口"
+                    Text="{Binding ItemSource.CMPLCPort, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <hc:TextBox
+                    Width="360"
+                    hc:InfoElement.Placeholder="请输入品牌规格协议"
+                    hc:InfoElement.Title="品牌规格协议"
+                    Text="{Binding ItemSource.CMBrandSpecificationProtocal, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <hc:TextBox
+                    Width="360"
+                    hc:InfoElement.Placeholder="请输入循环读取时间"
+                    hc:InfoElement.Title="循环读取时间（ms）"
+                    Text="{Binding ItemSource.CMCycleReadTime, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                <hc:TextBox
+                    Width="360"
+                    hc:InfoElement.Placeholder="请输入循环写入时间"
+                    hc:InfoElement.Title="循环写入时间（ms）"
+                    Text="{Binding ItemSource.CMCycleWriteTime, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
             </StackPanel>
         </ScrollViewer>
 
@@ -66,12 +93,15 @@
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 FlowDirection="LeftToRight"
-                Orientation="Horizontal">
+                Orientation="Horizontal"
+                Visibility="Hidden">
                 <Button
+                    Margin="10,0,0,0"
                     Command="{Binding SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     Content="保存"
                     Style="{StaticResource ParamOKButtonStyle}" />
                 <Button
+                    Margin="10,0,0,0"
                     Command="{Binding CancleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     Content="取消"
                     Style="{StaticResource ParamCancleButtonStyle}" />

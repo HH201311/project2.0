@@ -1,4 +1,5 @@
-﻿using HalconDotNet;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using HalconDotNet;
 using HandyControl.Controls;
 using HelixToolkit.Wpf;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ using SUNWODA_SEVB.Core.Enumerations.Logging;
 using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.PLC;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.PTO;
 using SUNWODA_SEVB.Tool.Helper;
@@ -140,8 +142,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private readonly object _csvLock = new object();
         // 存储当前检测任务的CSV文件路径
         private string? _currentCsvFilePath;
-        // 全局内存缓存：键=相机编号（"1"-"4"），值=检测用的filled Region（DelRegion）
-        private Dictionary<string, HObject> _detectionRegionCache = new Dictionary<string, HObject>();
+        // 全局内存缓存：键=极性/工位（"正极"、"负极"），值=检测用的 filled Region（DelRegion）
+        private readonly Dictionary<string, HObject> _detectionRegionCache = new Dictionary<string, HObject>();
+
+        // ROI缓存锁：避免启动加载、手动保存、检测线程同时访问 Dictionary
+        private readonly object _roiCacheLock = new object();
+        private static readonly string RoiConfigDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+        private const string RoiFileSuffix = "_Roi.hobj";
+        private const string RoiSizeSuffix = "_Size.txt";
+
+        private static string GetRoiFilePath(string station)
+        {
+            return Path.Combine(RoiConfigDir, $"{station}{RoiFileSuffix}");
+        }
+
+        private static string GetRoiSizePath(string station)
+        {
+            return Path.Combine(RoiConfigDir, $"{station}{RoiSizeSuffix}");
+        }
         // 检测状态标志
         private bool _isDetecting = false;
         // 用于取消检测任务的令牌
@@ -176,7 +194,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         //private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "PushUserIdConfig.json");
         private readonly ILoggerService<VM_PTODamageDetectionPage> _logger;
         private readonly IServiceProvider _serviceProvider;
-
+        private readonly IPLCService _PLCService;
 
 
 
@@ -364,9 +382,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
+                if (value && !_isResourcesReady)
+                {
+                    _pendingStartOnlineA = true;
+                    _isOnlineDetectionEnabledA = false;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CanOperate));
+
+                    AddLog("[在线检测] 模型或ROI尚未加载完成，已延迟启动在线检测", CoreLogLevel.Warn);
+                    return;
+                }
+
                 if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
                 {
-                    MessageBox.Show("请先选择有效的在线监控文件夹！", "路径无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    //MessageBox.Show("请先选择有效的在线监控文件夹！", "路径无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Growl.Error("请先选择有效的在线监控文件夹！");
                     _isOnlineDetectionEnabledA = false;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(CanOperate));
@@ -659,7 +689,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
             }
         }
+        private bool _isAlarmEnabled = true;
+        public bool IsAlarmEnabled
+        {
+            get => _isAlarmEnabled;
+            set
+            {
+                if (_isAlarmEnabled != value)
+                {
+                    _isAlarmEnabled = value;
+                    OnPropertyChanged(nameof(IsAlarmEnabled)); // 如果实现了INotifyPropertyChanged
+                    AddLog($"报警功能已{(value ? "启用" : "禁用")}", CoreLogLevel.Info);
 
+                    // 保存到数据库
+                    SaveAlarmEnabledToDataBase();
+                }
+            }
+        }
 
         /// <summary>
         /// 统一的按钮状态更新方法
@@ -936,6 +982,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         private bool _isLoadingResultImage = false;
         private readonly object _stateLock = new object();
 
+        // 资源是否已加载完成：模型 + ROI
+        private volatile bool _isResourcesReady = false;
+
+        // 配置中是否要求启动在线检测，等资源加载完成后再启动
+        private bool _pendingStartOnlineA = false;
 
         // 日志集合：用Tuple<string, string>存储（Item1=时间戳，Item2=内容）
         private ObservableCollection<Tuple<string, string>> _logTable = new ObservableCollection<Tuple<string, string>>();
@@ -1507,12 +1558,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             ResetOfflineProgress();//重置离线检测进度状态
         }
 
-        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider)
+        public VM_PTODamageDetectionPage(ILoggerService<VM_PTODamageDetectionPage> logger, IWebApiClient webApiClient, IServiceProvider serviceProvider,IPLCService PLCService)
         {
             _logger = logger;
             _webApiClient = webApiClient ?? throw new ArgumentNullException(nameof(webApiClient));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-            
+            _PLCService = PLCService ?? throw new ArgumentNullException(nameof(PLCService));
+
             //同步初始化
             Settings.License = LicenseType.Community;
 
@@ -1521,7 +1573,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             LoadConfig();
             LoadUserIds();
             InitParameters();
-
+            LoadAlarmEnabled();
             // 异步加载
             _ = Task.Run(async () =>
             {
@@ -1537,7 +1589,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     await UpdateUIStateAsync(() =>
                     {
                         LoadDefectInitialData();
+
+                        _isResourcesReady = true;
                         AddLog("✅ 所有资源加载完成，软件已就绪");
+
+                        // 如果配置中原本要求启动在线检测，则等模型和ROI全部加载后再启动
+                        if (_pendingStartOnlineA)
+                        {
+                            AddLog("[启动延迟] 检测到配置要求开启在线检测，资源加载完成后开始启动在线检测");
+                            IsOnlineDetectionEnabledA = true;
+                        }
                     });
                 }
                 catch (Exception ex)
@@ -1680,6 +1741,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         /// <summary>
         /// 异步加载所有ROI配置
+        /// 启动时不仅更新UI状态，还要真正读取 hobj，并转成检测用 Region 放入 _detectionRegionCache。
         /// </summary>
         private async Task LoadRoiConfigsAsync()
         {
@@ -1687,7 +1749,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             {
                 try
                 {
-                    string roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+                    string roiDir = RoiConfigDir;
 
                     if (!Directory.Exists(roiDir))
                     {
@@ -1695,7 +1757,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         return;
                     }
 
-                    var hobjFiles = Directory.GetFiles(roiDir, "*_ROI.hobj");
+                    var hobjFiles = Directory.GetFiles(roiDir, $"*{RoiFileSuffix}");
 
                     if (hobjFiles.Length == 0)
                     {
@@ -1708,60 +1770,308 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
                     foreach (var file in hobjFiles)
                     {
+                        HObject? loadedObj = null;
+                        HObject? detectionRegion = null;
+
                         try
                         {
                             string fileName = Path.GetFileNameWithoutExtension(file);
-                            var parts = fileName.Split(new[] { "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
 
-                            if (parts.Length != 1)
+                            if (!fileName.EndsWith("_Roi", StringComparison.OrdinalIgnoreCase))
                             {
                                 failCount++;
+                                UpdateUIState(() =>
+                                    AddLog($"[ROI加载] 文件名格式不正确，跳过：{Path.GetFileName(file)}", CoreLogLevel.Warn));
                                 continue;
                             }
 
-                            string station = parts[0];
+                            string station = fileName.Substring(0, fileName.Length - "_Roi".Length);
+
+                            // 当前检测逻辑使用的 key 是 GetElectrodeType 返回的 "正极" / "负极"
+                            if (station != "正极" && station != "负极")
+                            {
+                                failCount++;
+                                UpdateUIState(() =>
+                                    AddLog($"[ROI加载] 未识别的ROI名称，跳过：{Path.GetFileName(file)}", CoreLogLevel.Warn));
+                                continue;
+                            }
+
+                            // 从磁盘读取检测用Region：优先 ReadRegion，兼容旧 ReadObject
+                            detectionRegion = ReadDetectionRegionFromRoiFile(file);
+
+                            if (detectionRegion == null || !detectionRegion.IsInitialized())
+                            {
+                                failCount++;
+                                UpdateUIState(() =>
+                                    AddLog($"[ROI加载] ROI文件读取失败或为空：{Path.GetFileName(file)}", CoreLogLevel.Error));
+                                continue;
+                            }
+
+                            if (detectionRegion == null || !detectionRegion.IsInitialized())
+                            {
+                                failCount++;
+                                UpdateUIState(() =>
+                                    AddLog($"[ROI加载] ROI转换为检测Region失败：{Path.GetFileName(file)}", CoreLogLevel.Warn));
+                                continue;
+                            }
+
+                            // 新增：面积为0时直接判定为加载失败
+                            LogRegionInfo(station, detectionRegion, "启动加载");
+
+                            if (IsRegionEmpty(detectionRegion))
+                            {
+                                failCount++;
+                                UpdateUIState(() =>
+                                {
+                                    UpdateRoiStatus(station, false);
+                                    AddLog($"[ROI加载失败] {station} ROI面积为0，文件无效：{file}", CoreLogLevel.Error);
+                                });
+                                continue;
+                            }
+
+                            ReplaceDetectionRegionCache(station, detectionRegion);
+
+                            successCount++;
 
                             UpdateUIState(() =>
                             {
                                 UpdateRoiStatus(station, true);
-                                AddLog($"已加载 {station} 工位ROI");
+                                AddLog($"✅ 已加载 {station} ROI到检测缓存：{file}");
                             });
 
-                            successCount++;
+                          
                         }
                         catch (Exception ex)
                         {
                             failCount++;
                             UpdateUIState(() =>
-                                AddLog($"ROI加载失败 ({Path.GetFileName(file)}): {ex.Message}"));
+                                AddLog($"ROI加载失败 ({Path.GetFileName(file)}): {ex.Message}", CoreLogLevel.Error));
+                        }
+                        finally
+                        {
+                            loadedObj?.Dispose();
+                            detectionRegion?.Dispose();
                         }
                     }
 
                     UpdateUIState(() =>
-                        AddLog($"ROI配置加载完成: 成功 {successCount} 个, 失败 {failCount} 个"));
+                        AddLog($"ROI配置加载完成：成功 {successCount} 个，失败 {failCount} 个"));
                 }
                 catch (Exception ex)
                 {
                     UpdateUIState(() =>
-                        AddLog($"ROI配置目录扫描失败: {ex.Message}", CoreLogLevel.Error));
+                        AddLog($"ROI配置目录扫描失败：{ex.Message}", CoreLogLevel.Error));
                 }
             });
         }
 
+        /// <summary>
+        /// 从ROI文件读取检测用Region。
+        /// 统一使用 ReadObject，兼容 hobj 中保存的 Region / XLD。
+        /// </summary>
+        private HObject? ReadDetectionRegionFromRoiFile(string filePath)
+        {
+            HObject? obj = null;
+            HObject? region = null;
 
+            try
+            {
+                if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                {
+                    AddLog($"[ROI读取失败] 文件不存在：{filePath}", CoreLogLevel.Warn);
+                    return null;
+                }
 
+                HOperatorSet.SetSystem("clip_region", "false");
 
+                HOperatorSet.ReadObject(out obj, filePath);
 
+                if (obj == null || !obj.IsInitialized())
+                {
+                    AddLog($"[ROI读取失败] ReadObject后对象未初始化：{filePath}", CoreLogLevel.Warn);
+                    return null;
+                }
 
+                region = ConvertRoiObjectToDetectionRegion(obj);
 
+                if (region == null || !region.IsInitialized())
+                {
+                    AddLog($"[ROI读取失败] ROI对象无法转换为Region：{filePath}", CoreLogLevel.Warn);
+                    return null;
+                }
 
+                double area = GetRegionArea(region, $"ReadObject:{Path.GetFileName(filePath)}");
 
+                //AddLog($"[ROI读取诊断] ReadObject 文件={Path.GetFileName(filePath)}，面积={area:F2}");
 
+                if (area <= 0)
+                {
+                    region.Dispose();
+                    AddLog($"[ROI读取失败] ROI读回面积为0：{filePath}", CoreLogLevel.Error);
+                    return null;
+                }
 
+                return region;
+            }
+            catch (Exception ex)
+            {
+                region?.Dispose();
+                AddLog($"[ROI读取异常] {filePath}：{ex.Message}", CoreLogLevel.Error);
+                return null;
+            }
+            finally
+            {
+                obj?.Dispose();
+            }
+        }
 
+        /// <summary>
+        /// 输出Region面积日志，用于判断ROI是否为空。
+        /// </summary>
+        private void LogRegionInfo(string key, HObject region, string tag)
+        {
+            if (region == null || !region.IsInitialized())
+            {
+                AddLog($"[ROI诊断] {tag} | {key} ROI未初始化", CoreLogLevel.Warn);
+                return;
+            }
 
+            HTuple? area = null;
+            HTuple? row = null;
+            HTuple? col = null;
 
+            try
+            {
+                HOperatorSet.AreaCenter(region, out area, out row, out col);
 
+                double totalArea = 0;
+                for (int i = 0; i < area.Length; i++)
+                {
+                    totalArea += area[i].D;
+                }
+
+                AddLog($"[ROI诊断] {tag} | {key} ROI面积={totalArea:F2}", CoreLogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[ROI诊断] {tag} | {key} ROI面积计算失败：{ex.Message}", CoreLogLevel.Warn);
+            }
+            finally
+            {
+                area?.Dispose();
+                row?.Dispose();
+                col?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 判断Region是否为空。
+        /// </summary>
+        private bool IsRegionEmpty(HObject region)
+        {
+            return GetRegionArea(region) <= 0;
+        }
+        /// <summary>
+        /// 获取Region总面积。
+        /// </summary>
+        private double GetRegionArea(HObject region, string? tag = null)
+        {
+            if (region == null)
+            {
+                AddLog($"[ROI面积诊断] {tag} region=null", CoreLogLevel.Error);
+                return 0;
+            }
+
+            if (!region.IsInitialized())
+            {
+                AddLog($"[ROI面积诊断] {tag} region未初始化", CoreLogLevel.Error);
+                return 0;
+            }
+
+            HTuple? area = null;
+            HTuple? row = null;
+            HTuple? col = null;
+            HTuple? count = null;
+            HTuple? objClass = null;
+
+            try
+            {
+                HOperatorSet.AreaCenter(region, out area, out row, out col);
+
+                double totalArea = 0;
+                for (int i = 0; i < area.Length; i++)
+                {
+                    //AddLog($"[ROI面积诊断] {tag} Obj[{i + 1}] Area={area[i].D}, Row={row[i].D}, Col={col[i].D}");
+                    totalArea += area[i].D;
+                }
+
+                return totalArea;
+            }
+            catch (HalconException hex)
+            {
+                AddLog($"[ROI面积异常] {tag} HError={hex.GetErrorCode()} Message={hex.Message}", CoreLogLevel.Error);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[ROI面积异常] {tag} {ex.GetType().Name}: {ex.Message}", CoreLogLevel.Error);
+                return 0;
+            }
+            finally
+            {
+                area?.Dispose();
+                row?.Dispose();
+                col?.Dispose();
+                count?.Dispose();
+                objClass?.Dispose();
+            }
+        }
+
+        private void LoadAlarmEnabled()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+                var settingValue = projectSettingRepo.GetByNameAndVM("AlarmEnabled", "VM_PTODamageDetection")?.Value;
+
+                // 解析布尔值，默认为true
+                if (bool.TryParse(settingValue, out bool enabled))
+                {
+                    _isAlarmEnabled = enabled;
+                }
+                else
+                {
+                    _isAlarmEnabled = true; // 默认启用
+                }
+
+                AddLog($"报警功能状态已加载：{(_isAlarmEnabled ? "启用" : "禁用")}", CoreLogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"加载报警开关状态失败：{ex.Message}，使用默认值（启用）", CoreLogLevel.Warn);
+                _isAlarmEnabled = true; // 异常时默认启用
+            }
+        }
+
+        // 保存报警开关状态到数据库
+        private void SaveAlarmEnabledToDataBase()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
+
+                projectSettingRepo.UpdateSettingValue("AlarmEnabled", "VM_PTODamageDetection", _isAlarmEnabled.ToString());
+
+                AddLog($"报警开关状态已保存到数据库：{(_isAlarmEnabled ? "启用" : "禁用")}", CoreLogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"保存报警开关状态失败：{ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"保存报警开关状态失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
 
         /// <summary>
@@ -1834,7 +2144,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 using var scope = _serviceProvider.CreateScope();
                 var projectSettingRepo = scope.ServiceProvider.GetRequiredService<IProjectSettingRepository>();
 
-                var settingValue = projectSettingRepo.GetSettingValue("PushUserId", "VM_PTODamageDetection") as string;
+                var settingValue = projectSettingRepo.GetByNameAndVM("PushUserId", "VM_PTODamageDetection")?.Value;
                 var savedList = settingValue?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                       .Select(id => id.Trim())
                       .ToList() ?? new List<string>();
@@ -1973,6 +2283,54 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
         #region ROI
         /// <summary>
+        /// 计算 InkCanvas (Stretch="Uniform") 与 真实图像 之间的坐标映射关系
+        /// </summary>
+        private void GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, int imagePixelWidth, int imagePixelHeight)
+        {
+            offsetX = 0; offsetY = 0; scaleX = 1; scaleY = 1;
+            if (_inkCanvas == null ) return;
+
+            _inkCanvas.UpdateLayout();
+            double canvasWidth = _inkCanvas.ActualWidth;
+            double canvasHeight = _inkCanvas.ActualHeight;
+
+            if (canvasWidth == 0 || canvasHeight == 0) return;
+
+            double dipWidth = imagePixelWidth;
+            double dipHeight = imagePixelHeight;
+
+            if (_inkCanvas.Background is ImageBrush brush && brush.ImageSource is BitmapSource bmpSource)
+            {
+                dipWidth = bmpSource.Width;
+                dipHeight = bmpSource.Height;
+            }
+
+            double imageAspect = dipWidth / dipHeight;
+            double canvasAspect = canvasWidth / canvasHeight;
+
+            double renderWidth, renderHeight;
+
+            // 计算留白偏移量
+            if (imageAspect > canvasAspect)
+            {
+                renderWidth = canvasWidth;
+                renderHeight = canvasWidth / imageAspect;
+                offsetX = 0;
+                offsetY = (canvasHeight - renderHeight) / 2.0;
+            }
+            else
+            {
+                renderHeight = canvasHeight;
+                renderWidth = canvasHeight * imageAspect;
+                offsetX = (canvasWidth - renderWidth) / 2.0;
+                offsetY = 0;
+            }
+
+            // 屏幕像素 -> 物理像素的缩放比
+            scaleX = imagePixelWidth / renderWidth;
+            scaleY = imagePixelHeight / renderHeight;
+        }
+        /// <summary>
         /// 选择绘制图片
         /// 选择指定工位+相机的负极ROI参考图片，并初始化绘制画布（核心流程：参数校验→文件选择→图片加载→历史ROI恢复→打开绘制弹窗）
         /// 设计要点：严格的参数校验、UI线程安全操作、WPF图片加载规范、历史ROI复用、异常容错
@@ -2000,7 +2358,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             //更新当前相机号
             // 3. 更新全局状态：记录当前操作的相机号，更新绘制标题（通知UI刷新）
             _currentRoiCameraNo = param;// 保存当前ROI操作的工位+相机号
-            DrawTitle = $"绘制误判区域 - {station}工位";// 绘制弹窗标题，适配当前操作
+            DrawTitle = $"绘制区域 - {station}工位";// 绘制弹窗标题，适配当前操作
             OnPropertyChanged(nameof(DrawTitle));// 触发INotifyPropertyChanged，更新UI上的标题显示
 
             //if (int.TryParse(cameraNo, out int num))
@@ -2057,8 +2415,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 //加载该工位+相机的历史ROI
-                LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
                 IsDrawFlyoutOpen = true;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _inkCanvas?.UpdateLayout();
+                    // 在 UI 空闲，渲染彻底落实后恢复历史 ROI，以此获取正确的映射偏移量
+                    LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
+                }, DispatcherPriority.ContextIdle);
             }
         }
 
@@ -2076,9 +2439,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             //string cameraNo = param.Substring(1);
 
             // 历史ROI文件路径
-            var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj"); // 如Negative_A1_ROI.hobj
-            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+            string hobjPath = GetRoiFilePath(station);
+            string sizePath = GetRoiSizePath(station);
 
             // 无历史ROI，直接返回
             if (!File.Exists(hobjPath) || !File.Exists(sizePath))
@@ -2097,25 +2459,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 HTuple xldCol = new HTuple();
                 try
                 {
-                    HOperatorSet.ReadObject(out roiXld, hobjPath);
-                    HOperatorSet.GetContourXld(roiXld, out xldRow, out xldCol);
+                    if (!TryReadRoiContourPoints(hobjPath, out xldRow, out xldCol))
+                    {
+                        MessageBox.Show("从ROI文件提取不到轮廓点，请重新保存ROI！", "错误");
+                        return;
+                    }
 
                     if (xldRow.Length == 0 || xldCol.Length == 0)
                         return;
 
                     // 计算缩放比例
-                    double scaleX = (double)currentImageWidth / historyWidth;
-                    double scaleY = (double)currentImageHeight / historyHeight;
-                    double canvasScaleX = _inkCanvas.ActualWidth / currentImageWidth;
-                    double canvasScaleY = _inkCanvas.ActualHeight / currentImageHeight;
-
+                    GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, historyWidth, historyHeight);
+                   
                     // 转换坐标并添加到画布
                     var stylusPoints = new StylusPointCollection();
                     for (int i = 0; i < xldRow.Length; i++)
                     {
-                        double x = xldCol[i].D * scaleX * canvasScaleX;
-                        double y = xldRow[i].D * scaleY * canvasScaleY;
-                        stylusPoints.Add(new StylusPoint(x, y));
+                        // 映射公式
+                        double x = (xldCol[i].D / scaleX) + offsetX;
+                        double y = (xldRow[i].D / scaleY) + offsetY;
+
+                        if (!double.IsNaN(x) && !double.IsNaN(y))
+                        {
+                            stylusPoints.Add(new StylusPoint(x, y));
+                        }
                     }
 
                     var historyStroke = new Stroke(stylusPoints)
@@ -2201,11 +2568,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-                Directory.CreateDirectory(roiDir);
+                Directory.CreateDirectory(RoiConfigDir);
                 // 带工位的文件路径
-                string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
-                string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+                string hobjPath = GetRoiFilePath(station);
+                string sizePath = GetRoiSizePath(station);
 
                 // 清空ROI的情况
                 if (_inkCanvas.Strokes.Count == 0)
@@ -2218,12 +2584,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
 
                     // 更新缓存
-                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
-                    {
-                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
-                        _detectionRegionCache.Remove(_currentRoiCameraNo);
-                    }
-                    //UpdateRoiStatus(station, cameraNo, false);
+                    RemoveDetectionRegionCache(_currentRoiCameraNo);
 
                     MessageBox.Show($"{station}工位的ROI已清空并保存！", "成功");
                     AddLog($"{station}工位的ROI已清空并保存！");
@@ -2239,8 +2600,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     return;
                 }
 
-                double scaleX = _drawImageWidth / canvasWidth;
-                double scaleY = _drawImageHeight / canvasHeight;
+                GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, _drawImageWidth, _drawImageHeight);
 
                 HTuple row = new HTuple();
                 HTuple col = new HTuple();
@@ -2249,17 +2609,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 {
                     foreach (var sp in stroke.StylusPoints)
                     {
-                        double originalX = sp.X * scaleX;
-                        double originalY = sp.Y * scaleY;
+                        // 2. 将屏幕坐标转换为真实的图像坐标 (剔除黑边偏移)
+                        double originalX = (sp.X - offsetX) * scaleX;
+                        double originalY = (sp.Y - offsetY) * scaleY;
+
+                        // 限制在边界内
+                        originalX = Math.Max(0, Math.Min(originalX, _drawImageWidth - 1));
+                        originalY = Math.Max(0, Math.Min(originalY, _drawImageHeight - 1));
+
                         row = row.TupleConcat(originalY);
                         col = col.TupleConcat(originalX);
                     }
-                }
-
-                if (row.Length > 0 && col.Length > 0)
-                {
-                    row = row.TupleConcat(row[0]);
-                    col = col.TupleConcat(col[0]);
                 }
 
                 HObject? roiXld = null;
@@ -2267,22 +2627,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 HObject? dummyImage = null;
                 try
                 {
+                    // 必须至少 3 个点才能形成有效区域
+                    if (row.Length < 3 || col.Length < 3)
+                    {
+                        MessageBox.Show("ROI点数量不足，至少需要绘制3个点形成闭合区域！", "错误");
+                        return;
+                    }
+
+                    // 关键：闭合轮廓，避免重启后从XLD转换Region时面积为0
+                    row = row.TupleConcat(row[0]);
+                    col = col.TupleConcat(col[0]);
+
                     HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
                     HOperatorSet.GenImageConst(out dummyImage, "byte", _drawImageWidth, _drawImageHeight);
                     HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
 
-                    HOperatorSet.WriteObject(roiXld, hobjPath);
                     string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
-                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
 
-                    // 更新缓存
-                    if (_detectionRegionCache.TryGetValue(_currentRoiCameraNo, out var old))
+                    // 关键：保存到磁盘并立即读回校验
+                    bool saveOk = SaveRoiRegionToDiskAndVerify(
+                        _currentRoiCameraNo,
+                        delRegion,
+                        hobjPath,
+                        sizePath,
+                        _drawImageWidth,
+                        _drawImageHeight,
+                        imagePath);
+
+                    if (!saveOk)
                     {
-                        old?.Dispose();
-                        _detectionRegionCache.Remove(_currentRoiCameraNo);
+                        return;
                     }
-                    _detectionRegionCache[_currentRoiCameraNo] = delRegion;
-                    delRegion = null; // 所有权已转移，防止 finally 中误释放
+
+                    // 只有磁盘校验成功后，才更新内存缓存
+                    ReplaceDetectionRegionCache(_currentRoiCameraNo, delRegion);
+                    LogRegionInfo(_currentRoiCameraNo, delRegion, "手动保存-缓存更新");
                 }
                 finally
                 {
@@ -2335,18 +2714,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             // 解析参数
             if (string.IsNullOrEmpty(param) || param.Length < 2)
             {
-                AddLog("[查看ROI] 无效参数（格式应为“A1”“B3”等）");
+                AddLog("[查看ROI] 无效参数");
                 return;
             }
-            string station = param[0].ToString();
-            string cameraNo = param.Substring(1);
+            string station = param;
+            //string cameraNo = param.Substring(1);
 
             _currentRoiCameraNo = param; // 同步当前标识
-            DrawTitle = $"绘制负极误判区域 - {station}工位相机{cameraNo}";
+            DrawTitle = $"绘制负极误判区域 - {station}工位";
 
-            var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
-            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+            string hobjPath = GetRoiFilePath(station);
+            string sizePath = GetRoiSizePath(station);
 
             if (!File.Exists(hobjPath) || !File.Exists(sizePath))
             {
@@ -2385,10 +2763,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 HTuple xldCol = new HTuple();
                 try
                 {
-                    HOperatorSet.ReadObject(out roiXld, hobjPath);
-                    HOperatorSet.GetContourXld(roiXld, out xldRow, out xldCol);
+                    if (!TryReadRoiContourPoints(hobjPath, out xldRow, out xldCol))
+                    {
+                        MessageBox.Show("从ROI文件提取不到轮廓点，请重新保存ROI！", "错误");
+                        return;
+                    }
 
-                    AddLog($"[查看ROI] {station}工位相机{cameraNo}，坐标点数量：row={xldRow.Length}, col={xldCol.Length}");
+                    //AddLog($"[查看ROI] {station}工位相机{cameraNo}，坐标点数量：row={xldRow.Length}, col={xldCol.Length}");
 
                     if (xldRow.Length == 0 || xldCol.Length == 0)
                     {
@@ -2396,17 +2777,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         return;
                     }
 
-                    double scaleX = _inkCanvas.ActualWidth / drawWidth;
-                    double scaleY = _inkCanvas.ActualHeight / drawHeight;
-                    ClearCanvasOnly();
+                    IsDrawFlyoutOpen = true;
+
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
+                        _inkCanvas.UpdateLayout();
+                        GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, drawWidth, drawHeight);
+                        _inkCanvas.Strokes.Clear();
+
                         var stylusPoints = new StylusPointCollection();
                         for (int i = 0; i < xldRow.Length; i++)
                         {
-                            double x = xldCol[i].D * scaleX;
-                            double y = xldRow[i].D * scaleY;
+                            double x = (xldCol[i].D / scaleX) + offsetX;
+                            double y = (xldRow[i].D / scaleY) + offsetY;
                             stylusPoints.Add(new StylusPoint(x, y));
                         }
 
@@ -2421,8 +2805,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         };
 
                         _inkCanvas.Strokes.Add(stroke);
-                        _inkCanvas.UpdateLayout();
-                    });
+                    }, DispatcherPriority.ContextIdle);
                 }
                 finally
                 {
@@ -2455,6 +2838,66 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             IsDrawFlyoutOpen = false;
         }
 
+        /// <summary>
+        /// 从 ROI hobj 文件中读取可显示的 XLD 轮廓点。
+        /// 兼容 Region 和 XLD。
+        /// </summary>
+        private bool TryReadRoiContourPoints(string hobjPath, out HTuple rows, out HTuple cols)
+        {
+            rows = new HTuple();
+            cols = new HTuple();
+
+            HObject? roiObj = null;
+            HObject? contourXld = null;
+            HTuple? objClassTuple = null;
+
+            try
+            {
+                HOperatorSet.SetSystem("clip_region", "false");
+                HOperatorSet.ReadObject(out roiObj, hobjPath);
+
+                if (roiObj == null || !roiObj.IsInitialized())
+                    return false;
+
+                HOperatorSet.GetObjClass(roiObj, out objClassTuple);
+                string objClass = objClassTuple.Length > 0
+                    ? objClassTuple[0].S.ToLowerInvariant()
+                    : string.Empty;
+
+                if (objClass.Contains("region"))
+                {
+                    HOperatorSet.GenContourRegionXld(roiObj, out contourXld, "border");
+                    HOperatorSet.GetContourXld(contourXld, out rows, out cols);
+                    return rows.Length > 0 && cols.Length > 0;
+                }
+
+                if (objClass.Contains("xld"))
+                {
+                    HOperatorSet.GetContourXld(roiObj, out rows, out cols);
+                    return rows.Length > 0 && cols.Length > 0;
+                }
+
+                AddLog($"[ROI查看] 不支持的ROI对象类型：{objClass}", CoreLogLevel.Warn);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                rows?.Dispose();
+                cols?.Dispose();
+
+                rows = new HTuple();
+                cols = new HTuple();
+
+                AddLog($"[ROI查看] 读取轮廓失败：{ex.Message}", CoreLogLevel.Warn);
+                return false;
+            }
+            finally
+            {
+                roiObj?.Dispose();
+                contourXld?.Dispose();
+                objClassTuple?.Dispose();
+            }
+        }
 
         /// <summary>
         /// 启动时加载所有ROI配置
@@ -2463,19 +2906,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             try
             {
-                var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
+                var roiDir = RoiConfigDir;
                 if (!Directory.Exists(roiDir))
                     return;
 
                 // 扫描带工位的ROI文件
-                var hobjFiles = Directory.GetFiles(roiDir, "*_ROI.hobj");
+                var hobjFiles = Directory.GetFiles(roiDir, $"*{RoiFileSuffix}");
                 foreach (var file in hobjFiles)
                 {
                     try
                     {
                         // 从文件名提取工位和相机号
                         var fileName = Path.GetFileNameWithoutExtension(file);
-                        var parts = fileName.Split(new[] {  "_ROI" }, StringSplitOptions.RemoveEmptyEntries);
+                        var parts = fileName.Split(new[] {  "_Roi" }, StringSplitOptions.RemoveEmptyEntries);
                         if (parts.Length != 1) continue;
                         string stationCamera = parts[0];
                         if (stationCamera.Length < 2) continue;
@@ -2571,8 +3014,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 }
 
                 // 加载历史ROI
-                LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
                 IsDrawFlyoutOpen = true;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _inkCanvas?.UpdateLayout();
+                    // 在 UI 空闲，渲染彻底落实后恢复历史 ROI，以此获取正确的映射偏移量
+                    LoadHistoryRoiToCanvas(param, _drawImageWidth, _drawImageHeight);
+                }, DispatcherPriority.ContextIdle);
             }
         }
 
@@ -2607,9 +3055,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             _currentRoiCameraNo = param;
             DrawTitle = $"绘制正极误判区域 - {station}工位";
 
-            var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-            string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
-            string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+            string hobjPath = GetRoiFilePath(station);
+            string sizePath = GetRoiSizePath(station);
 
             if (!File.Exists(hobjPath) || !File.Exists(sizePath))
             {
@@ -2648,26 +3095,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 HTuple xldCol = new HTuple();
                 try
                 {
-                    HOperatorSet.ReadObject(out roiXld, hobjPath);
-                    HOperatorSet.GetContourXld(roiXld, out xldRow, out xldCol);
+                    if (!TryReadRoiContourPoints(hobjPath, out xldRow, out xldCol))
+                    {
+                        MessageBox.Show("从ROI文件提取不到轮廓点，请重新保存ROI！", "错误");
+                        return;
+                    }
 
                     if (xldRow.Length == 0 || xldCol.Length == 0)
                     {
                         MessageBox.Show("从XLD提取不到坐标,请重新保存ROI!", "错误");
                         return;
                     }
+                    IsDrawFlyoutOpen = true;
 
-                    double scaleX = _inkCanvas.ActualWidth / drawWidth;
-                    double scaleY = _inkCanvas.ActualHeight / drawHeight;
-                    ClearCanvasOnly();
+                    //double scaleX = _inkCanvas.ActualWidth / drawWidth;
+                    //double scaleY = _inkCanvas.ActualHeight / drawHeight;
+                    //ClearCanvasOnly();
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
+                        _inkCanvas.UpdateLayout();
+                        GetCanvasToImageMapping(out double offsetX, out double offsetY, out double scaleX, out double scaleY, drawWidth, drawHeight);
+                        _inkCanvas.Strokes.Clear();
+
                         var stylusPoints = new StylusPointCollection();
                         for (int i = 0; i < xldRow.Length; i++)
                         {
-                            double x = xldCol[i].D * scaleX;
-                            double y = xldRow[i].D * scaleY;
+                            double x = (xldCol[i].D / scaleX) + offsetX;
+                            double y = (xldRow[i].D / scaleY) + offsetY;
                             stylusPoints.Add(new StylusPoint(x, y));
                         }
 
@@ -2682,8 +3137,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         };
 
                         _inkCanvas.Strokes.Add(stroke);
-                        _inkCanvas.UpdateLayout();
-                    });
+                    }, DispatcherPriority.ContextIdle);    
                 }
                 finally
                 {
@@ -2692,7 +3146,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     xldCol?.Dispose();
                 }
 
-                IsDrawFlyoutOpen = true;
+               
             }
             catch (Exception ex)
             {
@@ -2700,15 +3154,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }
 
-        /// <summary>
-        /// 保存正极ROI区域
-        /// </summary>
+       
         private void SavePositiveRoiAsHalconRegion()
         {
             if (_inkCanvas == null)
             {
                 MessageBox.Show("画布未初始化!", "错误");
-                AddLog("画布未初始化!");
                 return;
             }
 
@@ -2718,7 +3169,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 return;
             }
 
-            // 解析当前工位和相机号
             string station = _currentRoiCameraNo;
 
             try
@@ -2726,111 +3176,165 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (_drawImageWidth == 0 || _drawImageHeight == 0)
                 {
                     MessageBox.Show("请选择需要绘制的图片后再修改!", "错误");
-                    AddLog("未选择绘制图片,无法获取原图尺寸!");
                     return;
                 }
 
-                var roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-                Directory.CreateDirectory(roiDir);
+                Directory.CreateDirectory(RoiConfigDir);
 
-                // 正极ROI文件路径(关键差异:文件名前缀为"正极")
-                string hobjPath = Path.Combine(roiDir, $"{station}_ROI.hobj");
-                string sizePath = Path.Combine(roiDir, $"{station}_Size.txt");
+                string hobjPath = GetRoiFilePath(station);
+                string sizePath = GetRoiSizePath(station);
 
-                // 清空ROI的情况
                 if (_inkCanvas.Strokes.Count == 0)
                 {
-                    if (File.Exists(hobjPath))
-                        File.Delete(hobjPath);
+                    if (File.Exists(hobjPath)) File.Delete(hobjPath);
+                    string imgPath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var p) ? p : "";
+                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imgPath}");
 
-                    // 保存尺寸和图片路径
-                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
-                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
-
-                    // 更新缓存
-                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
-                    {
-                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
-                        _detectionRegionCache.Remove(_currentRoiCameraNo);
-                    }
+                    RemoveDetectionRegionCache(_currentRoiCameraNo);
 
                     MessageBox.Show($"{station}工位的ROI已清空并保存!", "成功");
-                    AddLog($"{station}工位的ROI已清空并保存!");
                     return;
                 }
 
+                // 强制刷新布局，获取最精确的画布尺寸
+                _inkCanvas.UpdateLayout();
                 double canvasWidth = _inkCanvas.ActualWidth;
                 double canvasHeight = _inkCanvas.ActualHeight;
 
-                if (canvasWidth == 0 || canvasHeight == 0)
+                if (canvasWidth == 0 || canvasHeight == 0) return;
+
+                // 🌟 核心修复点：获取 ImageBrush 底层的 DIP 尺寸，计算出最真实的屏幕渲染黑边
+                double dipWidth = _drawImageWidth;
+                double dipHeight = _drawImageHeight;
+                if (_inkCanvas.Background is ImageBrush brush && brush.ImageSource is BitmapSource bmpSource)
                 {
-                    MessageBox.Show("画布尺寸无效!", "错误");
-                    return;
+                    dipWidth = bmpSource.Width;   // WPF 渲染依赖的 DIP 宽度
+                    dipHeight = bmpSource.Height; // WPF 渲染依赖的 DIP 高度
                 }
 
-                double scaleX = _drawImageWidth / canvasWidth;
-                double scaleY = _drawImageHeight / canvasHeight;
+                // 完全按照 WPF ImageBrush 的内部逻辑计算比例
+                double imageAspect = dipWidth / dipHeight;
+                double canvasAspect = canvasWidth / canvasHeight;
 
-                HTuple row = new HTuple();
-                HTuple col = new HTuple();
+                double renderWidth, renderHeight, offsetX, offsetY;
+
+                if (imageAspect > canvasAspect)
+                {
+                    renderWidth = canvasWidth;
+                    renderHeight = canvasWidth / imageAspect;
+                    offsetX = 0;
+                    offsetY = (canvasHeight - renderHeight) / 2.0;
+                }
+                else
+                {
+                    renderHeight = canvasHeight;
+                    renderWidth = canvasHeight * imageAspect;
+                    offsetX = (canvasWidth - renderWidth) / 2.0;
+                    offsetY = 0;
+                }
+
+                // 计算从 屏幕像素 -> 物理像素 的最终转换比例
+                double scaleX = _drawImageWidth / renderWidth;
+                double scaleY = _drawImageHeight / renderHeight;
+
+                HObject? allRegions = null;
+                HOperatorSet.GenEmptyRegion(out allRegions);
 
                 foreach (var stroke in _inkCanvas.Strokes)
                 {
-                    foreach (var sp in stroke.StylusPoints)
+                    var points = stroke.StylusPoints;
+                    HTuple row = new HTuple();
+                    HTuple col = new HTuple();
+
+                    foreach (var sp in points)
                     {
-                        double originalX = sp.X * scaleX;
-                        double originalY = sp.Y * scaleY;
+                        // 🌟 严格映射回真实图像矩阵
+                        double originalX = (sp.X - offsetX) * scaleX;
+                        double originalY = (sp.Y - offsetY) * scaleY;
+
+                        originalX = Math.Max(0, Math.Min(originalX, _drawImageWidth - 1));
+                        originalY = Math.Max(0, Math.Min(originalY, _drawImageHeight - 1));
+
                         row = row.TupleConcat(originalY);
                         col = col.TupleConcat(originalX);
                     }
+
+                    if (row.Length >= 3)
+                    {
+                        row = row.TupleConcat(row[0]);
+                        col = col.TupleConcat(col[0]);
+
+                        HObject? roiXld = null;
+                        HObject? partRegion = null;
+                        HObject? tempRegion = null;
+
+                        try
+                        {
+                            HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
+                            HOperatorSet.GenRegionContourXld(roiXld, out partRegion, "filled");
+                            HOperatorSet.Union2(allRegions, partRegion, out tempRegion);
+
+                            allRegions.Dispose();
+                            allRegions = tempRegion;
+                        }
+                        finally
+                        {
+                            roiXld?.Dispose();
+                            partRegion?.Dispose();
+                        }
+                    }
+                    row.Dispose();
+                    col.Dispose();
                 }
 
-                if (row.Length > 0 && col.Length > 0)
-                {
-                    row = row.TupleConcat(row[0]);
-                    col = col.TupleConcat(col[0]);
-                }
-
-                HObject? roiXld = null;
-                HObject? delRegion = null;
-                HObject? dummyImage = null;
                 try
                 {
-                    HOperatorSet.GenContourPolygonXld(out roiXld, row, col);
-                    HOperatorSet.GenImageConst(out dummyImage, "byte", 1920, 1200);
-                    HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
+                    LogRegionInfo(_currentRoiCameraNo, allRegions, "手动保存-写文件前");
 
-                    HOperatorSet.WriteObject(roiXld, hobjPath);
-                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
-                    File.WriteAllText(sizePath, $"{_drawImageWidth},{_drawImageHeight},{imagePath}");
-
-                    // 更新缓存
-                    if (_detectionRegionCache.ContainsKey(_currentRoiCameraNo))
+                    // 如果面积为0，不允许保存
+                    if (IsRegionEmpty(allRegions))
                     {
-                        _detectionRegionCache[_currentRoiCameraNo]?.Dispose();
-                        _detectionRegionCache.Remove(_currentRoiCameraNo);
+                        MessageBox.Show($"{station} ROI保存失败：生成的ROI面积为0，请重新绘制闭合区域！", "错误");
+                        AddLog($"[ROI保存失败] {station} 手动保存生成的ROI面积为0", CoreLogLevel.Error);
+                        return;
                     }
-                    _detectionRegionCache.Add(_currentRoiCameraNo, delRegion);
+
+                    string imagePath = _cameraImagePaths.TryGetValue(_currentRoiCameraNo, out var path) ? path : "";
+
+                    // 关键：保存到磁盘并立即读回校验
+                    bool saveOk = SaveRoiRegionToDiskAndVerify(
+                        _currentRoiCameraNo,
+                        allRegions,
+                        hobjPath,
+                        sizePath,
+                        _drawImageWidth,
+                        _drawImageHeight,
+                        imagePath);
+
+                    if (!saveOk)
+                    {
+                        return;
+                    }
+
+                    // 只有磁盘校验成功后，才更新内存缓存
+                    ReplaceDetectionRegionCache(_currentRoiCameraNo, allRegions);
+                    LogRegionInfo(_currentRoiCameraNo, allRegions, "手动保存-缓存更新");
                 }
                 finally
                 {
-                    roiXld?.Dispose();
-                    row?.Dispose();
-                    col?.Dispose();
+                    allRegions?.Dispose();
                 }
 
                 UpdateRoiStatus(station, true);
-
                 IsDrawFlyoutOpen = false;
                 MessageBox.Show($"{station}工位的ROI已保存!", "成功");
-                AddLog($"{station}工位的ROI已保存!");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"保存ROI失败:{ex.Message}", "错误");
-                AddLog($"保存正极ROI异常:{ex.Message}");
             }
         }
+
         #endregion
         #region 辅助方法
         /// <summary>
@@ -2852,50 +3356,412 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         }
 
         /// <summary>
+        /// 保存ROI Region到磁盘，并立即读回校验。
+        /// 使用 WriteObject / ReadObject 保存 .hobj。
+        /// 只有磁盘读回后的Region面积大于0，才认为保存成功。
+        /// </summary>
+        private bool SaveRoiRegionToDiskAndVerify(
+            string station,
+            HObject region,
+            string hobjPath,
+            string sizePath,
+            int imageWidth,
+            int imageHeight,
+            string imagePath)
+        {
+            if (string.IsNullOrWhiteSpace(station))
+            {
+                AddLog("[ROI保存失败] station为空", CoreLogLevel.Error);
+                return false;
+            }
+
+            if (region == null || !region.IsInitialized())
+            {
+                AddLog($"[ROI保存失败] {station} Region未初始化", CoreLogLevel.Error);
+                return false;
+            }
+
+            double memoryArea = GetRegionArea(region);
+            AddLog($"[ROI保存诊断] {station} 内存Region面积={memoryArea:F2}");
+
+            if (memoryArea <= 0)
+            {
+                MessageBox.Show($"{station} ROI保存失败：内存Region面积为0，请重新绘制闭合区域！", "错误");
+                AddLog($"[ROI保存失败] {station} 内存Region面积为0", CoreLogLevel.Error);
+                return false;
+            }
+
+            string? roiDir = Path.GetDirectoryName(hobjPath);
+            if (string.IsNullOrWhiteSpace(roiDir))
+            {
+                AddLog($"[ROI保存失败] ROI目录无效：{hobjPath}", CoreLogLevel.Error);
+                return false;
+            }
+
+            Directory.CreateDirectory(roiDir);
+
+            // 关键：临时文件也要保持 .hobj 后缀，
+            string tempPath = Path.Combine(
+                roiDir,
+                $"{Path.GetFileNameWithoutExtension(hobjPath)}_tmp_{DateTime.Now:yyyyMMddHHmmssfff}.hobj");
+
+            HObject? readBackRegion = null;
+
+            HTuple? classCheck = null;
+            try
+            {
+                HOperatorSet.GetObjClass(region, out classCheck);
+                string classStr = classCheck?.Length > 0 ? classCheck[0].S : "未知";
+                AddLog($"[ROI保存诊断] {station} 保存前对象类型 = '{classStr}'，面积 = {GetRegionArea(region):F2}");
+            }
+            catch { }
+            finally { classCheck?.Dispose(); }
+
+            try
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+
+                HOperatorSet.WriteObject(region, tempPath);
+
+                if (!File.Exists(tempPath))
+                {
+                    AddLog($"[ROI保存失败] 临时ROI文件未生成：{tempPath}", CoreLogLevel.Error);
+                    MessageBox.Show($"{station} ROI保存失败：临时文件未生成！", "错误");
+                    return false;
+                }
+
+                // 写完后立刻从磁盘读回校验
+                readBackRegion = ReadDetectionRegionFromRoiFile(tempPath);
+
+                if (readBackRegion == null || !readBackRegion.IsInitialized())
+                {
+                    AddLog($"[ROI保存失败] {station} 磁盘读回Region未初始化：{tempPath}", CoreLogLevel.Error);
+                    MessageBox.Show($"{station} ROI保存失败：写入后无法从磁盘读回有效Region！", "错误");
+                    return false;
+                }
+
+                double diskArea = GetRegionArea(readBackRegion);
+                AddLog($"[ROI保存诊断] {station} 磁盘读回Region面积={diskArea:F2}");
+
+                if (diskArea <= 0)
+                {
+                    AddLog($"[ROI保存失败] {station} 磁盘读回Region面积为0：{tempPath}", CoreLogLevel.Error);
+                    MessageBox.Show($"{station} ROI保存失败：磁盘读回面积为0，请重新绘制！", "错误");
+                    return false;
+                }
+
+                // 校验通过后，再替换正式文件
+                if (File.Exists(hobjPath))
+                    File.Delete(hobjPath);
+
+                File.Move(tempPath, hobjPath);
+
+                // 关键：移动为正式文件后，再读取正式文件校验
+                HObject? finalRegion = null;
+                try
+                {
+                    finalRegion = ReadDetectionRegionFromRoiFile(hobjPath);
+
+                    if (finalRegion == null || !finalRegion.IsInitialized())
+                    {
+                        AddLog($"[ROI保存失败] {station} 正式文件替换后读回失败：{hobjPath}", CoreLogLevel.Error);
+                        MessageBox.Show($"{station} ROI保存失败：正式文件替换后读回失败！", "错误");
+                        return false;
+                    }
+
+                    double finalArea = GetRegionArea(finalRegion);
+                    AddLog($"[ROI保存诊断] {station} 正式文件替换后面积={finalArea:F2}，路径={hobjPath}");
+
+                    if (finalArea <= 0)
+                    {
+                        AddLog($"[ROI保存失败] {station} 正式文件替换后面积为0：{hobjPath}", CoreLogLevel.Error);
+                        MessageBox.Show($"{station} ROI保存失败：正式文件替换后面积为0！", "错误");
+                        return false;
+                    }
+                }
+                finally
+                {
+                    finalRegion?.Dispose();
+                }
+
+                File.WriteAllText(sizePath, $"{imageWidth},{imageHeight},{imagePath}");
+
+                AddLog($"[ROI保存成功] {station} 已保存并校验通过：内存面积={memoryArea:F2}，临时文件面积={diskArea:F2}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[ROI保存异常] {station}：{ex.Message}", CoreLogLevel.Error);
+                MessageBox.Show($"{station} ROI保存异常：{ex.Message}", "错误");
+                return false;
+            }
+            finally
+            {
+                readBackRegion?.Dispose();
+
+                try
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// 从 ROI hobj 对象转换成检测用 Region。
+        /// 支持两种历史格式：
+        /// 1. 负极旧逻辑保存的 XLD
+        /// 2. 正极当前逻辑保存的 Region
+        /// </summary>
+        private HObject? ConvertRoiObjectToDetectionRegion(HObject roiObj)
+        {
+            if (roiObj == null || !roiObj.IsInitialized())
+                return null;
+
+            HObject? region = null;
+            HTuple? objClassTuple = null;
+
+            try
+            {
+                HOperatorSet.GetObjClass(roiObj, out objClassTuple);
+
+                string objClass = objClassTuple != null && objClassTuple.Length > 0
+                    ? objClassTuple[0].S.ToLowerInvariant()
+                    : string.Empty;
+
+                // ✅ 新增诊断日志
+                AddLog($"[ROI转换] 对象类型原始值 = '{objClass}'");
+
+                // ✅ Region类型：扩展匹配条件
+                // Halcon可能返回 "region"、"regions" 等
+                if (objClass.Contains("region"))
+                {
+                    HOperatorSet.CopyObj(roiObj, out region, 1, -1);
+                    AddLog($"[ROI转换] 识别为Region类型，直接复制");
+                    return region;
+                }
+
+                // ✅ XLD类型：扩展匹配条件
+                // Halcon可能返回 "xld_cont"、"xld_poly"、"xld_parallel"、"contour" 等
+                if (objClass.Contains("xld") || objClass.Contains("contour") || objClass.Contains("poly"))
+                {
+                    HOperatorSet.GenRegionContourXld(roiObj, out region, "filled");
+                    AddLog($"[ROI转换] 识别为XLD类型，转换为filled Region");
+                    return region;
+                }
+
+                // ✅ 兜底策略：直接尝试当作Region使用（应对未知类型）
+                AddLog($"[ROI转换] 未知类型 '{objClass}'，尝试兜底：直接CopyObj当Region使用", CoreLogLevel.Warn);
+                try
+                {
+                    HOperatorSet.CopyObj(roiObj, out region, 1, -1);
+                    double area = GetRegionArea(region);
+                    if (area > 0)
+                    {
+                        AddLog($"[ROI转换] 兜底成功，面积 = {area:F2}");
+                        return region;
+                    }
+                    region?.Dispose();
+                    region = null;
+                }
+                catch
+                {
+                    region?.Dispose();
+                    region = null;
+                }
+
+                // ✅ 最后尝试：当作XLD强制转Region
+                AddLog($"[ROI转换] 兜底失败，尝试强制按XLD转Region", CoreLogLevel.Warn);
+                try
+                {
+                    HOperatorSet.GenRegionContourXld(roiObj, out region, "filled");
+                    double area = GetRegionArea(region);
+                    if (area > 0)
+                    {
+                        AddLog($"[ROI转换] 强制XLD转换成功，面积 = {area:F2}");
+                        return region;
+                    }
+                    region?.Dispose();
+                    region = null;
+                }
+                catch
+                {
+                    region?.Dispose();
+                    region = null;
+                }
+
+                AddLog($"[ROI转换失败] 所有转换策略均失败，类型 = '{objClass}'", CoreLogLevel.Error);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                region?.Dispose();
+                AddLog($"[ROI转换异常] {ex.Message}", CoreLogLevel.Error);
+                return null;
+            }
+            finally
+            {
+                objClassTuple?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 替换检测ROI缓存。region 的所有权会转移给缓存。
+        /// </summary>
+        private void ReplaceDetectionRegionCache(string key, HObject region)
+        {
+            if (string.IsNullOrWhiteSpace(key) || region == null || !region.IsInitialized())
+                return;
+
+            HObject? cacheCopy = null;
+
+            try
+            {
+                HOperatorSet.CopyObj(region, out cacheCopy, 1, -1);
+
+                lock (_roiCacheLock)
+                {
+                    if (_detectionRegionCache.TryGetValue(key, out var oldRegion))
+                    {
+                        oldRegion?.Dispose();
+                        _detectionRegionCache.Remove(key);
+                    }
+
+                    _detectionRegionCache[key] = cacheCopy;
+                    cacheCopy = null;
+                }
+
+                AddLog($"[ROI缓存] 已更新 {key} ROI缓存");
+            }
+            catch (Exception ex)
+            {
+                cacheCopy?.Dispose();
+                AddLog($"[ROI缓存] 更新 {key} ROI缓存失败：{ex.Message}", CoreLogLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// 从检测ROI缓存中读取。
+        /// </summary>
+        private bool TryGetDetectionRegionCache(string key, out HObject? region)
+        {
+            region = null;
+
+            if (string.IsNullOrWhiteSpace(key))
+                return false;
+
+            lock (_roiCacheLock)
+            {
+                if (_detectionRegionCache.TryGetValue(key, out var cachedRegion)
+                    && cachedRegion != null
+                    && cachedRegion.IsInitialized())
+                {
+                    HOperatorSet.CopyObj(cachedRegion, out region, 1, -1);
+                    return region != null && region.IsInitialized();
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 删除检测ROI缓存。
+        /// </summary>
+        private void RemoveDetectionRegionCache(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            lock (_roiCacheLock)
+            {
+                if (_detectionRegionCache.TryGetValue(key, out var oldRegion))
+                {
+                    oldRegion?.Dispose();
+                    _detectionRegionCache.Remove(key);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 判断某个 HObject 是否仍在缓存中。
+        /// </summary>
+        private bool IsCachedDetectionRegion(HObject region)
+        {
+            if (region == null)
+                return false;
+
+            lock (_roiCacheLock)
+            {
+                return _detectionRegionCache.ContainsValue(region);
+            }
+        }
+
+        /// <summary>
         /// 从XLD文件生成Region
         /// </summary>
         private HObject? GenerateDelRegionFromXldFile(string stationCamera)
         {
+            if (string.IsNullOrWhiteSpace(stationCamera))
+                return null;
 
-            string station = stationCamera[0].ToString();
-            string cameraNo = stationCamera.Substring(1);
-            HObject? roiXld = null;
             HObject? delRegion = null;
-            HObject? dummyImage;
+
             try
             {
-                string roiDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ROIConfig");
-                // 使用带工位的文件名
-                string hobjPath = Path.Combine(roiDir, $"Negative_{stationCamera}_ROI.hobj");
+                string roiDir = RoiConfigDir;
+                string hobjPath = Path.Combine(roiDir, $"{stationCamera}_Roi.hobj");
 
                 if (!File.Exists(hobjPath))
                 {
                     if (!_warnedGenerateFailCameras.Contains(stationCamera))
                     {
-                        //AddLog($"[兜底失败] {station}工位相机{cameraNo}的XLD文件不存在：{hobjPath}");
+                        AddLog($"[ROI兜底失败] {stationCamera} 的ROI文件不存在：{hobjPath}", CoreLogLevel.Warn);
                         _warnedGenerateFailCameras.Add(stationCamera);
                     }
+
                     return null;
                 }
 
-                // 读取XLD并生成Region
-                HOperatorSet.ReadObject(out roiXld, hobjPath);
-                HOperatorSet.GenImageConst(out dummyImage, "byte", 1920, 1200);
-                HOperatorSet.GenRegionContourXld(roiXld, out delRegion, "filled");
+                delRegion = ReadDetectionRegionFromRoiFile(hobjPath);
+
+                if (delRegion == null || !delRegion.IsInitialized())
+                {
+                    if (!_warnedGenerateFailCameras.Contains(stationCamera))
+                    {
+                        AddLog($"[ROI兜底失败] {stationCamera} ROI文件读取失败或为空：{hobjPath}", CoreLogLevel.Error);
+                        _warnedGenerateFailCameras.Add(stationCamera);
+                    }
+
+                    delRegion?.Dispose();
+                    return null;
+                }
+
+                LogRegionInfo(stationCamera, delRegion, "兜底加载");
+
+                if (IsRegionEmpty(delRegion))
+                {
+                    if (!_warnedGenerateFailCameras.Contains(stationCamera))
+                    {
+                        AddLog($"[ROI兜底失败] {stationCamera} ROI面积为0，文件无效：{hobjPath}", CoreLogLevel.Error);
+                        _warnedGenerateFailCameras.Add(stationCamera);
+                    }
+
+                    delRegion.Dispose();
+                    return null;
+                }
+
                 return delRegion;
             }
             catch (Exception ex)
             {
-                AddLog($"[兜底异常] {station}工位相机{cameraNo}：{ex.Message}");
+                AddLog($"[ROI兜底异常] {stationCamera}：{ex.Message}", CoreLogLevel.Error);
                 delRegion?.Dispose();
-                roiXld?.Dispose();
                 return null;
             }
-            finally
-            {
-                roiXld?.Dispose();
-            }
         }
+
         #endregion
 
         #region 在线检测 - 选择监控文件夹
@@ -2991,9 +3857,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         {
             if (string.IsNullOrWhiteSpace(SelectedMonitorFolderPathA) || !Directory.Exists(SelectedMonitorFolderPathA))
             {
-                AddLog("[A工位] 监控文件夹不存在，请先选择有效文件夹");
+                AddLog("[供应商监控文件夹不存在，请先选择有效文件夹");
                 _isAMonitorRunning = false;
-                MessageBox.Show("A工位监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                //MessageBox.Show("供应商监控文件夹不存在，请先选择有效文件夹", "在线检测错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                Growl.Error("供应商监控文件夹不可访问");
+                //推送消息到飞书群中
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var response = await _webApiClient.PushMessageAsync("供应商监控文件夹不可访问");
+                        if (response.Code != 200)
+                            _logger.Warn($"消息推送失败：{response.Message}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn($"消息推送异常：{ex.Message}");
+                    }
+                });
                 return;
             }
 
@@ -3827,9 +4708,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             // 解析文件路径到动态对象（提取如文件名、路径、时间等信息）
                             ParsePathToDynamicObject(detectionData, filePath);
                             detectionData.Station = "A";// 标记工位为A
-                            // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
-                            //string detectResult = DamageDetection(filePath, "正极");
-                            string detectResult = DamageDetection(filePath, "正极", out List<string> triggeredList);
+                                                        // 6.2 执行损伤检测：核心业务逻辑，返回OK/NG/异常
+                            string? station = GetElectrodeType(filePath);
+
+                            if (string.IsNullOrWhiteSpace(station))
+                            {
+                                AddLog($"[A工位-检测跳过] 无法识别正负极，文件：{filePath}", CoreLogLevel.Warn);
+                                continue;
+                            }
+
+                            string detectResult = DamageDetection(filePath, station, out List<string> triggeredList);
                             detectionData.TriggeredDefects = triggeredList;
                             DateTime realDetectionTime = DateTime.Now;
                             bool isNG = detectResult == "NG";// 判断是否为不良品
@@ -4239,16 +5127,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             );
 
             // 仅当内容有效时添加到日志集合
+            var app = Application.Current;
+            if (app?.Dispatcher == null)
+                return;  // 应用正在关闭，直接丢弃UI日志
 
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            var dispatcher = app.Dispatcher;
+            if (dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return;
+
+            try
             {
-                LogTable.Insert(0, newLog);
-                if (LogTable.Count > 100)
+                dispatcher.BeginInvoke(new Action(() =>
                 {
-                    LogTable.RemoveAt(LogTable.Count - 1);
-                }
-            })
-            );
+                    if (LogTable == null) return;
+
+                    LogTable.Insert(0, newLog);
+
+                    // 保持最多100条
+                    while (LogTable.Count > 100)
+                    {
+                        LogTable.RemoveAt(LogTable.Count - 1);
+                    }
+                }), DispatcherPriority.Background);   // 使用 Background 优先级更安全
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException ||
+                                       ex is InvalidOperationException ||
+                                       ex.Message.Contains("shutdown", StringComparison.OrdinalIgnoreCase))
+            {
+                // 忽略关闭过程中的正常异常
+            }
 
         }
         private void InitDll1()
@@ -4303,24 +5210,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     }
 
                     // Web下载DLL
-                    var dllReFile = WebHelper1.downloadFile1(appKey, dllSignature, dllPythonCode, dllExecuteType);
-                    if (dllReFile == null || !dllReFile.success || dllReFile.dataStr == null || dllReFile.dataStr.Length == 0)
+                    var dllReFile = WebHelper1.DownloadFile1(appKey, dllSignature, dllPythonCode, dllExecuteType);
+                    if (dllReFile == null || !dllReFile.Success || dllReFile.DataStr == null || dllReFile.DataStr.Length == 0)
                     {
-                        string errorMsg = dllReFile?.message ?? "下载响应为空";
+                        string errorMsg = dllReFile?.Message ?? "下载响应为空";
                         AddLog($"[DLL加载] Web下载失败：{errorMsg}");
                         throw new Exception($"从Web获取DLL失败：{errorMsg}");
                     }
-                    AddLog($"[DLL加载] Web下载成功，大小：{dllReFile.dataStr.Length} 字节");
+                    AddLog($"[DLL加载] Web下载成功，大小：{dllReFile.DataStr.Length} 字节");
 
                     // 验证DLL有效性（MZ头）
-                    if (dllReFile.dataStr.Length < 2 || dllReFile.dataStr[0] != 0x4D || dllReFile.dataStr[1] != 0x5A)
+                    if (dllReFile.DataStr.Length < 2 || dllReFile.DataStr[0] != 0x4D || dllReFile.DataStr[1] != 0x5A)
                     {
                         AddLog("[DLL加载] 下载的不是有效DLL（缺少MZ标识）");
                         throw new Exception("下载的文件不是有效DLL");
                     }
 
                     // 加载内存DLL
-                    targetAssembly = Assembly.Load(dllReFile.dataStr);
+                    targetAssembly = Assembly.Load(dllReFile.DataStr);
                     AddLog($"[DLL加载] 内存DLL加载成功，程序集：{targetAssembly.FullName}");
                 }
 
@@ -4357,7 +5264,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 //    // 本地无模型/模型无效，从Web下载
                 //    AddLog($"[模型下载] 本地无有效模型，从Web下载（标识：{modelPythonCode}）...");
                 //    // 生成模型下载的RSA签名（与DLL共用密钥）
-                //    string modelSignature = RasHelper.RSAEncrypt(RasHelper.ToXmlPublicKey(publicKey), appKey);
+                //    string modelSignature = RasHelper.RSAEncrypt(RasHelper.ToXmlPublicKey(publicKey), AppKey);
                 //    if (string.IsNullOrEmpty(modelSignature))
                 //    {
                 //        AddLog("[模型下载] RSA签名生成失败！");
@@ -4365,10 +5272,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 //    }
 
                 //    // 调用WebHelper1下载模型
-                //    var modelReFile = WebHelper1.downloadFile1(appKey, modelSignature, modelPythonCode, modelExecuteType);
-                //    if (modelReFile == null || !modelReFile.success || modelReFile.dataStr == null || modelReFile.dataStr.Length == 0)
+                //    var modelReFile = WebHelper1.DownloadFile1(AppKey, modelSignature, modelPythonCode, modelExecuteType);
+                //    if (modelReFile == null || !modelReFile.Success || modelReFile.DataStr == null || modelReFile.DataStr.Length == 0)
                 //    {
-                //        string errorMsg = modelReFile?.message ?? "下载响应为空";
+                //        string errorMsg = modelReFile?.Message ?? "下载响应为空";
                 //        AddLog($"[模型下载] Web下载失败：{errorMsg}");
                 //        // 弹出程序目录，方便用户手动放置模型
                 //        Process.Start("explorer.exe", AppDomain.CurrentDomain.BaseDirectory);
@@ -4376,15 +5283,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 //    }
 
                 //    // 验证模型文件有效性（至少10KB，避免空文件）
-                //    if (modelReFile.dataStr.Length < 1024 * 10) // 10KB阈值
+                //    if (modelReFile.DataStr.Length < 1024 * 10) // 10KB阈值
                 //    {
-                //        AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.dataStr.Length} 字节），视为无效");
+                //        AddLog($"[模型下载] 下载的模型文件过小（{modelReFile.DataStr.Length} 字节），视为无效");
                 //        throw new Exception("下载的模型文件无效（体积过小）");
                 //    }
 
                 //    // 保存模型到本地目录
-                //    File.WriteAllBytes(modelSavePath, modelReFile.dataStr);
-                //    AddLog($"[模型下载成功] 已保存到：{modelSavePath}（大小：{modelReFile.dataStr.Length} 字节）");
+                //    File.WriteAllBytes(modelSavePath, modelReFile.DataStr);
+                //    AddLog($"[模型下载成功] 已保存到：{modelSavePath}（大小：{modelReFile.DataStr.Length} 字节）");
                 //}
                 // 准备ModelInit参数
                 string ZhengGongwei = "PTO与行大面正极";
@@ -4561,25 +5468,41 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             try
             {
                 #region ROI区域加载
-                string stationCamerano = $"{station}";
-                if (!_detectionRegionCache.TryGetValue(stationCamerano, out delRegion))
+                string stationCamerano = GetElectrodeType(imagePath) ?? station ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(stationCamerano))
                 {
+                    AddLog($"[ROI加载] station为空，当前图片不使用ROI过滤：{imagePath}", CoreLogLevel.Warn);
+                }
+                else if (!TryGetDetectionRegionCache(stationCamerano, out delRegion))
+                {
+                    // 缓存没命中时，从磁盘兜底加载
                     delRegion = GenerateDelRegionFromXldFile(stationCamerano);
-                    if (delRegion != null)
+
+                    if (delRegion != null && delRegion.IsInitialized())
                     {
-                        _detectionRegionCache[stationCamerano] = delRegion;
-                        AddLog($"[检测文件兜底] {station}，从XLD生成DelRegion并缓存");
+                        ReplaceDetectionRegionCache(stationCamerano, delRegion);
+                        AddLog($"[检测文件兜底] {stationCamerano}，从ROI文件生成DelRegion并缓存");
                     }
-                    else if (!_warnedNoDelRegionCameras.Contains(stationCamerano))
+                    else
                     {
-                        AddLog($"[检测文件兜底] {station}，未使用负极误判区域过滤（无ROI）");
-                        _warnedNoDelRegionCameras.Add(stationCamerano);
+                        if (!_warnedNoDelRegionCameras.Contains(stationCamerano))
+                        {
+                            AddLog($"[检测文件兜底] {stationCamerano}，未使用误判区域过滤（无ROI）", CoreLogLevel.Warn);
+                            _warnedNoDelRegionCameras.Add(stationCamerano);
+                        }
                     }
                 }
 
+                // 如果仍然没有ROI，则给模型传空Region，避免空引用
                 if (delRegion == null || !delRegion.IsInitialized())
                 {
-                    HOperatorSet.GenEmptyRegion(out delRegion);
+                    //HOperatorSet.GenEmptyRegion(out delRegion);
+                    delRegion = null;
+                }
+                else
+                {
+                    LogRegionInfo(stationCamerano, delRegion, "检测前");
                 }
                 #endregion
 
@@ -4634,11 +5557,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 #region AI检测
                 if (_isPositivePolarity)
                 {
-                    ai.ModelActionDiePian(H246Zhengmodle, imageMat, ZhengGongwei, delRegion, out defectList, out exInfo);
+                    ai.ModelActionDiePian(H246Zhengmodle, imageMat, ZhengGongwei, delRegion!, out defectList, out exInfo);
                 }
                 else
                 {
-                    ai.ModelActionDiePian(H246Fumodle, imageMat, FuGongwei, delRegion, out defectList, out exInfo);
+                    ai.ModelActionDiePian(H246Fumodle, imageMat, FuGongwei, delRegion!, out defectList, out exInfo);
                 }
                 if (!string.IsNullOrEmpty(exInfo))
                 {
@@ -4741,7 +5664,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     if (IsSaveResultOK)
                     {
                         SaveToReviewFolder(imagePath, imageMat, finalResult, true);
-                        SaveToParamControlFolder(imagePath, imageMat, finalResult, true);
+                        //SaveToParamControlFolder(imagePath, imageMat, finalResult, true);
                     }
                 }
                 else // finalResult == "NG"
@@ -4805,8 +5728,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                         AddLog($"准备保存 NG 图：drawMat 尺寸 {drawMat.Width}x{drawMat.Height}，是否为空：{drawMat.Empty()}");
 
                         SaveToReviewFolder(imagePath, drawMat, finalResult, true);
-                        SaveToParamControlFolder(imagePath, drawMat, finalResult, true);
+                        //SaveToParamControlFolder(imagePath, drawMat, finalResult, true);
+
+                        // 发送信号进行设备报警 (使用弃元 _ 接收Task，使其在后台执行，不阻塞当前视觉检测流程)
+                        _ = TriggerPLCAlarmAsync(station ?? "未知");
                     }
+
+                   
                 }
                 #endregion
 
@@ -4839,15 +5767,71 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 imageMat?.Dispose();
 
                 // 3. 释放 delRegion（仅当不在缓存中时）
-                if (delRegion != null && !_detectionRegionCache.ContainsValue(delRegion))
-                {
-                    delRegion.Dispose();
-                }
+                delRegion?.Dispose();
 
                 #endregion
             }
 
 
+        }
+
+        /// <summary>
+        /// 触发设备报警（基于配置参数名）
+        /// </summary>
+        /// <param name="station">工位信息</param>
+        private async Task TriggerPLCAlarmAsync(string station)
+        {
+            try
+            {
+                // 检查报警功能是否启用
+                if (!IsAlarmEnabled)
+                {
+                    AddLog($"[{station}工位] 报警功能已禁用，跳过报警触发", CoreLogLevel.Info);
+                    return;
+                }
+
+                // 1. 根据约定的参数名称，从配置池中找到报警地址对象                
+                var alarmAddress = _PLCService.RWAddresses.Values.FirstOrDefault(a => a.ParameterName == "报警");               
+
+                if (alarmAddress == null)
+                {
+                    AddLog($"[{station}工位报警失败] 未在PLC配置中找到参数名为'设备NG报警'的地址", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 2. 通过地址ID获取关联的PLC ID
+                int? plcId = _PLCService.GetPLCIdForAddress(alarmAddress.ID);
+                if (!plcId.HasValue)
+                {
+                    AddLog($"[{station}工位报警失败] 无法根据地址ID({alarmAddress.ID})获取PLC ID", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 3. 根据 PLC ID 找到对应的 PLC 对象
+                if (!_PLCService.PLCs.TryGetValue(plcId.Value, out var plc))
+                {
+                    AddLog($"[{station}工位报警失败] 绑定的PLC(ID:{plcId})未找到", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 4. 确保 PLC 连接
+                bool connected = await _PLCService.EnsurePLCConnectedAsync(plc);
+                if (!connected)
+                {
+                    AddLog($"[{station}工位报警失败] PLC({plc.Name})未连接，无法发送报警信号", CoreLogLevel.Warn);
+                    return;
+                }
+
+                // 5. 赋予报警触发值并写入
+                alarmAddress.MonitorValue = 1;
+                await _PLCService.WriteAddressAsync(plc, alarmAddress);
+                AddLog($"[{station}工位设备报警] NG信号已发送至 {plc.Name} 的 {alarmAddress.Address} 报警点位");
+
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[{station}工位设备报警异常] {ex.Message}", CoreLogLevel.Error);
+            }
         }
 
         private void ReleaseDefectList(List<AIResultModel>? defectList)
@@ -6260,7 +7244,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             }
         }*/
 
-        private void SaveToParamControlFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage) => SaveDetectionResultToPath(originalImagePath, imageMat, result, isResultImage, SaveTarget.ParamControl);
+        //private void SaveToParamControlFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage) => SaveDetectionResultToPath(originalImagePath, imageMat, result, isResultImage, SaveTarget.ParamControl);
 
         private void SaveToReviewFolder(string originalImagePath, Mat imageMat, string result, bool isResultImage) => SaveDetectionResultToPath(originalImagePath, imageMat, result, isResultImage, SaveTarget.Review);
         #endregion
@@ -6439,19 +7423,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             AddLog($"[存储警告] {driveName} 剩余空间不足，尝试切换至备用盘...",
                                    CoreLogLevel.Warn);
 
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    var response = await _webApiClient.PushMessageAsync(pushContent);
-                                    if (response.Code != 200)
-                                        _logger.Warn($"消息推送失败：{response.Message}");
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.Warn($"消息推送异常：{ex.Message}");
-                                }
-                            });
+                            PushFeishuMessage(pushContent);
                         }
                     }
                 }
@@ -6482,6 +7454,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             {
                                 selectedDir = docPath;
                                 AddLog($"[存储降级] 首选盘符（D/E/F/G）均不可用，已切换至文档目录：{docPath}", CoreLogLevel.Warn);
+                                PushFeishuMessage($"存储空间不足：已切换至文档目录 {docRoot}");
                             }
                         }
                     }
@@ -6505,6 +7478,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                             {
                                 selectedDir = appPath;
                                 AddLog($"[存储降级] 文档目录也不可用，已切换至程序运行目录：{appPath}", CoreLogLevel.Warn);
+                                PushFeishuMessage($"存储空间不足：已切换至程序目录 {rootPath}");
                             }
                         }
                     }
@@ -6518,6 +7492,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (selectedDir == null)
                 {
                     AddLog("[严重错误] 无法获取任何有效的存储路径，所有盘符均不可用！", CoreLogLevel.Error);
+                    PushFeishuMessage("存储空间严重不足：无法获取任何有效的存储路径，所有盘符均不可用！");
                     // 清空缓存，下次调用时强制重新检测
                     _cachedRootDirectory = null;
                     return null;
@@ -6537,7 +7512,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 else
                 {
                     // 发生了切换（如从 D 盘切换到 E 盘）
-                    AddLog($"[存储切换] 根目录由 {_lastUsedRootDirectory} 切换为 {selectedDir}", CoreLogLevel.Warn);
+                    string mesinfo = $"磁盘存储切换 根目录由 {_lastUsedRootDirectory} 切换为 {selectedDir}";
+                    AddLog(mesinfo, CoreLogLevel.Warn);
+                    PushFeishuMessage(mesinfo);
                 }
                 _lastUsedRootDirectory = selectedDir;
             }
@@ -6548,6 +7525,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
 
             return _cachedRootDirectory;
         }
+
+        /// <summary>
+        /// 推送存储切换通知
+        /// </summary>
+        private void PushFeishuMessage(string message)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    Growl.Warning(message);
+                    var response = await _webApiClient.PushMessageAsync(message);
+                    if (response.Code != 200)
+                        _logger.Warn($"通知推送失败：{response.Message}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"通知推送异常：{ex.Message}");
+                }
+            });
+        }
+
         /// <summary>
         /// 存储路径降级时通知用户（仅弹窗一次，避免频繁打扰）
         /// </summary>
@@ -6587,7 +7586,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             /// <summary>复判目录：IME复判</summary>
             Review,
             /// <summary>参数管控目录：IME参数管控</summary>
-            ParamControl
+            //ParamControl
         }
 
         /// <summary>
@@ -6607,9 +7606,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
             try
             {
                 // 根据目标选择对应的路径生成方法
-                string? savePath = target == SaveTarget.Review
-                    ? GetResultImagePath(originalImagePath, result, isResultImage)
-                    : GetResultImagePath1(originalImagePath, result, isResultImage);
+                string? savePath = GetResultImagePath(originalImagePath, result, isResultImage);
 
                 if (string.IsNullOrEmpty(savePath))
                 {
@@ -7562,9 +8559,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                 if (dict != null && dict.TryGetValue("IsOnlineDetectionEnabledA", out var enableA)
                     && bool.TryParse(enableA?.ToString(), out bool isEnabledA))
                 {
-                    // 赋值给属性会触发 Setter，自动执行 StartOnlineMonitoringA
-                    IsOnlineDetectionEnabledA = isEnabledA;
+                    // 只记录用户上次是否开启，等模型和ROI加载完成后再启动
+                    _pendingStartOnlineA = isEnabledA;
+
+                    _isOnlineDetectionEnabledA = false;
                     OnPropertyChanged(nameof(IsOnlineDetectionEnabledA));
+
+                    if (isEnabledA)
+                    {
+                        AddLog("[配置加载] 检测到上次在线检测为开启状态，将在模型和ROI加载完成后自动启动");
+                    }
                 }
 
                 if (dict != null && dict.TryGetValue("HistoryDefectNGCount", out var historyDefectObj) && historyDefectObj != null)
@@ -8001,7 +9005,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
                     if (_cellCodeQueue.Count >= MaxImagesPerReport)
                     {
                         AddLog($"[条件触发] 电芯编码数量达到阈值 {MaxImagesPerReport}，处理当前电芯组");
-                        //GenerateReport().Wait();
                         _ = Task.Run(async () =>
                         {
                             try
@@ -8751,13 +9754,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private void UpdateUIState(Action uiAction)
         {
-            if (Application.Current.Dispatcher.CheckAccess())
+            if (uiAction == null) return;
+
+            var app = Application.Current;
+            if (app == null)
             {
-                uiAction();
+                // 应用正在关闭，直接在当前线程执行（或忽略）
+                try { uiAction(); } catch { }
+                return;
             }
-            else
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
             {
-                Application.Current.Dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+                try { uiAction(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (dispatcher.CheckAccess())
+                {
+                    uiAction();
+                }
+                else
+                {
+                    dispatcher.Invoke(uiAction, DispatcherPriority.Background);
+                }
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException ||
+                                       ex is InvalidOperationException ||
+                                       ex.Message.Contains("shutdown"))
+            {
+                // 忽略关闭过程中的正常异常
             }
         }
 
@@ -8766,7 +9795,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.PTO
         /// </summary>
         private Task UpdateUIStateAsync(Action uiAction)
         {
-            return Application.Current.Dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+            if (uiAction == null) return Task.CompletedTask;
+
+            var app = Application.Current;
+            if (app == null) return Task.CompletedTask;
+
+            var dispatcher = app.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return Task.CompletedTask;
+
+            try
+            {
+                return dispatcher.InvokeAsync(uiAction, DispatcherPriority.Background).Task;
+            }
+            catch (Exception) // 忽略关闭过程中的异常
+            {
+                return Task.CompletedTask;
+            }
         }
 
         #endregion

@@ -5,6 +5,7 @@
     xmlns:cctbmodels="[cctbmodels ]clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBSettings"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -20,23 +21,37 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <Style
-                x:Key="PPairContentControlStyle"
-                BasedOn="{StaticResource ParamPairContentControlStyle}"
-                TargetType="{x:Type uccc:PairContentControl}">
+            <!--  文本样式  -->
+            <Style BasedOn="{StaticResource HCTitleValueTextBox}" TargetType="{x:Type hc:TextBox}">
+                <Setter Property="Height" Value="30" />
                 <Setter Property="Width" Value="260" />
-                <Setter Property="PairKeyWidth" Value="Auto" />
-                <Setter Property="PairSeparateWidth" Value="*" />
-                <Setter Property="PairValueWidth" Value="Auto" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="hc:InfoElement.TitleWidth" Value="180" />
+            </Style>
+
+            <!--  下拉框样式  -->
+            <Style BasedOn="{StaticResource HCParamComboBoxStyle}" TargetType="{x:Type hc:ComboBox}">
+                <Setter Property="Width" Value="260" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="hc:InfoElement.TitleWidth" Value="120" />
+            </Style>
+
+            <!--  键值对容器样式  -->
+            <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
+                <Setter Property="Width" Value="260" />
+                <Setter Property="PairKeyWidth" Value="120" />
                 <Setter Property="Margin" Value="0,20,0,0" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Right" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
             </Style>
 
+            <!--  开关样式  -->
             <Style
                 x:Key="PVSimpleToggleButtonStyle"
                 BasedOn="{StaticResource ParamValueSimpleToggleButtonStyle}"
@@ -46,6 +61,8 @@
                 <Setter Property="CheckedText" Value="是" />
                 <Setter Property="UnCheckedText" Value="否" />
             </Style>
+
+            <Style BasedOn="{StaticResource ModernHorizontalScrollBar}" TargetType="ScrollBar" />
         </ResourceDictionary>
     </Page.Resources>
 
@@ -65,34 +82,31 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 Rows="1">
-                <sc:ArithmeticSettingControl
+                <sc:AlgorithmSettingControl
                     Margin="0,0,20,0"
-                    ArithmeticEnableChangedCommand="{Binding ArithmeticEnableChangedCommand}"
-                    ArithmeticName="{Binding ArithmeticModel_MDA.ArithmeticName, Mode=TwoWay}"
-                    ArithmeticVerifyCommand="{Binding ArithmeticVerifyCommand}"
+                    AlgorithmEnableChangedCommand="{Binding AlgorithmEnableChangedCommand}"
+                    AlgorithmName="{Binding AlgorithmModel_MDA.AlgorithmName, Mode=TwoWay}"
+                    AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MD}"
-                    Header="MD算法"
-                    IsArithmeticEnabled="{Binding ArithmeticModel_MDA.IsEnable, Mode=TwoWay}"
+                    IsAlgorithmEnabled="{Binding AlgorithmModel_MDA.IsEnable, Mode=TwoWay}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.A}" />
-                <sc:ArithmeticSettingControl
+                <sc:AlgorithmSettingControl
                     Margin="0,0,20,0"
-                    ArithmeticEnableChangedCommand="{Binding ArithmeticEnableChangedCommand}"
-                    ArithmeticName="{Binding ArithmeticModel_TDA.ArithmeticName, Mode=TwoWay}"
-                    ArithmeticVerifyCommand="{Binding ArithmeticVerifyCommand}"
+                    AlgorithmEnableChangedCommand="{Binding AlgorithmEnableChangedCommand}"
+                    AlgorithmName="{Binding AlgorithmModel_TDA.AlgorithmName, Mode=TwoWay}"
+                    AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.TD}"
-                    Header="TD算法"
-                    IsArithmeticEnabled="{Binding ArithmeticModel_TDA.IsEnable, Mode=TwoWay}"
+                    IsAlgorithmEnabled="{Binding AlgorithmModel_TDA.IsEnable, Mode=TwoWay}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.A}" />
-                <sc:ArithmeticSettingControl
+                <sc:AlgorithmSettingControl
                     Margin="0,0,20,0"
-                    ArithmeticEnableChangedCommand="{Binding ArithmeticEnableChangedCommand}"
-                    ArithmeticName="{Binding ArithmeticModel_MDTDA.ArithmeticName, Mode=TwoWay}"
-                    ArithmeticVerifyCommand="{Binding ArithmeticVerifyCommand}"
+                    AlgorithmEnableChangedCommand="{Binding AlgorithmEnableChangedCommand}"
+                    AlgorithmName="{Binding AlgorithmModel_MDTDA.AlgorithmName, Mode=TwoWay}"
+                    AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MDTD}"
-                    Header="MDTD算法"
-                    IsArithmeticEnabled="{Binding ArithmeticModel_MDTDA.IsEnable, Mode=TwoWay}"
+                    IsAlgorithmEnabled="{Binding AlgorithmModel_MDTDA.IsEnable, Mode=TwoWay}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.A}" />
             </UniformGrid>
@@ -107,34 +121,31 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 Rows="1">
-                <sc:ArithmeticSettingControl
+                <sc:AlgorithmSettingControl
                     Margin="0,0,20,0"
-                    ArithmeticEnableChangedCommand="{Binding ArithmeticEnableChangedCommand}"
-                    ArithmeticName="{Binding ArithmeticModel_MDB.ArithmeticName, Mode=TwoWay}"
-                    ArithmeticVerifyCommand="{Binding ArithmeticVerifyCommand}"
+                    AlgorithmEnableChangedCommand="{Binding AlgorithmEnableChangedCommand}"
+                    AlgorithmName="{Binding AlgorithmModel_MDB.AlgorithmName, Mode=TwoWay}"
+                    AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MD}"
-                    Header="MD算法"
-                    IsArithmeticEnabled="{Binding ArithmeticModel_MDB.IsEnable, Mode=TwoWay}"
+                    IsAlgorithmEnabled="{Binding AlgorithmModel_MDB.IsEnable, Mode=TwoWay}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.B}" />
-                <sc:ArithmeticSettingControl
+                <sc:AlgorithmSettingControl
                     Margin="0,0,20,0"
-                    ArithmeticEnableChangedCommand="{Binding ArithmeticEnableChangedCommand}"
-                    ArithmeticName="{Binding ArithmeticModel_TDB.ArithmeticName, Mode=TwoWay}"
-                    ArithmeticVerifyCommand="{Binding ArithmeticVerifyCommand}"
+                    AlgorithmEnableChangedCommand="{Binding AlgorithmEnableChangedCommand}"
+                    AlgorithmName="{Binding AlgorithmModel_TDB.AlgorithmName, Mode=TwoWay}"
+                    AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.TD}"
-                    Header="TD算法"
-                    IsArithmeticEnabled="{Binding ArithmeticModel_TDB.IsEnable, Mode=TwoWay}"
+                    IsAlgorithmEnabled="{Binding AlgorithmModel_TDB.IsEnable, Mode=TwoWay}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.B}" />
-                <sc:ArithmeticSettingControl
+                <sc:AlgorithmSettingControl
                     Margin="0,0,20,0"
-                    ArithmeticEnableChangedCommand="{Binding ArithmeticEnableChangedCommand}"
-                    ArithmeticName="{Binding ArithmeticModel_MDTDB.ArithmeticName, Mode=TwoWay}"
-                    ArithmeticVerifyCommand="{Binding ArithmeticVerifyCommand}"
+                    AlgorithmEnableChangedCommand="{Binding AlgorithmEnableChangedCommand}"
+                    AlgorithmName="{Binding AlgorithmModel_MDTDB.AlgorithmName, Mode=TwoWay}"
+                    AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MDTD}"
-                    Header="MDTD算法"
-                    IsArithmeticEnabled="{Binding ArithmeticModel_MDTDB.IsEnable, Mode=TwoWay}"
+                    IsAlgorithmEnabled="{Binding AlgorithmModel_MDTDB.IsEnable, Mode=TwoWay}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.B}" />
             </UniformGrid>
@@ -150,42 +161,37 @@
                     <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
                         <GroupBox Header="数据处理设置" Style="{StaticResource ParamGroupBoxStyle}">
                             <StackPanel Margin="20,0,20,20">
-                                <uccc:PairContentControl PairKeyText="闭环数据源" Style="{StaticResource PPairContentControlStyle}">
-                                    <ComboBox
-                                        DisplayMemberPath="DisplayName"
-                                        ItemsSource="{Binding WeightDataTypeSource}"
-                                        SelectedValue="{Binding GeneralSettingsModel.WeightDataType, Mode=TwoWay}"
-                                        SelectedValuePath="ItemValue"
-                                        Style="{StaticResource ParamValueComboBoxStyle}" />
-                                </uccc:PairContentControl>
-                                <uccc:PairContentControl PairKeyText="膜区处理" Style="{StaticResource PPairContentControlStyle}">
-                                    <ComboBox
-                                        DisplayMemberPath="DisplayName"
-                                        ItemsSource="{Binding EMembraneZoneTypeSource}"
-                                        SelectedValue="{Binding GeneralSettingsModel.MembraneZoneType, Mode=TwoWay}"
-                                        SelectedValuePath="ItemValue"
-                                        Style="{StaticResource ParamValueComboBoxStyle}" />
-                                </uccc:PairContentControl>
-                                <uccc:PairContentControl PairKeyText="刀距滞后变化值" Style="{StaticResource PPairContentControlStyle}">
-                                    <uccc:AffixedTextBox
-                                        Width="100"
-                                        d:Text="1"
-                                        Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                        Suffix="mm"
-                                        Text="{Binding GeneralSettingsModel.Lag_DearanceConditiont, Mode=TwoWay}" />
-                                </uccc:PairContentControl>
+                                <hc:ComboBox
+                                    Width="260"
+                                    d:SelectedIndex="0"
+                                    hc:InfoElement.Title="闭环数据源"
+                                    DisplayMemberPath="DisplayName"
+                                    ItemsSource="{Binding WeightDataTypeSource}"
+                                    SelectedValue="{Binding GeneralSettingsModel.WeightDataType, Mode=TwoWay}"
+                                    SelectedValuePath="ItemValue" />
+                                <hc:ComboBox
+                                    Width="260"
+                                    d:SelectedIndex="0"
+                                    hc:InfoElement.Title="膜区处理"
+                                    DisplayMemberPath="DisplayName"
+                                    ItemsSource="{Binding EMembraneZoneTypeSource}"
+                                    SelectedValue="{Binding GeneralSettingsModel.MembraneZoneType, Mode=TwoWay}"
+                                    SelectedValuePath="ItemValue" />
+                                <hc:TextBox
+                                    Width="260"
+                                    hc:InfoElement.Placeholder="请输入"
+                                    hc:InfoElement.Title="刀距滞后变化值（mm）"
+                                    Text="{Binding GeneralSettingsModel.Lag_DearanceConditiont, Mode=TwoWay}" />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="PLC设定泵速读取配置" Style="{StaticResource ParamGroupBoxStyle}">
                             <StackPanel Margin="20,0,20,20">
-                                <uccc:PairContentControl PairKeyText="小数位/精度" Style="{StaticResource PPairContentControlStyle}">
-                                    <uccc:AffixedTextBox
-                                        Width="100"
-                                        d:Text="2"
-                                        Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                        Text="{Binding GeneralSettingsModel.SetB_Digits, Mode=TwoWay}" />
-                                </uccc:PairContentControl>
-                                <uccc:PairContentControl PairKeyText="四舍五入" Style="{StaticResource PPairContentControlStyle}">
+                                <hc:TextBox
+                                    Width="260"
+                                    hc:InfoElement.Placeholder="请输入"
+                                    hc:InfoElement.Title="小数位/精度"
+                                    Text="{Binding GeneralSettingsModel.SetB_Digits, Mode=TwoWay}" />
+                                <uccc:PairContentControl PairKeyText="四舍五入">
                                     <uccc:SimpleToggleButton
                                         d:IsChecked="False"
                                         IsChecked="{Binding GeneralSettingsModel.SetB_IsRound, Mode=TwoWay}"
@@ -195,35 +201,25 @@
                         </GroupBox>
                         <GroupBox Header="数据判异/数采设置" Style="{StaticResource ParamGroupBoxStyle}">
                             <StackPanel Margin="20,0,20,20">
-                                <uccc:PairContentControl PairKeyText="走带速度" Style="{StaticResource PPairContentControlStyle}">
-                                    <uccc:AffixedTextBox
-                                        Width="100"
-                                        d:Text="20"
-                                        Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                        Suffix="(m/min)"
-                                        Text="{Binding GeneralSettingsModel.VelocityCondition, Mode=TwoWay}" />
-                                </uccc:PairContentControl>
-                                <uccc:PairContentControl PairKeyText="面密度目标值" Style="{StaticResource PPairContentControlStyle}">
-                                    <uccc:AffixedTextBox
-                                        Width="100"
-                                        d:Text="±20"
-                                        Prefix="±"
-                                        Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                        Suffix="(mg)"
-                                        Text="{Binding GeneralSettingsModel.TargetOffset, Mode=TwoWay}" />
-                                </uccc:PairContentControl>
+                                <hc:TextBox
+                                    Width="260"
+                                    hc:InfoElement.Placeholder="请输入"
+                                    hc:InfoElement.Title="走带速度（m/min）"
+                                    Text="{Binding GeneralSettingsModel.VelocityCondition, Mode=TwoWay}" />
+                                <hc:TextBox
+                                    Width="260"
+                                    hc:InfoElement.Placeholder="请输入"
+                                    hc:InfoElement.Title="面密度目标值（±/mg）"
+                                    Text="{Binding GeneralSettingsModel.TargetOffset, Mode=TwoWay}" />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="设备参数配置" Style="{StaticResource ParamGroupBoxStyle}">
                             <StackPanel Margin="20,0,20,20">
-                                <uccc:PairContentControl PairKeyText="AB面走带间隔距离" Style="{StaticResource PPairContentControlStyle}">
-                                    <uccc:AffixedTextBox
-                                        Width="100"
-                                        d:Text="85"
-                                        Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                        Suffix="(m)"
-                                        Text="{Binding GeneralSettingsModel.DistanceBetweenAB, Mode=TwoWay}" />
-                                </uccc:PairContentControl>
+                                <hc:TextBox
+                                    Width="260"
+                                    hc:InfoElement.Placeholder="请输入"
+                                    hc:InfoElement.Title="AB面走带间隔距离（m）"
+                                    Text="{Binding GeneralSettingsModel.DistanceBetweenAB, Mode=TwoWay}" />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="膜区配置" Style="{StaticResource ParamGroupBoxStyle}">
@@ -232,80 +228,54 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
-                                <ComboBox
-                                    Height="30"
-                                    Margin="0,20,0,20"
+                                <hc:ComboBox
+                                    Width="260"
+                                    d:SelectedIndex="0"
+                                    hc:InfoElement.Title="闭环数据源"
                                     DisplayMemberPath="DisplayName"
                                     ItemsSource="{Binding PartitionedTypeSource}"
                                     SelectedValue="{Binding GeneralSettingsModel.PartitionedType, Mode=TwoWay}"
-                                    SelectedValuePath="ItemValue"
-                                    Style="{StaticResource ParamValueComboBoxStyle}">
+                                    SelectedValuePath="ItemValue">
                                     <i:Interaction.Triggers>
                                         <i:EventTrigger EventName="SelectionChanged">
                                             <i:InvokeCommandAction Command="{Binding PartitionedSelectionChangedCommand}" CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ComboBox}}" />
                                         </i:EventTrigger>
                                     </i:Interaction.Triggers>
-                                </ComboBox>
-                                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden">
+                                </hc:ComboBox>
+                                <ScrollViewer
+                                    Grid.Row="1"
+                                    Margin="0,10,0,0"
+                                    HorizontalScrollBarVisibility="Hidden">
                                     <ItemsControl ItemsSource="{Binding PartitionedModels, Mode=TwoWay}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <UniformGrid VerticalAlignment="Top" Columns="1" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <UniformGrid Margin="10,5" Rows="3">
+                                                <UniformGrid Margin="0,10,0,0" Rows="4">
                                                     <TextBlock
                                                         d:Text="膜区一"
                                                         Foreground="#CCFFFFFF"
                                                         Style="{StaticResource ParamNameTextBlockStyle}"
                                                         Text="{Binding PartitionedName, Mode=TwoWay}" />
-                                                    <uccc:PairContentControl
-                                                        Margin="0"
-                                                        PairKeyOpacity="0.6"
-                                                        PairKeyText="起止位置"
-                                                        Style="{StaticResource PPairContentControlStyle}">
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                                <ColumnDefinition Width="*" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <uccc:AffixedTextBox
-                                                                Grid.Column="0"
-                                                                Width="45"
-                                                                d:Text="1"
-                                                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                                                Text="{Binding StartIndex, Mode=TwoWay}" />
-                                                            <Rectangle
-                                                                Grid.Column="1"
-                                                                Width="20"
-                                                                Height="1"
-                                                                Margin="6,0"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center"
-                                                                Opacity="0.6"
-                                                                Stroke="#FFFFFF" />
-                                                            <uccc:AffixedTextBox
-                                                                Grid.Column="2"
-                                                                Width="45"
-                                                                d:Text="1"
-                                                                Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                                                Text="{Binding EndIndex, Mode=TwoWay}" />
-                                                        </Grid>
-                                                    </uccc:PairContentControl>
-                                                    <uccc:PairContentControl
-                                                        Margin="0,10,0,0"
-                                                        PairKeyOpacity="0.6"
-                                                        PairKeyText="分区个数"
-                                                        Style="{StaticResource PPairContentControlStyle}">
-                                                        <uccc:AffixedTextBox
-                                                            Width="100"
-                                                            d:Text="1"
-                                                            Style="{StaticResource ParamValueAffixedTextBoxStyle}"
-                                                            Text="{Binding PartitionedCount, Mode=TwoWay}" />
-                                                    </uccc:PairContentControl>
+                                                    <hc:TextBox
+                                                        Width="260"
+                                                        Margin="0,5,0,0"
+                                                        hc:InfoElement.Title="起始位置"
+                                                        hc:InfoElement.TitleWidth="160"
+                                                        Opacity="0.6"
+                                                        Text="{Binding StartIndex, Mode=TwoWay}" />
+                                                    <hc:TextBox
+                                                        Width="260"
+                                                        Margin="0,5,0,0"
+                                                        hc:InfoElement.Title="终止位置"
+                                                        hc:InfoElement.TitleWidth="160"
+                                                        Opacity="0.6"
+                                                        Text="{Binding EndIndex, Mode=TwoWay}" />
+                                                    <hc:TextBox
+                                                        Width="260"
+                                                        Margin="0,5,0,0"
+                                                        hc:InfoElement.Title="分区个数"
+                                                        hc:InfoElement.TitleWidth="160"
+                                                        Opacity="0.6"
+                                                        Text="{Binding PartitionedCount, Mode=TwoWay}" />
                                                 </UniformGrid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

@@ -4,10 +4,7 @@ using System.Net;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using FluentFTP;
-//using HalconDotNet;
-using Masuit.Tools.Files;
 using Microsoft.WindowsAPICodePack.Dialogs;
-using SharpCompress.Common;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SUNWODA_SEVB.Core.Attributes;
@@ -287,7 +284,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.MiniProgram
                 AddLog("取消选择导出文件夹路径");
             }
         });
-       
+
         private async Task RunLocalMode()
         {
             var dialog = new CommonOpenFileDialog
@@ -433,7 +430,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.MiniProgram
             {
                 AddLog($"目录移动失败: {sourceDir} - {ex.Message}");
             }
-        }        
+        }
 
         private async Task ProcessLocalFile(string filePath)
         {
@@ -446,7 +443,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.MiniProgram
                 AddLog($"跳过: {filePath}");
                 return;
             }
-            
+
             AddLog($"[开始压缩]\t{filePath}");
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
@@ -973,7 +970,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.MiniProgram
                 });
 
                 foreach (var d in dirs.Where(x => x.Type == FtpObjectType.Directory))
-                {                    
+                {
                     list.Add(new FtpNode
                     {
                         Name = d.Name,
@@ -996,10 +993,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.MiniProgram
 
             if (!projectSettingRepository.Exists(m => m.BelongToVM == vmName && m.Name == name))
             {
-                var psm = new ProjectSettingModel(name, vmName, defaultValue, "string", 0)
-                {
-                    Remark = remark
-                };
+                var psm = new ProjectSettingModel(name, vmName, defaultValue, "string", 0) { Remark = remark };
 
                 projectSettingRepository.Add(psm);
             }

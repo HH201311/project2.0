@@ -11,6 +11,6 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB
     /// </summary>
     public enum ECommunicationMode
     {
-        服务端, 客户端, 本地主机
+        客户端Socket, 服务端Socket, 客户端Mqtt
     }
 }

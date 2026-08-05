@@ -1,5 +1,4 @@
-﻿using Google.Protobuf.WellKnownTypes;
-using SqlSugar;
+﻿using SqlSugar;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Data.Models;
@@ -61,7 +60,18 @@ namespace SUNWODA_SEVB.Data.Repositories
                 model.Value = DataTypeConverter.ValueToString(value);
                 return await UpdateAsync(model);
             }
-            return false;
+            else
+            {
+                var newModel = new ProjectSettingModel
+                {
+                    Name = name,
+                    BelongToVM = vmName,
+                    Value = DataTypeConverter.ValueToString(value),
+                    Type = value?.GetType().Name ?? "String"
+                };
+                return await AddAsync(newModel);
+            }
+           
         }
 
         public bool UpdateSettingValue(string name, string vmName, dynamic value)
@@ -72,7 +82,18 @@ namespace SUNWODA_SEVB.Data.Repositories
                 model.Value = DataTypeConverter.ValueToString(value);
                 return Update(model);
             }
-            return false;
+            else
+            {
+                var newModel = new ProjectSettingModel
+                {
+                    Name = name,
+                    BelongToVM = vmName,
+                    Value = DataTypeConverter.ValueToString(value),
+                    Type = value?.GetType().Name ?? "String"
+                };
+                return Add(newModel);
+            }
+            
         }
     }
 }

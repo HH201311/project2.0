@@ -62,11 +62,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             get => _isNavigating;
             set => SetProperty(ref _isNavigating, value);
         }
-        public ICommand? ClosedLoopSettingCommand { get; set; }
-        public ICommand? FunctionSettingCommand { get; set; }
-        public ICommand? AlarmSettingCommand { get; set; }
-        public ICommand? CommunicationSettingCommand { get; set; }
-        public ICommand? PermissionSettingCommand { get; set; }
+
+        public ICommand? ClosedLoopSettingCommand => new RelayCommand(() => NavigateToSpecialModule("VM_ClosedLoopSettingPage"));
+        public ICommand? FunctionSettingCommand => new RelayCommand(() => NavigateToSpecialModule("VM_FunctionSettingPage"));
+        public ICommand? AlarmSettingCommand => new RelayCommand(() => NavigateToSpecialModule("VM_AlarmSettingPage"));
+        public ICommand? CommunicationSettingCommand => new RelayCommand(() => NavigateToSpecialModule("VM_CommunicationSettingPage"));
+        public ICommand? PermissionSettingCommand => new RelayCommand(() => NavigateToSpecialModule("VM_PermissionSettingPage"));
 
         /// <summary>
         /// 构造函数
@@ -109,12 +110,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
 
             // 加载模块
             _moduleManager.AutoRegisterModulesByName("VM_ClosedLoopSettingPage", "VM_FunctionSettingPage", "VM_AlarmSettingPage", "VM_CommunicationSettingPage", "VM_PermissionSettingPage");
-
-            ClosedLoopSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_ClosedLoopSettingPage"));
-            FunctionSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_FunctionSettingPage"));
-            AlarmSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_AlarmSettingPage"));
-            CommunicationSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_CommunicationSettingPage"));
-            PermissionSettingCommand = new RelayCommand(() => NavigateToSpecialModule("VM_PermissionSettingPage"));
 
             IsNavigating = false;
 

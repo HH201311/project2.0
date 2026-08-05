@@ -74,16 +74,21 @@ namespace SUNWODA_SEVB.Tool.Configuration
         /// </summary>
         private static AppSettings CreateDefaultAppSettings()
         {
+            var connectionStrings = new ConnectionStrings();
+            // 默认
+            connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda_demo;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";
+
+            //现场默认
+            //connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda2;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";
+            //卷绕极耳错位闭环本地测试数据库地址
+            //connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda2_jrcw;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";
+
+            //枣庄PACK激光焊接熔深预测的本地测试数据库地址
+            //connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda_MeltingDepthDetection;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";
+
             return new AppSettings
             {
-                ConnectionStrings = new ConnectionStrings
-                {
-                    // 默认
-                    DefaultConnection = "server=127.0.0.1;database=sunwoda_ctnclx;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;"
-                    // 卷绕极耳错位闭环本地测试数据库地址
-                    //DefaultConnection = "server=127.0.0.1;database=sunwoda2_jrcw;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;"
-                },
-
+                ConnectionStrings = connectionStrings,
                 // 数据库日志清理默认设置
                 LogCleanup = new LogCleanupSettings
                 {

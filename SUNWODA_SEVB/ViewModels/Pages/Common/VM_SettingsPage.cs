@@ -624,6 +624,5 @@ namespace SUNWODA_SEVB.ViewModels.Pages.Common
         {
             return DataTypeConverter.ValueToString(typeName, value);
         }
-
     }
 }

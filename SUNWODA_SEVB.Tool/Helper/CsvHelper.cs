@@ -13,6 +13,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         private const char DefaultDelimiter = ',';
         private const char Quote = '"';
 
+        public static object FileObj { get; set; } = new object();
+
         #region 写入操作
 
         /// <summary>
@@ -354,6 +356,42 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// 保存 CSV 文件（适合追加写入，自动处理表头和文件创建）
+        /// </summary>
+        /// <param name="directoryPath"></param>
+        /// <param name="filename"></param>
+        /// <param name="header"></param>
+        /// <param name="content"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static void SaveCSVFile(string directoryPath, string filename, string header, string content)
+        {
+            if (string.IsNullOrEmpty(filename))
+                throw new ArgumentNullException(nameof(filename));
+
+            // 1. 确保目录存在
+            if (!Directory.Exists(directoryPath))
+                Directory.CreateDirectory(directoryPath);
+
+            // 2. 处理 .csv 后缀
+            if (!filename.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                filename += ".csv";
+
+            string fullPath = Path.Combine(directoryPath, filename);
+
+            // 3. 判断是否新文件，一次性写入（避免多次打开文件）
+            bool fileExists = File.Exists(fullPath);
+            using var sw = new StreamWriter(fullPath, true, Encoding.UTF8);
+            // 如果是新建文件，且表头不为空，先写表头
+            if (!fileExists && !string.IsNullOrEmpty(header))
+            {
+                sw.WriteLine(header);
+            }
+
+            // 写入正文内容（允许content为null或空，此时写入空行，可根据需求调整）
+            sw.WriteLine(content ?? string.Empty);
         }
 
         #endregion

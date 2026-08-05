@@ -37,15 +37,22 @@
   <ItemGroup>
     <None Remove="Assets\images\logo.ico" />
     <None Remove="Assets\images\logo.png" />
+    <None Remove="Assets\Images\logo1.png" />
     <None Remove="Assets\images\plus.png" />
+    <None Remove="Assets\Images\强电1示意图.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_CCDDataPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_SummaryPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBMonitoring\VM_TBDataPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBRecords\VM_AdjustmentRecordPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBRecords\VM_AlarmRecordPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBRecords\VM_SystemRecordPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\FunctionSetting\VM_BasicFunctionsPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\FunctionSetting\VM_SpecialFunctionsPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\PermissionSetting\VM_RoleManagementPage.cs" />
+    <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\PermissionSetting\VM_UserManagementPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_AlarmSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_CommunicationSettingPage.cs" />
     <Compile Include="ViewModels\Pages\CCTB\CCTBSettings\VM_PermissionSettingPage.cs" />
@@ -59,6 +66,9 @@
     <Compile Include="Views\Pages\CCTB\CCTBMonitoring\SummaryPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecords\AdjustmentRecordPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecords\AlarmRecordPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBRecords\SystemRecordPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettingsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml.cs" />
@@ -67,6 +77,8 @@
     <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\SpecialFunctionsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\BasicFunctionsPage.xaml.cs" />
     <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\RoleManagementPage.xaml.cs" />
+    <Compile Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\UserManagementPage.xaml.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -93,6 +105,7 @@
     <PackageReference Include="Masuit.Tools.Core" Version="2025.6.4" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.5" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -118,6 +131,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SUNWODA_SEVB.Component\SUNWODA_SEVB.Component.csproj" />
+    <ProjectReference Include="..\SUNWODA_SEVB.Core\SUNWODA_SEVB.Core.csproj" />
     <ProjectReference Include="..\SUNWODA_SEVB.Data\SUNWODA_SEVB.Data.csproj" />
     <ProjectReference Include="..\SUNWODA_SEVB.Logging\SUNWODA_SEVB.Logging.csproj" />
     <ProjectReference Include="..\SUNWODA_SEVB.PLC\SUNWODA_SEVB.PLC.csproj" />
@@ -130,7 +144,13 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Assets\Images\LDCDC示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\Images\shanggai.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Images\强电2示意图.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Assets\model\C06CT\C06CT.mtl">
@@ -175,11 +195,20 @@
     <Reference Include="UIAutoMonitorCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
+    <Reference Include="V11Core">
+      <HintPath>..\..\SWD\DLL\V11Core.dll</HintPath>
+    </Reference>
     <Reference Include="YingYanAlgoCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
     </Reference>
     <Reference Include="Yolo8Core">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\Yolo8Core.dll</HintPath>
+    </Reference>
+    <Reference Include="YOLODetFW48">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YOLODetFW48.dll</HintPath>
+    </Reference>
+    <Reference Include="YWPackActionDetect">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YWPackActionDetect.dll</HintPath>
     </Reference>
 
     <Reference Include="ZZC1OnlineCTModel">
@@ -191,6 +220,12 @@
     <Content Include="Assets\images\plus.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Images\强电1示意图.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
@@ -224,6 +259,9 @@
     <Resource Include="Assets\Fonts\阿里妈妈数黑体.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\Images\logo1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Reference Include="OpenNetV8">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\OpenNetV8.dll</HintPath>
     </Reference>
@@ -232,6 +270,9 @@
     </Reference>
     <Reference Include="ZZC6OnlineCTModel">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZJiErRongYu">
+      <HintPath>..\..\SWD\DLL\ZZJiErRongYu.dll</HintPath>
     </Reference>
   </ItemGroup>
 
@@ -256,6 +297,9 @@
     <Page Include="Views\Pages\CCTB\CCTBMonitoring\SummaryPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBMonitoring\TBDataPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBRecordingsPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecords\AdjustmentRecordPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecords\AlarmRecordPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBRecords\SystemRecordPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettingsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\AlarmSettingPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\ClosedLoopSettingPage.xaml" />
@@ -264,6 +308,8 @@
     <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\SpecialFunctionsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\FunctionSetting\BasicFunctionsPage.xaml" />
     <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSettingPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\RoleManagementPage.xaml" />
+    <Page Include="Views\Pages\CCTB\CCTBSettings\PermissionSetting\UserManagementPage.xaml" />
   </ItemGroup>
 
 </Project>

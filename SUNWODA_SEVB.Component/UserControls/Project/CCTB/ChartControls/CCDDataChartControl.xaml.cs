@@ -202,14 +202,17 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             return maxFilmCount;
         }
 
+        private int filmCountCache;
         private Style? subLineStyle, barGraphStyle;
         private Line subLine = new();
         private List<Path> flimBarGraphs = new(), malpositionBarGraphs = new();
         private void UpdateChart(int maxFilmCount = 1)
         {
+            if (filmCountCache == maxFilmCount) return;
             RefreshFlimBarGraphs(maxFilmCount);
             RefreshMalpositionBarGraphs(maxFilmCount);
             RefershSubline();
+            filmCountCache = maxFilmCount;
         }
 
         private void RefreshFlimBarGraphs(int maxFilmCount = 1)

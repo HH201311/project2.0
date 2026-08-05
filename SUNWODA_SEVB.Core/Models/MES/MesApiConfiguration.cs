@@ -2,191 +2,116 @@
 
 namespace SUNWODA_SEVB.Core.Models.MES
 {
+    public enum MesContentType
+    {
+        JsonBody,            // application/json
+        FormUrlEncoded       // application/x-www-form-urlencoded，字段名为 jsonData
+    }
+
     /// <summary>
     /// MES API配置
     /// </summary>
     public class MesApiConfiguration : ModelBase
     {
-        private string profileName = string.Empty;
-        private string baseUrl = string.Empty;
-        private int timeoutSeconds = 30;
-        private bool enableRetry = true;
-        private int maxRetryCount = 3;
-
-        // 业务相关配置
-        private string operatorId = string.Empty;
-        private string groupCode = string.Empty;
-        private string deviceSn = string.Empty;
-        private string moNumber = string.Empty;
-        private string controlGroup = string.Empty;
-
-        private Dictionary<string, string> endpoints = new();
-        private Dictionary<string, string> customHeaders = new();
-        private Dictionary<string, string> customSettings = new();
-
         /// <summary>
         /// 配置文件名称
         /// </summary>
-        public string ProfileName
-        {
-            get => profileName;
-            set => SetProperty(ref profileName, value);
-        }
+        public string ProfileName { get; set; } = string.Empty;
 
         /// <summary>
         /// 基础URL
-        /// </summary>
-        public string BaseUrl
-        {
-            get => baseUrl;
-            set => SetProperty(ref baseUrl, value);
-        }
+        /// </summary>  
+        public string BaseUrl { get; set; } = string.Empty;
 
         /// <summary>
         /// 超时时间（秒）
         /// </summary>
-        public int TimeoutSeconds
-        {
-            get => timeoutSeconds;
-            set => SetProperty(ref timeoutSeconds, value);
-        }
+        public int TimeoutSeconds { get; set; } = 30;
 
         /// <summary>
         /// 是否启用重试
         /// </summary>
-        public bool EnableRetry
-        {
-            get => enableRetry;
-            set => SetProperty(ref enableRetry, value);
-        }
+        public bool EnableRetry { get; set; } = true;
 
         /// <summary>
         /// 最大重试次数
         /// </summary>
-        public int MaxRetryCount
-        {
-            get => maxRetryCount;
-            set => SetProperty(ref maxRetryCount, value);
-        }
+        public int MaxRetryCount { get; set; } = 3;
 
         /// <summary>
-        /// 操作员ID
+        /// SessionID:登录时返回的Result的值
         /// </summary>
-        public string OperatorId
-        {
-            get => operatorId;
-            set => SetProperty(ref operatorId, value);
-        }
+        public string OperatorId { get; set; } = string.Empty;
 
         /// <summary>
-        /// 组代码
+        /// 工序代码
         /// </summary>
-        public string GroupCode
-        {
-            get => groupCode;
-            set => SetProperty(ref groupCode, value);
-        }
+        public string GroupCode { get; set; } = string.Empty;
 
         /// <summary>
-        /// 设备序列号
+        /// 设备编号
         /// </summary>
-        public string DeviceSn
-        {
-            get => deviceSn;
-            set => SetProperty(ref deviceSn, value);
-        }
+        public string DeviceSn { get; set; } = string.Empty;
 
         /// <summary>
         /// 工单号
         /// </summary>
-        public string MoNumber
-        {
-            get => moNumber;
-            set => SetProperty(ref moNumber, value);
-        }
+        public string MoNumber { get; set; } = string.Empty;
 
         /// <summary>
         /// 控制组
         /// </summary>
-        public string ControlGroup
-        {
-            get => controlGroup;
-            set => SetProperty(ref controlGroup, value);
-        }
+        public string ControlGroup { get; set; } = string.Empty;
 
         /// <summary>
-        /// 端点映射
+        /// 条码类型 cell:产品条码；tray:托盘号；group:产品组
         /// </summary>
-        public Dictionary<string, string> Endpoints
-        {
-            get => endpoints;
-            set => SetProperty(ref endpoints, value);
-        }
+        public string SnType { get; set; } = string.Empty;
 
         /// <summary>
-        /// 自定义请求头
+        /// 端点映射，key为端点名称，value为相对于BaseUrl的路径
         /// </summary>
-        public Dictionary<string, string> CustomHeaders
-        {
-            get => customHeaders;
-            set => SetProperty(ref customHeaders, value);
-        }
+        public IReadOnlyDictionary<string, string> Endpoints { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
-        /// 自定义设置
+        /// 自定义请求头，key为头名称，value为头值
         /// </summary>
-        public Dictionary<string, string> CustomSettings
-        {
-            get => customSettings;
-            set => SetProperty(ref customSettings, value);
-        }
+        public IReadOnlyDictionary<string, string> CustomHeaders { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
-        /// 获取完整的端点URL
+        /// 自定义设置，key为设置名称，value为设置值，可用于存储其他业务相关的配置项
         /// </summary>
+        public IReadOnlyDictionary<string, string> CustomSettings { get; set; } = new Dictionary<string, string>();
+
+        /// <summary>
+        /// 获取完整的端点URL，如果Endpoints中没有对应的key，则直接使用key作为相对路径
+        /// </summary>
+        /// <param name="endpointKey"></param>
+        /// <returns></returns>
         public string GetEndpointUrl(string endpointKey)
         {
             if (Endpoints.TryGetValue(endpointKey, out var endpoint))
-            {
                 return $"{BaseUrl.TrimEnd('/')}/{endpoint.TrimStart('/')}";
-            }
-
-            // 如果没有映射，直接使用key作为端点
             return $"{BaseUrl.TrimEnd('/')}/{endpointKey.TrimStart('/')}";
         }
 
         /// <summary>
-        /// 验证配置是否有效
+        /// 验证配置是否有效，主要检查BaseUrl是否为空、格式是否正确，以及TimeoutSeconds和MaxRetryCount的合理性
         /// </summary>
+        /// <param name="errorMessage">错误信息，如果配置无效则返回具体的错误描述</param>
+        /// <returns>配置是否有效</returns>
         public bool IsValid(out string errorMessage)
         {
             errorMessage = string.Empty;
-
             if (string.IsNullOrWhiteSpace(BaseUrl))
-            {
                 errorMessage = "BaseUrl未配置";
-                return false;
-            }
-
-            if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out _))
-            {
+            else if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out _))
                 errorMessage = "BaseUrl格式无效";
-                return false;
-            }
-
-            if (TimeoutSeconds <= 0)
-            {
+            else if (TimeoutSeconds <= 0)
                 errorMessage = "超时时间必须大于0";
-                return false;
-            }
-
-            if (MaxRetryCount < 0)
-            {
+            else if (MaxRetryCount < 0)
                 errorMessage = "重试次数不能小于0";
-                return false;
-            }
-
-            return true;
+            return string.IsNullOrEmpty(errorMessage);
         }
     }
 }

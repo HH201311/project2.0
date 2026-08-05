@@ -1,0 +1,391 @@
+﻿<Page
+    x:Class="SUNWODA_SEVB.Views.Pages.CCTB.CCTBSettings.PermissionSetting.UserManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:alarm="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;assembly=SUNWODA_SEVB.Core"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;assembly=SUNWODA_SEVB.Core"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBSettings.PermissionSetting"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:role="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels;assembly=SUNWODA_SEVB.Core"
+    xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls;assembly=SUNWODA_SEVB.Component"
+    Title="UserManagementPage"
+    d:DesignHeight="940"
+    d:DesignWidth="1440"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBControlStyles.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
+                <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBDataGridControlStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:ContentToStringConverter x:Key="ContentToStringConverter" />
+            <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
+
+            <Style
+                x:Key="CancleButtonStyle"
+                BasedOn="{StaticResource ParamCancleButtonStyle}"
+                TargetType="Button">
+                <Setter Property="BorderBrush" Value="#FF3DCC84" />
+                <Setter Property="Foreground" Value="#FF3DCC84" />
+            </Style>
+
+            <Style x:Key="ParamSimpleButtonStyle" TargetType="Button">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                <Setter Property="Foreground" Value="#FF3DCC84" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                                <ContentPresenter
+                                    x:Name="contentPresenter"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    RecognizesAccessKey="True" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="contentPresenter" Property="TextElement.FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
+                                    <Setter TargetName="contentPresenter" Property="TextElement.FontWeight" Value="Bold" />
+                                    <Setter TargetName="contentPresenter" Property="Opacity" Value="0.8" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ParamComboBoxItemConetntControlStyle" TargetType="ContentControl">
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Foreground" Value="#99FFFFFF" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <Grid>
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="0"
+                                    Opacity="0.1" />
+                                <ContentPresenter
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding Content}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ParamComboBoxItemStyle" TargetType="ComboBoxItem">
+                <Setter Property="Margin" Value="0,0,0,5" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="#99FFFFFF" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBoxItem">
+                            <Grid>
+                                <Border
+                                    HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalAlignment}"
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="0"
+                                    CornerRadius="5" />
+                                <ContentControl
+                                    Margin="5,5"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{Binding DisplayName}"
+                                    Style="{StaticResource ParamComboBoxItemConetntControlStyle}" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#0DFFFFFF" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#0DFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ParamComboBoxStyle" TargetType="ComboBox">
+                <Setter Property="Background" Value="#0DFFFFFF" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="4" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource ParamComboBoxItemStyle}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid>
+                                <!--  整体背景框  -->
+                                <Border
+                                    x:Name="Border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="5" />
+
+                                <!--  内容展示区域  -->
+                                <ContentPresenter
+                                    x:Name="ContentSite"
+                                    Margin="20,0,34,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Content="{TemplateBinding SelectionBoxItem}"
+                                    ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}">
+                                    <ContentPresenter.ContentTemplate>
+                                        <DataTemplate>
+                                            <ContentControl Content="{Binding DisplayName}" Style="{StaticResource ParamComboBoxItemConetntControlStyle}" />
+                                        </DataTemplate>
+                                    </ContentPresenter.ContentTemplate>
+                                </ContentPresenter>
+
+                                <!--  下拉按钮区域：自定义形状和颜色  -->
+                                <ToggleButton
+                                    x:Name="DropDownToggle"
+                                    Margin="10,0"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    ClickMode="Press"
+                                    Focusable="false"
+                                    IsChecked="{Binding Path=IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Grid
+                                                Width="14"
+                                                Height="14"
+                                                Background="Transparent">
+                                                <Path
+                                                    x:Name="SimpleArrow"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    Data="M0,0 L4,4 L8,0"
+                                                    Stroke="#61FFFFFF"
+                                                    StrokeThickness="1" />
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="SimpleArrow" Property="Stroke" Value="#CCFFFFFF" />
+                                                    <Setter TargetName="SimpleArrow" Property="StrokeThickness" Value="2" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+
+                                <!--  下拉弹出框  -->
+                                <Popup
+                                    x:Name="PART_Popup"
+                                    Width="{Binding Path=ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                    AllowsTransparency="True"
+                                    Focusable="False"
+                                    IsOpen="{TemplateBinding IsDropDownOpen}"
+                                    Placement="Bottom"
+                                    PopupAnimation="Slide"
+                                    VerticalOffset="10">
+                                    <Border
+                                        x:Name="PopupBorder"
+                                        Background="#FF2B2B2B"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="5"
+                                        SnapsToDevicePixels="True">
+                                        <ScrollViewer
+                                            Margin="15,10,15,5"
+                                            Background="{TemplateBinding Background}"
+                                            SnapsToDevicePixels="True">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+
+                <!--  选中项的字体颜色随背景对比调整  -->
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Opacity" Value="0.8" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Border
+            Grid.Row="0"
+            Background="#0DFFFFFF"
+            CornerRadius="10">
+            <DockPanel
+                Grid.Row="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                LastChildFill="False">
+                <Label
+                    Margin="20,0"
+                    Content="用户管理"
+                    DockPanel.Dock="Left"
+                    Style="{StaticResource ParamTitleLabelStyle}" />
+
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button
+                        Margin="0,0,20,0"
+                        Command="{Binding UserAddCommand}"
+                        Content="新增用户"
+                        Style="{StaticResource ParamOKButtonStyle}" />
+                    <Button
+                        Margin="0,0,20,0"
+                        Command="{Binding UserDeleteInBatchesCommand}"
+                        Content="批量删除"
+                        Style="{StaticResource CancleButtonStyle}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        <Border
+            Grid.Row="1"
+            Margin="0,20,0,0"
+            Background="#0DFFFFFF"
+            CornerRadius="10">
+            <Border
+                Margin="20"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                BorderBrush="#1AFFFFFF"
+                BorderThickness="0.5,0.5,0,0"
+                CornerRadius="0">
+                <DataGrid ItemsSource="{Binding UserAccounts, Mode=TwoWay}" Style="{StaticResource AccountDataGridStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="80" Header="全选">
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <CheckBox
+                                        Command="{Binding DataContext.UserSelectAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Content="全选"
+                                        Style="{StaticResource GridColumnCheckBoxStyle}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox
+                                        HorizontalAlignment="Center"
+                                        Background="Transparent"
+                                        IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Style="{StaticResource ParamCheckBoxStyle}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="*" Header="账号">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox
+                                        Margin="15,0"
+                                        d:Text="2603270042"
+                                        Background="Transparent"
+                                        Foreground="#99FFFFFF"
+                                        IsReadOnly="True"
+                                        Style="{StaticResource ParamValueTextBoxStyle}"
+                                        Text="{Binding Account, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="*" Header="用户姓名">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox
+                                        Margin="15,0"
+                                        d:Text="林小小"
+                                        Background="Transparent"
+                                        Foreground="#99FFFFFF"
+                                        IsReadOnly="True"
+                                        Style="{StaticResource ParamValueTextBoxStyle}"
+                                        Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="*" Header="角色">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox
+                                        Margin="15,0"
+                                        d:Text="访客"
+                                        Background="Transparent"
+                                        Foreground="#99FFFFFF"
+                                        IsReadOnly="True"
+                                        Style="{StaticResource ParamValueTextBoxStyle}"
+                                        Text="{Binding Role, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="*" Header="操作">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="15,0" Orientation="Horizontal">
+                                        <Button
+                                            Margin="0,0,20,0"
+                                            Command="{Binding DataContext.UserResetPasswordCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Content="重置密码"
+                                            Foreground="#FF3DCC84"
+                                            Style="{StaticResource ParamSimpleButtonStyle}" />
+                                        <Button
+                                            Margin="0,0,20,0"
+                                            Command="{Binding DataContext.UserModifyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Content="修改"
+                                            Foreground="#FF3DCC84"
+                                            Style="{StaticResource ParamSimpleButtonStyle}" />
+                                        <Button
+                                            Margin="0,0,0,0"
+                                            Command="{Binding DataContext.UserDeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Content="删除"
+                                            Foreground="#FFCC5252"
+                                            Style="{StaticResource ParamSimpleButtonStyle}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+        </Border>
+    </Grid>
+</Page>

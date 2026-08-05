@@ -4,23 +4,27 @@ using Masuit.Tools;
 using Newtonsoft.Json;
 using SqlSugar;
 using SUNWODA_SEVB.Component.UserControls.Project.CCTB;
+using SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
-using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Data.Repositories;
+using SUNWODA_SEVB.Services.Project.CCTB;
 using SUNWODA_SEVB.Tool.Extension;
+using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using System;
 using System.Collections.Generic;
@@ -30,8 +34,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
-using SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls;
-using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 {
@@ -45,7 +47,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
+        private readonly IAlgorithmService _algorithmService;
 
         /// <summary>
         /// 构造函数
@@ -57,7 +59,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
-            IModuleManager moduleManager
+            IModuleManager moduleManager,
+            IAlgorithmService algorithmService
         )
         {
             _logger = logger;
@@ -67,8 +70,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
+            _algorithmService = algorithmService;
         }
 
         /// <summary>
@@ -76,7 +78,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// </summary>
         public override void OnInitialize()
         {
-            LoadArithmeticModel();
+            LoadAlgorithmModel();
             LoadGeneralSettingsModel();
             base.OnInitialize();
         }
@@ -88,90 +90,95 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// <returns></returns>
         protected override async Task OnNavigatedToAsync(object? parameter)
         {
-            LoadArithmeticModel();
+            LoadAlgorithmModel();
             LoadGeneralSettingsModel();
             await base.OnNavigatedToAsync(parameter);
         }
 
         #region 算法配置参数
-        private ArithmeticModel arithmeticModel_MDA = new(), arithmeticModel_TDA = new(), arithmeticModel_MDTDA = new(), arithmeticModel_MDB = new(), arithmeticModel_TDB = new(), arithmeticModel_MDTDB = new();
-        public ArithmeticModel ArithmeticModel_MDA { get => arithmeticModel_MDA; set => SetProperty(ref arithmeticModel_MDA, value); }
-        public ArithmeticModel ArithmeticModel_TDA { get => arithmeticModel_TDA; set => SetProperty(ref arithmeticModel_TDA, value); }
-        public ArithmeticModel ArithmeticModel_MDTDA { get => arithmeticModel_MDTDA; set => SetProperty(ref arithmeticModel_MDTDA, value); }
-        public ArithmeticModel ArithmeticModel_MDB { get => arithmeticModel_MDB; set => SetProperty(ref arithmeticModel_MDB, value); }
-        public ArithmeticModel ArithmeticModel_TDB { get => arithmeticModel_TDB; set => SetProperty(ref arithmeticModel_TDB, value); }
-        public ArithmeticModel ArithmeticModel_MDTDB { get => arithmeticModel_MDTDB; set => SetProperty(ref arithmeticModel_MDTDB, value); }
+        private AlgorithmModel algorithmNameModel_MDA = new(), algorithmNameModel_TDA = new(), algorithmNameModel_MDTDA = new(), algorithmNameModel_MDB = new(), algorithmNameModel_TDB = new(), algorithmNameModel_MDTDB = new();
+        public AlgorithmModel AlgorithmModel_MDA { get => algorithmNameModel_MDA; set => SetProperty(ref algorithmNameModel_MDA, value); }
+        public AlgorithmModel AlgorithmModel_TDA { get => algorithmNameModel_TDA; set => SetProperty(ref algorithmNameModel_TDA, value); }
+        public AlgorithmModel AlgorithmModel_MDTDA { get => algorithmNameModel_MDTDA; set => SetProperty(ref algorithmNameModel_MDTDA, value); }
+        public AlgorithmModel AlgorithmModel_MDB { get => algorithmNameModel_MDB; set => SetProperty(ref algorithmNameModel_MDB, value); }
+        public AlgorithmModel AlgorithmModel_TDB { get => algorithmNameModel_TDB; set => SetProperty(ref algorithmNameModel_TDB, value); }
+        public AlgorithmModel AlgorithmModel_MDTDB { get => algorithmNameModel_MDTDB; set => SetProperty(ref algorithmNameModel_MDTDB, value); }
 
-        public ICommand? ArithmeticEnableChangedCommand => new RelayCommand(ArithmeticEnableChanged);
-        public ICommand? ArithmeticVerifyCommand => new RelayCommand(ArithmeticVerify);
+        public ICommand? AlgorithmEnableChangedCommand => new RelayCommand(AlgorithmEnableChanged);
+        public ICommand? AlgorithmVerifyCommand => new RelayCommand(AlgorithmVerifyAsync);
 
-        private void ArithmeticEnableChanged(object? arg)
+        private void AlgorithmEnableChanged(object? arg)
         {
-            if (!(arg is ArithmeticSettingControl page)) return;
+            if (!(arg is AlgorithmSettingControl page)) return;
             var closedLoopType = page.ClosedLoopType;
             var sideType = page.SideType;
 
-            var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
+            var projectSettingName = $"AlgorithmSetting_{closedLoopType}{sideType}";
             var settingModel = (closedLoopType, sideType) switch
             {
-                (EClosedLoopType.MD, ESideType.A) => ArithmeticModel_MDA,
-                (EClosedLoopType.TD, ESideType.A) => ArithmeticModel_TDA,
-                (EClosedLoopType.MDTD, ESideType.A) => ArithmeticModel_MDTDA,
-                (EClosedLoopType.MD, ESideType.B) => ArithmeticModel_MDB,
-                (EClosedLoopType.TD, ESideType.B) => ArithmeticModel_TDB,
-                (EClosedLoopType.MDTD, ESideType.B) => ArithmeticModel_MDTDB,
+                (EClosedLoopType.MD, ESideType.A) => AlgorithmModel_MDA,
+                (EClosedLoopType.TD, ESideType.A) => AlgorithmModel_TDA,
+                (EClosedLoopType.MDTD, ESideType.A) => AlgorithmModel_MDTDA,
+                (EClosedLoopType.MD, ESideType.B) => AlgorithmModel_MDB,
+                (EClosedLoopType.TD, ESideType.B) => AlgorithmModel_TDB,
+                (EClosedLoopType.MDTD, ESideType.B) => AlgorithmModel_MDTDB,
                 _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
             };
             // 若校验成功则执行更新(界面+数据库)
-            var re = _operationUtil.SaveArithmeticProjectParamrers(closedLoopType, sideType, settingModel);
+            var re = _projectSettingRepository.SaveAlgorithmProjectParameters(closedLoopType, sideType, settingModel);
             if (!re)
             {
-                settingModel.IsEnable = !page.IsArithmeticEnabled;
-                page.IsArithmeticEnabled = !page.IsArithmeticEnabled;
+                settingModel.IsEnable = !page.IsAlgorithmEnabled;
+                page.IsAlgorithmEnabled = !page.IsAlgorithmEnabled;
             }
         }
 
-        private void ArithmeticVerify(object? arg)
+        private async void AlgorithmVerifyAsync(object? arg)
         {
             if (!(arg is object[] args && args?.Length == 4)) return;
             if (!(args[0] is ESideType sideType)) return;
             if (!(args[1] is EClosedLoopType closedLoopType)) return;
-            if (!(args[2] is string newArithmeticName)) return;
-            if (!(args[3] is string oldArithmeticName)) return;
+            if (!(args[2] is string newAlgorithmName)) return;
+            if (!(args[3] is string oldAlgorithmName)) return;
 
-            if (string.IsNullOrEmpty(newArithmeticName)) return; ;
-            if (string.Equals(newArithmeticName, oldArithmeticName)) return;
+            if (string.IsNullOrEmpty(newAlgorithmName)) return;
+            //if (string.Equals(newAlgorithmName, oldAlgorithmName)) return;
 
-            var projectSettingName = $"ArithmeticSetting_{closedLoopType}{sideType}";
+            var projectSettingName = $"AlgorithmSetting_{closedLoopType}{sideType}";
             var settingModel = (closedLoopType, sideType) switch
             {
-                (EClosedLoopType.MD, ESideType.A) => ArithmeticModel_MDA,
-                (EClosedLoopType.TD, ESideType.A) => ArithmeticModel_TDA,
-                (EClosedLoopType.MDTD, ESideType.A) => ArithmeticModel_MDTDA,
-                (EClosedLoopType.MD, ESideType.B) => ArithmeticModel_MDB,
-                (EClosedLoopType.TD, ESideType.B) => ArithmeticModel_TDB,
-                (EClosedLoopType.MDTD, ESideType.B) => ArithmeticModel_MDTDB,
+                (EClosedLoopType.MD, ESideType.A) => AlgorithmModel_MDA,
+                (EClosedLoopType.TD, ESideType.A) => AlgorithmModel_TDA,
+                (EClosedLoopType.MDTD, ESideType.A) => AlgorithmModel_MDTDA,
+                (EClosedLoopType.MD, ESideType.B) => AlgorithmModel_MDB,
+                (EClosedLoopType.TD, ESideType.B) => AlgorithmModel_TDB,
+                (EClosedLoopType.MDTD, ESideType.B) => AlgorithmModel_MDTDB,
                 _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
             };
 
+            var (verifyResult, verifyMessage) = await _algorithmService.VerifyAlgorithmAsync(sideType, closedLoopType, newAlgorithmName);
             // 校验算法
-            if (false)// 校验失败则弹窗提示
+            if (!verifyResult)// 校验失败则弹窗提示
             {
-                MessageBox.Show($"{sideType}面{closedLoopType}算法[{newArithmeticName}]校验失败:[]!");
-                settingModel.ArithmeticName = oldArithmeticName;
+                await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.ErrorAsync(verifyMessage, $"{sideType}面{closedLoopType}算法校验失败"));
+                settingModel.AlgorithmName = string.Empty;
+                settingModel.AlgorithmName = oldAlgorithmName;
                 return;
             }
 
-            settingModel.ArithmeticName = newArithmeticName;
-            var re = _operationUtil.SaveArithmeticProjectParamrers(closedLoopType, sideType, settingModel);
+            settingModel.AlgorithmName = newAlgorithmName;
+            var re = _projectSettingRepository.SaveAlgorithmProjectParameters(closedLoopType, sideType, settingModel);
             if (!re)
             {
-                MessageBox.Show($"{sideType}面{closedLoopType}算法[{newArithmeticName}]保存数据库失败!");
-                settingModel.ArithmeticName = oldArithmeticName;
+                await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.ErrorAsync($"{sideType}面{closedLoopType}算法[{newAlgorithmName}]校验成功，保存数据库失败!", "提示"));
+                settingModel.AlgorithmName = oldAlgorithmName;
+                return;
             }
+
+            await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.SuccessAsync($"{sideType}面{closedLoopType}算法[{newAlgorithmName}]校验成功，已保存数据库!", "提示"));
         }
 
-        private void LoadArithmeticModel()
+        private void LoadAlgorithmModel()
         {
             var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
             var sideTypes = Enum.GetValues(typeof(ESideType));
@@ -179,55 +186,94 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             {
                 foreach (ESideType sideType in sideTypes)
                 {
-                    var settingModel = _operationUtil.LoadArithmeticProjectParamrers(closedLoopType, sideType);
+                    var settingModel = _projectSettingRepository.LoadAlgorithmProjectParameters(closedLoopType, sideType);
                     if (settingModel == null) continue;
 
-                    var arithmeticModel = (closedLoopType, sideType) switch
+                    var algorithmNameModel = (closedLoopType, sideType) switch
                     {
-                        (EClosedLoopType.MD, ESideType.A) => ArithmeticModel_MDA,
-                        (EClosedLoopType.TD, ESideType.A) => ArithmeticModel_TDA,
-                        (EClosedLoopType.MDTD, ESideType.A) => ArithmeticModel_MDTDA,
-                        (EClosedLoopType.MD, ESideType.B) => ArithmeticModel_MDB,
-                        (EClosedLoopType.TD, ESideType.B) => ArithmeticModel_TDB,
-                        (EClosedLoopType.MDTD, ESideType.B) => ArithmeticModel_MDTDB,
+                        (EClosedLoopType.MD, ESideType.A) => AlgorithmModel_MDA,
+                        (EClosedLoopType.TD, ESideType.A) => AlgorithmModel_TDA,
+                        (EClosedLoopType.MDTD, ESideType.A) => AlgorithmModel_MDTDA,
+                        (EClosedLoopType.MD, ESideType.B) => AlgorithmModel_MDB,
+                        (EClosedLoopType.TD, ESideType.B) => AlgorithmModel_TDB,
+                        (EClosedLoopType.MDTD, ESideType.B) => AlgorithmModel_MDTDB,
                         _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
                     };
-                    arithmeticModel.IsEnable = settingModel.IsEnable;
-                    arithmeticModel.ArithmeticName = settingModel.ArithmeticName;
+                    algorithmNameModel.IsEnable = settingModel.IsEnable;
+                    algorithmNameModel.AlgorithmName = settingModel.AlgorithmName;
                 }
             }
         }
         #endregion
 
         #region 闭环参数设置
-        public ICommand? ParamSettingClickCommand => new RelayCommand(ParamSettingClick);
+        public ICommand? ParamSettingClickCommand => new RelayCommand(ParamSettingClickAsync);
 
-        private async void ParamSettingClick(object? arg)
+        private async void ParamSettingClickAsync(object? arg)
         {
             if (arg == null) return;
-            if (!(arg is ArithmeticSettingControl page)) return;
+            if (!(arg is AlgorithmSettingControl page)) return;
             var closedLoopType = page.ClosedLoopType;
             var sideType = page.SideType;
-            var settingModel = _operationUtil.LoadClosedLoopSettingProjectParamrers(closedLoopType, sideType);
-            if (settingModel == null) return;
+            try
+            {
+                var settingModel = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(closedLoopType, sideType);
+                if (settingModel == null) return;
 
-            // 获取当前用户角色
-            var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
-            var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
+                // 获取当前用户角色
+                var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
+                var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
 
-            var result = await Dialog
-                .Show(new VM_ClosedLoopSettingDialog().UIElement)
-                .Initialize<VM_ClosedLoopSettingDialog>(o =>
+                var result = await Dialog
+                    .Show(new VM_ClosedLoopSettingDialog().UIElement)
+                    .Initialize<VM_ClosedLoopSettingDialog>(o =>
+                    {
+                        o.SideType = sideType;
+                        o.ClosedLoopType = closedLoopType;
+                        o.ClosedLoopSettingModel = settingModel;
+                        o.UserRole = (UserRole)roleId;
+                    })
+                    .GetResultAsync<bool>();
+
+                if (!result)
                 {
-                    o.SideType = sideType;
-                    o.ClosedLoopType = closedLoopType;
-                    o.ClosedLoopSettingModel = settingModel;
-                    o.UserRole = (UserRole)roleId;
-                })
-                .GetResultAsync<bool>();
+                    _logger.Info($"用户取消 [{sideType}面{closedLoopType}闭环参数] 配置修改");
+                    return;
+                }
 
-            if (!result) return;
-            var re = _operationUtil.SaveClosedLoopSettingProjectParamrers(closedLoopType, sideType, settingModel);
+                var old = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(closedLoopType, sideType);
+                var isChanged = !settingModel.EqualsByJson(old);
+                if (!isChanged)
+                {
+                    await VM_CCTBMessageBoxDialog.InfoAsync($"[{sideType}面{closedLoopType}闭环参数] 配置未修改，无需保存！", "提示");
+                    return;
+                }
+
+                var confirmResult = await VM_CCTBMessageBoxDialog.AskAsync($"确认保存 [{sideType}面{closedLoopType}闭环参数] 配置修改？", "确认保存");
+
+                if (confirmResult != System.Windows.MessageBoxResult.OK)
+                {
+                    _logger.Info($"用户取消保存 [{sideType}面{closedLoopType}闭环参数] 配置");
+                    return;
+                }
+
+                var isUpdateSuccess = _projectSettingRepository.SaveClosedLoopSettingProjectParameters(closedLoopType, sideType, settingModel);
+                if (isUpdateSuccess)
+                {
+                    _logger.Info($"[{sideType}面{closedLoopType}闭环参数] 配置保存成功");
+                    await VM_CCTBMessageBoxDialog.SuccessAsync($"[{sideType}面{closedLoopType}闭环参数] 配置更新完成！", "提示");
+                }
+                else
+                {
+                    _logger.Error($"[{sideType}面{closedLoopType}闭环参数]  配置保存失败");
+                    await VM_CCTBMessageBoxDialog.ErrorAsync($"[{sideType}面{closedLoopType}闭环参数] 配置更新失败！", "提示");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[{sideType}面{closedLoopType}闭环参数] 配置保存异常: {ex.Message}", ex);
+                await VM_CCTBMessageBoxDialog.ErrorAsync($"保存配置时发生异常：{ex.Message}", "错误");
+            }
         }
         #endregion
 
@@ -247,7 +293,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             Enum.GetValues(typeof(EPartitionedType)).Cast<EPartitionedType>()
             .Select(v => new ComboboxItemModel<EPartitionedType>() { ItemValue = v, DisplayName = v.ToString() }));
 
-        public ICommand? ParamSaveCommand => new RelayCommand(ParamSave);
+        public ICommand? ParamSaveCommand => new RelayCommand(ParamSaveAsync);
         public ICommand? PartitionedSelectionChangedCommand => new RelayCommand(PartitionedSelectionChanged);
 
         private GeneralSettingsModel generalSettingsModel = new();
@@ -256,11 +302,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 
         public ObservableCollection<PartitionedModel> PartitionedModels { get; set; } = [];
 
-        private void ParamSave()
+        private async void ParamSaveAsync()
         {
             GeneralSettingsModel.PartitionedModels.Clear();
             GeneralSettingsModel.PartitionedModels.AddRange(PartitionedModels);
-            var re = _operationUtil.SaveGeneralSettingsProjectParamrers(GeneralSettingsModel);
+
+            try
+            {
+                var old = _projectSettingRepository.LoadGeneralSettingsProjectParameters();
+                var isChanged = !GeneralSettingsModel.EqualsByJson(old);
+                if (!isChanged)
+                {
+                    await VM_CCTBMessageBoxDialog.InfoAsync($"[通用设置] 配置未修改，无需保存！", "提示");
+                    return;
+                }
+
+                var confirmResult = await VM_CCTBMessageBoxDialog.AskAsync($"确认保存 [通用设置] 配置修改？", "确认保存");
+                if (confirmResult != System.Windows.MessageBoxResult.OK)
+                {
+                    _logger.Info($"用户取消保存 [通用设置] 配置");
+                    return;
+                }
+
+                var isUpdateSuccess = _projectSettingRepository.SaveGeneralSettingsProjectParameters(GeneralSettingsModel);
+                if (isUpdateSuccess)
+                {
+                    _logger.Info($"[通用设置] 配置保存成功");
+                    await VM_CCTBMessageBoxDialog.SuccessAsync($"[通用设置] 配置更新完成！", "提示");
+                }
+                else
+                {
+                    _logger.Error($"[通用设置]  配置保存失败");
+                    await VM_CCTBMessageBoxDialog.ErrorAsync($"[通用设置] 配置更新失败！", "提示");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[通用设置] 配置保存异常: {ex.Message}", ex);
+                await VM_CCTBMessageBoxDialog.ErrorAsync($"保存配置时发生异常：{ex.Message}", "错误");
+            }
         }
 
         private void PartitionedSelectionChanged(object? arg)
@@ -277,7 +357,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// </summary>
         private void LoadGeneralSettingsModel()
         {
-            var settingModel = _operationUtil.LoadGeneralSettingsProjectParamrers();
+            var settingModel = _projectSettingRepository.LoadGeneralSettingsProjectParameters();
             if (settingModel == null) return;
 
             GeneralSettingsModel = settingModel;

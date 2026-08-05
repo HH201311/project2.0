@@ -41,7 +41,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-        private readonly OperationUtil _operationUtil;
 
         /// <summary>
         /// 构造函数
@@ -61,8 +60,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
-
-            _operationUtil = new OperationUtil(projectSettingRepository);
         }
 
         protected override async Task OnInitializeAsync()
@@ -143,14 +140,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             if (!(arg is ESideType sideType)) return;
 
             // 加载配置
-            var paramOptions = _operationUtil.LoadParamOptionsProjectParameters(sideType);
+            var paramOptions = _projectSettingRepository.LoadParamOptionsProjectParameters(sideType);
             var result = await Dialog
                 .Show(new VM_TBDataConfigDialog(paramOptions).UIElement)
                 .GetResultAsync<bool>();
 
             if (!result) return;
 
-            _operationUtil.SaveParamOptionsProjectParameters(sideType, paramOptions);
+            _projectSettingRepository.SaveParamOptionsProjectParameters(sideType, paramOptions);
             if (sideType == ESideType.A)
             {
                 tbParamOptionsACache.Clear();
@@ -248,7 +245,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             var sideTypes = Enum.GetValues(typeof(ESideType));
             foreach (ESideType sideType in sideTypes)
             {
-                var paramOptions = _operationUtil.LoadParamOptionsProjectParameters(sideType);
+                var paramOptions = _projectSettingRepository.LoadParamOptionsProjectParameters(sideType);
                 if (paramOptions == null) continue;
 
                 if (sideType == ESideType.A) tbParamOptionsACache = paramOptions;

@@ -1,13 +1,10 @@
-﻿using Newtonsoft.Json;
-using SUNWODA_SEVB.Core.Interfaces;
+﻿using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
 using SUNWODA_SEVB.Core.Models.Web;
 using SUNWODA_SEVB.Tool.Helper;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 
 namespace SUNWODA_SEVB.WEB.Services
@@ -181,7 +178,7 @@ namespace SUNWODA_SEVB.WEB.Services
         public async Task<MachineErrorResponse> SendMachineErrorAlertAsync(
             string deviceId,
             string info,
-            string state="1",
+            string state = "1",
             string type = "WX",
             string projectName = "",
             string level = "10")
@@ -189,7 +186,7 @@ namespace SUNWODA_SEVB.WEB.Services
             try
             {
                 var settings = _configuration.GetSettings();
-                if(settings==null || string.IsNullOrEmpty(settings.CentralControlWebUrl))
+                if (settings == null || string.IsNullOrEmpty(settings.CentralControlWebUrl))
                 {
                     return new MachineErrorResponse
                     {
@@ -197,7 +194,8 @@ namespace SUNWODA_SEVB.WEB.Services
                         Message = "数据库中Web端的Url未配置"
                     };
                 }
-                if (!settings.EnableMachineErrorAlert) { 
+                if (!settings.EnableMachineErrorAlert)
+                {
                     return new MachineErrorResponse
                     {
                         Code = 0,
@@ -672,8 +670,8 @@ namespace SUNWODA_SEVB.WEB.Services
         public async Task<AiDetectionDataResponse> AiDetectionDataAsync
         (
             string position, string barCode, long abnormalTimeStamp,
-            string detectionResult, byte[]? file, List<FrameDtoList>? frameResultDataList = null, string contentType = "image/png", 
-            string fileExt = "png",int dataType = 2
+            string detectionResult, byte[]? file, List<FrameDtoList>? frameResultDataList = null, string contentType = "image/png",
+            string fileExt = "png", int dataType = 2
         )
         {
             try
@@ -698,15 +696,15 @@ namespace SUNWODA_SEVB.WEB.Services
                     DeviceId = settings.DeviceSn ?? "",
                     Position = position,
                     BarCode = barCode,
-                    AbnormalTimeStamp = abnormalTimeStamp,                    
+                    AbnormalTimeStamp = abnormalTimeStamp,
                     DetectionResult = detectionResult,
                     DataType = dataType
                 };
 
                 if (dataType == 3)
                     request.FrameDtoList = frameResultDataList;
-                
-                var json = JsonHelper.Serialize(request);                
+
+                var json = JsonHelper.Serialize(request);
 
                 Stopwatch sw = Stopwatch.StartNew();
                 var result = Encoding.Default.GetString(await Task.Run(() => _httpHelper.HttpWebPostBytesAsync(json, file, url, contentType, fileExt)));
@@ -849,6 +847,15 @@ namespace SUNWODA_SEVB.WEB.Services
             try
             {
                 var settings = _configuration.GetSettings();
+                if (string.IsNullOrEmpty(settings.WebTestUrlSysCenter))
+                {
+                    return new TrajectoryDataResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
                 var url = $"{settings.WebTestUrlSysCenter}eeService/abnormalData/trajectoryData";
                 var workshipParts = settings.Workship?.Split(':') ?? new string[4];
                 var request = new TtrajectoryDataRequest
@@ -996,7 +1003,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     };
                 }
                 var baseUrl = settings.WebPushApiUrl;
-                
+
                 if (!baseUrl.EndsWith("/")) baseUrl += "/";
 
                 var url = $"{baseUrl}sendTextFs";
@@ -1011,7 +1018,7 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
 
                 string postData = JsonHelper.Serialize(request);
-                var result = await _httpHelper.PostWithRetryAsync(url,postData,retryCount: settings.PushRetryCount,retryDelayMs: settings.PushRetryDelayMs,timeoutSeconds: 5);
+                var result = await _httpHelper.PostWithRetryAsync(url, postData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 5);
 
                 if (result.StartsWith("failed"))
                 {
@@ -1094,7 +1101,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     { "appId", settings.PushAppId ?? string.Empty }
                 };
 
-                var result = await _httpHelper.PostFileWithRetryAsync( url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 30);
+                var result = await _httpHelper.PostFileWithRetryAsync(url, filePath, formData, retryCount: settings.PushRetryCount, retryDelayMs: settings.PushRetryDelayMs, timeoutSeconds: 30);
 
                 if (result.Contains("failed"))
                 {
@@ -1119,8 +1126,122 @@ namespace SUNWODA_SEVB.WEB.Services
                 };
             }
         }
-     
+
         #endregion
 
+        #region 自定义接口
+        /// <summary>
+        /// 库文件.dll下载接口
+        /// </summary>
+        /// <param name="baseUrl"></param>
+        /// <param name="appKey"></param>
+        /// <param name="signature"></param>
+        /// <param name="pythonCode"></param>
+        /// <param name="executeType"></param>
+        /// <returns></returns>
+        public async Task<DownloadDllResponse> DownloadDllAsync(string baseUrl, string appKey, string signature, string pythonCode, string executeType)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(baseUrl))
+                {
+                    return new DownloadDllResponse
+                    {
+                        IsSuccess = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{baseUrl}sysCenter/interfaceApi/downloadFile";
+                var request = new DownloadDllRequest
+                {
+                    AppKey = appKey,
+                    Signature = signature,
+                    PythonCode = pythonCode,
+                    ExecuteType = executeType
+                };
+
+                var json = JsonHelper.Serialize(request);
+                var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json"));
+
+                // 接口报错返回字符串包含failed
+                if (Encoding.Default.GetString(result).Contains("failed"))
+                {
+                    return new DownloadDllResponse
+                    {
+                        IsSuccess = false,
+                        Message = Encoding.Default.GetString(result)
+                    };
+                }
+
+                // 尝试反序列化，如果失败则将结果作为 DataStr 返回
+                if (JsonHelper.TryDeserialize<DownloadDllResponse>(Encoding.Default.GetString(result), out var response) && response != null)
+                {
+                    return response;
+                }
+
+                // 如果不能反序列化为 DownloadDllResponse，则将原始结果作为 DataStr 返回
+                return new DownloadDllResponse
+                {
+                    IsSuccess = true,
+                    DataStr = result
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("SysCenter文件下载API调用失败", ex);
+                return new DownloadDllResponse
+                {
+                    IsSuccess = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 获取文件版本信息接口
+        /// </summary>
+        /// <param name="baseUrl"></param>
+        /// <param name="pythonCode"></param>
+        /// <returns></returns>
+        public async Task<FileVersionResponse> GetFileVersionAsync(string baseUrl, string pythonCode)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(baseUrl))
+                {
+                    return new FileVersionResponse
+                    {
+                        Success = false,
+                        Message = "WebTestUrlSysCenter未配置"
+                    };
+                }
+
+                var url = $"{baseUrl}sysCenter/interfaceApi/selFileVersion";
+                var parameters = new Dictionary<string, string>
+                {
+                    {"pythonCode", pythonCode}
+                };
+
+                var result = await Task.Run(() => _httpHelper.IMEWebGet(url, parameters));
+
+                var response = JsonHelper.Deserialize<FileVersionResponse>(result);
+                return response ?? new FileVersionResponse
+                {
+                    Success = false,
+                    Message = "反序列化失败"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("获取文件版本API调用失败", ex);
+                return new FileVersionResponse
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+        #endregion
     }
 }

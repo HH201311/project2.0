@@ -1,21 +1,4 @@
-﻿using CF;
-using HalconDotNet;
-using HandyControl.Controls;
-using HandyControl.Tools.Extension;
-using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using OpenCvSharp;
-using SUNWODA_SEVB.Core.Attributes;
-using SUNWODA_SEVB.Core.Common;
-using SUNWODA_SEVB.Core.Common.Commands;
-using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Core.Interfaces.Data;
-using SUNWODA_SEVB.Core.Models.Data;
-using SUNWODA_SEVB.Core.Models.Project.CTNCLX;
-using SUNWODA_SEVB.Tool.Helper;
-using SUNWODA_SEVB.ViewModels.Dialogs.CTNCLX;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
@@ -27,6 +10,24 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using CF;
+using HalconDotNet;
+using HandyControl.Controls;
+using HandyControl.Tools.Extension;
+using Microsoft.Win32;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using OpenCvSharp;
+using SharpCompress.Common;
+using SUNWODA_SEVB.Core.Attributes;
+using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Interfaces;
+using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.Project.CTNCLX;
+using SUNWODA_SEVB.Tool.Helper;
+using SUNWODA_SEVB.ViewModels.Dialogs.CTNCLX;
 using TouchSocket.Core;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
@@ -39,6 +40,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
         private readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
         private readonly HashSet<string> exts = new() { ".tif", ".png", ".jpg" };
         private readonly HttpClient _httpClient = new HttpClient();
+
         //private readonly HttpHelper _httpHelper;
 
         private bool isContinuousDetection;
@@ -72,6 +74,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
         private ImageSource? _lastProcessedImage;
 
         private SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+
+        private readonly ConcurrentDictionary<string, byte> _processingFiles = new();
 
         private bool isInitCompleted = false;
 
@@ -481,6 +485,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
         /// CT检测算法实例
         /// </summary>
         public object? CTDetectionAlgorithmIstance { get; set; }
+
         //public NJSwdCT? CTDetectionAlgorithmIstance { get; set; }
 
         public MethodInfo? ModelActionMethod { get; set; }
@@ -521,13 +526,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
 
         public bool IsRunCuda { get; set; } = true;
 
-        public string? CTNCLXDLLDownloadUrl { get; set; } = "http://10.117.243.32:7097/sysCenter/interfaceApi/downloadFile";
+        public string? CTNCLXDLLDownloadUrl { get; set; } =
+            "http://10.117.243.32:7097/sysCenter/interfaceApi/downloadFile";
 
-        public string? CTNCLXDLLDownloadBackupUrl { get; set; } = "http://10.201.88.151:10100/sysCenter/interfaceApi/downloadFile";
+        public string? CTNCLXDLLDownloadBackupUrl { get; set; } =
+            "http://10.201.88.151:10100/sysCenter/interfaceApi/downloadFile";
 
         public string? AlgorithmDllName { get; set; } = "NJCT.dll";
 
-        public string? PublicKey { get; set; } = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCDYu1ZxikUQ1nHRzTl+0fyzKbDNWPCoNzh9WdgeFQZ31dXLhMtYZgv67xIfaj33GAqtabIwpiJlDjkV+tSSAOU3u7FPt+6MVdbVPgFRm+WP+le21SrWYnw1BmeNr/kR4FufnxQsI28W5DwGv59XRd1GTnT1PBUH34iN5EW+DmsdQIDAQAB";
+        public string? PublicKey { get; set; } =
+            "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCDYu1ZxikUQ1nHRzTl+0fyzKbDNWPCoNzh9WdgeFQZ31dXLhMtYZgv67xIfaj33GAqtabIwpiJlDjkV+tSSAOU3u7FPt+6MVdbVPgFRm+WP+le21SrWYnw1BmeNr/kR4FufnxQsI28W5DwGv59XRd1GTnT1PBUH34iN5EW+DmsdQIDAQAB";
 
         public string? AppKey { get; set; } = "nc_lixian_ct";
 
@@ -567,6 +575,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
         {
             get => _fileSelectCommand;
             set => SetProperty(ref _fileSelectCommand, value);
+        }
+
+        public ICommand? _dirSelectCommand;
+        public ICommand? DirSelectCommand
+        {
+            get => _dirSelectCommand;
+            set => SetProperty(ref _dirSelectCommand, value);
         }
 
         private ICommand? _exportPathSelectCommand;
@@ -1154,7 +1169,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
 
             if (
                 !_projectSettingRepository.Exists(model =>
-                    model.Name == $"CTNCLXDLLDownloadUrl" && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
+                    model.Name == $"CTNCLXDLLDownloadUrl"
+                    && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
                 )
             )
             {
@@ -1179,10 +1195,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 );
                 CTNCLXDLLDownloadUrl = _ctNCLXDLLDownloadUrl;
             }
-            
+
             if (
                 !_projectSettingRepository.Exists(model =>
-                    model.Name == $"AlgorithmDllName" && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
+                    model.Name == $"AlgorithmDllName"
+                    && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
                 )
             )
             {
@@ -1266,7 +1283,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
 
             if (
                 !_projectSettingRepository.Exists(model =>
-                    model.Name == $"DllPythonCode" && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
+                    model.Name == $"DllPythonCode"
+                    && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
                 )
             )
             {
@@ -1294,7 +1312,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
 
             if (
                 !_projectSettingRepository.Exists(model =>
-                    model.Name == $"ModelPythonCode" && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
+                    model.Name == $"ModelPythonCode"
+                    && model.BelongToVM == "VM_CTNCLXAutoDetectionPage"
                 )
             )
             {
@@ -1356,6 +1375,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
 
             FileSelectCommand = new RelayCommand(FileSelect);
 
+            DirSelectCommand = new RelayCommand(DirSelect);
+
             ExportPathSelectCommand = new RelayCommand(ExportPathSelect);
 
             ClearDetectionInfoCommand = new RelayCommand(ClearDetectionInfo);
@@ -1367,6 +1388,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             //}
             //ModelPath = ".\\model\\NCLXCT\\model.onnx";
             //CTDetectionAlgorithmIstance = new NJSwdCT();
+            //CTNCLXDLLDownloadUrl = CTNCLXDLLDownloadBackupUrl; // TODO 测试后删除
             var assembly = LoadAssembly(AlgorithmDllName!, PublicKey!, AppKey!, DllPythonCode!);
             if (assembly == null)
             {
@@ -1403,7 +1425,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 DownloadModel(ModelPath!, PublicKey!, AppKey!, ModelPythonCode!);
                 _logger.Info($"下载模型耗时：{(DateTime.Now - startTime).TotalSeconds} s");
             }
-            ModelInitParameters = new object[4] { ModelPath!, ModelHandle, ModelInitErrorInfo, IsRunCuda };
+            ModelInitParameters = new object[4]
+            {
+                ModelPath!,
+                ModelHandle,
+                ModelInitErrorInfo,
+                IsRunCuda,
+            };
             startTime = DateTime.Now;
             _logger.Info("开始加载模型");
             ModelInitMethod?.Invoke(CTDetectionAlgorithmIstance, ModelInitParameters);
@@ -1420,7 +1448,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             {
                 ModelHandle = (ModelInitParameters[1] as IPredictor)!;
             }
-            
+
             if (ModelHandle is null)
             {
                 _logger.Info($"模型句柄为空");
@@ -1448,15 +1476,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                             _semaphore.Wait();
                             ImagePathQueue.TryDequeue(out string? imagePath);
                             _logger.Info($"获取到图片路径：{imagePath}");
-                            GapDetection(imagePath);
-                            //Thread.Sleep(5000);
-                            _semaphore.Release();
+
+                            try
+                            {
+                                GapDetection(imagePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error("检测错误", ex);
+                            }
+                            finally
+                            {
+                                if (!string.IsNullOrEmpty(imagePath))
+                                {
+                                    _processingFiles.TryRemove(imagePath, out _);
+                                }
+
+                                _semaphore.Release();
+                            }
+
                         }
                         Thread.Sleep(1000);
                     }
                     catch (Exception ex)
                     {
                         _logger.Error("检测线程错误", ex);
+                        _semaphore.Release();
                     }
                 }
             });
@@ -1509,8 +1554,105 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                         _semaphore.Wait();
                         // 获取选中文件的路径
                         var filePath = openFileDialog.FileName;
-                        _logger.Info($"获取到图片路径：{filePath}");
-                        GapDetection(filePath);
+
+                        if (!_processingFiles.TryAdd(filePath, 0))
+                            return;
+
+                        using Mat im = Cv2.ImRead(filePath);
+
+                        if (im.Empty())
+                        {
+                            _processingFiles.TryRemove(filePath, out _);
+                            _logger.Info($"图片读取为空：{filePath}");
+                            return;
+                        }
+
+                        if ((im.Width == 1950 || im.Width == 2250) && im.Height <= 1000)
+                        {
+                            ImagePathQueue!.Enqueue(filePath);
+                            _logger.Info($"图片入队：{filePath}");
+                        }
+                        else if (im.Width == 4500 && im.Height == 1900)
+                        {
+                            ImagePathQueue!.Enqueue(filePath);
+                            _logger.Info($"图片入队：{filePath}");
+                        }
+                        else
+                        {
+                            _processingFiles.TryRemove(filePath, out _);
+                            _logger.Info($"图片尺寸（{im.Width} * {im.Height}）不符合：{filePath}");
+                        }
+
+                        //ImagePathQueue!.Enqueue(filePath);
+                        //_logger.Info($"获取到图片路径：{filePath}");
+                        //GapDetection(filePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error("检测错误", ex);
+                    }
+                    finally
+                    {
+                        _semaphore.Release();
+                    }
+                });
+            }
+        }
+
+        private void DirSelect()
+        {
+            var folderDialog = new OpenFolderDialog();
+            folderDialog.Title = $"导入文件夹选择";
+            folderDialog.InitialDirectory = FileSelectInitDir;
+            folderDialog.ValidateNames = true;
+            folderDialog.Multiselect = false;
+            bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
+            if (result == true)
+            {
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        _semaphore.Wait();
+                        var files = Directory
+                            .EnumerateFiles(
+                                folderDialog.FolderName,
+                                "*.*",
+                                SearchOption.TopDirectoryOnly
+                            )
+                            .Where(file => exts.Contains(Path.GetExtension(file).ToLower()));
+
+                        foreach (var filePath in files)
+                        {
+                            if (!_processingFiles.TryAdd(filePath, 0))
+                                continue;
+
+                            using Mat im = Cv2.ImRead(filePath);
+
+                            if (im.Empty())
+                            {
+                                _processingFiles.TryRemove(filePath, out _);
+                                _logger.Info($"图片读取为空：{filePath}");
+                                continue;
+                            }
+
+                            if ((im.Width == 1950 || im.Width == 2250) && im.Height <= 1000)
+                            {
+                                ImagePathQueue!.Enqueue(filePath);
+                                _logger.Info($"图片入队：{filePath}");
+                            }
+                            else if (im.Width == 4500 && im.Height == 1900)
+                            {
+                                ImagePathQueue!.Enqueue(filePath);
+                                _logger.Info($"图片入队：{filePath}");
+                            }
+                            else
+                            {
+                                _processingFiles.TryRemove(filePath, out _);
+                                _logger.Info($"图片尺寸（{im.Width} * {im.Height}）不符合：{filePath}");
+                            }
+                            //ImagePathQueue!.Enqueue(filePath);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -1580,6 +1722,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             }
             ImageFileSystemWatcher.Path = ImageMonitorPath!;
             ImageFileSystemWatcher.Created += OnCreated;
+            ImageFileSystemWatcher.Renamed += OnRenamed;
             ImageFileSystemWatcher.Error += OnError;
             // 不设置过滤器，监控所有类型的变化
             ImageFileSystemWatcher.Filter = "*.*";
@@ -1590,7 +1733,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
         private void OnError(object sender, ErrorEventArgs e)
         {
             _logger.Error("监控文件夹出现错误", e.GetException());
-            Growl.ErrorGlobal($"监控文件夹出现错误：{e.GetException()}");;
+            Growl.ErrorGlobal($"监控文件夹出现错误：{e.GetException()}");
+            ;
         }
 
         /// <summary>
@@ -1606,35 +1750,132 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             }
         }
 
-        private void OnCreated(object source, FileSystemEventArgs e)
+        //private void OnCreated(object source, FileSystemEventArgs e)
+        //{
+        //    try
+        //    {
+        //        if (File.Exists(e.FullPath))
+        //        {
+        //            if (exts.Contains(Path.GetExtension(e.FullPath).ToLower()))
+        //            {
+        //                Thread.Sleep(100);
+        //                //HOperatorSet.ReadImage(out HObject aaimg, e.FullPath);
+        //                //HOperatorSet.GetImageSize(aaimg, out HTuple width, out HTuple height);
+        //                //if (width.D == 1950 && height.D <= 1000)
+        //                Mat im = Cv2.ImRead(e.FullPath);
+        //                if (im.Width == 1950 && im.Height <= 1000)
+        //                {
+        //                    ImagePathQueue!.Enqueue(e.FullPath);
+        //                    _logger.Info($"图片入队：{e.FullPath}");
+        //                }
+        //                //aaimg.Dispose();
+        //                //width.Dispose();
+        //                //height.Dispose();
+        //                im.Dispose();
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.Error($"图片 {e.FullPath} 入队异常", ex);
+        //    }
+        //}
+
+        private void OnCreated(object sender, FileSystemEventArgs e)
+        {
+            HandleFile(e.FullPath);
+        }
+
+        private void OnRenamed(object sender, RenamedEventArgs e)
+        {
+            HandleFile(e.FullPath);
+        }
+
+        private void HandleFile(string filePath)
         {
             try
             {
-                if (File.Exists(e.FullPath))
+                if (!File.Exists(filePath))
                 {
-                    if (exts.Contains(Path.GetExtension(e.FullPath).ToLower()))
-                    {
-                        Thread.Sleep(10);
-                        //HOperatorSet.ReadImage(out HObject aaimg, e.FullPath);
-                        //HOperatorSet.GetImageSize(aaimg, out HTuple width, out HTuple height);
-                        //if (width.D == 1950 && height.D <= 1000)
-                        Mat im = Cv2.ImRead(e.FullPath);
-                        if (im.Width == 1950 && im.Height <= 1000)
-                        {
-                            ImagePathQueue!.Enqueue(e.FullPath);
-                            _logger.Info($"图片入队：{e.FullPath}");
-                        }
-                        //aaimg.Dispose();
-                        //width.Dispose();
-                        //height.Dispose();
-                        im.Dispose();
-                    }
+                    _logger.Info($"图片不存在：{filePath}");
+                    return;
+                }
+
+                string ext = Path.GetExtension(filePath).ToLower();
+
+                if (!exts.Contains(ext))
+                {
+                    _logger.Info($"图片格式不支持：{filePath}");
+                    return;
+                }
+
+                if (!_processingFiles.TryAdd(filePath, 0))
+                    return;
+
+                Thread.Sleep(100);
+
+                if (!WaitFileReady(filePath))
+                {
+                    _processingFiles.TryRemove(filePath, out _);
+                    _logger.Info($"图片未写入完成：{filePath}");
+                    return;
+                }
+
+                using Mat im = Cv2.ImRead(filePath);
+
+                if (im.Empty())
+                {
+                    _processingFiles.TryRemove(filePath, out _);
+                    _logger.Info($"图片读取为空：{filePath}");
+                    return;
+                }
+
+                if ((im.Width == 1950 || im.Width == 2250) && im.Height <= 1000)
+                {
+                    ImagePathQueue!.Enqueue(filePath);
+                    _logger.Info($"图片入队：{filePath}");
+                }
+                else if (im.Width == 4500 && im.Height == 1900)
+                {
+                    ImagePathQueue!.Enqueue(filePath);
+                    _logger.Info($"图片入队：{filePath}");
+                }
+                else
+                {
+                    _processingFiles.TryRemove(filePath, out _);
+                    _logger.Info($"图片尺寸（{im.Width} * {im.Height}）不符合：{filePath}");
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error($"图片 {e.FullPath} 入队异常", ex);
+                _processingFiles.TryRemove(filePath, out _);
+
+                _logger.Error($"图片 {filePath} 入队异常", ex);
             }
+        }
+
+        private bool WaitFileReady(string path)
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                try
+                {
+                    using FileStream fs = File.Open(
+                        path,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.None
+                    );
+
+                    return true;
+                }
+                catch
+                {
+                    Thread.Sleep(100);
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -3550,19 +3791,36 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                     }
                 }
 
+                var jrResultCode = new List<string>();
+
                 if (!string.IsNullOrEmpty(RunInfo))
                 {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        jrResultCode.Add("NG");
+                    }
                     LastImageIsOK = false;
                 }
                 else
                 {
-                    LastImageIsOK = IsOK(
-                        innerGap,
+                    //LastImageIsOK = IsOK(
+                    //    innerGap,
+                    //    z45MeanGap,
+                    //    z0MeanGap,
+                    //    f45MeanGap,
+                    //    z0NeToAnRatio
+                    //);
+
+                    var isJROKList = IsJROK(innerGap,
                         z45MeanGap,
                         z0MeanGap,
                         f45MeanGap,
-                        z0NeToAnRatio
-                    );
+                        z0NeToAnRatio);
+                    for (int i = 0; i < isJROKList.Count; i++)
+                    {
+                        jrResultCode.Add(isJROKList[i] ? "OK" : "NG");
+                    }
+                    LastImageIsOK = !isJROKList.Any(r => r == false);
                 }
 
                 var resultCode = LastImageIsOK ? "OK" : "NG";
@@ -3615,10 +3873,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 var relativeDirParts = parts.Take(parts.Count - 1).ToArray();
                 if (string.IsNullOrEmpty(RunInfo))
                 {
+                    //SaveSingleCSVFile(
+                    //    outputPath,
+                    //    fileName,
+                    //    resultCode,
+                    //    innerGap,
+                    //    z0MeanGap,
+                    //    z45MeanGap,
+                    //    f45MeanGap,
+                    //    z0NeToAnRatio
+                    //);
+                    //SaveCSVFileByDay(
+                    //    fileName,
+                    //    resultCode,
+                    //    innerGap,
+                    //    z0MeanGap,
+                    //    z45MeanGap,
+                    //    f45MeanGap,
+                    //    z0NeToAnRatio
+                    //);
+
                     SaveSingleCSVFile(
                         outputPath,
                         fileName,
-                        resultCode,
+                        jrResultCode,
                         innerGap,
                         z0MeanGap,
                         z45MeanGap,
@@ -3627,7 +3905,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                     );
                     SaveCSVFileByDay(
                         fileName,
-                        resultCode,
+                        jrResultCode,
                         innerGap,
                         z0MeanGap,
                         z45MeanGap,
@@ -3884,6 +4162,129 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             CsvSaveHelper.WriteToFile(filePath, dataTable);
         }
 
+        private void SaveSingleCSVFile(
+            string outputPath,
+            string fileName,
+            List<string> jrResultCode,
+            List<(double gap, bool isOK)> innerGap,
+            List<List<(double gap, bool isOK)>> z0MeanGap,
+            List<List<(double gap, bool isOK)>> z45MeanGap,
+            List<List<(double gap, bool isOK)>> f45MeanGap,
+            List<List<(double ratio, bool isOK)>> z0NeToAnRatio
+        )
+        {
+            var dataTable = new DataTable();
+            // ===== 构建表头 =====
+            dataTable.Columns.Add("记录时间", typeof(DateTime));
+            dataTable.Columns.Add("电芯条码", typeof(string));
+            dataTable.Columns.Add("卷芯", typeof(string));
+            dataTable.Columns.Add("检测结果", typeof(string));
+
+            dataTable.Columns.Add("最内层Gap标准下限", typeof(double));
+            dataTable.Columns.Add("最内层Gap标准上限", typeof(double));
+            dataTable.Columns.Add("内均值上限", typeof(double));
+            dataTable.Columns.Add("中均值上限", typeof(double));
+            dataTable.Columns.Add("外均值上限", typeof(double));
+            dataTable.Columns.Add("整个卷芯Gap均值下限", typeof(double));
+            dataTable.Columns.Add("0°内5圈均值下限", typeof(double));
+            dataTable.Columns.Add("0°方向负凸到正凹比值第2圈规格下限", typeof(double));
+            dataTable.Columns.Add("0°方向负凸到正凹比值第3圈到第6圈规格下限", typeof(double));
+
+            dataTable.Columns.Add($"内层Gap值", typeof(double));
+
+            dataTable.Columns.Add($"内五层0°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"内五层+45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"内五层-45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"内五层三方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层0°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层+45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层-45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层三方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层0°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层+45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层-45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层三方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"整个卷芯Gap检测均值", typeof(double));
+
+            for (int j = 0; j < z0NeToAnRatio[0].Count; j++)
+            {
+                dataTable.Columns.Add(
+                    $"0°方向负凸到正凹第{j + 2}圈比值",
+                    typeof(double)
+                );
+            }
+
+            for (int i = 0; i < 2; i++)
+            {
+                var row = dataTable.NewRow();
+                row["记录时间"] = DateTime.Now;
+                row["电芯条码"] = $"{fileName}";
+                row["卷芯"] = $"JR{i+1}";
+                row["检测结果"] = $"{jrResultCode[i]}";
+
+                row["最内层Gap标准下限"] = InnerGapLowerLimit;
+                row["最内层Gap标准上限"] = InnerGapUpperLimit;
+                row["内均值上限"] = InnerFiveMeanMeanUpperLimit;
+                row["中均值上限"] = MiddleFiveMeanMeanUpperLimit;
+                row["外均值上限"] = OutsideFiveMeanMeanUpperLimit;
+                row["整个卷芯Gap均值下限"] = JRGapMeanLowerLimit;
+                row["0°内5圈均值下限"] = InnerFiveMeanLowerLimit;
+                row["0°方向负凸到正凹比值第2圈规格下限"] = Z0NeToAnRatioSecondLapLowerLimit;
+                row["0°方向负凸到正凹比值第3圈到第6圈规格下限"] = Z0NeToAnRatioThreeToSixLapLowerLimit;
+
+                row[$"内层Gap值"] = innerGap[i].gap;
+
+                row[$"内五层0°方向Gap平均值"] = z0MeanGap[i][0].gap;
+                row[$"内五层+45°方向Gap平均值"] = z45MeanGap[i][0].gap;
+                row[$"内五层-45°方向Gap平均值"] = f45MeanGap[i][0].gap;
+                row[$"内五层三方向Gap平均值"] = Math.Round(
+                    (z0MeanGap[i][0].gap + z45MeanGap[i][0].gap + f45MeanGap[i][0].gap) / 3,
+                    3
+                );
+
+                row[$"中五层0°方向Gap平均值"] = z0MeanGap[i][1].gap;
+                row[$"中五层+45°方向Gap平均值"] = z45MeanGap[i][1].gap;
+                row[$"中五层-45°方向Gap平均值"] = f45MeanGap[i][1].gap;
+                row[$"中五层三方向Gap平均值"] = Math.Round(
+                    (z0MeanGap[i][1].gap + z45MeanGap[i][1].gap + f45MeanGap[i][1].gap) / 3,
+                    3
+                );
+
+                row[$"外五层0°方向Gap平均值"] = z0MeanGap[i][2].gap;
+                row[$"外五层+45°方向Gap平均值"] = z45MeanGap[i][2].gap;
+                row[$"外五层-45°方向Gap平均值"] = f45MeanGap[i][2].gap;
+                row[$"外五层三方向Gap平均值"] = Math.Round(
+                    (z0MeanGap[i][2].gap + z45MeanGap[i][2].gap + f45MeanGap[i][2].gap) / 3,
+                    3
+                );
+
+                row[$"整个卷芯Gap检测均值"] = Math.Round(
+                    (
+                        z0MeanGap[i][0].gap
+                        + z0MeanGap[i][1].gap
+                        + z0MeanGap[i][2].gap
+                        + z45MeanGap[i][2].gap
+                        + f45MeanGap[i][2].gap
+                    ) / 5,
+                    4
+                );
+
+                for (int j = 0; j < z0NeToAnRatio[i].Count; j++)
+                {
+                    row[$"0°方向负凸到正凹第{j + 2}圈比值"] = Math.Round(
+                        z0NeToAnRatio[i][j].ratio,
+                        3
+                    );
+                }
+
+                dataTable.Rows.Add(row);
+            }
+            
+            var outputDir = Path.GetDirectoryName(outputPath);
+            var filePath = Path.Combine(outputDir!, $"{fileName}.csv");
+            CsvSaveHelper.WriteToFile(filePath, dataTable);
+        }
+
         private void SaveCSVFileByDay(
             string barcode,
             string resultCode,
@@ -4017,6 +4418,133 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             CsvSaveHelper.AppendToFile(filePath, dataTable);
         }
 
+        private void SaveCSVFileByDay(
+            string barcode,
+            List<string> jrResultCode,
+            List<(double gap, bool isOK)> innerGap,
+            List<List<(double gap, bool isOK)>> z0MeanGap,
+            List<List<(double gap, bool isOK)>> z45MeanGap,
+            List<List<(double gap, bool isOK)>> f45MeanGap,
+            List<List<(double ratio, bool isOK)>> z0NeToAnRatio
+        )
+        {
+            var date = DateTime.Now.ToString("yyyyMMdd");
+            var directory = Path.GetFullPath(Path.Combine(ExportPath!, $"汇总\\{date}"));
+            if (!Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
+            var filePath = Path.Combine(directory, $"Gap检测汇总_{date}.csv");
+
+            var dataTable = new DataTable();
+            // ===== 构建表头 =====
+            dataTable.Columns.Add("记录时间", typeof(DateTime));
+            dataTable.Columns.Add("电芯条码", typeof(string));
+            dataTable.Columns.Add("卷芯", typeof(string));
+            dataTable.Columns.Add("检测结果", typeof(string));
+
+            dataTable.Columns.Add("最内层Gap标准下限", typeof(double));
+            dataTable.Columns.Add("最内层Gap标准上限", typeof(double));
+            dataTable.Columns.Add("内均值上限", typeof(double));
+            dataTable.Columns.Add("中均值上限", typeof(double));
+            dataTable.Columns.Add("外均值上限", typeof(double));
+            dataTable.Columns.Add("整个卷芯Gap均值下限", typeof(double));
+            dataTable.Columns.Add("0°内5圈均值下限", typeof(double));
+            dataTable.Columns.Add("0°方向负凸到正凹比值第2圈规格下限", typeof(double));
+            dataTable.Columns.Add("0°方向负凸到正凹比值第3圈到第6圈规格下限", typeof(double));
+
+            dataTable.Columns.Add($"内层Gap值", typeof(double));
+
+            dataTable.Columns.Add($"内五层0°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"内五层+45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"内五层-45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"内五层三方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层0°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层+45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层-45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"中五层三方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层0°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层+45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层-45°方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"外五层三方向Gap平均值", typeof(double));
+            dataTable.Columns.Add($"整个卷芯Gap检测均值", typeof(double));
+
+            for (int j = 0; j < z0NeToAnRatio[0].Count; j++)
+            {
+                dataTable.Columns.Add(
+                    $"0°方向负凸到正凹第{j + 2}圈比值",
+                    typeof(double)
+                );
+            }
+
+
+            for (int i = 0; i < 2; i++)
+            {
+                var row = dataTable.NewRow();
+                row["记录时间"] = DateTime.Now;
+                row["电芯条码"] = $"{barcode}";
+                row["卷芯"] = $"JR{i + 1}";
+                row["检测结果"] = $"{jrResultCode[i]}";
+
+                row["最内层Gap标准下限"] = InnerGapLowerLimit;
+                row["最内层Gap标准上限"] = InnerGapUpperLimit;
+                row["内均值上限"] = InnerFiveMeanMeanUpperLimit;
+                row["中均值上限"] = MiddleFiveMeanMeanUpperLimit;
+                row["外均值上限"] = OutsideFiveMeanMeanUpperLimit;
+                row["整个卷芯Gap均值下限"] = JRGapMeanLowerLimit;
+                row["0°内5圈均值下限"] = InnerFiveMeanLowerLimit;
+                row["0°方向负凸到正凹比值第2圈规格下限"] = Z0NeToAnRatioSecondLapLowerLimit;
+                row["0°方向负凸到正凹比值第3圈到第6圈规格下限"] = Z0NeToAnRatioThreeToSixLapLowerLimit;
+
+                row[$"内层Gap值"] = innerGap[i].gap;
+
+                row[$"内五层0°方向Gap平均值"] = z0MeanGap[i][0].gap;
+                row[$"内五层+45°方向Gap平均值"] = z45MeanGap[i][0].gap;
+                row[$"内五层-45°方向Gap平均值"] = f45MeanGap[i][0].gap;
+                row[$"内五层三方向Gap平均值"] = Math.Round(
+                    (z0MeanGap[i][0].gap + z45MeanGap[i][0].gap + f45MeanGap[i][0].gap) / 3,
+                    3
+                );
+
+                row[$"中五层0°方向Gap平均值"] = z0MeanGap[i][1].gap;
+                row[$"中五层+45°方向Gap平均值"] = z45MeanGap[i][1].gap;
+                row[$"中五层-45°方向Gap平均值"] = f45MeanGap[i][1].gap;
+                row[$"中五层三方向Gap平均值"] = Math.Round(
+                    (z0MeanGap[i][1].gap + z45MeanGap[i][1].gap + f45MeanGap[i][1].gap) / 3,
+                    3
+                );
+
+                row[$"外五层0°方向Gap平均值"] = z0MeanGap[i][2].gap;
+                row[$"外五层+45°方向Gap平均值"] = z45MeanGap[i][2].gap;
+                row[$"外五层-45°方向Gap平均值"] = f45MeanGap[i][2].gap;
+                row[$"外五层三方向Gap平均值"] = Math.Round(
+                    (z0MeanGap[i][2].gap + z45MeanGap[i][2].gap + f45MeanGap[i][2].gap) / 3,
+                    3
+                );
+
+                row[$"整个卷芯Gap检测均值"] = Math.Round(
+                    (
+                        z0MeanGap[i][0].gap
+                        + z0MeanGap[i][1].gap
+                        + z0MeanGap[i][2].gap
+                        + z45MeanGap[i][2].gap
+                        + f45MeanGap[i][2].gap
+                    ) / 5,
+                    4
+                );
+
+                for (int j = 0; j < z0NeToAnRatio[i].Count; j++)
+                {
+                    row[$"0°方向负凸到正凹第{j + 2}圈比值"] = Math.Round(
+                        z0NeToAnRatio[i][j].ratio,
+                        3
+                    );
+                }
+
+                dataTable.Rows.Add(row);
+            }
+
+            CsvSaveHelper.AppendToFile(filePath, dataTable);
+        }
+
         private bool IsOK(
             List<(double gap, bool isOK)> innerGap,
             List<List<(double gap, bool isOK)>> z45MeanGap,
@@ -4087,6 +4615,78 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             );
         }
 
+        private List<bool> IsJROK(
+            List<(double gap, bool isOK)> innerGap,
+            List<List<(double gap, bool isOK)>> z45MeanGap,
+            List<List<(double gap, bool isOK)>> z0MeanGap,
+            List<List<(double gap, bool isOK)>> f45MeanGap,
+            List<List<(double ratio, bool isOK)>> z0NeToAnRatio
+        )
+        {
+            var isJROKList = new List<bool>();
+            for (int i = 0; i < innerGap.Count; i++)
+            {
+                var isInnerGapOK = innerGap[i].isOK; // 规范1：首内圈
+                var isFiveMeanMeanOK = true; // 规范1：内|中|外五层均值的均值
+                var isAllJRGapMeanOK = true; // 规范2：整个卷芯的Gap均值
+
+                // 内
+                var isInnerFiveMeanMeanOK = FiveGapMeanMeanIsOK(
+                    z45MeanGap[i][0].gap,
+                    z0MeanGap[i][0].gap,
+                    f45MeanGap[i][0].gap,
+                    InnerFiveMeanMeanUpperLimit
+                );
+                // 中
+                var isMiddleFiveMeanMeanOK = FiveGapMeanMeanIsOK(
+                    z45MeanGap[i][1].gap,
+                    z0MeanGap[i][1].gap,
+                    f45MeanGap[i][1].gap,
+                    MiddleFiveMeanMeanUpperLimit
+                );
+                // 外
+                var isOutsideFiveMeanMeanOK = FiveGapMeanMeanIsOK(
+                    z45MeanGap[i][2].gap,
+                    z0MeanGap[i][2].gap,
+                    f45MeanGap[i][2].gap,
+                    OutsideFiveMeanMeanUpperLimit
+                );
+
+                var isjrGapMeanOK = JRGapMeanIsOK(
+                    z0MeanGap[i][0].gap,
+                    z0MeanGap[i][1].gap,
+                    z0MeanGap[i][2].gap,
+                    z45MeanGap[i][2].gap,
+                    f45MeanGap[i][2].gap,
+                    JRGapMeanLowerLimit
+                );
+
+                isFiveMeanMeanOK =
+                    isFiveMeanMeanOK
+                    && isInnerFiveMeanMeanOK
+                    && isMiddleFiveMeanMeanOK
+                    && isOutsideFiveMeanMeanOK;
+                isAllJRGapMeanOK = isAllJRGapMeanOK && isjrGapMeanOK;
+
+                var isZ45MeanGapOK = !z45MeanGap[i].Any(g => g.isOK == false);
+                var isZ0MeanGapOK = !z0MeanGap[i].Any(g => g.isOK == false); // 规范3：0度方向上内层均值
+                var isF45MeanGapOK = !f45MeanGap[i].Any(g => g.isOK == false);
+
+                // 规范3：0度方向比值规格
+                var isZ0NeToAnRatioOK = !z0NeToAnRatio[i].Any(r => r.isOK == false);
+
+                isJROKList.Add(isInnerGapOK
+                && isFiveMeanMeanOK
+                && isAllJRGapMeanOK
+                && isZ45MeanGapOK
+                && isZ0MeanGapOK
+                && isF45MeanGapOK
+                && isZ0NeToAnRatioOK);
+            }
+
+            return isJROKList;
+        }
+
         private bool FiveGapMeanMeanIsOK(double z45, double z0, double f45, double upperLimit)
         {
             var fiveMeanMean = Math.Round((z45 + z0 + f45) / 3, 3);
@@ -4114,7 +4714,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
         /// </summary>
         /// <param name="dllName">dll名称</param>
         /// <returns>程序集</returns>
-        private Assembly? LoadAssembly(string dllName, string publicKey, string appKey, string pythonCode)
+        private Assembly? LoadAssembly(
+            string dllName,
+            string publicKey,
+            string appKey,
+            string pythonCode
+        )
         {
             if (!string.IsNullOrEmpty(dllName))
             {
@@ -4155,7 +4760,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                         { "appKey", appKey },
                         { "executeType", "PRED" },
                         { "pythonCode", pythonCode },
-                        { "signature", signature }
+                        { "signature", signature },
                     };
                     //var jsonData = JsonHelper.Serialize(json);
                     //var dllStream = _httpHelper.IMEWebPost(CTNCLXDLLDownloadUrl!, jsonData);
@@ -4176,7 +4781,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
             }
         }
 
-        private void DownloadModel(string modelPath, string publicKey, string appKey, string pythonCode)
+        private void DownloadModel(
+            string modelPath,
+            string publicKey,
+            string appKey,
+            string pythonCode
+        )
         {
             try
             {
@@ -4196,12 +4806,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 //        { "signature", signature }
                 //    };
                 JObject json = new JObject
-                    {
-                        { "appKey", appKey },
-                        { "executeType", "PRED" },
-                        { "pythonCode", pythonCode },
-                        { "signature", signature }
-                    };
+                {
+                    { "appKey", appKey },
+                    { "executeType", "PRED" },
+                    { "pythonCode", pythonCode },
+                    { "signature", signature },
+                };
                 //var jsonData = JsonHelper.Serialize(json);
                 //var modelStream = HttpPost(CTNCLXDLLDownloadUrl!, jsonData);
                 var modelStream = HttpPost(json, CTNCLXDLLDownloadUrl!);

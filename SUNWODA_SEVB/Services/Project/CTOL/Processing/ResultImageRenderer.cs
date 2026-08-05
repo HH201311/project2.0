@@ -348,7 +348,8 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             string ohBz = $"[{thresholds.OhLower:F2}, {thresholds.OhUpper:F2}]";
 
             // ── OH 综合极值（正极内侧 + 负极外侧合并求 min/max）──────────────────
-            double[] ohMaxMin = GapMax(ohInt.SArr, ohOut.SArr);
+            //double[] ohMaxMin = GapMax(ohInt.SArr, ohOut.SArr);
+            double[] ohMaxMin = GapMax(ohInt.DArr, ohOut.DArr);
             // ohMaxMin[0] = 综合最小值，ohMaxMin[1] = 综合最大值
 
             // ── 间隙最大值（AI 输出 distGapMax[] 数组）───────────────────────────
@@ -686,6 +687,16 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 .Where(v => v.HasValue)
                 .Select(v => v!.Value)
                 .ToList();
+
+            return values.Count == 0 ? [0.0, 0.0] : [values.Min(), values.Max()];
+        }
+
+        /// <summary>
+        /// 合并两组字符串数值，返回 <c>[min, max]</c> 组合极值。
+        /// </summary>
+        private static double[] GapMax(IEnumerable<double> sa1, IEnumerable<double> sa2)
+        {
+            var values = sa1.Concat(sa2).ToList();
 
             return values.Count == 0 ? [0.0, 0.0] : [values.Min(), values.Max()];
         }

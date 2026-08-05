@@ -256,6 +256,46 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
+        /// 追加写入 CSV 内容。
+        /// 如果文件不存在或为空，则先写入表头；
+        /// 如果文件已存在且非空，则只追加内容。
+        /// </summary>
+        /// <param name="filePath">CSV 文件路径</param>
+        /// <param name="header">CSV 表头，例如：Name,Age,Address</param>
+        /// <param name="content">CSV 内容行，例如：张三,18,深圳</param>
+        public static void AppendToFile(
+            string filePath,
+            string header,
+            string content)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("文件路径不能为空。", nameof(filePath));
+
+            if (string.IsNullOrWhiteSpace(header))
+                throw new ArgumentException("表头不能为空。", nameof(header));
+
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var needWriteHeader = !File.Exists(filePath) || new FileInfo(filePath).Length == 0;
+
+            using var writer = new StreamWriter(filePath, append: true, Encoding.UTF8);
+
+            if (needWriteHeader)
+            {
+                writer.WriteLine(header);
+            }
+
+            writer.WriteLine(content);
+        }
+
+        /// <summary>
         /// 将对象列表转换为 CSV 字符串
         /// </summary>
         public static string ConvertToCsv<T>(

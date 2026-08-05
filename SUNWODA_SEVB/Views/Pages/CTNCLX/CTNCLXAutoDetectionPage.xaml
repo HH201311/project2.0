@@ -45,6 +45,12 @@
                             Header="文件选择"
                             IsEnabled="{Binding IsEnableFileSelect}" />
                     </MenuItem>
+                    <MenuItem Header="按文件夹导入">
+                        <MenuItem
+                            Command="{Binding DirSelectCommand}"
+                            Header="文件夹选择"
+                            IsEnabled="{Binding IsEnableFileSelect}" />
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="导出">
                     <MenuItem

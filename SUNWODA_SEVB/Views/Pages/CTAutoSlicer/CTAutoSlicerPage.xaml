@@ -4056,7 +4056,7 @@
                                        Foreground="#FFFF5252"
                                        HorizontalAlignment="Center"
                                        Margin="0,0,0,12"/>
-                            <TextBlock Text="自动化已暂停。请检查 VG / 现场状态，处理完成后点击下方按钮继续下一文件。"
+                            <TextBlock Text="自动化已暂停。请检查 VG / 现场状态，确认后点击下方按钮将该文件放入异常文件夹并跳过，继续下一文件。"
                                        FontSize="16"
                                        Foreground="#FFFFE082"
                                        TextWrapping="Wrap"
@@ -4077,18 +4077,18 @@
                                        HorizontalAlignment="Center"
                                        Margin="0,0,0,20"
                                        Text="{Binding ManualInterventionCountdownText}"/>
-                            <Button Content="处理完成"
+                            <Button Content="放入异常文件夹并跳过"
                                     FontSize="20"
                                     FontWeight="Bold"
                                     Height="52"
-                                    MinWidth="220"
+                                    MinWidth="280"
                                     HorizontalAlignment="Center"
                                     Background="#FF43A047"
                                     Foreground="White"
                                     BorderThickness="0"
                                     Cursor="Hand"
                                     Command="{Binding ConfirmManualInterventionCommand}"
-                                    ToolTip="确认已完成人工处理：归档失败文件并继续下一文件"/>
+                                    ToolTip="将该失败文件放入异常文件夹并跳过，继续下一文件"/>
                         </StackPanel>
                     </Border>
                 </Border>

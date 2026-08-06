@@ -1,12 +1,22 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-05（送检内容上移）  
+> **文档版本**：2026-08-06（人工干预 10 分钟 + 文案）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；竖图校验 + 内容上移 + 预提亮）；进程池并行导入 ✅。  
 > **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**；**内容上移像素真机调参**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-06 增量（人工干预超时 10 分钟 + 按钮文案）**：  
+> 1. **超时**：`DefaultManualInterventionTimeout` 由 **30 分钟** 改为 **10 分钟**（超时仍归档失败文件并继续下一文件）。  
+> 2. **异常面板按钮**：原「处理完成」改为 **「放入异常文件夹并跳过」**（语义与归档到「运行失败的文件」一致）。  
+> 3. 落点：`CTAutoSlicerSettings` / `CTAutoSlicerPage.xaml` / `VM_CTAutoSlicerPage.FlowControl` / `ManualInterventionGate` / `ProcessPool`。
+
+> **2026-08-06 增量（切片导出先「上」后「前/右」）**：  
+> 1. **背景**：三视图导出原顺序为前 → 右 → 上；「上」视图才是交接送检源，后导出会拖长可交接时刻。  
+> 2. **做法**：`ExportImageStackSlicesAsync` 视图循环改为 **上 → 前 → 右**；交接仍在三视图全部完成后执行（行为不变，仅「上」落盘更早）。  
+> 3. 落点：`VGAutomationService.SliceExport.cs`。
 
 > **2026-08-05 增量（送检内容上移 OfflineCtContentShiftUpPx）**：  
 > 1. **背景**：NJCT 测试图主体偏上并裁底部；现场图主体偏下 → 上方空、下方有效区被裁。  
@@ -197,7 +207,7 @@ flowchart TD
 | 进程名 | 曾硬编码 `vgstudiomax20241` | 从 UI 配置的 `VGAppPath` 推导 |
 
 **业务名称**仍为「CT 自动化切片」。当前已跑通全流程：  
-**批量 `.vgl` 导入 → LUT 预设 → 直方图灰度阈值 → 三象限厚板 → 简单 3-2-1 对齐 → 对齐后捕捉拖拽 → 前/右/上三视图切片导出**。  
+**批量 `.vgl` 导入 → LUT 预设 → 直方图灰度阈值 → 三象限厚板 → 简单 3-2-1 对齐 → 对齐后捕捉拖拽 → 上/前/右三视图切片导出**。  
 
 **阶段四（视觉对齐）**：✅ **全部完成**（即简单 3-2-1，无独立「4b」）。  
 - 单测 + 主流程（`EnableVisionAlignmentSteps`，默认开；厚板后、导出前）  
@@ -480,7 +490,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
       （`RunPostAlignCaptureDragAsync`；开关 `EnablePostAlignCaptureDragSteps`）
 
 ✅ 5. Alt+F+T 三视图切片导出（`ExportImageStackSlicesAsync`）
-      依次导出「前 / 右 / 上」；切片范围取自 UI 各视角 mm
+      依次导出「上 / 前 / 右」；切片范围取自 UI 各视角 mm
       → **上视图交接**（`MirrorTopViewHandoffAsync`）：复制第 OfflineCtTopViewSliceIndex 张到 TopViewHandoffFolder
       （切图模式终点；硬失败）
 
@@ -516,7 +526,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
 ✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
 ✅ 对齐后捕捉拖拽（`TryRunPostAlignCaptureDragInMainFlowAsync` + `EnablePostAlignCaptureDragSteps`）
-✅ 三视图切片导出（`ExportImageStackSlicesAsync`；前/右/上）
+✅ 三视图切片导出（`ExportImageStackSlicesAsync`；上/前/右）
 ✅ 上视图交接（`MirrorTopViewHandoffAsync` → `TopViewHandoffFolder`）
 ✅ AI 图像标注批处理（`RunAiAnnotationBatchAsync`；独立模式，扫描交接目录）
 ✅ 「测试应用渲染预设」单步按钮
@@ -609,7 +619,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段五：切片导出（✅ 已完成）
 
 - **`OpenSaveImageStackDialogAsync`** — **Alt+F+T**，等待「保存影片/图像堆栈」对话框。
-- **`ExportImageStackSlicesAsync`** — 循环 **前 / 右 / 上** 三视图：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
+- **`ExportImageStackSlicesAsync`** — 循环 **上 / 前 / 右** 三视图（**先上**）：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
 - 命名规则见 `SliceExportNamingHelper`：导出名取导入文件名主干**前 6 字符**（例 `1161-F 2026-7-25….vgi - 快捷方式` → `1161-F`）；路径 `{导出根}/{1161-F}/{1161-F} 前|右|上/…`；阶段七结果图 `{1161-F}/{1161-F}.jpg`；二次标注叠加图亦以该名为主干。
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
@@ -774,7 +784,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段五（Alt+F+T 切片导出）— ✅ 已完成
 
 - [x] Insights 标定：`Alt+F` + `T` 打开「保存影片/图像堆栈」
-- [x] 三视图依次选择 + 参数填写 + 导出（前/右/上）
+- [x] 三视图依次选择 + 参数填写 + 导出（上/前/右；先上）
 - [x] **切片范围取自 UI**（按视角 Front/Right/Top）
 - [x] 输出路径与命名规则可配置（`SliceExportNamingHelper`）
 - [ ] 真机巩固（可选）：堆栈 Edit、保存对话框、JPEG 质量窗、写入进度
@@ -1109,7 +1119,7 @@ flowchart TD
 | 3 | Q1～Q3 厚板 + 平均值 | ✅ |
 | **4** | **简单 3-2-1（三点 + 偏移置0 + 黄框向量 + 原点）** | ✅ **单测 + 主流程** |
 | **4'** | **对齐后捕捉拖拽** | ✅ **单测 + 主流程**（§20） |
-| 5 | Alt+F+T 三视图导出（前/右/上） | ✅ |
+| 5 | Alt+F+T 三视图导出（上/前/右；先上） | ✅ |
 
 说明：阶段四插在 **厚板之后、导出之前**；对齐后捕捉在 3-2-1 与导出之间。
 

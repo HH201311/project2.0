@@ -34,8 +34,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>体素文件夹内：运行失败文件归档子目录名（避免下次重复导入）。</summary>
         public const string FailedFilesSubFolderName = "运行失败的文件";
 
-        /// <summary>流程异常/超时后等待人工处理的默认时长。</summary>
-        public static readonly TimeSpan DefaultManualInterventionTimeout = TimeSpan.FromMinutes(30);
+        /// <summary>流程异常/超时后等待人工处理的默认时长（超时后归档失败文件并继续下一文件）。</summary>
+        public static readonly TimeSpan DefaultManualInterventionTimeout = TimeSpan.FromMinutes(10);
 
         /// <summary>
         /// 角度算法 DLL 本地路径：{程序目录}\Dlls\{DefaultDllFileName}

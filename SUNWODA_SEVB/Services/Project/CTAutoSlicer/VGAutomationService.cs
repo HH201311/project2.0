@@ -177,7 +177,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public void ClearPause() => _pauseGate.Reset();
 
-        /// <summary>操作员点击「处理完成」后调用，放行人工干预等待。</summary>
+        /// <summary>操作员点击「放入异常文件夹并跳过」后调用，放行人工干预等待。</summary>
         public void ConfirmManualIntervention()
         {
             if (!_manualInterventionGate.IsAwaiting)
@@ -185,7 +185,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            _logger.Info("操作员确认人工干预「处理完成」");
+            _logger.Info("操作员确认人工干预「放入异常文件夹并跳过」");
             _manualInterventionGate.SignalCompleted();
         }
 

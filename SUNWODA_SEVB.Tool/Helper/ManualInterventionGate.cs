@@ -5,10 +5,10 @@ namespace SUNWODA_SEVB.Tool.Helper
     /// <summary>人工干预等待结果。</summary>
     public enum ManualInterventionWaitResult
     {
-        /// <summary>操作员点击「处理完成」。</summary>
+        /// <summary>操作员点击「放入异常文件夹并跳过」。</summary>
         CompletedByOperator = 0,
 
-        /// <summary>等待超时（默认半小时）。</summary>
+        /// <summary>等待超时（默认 10 分钟）。</summary>
         TimedOut = 1
     }
 
@@ -40,7 +40,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        /// <summary>操作员确认「处理完成」。</summary>
+        /// <summary>操作员确认「放入异常文件夹并跳过」。</summary>
         public void SignalCompleted()
         {
             TaskCompletionSource<bool>? tcs;

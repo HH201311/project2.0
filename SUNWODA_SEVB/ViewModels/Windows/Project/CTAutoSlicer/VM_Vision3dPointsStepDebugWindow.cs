@@ -2,12 +2,14 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using OpenCvSharp;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Tool.Helper;
+using SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
 {
@@ -22,6 +24,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private string _stepProgress = "0 / 0";
         private Brush _statusBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
         private bool _canStepNext;
+        private bool _canStepPrev;
+        private bool _canOpenMidGrayRangeTuner;
         private bool _disposed;
 
         public VM_Vision3dPointsStepDebugWindow(string? initialImagePath = null)
@@ -29,6 +33,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             BrowseImageCommand = new RelayCommand(_ => BrowseImage());
             ResetCommand = new RelayCommand(_ => ResetSession(), _ => !string.IsNullOrWhiteSpace(ImagePath));
             StepNextCommand = new RelayCommand(_ => StepNext(), _ => CanStepNext);
+            StepPrevCommand = new RelayCommand(_ => StepPrev(), _ => CanStepPrev);
+            OpenMidGrayRangeTunerCommand = new RelayCommand(_ => OpenMidGrayRangeTuner(), _ => CanOpenMidGrayRangeTuner);
             if (!string.IsNullOrWhiteSpace(initialImagePath) && File.Exists(initialImagePath))
             {
                 ImagePath = initialImagePath;
@@ -41,6 +47,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         public ICommand BrowseImageCommand { get; }
         public ICommand ResetCommand { get; }
         public ICommand StepNextCommand { get; }
+        public ICommand StepPrevCommand { get; }
+        public ICommand OpenMidGrayRangeTunerCommand { get; }
 
         public string ImagePath
         {
@@ -92,6 +100,30 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             private set
             {
                 if (Set(ref _canStepNext, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public bool CanStepPrev
+        {
+            get => _canStepPrev;
+            private set
+            {
+                if (Set(ref _canStepPrev, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public bool CanOpenMidGrayRangeTuner
+        {
+            get => _canOpenMidGrayRangeTuner;
+            private set
+            {
+                if (Set(ref _canOpenMidGrayRangeTuner, value))
                 {
                     CommandManager.InvalidateRequerySuggested();
                 }
@@ -150,6 +182,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             _probe = null;
             PreviewImage = null;
             CanStepNext = false;
+            CanStepPrev = false;
+            CanOpenMidGrayRangeTuner = false;
             StepProgress = "0 / 0";
             StatusBrush = BrushGray;
 
@@ -168,12 +202,51 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 StepDetail = $"图像：{ImagePath}\n共 {_probe.TotalSteps} 步，对应 Vision3dSectionPointsDetector 主链。";
                 StepProgress = $"0 / {_probe.TotalSteps}";
                 StatusBrush = BrushGreen;
+                // 跑完①（原图/灰度）即可做灰度区间像素预览
+                CanOpenMidGrayRangeTuner = _probe.CurrentStepIndex >= 0;
             }
             catch (Exception ex)
             {
                 StepTitle = "初始化失败";
                 StepDetail = ex.Message;
                 StatusBrush = BrushRed;
+            }
+        }
+
+        private void StepPrev()
+        {
+            if (_probe == null || !CanStepPrev)
+            {
+                return;
+            }
+
+            try
+            {
+                var frame = _probe.StepPrev();
+                PreviewImage = MatToBitmapSource(frame.BgrImage);
+                frame.BgrImage.Dispose();
+
+                StepTitle = frame.Title;
+                StepDetail = frame.Detail;
+                StepProgress = $"{frame.StepIndex + 1} / {frame.TotalSteps}";
+                StatusBrush = frame.Success ? BrushGreen : BrushOrange;
+                if (frame.IsTerminal)
+                {
+                    StatusBrush = frame.Success ? BrushGreen : BrushRed;
+                }
+
+                CanStepNext = _probe.CanStepNext && !frame.IsTerminal;
+                CanStepPrev = _probe.CanStepPrev;
+                CanOpenMidGrayRangeTuner = _probe.CurrentStepIndex >= 0;
+            }
+            catch (Exception ex)
+            {
+                StepTitle = "步骤执行异常";
+                StepDetail = ex.ToString();
+                StatusBrush = BrushRed;
+                CanStepNext = false;
+                CanStepPrev = false;
+                CanOpenMidGrayRangeTuner = false;
             }
         }
 
@@ -195,11 +268,15 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 StepProgress = $"{frame.StepIndex + 1} / {frame.TotalSteps}";
                 StatusBrush = frame.Success ? BrushGreen : BrushOrange;
                 CanStepNext = _probe.CanStepNext && !frame.IsTerminal;
+                CanStepPrev = _probe.CanStepPrev;
+                CanOpenMidGrayRangeTuner = _probe.CurrentStepIndex >= 0;
 
                 if (frame.IsTerminal)
                 {
                     StatusBrush = frame.Success ? BrushGreen : BrushRed;
                     CanStepNext = false;
+                    CanStepPrev = _probe.CanStepPrev;
+                    CanOpenMidGrayRangeTuner = _probe.CurrentStepIndex >= 0;
                 }
             }
             catch (Exception ex)
@@ -208,6 +285,52 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 StepDetail = ex.ToString();
                 StatusBrush = BrushRed;
                 CanStepNext = false;
+                CanStepPrev = false;
+                CanOpenMidGrayRangeTuner = false;
+            }
+        }
+
+        private void OpenMidGrayRangeTuner()
+        {
+            if (_probe == null)
+            {
+                return;
+            }
+
+            var win = new Vision3dMidGrayRangeTunerWindow(
+                this,
+                _probe.MidGrayLo,
+                _probe.MidGrayHi);
+            win.Show();
+        }
+
+        /// <summary>
+        /// 给调参弹窗用：更新 probe 内部的中灰阈值覆盖，然后由弹窗自行渲染预览图。
+        /// </summary>
+        public void ApplyMidGrayRange(int lo, int hi)
+        {
+            _probe?.SetMidGrayRange(lo, hi);
+        }
+
+        /// <summary>
+        /// 给调参弹窗用：只显示灰度落在 [lo,hi] 的原图像素，其余为黑。
+        /// </summary>
+        public ImageSource? GetMidGrayInRangePreviewImage(int lo, int hi)
+        {
+            if (_probe == null)
+            {
+                return null;
+            }
+
+            Mat? overlay = null;
+            try
+            {
+                overlay = _probe.RenderMidGrayInRangePreview(lo, hi);
+                return MatToBitmapSource(overlay);
+            }
+            finally
+            {
+                overlay?.Dispose();
             }
         }
 

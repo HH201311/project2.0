@@ -1,0 +1,116 @@
+<Window
+    x:Class="SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer.Vision3dMidGrayRangeTunerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="灰度范围调参（中灰 InRange）"
+    Width="900"
+    Height="700"
+    MinWidth="760"
+    MinHeight="560"
+    WindowStartupLocation="CenterOwner"
+    Background="#FF1E1E1E">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border
+            Grid.Row="0"
+            Padding="12"
+            Background="#FF252526"
+            CornerRadius="6">
+            <StackPanel>
+                <TextBlock
+                    Text="拖动左右范围：只显示灰度落在 [Lo,Hi] 的像素，其余为黑"
+                    Foreground="#FFCCCCCC"
+                    FontWeight="SemiBold"
+                    Margin="0,0,0,10" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Mid=" Foreground="#FF9CDCFE" FontWeight="SemiBold" />
+                    <TextBlock x:Name="MidValueText" Text="0" Foreground="#FF9CDCFE" FontWeight="SemiBold" />
+                    <TextBlock Text="  Lo=" Foreground="#FF9CDCFE" FontWeight="SemiBold" Margin="20,0,0,0" />
+                    <TextBlock x:Name="LoValueText" Text="0" Foreground="#FF9CDCFE" FontWeight="SemiBold" />
+                    <TextBlock Text="  Hi=" Foreground="#FF9CDCFE" FontWeight="SemiBold" Margin="20,0,0,0" />
+                    <TextBlock x:Name="HiValueText" Text="0" Foreground="#FF9CDCFE" FontWeight="SemiBold" />
+                </StackPanel>
+
+                <TextBlock
+                    Text="同一条轨道上拖动左右拇指：Lo / Hi（区间）"
+                    Foreground="#FFDDDDDD"
+                    Margin="0,6,0,4" />
+
+                <Canvas x:Name="RangeCanvas" Height="50" Loaded="RangeCanvas_Loaded">
+                    <Border
+                        x:Name="TrackBorder"
+                        Width="760"
+                        Height="4"
+                        Background="#FF4D4D4D"
+                        CornerRadius="2"
+                        Canvas.Left="40"
+                        Canvas.Top="23" />
+
+                    <Thumb
+                        x:Name="LeftThumb"
+                        Width="16"
+                        Height="22"
+                        Background="#FF3E7BFF"
+                        BorderBrush="#FFCCCCCC"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        Canvas.Top="14"
+                        DragDelta="LeftThumb_DragDelta" />
+
+                    <Thumb
+                        x:Name="RightThumb"
+                        Width="16"
+                        Height="22"
+                        Background="#FFE6A122"
+                        BorderBrush="#FFCCCCCC"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        Canvas.Top="14"
+                        DragDelta="RightThumb_DragDelta" />
+                </Canvas>
+
+                <TextBlock
+                    Margin="0,10,0,0"
+                    Text="说明：区间内保留原图像素，区间外为黑；阈值覆盖会影响主窗口后续中灰分步（③~⑦）。"
+                    Foreground="#FF888888"
+                    FontSize="12"
+                    TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <Button
+                        Padding="16,6"
+                        Content="关闭"
+                        Width="120"
+                        Click="Close_Click"
+                        Background="#FF3E3E42"
+                        Foreground="White"
+                        BorderThickness="0" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border
+            Grid.Row="1"
+            Margin="0,10,0,0"
+            BorderBrush="#FF3F3F46"
+            BorderThickness="1"
+            Background="#FF111111"
+            CornerRadius="6">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Image
+                    x:Name="PreviewImage"
+                    Stretch="Uniform"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="8" />
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>
+

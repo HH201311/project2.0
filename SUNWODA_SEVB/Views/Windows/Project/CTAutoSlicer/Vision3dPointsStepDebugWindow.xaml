@@ -69,6 +69,23 @@
                         BorderThickness="0" />
                     <Button
                         Padding="18,6"
+                        Content="◀ 上一步"
+                        Command="{Binding StepPrevCommand}"
+                        Background="#FF3E7BFF"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        BorderThickness="0" />
+                    <Button
+                        Padding="18,6"
+                        Content="灰度范围…"
+                        Command="{Binding OpenMidGrayRangeTunerCommand}"
+                        Background="#FF3E3E42"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        BorderThickness="0"
+                        Margin="8,0,8,0" />
+                    <Button
+                        Padding="18,6"
                         Content="下一步 ▶"
                         Command="{Binding StepNextCommand}"
                         Background="#FF4CAF50"

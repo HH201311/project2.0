@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using OpenCvSharp;
 using Point = OpenCvSharp.Point;
@@ -34,6 +36,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         private (Point Tl, Point Tr, Point Br, Point Bl)? _midNearMiss;
         private string _acceptedPath = string.Empty;
         private int _step = -1;
+        private readonly List<int> _history = new();
+        private int _midGrayLo = Vision3dSectionPointsDetector.MidGrayLo;
+        private int _midGrayHi = Vision3dSectionPointsDetector.MidGrayHi;
         private bool _disposed;
 
         private static readonly string[] StepTitles =
@@ -66,7 +71,59 @@ namespace SUNWODA_SEVB.Tool.Helper
         public int CurrentStepIndex => _step;
         public int TotalSteps => StepTitles.Length;
         public bool CanStepNext => !_disposed && _step < TotalSteps - 1;
+        public bool CanStepPrev => !_disposed && _history.Count >= 2;
         public string ImagePath => _imagePath;
+        public int MidGrayLo => _midGrayLo;
+        public int MidGrayHi => _midGrayHi;
+
+        /// <summary>
+        /// 手动调参：供分步调试界面实时预览/覆盖中灰阈值。
+        /// 注意：该阈值只影响中灰路径（分步 ③~⑦），不改变剪影 mask/外接框等内容。
+        /// </summary>
+        public void SetMidGrayRange(int lo, int hi)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            lo = Math.Clamp(lo, 0, 255);
+            hi = Math.Clamp(hi, 0, 255);
+            if (lo > hi)
+            {
+                // 调参时允许用户越过：自动交换，避免出现“空区间”
+                (lo, hi) = (hi, lo);
+            }
+
+            _midGrayLo = lo;
+            _midGrayHi = hi;
+        }
+
+        /// <summary>
+        /// 给灰度调参弹窗用：只显示灰度落在 [lo, hi] 的原图像素，其余置黑（无轮廓线）。
+        /// 调用方负责释放返回的 Mat。
+        /// </summary>
+        public Mat RenderMidGrayInRangePreview(int lo, int hi)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            EnsureLoaded();
+
+            lo = Math.Clamp(lo, 0, 255);
+            hi = Math.Clamp(hi, 0, 255);
+            if (lo > hi)
+            {
+                (lo, hi) = (hi, lo);
+            }
+
+            using var mid = new Mat();
+            Cv2.InRange(
+                _gray!,
+                new Scalar(lo),
+                new Scalar(hi),
+                mid);
+
+            // 只保留区间内像素的原图颜色，区间外一律黑
+            var canvas = new Mat(_src!.Size(), _src.Type(), Scalar.All(0));
+            _src.CopyTo(canvas, mid);
+            return canvas;
+        }
 
         public void Reset()
         {
@@ -76,6 +133,9 @@ namespace SUNWODA_SEVB.Tool.Helper
             _midNearMiss = null;
             _acceptedPath = string.Empty;
             _step = -1;
+            _history.Clear();
+            _midGrayLo = Vision3dSectionPointsDetector.MidGrayLo;
+            _midGrayHi = Vision3dSectionPointsDetector.MidGrayHi;
         }
 
         public StepFrame StepNext()
@@ -93,7 +153,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 _step = 12;
             }
 
-            return _step switch
+            var frame = _step switch
             {
                 0 => Step0_Load(),
                 1 => Step1_Mask(),
@@ -110,6 +170,44 @@ namespace SUNWODA_SEVB.Tool.Helper
                 12 => Step12_Final(),
                 _ => throw new InvalidOperationException($"未知步骤 {_step}"),
             };
+
+            _history.Add(_step);
+            return frame;
+        }
+
+        public StepFrame StepPrev()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!CanStepPrev)
+            {
+                throw new InvalidOperationException("已到最前一步，无法上一步。");
+            }
+
+            // 上一步应该回到“曾经实际执行并显示过”的前一档（history 解决了主链采纳后跳过回退步骤的问题）
+            var targetStep = _history[^2];
+            return StepTo(targetStep);
+        }
+
+        private StepFrame StepTo(int targetStep)
+        {
+            if (targetStep < 0 || targetStep >= TotalSteps)
+            {
+                throw new ArgumentOutOfRangeException(nameof(targetStep), $"targetStep={targetStep} 不在 [0,{TotalSteps - 1}]");
+            }
+
+            // 上一步属于“演示回退”：不应丢失灰度调参弹窗里用户设置的阈值覆盖
+            var tunedLo = _midGrayLo;
+            var tunedHi = _midGrayHi;
+
+            Reset();
+            SetMidGrayRange(tunedLo, tunedHi);
+            StepFrame frame = null!;
+            for (var i = 0; i <= targetStep; i++)
+            {
+                frame = StepNext();
+            }
+
+            return frame;
         }
 
         private StepFrame Step0_Load()
@@ -206,13 +304,13 @@ namespace SUNWODA_SEVB.Tool.Helper
             using var mid = new Mat();
             Cv2.InRange(
                 _gray!,
-                new Scalar(Vision3dSectionPointsDetector.MidGrayLo),
-                new Scalar(Vision3dSectionPointsDetector.MidGrayHi),
+                new Scalar(_midGrayLo),
+                new Scalar(_midGrayHi),
                 mid);
             Cv2.BitwiseAnd(mid, _mask!, mid);
             return Frame(
                 OverlayMask(_src!, mid),
-                $"中灰 InRange[{Vision3dSectionPointsDetector.MidGrayLo},{Vision3dSectionPointsDetector.MidGrayHi}] ∩ 剪影。白区应为上平面主体（端子高亮区可能仍在）。",
+                $"中灰 InRange[{_midGrayLo},{_midGrayHi}] ∩ 剪影。白区应为上平面主体（端子高亮区可能仍在）。",
                 isTerminal: false,
                 success: true);
         }
@@ -545,8 +643,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             var mid = new Mat();
             Cv2.InRange(
                 _gray!,
-                new Scalar(Vision3dSectionPointsDetector.MidGrayLo),
-                new Scalar(Vision3dSectionPointsDetector.MidGrayHi),
+                new Scalar(_midGrayLo),
+                new Scalar(_midGrayHi),
                 mid);
             Cv2.BitwiseAnd(mid, _mask!, mid);
             using var bright = new Mat();

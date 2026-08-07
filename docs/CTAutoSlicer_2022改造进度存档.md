@@ -8,12 +8,12 @@
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
 
-> **2026-08-07 增量（正负极 LUT 双预设）**：  
-> 1. **背景**：正极/负极体积灰阶分布不同，单一 `testlut` 无法兼顾亮度。  
-> 2. **做法**：去掉单一 `RenderingPresetName`；直方图页配置 **正极预设**（默认 `testlut_Z`）与 **负极预设**（默认 `testlut_F`）。  
-> 3. **选型**：按导入文件名（`Path.GetFileName`）判断：含 `-Z`→正极；含 `-F` 或无法识别→**负极（默认 F）**；同时含 `-Z` 与 `-F` 时亦默认 F。  
-> 4. **UI**：渲染预设区块从「渲染与厚板」迁入「直方图标定」；厚板页仅保留厚板偏移。  
-> 5. **落点**：`CTAutoSlicerSettings.ResolveRenderingPresetName` / `ResolveRenderingPresetPolarityLabel`；`ApplyRenderingPresetAsync`（传 namingSourcePath）；`RunPostImportPipelineAsync`；单测按 CT 目录参考文件名选型。
+> **2026-08-07 增量（正负极 LUT 双预设 + 双套标点）**：  
+> 1. **背景**：正极/负极体积灰阶分布不同，单一 `testlut` 与单一 LUT 端点无法兼顾。  
+> 2. **做法**：去掉单一 `RenderingPresetName`；直方图页配置 **正极预设**（默认 `testlut_Z`）与 **负极预设**（默认 `testlut_F`）；**LUT 关键段两端点亦分正/负极两套**分别标定。  
+> 3. **选型**：按导入文件名（`Path.GetFileName`）判断：含 `-Z`→正极；含 `-F` 或无法识别→**负极（默认 F）**；同时含 `-Z` 与 `-F` 时亦默认 F。预设与标点共用同一电极判定。  
+> 4. **UI**：渲染预设区块从「渲染与厚板」迁入「直方图标定」；LUT 标点拆成「标定正极 LUT 两点」「标定负极 LUT 两点」；厚板页仅保留厚板偏移。  
+> 5. **落点**：`CTAutoSlicerSettings.IsPositiveElectrodeFile` / `ResolveRenderingPresetName` / `TryResolveLutSegmentPoints`；`ApplyRenderingPresetAsync`；`DragLutSegmentMidpointToRedLineAsync`（传 namingSourcePath）；旧单套标点启动时迁移到负极。
 
 > **2026-08-07 增量（去掉 Esc 中断；Ctrl+X → Alt+X）**：  
 > 1. **去掉**全局 Esc：单击锁输入、双击中断流程（易误触）。标定 overlay 内 Esc 取消仍保留，与全局 Hook 无关。  
@@ -94,7 +94,7 @@
 > **2026-07-31 增量（直方图 2c：LUT 关键段中点对齐红线）**：  
 > 1. **问题**：仅 LUT 预设时，峰值左右偏会导致折线关键斜段偏离峰区。  
 > 2. **做法**：应用预设后一次性标定关键段两端点 → 运行时取中点 → 红线到位后水平拖中点到 `TargetScreenX`（整段平移）。  
-> 3. **配置**：`LutSegmentPoint1/2 X/Y` + `LutSegmentPointsCalibrated`；UI「直方图标定 → LUT 关键段两点」。  
+> 3. **配置**：`LutSegmentPoint*Positive/Negative` + `LutSegmentPointsCalibratedPositive/Negative`；UI「直方图标定 → 标定正极/负极 LUT 两点」。  
 > 4. **主流程**：`ApplyHistogramGrayScaleAdjustAsync` 内拖红线后接 `DragLutSegmentMidpointToRedLineAsync`；未标定则跳过。  
 > 5. **单测**：「测试直方图灰度调整」同步要求 ROI + LUT 两点，覆盖拖红线 + 中点对齐。
 
@@ -184,8 +184,8 @@ flowchart TD
 | 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
 | 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰 → 左线=谷、右线=右尖、**目标=靠右 2/3**；调试图 `histogram_peaks_*.png` |
 | 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T*（目标线） |
-| **LUT 关键段两端标定** | ✅ UI | 「标定 LUT 关键段两点」→ 全屏依次点选 P1/P2；`LutSegmentPoint*` |
-| **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 红线到位后：中点=(P1+P2)/2 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
+| **LUT 关键段两端标定** | ✅ UI | 「标定正极/负极 LUT 两点」→ 全屏依次点选；`LutSegmentPoint*Positive/Negative` |
+| **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 按 `-Z`/`-F` 取对应套中点 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
 | 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过整步；未标定 LUT 两点则跳过 2c |
 
 **关键入口**：
@@ -199,12 +199,12 @@ flowchart TD
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐 |
 | `VGAutomationService.DragLutSegmentMidpointToRedLineAsync` | 2c：标定中点 → 红线目标列 |
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
-| Settings：`LutSegmentPoint1/2 X/Y` / `LutSegmentPointsCalibrated` | LUT 关键段两端；主流程未标定则跳过 2c |
+| Settings：`LutSegmentPoint*Positive/Negative` / `LutSegmentPointsCalibratedPositive/Negative` | 正/负极 LUT 关键段两端；主流程未标定对应套则跳过 2c |
 | Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `Simple321OffsetEditX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
 | Settings：`Pre321View*`（Click / Drag / WaitMs） | 找点前视角准备；仅 `Simple321PointSource=Local` 时 UI 显示 **且** 主流程执行；VisionDll 跳过 |
 | Settings：`PostAlignCaptureButton*` / `PostAlignDrag*` / **`EnablePostAlignCaptureDragSteps`（默认开）** | 对齐后捕捉按钮 + 箭头拖拽；主流程在 3-2-1 后、导出前 |
 
-**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **应用预设后标定 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **分别应用正/负极预设后标定对应 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
 
 ---
 

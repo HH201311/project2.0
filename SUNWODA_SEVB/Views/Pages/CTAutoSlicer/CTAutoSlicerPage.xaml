@@ -892,7 +892,7 @@
                                             <LineBreak />
                                             <Run Text="• X/Y/W/H：直方图 ROI 屏幕矩形。未标定则主流程跳过本步；须框住直方图主体（含红线可拖区域）。" />
                                             <LineBreak />
-                                            <Run Text="• LUT 关键段两点：应用预设后一次性点选折线关键段两端控制点；运行时取中点拖到红线。未标定则主流程跳过中点对齐，单测要求必须标定。" />
+                                            <Run Text="• LUT 关键段两点：正极/负极分别标定（先应用对应预设再点选）。运行时按 -Z/-F 选用，取中点拖到红线。未标定对应套则主流程跳过中点对齐，单测要求必须标定当前电极。" />
                                             <LineBreak />
                                             <Run Text="• 截图目录：调试图（原图/对比/峰谷）保存根目录；实际写入「目录\yyyy-MM-dd」，超过 7 天自动清理。" />
                                             <LineBreak />
@@ -1043,68 +1043,77 @@
 
                             <Border Style="{StaticResource CasFormSectionStyle}">
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="LUT 关键段两点" />
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="LUT 关键段两点（正/负极）" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="应用渲染预设后，一次性点选折线关键段两端控制点。运行时取中点水平拖到红线目标列，使关键斜段始终落在峰值附近。未标定则主流程跳过本子步。" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                        <TextBlock VerticalAlignment="Center" Text="当前标定坐标：" />
+                                        Text="两种预设折线端点位置不同，须分别标定。先在 VG 应用对应预设，再点选关键段两端控制点。运行时按文件名 -Z/-F 选用对应套，取中点水平拖到红线。未标定对应套则主流程跳过本子步。" />
+
+                                    <TextBlock Margin="0,4,0,8" FontWeight="SemiBold" Text="正极（-Z / testlut_Z）" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock VerticalAlignment="Center" Text="当前标定：" />
                                         <TextBlock
                                             Margin="8,0,0,0"
                                             VerticalAlignment="Center"
                                             FontFamily="Consolas"
                                             FontWeight="SemiBold"
-                                            Text="{Binding LutSegmentPointsDisplayText}" />
+                                            Text="{Binding LutSegmentPointsDisplayTextPositive}" />
                                     </StackPanel>
-                                    <WrapPanel Orientation="Horizontal">
-                                        <hc:TextBox
-                                            Width="100"
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="P1X"
-                                            hc:InfoElement.TitlePlacement="Left"
-                                            IsReadOnly="True">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="LutSegmentPoint1X" />
-                                            </hc:TextBox.Text>
+                                    <WrapPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P1X" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint1XPositive" /></hc:TextBox.Text>
                                         </hc:TextBox>
-                                        <hc:TextBox
-                                            Width="100"
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="P1Y"
-                                            hc:InfoElement.TitlePlacement="Left"
-                                            IsReadOnly="True">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="LutSegmentPoint1Y" />
-                                            </hc:TextBox.Text>
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P1Y" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint1YPositive" /></hc:TextBox.Text>
                                         </hc:TextBox>
-                                        <hc:TextBox
-                                            Width="100"
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="P2X"
-                                            hc:InfoElement.TitlePlacement="Left"
-                                            IsReadOnly="True">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="LutSegmentPoint2X" />
-                                            </hc:TextBox.Text>
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P2X" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint2XPositive" /></hc:TextBox.Text>
                                         </hc:TextBox>
-                                        <hc:TextBox
-                                            Width="100"
-                                            Margin="0,0,8,8"
-                                            hc:InfoElement.Title="P2Y"
-                                            hc:InfoElement.TitlePlacement="Left"
-                                            IsReadOnly="True">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="LutSegmentPoint2Y" />
-                                            </hc:TextBox.Text>
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P2Y" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint2YPositive" /></hc:TextBox.Text>
                                         </hc:TextBox>
                                         <Button
                                             Style="{StaticResource CasFormActionButtonStyle}"
                                             Margin="0,0,8,8"
                                             VerticalAlignment="Center"
                                             Command="{Binding CalibrateLutSegmentPointsCommand}"
-                                            Content="标定 LUT 关键段两点"
+                                            CommandParameter="Positive"
+                                            Content="标定正极 LUT 两点"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="隐藏上位机 → 依次左键点选关键段两端控制点；右键/Esc 取消" />
+                                            ToolTip="先应用正极预设 testlut_Z → 依次点选关键段两端；右键/Esc 取消" />
+                                    </WrapPanel>
+
+                                    <TextBlock Margin="0,4,0,8" FontWeight="SemiBold" Text="负极（-F / testlut_F，默认）" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock VerticalAlignment="Center" Text="当前标定：" />
+                                        <TextBlock
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            FontFamily="Consolas"
+                                            FontWeight="SemiBold"
+                                            Text="{Binding LutSegmentPointsDisplayTextNegative}" />
+                                    </StackPanel>
+                                    <WrapPanel Orientation="Horizontal">
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P1X" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint1XNegative" /></hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P1Y" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint1YNegative" /></hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P2X" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint2XNegative" /></hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox Width="100" Margin="0,0,8,8" hc:InfoElement.Title="P2Y" hc:InfoElement.TitlePlacement="Left" IsReadOnly="True">
+                                            <hc:TextBox.Text><Binding Path="LutSegmentPoint2YNegative" /></hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <Button
+                                            Style="{StaticResource CasFormActionButtonStyle}"
+                                            Margin="0,0,8,8"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding CalibrateLutSegmentPointsCommand}"
+                                            CommandParameter="Negative"
+                                            Content="标定负极 LUT 两点"
+                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            ToolTip="先应用负极预设 testlut_F → 依次点选关键段两端；右键/Esc 取消" />
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>

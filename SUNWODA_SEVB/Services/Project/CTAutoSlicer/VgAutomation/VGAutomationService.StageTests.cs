@@ -80,35 +80,43 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("尚未标定直方图区域，请先点击「标定直方图区域」框选 ROI");
                 }
 
-                if (!settings.HasLutSegmentPoints)
-                {
-                    throw new InvalidOperationException(
-                        "尚未标定 LUT 关键段两端点，请先在「直方图标定」中点击「标定 LUT 关键段两点」");
-                }
-
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))
                 {
                     throw new InvalidOperationException("请先配置 VG 应用路径");
                 }
 
-                progress?.Report("直方图灰度单步测试：请确保 VG 中已显示直方图且已应用 LUT 预设");
+                var namingSource = TryResolveNamingSourceFromCtFolder(settings);
+                var polarity = settings.ResolveRenderingPresetPolarityLabel(namingSource);
+                if (!settings.HasLutSegmentPointsFor(namingSource))
+                {
+                    throw new InvalidOperationException(
+                        $"尚未标定{polarity} LUT 关键段两端点，请先在「直方图标定」中标定对应电极的两点");
+                }
+
+                settings.TryResolveLutSegmentPoints(
+                    namingSource,
+                    out var p1x,
+                    out var p1y,
+                    out var p2x,
+                    out var p2y);
+
+                progress?.Report(
+                    $"直方图灰度单步测试：请确保 VG 中已显示直方图且已应用{polarity} LUT 预设");
                 _logger.Info(
                     $"直方图灰度单步测试开始，ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
                     $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight}) " +
-                    $"LUT=({settings.LutSegmentPoint1X},{settings.LutSegmentPoint1Y})-" +
-                    $"({settings.LutSegmentPoint2X},{settings.LutSegmentPoint2Y})");
+                    $"LUT{polarity}=({p1x},{p1y})-({p2x},{p2y})");
 
                 var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
                 _activeVgProcess = ctViewerProcess;
-                var namingSource = TryResolveNamingSourceFromCtFolder(settings);
                 var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSource);
                 if (!string.IsNullOrWhiteSpace(namingSource))
                 {
-                    progress?.Report($"直方图单测命名参考：{Path.GetFileName(namingSource)} → 产品标签={productTag}");
+                    progress?.Report($"直方图单测命名参考：{Path.GetFileName(namingSource)} → 产品标签={productTag} → {polarity}");
                 }
                 else
                 {
-                    progress?.Report($"直方图单测未找到体素文件，截图产品标签={productTag}");
+                    progress?.Report($"直方图单测未找到体素文件，截图产品标签={productTag}，按{polarity}标点");
                 }
 
                 await ApplyHistogramGrayScaleAdjustAsync(

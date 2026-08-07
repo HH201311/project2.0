@@ -22,10 +22,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             Lock();
             try
             {
-                var presetName = settings.RenderingPresetName.Trim();
+                var namingSource = TryResolveNamingSourceFromCtFolder(settings);
+                var polarity = settings.ResolveRenderingPresetPolarityLabel(namingSource);
+                var presetName = settings.ResolveRenderingPresetName(namingSource);
                 if (string.IsNullOrEmpty(presetName))
                 {
-                    throw new InvalidOperationException("请先填写渲染预设名称");
+                    throw new InvalidOperationException(
+                        $"请先填写{polarity}预设名称（直方图标定 → 渲染预设）");
                 }
 
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))
@@ -33,8 +36,11 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     throw new InvalidOperationException("请先配置 VG 应用路径");
                 }
 
-                progress?.Report("渲染预设单步测试：请确保 VG 中已导入体积");
-                _logger.Info($"渲染预设单步测试开始，目标预设「{presetName}」");
+                progress?.Report(
+                    $"渲染预设单步测试：请确保 VG 中已导入体积；" +
+                    $"按文件名选{polarity}「{presetName}」（参考={Path.GetFileName(namingSource ?? "")}）");
+                _logger.Info(
+                    $"渲染预设单步测试开始，{polarity}目标「{presetName}」，命名源={namingSource}");
 
                 var (ctViewerProcess, _) = await GetCTViewerProcess(settings, cancellationToken).ConfigureAwait(false);
                 _activeVgProcess = ctViewerProcess;
@@ -44,7 +50,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         ctViewerProcess,
                         mainWindow,
                         cancellationToken,
-                        progress)
+                        progress,
+                        namingSourcePath: namingSource)
                     .ConfigureAwait(false);
 
                 progress?.Report("渲染预设单步测试完成");

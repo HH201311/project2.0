@@ -556,15 +556,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
 
                 var mainWindow = GetFreshMainWindow(ctViewerProcess);
-                if (!string.IsNullOrWhiteSpace(settings.RenderingPresetName))
+                var namingPath = namingSourcePath ?? vglPath;
+                var resolvedPreset = settings.ResolveRenderingPresetName(namingPath);
+                if (!string.IsNullOrWhiteSpace(resolvedPreset))
                 {
                     await ApplyRenderingPresetAsync(
                             settings,
                             ctViewerProcess,
                             mainWindow,
                             cancellationToken,
-                            progress)
+                            progress,
+                            namingSourcePath: namingPath)
                         .ConfigureAwait(false);
+                }
+                else
+                {
+                    var polarity = settings.ResolveRenderingPresetPolarityLabel(namingPath);
+                    progress?.Report($"跳过渲染预设：{polarity}预设名称为空（文件={Path.GetFileName(namingPath)}）");
+                    _logger.Info($"跳过渲染预设：{polarity}预设名为空，文件={namingPath}");
                 }
 
                 await ApplyHistogramGrayScaleAdjustAsync(

@@ -800,16 +800,10 @@
                                         <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
-                                            <Run Text="导入后应用 LUT 渲染预设，并为前/右/上三象限启用厚板，保证后续截图与切片灰阶、切面一致。" />
+                                            <Run Text="为前/右/上三象限启用厚板，保证后续截图与切片切面一致。LUT 渲染预设已迁至「直方图标定」。" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
-                                            <LineBreak />
-                                            <Run Text="• 渲染预设名称：渲染面板下拉中的预设项名称（须与 VG 中完全一致）。空则跳过预设步骤。" />
-                                            <LineBreak />
-                                            <Run Text="• 应用预设前等待(ms)：进入后处理后、点开预设下拉前的缓冲，避免面板未就绪。" />
-                                            <LineBreak />
-                                            <Run Text="• 预设下拉等待(ms)：等待预设 ComboBox 列表项可见/关闭的超时。Qt 下拉偶发慢时加大。" />
                                             <LineBreak />
                                             <Run Text="• 厚板菜单偏移X/Y：相对视口右键点的像素偏移，用于点中右键菜单「厚板」。分辨率/DPI 变化后需重标定。" />
                                             <LineBreak />
@@ -820,54 +814,6 @@
                                 <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
                             </StackPanel>
-
-                            <Border Style="{StaticResource CasFormSectionStyle}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="渲染预设" />
-                                    <TextBlock
-                                        Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="LUT 预设名称及下拉等待；名称须与 VG 中完全一致，空则跳过。" />
-                                    <WrapPanel Orientation="Horizontal">
-                                        <hc:TextBox
-                                            Width="245"
-                                            Margin="0,0,12,12"
-                                            hc:InfoElement.Necessary="True"
-                                            hc:InfoElement.Title="渲染预设名称"
-                                            hc:InfoElement.TitlePlacement="Left">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="RenderingPresetName" UpdateSourceTrigger="PropertyChanged" />
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Width="245"
-                                            Margin="0,0,12,12"
-                                            hc:InfoElement.Necessary="True"
-                                            hc:InfoElement.Title="应用预设前等待(ms)"
-                                            hc:InfoElement.TitlePlacement="Left">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="PresetApplyWaitTime" UpdateSourceTrigger="PropertyChanged">
-                                                    <Binding.ValidationRules>
-                                                        <hc:RegexRule Type="PInt" />
-                                                    </Binding.ValidationRules>
-                                                </Binding>
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                        <hc:TextBox
-                                            Width="245"
-                                            Margin="0,0,12,0"
-                                            hc:InfoElement.Title="预设下拉等待(ms)"
-                                            hc:InfoElement.TitlePlacement="Left">
-                                            <hc:TextBox.Text>
-                                                <Binding Path="PresetDropdownWaitTime" UpdateSourceTrigger="PropertyChanged">
-                                                    <Binding.ValidationRules>
-                                                        <hc:RegexRule Type="PInt" />
-                                                    </Binding.ValidationRules>
-                                                </Binding>
-                                            </hc:TextBox.Text>
-                                        </hc:TextBox>
-                                    </WrapPanel>
-                                </StackPanel>
-                            </Border>
 
                             <Border Style="{StaticResource CasFormSectionStyle}" Margin="0">
                                 <StackPanel>
@@ -935,10 +881,14 @@
                                         <TextBlock Style="{StaticResource CasParamHelpToolTipTextStyle}">
                                             <Run FontWeight="SemiBold" Text="本组作用" />
                                             <LineBreak />
-                                            <Run Text="LUT 预设不保存直方图中间红线位置。通过截图分析峰谷后拖拽红线到目标灰阶（靠右约 2/3），压掉左侧噪点。随后将 LUT 关键段两端中点水平拖到红线，使折线始终落在峰值附近。" />
+                                            <Run Text="先按导入文件名选择正极/负极 LUT 预设（-Z→正极 testlut_Z，-F 或无法识别→负极 testlut_F），再截图分析峰谷拖红线，并将 LUT 关键段中点对齐红线。" />
                                             <LineBreak />
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="参数说明" />
+                                            <LineBreak />
+                                            <Run Text="• 正极/负极预设：VG 渲染面板下拉中的预设项名称，须与 VG 中完全一致。对应配置为空则跳过预设步骤。" />
+                                            <LineBreak />
+                                            <Run Text="• 应用预设前等待 / 预设下拉等待：面板就绪与 ComboBox 超时。" />
                                             <LineBreak />
                                             <Run Text="• X/Y/W/H：直方图 ROI 屏幕矩形。未标定则主流程跳过本步；须框住直方图主体（含红线可拖区域）。" />
                                             <LineBreak />
@@ -955,6 +905,66 @@
                                 <TextBlock Style="{StaticResource CasParamHelpIconTextStyle}" />
                             </Border>
                             </StackPanel>
+
+                            <Border Style="{StaticResource CasFormSectionStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="渲染预设" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="按导入文件名自动选择：含 -Z→正极，含 -F 或无法识别→负极（默认 F）。名称须与 VG 中完全一致，对应项为空则跳过。" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <hc:TextBox
+                                            Width="245"
+                                            Margin="0,0,12,12"
+                                            hc:InfoElement.Necessary="True"
+                                            hc:InfoElement.Title="正极预设"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            ToolTip="文件名含 -Z 时使用，默认 testlut_Z">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="RenderingPresetNamePositive" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="245"
+                                            Margin="0,0,12,12"
+                                            hc:InfoElement.Necessary="True"
+                                            hc:InfoElement.Title="负极预设"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            ToolTip="文件名含 -F 或无法识别时使用，默认 testlut_F">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="RenderingPresetNameNegative" UpdateSourceTrigger="PropertyChanged" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="245"
+                                            Margin="0,0,12,12"
+                                            hc:InfoElement.Necessary="True"
+                                            hc:InfoElement.Title="应用预设前等待(ms)"
+                                            hc:InfoElement.TitlePlacement="Left">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="PresetApplyWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                                    <Binding.ValidationRules>
+                                                        <hc:RegexRule Type="PInt" />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="245"
+                                            Margin="0,0,12,0"
+                                            hc:InfoElement.Title="预设下拉等待(ms)"
+                                            hc:InfoElement.TitlePlacement="Left">
+                                            <hc:TextBox.Text>
+                                                <Binding Path="PresetDropdownWaitTime" UpdateSourceTrigger="PropertyChanged">
+                                                    <Binding.ValidationRules>
+                                                        <hc:RegexRule Type="PInt" />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
 
                             <Border Style="{StaticResource CasFormSectionStyle}">
                                 <StackPanel>
@@ -3429,7 +3439,7 @@
                                             <LineBreak />
                                             <Run FontWeight="SemiBold" Text="按钮说明" />
                                             <LineBreak />
-                                            <Run Text="• 测试应用渲染预设：仅验证 LUT 预设下拉选择。" />
+                                            <Run Text="• 测试应用渲染预设：按 CT 目录参考文件名选正极/负极 LUT（-Z/-F，默认 F）。" />
                                             <LineBreak />
                                             <Run Text="• 测试直方图灰度调整：需已标定 ROI + LUT 关键段两点；截图→峰谷→拖红线→中点对齐红线。" />
                                             <LineBreak />

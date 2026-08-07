@@ -247,9 +247,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(RenderingPresetName))
+            if (string.IsNullOrWhiteSpace(RenderingPresetNamePositive)
+                && string.IsNullOrWhiteSpace(RenderingPresetNameNegative))
             {
-                MessageShower = "请先填写渲染预设名称";
+                MessageShower = "请先在「直方图标定」中填写正极或负极预设名称";
                 return;
             }
 

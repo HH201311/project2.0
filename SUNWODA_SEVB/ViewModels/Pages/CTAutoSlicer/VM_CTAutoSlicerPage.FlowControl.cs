@@ -297,14 +297,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             });
         }
 
-        private void OnDoubleEscPressed()
+        private void OnAltXPressed()
         {
-            InterruptActiveFlow("Esc");
-        }
-
-        private void OnCtrlXPressed()
-        {
-            InterruptActiveFlow("Ctrl+X");
+            InterruptActiveFlow("Alt+X");
         }
 
         private void OnAltPPressed()
@@ -330,11 +325,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     AppendFlowLog("流程已继续（Alt+P）");
                 }
             });
-        }
-
-        private void OnSingleEscPressed()
-        {
-            Dispatcher.Invoke(() => WinAPIHelper.BlockInput(true));
         }
     }
 }

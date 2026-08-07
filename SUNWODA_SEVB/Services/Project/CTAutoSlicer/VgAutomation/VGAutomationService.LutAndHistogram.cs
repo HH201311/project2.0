@@ -19,11 +19,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             Process ctViewerProcess,
             AutomationElement mainWindow,
             CancellationToken cancellationToken,
-            IProgress<string>? progress)
+            IProgress<string>? progress,
+            string? namingSourcePath = null)
         {
-            var presetName = settings.RenderingPresetName.Trim();
-            progress?.Report($"等待渲染工作区就绪后应用预设「{presetName}」（最大 {settings.PresetApplyWaitTime}ms）");
-            _logger.Info($"等待渲染工作区就绪，最大 {settings.PresetApplyWaitTime}ms 后应用预设「{presetName}」");
+            var polarity = settings.ResolveRenderingPresetPolarityLabel(namingSourcePath);
+            var presetName = settings.ResolveRenderingPresetName(namingSourcePath);
+            if (string.IsNullOrWhiteSpace(presetName))
+            {
+                progress?.Report($"跳过渲染预设：{polarity}预设名称为空");
+                _logger.Info($"跳过渲染预设：{polarity}预设名称为空（源={Path.GetFileName(namingSourcePath ?? "")}）");
+                return;
+            }
+
+            progress?.Report(
+                $"等待渲染工作区就绪后应用{polarity}预设「{presetName}」" +
+                $"（文件={Path.GetFileName(namingSourcePath ?? "")}，最大 {settings.PresetApplyWaitTime}ms）");
+            _logger.Info(
+                $"等待渲染工作区就绪，最大 {settings.PresetApplyWaitTime}ms 后应用{polarity}预设「{presetName}」" +
+                $"（源={namingSourcePath}）");
             await WaitForRenderingWorkspaceReadyAsync(
                     ctViewerProcess,
                     settings,

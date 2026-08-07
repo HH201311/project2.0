@@ -1,12 +1,24 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-06（人工干预 10 分钟 + 文案）  
+> **文档版本**：2026-08-07（正负极 LUT 双预设）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；竖图校验 + 内容上移 + 预提亮）；进程池并行导入 ✅。  
 > **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**；**内容上移像素真机调参**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-07 增量（正负极 LUT 双预设）**：  
+> 1. **背景**：正极/负极体积灰阶分布不同，单一 `testlut` 无法兼顾亮度。  
+> 2. **做法**：去掉单一 `RenderingPresetName`；直方图页配置 **正极预设**（默认 `testlut_Z`）与 **负极预设**（默认 `testlut_F`）。  
+> 3. **选型**：按导入文件名（`Path.GetFileName`）判断：含 `-Z`→正极；含 `-F` 或无法识别→**负极（默认 F）**；同时含 `-Z` 与 `-F` 时亦默认 F。  
+> 4. **UI**：渲染预设区块从「渲染与厚板」迁入「直方图标定」；厚板页仅保留厚板偏移。  
+> 5. **落点**：`CTAutoSlicerSettings.ResolveRenderingPresetName` / `ResolveRenderingPresetPolarityLabel`；`ApplyRenderingPresetAsync`（传 namingSourcePath）；`RunPostImportPipelineAsync`；单测按 CT 目录参考文件名选型。
+
+> **2026-08-07 增量（去掉 Esc 中断；Ctrl+X → Alt+X）**：  
+> 1. **去掉**全局 Esc：单击锁输入、双击中断流程（易误触）。标定 overlay 内 Esc 取消仍保留，与全局 Hook 无关。  
+> 2. **流程中断快捷键**：`Ctrl+X` 改为 **`Alt+X`**；暂停/继续仍为 `Alt+P`。  
+> 3. 落点：`CTAutoSlicerInputHookService` / `VM_CTAutoSlicerPage` / `FlowControl`。
 
 > **2026-08-06 增量（人工干预超时 10 分钟 + 按钮文案）**：  
 > 1. **超时**：`DefaultManualInterventionTimeout` 由 **30 分钟** 改为 **10 分钟**（超时仍归档失败文件并继续下一文件）。  
@@ -259,7 +271,7 @@ flowchart TD
 | 8 | 等待 `请耐心等待...` 出现 | 确认导入已开始 |
 | 9 | 轮询进度框消失 | 超时上限 `ImportTimeoutMinutes` |
 | 10 | `PostImportWaitTime` 稳定等待 | 默认 3000ms |
-| 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 打开「渲染」面板 ComboBox → 选中 `RenderingPresetName` 列表项 |
+| 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 按文件名 `-Z`/`-F` 选正/负极预设 → 打开「渲染」面板 ComboBox → 选中对应 ListItem |
 | 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线→LUT中点对齐；未标定 ROI 跳过整步；未标定 LUT 两点跳过 2c |
 | 12 | `ApplyThickPlateForQuadrantsAsync` | 象限 1→2→3：视口右键 →「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定 |
 
@@ -337,7 +349,7 @@ flowchart TD
 | `.../VM_CTAutoSlicerPage.StageTests.cs` | `ExecuteTest*` | 单步测试命令 |
 | `.../VM_CTAutoSlicerPage.CutImgDllTest.cs` | CutImg DLL 离线批量测 | 3D/2D 文件夹批量 |
 | `.../VM_CTAutoSlicerPage.AiAnnotate.cs` | AI 预览 / 批处理 / 统计 Demo | 阶段七 UI 与入口 |
-| `.../VM_CTAutoSlicerPage.FlowControl.cs` | 日志 / 人工干预 / 热键 | `AppendFlowLog`、暂停、Esc/Alt+P |
+| `.../VM_CTAutoSlicerPage.FlowControl.cs` | 日志 / 人工干预 / 热键 | `AppendFlowLog`、暂停、Alt+X / Alt+P |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/CTAutoSlicerService.cs` | `RunSimulationAsync` | 门面；管理 `IsRunning` / Cancel |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | （partial 核心） | 字段/常量/构造/`WaitUntil*`；对外类型仍为 `VGAutomationService` |
 | `.../VgAutomation/VGAutomationService.ProcessPool.cs` | `RunSimulationAsync` / `RunPostImportPipelineAsync` | **核心**：进程池调度 + 后处理串行编排 |
@@ -385,7 +397,7 @@ flowchart TD
 |------|------|------|
 | 流程日志 UI（200 行、智能滚动、可清除） | `VM_CTAutoSlicerPage` + `CTAutoSlicerPage.xaml` | ✅ 已用 |
 | 文件日志 `Assets/CTAutoSlicer/import_log.txt` | `VM_CTAutoSlicerPage.WriteFlowLogToFile` | ✅ 已用 |
-| 全局 Esc 中断（单击锁输入 / 双击取消） | `CTAutoSlicerInputHookService` | ✅ 已用 |
+| 全局热键（Alt+X 中断 / Alt+P 暂停） | `CTAutoSlicerInputHookService` | ✅ 已用（已移除 Esc） |
 | CT 文件夹监控（仅记日志，**不触发流程**） | `CTFolderMonitorService` | ✅ 已挂载 |
 | 进程 CPU/内存/GPU CSV | `ProcessMonitorService` | ✅ 页面初始化启动 |
 | 角度算法 DLL 加载 | `AngleAlgorithmService.InitializeAsync` | ✅ 页面初始化；**阶段四主链用本地找点，不依赖本 DLL** |
@@ -413,7 +425,9 @@ flowchart TD
 | `FileSelectionDialogWaitTime` | 15000 ms | 等「完成(F)」/ 进度框出现 |
 | `ImportTimeoutMinutes` | 30 | 单文件导入进度框消失超时 |
 | `PostImportWaitTime` | 3000 ms | 导入完成后稳定等待 |
-| `RenderingPresetName` | `testlut` | 「渲染」面板下拉列表项 Name，须与 VG 内预设名完全一致 |
+| `RenderingPresetNamePositive` | `testlut_Z` | 正极；文件名含 `-Z` 时选用 |
+| `RenderingPresetNameNegative` | `testlut_F` | 负极；文件名含 `-F` 或无法识别时默认选用 |
+| ~~`RenderingPresetName`~~ | ~~`testlut`~~ | **已拆为正负极双预设**（见上） |
 | `PresetApplyWaitTime` | 2000 ms | 导入完成后、打开预设下拉前的等待 |
 | `PresetDropdownWaitTime` | 5000 ms | 打开下拉后等待 `ListItem` 出现的超时 |
 | `ThickPlateMenuOffsetX` / `Y` | 90 / 127 | 右键点后相对偏移，点击「厚板」菜单项 |
@@ -521,7 +535,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 「文件(F)」就绪检测（替代盲目固定等待）
 ✅ 多 .vgl 顺序导入（Ctrl+F+I 快速导入 →「请耐心等待」消失；检测禁止桌面整树扫描）
 ✅ 导入后短暂稳定等待（PostImportWaitTime，默认 3000ms）
-✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 →「渲染」面板 ComboBox 选 RenderingPresetName）
+✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 → 按 `-Z`/`-F` 选正极/负极 →「渲染」面板 ComboBox）
 ✅ 直方图灰度阈值（预设后：截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
 ✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
@@ -748,7 +762,7 @@ await ExportImageStackSlicesAsync(...);
 - [ ] 文件夹内 2+ `.vgl` 按创建时间顺序处理
 - [ ] 故意损坏一个文件路径，验证失败跳过且批次继续
 - [ ] 流程日志 + `import_log.txt` 有完整步骤
-- [ ] 双击 Esc 可中断
+- [x] Alt+X 可中断（原 Esc / Ctrl+X 已废弃）
 
 ### 阶段二（渲染预设）回归
 

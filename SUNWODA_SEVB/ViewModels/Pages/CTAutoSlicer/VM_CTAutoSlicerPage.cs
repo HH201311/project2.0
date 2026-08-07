@@ -68,7 +68,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _importLogText = string.Empty;
         private bool _isUserScrolledUp;
         private string? _lastFlowLogMessage;
-        private string _renderingPresetName = "testlut";
+        private string _renderingPresetNamePositive = "testlut_Z";
+        private string _renderingPresetNameNegative = "testlut_F";
         private int _presetApplyWaitTime = 2000;
         private int _presetDropdownWaitTime = 5000;
         private string _dllDownloadBaseUrl = CTAutoSlicerSettings.DefaultDllDownloadBaseUrl;
@@ -925,14 +926,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _importLogText, value);
         }
 
-        public string RenderingPresetName
+        /// <summary>正极 LUT 预设名（文件名含 -Z；对应 VG 中 testlut_Z 等）</summary>
+        public string RenderingPresetNamePositive
         {
-            get => _renderingPresetName;
+            get => _renderingPresetNamePositive;
             set
             {
-                if (SetProperty(ref _renderingPresetName, value))
+                if (SetProperty(ref _renderingPresetNamePositive, value))
                 {
-                    SaveSetting(nameof(RenderingPresetName), value);
+                    SaveSetting(nameof(RenderingPresetNamePositive), value);
+                }
+            }
+        }
+
+        /// <summary>负极 LUT 预设名（文件名含 -F 或默认；对应 VG 中 testlut_F 等）</summary>
+        public string RenderingPresetNameNegative
+        {
+            get => _renderingPresetNameNegative;
+            set
+            {
+                if (SetProperty(ref _renderingPresetNameNegative, value))
+                {
+                    SaveSetting(nameof(RenderingPresetNameNegative), value);
                 }
             }
         }
@@ -3030,7 +3045,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         public override void OnNavigatedTo(object? parameter)
         {
-            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed, OnCtrlXPressed, OnAltPPressed);
+            _inputHookService.Start(OnAltXPressed, OnAltPPressed);
             _folderMonitorService.Start(CTFileFolder);
             Dispatcher.BeginInvoke(new Action(TryApplyRememberedMainWindowSize), DispatcherPriority.Loaded);
             base.OnNavigatedTo(parameter);

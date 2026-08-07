@@ -60,7 +60,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             PostImportWaitTime = LoadIntSetting(nameof(PostImportWaitTime), 3000);
             StepRetryCount = LoadIntSetting(nameof(StepRetryCount), 3);
             StepRetryIntervalMs = LoadIntSetting(nameof(StepRetryIntervalMs), 2000);
-            RenderingPresetName = LoadStringSetting(nameof(RenderingPresetName), "testlut");
+            RenderingPresetNamePositive = LoadStringSetting(nameof(RenderingPresetNamePositive), "testlut_Z");
+            RenderingPresetNameNegative = LoadStringSetting(nameof(RenderingPresetNameNegative), "testlut_F");
             PresetApplyWaitTime = LoadIntSetting(nameof(PresetApplyWaitTime), 2000);
             PresetDropdownWaitTime = LoadIntSetting(nameof(PresetDropdownWaitTime), 5000);
             ThickPlateMenuOffsetX = LoadIntSetting(nameof(ThickPlateMenuOffsetX), 90);
@@ -594,7 +595,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 PostImportWaitTime = PostImportWaitTime,
                 StepRetryCount = StepRetryCount,
                 StepRetryIntervalMs = StepRetryIntervalMs,
-                RenderingPresetName = RenderingPresetName,
+                RenderingPresetNamePositive = RenderingPresetNamePositive,
+                RenderingPresetNameNegative = RenderingPresetNameNegative,
                 PresetApplyWaitTime = PresetApplyWaitTime,
                 PresetDropdownWaitTime = PresetDropdownWaitTime,
                 ThickPlateMenuOffsetX = ThickPlateMenuOffsetX,

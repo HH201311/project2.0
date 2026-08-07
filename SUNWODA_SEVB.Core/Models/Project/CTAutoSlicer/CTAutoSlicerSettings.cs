@@ -279,12 +279,46 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int PostImportWaitTime { get; set; } = 3000;
         public int StepRetryCount { get; set; } = 3;
         public int StepRetryIntervalMs { get; set; } = 2000;
-        /// <summary>渲染面板 LUT 预设名称（组合框列表项 Name）</summary>
-        public string RenderingPresetName { get; set; } = "testlut";
+        /// <summary>正极 LUT 预设名称（文件名含 -Z 时使用；须与 VG 渲染面板列表项 Name 一致）</summary>
+        public string RenderingPresetNamePositive { get; set; } = "testlut_Z";
+        /// <summary>负极 LUT 预设名称（文件名含 -F 或无法识别时默认使用；须与 VG 渲染面板列表项 Name 一致）</summary>
+        public string RenderingPresetNameNegative { get; set; } = "testlut_F";
         /// <summary>应用预设前等待渲染工作区就绪的最大超时（毫秒）</summary>
         public int PresetApplyWaitTime { get; set; } = 2000;
         /// <summary>下拉列表项出现的最大超时（毫秒）</summary>
         public int PresetDropdownWaitTime { get; set; } = 5000;
+
+        /// <summary>
+        /// 按导入文件名选择 LUT 预设：含 <c>-Z</c>→正极，含 <c>-F</c>→负极；
+        /// 均无、均有或路径为空时默认负极（F）。
+        /// </summary>
+        /// <returns>选定的预设名；对应配置为空则返回空串。</returns>
+        public string ResolveRenderingPresetName(string? pathOrFileName)
+        {
+            var fileName = string.IsNullOrWhiteSpace(pathOrFileName)
+                ? string.Empty
+                : Path.GetFileName(pathOrFileName.Trim());
+
+            var hasZ = fileName.IndexOf("-Z", StringComparison.OrdinalIgnoreCase) >= 0;
+            var hasF = fileName.IndexOf("-F", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            // 仅 -Z → 正极；其余（仅 -F / 都无 / 都有）→ 负极默认
+            var usePositive = hasZ && !hasF;
+            var raw = usePositive ? RenderingPresetNamePositive : RenderingPresetNameNegative;
+            return string.IsNullOrWhiteSpace(raw) ? string.Empty : raw.Trim();
+        }
+
+        /// <summary>与 <see cref="ResolveRenderingPresetName"/> 配套的电极标签（日志/UI）。</summary>
+        public string ResolveRenderingPresetPolarityLabel(string? pathOrFileName)
+        {
+            var fileName = string.IsNullOrWhiteSpace(pathOrFileName)
+                ? string.Empty
+                : Path.GetFileName(pathOrFileName.Trim());
+
+            var hasZ = fileName.IndexOf("-Z", StringComparison.OrdinalIgnoreCase) >= 0;
+            var hasF = fileName.IndexOf("-F", StringComparison.OrdinalIgnoreCase) >= 0;
+            return hasZ && !hasF ? "正极" : "负极";
+        }
         public string DllDownloadBaseUrl { get; set; } = DefaultDllDownloadBaseUrl;
 
         /// <summary>右键菜单项 Name（厚板）</summary>

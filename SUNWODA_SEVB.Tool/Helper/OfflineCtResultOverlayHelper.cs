@@ -7,17 +7,20 @@ namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
     /// 将 NJCT 四参数叠到 ResultImg：AllPointRegion + L1~L5 线段 + AllPrintfValue；
-    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（与二次手动标注一致，不扩展画布），
+    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（全宽，与二次手动标注一致，不扩展画布），
     /// 遮罩四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；
-    /// AI 汇总数值：开启范围→合格绿/超差红，未启用→白。
+    /// AI 汇总：名称与数值同色；开启范围→合格深绿/超差深红，未启用→白。
     /// </summary>
     public static class OfflineCtResultOverlayHelper
     {
+        /// <summary>数值字号相对名称的比例（略小，下方留出下划线高度）。</summary>
+        private const double ValueFontScale = 0.78;
+
         /// <param name="bottomInfoBlackHeight">
         /// 底部信息遮罩高度（OfflineCtBlackHeight，图像像素）。
-        /// 在 ResultImg <b>底部覆盖</b>黑色矩形后写字；0 则不打黑。
+        /// 在 ResultImg <b>底部全宽覆盖</b>黑色矩形后写字；0 则不打黑。
         /// </param>
-        /// <param name="rangeCheck">L1~L5 mm 范围判断；null/未开启时线段保持青色、数值保持白/品红。</param>
+        /// <param name="rangeCheck">L1~L5 mm 范围判断；null/未开启时线段保持青色、名称与数值保持白。</param>
         public static string WriteAnnotatedResultImage(
             HObject resultImg,
             IReadOnlyList<HObject>? pointRegions,
@@ -74,7 +77,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
 
                 // ② L1~L5 竖线段 + 图上旁注（画在打黑之前，遮罩区内的旁注会被盖住，属预期）
-                // 旁注：名称保持品红；数值按范围绿/红（未开启仍品红）
+                // 旁注：名称与数值同色（开范围→深绿/深红，未开→白）
                 var labelFont = Math.Clamp(imgHeight / 55, 36, 72);
                 ApplyWindowFont(window, labelFont);
                 var cellCount = Math.Max(
@@ -126,6 +129,9 @@ namespace SUNWODA_SEVB.Tool.Helper
                             textCol = Math.Min(c1, c2) - 120;
                         }
 
+                        var sideColor = double.IsNaN(mm)
+                            ? "white"
+                            : rangeCheck.ResolveSideValueColor(k, mm);
                         DrawNameAndValue(
                             window,
                             midRow,
@@ -134,10 +140,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                             double.IsNaN(mm)
                                 ? string.Empty
                                 : FormatPhysicalLength(vals[k], umPerPx),
-                            nameColor: "magenta",
-                            valueColor: double.IsNaN(mm)
-                                ? "magenta"
-                                : rangeCheck.ResolveSideValueColor(k, mm),
+                            nameColor: sideColor,
+                            valueColor: sideColor,
                             fontSize: labelFont,
                             coordSystem: "image");
                     }
@@ -218,7 +222,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>
         /// 底部遮罩四栏：①L1~L5范围 ②电芯1 ③电芯2 ④右 1/4 留空给二次标注手动数据。
         /// 字号与标注页同步（OfflineCtAnnotationHelper.ComputeBottomBandFontSizeImagePx）。
-        /// AI 尺寸数值：开启范围判断后合格绿/超差红；未开启为白色。
+        /// AI 尺寸：名称与数值同色；开启范围→深绿/深红；未开启为白色。
         /// </summary>
         private static void DrawBottomInfoBand(
             HWindow window,
@@ -428,9 +432,10 @@ namespace SUNWODA_SEVB.Tool.Helper
 
                 var px = vals[k];
                 var mm = px * umPerPx / 1000.0;
-                // 仅物理长度；名称白；数值：开范围→绿/红，未开→白
+                // 仅物理长度；名称与数值同色（开范围→深绿/深红，未开→白）
                 var name = $"L{k + 1}:";
                 var value = " " + FormatPhysicalLength(px, umPerPx);
+                var color = rangeCheck.ResolveValueColor(k, mm);
 
                 DrawNameAndValue(
                     window,
@@ -438,8 +443,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                     col,
                     name,
                     value,
-                    nameColor: "white",
-                    valueColor: rangeCheck.ResolveValueColor(k, mm),
+                    nameColor: color,
+                    valueColor: color,
                     fontSize: fontSize,
                     coordSystem: "window");
                 y += lineHeight;
@@ -459,7 +464,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 名称与数值分两次 DispText，使仅数值可按范围变色。
+        /// 名称与数值分两次 DispText：名称用全字号；数值略小并带下划线，
+        /// 使「数值高度 + 下划线」与名称字高大致平齐；名称与数值默认同色。
         /// </summary>
         private static void DrawNameAndValue(
             HWindow window,
@@ -479,6 +485,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             if (!string.IsNullOrEmpty(name))
             {
+                ApplyWindowFont(window, fontSize);
                 window.DispText(
                     name,
                     coordSystem,
@@ -494,16 +501,41 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return;
             }
 
-            // 按字号估算「L1:」宽度，数值紧随其后（Halcon 无可靠跨字体 GetStringExtents 回退）
+            var valueFont = Math.Max(12, (int)Math.Round(fontSize * ValueFontScale));
+            // 下划线占用名称多出的高度，使「数值+下划线」与 L1 字高平齐
+            var underlineGap = Math.Max(2.0, fontSize - valueFont);
+            var underlineThickness = Math.Max(2.0, fontSize * 0.06);
+
+            // 按字号估算「L1:」宽度，数值紧随其后
             var nameWidth = EstimateTextWidthPx(name, fontSize);
+            var valueCol = col + nameWidth;
+            ApplyWindowFont(window, valueFont);
             window.DispText(
                 value,
                 coordSystem,
                 row,
-                col + nameWidth,
+                valueCol,
                 valueColor,
                 new HTuple("box"),
                 new HTuple("false"));
+
+            var valueWidth = EstimateTextWidthPx(value.TrimStart(), valueFont);
+            // 前导空格也占宽，下划线从实际数字起笔
+            var leadSpaces = 0;
+            while (leadSpaces < value.Length && value[leadSpaces] == ' ')
+            {
+                leadSpaces++;
+            }
+
+            var underlineCol0 = valueCol + EstimateTextWidthPx(value[..leadSpaces], valueFont);
+            var underlineCol1 = underlineCol0 + Math.Max(valueWidth, valueFont * 2.0);
+            var underlineRow = row + valueFont + underlineGap * 0.35;
+            window.SetColor(valueColor);
+            window.SetLineWidth(underlineThickness);
+            window.DispLine(underlineRow, underlineCol0, underlineRow, underlineCol1);
+
+            // 恢复名称字号，避免后续同行绘制受影响
+            ApplyWindowFont(window, fontSize);
         }
 
         private static double EstimateTextWidthPx(string text, int fontSize)

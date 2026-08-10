@@ -2,11 +2,17 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
 {
     /// <summary>
     /// AI 标注 L1~L5 尺寸范围判断（单位 mm）。
-    /// 开启后：线段/数值在范围内为绿、超出为红；名称保持原色。
+    /// 开启后：线段与「名称+数值」同色——范围内深绿、超出深红。
     /// </summary>
     public sealed class OfflineCtLRangeCheckOptions
     {
         public const int DimensionCount = 5;
+
+        /// <summary>合格深绿（Halcon #RRGGBB，避免亮绿刺眼）。</summary>
+        public const string ColorPass = "#008B00";
+
+        /// <summary>超差深红。</summary>
+        public const string ColorFail = "#B22222";
 
         public static OfflineCtLRangeCheckOptions Disabled { get; } = new();
 
@@ -39,31 +45,31 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
             return valueMm >= lo && valueMm <= hi;
         }
 
-        /// <summary>线段颜色：开→绿/红；关→cyan。</summary>
+        /// <summary>线段颜色：开→深绿/深红；关→cyan。</summary>
         public string ResolveLineColor(int zeroBasedIndex, double valueMm) =>
             IsInRange(zeroBasedIndex, valueMm) switch
             {
-                true => "green",
-                false => "red",
+                true => ColorPass,
+                false => ColorFail,
                 null => "cyan",
             };
 
-        /// <summary>数值颜色：开→绿/红；关→white。</summary>
+        /// <summary>底部汇总数值颜色：开→深绿/深红；关→white。</summary>
         public string ResolveValueColor(int zeroBasedIndex, double valueMm) =>
             IsInRange(zeroBasedIndex, valueMm) switch
             {
-                true => "green",
-                false => "red",
+                true => ColorPass,
+                false => ColorFail,
                 null => "white",
             };
 
-        /// <summary>旁注数值颜色：开→绿/红；关→magenta（与历史旁注一致）。</summary>
+        /// <summary>旁注数值颜色：开→深绿/深红；关→与名称同用白色（不再单独品红）。</summary>
         public string ResolveSideValueColor(int zeroBasedIndex, double valueMm) =>
             IsInRange(zeroBasedIndex, valueMm) switch
             {
-                true => "green",
-                false => "red",
-                null => "magenta",
+                true => ColorPass,
+                false => ColorFail,
+                null => "white",
             };
 
         private static double[] CreateDefaultMins()

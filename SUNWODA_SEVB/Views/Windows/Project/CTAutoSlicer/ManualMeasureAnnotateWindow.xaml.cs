@@ -304,8 +304,9 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 底部仅遮罩右 1/4：显示手动测距。左 3/4 保留 AI 出图烧录的「范围/电芯1/电芯2」。
-        /// 字号与出图 <see cref="OfflineCtAnnotationHelper.ComputeBottomBandFontSizeScreen"/> 同步。
+        /// 底部全宽打黑（高度=OfflineCtBlackHeight，原图自动减半）：
+        /// 左 3/4 从结果图裁回以保留 AI 烧录的「范围/电芯1/电芯2」；
+        /// 右 1/4 写「手动标注」汇总。字号与出图同步。
         /// </summary>
         private void DrawBottomInfoBand(IReadOnlyList<ManualMeasureItem>? measures)
         {
@@ -314,7 +315,10 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
-            var bandPx = Math.Clamp(_vm.BottomBlackHeightPx, 0, _bitmap.PixelHeight);
+            var bandPx = Math.Clamp(
+                ResolveBottomBlackHeightForPath(_vm.CurrentImagePath, _vm.BottomBlackHeightPx),
+                0,
+                _bitmap.PixelHeight);
             if (bandPx <= 0)
             {
                 return;
@@ -325,20 +329,50 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var bandH = bandPx * _zoom;
             var bandY = canvasH - bandH;
 
-            // 只盖右边四分之一，左边三栏露出结果图上的 AI 范围/电芯数据
-            var rightX = canvasW * (3.0 / 4.0);
-            var rightW = canvasW - rightX;
+            // 全宽打黑：打黑高度控制整条底栏，而非仅右侧
             var band = new System.Windows.Shapes.Rectangle
             {
-                Width = rightW,
+                Width = canvasW,
                 Height = bandH,
                 Fill = Brushes.Black,
                 IsHitTestVisible = false,
             };
-            Canvas.SetLeft(band, rightX);
+            Canvas.SetLeft(band, 0);
             Canvas.SetTop(band, bandY);
             OverlayCanvas.Children.Add(band);
 
+            // 左 3/4：从底层结果图裁回，保留 AI 已烧录的彩色汇总
+            var leftImgW = Math.Max(1, _bitmap.PixelWidth * 3 / 4);
+            var leftCanvasW = canvasW * (3.0 / 4.0);
+            try
+            {
+                var srcY = Math.Max(0, _bitmap.PixelHeight - bandPx);
+                var cropH = Math.Min(bandPx, _bitmap.PixelHeight - srcY);
+                if (cropH > 0 && leftImgW > 0)
+                {
+                    var cropped = new CroppedBitmap(
+                        _bitmap,
+                        new Int32Rect(0, srcY, leftImgW, cropH));
+                    var leftImg = new System.Windows.Controls.Image
+                    {
+                        Source = cropped,
+                        Width = leftCanvasW,
+                        Height = bandH,
+                        Stretch = Stretch.Fill,
+                        IsHitTestVisible = false,
+                    };
+                    Canvas.SetLeft(leftImg, 0);
+                    Canvas.SetTop(leftImg, bandY);
+                    OverlayCanvas.Children.Add(leftImg);
+                }
+            }
+            catch
+            {
+                // 裁剪失败时保留全宽黑底，不阻断标注
+            }
+
+            var rightX = canvasW * (3.0 / 4.0);
+            var rightW = canvasW - rightX;
             var divider = new System.Windows.Shapes.Line
             {
                 X1 = rightX,
@@ -396,6 +430,27 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 OverlayCanvas.Children.Add(tb);
                 y += lineH;
             }
+        }
+
+        /// <summary>
+        /// 原图结果文件名含 _origin 时打黑高度减半，与 AI 出图规则一致。
+        /// </summary>
+        private static int ResolveBottomBlackHeightForPath(string? imagePath, int enhanceBlackHeightPx)
+        {
+            var h = Math.Max(0, enhanceBlackHeightPx);
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                return h;
+            }
+
+            var name = System.IO.Path.GetFileName(imagePath);
+            if (name.Contains("_origin", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("result_origin", StringComparison.OrdinalIgnoreCase))
+            {
+                return CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(h);
+            }
+
+            return h;
         }
 
         private void DrawCommittedMeasure(ManualMeasureItem m, bool selected)
@@ -1067,7 +1122,10 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return false;
             }
 
-            var bandPx = Math.Clamp(_vm.BottomBlackHeightPx, 0, _bitmap.PixelHeight);
+            var bandPx = Math.Clamp(
+                ResolveBottomBlackHeightForPath(_vm.CurrentImagePath, _vm.BottomBlackHeightPx),
+                0,
+                _bitmap.PixelHeight);
             return imagePx.Y >= _bitmap.PixelHeight - bandPx;
         }
 

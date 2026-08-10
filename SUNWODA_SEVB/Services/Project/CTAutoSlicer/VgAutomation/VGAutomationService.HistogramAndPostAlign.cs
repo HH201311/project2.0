@@ -82,7 +82,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         capture,
                         cancellationToken,
                         progress,
-                        requireCalibrated: !softFailOnError)
+                        requireCalibrated: !softFailOnError,
+                        namingSourcePath: namingSourcePath)
                     .ConfigureAwait(false);
 
                 progress?.Report("直方图灰度调整完成");
@@ -153,23 +154,32 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 将 LUT 预设关键段两端点连线中点水平拖到红线目标列，使关键斜段始终落在峰值附近。
-        /// 两端点由 UI 一次性标定；未标定时主流程跳过，单测可要求必须标定。
+        /// 将当前电极 LUT 预设关键段两端点连线中点水平拖到红线目标列，使关键斜段始终落在峰值附近。
+        /// 正/负极端点分别标定；按文件名 -Z/-F 选用；未标定时主流程跳过，单测可要求必须标定。
         /// </summary>
         private async Task DragLutSegmentMidpointToRedLineAsync(
             CTAutoSlicerSettings settings,
             HistogramCaptureResult capture,
             CancellationToken cancellationToken,
             IProgress<string>? progress,
-            bool requireCalibrated)
+            bool requireCalibrated,
+            string? namingSourcePath = null)
         {
-            if (!settings.HasLutSegmentPoints)
+            var polarity = settings.ResolveRenderingPresetPolarityLabel(namingSourcePath);
+            if (!settings.TryResolveLutSegmentPoints(
+                    namingSourcePath,
+                    out var point1X,
+                    out var point1Y,
+                    out var point2X,
+                    out var point2Y))
             {
-                var msg = "跳过 LUT 关键段中点对齐：尚未标定两端点（请先在「直方图标定」中一次性标定）";
+                var msg =
+                    $"跳过 LUT 关键段中点对齐：尚未标定{polarity}两端点" +
+                    "（请先在「直方图标定」中分别标定正极/负极 LUT 关键段两点）";
                 if (requireCalibrated)
                 {
                     throw new InvalidOperationException(
-                        "尚未标定 LUT 关键段两端点，请先在「直方图标定」中点击「标定 LUT 关键段两点」");
+                        $"尚未标定{polarity} LUT 关键段两端点，请先在「直方图标定」中标定对应电极的两点");
                 }
 
                 progress?.Report(msg);
@@ -182,20 +192,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 throw new InvalidOperationException("半坡目标屏幕坐标无效，无法对齐 LUT 中点");
             }
 
-            var midX = (settings.LutSegmentPoint1X + settings.LutSegmentPoint2X) / 2;
-            var midY = (settings.LutSegmentPoint1Y + settings.LutSegmentPoint2Y) / 2;
+            var midX = (point1X + point2X) / 2;
+            var midY = (point1Y + point2Y) / 2;
             var sx = (short)Math.Clamp(midX, short.MinValue, short.MaxValue);
             var ex = (short)Math.Clamp(targetX, short.MinValue, short.MaxValue);
             var y = (short)Math.Clamp(midY, short.MinValue, short.MaxValue);
 
             progress?.Report(
-                $"LUT 关键段：P1=({settings.LutSegmentPoint1X},{settings.LutSegmentPoint1Y}) " +
-                $"P2=({settings.LutSegmentPoint2X},{settings.LutSegmentPoint2Y}) " +
+                $"LUT 关键段（{polarity}）：P1=({point1X},{point1Y}) P2=({point2X},{point2Y}) " +
                 $"中点=({midX},{midY}) → 红线目标X={targetX}");
             _logger.Info(
-                $"LUT 关键段中点对齐：P1=({settings.LutSegmentPoint1X},{settings.LutSegmentPoint1Y}) " +
-                $"P2=({settings.LutSegmentPoint2X},{settings.LutSegmentPoint2Y}) " +
-                $"mid=({midX},{midY}) targetX={targetX}");
+                $"LUT 关键段中点对齐（{polarity}）：P1=({point1X},{point1Y}) P2=({point2X},{point2Y}) " +
+                $"mid=({midX},{midY}) targetX={targetX} 源={namingSourcePath}");
 
             if (Math.Abs(ex - sx) < 2)
             {
@@ -227,7 +235,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 Lock();
             }
 
-            progress?.Report("LUT 关键段中点对齐完成");
+            progress?.Report($"LUT 关键段中点对齐完成（{polarity}）");
         }
 
         /// <summary>

@@ -34,8 +34,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>体素文件夹内：运行失败文件归档子目录名（避免下次重复导入）。</summary>
         public const string FailedFilesSubFolderName = "运行失败的文件";
 
-        /// <summary>流程异常/超时后等待人工处理的默认时长。</summary>
-        public static readonly TimeSpan DefaultManualInterventionTimeout = TimeSpan.FromMinutes(30);
+        /// <summary>流程异常/超时后等待人工处理的默认时长（超时后归档失败文件并继续下一文件）。</summary>
+        public static readonly TimeSpan DefaultManualInterventionTimeout = TimeSpan.FromMinutes(10);
 
         /// <summary>
         /// 角度算法 DLL 本地路径：{程序目录}\Dlls\{DefaultDllFileName}
@@ -279,12 +279,45 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public int PostImportWaitTime { get; set; } = 3000;
         public int StepRetryCount { get; set; } = 3;
         public int StepRetryIntervalMs { get; set; } = 2000;
-        /// <summary>渲染面板 LUT 预设名称（组合框列表项 Name）</summary>
-        public string RenderingPresetName { get; set; } = "testlut";
+        /// <summary>正极 LUT 预设名称（文件名含 -Z 时使用；须与 VG 渲染面板列表项 Name 一致）</summary>
+        public string RenderingPresetNamePositive { get; set; } = "testlut_Z";
+        /// <summary>负极 LUT 预设名称（文件名含 -F 或无法识别时默认使用；须与 VG 渲染面板列表项 Name 一致）</summary>
+        public string RenderingPresetNameNegative { get; set; } = "testlut_F";
         /// <summary>应用预设前等待渲染工作区就绪的最大超时（毫秒）</summary>
         public int PresetApplyWaitTime { get; set; } = 2000;
         /// <summary>下拉列表项出现的最大超时（毫秒）</summary>
         public int PresetDropdownWaitTime { get; set; } = 5000;
+
+        /// <summary>
+        /// 按导入文件名判断是否正极：含 <c>-Z</c> 且不含 <c>-F</c> 为正极；其余（含默认）为负极。
+        /// </summary>
+        public bool IsPositiveElectrodeFile(string? pathOrFileName)
+        {
+            var fileName = string.IsNullOrWhiteSpace(pathOrFileName)
+                ? string.Empty
+                : Path.GetFileName(pathOrFileName.Trim());
+
+            var hasZ = fileName.IndexOf("-Z", StringComparison.OrdinalIgnoreCase) >= 0;
+            var hasF = fileName.IndexOf("-F", StringComparison.OrdinalIgnoreCase) >= 0;
+            return hasZ && !hasF;
+        }
+
+        /// <summary>
+        /// 按导入文件名选择 LUT 预设：含 <c>-Z</c>→正极，含 <c>-F</c>→负极；
+        /// 均无、均有或路径为空时默认负极（F）。
+        /// </summary>
+        /// <returns>选定的预设名；对应配置为空则返回空串。</returns>
+        public string ResolveRenderingPresetName(string? pathOrFileName)
+        {
+            var usePositive = IsPositiveElectrodeFile(pathOrFileName);
+            var raw = usePositive ? RenderingPresetNamePositive : RenderingPresetNameNegative;
+            return string.IsNullOrWhiteSpace(raw) ? string.Empty : raw.Trim();
+        }
+
+        /// <summary>与 <see cref="ResolveRenderingPresetName"/> 配套的电极标签（日志/UI）。</summary>
+        public string ResolveRenderingPresetPolarityLabel(string? pathOrFileName) =>
+            IsPositiveElectrodeFile(pathOrFileName) ? "正极" : "负极";
+
         public string DllDownloadBaseUrl { get; set; } = DefaultDllDownloadBaseUrl;
 
         /// <summary>右键菜单项 Name（厚板）</summary>
@@ -563,27 +596,73 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public bool HasHistogramRoi => HistogramRoiWidth > 0 && HistogramRoiHeight > 0;
 
         /// <summary>
-        /// LUT 预设关键段端点 1 屏幕 X（物理像素）。
-        /// 应用预设后一次性标定；运行时取两端中点水平拖到红线目标列。
+        /// 正极 LUT 关键段端点 1 屏幕 X（物理像素）。
+        /// 应用正极预设后标定；运行时取两端中点水平拖到红线目标列。
         /// </summary>
-        public int LutSegmentPoint1X { get; set; }
+        public int LutSegmentPoint1XPositive { get; set; }
+        /// <summary>正极 LUT 关键段端点 1 屏幕 Y</summary>
+        public int LutSegmentPoint1YPositive { get; set; }
+        /// <summary>正极 LUT 关键段端点 2 屏幕 X</summary>
+        public int LutSegmentPoint2XPositive { get; set; }
+        /// <summary>正极 LUT 关键段端点 2 屏幕 Y</summary>
+        public int LutSegmentPoint2YPositive { get; set; }
+        /// <summary>正极 LUT 关键段两端点是否已标定</summary>
+        public bool LutSegmentPointsCalibratedPositive { get; set; }
 
-        /// <summary>LUT 预设关键段端点 1 屏幕 Y（物理像素）</summary>
-        public int LutSegmentPoint1Y { get; set; }
+        /// <summary>负极 LUT 关键段端点 1 屏幕 X（物理像素）</summary>
+        public int LutSegmentPoint1XNegative { get; set; }
+        /// <summary>负极 LUT 关键段端点 1 屏幕 Y</summary>
+        public int LutSegmentPoint1YNegative { get; set; }
+        /// <summary>负极 LUT 关键段端点 2 屏幕 X</summary>
+        public int LutSegmentPoint2XNegative { get; set; }
+        /// <summary>负极 LUT 关键段端点 2 屏幕 Y</summary>
+        public int LutSegmentPoint2YNegative { get; set; }
+        /// <summary>负极 LUT 关键段两端点是否已标定</summary>
+        public bool LutSegmentPointsCalibratedNegative { get; set; }
 
-        /// <summary>LUT 预设关键段端点 2 屏幕 X（物理像素）</summary>
-        public int LutSegmentPoint2X { get; set; }
+        /// <summary>正极 LUT 关键段两端点是否可用</summary>
+        public bool HasLutSegmentPointsPositive =>
+            LutSegmentPointsCalibratedPositive
+            && (LutSegmentPoint1XPositive != LutSegmentPoint2XPositive
+                || LutSegmentPoint1YPositive != LutSegmentPoint2YPositive);
 
-        /// <summary>LUT 预设关键段端点 2 屏幕 Y（物理像素）</summary>
-        public int LutSegmentPoint2Y { get; set; }
+        /// <summary>负极 LUT 关键段两端点是否可用</summary>
+        public bool HasLutSegmentPointsNegative =>
+            LutSegmentPointsCalibratedNegative
+            && (LutSegmentPoint1XNegative != LutSegmentPoint2XNegative
+                || LutSegmentPoint1YNegative != LutSegmentPoint2YNegative);
 
-        /// <summary>是否已完成 LUT 关键段两端点标定</summary>
-        public bool LutSegmentPointsCalibrated { get; set; }
+        /// <summary>按文件名（-Z/-F）选用对应电极的 LUT 端点是否已标定可用。</summary>
+        public bool HasLutSegmentPointsFor(string? pathOrFileName) =>
+            IsPositiveElectrodeFile(pathOrFileName)
+                ? HasLutSegmentPointsPositive
+                : HasLutSegmentPointsNegative;
 
-        /// <summary>LUT 关键段两端点是否可用（已标定且两点不重合）</summary>
-        public bool HasLutSegmentPoints =>
-            LutSegmentPointsCalibrated
-            && (LutSegmentPoint1X != LutSegmentPoint2X || LutSegmentPoint1Y != LutSegmentPoint2Y);
+        /// <summary>
+        /// 按文件名解析当前电极的 LUT 关键段两端点（屏幕物理像素）。
+        /// </summary>
+        public bool TryResolveLutSegmentPoints(
+            string? pathOrFileName,
+            out int point1X,
+            out int point1Y,
+            out int point2X,
+            out int point2Y)
+        {
+            if (IsPositiveElectrodeFile(pathOrFileName))
+            {
+                point1X = LutSegmentPoint1XPositive;
+                point1Y = LutSegmentPoint1YPositive;
+                point2X = LutSegmentPoint2XPositive;
+                point2Y = LutSegmentPoint2YPositive;
+                return HasLutSegmentPointsPositive;
+            }
+
+            point1X = LutSegmentPoint1XNegative;
+            point1Y = LutSegmentPoint1YNegative;
+            point2X = LutSegmentPoint2XNegative;
+            point2Y = LutSegmentPoint2YNegative;
+            return HasLutSegmentPointsNegative;
+        }
 
         /// <summary>阶段四：第四象限 3D 视图截图 ROI — 屏幕 X（物理像素，框选标定起始坐标）</summary>
         public int Vision3dRoiX { get; set; }

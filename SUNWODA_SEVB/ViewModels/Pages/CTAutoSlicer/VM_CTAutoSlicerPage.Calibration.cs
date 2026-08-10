@@ -194,15 +194,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         /// <summary>
-        /// 一次性标定 LUT 预设关键段两端点（应用预设后在直方图折线上点选）。
+        /// 标定 LUT 预设关键段两端点。CommandParameter：Positive=正极 / Negative=负极（默认）。
+        /// 须先在 VG 中应用对应电极预设后再点选折线控制点。
         /// </summary>
-        private void ExecuteCalibrateLutSegmentPoints(object? _)
+        private void ExecuteCalibrateLutSegmentPoints(object? parameter)
         {
             if (_ctAutoSlicerService.IsRunning)
             {
                 MessageShower = "流程运行中，请先结束后再标定";
                 return;
             }
+
+            var isPositive = string.Equals(
+                parameter?.ToString(),
+                "Positive",
+                StringComparison.OrdinalIgnoreCase);
+            var polarityLabel = isPositive ? "正极" : "负极";
+            var presetHint = isPositive
+                ? RenderingPresetNamePositive
+                : RenderingPresetNameNegative;
 
             try
             {
@@ -220,56 +230,29 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 {
                     Thread.Sleep(250);
                     var picker = new ScreenTwoPointPickerOverlayWindow(
-                        "第 1 步：对准 LUT 预设关键段的第一个控制点（空心圆），左键确认；右键/Esc 取消",
-                        "第 2 步：对准同一关键段的第二个控制点，左键确认；右键/Esc 取消");
+                        $"第 1 步（{polarityLabel}/{presetHint}）：对准 LUT 关键段第一个控制点（空心圆），左键确认；右键/Esc 取消",
+                        $"第 2 步（{polarityLabel}/{presetHint}）：对准同一关键段第二个控制点，左键确认；右键/Esc 取消");
                     var ok = picker.ShowDialog() == true;
                     if (!ok)
                     {
-                        MessageShower = "已取消 LUT 关键段两点标定";
-                        AppendFlowLog("LUT 关键段两点标定已取消");
+                        MessageShower = $"已取消{polarityLabel} LUT 关键段两点标定";
+                        AppendFlowLog($"{polarityLabel} LUT 关键段两点标定已取消");
                         return;
                     }
 
                     if (picker.Point1X == picker.Point2X && picker.Point1Y == picker.Point2Y)
                     {
                         MessageShower = "两端点重合，请重新标定两个不同的控制点";
-                        AppendFlowLog("LUT 关键段两点标定失败：两端点重合");
+                        AppendFlowLog($"{polarityLabel} LUT 关键段两点标定失败：两端点重合");
                         return;
                     }
 
-                    EnsureSettingExists(nameof(LutSegmentPoint1X), 0, "int", nameof(LutSegmentPoint1X));
-                    EnsureSettingExists(nameof(LutSegmentPoint1Y), 0, "int", nameof(LutSegmentPoint1Y));
-                    EnsureSettingExists(nameof(LutSegmentPoint2X), 0, "int", nameof(LutSegmentPoint2X));
-                    EnsureSettingExists(nameof(LutSegmentPoint2Y), 0, "int", nameof(LutSegmentPoint2Y));
-                    EnsureSettingExists(
-                        nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated),
-                        0,
-                        "int",
-                        nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated));
-
-                    _isLoadingSettings = true;
-                    _lutSegmentPoint1X = picker.Point1X;
-                    _lutSegmentPoint1Y = picker.Point1Y;
-                    _lutSegmentPoint2X = picker.Point2X;
-                    _lutSegmentPoint2Y = picker.Point2Y;
-                    _lutSegmentPointsCalibrated = true;
-                    OnPropertyChanged(nameof(LutSegmentPoint1X));
-                    OnPropertyChanged(nameof(LutSegmentPoint1Y));
-                    OnPropertyChanged(nameof(LutSegmentPoint2X));
-                    OnPropertyChanged(nameof(LutSegmentPoint2Y));
-                    RefreshLutSegmentPointsDisplay();
-                    _isLoadingSettings = false;
-
-                    SaveSetting(nameof(LutSegmentPoint1X), picker.Point1X);
-                    SaveSetting(nameof(LutSegmentPoint1Y), picker.Point1Y);
-                    SaveSetting(nameof(LutSegmentPoint2X), picker.Point2X);
-                    SaveSetting(nameof(LutSegmentPoint2Y), picker.Point2Y);
-                    SaveSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated), 1);
+                    PersistLutSegmentCalibration(isPositive, picker.Point1X, picker.Point1Y, picker.Point2X, picker.Point2Y);
 
                     var midX = (picker.Point1X + picker.Point2X) / 2;
                     var midY = (picker.Point1Y + picker.Point2Y) / 2;
                     var msg =
-                        $"LUT 关键段两点已标定：P1=({picker.Point1X},{picker.Point1Y}) " +
+                        $"{polarityLabel} LUT 关键段两点已标定：P1=({picker.Point1X},{picker.Point1Y}) " +
                         $"P2=({picker.Point2X},{picker.Point2Y}) 中点=({midX},{midY})";
                     MessageShower = msg;
                     AppendFlowLog(msg);
@@ -286,9 +269,74 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             catch (Exception ex)
             {
-                MessageShower = $"LUT 关键段两点标定失败：{ex.Message}";
-                _logger.Error("LUT 关键段两点标定失败", ex);
+                MessageShower = $"{polarityLabel} LUT 关键段两点标定失败：{ex.Message}";
+                _logger.Error($"{polarityLabel} LUT 关键段两点标定失败", ex);
             }
+        }
+
+        private void PersistLutSegmentCalibration(bool isPositive, int x1, int y1, int x2, int y2)
+        {
+            if (isPositive)
+            {
+                EnsureSettingExists(nameof(LutSegmentPoint1XPositive), 0, "int", nameof(LutSegmentPoint1XPositive));
+                EnsureSettingExists(nameof(LutSegmentPoint1YPositive), 0, "int", nameof(LutSegmentPoint1YPositive));
+                EnsureSettingExists(nameof(LutSegmentPoint2XPositive), 0, "int", nameof(LutSegmentPoint2XPositive));
+                EnsureSettingExists(nameof(LutSegmentPoint2YPositive), 0, "int", nameof(LutSegmentPoint2YPositive));
+                EnsureSettingExists(
+                    nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedPositive),
+                    0,
+                    "int",
+                    nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedPositive));
+
+                _isLoadingSettings = true;
+                _lutSegmentPoint1XPositive = x1;
+                _lutSegmentPoint1YPositive = y1;
+                _lutSegmentPoint2XPositive = x2;
+                _lutSegmentPoint2YPositive = y2;
+                _lutSegmentPointsCalibratedPositive = true;
+                OnPropertyChanged(nameof(LutSegmentPoint1XPositive));
+                OnPropertyChanged(nameof(LutSegmentPoint1YPositive));
+                OnPropertyChanged(nameof(LutSegmentPoint2XPositive));
+                OnPropertyChanged(nameof(LutSegmentPoint2YPositive));
+                RefreshLutSegmentPointsDisplay();
+                _isLoadingSettings = false;
+
+                SaveSetting(nameof(LutSegmentPoint1XPositive), x1);
+                SaveSetting(nameof(LutSegmentPoint1YPositive), y1);
+                SaveSetting(nameof(LutSegmentPoint2XPositive), x2);
+                SaveSetting(nameof(LutSegmentPoint2YPositive), y2);
+                SaveSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedPositive), 1);
+                return;
+            }
+
+            EnsureSettingExists(nameof(LutSegmentPoint1XNegative), 0, "int", nameof(LutSegmentPoint1XNegative));
+            EnsureSettingExists(nameof(LutSegmentPoint1YNegative), 0, "int", nameof(LutSegmentPoint1YNegative));
+            EnsureSettingExists(nameof(LutSegmentPoint2XNegative), 0, "int", nameof(LutSegmentPoint2XNegative));
+            EnsureSettingExists(nameof(LutSegmentPoint2YNegative), 0, "int", nameof(LutSegmentPoint2YNegative));
+            EnsureSettingExists(
+                nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedNegative),
+                0,
+                "int",
+                nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedNegative));
+
+            _isLoadingSettings = true;
+            _lutSegmentPoint1XNegative = x1;
+            _lutSegmentPoint1YNegative = y1;
+            _lutSegmentPoint2XNegative = x2;
+            _lutSegmentPoint2YNegative = y2;
+            _lutSegmentPointsCalibratedNegative = true;
+            OnPropertyChanged(nameof(LutSegmentPoint1XNegative));
+            OnPropertyChanged(nameof(LutSegmentPoint1YNegative));
+            OnPropertyChanged(nameof(LutSegmentPoint2XNegative));
+            OnPropertyChanged(nameof(LutSegmentPoint2YNegative));
+            RefreshLutSegmentPointsDisplay();
+            _isLoadingSettings = false;
+
+            SaveSetting(nameof(LutSegmentPoint1XNegative), x1);
+            SaveSetting(nameof(LutSegmentPoint1YNegative), y1);
+            SaveSetting(nameof(LutSegmentPoint2XNegative), x2);
+            SaveSetting(nameof(LutSegmentPoint2YNegative), y2);
+            SaveSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedNegative), 1);
         }
 
         private void ExecuteCalibrateVision3dRoi(object? _)

@@ -68,11 +68,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 _logger.Info($"检测到 QJ 全局图像，导出数量同步为 {quantity}");
             }
 
+            // 先导出「上」视图，便于尽早交接送检图；前/右随后
             var viewExports = new (string ViewListItemName, string ViewSuffix)[]
             {
+                (settings.SliceExportViewTopName.Trim(), "上"),
                 (settings.SliceExportViewFrontName.Trim(), "前"),
                 (settings.SliceExportViewRightName.Trim(), "右"),
-                (settings.SliceExportViewTopName.Trim(), "上"),
             };
 
             progress?.Report($"开始三视图切片导出，主文件夹「{exportBaseName}」，数量 {quantity}");

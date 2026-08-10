@@ -1,12 +1,34 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-05（送检内容上移）  
+> **文档版本**：2026-08-07（正负极 LUT 双预设）  
 > **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；竖图校验 + 内容上移 + 预提亮）；进程池并行导入 ✅。  
 > **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**；**内容上移像素真机调参**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-07 增量（正负极 LUT 双预设 + 双套标点）**：  
+> 1. **背景**：正极/负极体积灰阶分布不同，单一 `testlut` 与单一 LUT 端点无法兼顾。  
+> 2. **做法**：去掉单一 `RenderingPresetName`；直方图页配置 **正极预设**（默认 `testlut_Z`）与 **负极预设**（默认 `testlut_F`）；**LUT 关键段两端点亦分正/负极两套**分别标定。  
+> 3. **选型**：按导入文件名（`Path.GetFileName`）判断：含 `-Z`→正极；含 `-F` 或无法识别→**负极（默认 F）**；同时含 `-Z` 与 `-F` 时亦默认 F。预设与标点共用同一电极判定。  
+> 4. **UI**：渲染预设区块从「渲染与厚板」迁入「直方图标定」；LUT 标点拆成「标定正极 LUT 两点」「标定负极 LUT 两点」；厚板页仅保留厚板偏移。  
+> 5. **落点**：`CTAutoSlicerSettings.IsPositiveElectrodeFile` / `ResolveRenderingPresetName` / `TryResolveLutSegmentPoints`；`ApplyRenderingPresetAsync`；`DragLutSegmentMidpointToRedLineAsync`（传 namingSourcePath）；旧单套标点启动时迁移到负极。
+
+> **2026-08-07 增量（去掉 Esc 中断；Ctrl+X → Alt+X）**：  
+> 1. **去掉**全局 Esc：单击锁输入、双击中断流程（易误触）。标定 overlay 内 Esc 取消仍保留，与全局 Hook 无关。  
+> 2. **流程中断快捷键**：`Ctrl+X` 改为 **`Alt+X`**；暂停/继续仍为 `Alt+P`。  
+> 3. 落点：`CTAutoSlicerInputHookService` / `VM_CTAutoSlicerPage` / `FlowControl`。
+
+> **2026-08-06 增量（人工干预超时 10 分钟 + 按钮文案）**：  
+> 1. **超时**：`DefaultManualInterventionTimeout` 由 **30 分钟** 改为 **10 分钟**（超时仍归档失败文件并继续下一文件）。  
+> 2. **异常面板按钮**：原「处理完成」改为 **「放入异常文件夹并跳过」**（语义与归档到「运行失败的文件」一致）。  
+> 3. 落点：`CTAutoSlicerSettings` / `CTAutoSlicerPage.xaml` / `VM_CTAutoSlicerPage.FlowControl` / `ManualInterventionGate` / `ProcessPool`。
+
+> **2026-08-06 增量（切片导出先「上」后「前/右」）**：  
+> 1. **背景**：三视图导出原顺序为前 → 右 → 上；「上」视图才是交接送检源，后导出会拖长可交接时刻。  
+> 2. **做法**：`ExportImageStackSlicesAsync` 视图循环改为 **上 → 前 → 右**；交接仍在三视图全部完成后执行（行为不变，仅「上」落盘更早）。  
+> 3. 落点：`VGAutomationService.SliceExport.cs`。
 
 > **2026-08-05 增量（送检内容上移 OfflineCtContentShiftUpPx）**：  
 > 1. **背景**：NJCT 测试图主体偏上并裁底部；现场图主体偏下 → 上方空、下方有效区被裁。  
@@ -72,7 +94,7 @@
 > **2026-07-31 增量（直方图 2c：LUT 关键段中点对齐红线）**：  
 > 1. **问题**：仅 LUT 预设时，峰值左右偏会导致折线关键斜段偏离峰区。  
 > 2. **做法**：应用预设后一次性标定关键段两端点 → 运行时取中点 → 红线到位后水平拖中点到 `TargetScreenX`（整段平移）。  
-> 3. **配置**：`LutSegmentPoint1/2 X/Y` + `LutSegmentPointsCalibrated`；UI「直方图标定 → LUT 关键段两点」。  
+> 3. **配置**：`LutSegmentPoint*Positive/Negative` + `LutSegmentPointsCalibratedPositive/Negative`；UI「直方图标定 → 标定正极/负极 LUT 两点」。  
 > 4. **主流程**：`ApplyHistogramGrayScaleAdjustAsync` 内拖红线后接 `DragLutSegmentMidpointToRedLineAsync`；未标定则跳过。  
 > 5. **单测**：「测试直方图灰度调整」同步要求 ROI + LUT 两点，覆盖拖红线 + 中点对齐。
 
@@ -162,8 +184,8 @@ flowchart TD
 | 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
 | 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰 → 左线=谷、右线=右尖、**目标=靠右 2/3**；调试图 `histogram_peaks_*.png` |
 | 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T*（目标线） |
-| **LUT 关键段两端标定** | ✅ UI | 「标定 LUT 关键段两点」→ 全屏依次点选 P1/P2；`LutSegmentPoint*` |
-| **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 红线到位后：中点=(P1+P2)/2 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
+| **LUT 关键段两端标定** | ✅ UI | 「标定正极/负极 LUT 两点」→ 全屏依次点选；`LutSegmentPoint*Positive/Negative` |
+| **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 按 `-Z`/`-F` 取对应套中点 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
 | 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过整步；未标定 LUT 两点则跳过 2c |
 
 **关键入口**：
@@ -177,12 +199,12 @@ flowchart TD
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐 |
 | `VGAutomationService.DragLutSegmentMidpointToRedLineAsync` | 2c：标定中点 → 红线目标列 |
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
-| Settings：`LutSegmentPoint1/2 X/Y` / `LutSegmentPointsCalibrated` | LUT 关键段两端；主流程未标定则跳过 2c |
+| Settings：`LutSegmentPoint*Positive/Negative` / `LutSegmentPointsCalibratedPositive/Negative` | 正/负极 LUT 关键段两端；主流程未标定对应套则跳过 2c |
 | Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `Simple321OffsetEditX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
 | Settings：`Pre321View*`（Click / Drag / WaitMs） | 找点前视角准备；仅 `Simple321PointSource=Local` 时 UI 显示 **且** 主流程执行；VisionDll 跳过 |
 | Settings：`PostAlignCaptureButton*` / `PostAlignDrag*` / **`EnablePostAlignCaptureDragSteps`（默认开）** | 对齐后捕捉按钮 + 箭头拖拽；主流程在 3-2-1 后、导出前 |
 
-**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **应用预设后标定 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **分别应用正/负极预设后标定对应 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
 
 ---
 
@@ -197,7 +219,7 @@ flowchart TD
 | 进程名 | 曾硬编码 `vgstudiomax20241` | 从 UI 配置的 `VGAppPath` 推导 |
 
 **业务名称**仍为「CT 自动化切片」。当前已跑通全流程：  
-**批量 `.vgl` 导入 → LUT 预设 → 直方图灰度阈值 → 三象限厚板 → 简单 3-2-1 对齐 → 对齐后捕捉拖拽 → 前/右/上三视图切片导出**。  
+**批量 `.vgl` 导入 → LUT 预设 → 直方图灰度阈值 → 三象限厚板 → 简单 3-2-1 对齐 → 对齐后捕捉拖拽 → 上/前/右三视图切片导出**。  
 
 **阶段四（视觉对齐）**：✅ **全部完成**（即简单 3-2-1，无独立「4b」）。  
 - 单测 + 主流程（`EnableVisionAlignmentSteps`，默认开；厚板后、导出前）  
@@ -249,7 +271,7 @@ flowchart TD
 | 8 | 等待 `请耐心等待...` 出现 | 确认导入已开始 |
 | 9 | 轮询进度框消失 | 超时上限 `ImportTimeoutMinutes` |
 | 10 | `PostImportWaitTime` 稳定等待 | 默认 3000ms |
-| 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 打开「渲染」面板 ComboBox → 选中 `RenderingPresetName` 列表项 |
+| 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 按文件名 `-Z`/`-F` 选正/负极预设 → 打开「渲染」面板 ComboBox → 选中对应 ListItem |
 | 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线→LUT中点对齐；未标定 ROI 跳过整步；未标定 LUT 两点跳过 2c |
 | 12 | `ApplyThickPlateForQuadrantsAsync` | 象限 1→2→3：视口右键 →「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定 |
 
@@ -327,7 +349,7 @@ flowchart TD
 | `.../VM_CTAutoSlicerPage.StageTests.cs` | `ExecuteTest*` | 单步测试命令 |
 | `.../VM_CTAutoSlicerPage.CutImgDllTest.cs` | CutImg DLL 离线批量测 | 3D/2D 文件夹批量 |
 | `.../VM_CTAutoSlicerPage.AiAnnotate.cs` | AI 预览 / 批处理 / 统计 Demo | 阶段七 UI 与入口 |
-| `.../VM_CTAutoSlicerPage.FlowControl.cs` | 日志 / 人工干预 / 热键 | `AppendFlowLog`、暂停、Esc/Alt+P |
+| `.../VM_CTAutoSlicerPage.FlowControl.cs` | 日志 / 人工干预 / 热键 | `AppendFlowLog`、暂停、Alt+X / Alt+P |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/CTAutoSlicerService.cs` | `RunSimulationAsync` | 门面；管理 `IsRunning` / Cancel |
 | `SUNWODA_SEVB/Services/Project/CTAutoSlicer/VGAutomationService.cs` | （partial 核心） | 字段/常量/构造/`WaitUntil*`；对外类型仍为 `VGAutomationService` |
 | `.../VgAutomation/VGAutomationService.ProcessPool.cs` | `RunSimulationAsync` / `RunPostImportPipelineAsync` | **核心**：进程池调度 + 后处理串行编排 |
@@ -375,7 +397,7 @@ flowchart TD
 |------|------|------|
 | 流程日志 UI（200 行、智能滚动、可清除） | `VM_CTAutoSlicerPage` + `CTAutoSlicerPage.xaml` | ✅ 已用 |
 | 文件日志 `Assets/CTAutoSlicer/import_log.txt` | `VM_CTAutoSlicerPage.WriteFlowLogToFile` | ✅ 已用 |
-| 全局 Esc 中断（单击锁输入 / 双击取消） | `CTAutoSlicerInputHookService` | ✅ 已用 |
+| 全局热键（Alt+X 中断 / Alt+P 暂停） | `CTAutoSlicerInputHookService` | ✅ 已用（已移除 Esc） |
 | CT 文件夹监控（仅记日志，**不触发流程**） | `CTFolderMonitorService` | ✅ 已挂载 |
 | 进程 CPU/内存/GPU CSV | `ProcessMonitorService` | ✅ 页面初始化启动 |
 | 角度算法 DLL 加载 | `AngleAlgorithmService.InitializeAsync` | ✅ 页面初始化；**阶段四主链用本地找点，不依赖本 DLL** |
@@ -403,7 +425,9 @@ flowchart TD
 | `FileSelectionDialogWaitTime` | 15000 ms | 等「完成(F)」/ 进度框出现 |
 | `ImportTimeoutMinutes` | 30 | 单文件导入进度框消失超时 |
 | `PostImportWaitTime` | 3000 ms | 导入完成后稳定等待 |
-| `RenderingPresetName` | `testlut` | 「渲染」面板下拉列表项 Name，须与 VG 内预设名完全一致 |
+| `RenderingPresetNamePositive` | `testlut_Z` | 正极；文件名含 `-Z` 时选用 |
+| `RenderingPresetNameNegative` | `testlut_F` | 负极；文件名含 `-F` 或无法识别时默认选用 |
+| ~~`RenderingPresetName`~~ | ~~`testlut`~~ | **已拆为正负极双预设**（见上） |
 | `PresetApplyWaitTime` | 2000 ms | 导入完成后、打开预设下拉前的等待 |
 | `PresetDropdownWaitTime` | 5000 ms | 打开下拉后等待 `ListItem` 出现的超时 |
 | `ThickPlateMenuOffsetX` / `Y` | 90 / 127 | 右键点后相对偏移，点击「厚板」菜单项 |
@@ -480,7 +504,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
       （`RunPostAlignCaptureDragAsync`；开关 `EnablePostAlignCaptureDragSteps`）
 
 ✅ 5. Alt+F+T 三视图切片导出（`ExportImageStackSlicesAsync`）
-      依次导出「前 / 右 / 上」；切片范围取自 UI 各视角 mm
+      依次导出「上 / 前 / 右」；切片范围取自 UI 各视角 mm
       → **上视图交接**（`MirrorTopViewHandoffAsync`）：复制第 OfflineCtTopViewSliceIndex 张到 TopViewHandoffFolder
       （切图模式终点；硬失败）
 
@@ -511,12 +535,12 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 「文件(F)」就绪检测（替代盲目固定等待）
 ✅ 多 .vgl 顺序导入（Ctrl+F+I 快速导入 →「请耐心等待」消失；检测禁止桌面整树扫描）
 ✅ 导入后短暂稳定等待（PostImportWaitTime，默认 3000ms）
-✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 →「渲染」面板 ComboBox 选 RenderingPresetName）
+✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 → 按 `-Z`/`-F` 选正极/负极 →「渲染」面板 ComboBox）
 ✅ 直方图灰度阈值（预设后：截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
 ✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
 ✅ 对齐后捕捉拖拽（`TryRunPostAlignCaptureDragInMainFlowAsync` + `EnablePostAlignCaptureDragSteps`）
-✅ 三视图切片导出（`ExportImageStackSlicesAsync`；前/右/上）
+✅ 三视图切片导出（`ExportImageStackSlicesAsync`；上/前/右）
 ✅ 上视图交接（`MirrorTopViewHandoffAsync` → `TopViewHandoffFolder`）
 ✅ AI 图像标注批处理（`RunAiAnnotationBatchAsync`；独立模式，扫描交接目录）
 ✅ 「测试应用渲染预设」单步按钮
@@ -609,7 +633,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段五：切片导出（✅ 已完成）
 
 - **`OpenSaveImageStackDialogAsync`** — **Alt+F+T**，等待「保存影片/图像堆栈」对话框。
-- **`ExportImageStackSlicesAsync`** — 循环 **前 / 右 / 上** 三视图：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
+- **`ExportImageStackSlicesAsync`** — 循环 **上 / 前 / 右** 三视图（**先上**）：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
 - 命名规则见 `SliceExportNamingHelper`：导出名取导入文件名主干**前 6 字符**（例 `1161-F 2026-7-25….vgi - 快捷方式` → `1161-F`）；路径 `{导出根}/{1161-F}/{1161-F} 前|右|上/…`；阶段七结果图 `{1161-F}/{1161-F}.jpg`；二次标注叠加图亦以该名为主干。
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
@@ -738,7 +762,7 @@ await ExportImageStackSlicesAsync(...);
 - [ ] 文件夹内 2+ `.vgl` 按创建时间顺序处理
 - [ ] 故意损坏一个文件路径，验证失败跳过且批次继续
 - [ ] 流程日志 + `import_log.txt` 有完整步骤
-- [ ] 双击 Esc 可中断
+- [x] Alt+X 可中断（原 Esc / Ctrl+X 已废弃）
 
 ### 阶段二（渲染预设）回归
 
@@ -774,7 +798,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段五（Alt+F+T 切片导出）— ✅ 已完成
 
 - [x] Insights 标定：`Alt+F` + `T` 打开「保存影片/图像堆栈」
-- [x] 三视图依次选择 + 参数填写 + 导出（前/右/上）
+- [x] 三视图依次选择 + 参数填写 + 导出（上/前/右；先上）
 - [x] **切片范围取自 UI**（按视角 Front/Right/Top）
 - [x] 输出路径与命名规则可配置（`SliceExportNamingHelper`）
 - [ ] 真机巩固（可选）：堆栈 Edit、保存对话框、JPEG 质量窗、写入进度
@@ -1109,7 +1133,7 @@ flowchart TD
 | 3 | Q1～Q3 厚板 + 平均值 | ✅ |
 | **4** | **简单 3-2-1（三点 + 偏移置0 + 黄框向量 + 原点）** | ✅ **单测 + 主流程** |
 | **4'** | **对齐后捕捉拖拽** | ✅ **单测 + 主流程**（§20） |
-| 5 | Alt+F+T 三视图导出（前/右/上） | ✅ |
+| 5 | Alt+F+T 三视图导出（上/前/右；先上） | ✅ |
 
 说明：阶段四插在 **厚板之后、导出之前**；对齐后捕捉在 3-2-1 与导出之间。
 

@@ -19,7 +19,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// <summary>切换暂停/继续；返回切换后是否处于暂停。仅流程运行中有效。</summary>
         bool TogglePause();
 
-        /// <summary>操作员点击「处理完成」后调用。</summary>
+        /// <summary>操作员点击「放入异常文件夹并跳过」后调用。</summary>
         void ConfirmManualIntervention();
 
         Task RunSimulationAsync(

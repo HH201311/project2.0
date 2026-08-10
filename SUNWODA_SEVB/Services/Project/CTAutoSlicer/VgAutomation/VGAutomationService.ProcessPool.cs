@@ -277,7 +277,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 单文件失败：暂停自动化 → 醒目提示人工处理 → 等「处理完成」或半小时超时 →
+        /// 单文件失败：暂停自动化 → 醒目提示人工处理 → 等「放入异常文件夹并跳过」或 10 分钟超时 →
         /// 将排队条目移入「运行失败的文件」→ 由调用方 Kill VG 并继续下一文件。
         /// </summary>
         private async Task AwaitManualInterventionThenArchiveFailedAsync(
@@ -321,8 +321,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
                 else
                 {
-                    progress?.Report($"已确认人工处理完成，归档失败文件并继续 — {fileName}");
-                    _logger.Info($"人工干预已确认：{fileName}");
+                    progress?.Report($"已确认放入异常文件夹并跳过，归档失败文件并继续 — {fileName}");
+                    _logger.Info($"人工干预已确认（放入异常文件夹并跳过）：{fileName}");
                 }
             }
             finally
@@ -556,15 +556,24 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 await ActivateVgWindowAsync(ctViewerProcess, settings, cancellationToken).ConfigureAwait(false);
 
                 var mainWindow = GetFreshMainWindow(ctViewerProcess);
-                if (!string.IsNullOrWhiteSpace(settings.RenderingPresetName))
+                var namingPath = namingSourcePath ?? vglPath;
+                var resolvedPreset = settings.ResolveRenderingPresetName(namingPath);
+                if (!string.IsNullOrWhiteSpace(resolvedPreset))
                 {
                     await ApplyRenderingPresetAsync(
                             settings,
                             ctViewerProcess,
                             mainWindow,
                             cancellationToken,
-                            progress)
+                            progress,
+                            namingSourcePath: namingPath)
                         .ConfigureAwait(false);
+                }
+                else
+                {
+                    var polarity = settings.ResolveRenderingPresetPolarityLabel(namingPath);
+                    progress?.Report($"跳过渲染预设：{polarity}预设名称为空（文件={Path.GetFileName(namingPath)}）");
+                    _logger.Info($"跳过渲染预设：{polarity}预设名为空，文件={namingPath}");
                 }
 
                 await ApplyHistogramGrayScaleAdjustAsync(

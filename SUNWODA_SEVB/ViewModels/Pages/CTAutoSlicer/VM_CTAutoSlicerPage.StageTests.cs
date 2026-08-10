@@ -247,9 +247,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(RenderingPresetName))
+            if (string.IsNullOrWhiteSpace(RenderingPresetNamePositive)
+                && string.IsNullOrWhiteSpace(RenderingPresetNameNegative))
             {
-                MessageShower = "请先填写渲染预设名称";
+                MessageShower = "请先在「直方图标定」中填写正极或负极预设名称";
                 return;
             }
 
@@ -395,10 +396,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
-            if (!_lutSegmentPointsCalibrated
-                || (_lutSegmentPoint1X == _lutSegmentPoint2X && _lutSegmentPoint1Y == _lutSegmentPoint2Y))
+            if (!_lutSegmentPointsCalibratedPositive && !_lutSegmentPointsCalibratedNegative)
             {
-                MessageShower = "请先在「直方图标定」中点击「标定 LUT 关键段两点」";
+                MessageShower = "请先在「直方图标定」中分别标定正极/负极 LUT 关键段两点（至少标定当前测试文件对应电极）";
                 return;
             }
 

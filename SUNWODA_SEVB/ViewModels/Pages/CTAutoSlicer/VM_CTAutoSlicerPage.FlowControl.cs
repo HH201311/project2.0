@@ -209,8 +209,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             try
             {
-                AppendFlowLog("操作员点击「处理完成」");
-                MessageShower = "已确认人工处理，继续流程…";
+                AppendFlowLog("操作员点击「放入异常文件夹并跳过」");
+                MessageShower = "已放入异常文件夹并跳过，继续流程…";
                 _ctAutoSlicerService.ConfirmManualIntervention();
             }
             catch (Exception ex)
@@ -297,14 +297,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             });
         }
 
-        private void OnDoubleEscPressed()
+        private void OnAltXPressed()
         {
-            InterruptActiveFlow("Esc");
-        }
-
-        private void OnCtrlXPressed()
-        {
-            InterruptActiveFlow("Ctrl+X");
+            InterruptActiveFlow("Alt+X");
         }
 
         private void OnAltPPressed()
@@ -330,11 +325,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     AppendFlowLog("流程已继续（Alt+P）");
                 }
             });
-        }
-
-        private void OnSingleEscPressed()
-        {
-            Dispatcher.Invoke(() => WinAPIHelper.BlockInput(true));
         }
     }
 }

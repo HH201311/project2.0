@@ -68,7 +68,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _importLogText = string.Empty;
         private bool _isUserScrolledUp;
         private string? _lastFlowLogMessage;
-        private string _renderingPresetName = "testlut";
+        private string _renderingPresetNamePositive = "testlut_Z";
+        private string _renderingPresetNameNegative = "testlut_F";
         private int _presetApplyWaitTime = 2000;
         private int _presetDropdownWaitTime = 5000;
         private string _dllDownloadBaseUrl = CTAutoSlicerSettings.DefaultDllDownloadBaseUrl;
@@ -110,12 +111,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _histogramMaskColor = "#6E6E6E";
         private int _histogramMaskTolerance = 2;
         private string _histogramRoiDisplayText = "未标定";
-        private int _lutSegmentPoint1X;
-        private int _lutSegmentPoint1Y;
-        private int _lutSegmentPoint2X;
-        private int _lutSegmentPoint2Y;
-        private bool _lutSegmentPointsCalibrated;
-        private string _lutSegmentPointsDisplayText = "未标定";
+        private int _lutSegmentPoint1XPositive;
+        private int _lutSegmentPoint1YPositive;
+        private int _lutSegmentPoint2XPositive;
+        private int _lutSegmentPoint2YPositive;
+        private bool _lutSegmentPointsCalibratedPositive;
+        private string _lutSegmentPointsDisplayTextPositive = "未标定";
+        private int _lutSegmentPoint1XNegative;
+        private int _lutSegmentPoint1YNegative;
+        private int _lutSegmentPoint2XNegative;
+        private int _lutSegmentPoint2YNegative;
+        private bool _lutSegmentPointsCalibratedNegative;
+        private string _lutSegmentPointsDisplayTextNegative = "未标定";
         private System.Windows.Media.Brush _histogramMaskColorBrush =
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6E, 0x6E, 0x6E));
         private int _vision3dRoiX;
@@ -925,14 +932,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _importLogText, value);
         }
 
-        public string RenderingPresetName
+        /// <summary>正极 LUT 预设名（文件名含 -Z；对应 VG 中 testlut_Z 等）</summary>
+        public string RenderingPresetNamePositive
         {
-            get => _renderingPresetName;
+            get => _renderingPresetNamePositive;
             set
             {
-                if (SetProperty(ref _renderingPresetName, value))
+                if (SetProperty(ref _renderingPresetNamePositive, value))
                 {
-                    SaveSetting(nameof(RenderingPresetName), value);
+                    SaveSetting(nameof(RenderingPresetNamePositive), value);
+                }
+            }
+        }
+
+        /// <summary>负极 LUT 预设名（文件名含 -F 或默认；对应 VG 中 testlut_F 等）</summary>
+        public string RenderingPresetNameNegative
+        {
+            get => _renderingPresetNameNegative;
+            set
+            {
+                if (SetProperty(ref _renderingPresetNameNegative, value))
+                {
+                    SaveSetting(nameof(RenderingPresetNameNegative), value);
                 }
             }
         }
@@ -1298,62 +1319,120 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _histogramRoiDisplayText, value);
         }
 
-        public int LutSegmentPoint1X
+        public int LutSegmentPoint1XPositive
         {
-            get => _lutSegmentPoint1X;
+            get => _lutSegmentPoint1XPositive;
             set
             {
-                if (SetProperty(ref _lutSegmentPoint1X, value))
+                if (SetProperty(ref _lutSegmentPoint1XPositive, value))
                 {
-                    SaveSetting(nameof(LutSegmentPoint1X), value);
+                    SaveSetting(nameof(LutSegmentPoint1XPositive), value);
                     RefreshLutSegmentPointsDisplay();
                 }
             }
         }
 
-        public int LutSegmentPoint1Y
+        public int LutSegmentPoint1YPositive
         {
-            get => _lutSegmentPoint1Y;
+            get => _lutSegmentPoint1YPositive;
             set
             {
-                if (SetProperty(ref _lutSegmentPoint1Y, value))
+                if (SetProperty(ref _lutSegmentPoint1YPositive, value))
                 {
-                    SaveSetting(nameof(LutSegmentPoint1Y), value);
+                    SaveSetting(nameof(LutSegmentPoint1YPositive), value);
                     RefreshLutSegmentPointsDisplay();
                 }
             }
         }
 
-        public int LutSegmentPoint2X
+        public int LutSegmentPoint2XPositive
         {
-            get => _lutSegmentPoint2X;
+            get => _lutSegmentPoint2XPositive;
             set
             {
-                if (SetProperty(ref _lutSegmentPoint2X, value))
+                if (SetProperty(ref _lutSegmentPoint2XPositive, value))
                 {
-                    SaveSetting(nameof(LutSegmentPoint2X), value);
+                    SaveSetting(nameof(LutSegmentPoint2XPositive), value);
                     RefreshLutSegmentPointsDisplay();
                 }
             }
         }
 
-        public int LutSegmentPoint2Y
+        public int LutSegmentPoint2YPositive
         {
-            get => _lutSegmentPoint2Y;
+            get => _lutSegmentPoint2YPositive;
             set
             {
-                if (SetProperty(ref _lutSegmentPoint2Y, value))
+                if (SetProperty(ref _lutSegmentPoint2YPositive, value))
                 {
-                    SaveSetting(nameof(LutSegmentPoint2Y), value);
+                    SaveSetting(nameof(LutSegmentPoint2YPositive), value);
                     RefreshLutSegmentPointsDisplay();
                 }
             }
         }
 
-        public string LutSegmentPointsDisplayText
+        public string LutSegmentPointsDisplayTextPositive
         {
-            get => _lutSegmentPointsDisplayText;
-            private set => SetProperty(ref _lutSegmentPointsDisplayText, value);
+            get => _lutSegmentPointsDisplayTextPositive;
+            private set => SetProperty(ref _lutSegmentPointsDisplayTextPositive, value);
+        }
+
+        public int LutSegmentPoint1XNegative
+        {
+            get => _lutSegmentPoint1XNegative;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint1XNegative, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint1XNegative), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public int LutSegmentPoint1YNegative
+        {
+            get => _lutSegmentPoint1YNegative;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint1YNegative, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint1YNegative), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public int LutSegmentPoint2XNegative
+        {
+            get => _lutSegmentPoint2XNegative;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint2XNegative, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint2XNegative), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public int LutSegmentPoint2YNegative
+        {
+            get => _lutSegmentPoint2YNegative;
+            set
+            {
+                if (SetProperty(ref _lutSegmentPoint2YNegative, value))
+                {
+                    SaveSetting(nameof(LutSegmentPoint2YNegative), value);
+                    RefreshLutSegmentPointsDisplay();
+                }
+            }
+        }
+
+        public string LutSegmentPointsDisplayTextNegative
+        {
+            get => _lutSegmentPointsDisplayTextNegative;
+            private set => SetProperty(ref _lutSegmentPointsDisplayTextNegative, value);
         }
 
         public int Vision3dRoiX
@@ -3030,7 +3109,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         public override void OnNavigatedTo(object? parameter)
         {
-            _inputHookService.Start(OnDoubleEscPressed, OnSingleEscPressed, OnCtrlXPressed, OnAltPPressed);
+            _inputHookService.Start(OnAltXPressed, OnAltPPressed);
             _folderMonitorService.Start(CTFileFolder);
             Dispatcher.BeginInvoke(new Action(TryApplyRememberedMainWindowSize), DispatcherPriority.Loaded);
             base.OnNavigatedTo(parameter);

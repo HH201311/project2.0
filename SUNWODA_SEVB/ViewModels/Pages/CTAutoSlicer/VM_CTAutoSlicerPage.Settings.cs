@@ -60,7 +60,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             PostImportWaitTime = LoadIntSetting(nameof(PostImportWaitTime), 3000);
             StepRetryCount = LoadIntSetting(nameof(StepRetryCount), 3);
             StepRetryIntervalMs = LoadIntSetting(nameof(StepRetryIntervalMs), 2000);
-            RenderingPresetName = LoadStringSetting(nameof(RenderingPresetName), "testlut");
+            RenderingPresetNamePositive = LoadStringSetting(nameof(RenderingPresetNamePositive), "testlut_Z");
+            RenderingPresetNameNegative = LoadStringSetting(nameof(RenderingPresetNameNegative), "testlut_F");
             PresetApplyWaitTime = LoadIntSetting(nameof(PresetApplyWaitTime), 2000);
             PresetDropdownWaitTime = LoadIntSetting(nameof(PresetDropdownWaitTime), 5000);
             ThickPlateMenuOffsetX = LoadIntSetting(nameof(ThickPlateMenuOffsetX), 90);
@@ -115,16 +116,45 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             HistogramMaskColor = LoadStringSetting(nameof(HistogramMaskColor), "#6E6E6E");
             HistogramMaskTolerance = LoadIntSetting(nameof(HistogramMaskTolerance), 2);
             _dllDownloadBaseUrl = LoadStringSetting(nameof(CTAutoSlicerSettings.DllDownloadBaseUrl), CTAutoSlicerSettings.DefaultDllDownloadBaseUrl);
-            _lutSegmentPoint1X = LoadIntSetting(nameof(LutSegmentPoint1X), 0);
-            _lutSegmentPoint1Y = LoadIntSetting(nameof(LutSegmentPoint1Y), 0);
-            _lutSegmentPoint2X = LoadIntSetting(nameof(LutSegmentPoint2X), 0);
-            _lutSegmentPoint2Y = LoadIntSetting(nameof(LutSegmentPoint2Y), 0);
-            _lutSegmentPointsCalibrated =
-                LoadIntSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibrated), 0) != 0;
-            OnPropertyChanged(nameof(LutSegmentPoint1X));
-            OnPropertyChanged(nameof(LutSegmentPoint1Y));
-            OnPropertyChanged(nameof(LutSegmentPoint2X));
-            OnPropertyChanged(nameof(LutSegmentPoint2Y));
+            _lutSegmentPoint1XPositive = LoadIntSetting(nameof(LutSegmentPoint1XPositive), 0);
+            _lutSegmentPoint1YPositive = LoadIntSetting(nameof(LutSegmentPoint1YPositive), 0);
+            _lutSegmentPoint2XPositive = LoadIntSetting(nameof(LutSegmentPoint2XPositive), 0);
+            _lutSegmentPoint2YPositive = LoadIntSetting(nameof(LutSegmentPoint2YPositive), 0);
+            _lutSegmentPointsCalibratedPositive =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedPositive), 0) != 0;
+            _lutSegmentPoint1XNegative = LoadIntSetting(nameof(LutSegmentPoint1XNegative), 0);
+            _lutSegmentPoint1YNegative = LoadIntSetting(nameof(LutSegmentPoint1YNegative), 0);
+            _lutSegmentPoint2XNegative = LoadIntSetting(nameof(LutSegmentPoint2XNegative), 0);
+            _lutSegmentPoint2YNegative = LoadIntSetting(nameof(LutSegmentPoint2YNegative), 0);
+            _lutSegmentPointsCalibratedNegative =
+                LoadIntSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedNegative), 0) != 0;
+
+            // 兼容旧单套 LutSegmentPoint*：若正负极均未标定且旧键已标定，迁移到负极（默认 F）
+            if (!_lutSegmentPointsCalibratedPositive
+                && !_lutSegmentPointsCalibratedNegative
+                && LoadIntSetting("LutSegmentPointsCalibrated", 0) != 0)
+            {
+                _lutSegmentPoint1XNegative = LoadIntSetting("LutSegmentPoint1X", 0);
+                _lutSegmentPoint1YNegative = LoadIntSetting("LutSegmentPoint1Y", 0);
+                _lutSegmentPoint2XNegative = LoadIntSetting("LutSegmentPoint2X", 0);
+                _lutSegmentPoint2YNegative = LoadIntSetting("LutSegmentPoint2Y", 0);
+                _lutSegmentPointsCalibratedNegative = true;
+                SaveSetting(nameof(LutSegmentPoint1XNegative), _lutSegmentPoint1XNegative);
+                SaveSetting(nameof(LutSegmentPoint1YNegative), _lutSegmentPoint1YNegative);
+                SaveSetting(nameof(LutSegmentPoint2XNegative), _lutSegmentPoint2XNegative);
+                SaveSetting(nameof(LutSegmentPoint2YNegative), _lutSegmentPoint2YNegative);
+                SaveSetting(nameof(CTAutoSlicerSettings.LutSegmentPointsCalibratedNegative), 1);
+                _logger.Info("已将旧版单一 LUT 关键段标点迁移为负极标点");
+            }
+
+            OnPropertyChanged(nameof(LutSegmentPoint1XPositive));
+            OnPropertyChanged(nameof(LutSegmentPoint1YPositive));
+            OnPropertyChanged(nameof(LutSegmentPoint2XPositive));
+            OnPropertyChanged(nameof(LutSegmentPoint2YPositive));
+            OnPropertyChanged(nameof(LutSegmentPoint1XNegative));
+            OnPropertyChanged(nameof(LutSegmentPoint1YNegative));
+            OnPropertyChanged(nameof(LutSegmentPoint2XNegative));
+            OnPropertyChanged(nameof(LutSegmentPoint2YNegative));
             RefreshLutSegmentPointsDisplay();
             RefreshHistogramRoiDisplay();
             RefreshMaskColorBrush();
@@ -594,7 +624,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 PostImportWaitTime = PostImportWaitTime,
                 StepRetryCount = StepRetryCount,
                 StepRetryIntervalMs = StepRetryIntervalMs,
-                RenderingPresetName = RenderingPresetName,
+                RenderingPresetNamePositive = RenderingPresetNamePositive,
+                RenderingPresetNameNegative = RenderingPresetNameNegative,
                 PresetApplyWaitTime = PresetApplyWaitTime,
                 PresetDropdownWaitTime = PresetDropdownWaitTime,
                 ThickPlateMenuOffsetX = ThickPlateMenuOffsetX,
@@ -633,11 +664,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 HistogramCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 HistogramMaskColor = HistogramMaskColor,
                 HistogramMaskTolerance = HistogramMaskTolerance,
-                LutSegmentPoint1X = LutSegmentPoint1X,
-                LutSegmentPoint1Y = LutSegmentPoint1Y,
-                LutSegmentPoint2X = LutSegmentPoint2X,
-                LutSegmentPoint2Y = LutSegmentPoint2Y,
-                LutSegmentPointsCalibrated = _lutSegmentPointsCalibrated,
+                LutSegmentPoint1XPositive = LutSegmentPoint1XPositive,
+                LutSegmentPoint1YPositive = LutSegmentPoint1YPositive,
+                LutSegmentPoint2XPositive = LutSegmentPoint2XPositive,
+                LutSegmentPoint2YPositive = LutSegmentPoint2YPositive,
+                LutSegmentPointsCalibratedPositive = _lutSegmentPointsCalibratedPositive,
+                LutSegmentPoint1XNegative = LutSegmentPoint1XNegative,
+                LutSegmentPoint1YNegative = LutSegmentPoint1YNegative,
+                LutSegmentPoint2XNegative = LutSegmentPoint2XNegative,
+                LutSegmentPoint2YNegative = LutSegmentPoint2YNegative,
+                LutSegmentPointsCalibratedNegative = _lutSegmentPointsCalibratedNegative,
                 VisionCaptureDir = VisionCaptureDir,
                 VisionCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 Vision2dVectorCaptureDir = Vision2dVectorCaptureDir,

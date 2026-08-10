@@ -42,14 +42,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         private void RefreshLutSegmentPointsDisplay()
         {
-            if (!_lutSegmentPointsCalibrated)
-            {
-                LutSegmentPointsDisplayText = "未标定";
-                return;
-            }
+            LutSegmentPointsDisplayTextPositive = !_lutSegmentPointsCalibratedPositive
+                ? "未标定"
+                : $"P1=({_lutSegmentPoint1XPositive},{_lutSegmentPoint1YPositive}) " +
+                  $"P2=({_lutSegmentPoint2XPositive},{_lutSegmentPoint2YPositive})";
 
-            LutSegmentPointsDisplayText =
-                $"P1=({_lutSegmentPoint1X},{_lutSegmentPoint1Y}) P2=({_lutSegmentPoint2X},{_lutSegmentPoint2Y})";
+            LutSegmentPointsDisplayTextNegative = !_lutSegmentPointsCalibratedNegative
+                ? "未标定"
+                : $"P1=({_lutSegmentPoint1XNegative},{_lutSegmentPoint1YNegative}) " +
+                  $"P2=({_lutSegmentPoint2XNegative},{_lutSegmentPoint2YNegative})";
         }
 
         private void RefreshVision3dRoiDisplay()

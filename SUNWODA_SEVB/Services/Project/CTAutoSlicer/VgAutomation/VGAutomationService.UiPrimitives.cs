@@ -21,7 +21,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var rect = element.Current.BoundingRectangle;
             if (rect.Width <= 0 || rect.Height <= 0)
             {
-                throw new InvalidOperationException("µÄºΣ╗╢ BoundingRectangle µùáµòê∩╝îµùáµ│òτé╣σç╗");
+                throw new InvalidOperationException("控件 BoundingRectangle 无效，无法点击");
             }
 
             var x = (int)(rect.Left + rect.Width / 2);
@@ -70,7 +70,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var rect = element.Current.BoundingRectangle;
             if (rect.Width <= 0 || rect.Height <= 0)
             {
-                throw new InvalidOperationException("µÄºΣ╗╢ BoundingRectangle µùáµòê∩╝îµùáµ│òσÅîσç╗");
+                throw new InvalidOperationException("控件 BoundingRectangle 无效，无法双击");
             }
 
             var x = (int)(rect.Left + rect.Width / 2);
@@ -124,7 +124,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             catch (ElementNotAvailableException)
             {
-                // σ┐╜τòÑ∩╝îσÉÄτ╗¡Σ╗àσ£¿σ╖▓Σ╝áσàÑµá╣σåàµƒÑµë╛
+                // 忽略，后续仅在已传入根内查找
             }
 
             return FindVisibleListItemScoped(
@@ -192,7 +192,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var rect = element.Current.BoundingRectangle;
             if (rect.Width <= 0 || rect.Height <= 0)
             {
-                throw new InvalidOperationException("µÄºΣ╗╢ BoundingRectangle µùáµòê∩╝îµùáµ│òτé╣σç╗");
+                throw new InvalidOperationException("控件 BoundingRectangle 无效，无法点击");
             }
 
             var x = (short)(rect.Left + rect.Width / 2);
@@ -252,12 +252,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 if (attempt > 1)
                 {
-                    progress?.Report($"{stepName} µ£¬σ«îµêÉ∩╝î{settings.StepRetryIntervalMs}ms σÉÄΦ┐¢Φíîτ¼¼ {attempt}/{maxRetries} µ¼íΘçìΦ»ò...");
-                    _logger.Info($"{stepName} τ¼¼ {attempt}/{maxRetries} µ¼íΘçìΦ»ò");
+                    progress?.Report($"{stepName} 未完成，{settings.StepRetryIntervalMs}ms 后进行第 {attempt}/{maxRetries} 次重试...");
+                    _logger.Info($"{stepName} 第 {attempt}/{maxRetries} 次重试");
                     await Task.Delay(settings.StepRetryIntervalMs, cancellationToken).ConfigureAwait(false);
                 }
 
-                // µ¡ÑΘ¬ñσ╝Çσºïσëìσàêµ╕àΣ╕Çµ¼íΘÿƒσêù∩╝îΘü┐σàìσ╖▓τƒÑΣ╕¡µû¡τ¬ùµîíΣ╜Åµ£¼µ¡Ñ
+                // 步骤开始前先清一次队列，避免已知中断窗挡住本步
                 if (_activeVgProcess != null)
                 {
                     await TryDrainInterruptDialogQueueAsync(
@@ -275,9 +275,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         return result;
                     }
 
-                    _logger.Warn($"{stepName} τ¼¼ {attempt} µ¼íµ£¬µ╗íΦ╢│σ«îµêÉµ¥íΣ╗╢");
+                    _logger.Warn($"{stepName} 第 {attempt} 次未满足完成条件");
 
-                    // µ£¬Φ╛╛µáçµù╢∩╝ÜΦïÑµÿ»Θÿƒσêùσ╝╣τ¬ùσ»╝Φç┤∩╝îσñäτÉåσÉÄΦ┐¢σàÑΣ╕ïΣ╕ÇΦ╜«ΘçìΦ»ò
+                    // 未达标时：若是队列弹窗导致，处理后进入下一轮重试
                     if (_activeVgProcess != null
                         && await TryDrainInterruptDialogQueueAsync(
                                 _activeVgProcess,
@@ -285,8 +285,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                                 progress)
                             .ConfigureAwait(false))
                     {
-                        progress?.Report($"{stepName} µ£¬σ«îµêÉ∩╝îσ╖▓σñäτÉåΣ╕¡µû¡σ╝╣τ¬ù∩╝îσ░åΘçìΦ»òΦ»Ñµ¡ÑΘ¬ñ");
-                        _logger.Info($"{stepName} µ£¬σ«îµêÉΣ╕öσæ╜Σ╕¡Σ╕¡µû¡σ╝╣τ¬ùΘÿƒσêù∩╝îσçåσñçΘçìΦ»ò");
+                        progress?.Report($"{stepName} 未完成，已处理中断弹窗，将重试该步骤");
+                        _logger.Info($"{stepName} 未完成且命中中断弹窗队列，准备重试");
                     }
                 }
                 catch (OperationCanceledException)
@@ -296,9 +296,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 catch (Exception ex)
                 {
                     lastException = ex;
-                    _logger.Warn($"{stepName} τ¼¼ {attempt} µ¼íσ╝éσ╕╕∩╝Ü{ex.Message}");
+                    _logger.Warn($"{stepName} 第 {attempt} 次异常：{ex.Message}");
 
-                    // σ╝éσ╕╕σÉÄ∩╝ÜΣ╝ÿσàêµúÇµƒÑµÿ»σÉªΣ╕║ΘÿƒσêùΣ╕¡τÜäΣ╕¡µû¡σ╝╣τ¬ù∩╝îσñäτÉåσÉÄσåìΘçìΦ»òµ£¼µ¡ÑΘ¬ñ
+                    // 异常后：优先检查是否为队列中的中断弹窗，处理后再重试本步骤
                     if (_activeVgProcess != null
                         && await TryDrainInterruptDialogQueueAsync(
                                 _activeVgProcess,
@@ -306,14 +306,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                                 progress)
                             .ConfigureAwait(false))
                     {
-                        progress?.Report($"{stepName} σ╝éσ╕╕σÉÄσ╖▓σñäτÉåΣ╕¡µû¡σ╝╣τ¬ù∩╝îσ░åΘçìΦ»òΦ»Ñµ¡ÑΘ¬ñ");
-                        _logger.Info($"{stepName} σ╝éσ╕╕σÉÄσæ╜Σ╕¡Σ╕¡µû¡σ╝╣τ¬ùΘÿƒσêù∩╝îσçåσñçΘçìΦ»òπÇéσÄƒσ╝éσ╕╕∩╝Ü{ex.Message}");
+                        progress?.Report($"{stepName} 异常后已处理中断弹窗，将重试该步骤");
+                        _logger.Info($"{stepName} 异常后命中中断弹窗队列，准备重试。原异常：{ex.Message}");
                         lastException = null;
                     }
                 }
             }
 
-            var message = $"{stepName} σ£¿ {maxRetries} µ¼íσ░¥Φ»òσÉÄΣ╗ìµ£¬σ«îµêÉ∩╝îΦç¬σè¿µ╡üτ¿ïσ╝éσ╕╕";
+            var message = $"{stepName} 在 {maxRetries} 次尝试后仍未完成，自动流程异常";
             throw lastException != null
                 ? new InvalidOperationException(message, lastException)
                 : new InvalidOperationException(message);
@@ -325,7 +325,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 if (mainWindow != null)
                 {
-                    // 1) Σ╕╗τ¬ùσÅúτ¢┤µÄÑσ¡Éτ¬ùσÅú∩╝êµáçσçåπÇîµëôσ╝ÇµûçΣ╗╢πÇìσ»╣Φ»¥µíå∩╝îµ»½τºÆτ║º∩╝ë
+                    // 1) 主窗口直接子窗口（标准「打开文件」对话框，毫秒级）
                     var amongChildren = FindNamedWindowAmong(
                         mainWindow,
                         TreeScope.Children,
@@ -335,7 +335,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         return amongChildren;
                     }
 
-                    // 2) Σ╕╗τ¬ùσÅúσ¡Éµáæ∩╝êΣ╗ìΣ╕ìµë½µíîΘ¥ó∩╝ë
+                    // 2) 主窗口子树（仍不扫桌面）
                     var amongDescendants = FindNamedWindowAmong(
                             mainWindow,
                             TreeScope.Descendants,
@@ -349,7 +349,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         return amongDescendants;
                     }
 
-                    // 3) σÉîΦ┐¢τ¿ïΘí╢σ▒éτ¬ùσÅú∩╝êTreeScope.Children∩╝îΘü┐σàì Root Descendants σà¿µíîΘ¥óµë½µÅÅ∩╝ë
+                    // 3) 同进程顶层窗口（TreeScope.Children，避免 Root Descendants 全桌面扫描）
                     var processId = mainWindow.Current.ProcessId;
                     if (processId > 0)
                     {
@@ -363,7 +363,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     }
                 }
 
-                // µùáΣ╕╗τ¬ùσÅúµù╢∩╝ÜΣ╗àµë½µíîΘ¥óΘí╢σ▒éτ¬ùσÅú∩╝êChildren∩╝ë∩╝îτªüµ¡ó Root.FindAll(Descendants)
+                // 无主窗口时：仅扫桌面顶层窗口（Children），禁止 Root.FindAll(Descendants)
                 return FindNamedWindowAmong(
                     AutomationElement.RootElement,
                     TreeScope.Children,
@@ -465,7 +465,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             try
             {
-                // µ£Çτ¿│∩╝Üσåàµûç TextπÇîµ¡úσ£¿σ»╝σàÑΣ╜ôτº»πÇì∩╝êΣ╕Ä Accessibility Insights Σ╕ÇΦç┤∩╝ë
+                // 最稳：内文 Text「正在导入体积」（与 Accessibility Insights 一致）
                 var statusText = FindVisibleImportStatusText(mainWindow);
                 if (statusText != null)
                 {
@@ -509,12 +509,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
-        /// <summary>µÿ»σÉªσ╖▓σç║τÄ░Σ╜ôτº»σ»╝σàÑΦ┐¢σ║ª∩╝êΣ║ñµëï/σÉÄσÅ░τ¡ëσ╛àσà▒τö¿∩╝ëπÇé</summary>
+        /// <summary>是否已出现体积导入进度（交手/后台等待共用）。</summary>
         private static bool IsVolumeImportProgressVisible(AutomationElement mainWindow) =>
             FindVisibleImportProgressWindow(mainWindow) != null;
 
         /// <summary>
-        /// µƒÑµë╛σÅ»ΦºüτÜäπÇîµ¡úσ£¿σ»╝σàÑΣ╜ôτº»πÇìµûçµ£¼∩╝êInsights∩╝ÜControlType.Text∩╝ëπÇé
+        /// 查找可见的「正在导入体积」文本（Insights：ControlType.Text）。
         /// </summary>
         private static AutomationElement? FindVisibleImportStatusText(AutomationElement mainWindow)
         {
@@ -545,7 +545,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         private static AutomationElement? FindVisibleTextByKeyword(AutomationElement root, string keyword)
         {
-            // Σ╝ÿσàêτ▓╛τí« Name µ¥íΣ╗╢∩╝êInsights∩╝ÜName=µ¡úσ£¿σ»╝σàÑΣ╜ôτº»∩╝ë∩╝îΘü┐σàìσà¿µáæµë½ Text
+            // 优先精确 Name 条件（Insights：Name=正在导入体积），避免全树扫 Text
             try
             {
                 var exact = new AndCondition(
@@ -606,7 +606,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         continue;
                     }
 
-                    // Φ┐¢σ║ªτ¬ùσ»╣ IsOffscreen/IsEnabled σü╢σÅæΣ╕ìσÅ»Θ¥á∩╝¢µ£ëσ░║σ»╕µêûσÉ½σ»╝σàÑµûçµíêσì│Φ«ñ
+                    // 进度窗对 IsOffscreen/IsEnabled 偶发不可靠；有尺寸或含导入文案即认
                     if (IsProgressUiVisible(element)
                         || UIAutomationHelper.ContainsDescendantText(element, ImportProgressStatusText))
                     {
@@ -622,7 +622,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return null;
         }
 
-        /// <summary>Φ┐¢σ║ªτ▒╗ UI σÅ»Φºüσêñσ«Ü∩╝ÜΣ╕ìσ╝║σê╢ IsEnabled∩╝êΘâ¿σêå Qt Φ┐¢σ║ªτ¬ù Enabled Σ╕ìτ¿│σ«Ü∩╝ëπÇé</summary>
+        /// <summary>进度类 UI 可见判定：不强制 IsEnabled（部分 Qt 进度窗 Enabled 不稳定）。</summary>
         private static bool IsProgressUiVisible(AutomationElement element)
         {
             try
@@ -816,7 +816,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 && normalizedActual.EndsWith(expectedFileName, StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>µêÉσèƒσÉÄσêáΘÖñΣ╜ôτ┤áµûçΣ╗╢σñ╣σåàτÜäµÄÆΘÿƒµ¥íτ¢«∩╝êτ£ƒσ«₧ .vgl/.vgi µêûσ┐½µì╖µû╣σ╝Å .lnk∩╝ëπÇé</summary>
+        /// <summary>成功后删除体素文件夹内的排队条目（真实 .vgl/.vgi 或快捷方式 .lnk）。</summary>
         private Task OnImportSucceededAsync(string queueEntryPath)
         {
             try
@@ -824,17 +824,17 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 if (File.Exists(queueEntryPath))
                 {
                     File.Delete(queueEntryPath);
-                    _logger.Info($"σñäτÉåµêÉσèƒ∩╝îσ╖▓σêáΘÖñµÄÆΘÿƒµ¥íτ¢«∩╝Ü{queueEntryPath}");
+                    _logger.Info($"处理成功，已删除排队条目：{queueEntryPath}");
                 }
                 else
                 {
-                    _logger.Warn($"σñäτÉåµêÉσèƒ∩╝îΣ╜åµÄÆΘÿƒµ¥íτ¢«σ╖▓Σ╕ìσ¡ÿσ£¿∩╝Ü{queueEntryPath}");
+                    _logger.Warn($"处理成功，但排队条目已不存在：{queueEntryPath}");
                 }
             }
             catch (Exception ex)
             {
-                // µ╡üτ¿ïσ╖▓µêÉσèƒ∩╝¢σêáΘÖñσñ▒Φ┤ÑσÅ¬Φ«░Φ¡ªσæè∩╝îΘü┐σàìΦ»»σêñµò┤σìòσñ▒Φ┤Ñ
-                _logger.Warn($"σñäτÉåµêÉσèƒΣ╜åσêáΘÖñµÄÆΘÿƒµ¥íτ¢«σñ▒Φ┤Ñ∩╝êΦ»╖µëïσè¿µ╕àτÉå∩╝ë∩╝Ü{queueEntryPath} ΓÇö {ex.Message}");
+                // 流程已成功；删除失败只记警告，避免误判整单失败
+                _logger.Warn($"处理成功但删除排队条目失败（请手动清理）：{queueEntryPath} — {ex.Message}");
             }
 
             return Task.CompletedTask;
@@ -848,7 +848,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             ctViewerProcess.Refresh();
             if (ctViewerProcess.MainWindowHandle == IntPtr.Zero)
             {
-                throw new InvalidOperationException("VG Σ╕╗τ¬ùσÅúσÅÑµƒäµùáµòê∩╝îµùáµ│òτ╜«σëì");
+                throw new InvalidOperationException("VG 主窗口句柄无效，无法置前");
             }
 
             WinAPIHelper.ShowWindowAsync(ctViewerProcess.MainWindowHandle, 3);
@@ -866,7 +866,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// σ┐½ΘÇƒσ»╝σàÑσ┐½µì╖Θö« Ctrl+F+I∩╝ÜµîëΣ╜Å Ctrl∩╝îΣ╛¥µ¼íµîë FπÇüI∩╝êΣ╕Äτ£ƒµ£║µáçσ«ÜΣ╕ÇΦç┤∩╝ëπÇé
+        /// 快速导入快捷键 Ctrl+F+I：按住 Ctrl，依次按 F、I（与真机标定一致）。
         /// </summary>
         private void SimulateCtrlFi()
         {
@@ -894,7 +894,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _simulator.SimulateKeyRelease(KeyCode.VcLeftAlt);
         }
 
-        /// <summary>ΦÅ£σìòτ║ºσ┐½µì╖Θö« Alt+F+T∩╝ÜµîëΣ╜Å Alt∩╝îΣ╛¥µ¼íµîë FπÇüT∩╝êΘ¥₧Σ╕ñµ¼íτï¼τ½ïτÜä Alt τ╗äσÉê∩╝ëπÇé</summary>
+        /// <summary>菜单级快捷键 Alt+F+T：按住 Alt，依次按 F、T（非两次独立的 Alt 组合）。</summary>
         private void SimulateAltFt()
         {
             _simulator.SimulateKeyPress(KeyCode.VcLeftAlt);

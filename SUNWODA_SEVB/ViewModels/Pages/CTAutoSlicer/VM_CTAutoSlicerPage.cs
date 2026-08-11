@@ -1853,14 +1853,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _offlineCtBlackHeight, value))
                 {
                     SaveSetting(nameof(OfflineCtBlackHeight), value);
-                    OnPropertyChanged(nameof(OfflineCtOriginBlackHeightHint));
+                    OnPropertyChanged(nameof(OfflineCtBlackHeightHint));
                 }
             }
         }
 
-        /// <summary>界面提示：原图打黑高度 = 增强图配置值 ÷ 2。</summary>
-        public string OfflineCtOriginBlackHeightHint =>
-            $"增强图用此高度；原图自动减半 → {CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtBlackHeight))} px（默认规则）";
+        /// <summary>界面提示：配置值为增强图打黑高度；原图按尺寸比例自动减半。</summary>
+        public string OfflineCtBlackHeightHint =>
+            $"增强图 {Math.Max(0, OfflineCtBlackHeight)} px；原图尺寸约一半 → {CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtBlackHeight))} px；传 NJCT=0，本程序覆盖打黑；手动标注占右 1/4";
 
         /// <summary>
         /// 喂给视觉前内容上移像素：画布不变、底部黑填；0=不上移。
@@ -2395,14 +2395,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _offlineCtDllTestBlackHeight, clamped))
                 {
                     SaveSetting(nameof(OfflineCtDllTestBlackHeight), clamped);
-                    OnPropertyChanged(nameof(OfflineCtDllTestOriginBlackHeightHint));
+                    OnPropertyChanged(nameof(OfflineCtDllTestBlackHeightHint));
                 }
             }
         }
 
-        /// <summary>DLL 直调：原图 BlackHeight = 增强配置 ÷ 2。</summary>
-        public string OfflineCtDllTestOriginBlackHeightHint =>
-            $"增强图用此高度传 DLL；原图自动减半 → {CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtDllTestBlackHeight))} px";
+        /// <summary>DLL 直调：原图尺寸约一半，BlackHeight 同步 ÷2。</summary>
+        public string OfflineCtDllTestBlackHeightHint =>
+            $"增强图传 {Math.Max(0, OfflineCtDllTestBlackHeight)} px；原图尺寸约一半 → {CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtDllTestBlackHeight))} px（DLL 直调专用，无上位机叠加）";
 
         /// <summary>CTAutoCutImg 离线测：3D侧视图输入文件夹（GetSectionReferencePoints 批量）。</summary>
         public string CutImgDllTestSectionFolder

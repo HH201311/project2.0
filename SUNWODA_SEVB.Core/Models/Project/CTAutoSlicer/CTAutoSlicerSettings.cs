@@ -450,22 +450,43 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         public bool OfflineCtIsRunCuda { get; set; } = true;
 
         /// <summary>
-        /// 底部信息遮罩高度（图像像素，增强图用全高）：
-        /// 上位机在结果图底部覆盖打黑（不扩展画布、不传 NJCT），
-        /// AI 标注写入 L1~L5 汇总；二次手动标注工作台同步使用。
-        /// 原图结果自动使用 <see cref="ResolveOriginBottomBlackHeight"/>（减半）。
+        /// 底部信息遮罩高度（图像像素，以增强图为基准）：
+        /// 完全由本程序控制——传给 NJCT 的 BlackHeight 固定 0；
+        /// 上位机在 ResultImg 底部覆盖打黑（不扩展画布），
+        /// 写入 AI 尺寸汇总；二次手动标注覆盖右 1/4。
+        /// 原图 ResultImg 长宽约为增强图一半，故原图用
+        /// <see cref="ResolveOriginBottomBlackHeight"/>（配置值÷2）保持视觉占比一致。
         /// </summary>
         public int OfflineCtBlackHeight { get; set; } = DefaultOfflineCtBlackHeight;
 
         /// <summary>
-        /// 原图底部遮罩 / DLL 打黑高度：在增强图高度基础上整除减半（默认规则，不可关）。
+        /// 原图底部遮罩高度：原图长宽约为增强图一半，按比例取配置值整除减半。
         /// </summary>
         public static int ResolveOriginBottomBlackHeight(int enhanceBlackHeightPx) =>
             Math.Max(0, enhanceBlackHeightPx / 2);
 
-        /// <summary>当前配置下原图应使用的底部遮罩高度。</summary>
-        public int ResolveOriginOfflineCtBlackHeight() =>
-            ResolveOriginBottomBlackHeight(Math.Max(0, OfflineCtBlackHeight));
+        /// <summary>
+        /// 按结果图类型解析上位机打黑高度。
+        /// <paramref name="isOriginResult"/> 为 true 时按原图比例减半。
+        /// </summary>
+        public static int ResolveHostBottomBlackHeight(int configuredEnhancePx, bool isOriginResult) =>
+            isOriginResult
+                ? ResolveOriginBottomBlackHeight(Math.Max(0, configuredEnhancePx))
+                : Math.Max(0, configuredEnhancePx);
+
+        /// <summary>
+        /// 将打黑高度钳制到结果图高度。
+        /// </summary>
+        public static int ClampBottomBlackHeight(int configuredPx, int imageHeightPx)
+        {
+            var h = Math.Max(0, configuredPx);
+            if (imageHeightPx <= 0)
+            {
+                return h;
+            }
+
+            return Math.Clamp(h, 0, imageHeightPx);
+        }
 
         /// <summary>是否开启 L1~L5 尺寸范围判断（mm）；开启后超差线/数值标红，合格标绿。</summary>
         public bool EnableOfflineCtLRangeCheck { get; set; }

@@ -165,6 +165,14 @@
                                Text="滚轮缩放 · 中键/空格拖拽 · Ctrl+Z撤回" />
                     <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
                                Text="{Binding AnnotatedCountText}" />
+                    <TextBlock Foreground="#FFE0E0E0" VerticalAlignment="Center" Margin="0,0,12,0"
+                               FontFamily="Consolas"
+                               ToolTip="当前图片像素宽×高"
+                               Text="{Binding CurrentImageSizeText, StringFormat=尺寸: {0}}" />
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
+                               FontFamily="Consolas"
+                               ToolTip="与 AI 出图共用 OfflineCtBlackHeight（原图自动 ÷2）"
+                               Text="{Binding CurrentBlackHeightText, StringFormat=打黑: {0}}" />
                     <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
                                Text="{Binding PixelSizeDisplay, StringFormat=像素精度: {0}}" />
                     <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center"
@@ -305,6 +313,14 @@
                     Foreground="White"
                     Text="{Binding StatusText}"
                     TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    DockPanel.Dock="Right"
+                    HorizontalAlignment="Right"
+                    Foreground="#FFE0E0E0"
+                    FontFamily="Consolas"
+                    Margin="16,0,0,0"
+                    Text="{Binding CurrentImageSizeText, StringFormat=尺寸 {0}}"
+                    ToolTip="当前图片像素宽×高" />
                 <TextBlock
                     DockPanel.Dock="Right"
                     HorizontalAlignment="Right"

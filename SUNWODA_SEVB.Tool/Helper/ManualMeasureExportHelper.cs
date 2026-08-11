@@ -502,7 +502,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         /// <summary>
         /// 在结果图上绘制测距线，布局与二次手动标注预览一致：
-        /// 测距线/引出/黄标签；底部全宽打黑，左 3/4 裁回 AI 烧录内容，右 1/4 写「手动标注」。
+        /// 测距线/引出/黄标签；左侧 AI 已烧录汇总保留，仅右侧 1/4 打黑写「手动标注」。
         /// </summary>
         public static void RenderAnnotatedImage(
             string sourceImagePath,
@@ -564,31 +564,21 @@ namespace SUNWODA_SEVB.Tool.Helper
                     DrawCross(g, pen, p2, 6f);
                 }
 
-                // 底部全宽打黑；原图文件名自动减半高度
-                var bandH = Math.Clamp(
-                    ResolveBottomBlackHeightForPath(sourceImagePath, bottomBlackHeightPx),
-                    0,
+                // 导出：左侧 AI 汇总保留；右 1/4 打黑写「手动标注」
+                // 与 AI 出图同一 OfflineCtBlackHeight（原图路径自动 ÷2），不做底栏检测
+                var bandH = OfflineCtAnnotationHelper.ResolveConfiguredBottomBlackHeightForPath(
+                    sourceImagePath,
+                    bottomBlackHeightPx,
                     src.Height);
+                bandH = CTAutoSlicerSettings.ClampBottomBlackHeight(bandH, src.Height);
                 if (bandH > 0)
                 {
                     var bandY = src.Height - bandH;
-                    g.FillRectangle(Brushes.Black, 0, bandY, src.Width, bandH);
-
-                    // 左 3/4 从源图裁回，保留 AI 烧录汇总
-                    var leftW = Math.Max(1, src.Width * 3 / 4);
-                    var srcCropY = Math.Max(0, src.Height - bandH);
-                    var cropH = Math.Min(bandH, src.Height - srcCropY);
-                    if (cropH > 0)
-                    {
-                        g.DrawImage(
-                            src,
-                            new Rectangle(0, bandY, leftW, bandH),
-                            new Rectangle(0, srcCropY, leftW, cropH),
-                            GraphicsUnit.Pixel);
-                    }
-
                     var rightX = src.Width * 3f / 4f;
                     var rightW = src.Width - rightX;
+
+                    // 只盖右侧，不遮左侧 AI 汇总
+                    g.FillRectangle(Brushes.Black, rightX, bandY, rightW, bandH);
 
                     using var dividerPen = new Pen(Color.FromArgb(255, 0x66, 0x66, 0x66), 1f);
                     g.DrawLine(dividerPen, rightX, bandY + 4f, rightX, src.Height - 4f);
@@ -608,8 +598,9 @@ namespace SUNWODA_SEVB.Tool.Helper
                         lines.Add("（标注后显示于此）");
                     }
 
-                    var lineH = summaryFont.GetHeight(g) + 6f;
-                    var startY = bandY + 8f;
+                    var topPad = (float)Math.Max(12.0, fontPx * 0.25);
+                    var lineH = summaryFont.GetHeight(g) * 1.22f;
+                    var startY = bandY + topPad;
                     var textX = rightX + 10f;
                     var maxTextW = Math.Max(40f, rightW - 20f);
 
@@ -621,21 +612,18 @@ namespace SUNWODA_SEVB.Tool.Helper
                             break;
                         }
 
-                        var line = lines[i];
-                        var brushLine = i == 0 ? titleBrush : summaryBrush;
-                        // 超宽截断，避免溢出到左三栏
-                        var drawn = line;
-                        while (drawn.Length > 1 && g.MeasureString(drawn, summaryFont).Width > maxTextW)
-                        {
-                            drawn = drawn[..^1];
-                        }
-
-                        if (drawn.Length < line.Length && drawn.Length > 3)
-                        {
-                            drawn = drawn[..^3] + "...";
-                        }
-
-                        g.DrawString(drawn, summaryFont, brushLine, textX, y);
+                        var lineBrush = i == 0 ? titleBrush : summaryBrush;
+                        var text = lines[i];
+                        g.DrawString(
+                            text,
+                            summaryFont,
+                            lineBrush,
+                            new RectangleF(textX, y, maxTextW, lineH),
+                            new StringFormat
+                            {
+                                Trimming = StringTrimming.EllipsisCharacter,
+                                FormatFlags = StringFormatFlags.NoWrap,
+                            });
                     }
                 }
             }
@@ -647,25 +635,6 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             bmp.Save(outputPath, ImageFormat.Png);
-        }
-
-        /// <summary>原图结果打黑高度减半，与 AI 出图 / 标注窗规则一致。</summary>
-        private static int ResolveBottomBlackHeightForPath(string? imagePath, int enhanceBlackHeightPx)
-        {
-            var h = Math.Max(0, enhanceBlackHeightPx);
-            if (string.IsNullOrWhiteSpace(imagePath))
-            {
-                return h;
-            }
-
-            var name = Path.GetFileName(imagePath);
-            if (name.Contains("_origin", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("result_origin", StringComparison.OrdinalIgnoreCase))
-            {
-                return CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(h);
-            }
-
-            return h;
         }
 
         /// <summary>图上 / 底部统一格式：名称 + 毫米。</summary>

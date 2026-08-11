@@ -291,9 +291,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
                 var results = new List<OfflineCtInferResult>();
                 var mode = settings.OfflineCtResultImageMode;
-                // NJCT 打黑固定传 0；底部信息遮罩由上位机按 OfflineCtBlackHeight
-                // 在 ResultImg 底部覆盖打黑并写入 L1~L5（与二次手动标注同一配置项）。
-                // 增强图用全高；原图默认减半。
+                // NJCT 打黑固定传 0；底部信息遮罩由上位机按 OfflineCtBlackHeight 覆盖绘制。
+                // 增强图用配置全高；原图 ResultImg 长宽约为一半，打黑高度按比例减半。
                 const int dllBlackHeight = 0;
                 var pixelSizeUm = settings.ResolveOfflineCtPixelSizeUm();
                 var bottomInfoBlackHeightEnhance = Math.Max(0, settings.OfflineCtBlackHeight);
@@ -349,7 +348,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         "origin",
                         bothModes);
                     progress?.Report(
-                        $"AI 标注：调用 ModelAction_origin（原图+抓点/尺寸+底部遮罩 {bottomInfoBlackHeightOrigin}px=增强一半），输入={Path.GetFileName(imagePath)}…");
+                        $"AI 标注：调用 ModelAction_origin（原图+抓点/尺寸+底部遮罩 {bottomInfoBlackHeightOrigin}px=增强一半，原图尺寸约一半），输入={Path.GetFileName(imagePath)}…");
                     var originResult = await Task.Run(
                             () => _offlineCtVisionService.InferOrigin(
                                 imagePath,
@@ -641,7 +640,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                             {
                                 ok++;
                                 progress?.Report(
-                                    $"  原图 OK（DLL BlackHeight={originDllBlack}=增强一半）→ {r.ResultImagePath}");
+                                    $"  原图 OK（DLL BlackHeight={originDllBlack}=增强一半，原图尺寸约一半）→ {r.ResultImagePath}");
                             }
                             else
                             {

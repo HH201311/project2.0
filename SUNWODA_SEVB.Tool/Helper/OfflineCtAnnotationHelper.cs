@@ -5,6 +5,8 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.Tool.Helper
@@ -573,8 +575,9 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 构建 AI 结果图路径。默认 <c>{产品名}.jpg</c>；
-        /// 同时导出 enhance+origin 时，origin 为 <c>{产品名}_origin.jpg</c>。
+        /// 构建 AI 结果图路径。
+        /// 增强图：<c>{产品名}.jpg</c>；原图：始终 <c>{产品名}_origin.jpg</c>
+        ///（含「仅原图」模式，便于手动标注按同一规则识别并 ÷2）。
         /// </summary>
         public static string BuildAnnotationResultImagePath(
             string annotationFolder,
@@ -586,7 +589,9 @@ namespace SUNWODA_SEVB.Tool.Helper
                 ? "annotation"
                 : resultBaseName.Trim();
             var isOrigin = string.Equals(modeTag, "origin", StringComparison.OrdinalIgnoreCase);
-            var fileName = isOrigin && bothModes
+            // 原图始终带 _origin；bothModes 参数保留以兼容调用方，命名不再依赖它
+            _ = bothModes;
+            var fileName = isOrigin
                 ? $"{safe}_origin.jpg"
                 : $"{safe}.jpg";
             return Path.Combine(annotationFolder, fileName);
@@ -861,6 +866,193 @@ namespace SUNWODA_SEVB.Tool.Helper
             var colW = imageWidthPx / 3.0;
             var byWidth = Math.Max(28, (int)(colW / 10.0));
             return Math.Min(byHeight, byWidth);
+        }
+
+        /// <summary>
+        /// 结果图路径是否为原图模式（文件名含 _origin / result_origin）。
+        /// </summary>
+        public static bool IsOriginResultImagePath(string? imagePath)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                return false;
+            }
+
+            var name = Path.GetFileName(imagePath);
+            return name.Contains("_origin", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("result_origin", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 按结果图类型把「增强图基准」配置高度换算为该图应用高度。
+        /// 规则：文件名含 _origin → ÷2；无后缀的历史仅原图文件若配置高度 ≥ 图高 → 亦按原图 ÷2。
+        /// </summary>
+        public static int ResolveConfiguredBottomBlackHeightForPath(
+            string? imagePath,
+            int enhanceConfiguredPx,
+            int imageHeightPx = 0)
+        {
+            var enhance = Math.Max(0, enhanceConfiguredPx);
+            if (IsOriginResultImagePath(imagePath))
+            {
+                return CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(enhance);
+            }
+
+            // 兼容旧「仅原图」落盘名 {产品}.jpg（无 _origin）：
+            // 增强基准高度已 ≥ 当前图高时，全高无法合理落在该图上，按原图比例 ÷2
+            if (imageHeightPx > 0 && enhance >= imageHeightPx)
+            {
+                return CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(enhance);
+            }
+
+            return enhance;
+        }
+
+        /// <summary>
+        /// 解析底栏实际高度（图像像素）。
+        /// 优先对齐结果图中已烧录的 AI 底栏；检测失败则按路径/尺寸换算配置值；再钳制到图像高度。
+        /// </summary>
+        public static int ResolveDisplayBottomBlackHeight(
+            int configuredEnhancePx,
+            int detectedBurnedPx,
+            int imageHeightPx = 0,
+            string? imagePath = null)
+        {
+            var configured = ResolveConfiguredBottomBlackHeightForPath(
+                imagePath,
+                configuredEnhancePx,
+                imageHeightPx);
+            var h = detectedBurnedPx > 0
+                ? detectedBurnedPx
+                : configured;
+            if (imageHeightPx <= 0)
+            {
+                return Math.Max(0, h);
+            }
+
+            return Math.Clamp(h, 0, imageHeightPx);
+        }
+
+        /// <summary>
+        /// 自下而上检测结果图已烧录的底部打黑高度（图像像素）。
+        /// 采样左 3/4（AI 汇总区），忽略彩色文字像素；检测失败返回 0。
+        /// </summary>
+        public static int DetectBottomBlackBandHeight(Bitmap bitmap)
+        {
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+            {
+                return 0;
+            }
+
+            var w = bitmap.Width;
+            var h = bitmap.Height;
+            var sampleRight = Math.Max(1, w * 3 / 4);
+            var stepX = Math.Max(1, sampleRight / 64);
+            var darkRowMinRatio = 0.72;
+            var maxBand = Math.Min(h, Math.Max(h * 2 / 3, 1));
+
+            var band = 0;
+            for (var y = h - 1; y >= h - maxBand; y--)
+            {
+                var dark = 0;
+                var total = 0;
+                for (var x = 0; x < sampleRight; x += stepX)
+                {
+                    var p = bitmap.GetPixel(x, y);
+                    total++;
+                    if (IsBottomBandDarkPixel(p.R, p.G, p.B))
+                    {
+                        dark++;
+                    }
+                }
+
+                if (total <= 0 || dark < total * darkRowMinRatio)
+                {
+                    break;
+                }
+
+                band++;
+            }
+
+            // 过矮更像噪点/单行黑边，不作打黑底栏
+            return band >= 40 ? band : 0;
+        }
+
+        /// <summary>
+        /// WPF <see cref="System.Windows.Media.Imaging.BitmapSource"/> 版本的底部打黑高度检测。
+        /// </summary>
+        public static int DetectBottomBlackBandHeight(System.Windows.Media.Imaging.BitmapSource? source)
+        {
+            if (source is null || source.PixelWidth <= 0 || source.PixelHeight <= 0)
+            {
+                return 0;
+            }
+
+            BitmapSource converted = source;
+            if (source.Format != PixelFormats.Bgra32
+                && source.Format != PixelFormats.Bgr32
+                && source.Format != PixelFormats.Pbgra32)
+            {
+                converted = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+            }
+
+            var w = converted.PixelWidth;
+            var h = converted.PixelHeight;
+            var stride = w * 4;
+            var pixels = new byte[stride * h];
+            converted.CopyPixels(pixels, stride, 0);
+
+            var sampleRight = Math.Max(1, w * 3 / 4);
+            var stepX = Math.Max(1, sampleRight / 64);
+            var darkRowMinRatio = 0.72;
+            var maxBand = Math.Min(h, Math.Max(h * 2 / 3, 1));
+
+            var band = 0;
+            for (var y = h - 1; y >= h - maxBand; y--)
+            {
+                var dark = 0;
+                var total = 0;
+                var row = y * stride;
+                for (var x = 0; x < sampleRight; x += stepX)
+                {
+                    var i = row + x * 4;
+                    var b = pixels[i];
+                    var g = pixels[i + 1];
+                    var r = pixels[i + 2];
+                    total++;
+                    if (IsBottomBandDarkPixel(r, g, b))
+                    {
+                        dark++;
+                    }
+                }
+
+                if (total <= 0 || dark < total * darkRowMinRatio)
+                {
+                    break;
+                }
+
+                band++;
+            }
+
+            return band >= 40 ? band : 0;
+        }
+
+        /// <summary>
+        /// 底栏像素：纯黑/近黑，或暗底上的深色文字（仍算在打黑带内）。
+        /// 亮色旁注（绿/红/黄/白）不计入「非黑」，靠同行暗像素占比判断。
+        /// </summary>
+        private static bool IsBottomBandDarkPixel(int r, int g, int b)
+        {
+            var max = Math.Max(r, Math.Max(g, b));
+            var min = Math.Min(r, Math.Min(g, b));
+            // 近黑
+            if (max <= 48)
+            {
+                return true;
+            }
+
+            // 暗底上的低亮度彩色字（仍属底栏）
+            return max <= 96 && (max - min) <= 40;
         }
 
         /// <summary>

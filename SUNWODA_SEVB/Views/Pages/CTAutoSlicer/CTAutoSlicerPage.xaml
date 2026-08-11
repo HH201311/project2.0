@@ -2417,7 +2417,7 @@
                                             <LineBreak />
                                             <Run Text="• CUDA：ModelInit 的 IsRunCuda，默认开启。" />
                                             <LineBreak />
-                                            <Run Text="• 打黑高度：界面自控（OfflineCtBlackHeight），增强图用全高；原图默认减半。底部四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；开启范围判断后汇总数值合格绿/超差红，未启用白；二次手动标注共用右栏；传给 NJCT 的 BlackHeight 固定 0。" />
+                                            <Run Text="• 打黑高度：完全由本程序控制（OfflineCtBlackHeight 为增强图基准）；原图 ResultImg 长宽约为一半，打黑高度自动 ÷2 保持占比；底部四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；开启范围判断后汇总数值合格绿/超差红，未启用白；二次手动标注覆盖右 1/4；传给 NJCT 的 BlackHeight 固定 0。" />
                                             <LineBreak />
                                             <Run Text="• 结果图模式：增强图 / 原图 / 两者（默认增强图）。" />
                                             <LineBreak />
@@ -2569,7 +2569,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="模型与推理" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="ONNX 模型路径、CUDA；打黑高度=增强图底部覆盖高度（原图自动减半）；结果图模式决定落盘增强图 / 原图。" />
+                                        Text="ONNX 模型路径、CUDA；打黑高度以增强图为基准（原图按尺寸约一半自动 ÷2）；结果图模式决定落盘增强图 / 原图。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -2623,12 +2623,12 @@
                                             Grid.Column="2"
                                             Style="{StaticResource CasFormLabelStyle}"
                                             Text="打黑高度"
-                                            ToolTip="增强图底部覆盖打黑高度（写入 L1~L5）；原图自动减半；二次手动标注共用增强图高度；不传给 NJCT" />
+                                            ToolTip="本程序覆盖打黑：配置值为增强图高度；原图尺寸约一半则高度 ÷2；手动标注占右 1/4；不传 NJCT" />
                                         <StackPanel Grid.Column="3" Orientation="Vertical" HorizontalAlignment="Left">
                                             <hc:TextBox
                                                 Width="160"
                                                 HorizontalAlignment="Left"
-                                                ToolTip="增强图底部覆盖打黑高度（写入 L1~L5）；原图自动减半；二次手动标注共用增强图高度；不传给 NJCT">
+                                                ToolTip="本程序覆盖打黑：配置值为增强图高度；原图尺寸约一半则高度 ÷2；手动标注占右 1/4；不传 NJCT">
                                                 <hc:TextBox.Text>
                                                     <Binding Path="OfflineCtBlackHeight" UpdateSourceTrigger="PropertyChanged">
                                                         <Binding.ValidationRules>
@@ -2640,7 +2640,7 @@
                                             <TextBlock
                                                 Margin="0,4,0,0"
                                                 Style="{StaticResource CasFormHintStyle}"
-                                                Text="{Binding OfflineCtOriginBlackHeightHint}"
+                                                Text="{Binding OfflineCtBlackHeightHint}"
                                                 TextWrapping="Wrap"
                                                 MaxWidth="360" />
                                         </StackPanel>
@@ -2947,7 +2947,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="NJCT DLL 直调批量测试" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="仅测试 DLL：批量读入文件夹图片 → 直接调用 ModelAction / ModelAction_origin。下方「DLL打黑高度」为增强图传给 NJCT 的 BlackHeight；原图自动减半。不做竖图/提亮/内容上移，也不做上位机底部叠加。结果图模式沿用上方「模型与推理」。" />
+                                        Text="仅测试 DLL：批量读入文件夹图片 → 直接调用 ModelAction / ModelAction_origin。下方「DLL打黑高度」为增强图基准；原图尺寸约一半则 BlackHeight ÷2。不做竖图/提亮/内容上移，也不做上位机底部叠加。结果图模式沿用上方「模型与推理」。" />
 
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
@@ -3012,12 +3012,12 @@
                                             Grid.Column="0"
                                             Style="{StaticResource CasFormLabelStyle}"
                                             Text="DLL打黑高度"
-                                            ToolTip="增强图传给 NJCT 的 BlackHeight；原图自动减半（与主流程打黑高度规则一致）" />
+                                            ToolTip="增强图传给 NJCT 的 BlackHeight；原图尺寸约一半则自动 ÷2" />
                                         <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Left">
                                             <hc:TextBox
                                                 Width="160"
                                                 HorizontalAlignment="Left"
-                                                ToolTip="增强图传给 NJCT 的 BlackHeight；原图自动减半（与主流程打黑高度规则一致）">
+                                                ToolTip="增强图传给 NJCT 的 BlackHeight；原图尺寸约一半则自动 ÷2">
                                                 <hc:TextBox.Text>
                                                     <Binding Path="OfflineCtDllTestBlackHeight" UpdateSourceTrigger="PropertyChanged">
                                                         <Binding.ValidationRules>
@@ -3029,7 +3029,7 @@
                                             <TextBlock
                                                 Margin="0,4,0,0"
                                                 Style="{StaticResource CasFormHintStyle}"
-                                                Text="{Binding OfflineCtDllTestOriginBlackHeightHint}"
+                                                Text="{Binding OfflineCtDllTestBlackHeightHint}"
                                                 TextWrapping="Wrap"
                                                 MaxWidth="420" />
                                         </StackPanel>

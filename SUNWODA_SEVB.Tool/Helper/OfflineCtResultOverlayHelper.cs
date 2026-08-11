@@ -7,8 +7,9 @@ namespace SUNWODA_SEVB.Tool.Helper
 {
     /// <summary>
     /// 将 NJCT 四参数叠到 ResultImg：AllPointRegion + L1~L5 线段 + AllPrintfValue；
-    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（全宽，与二次手动标注一致，不扩展画布），
-    /// 遮罩四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留；
+    /// 底部按 OfflineCtBlackHeight <b>覆盖</b>打黑（全宽，不扩展画布；
+    /// 原图由调用方传入配置值÷2，以匹配约一半的 ResultImg 尺寸），
+    /// 遮罩四栏：L1~L5范围 / 电芯1 / 电芯2 / 手动预留（右 1/4）；
     /// AI 汇总：名称与数值同色；开启范围→合格深绿/超差深红，未启用→白。
     /// </summary>
     public static class OfflineCtResultOverlayHelper
@@ -45,7 +46,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             var imgWidth = width.I;
             var imgHeight = height.I;
             // 与 ManualMeasureExportHelper 一致：clamp 到图像高度，在底部覆盖，不追加画布
-            var bandH = Math.Clamp(bottomInfoBlackHeight, 0, imgHeight);
+            // 原图由调用方已按尺寸比例传入减半后的高度
+            var bandH = CTAutoSlicerSettings.ClampBottomBlackHeight(bottomInfoBlackHeight, imgHeight);
             var bandTop = imgHeight - bandH;
 
             HWindow? window = null;
@@ -386,7 +388,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                     nameColor: "white",
                     valueColor: "white",
                     fontSize: fontSize,
-                    coordSystem: "window");
+                    coordSystem: "window",
+                    drawUnderline: false);
                 y += lineHeight;
             }
 
@@ -446,7 +449,8 @@ namespace SUNWODA_SEVB.Tool.Helper
                     nameColor: color,
                     valueColor: color,
                     fontSize: fontSize,
-                    coordSystem: "window");
+                    coordSystem: "window",
+                    drawUnderline: false);
                 y += lineHeight;
             }
 
@@ -464,8 +468,8 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 名称与数值分两次 DispText：名称用全字号；数值略小并带下划线，
-        /// 使「数值高度 + 下划线」与名称字高大致平齐；名称与数值默认同色。
+        /// 名称与数值分两次 DispText：名称用全字号；数值略小。
+        /// 图上旁注可带下划线（数值高度+下划线与名称字高大致平齐）；底部汇总不画下划线。
         /// </summary>
         private static void DrawNameAndValue(
             HWindow window,
@@ -476,7 +480,8 @@ namespace SUNWODA_SEVB.Tool.Helper
             string nameColor,
             string valueColor,
             int fontSize,
-            string coordSystem)
+            string coordSystem,
+            bool drawUnderline = true)
         {
             if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(value))
             {
@@ -502,9 +507,6 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             var valueFont = Math.Max(12, (int)Math.Round(fontSize * ValueFontScale));
-            // 下划线占用名称多出的高度，使「数值+下划线」与 L1 字高平齐
-            var underlineGap = Math.Max(2.0, fontSize - valueFont);
-            var underlineThickness = Math.Max(2.0, fontSize * 0.06);
 
             // 按字号估算「L1:」宽度，数值紧随其后
             var nameWidth = EstimateTextWidthPx(name, fontSize);
@@ -519,20 +521,25 @@ namespace SUNWODA_SEVB.Tool.Helper
                 new HTuple("box"),
                 new HTuple("false"));
 
-            var valueWidth = EstimateTextWidthPx(value.TrimStart(), valueFont);
-            // 前导空格也占宽，下划线从实际数字起笔
-            var leadSpaces = 0;
-            while (leadSpaces < value.Length && value[leadSpaces] == ' ')
+            if (drawUnderline)
             {
-                leadSpaces++;
-            }
+                // 下划线占用名称多出的高度，使「数值+下划线」与 L1 字高平齐（仅图上旁注）
+                var underlineGap = Math.Max(2.0, fontSize - valueFont);
+                var underlineThickness = Math.Max(2.0, fontSize * 0.06);
+                var valueWidth = EstimateTextWidthPx(value.TrimStart(), valueFont);
+                var leadSpaces = 0;
+                while (leadSpaces < value.Length && value[leadSpaces] == ' ')
+                {
+                    leadSpaces++;
+                }
 
-            var underlineCol0 = valueCol + EstimateTextWidthPx(value[..leadSpaces], valueFont);
-            var underlineCol1 = underlineCol0 + Math.Max(valueWidth, valueFont * 2.0);
-            var underlineRow = row + valueFont + underlineGap * 0.35;
-            window.SetColor(valueColor);
-            window.SetLineWidth(underlineThickness);
-            window.DispLine(underlineRow, underlineCol0, underlineRow, underlineCol1);
+                var underlineCol0 = valueCol + EstimateTextWidthPx(value[..leadSpaces], valueFont);
+                var underlineCol1 = underlineCol0 + Math.Max(valueWidth, valueFont * 2.0);
+                var underlineRow = row + valueFont + underlineGap * 0.35;
+                window.SetColor(valueColor);
+                window.SetLineWidth(underlineThickness);
+                window.DispLine(underlineRow, underlineCol0, underlineRow, underlineCol1);
+            }
 
             // 恢复名称字号，避免后续同行绘制受影响
             ApplyWindowFont(window, fontSize);

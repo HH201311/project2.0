@@ -23,6 +23,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private string? _selectedMeasureId;
         private string _exportFolder = string.Empty;
         private bool _persistExportFolderEnabled;
+        private int _currentImageWidthPx;
+        private int _currentImageHeightPx;
 
         public VM_ManualMeasureAnnotateWindow(
             string rootFolder,
@@ -92,8 +94,50 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
 
         public double PixelSizeUm { get; }
 
-        /// <summary>底部信息遮罩高度（图像像素，来自 OfflineCtBlackHeight）。</summary>
+        /// <summary>底部信息遮罩高度配置（图像像素，来自 OfflineCtBlackHeight；原图自动 ÷2）。</summary>
         public int BottomBlackHeightPx { get; }
+
+        /// <summary>当前图片像素宽。</summary>
+        public int CurrentImageWidthPx => _currentImageWidthPx;
+
+        /// <summary>当前图片像素高。</summary>
+        public int CurrentImageHeightPx => _currentImageHeightPx;
+
+        /// <summary>当前图片尺寸文案，如 1844×1500。</summary>
+        public string CurrentImageSizeText =>
+            _currentImageWidthPx > 0 && _currentImageHeightPx > 0
+                ? $"{_currentImageWidthPx}×{_currentImageHeightPx}"
+                : "—";
+
+        /// <summary>当前图实际应用的打黑高度（与 AI 出图同一规则）。</summary>
+        public string CurrentBlackHeightText
+        {
+            get
+            {
+                if (_currentImageHeightPx <= 0 || BottomBlackHeightPx <= 0)
+                {
+                    return "—";
+                }
+
+                var h = OfflineCtAnnotationHelper.ResolveConfiguredBottomBlackHeightForPath(
+                    CurrentImagePath,
+                    BottomBlackHeightPx,
+                    _currentImageHeightPx);
+                h = CTAutoSlicerSettings.ClampBottomBlackHeight(h, _currentImageHeightPx);
+                return $"{h} px";
+            }
+        }
+
+        /// <summary>由窗口加载位图后写入当前图像素尺寸。</summary>
+        public void SetCurrentImagePixelSize(int widthPx, int heightPx)
+        {
+            _currentImageWidthPx = Math.Max(0, widthPx);
+            _currentImageHeightPx = Math.Max(0, heightPx);
+            OnPropertyChanged(nameof(CurrentImageWidthPx));
+            OnPropertyChanged(nameof(CurrentImageHeightPx));
+            OnPropertyChanged(nameof(CurrentImageSizeText));
+            OnPropertyChanged(nameof(CurrentBlackHeightText));
+        }
 
         public ObservableCollection<ManualMeasureImageListItem> Images { get; } = [];
 
@@ -113,6 +157,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 OnPropertyChanged(nameof(CurrentImagePath));
                 OnPropertyChanged(nameof(CurrentRelativePath));
                 OnPropertyChanged(nameof(AnnotatedCountText));
+                OnPropertyChanged(nameof(CurrentBlackHeightText));
                 RaiseCommandCanExecute();
                 ImageSelectionChanged?.Invoke(this, EventArgs.Empty);
             }

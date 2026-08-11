@@ -392,7 +392,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
-            OnPropertyChanged(nameof(OfflineCtOriginBlackHeightHint));
+            OnPropertyChanged(nameof(OfflineCtBlackHeightHint));
             OnPropertyChanged(nameof(OfflineCtContentShiftUpPx));
             OnPropertyChanged(nameof(EnableOfflineCtLRangeCheck));
             OnPropertyChanged(nameof(OfflineCtL1MinMm));
@@ -437,7 +437,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(OfflineCtDllTestInputFolder));
             OnPropertyChanged(nameof(OfflineCtDllTestOutputFolder));
             OnPropertyChanged(nameof(OfflineCtDllTestBlackHeight));
-            OnPropertyChanged(nameof(OfflineCtDllTestOriginBlackHeightHint));
+            OnPropertyChanged(nameof(OfflineCtDllTestBlackHeightHint));
 
             _isLoadingSettings = false;
 

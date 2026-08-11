@@ -165,6 +165,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             {
                 MainImage.Source = null;
                 _bitmap = null;
+                _vm.SetCurrentImagePixelSize(0, 0);
                 return;
             }
 
@@ -176,6 +177,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             bmp.Freeze();
             _bitmap = bmp;
             MainImage.Source = bmp;
+            _vm.SetCurrentImagePixelSize(bmp.PixelWidth, bmp.PixelHeight);
 
             FitToViewportAndCenter();
             RedrawCommittedOverlays();
@@ -304,9 +306,9 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
         }
 
         /// <summary>
-        /// 底部全宽打黑（高度=OfflineCtBlackHeight，原图自动减半）：
-        /// 左 3/4 从结果图裁回以保留 AI 烧录的「范围/电芯1/电芯2」；
-        /// 右 1/4 写「手动标注」汇总。字号与出图同步。
+        /// 二次手动标注底栏：左侧 AI 已烧录内容原样保留；
+        /// 仅右侧 1/4 按统一打黑高度铺黑并写「手动标注」。
+        /// 高度与 AI 出图同一参数：OfflineCtBlackHeight（原图路径自动 ÷2）。
         /// </summary>
         private void DrawBottomInfoBand(IReadOnlyList<ManualMeasureItem>? measures)
         {
@@ -315,10 +317,7 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 return;
             }
 
-            var bandPx = Math.Clamp(
-                ResolveBottomBlackHeightForPath(_vm.CurrentImagePath, _vm.BottomBlackHeightPx),
-                0,
-                _bitmap.PixelHeight);
+            var bandPx = ResolveUnifiedBottomBlackHeightPx();
             if (bandPx <= 0)
             {
                 return;
@@ -328,51 +327,21 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
             var canvasH = OverlayCanvas.Height;
             var bandH = bandPx * _zoom;
             var bandY = canvasH - bandH;
+            var rightX = canvasW * (3.0 / 4.0);
+            var rightW = canvasW - rightX;
 
-            // 全宽打黑：打黑高度控制整条底栏，而非仅右侧
+            // 只打黑右侧 1/4，左侧视觉导出已烧录的汇总原样显示
             var band = new System.Windows.Shapes.Rectangle
             {
-                Width = canvasW,
+                Width = rightW,
                 Height = bandH,
                 Fill = Brushes.Black,
                 IsHitTestVisible = false,
             };
-            Canvas.SetLeft(band, 0);
+            Canvas.SetLeft(band, rightX);
             Canvas.SetTop(band, bandY);
             OverlayCanvas.Children.Add(band);
 
-            // 左 3/4：从底层结果图裁回，保留 AI 已烧录的彩色汇总
-            var leftImgW = Math.Max(1, _bitmap.PixelWidth * 3 / 4);
-            var leftCanvasW = canvasW * (3.0 / 4.0);
-            try
-            {
-                var srcY = Math.Max(0, _bitmap.PixelHeight - bandPx);
-                var cropH = Math.Min(bandPx, _bitmap.PixelHeight - srcY);
-                if (cropH > 0 && leftImgW > 0)
-                {
-                    var cropped = new CroppedBitmap(
-                        _bitmap,
-                        new Int32Rect(0, srcY, leftImgW, cropH));
-                    var leftImg = new System.Windows.Controls.Image
-                    {
-                        Source = cropped,
-                        Width = leftCanvasW,
-                        Height = bandH,
-                        Stretch = Stretch.Fill,
-                        IsHitTestVisible = false,
-                    };
-                    Canvas.SetLeft(leftImg, 0);
-                    Canvas.SetTop(leftImg, bandY);
-                    OverlayCanvas.Children.Add(leftImg);
-                }
-            }
-            catch
-            {
-                // 裁剪失败时保留全宽黑底，不阻断标注
-            }
-
-            var rightX = canvasW * (3.0 / 4.0);
-            var rightW = canvasW - rightX;
             var divider = new System.Windows.Shapes.Line
             {
                 X1 = rightX,
@@ -395,12 +364,16 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 measureLines.Add("（标注后显示于此）");
             }
 
+            var fontSizeImg = OfflineCtAnnotationHelper.ComputeBottomBandFontSizeImagePx(
+                bandPx,
+                _bitmap.PixelWidth);
+            var topPadCanvas = Math.Max(12.0, fontSizeImg * 0.25) * _zoom;
             var fontSize = OfflineCtAnnotationHelper.ComputeBottomBandFontSizeScreen(
                 bandPx,
                 _zoom,
                 _bitmap.PixelWidth);
-            var lineH = fontSize + 6;
-            var yTop = bandY + 8;
+            var lineH = fontSize * 1.22;
+            var yTop = bandY + topPadCanvas;
             var yLimit = canvasH - 4;
             var textX = rightX + 10;
 
@@ -430,27 +403,6 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 OverlayCanvas.Children.Add(tb);
                 y += lineH;
             }
-        }
-
-        /// <summary>
-        /// 原图结果文件名含 _origin 时打黑高度减半，与 AI 出图规则一致。
-        /// </summary>
-        private static int ResolveBottomBlackHeightForPath(string? imagePath, int enhanceBlackHeightPx)
-        {
-            var h = Math.Max(0, enhanceBlackHeightPx);
-            if (string.IsNullOrWhiteSpace(imagePath))
-            {
-                return h;
-            }
-
-            var name = System.IO.Path.GetFileName(imagePath);
-            if (name.Contains("_origin", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("result_origin", StringComparison.OrdinalIgnoreCase))
-            {
-                return CTAutoSlicerSettings.ResolveOriginBottomBlackHeight(h);
-            }
-
-            return h;
         }
 
         private void DrawCommittedMeasure(ManualMeasureItem m, bool selected)
@@ -1117,16 +1069,37 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         private bool IsInBottomBlackBand(Point imagePx)
         {
-            if (_bitmap is null || _vm.BottomBlackHeightPx <= 0)
+            if (_bitmap is null)
             {
                 return false;
             }
 
-            var bandPx = Math.Clamp(
-                ResolveBottomBlackHeightForPath(_vm.CurrentImagePath, _vm.BottomBlackHeightPx),
-                0,
+            var bandPx = ResolveUnifiedBottomBlackHeightPx();
+            if (bandPx <= 0 || imagePx.Y < _bitmap.PixelHeight - bandPx)
+            {
+                return false;
+            }
+
+            // 底栏整条禁止起测（左 3/4 为 AI 汇总，右 1/4 为手动汇总）
+            return true;
+        }
+
+        /// <summary>
+        /// 与 AI 出图共用同一 OfflineCtBlackHeight：增强图全高，原图 ÷2；再钳制到图像高度。
+        /// 不再做底栏像素检测，避免与配置参数不一致。
+        /// </summary>
+        private int ResolveUnifiedBottomBlackHeightPx()
+        {
+            if (_bitmap is null)
+            {
+                return 0;
+            }
+
+            var configured = OfflineCtAnnotationHelper.ResolveConfiguredBottomBlackHeightForPath(
+                _vm.CurrentImagePath,
+                _vm.BottomBlackHeightPx,
                 _bitmap.PixelHeight);
-            return imagePx.Y >= _bitmap.PixelHeight - bandPx;
+            return CTAutoSlicerSettings.ClampBottomBlackHeight(configured, _bitmap.PixelHeight);
         }
 
         private bool TryHitMeasureLabel(Point viewportPos, out string measureId)

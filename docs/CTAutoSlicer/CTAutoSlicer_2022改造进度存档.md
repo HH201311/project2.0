@@ -1,12 +1,18 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-07（正负极 LUT 双预设）  
-> **状态**：**阶段一～五全部 ✅**；**阶段七 ✅ 独立 AI 标注模式**（扫描交接目录批量 NJCT；竖图校验 + 内容上移 + 预提亮）；进程池并行导入 ✅。  
-> **待确认**：两机真机联调（切图机交接 → AI 机批处理）；视觉 DLL 找点路径（默认视角）；Pre321 + 斜俯视找点真机核对 `*_points.png`；**LUT 中点拖拽真机核对**；**内容上移像素真机调参**。  
+> **文档版本**：2026-08-12（直方图 LUT 按峰谷 Y 非对称扩展）  
+> **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；进程池并行导入 ✅。  
+> **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-12 增量（直方图 2d：按峰谷距离 Y 非对称扩展 LUT 两端）**：  
+> 1. **背景**：同名正极预设下灰度跨度仍可能差数倍；仅中点平移无法适配段宽。  
+> 2. **做法**：2c 中点对齐红线后，取 `Y = TargetX − ValleyX`（ROI 列距）；左下端点再向左移 `LutExpandLeftYFactor×Y`（默认 2），右上端点再向右移 `LutExpandRightYFactor×Y`（默认 3）；坐标钳制在直方图 ROI 内。  
+> 3. **配置**：直方图标定页「左×Y / 右×Y」；因子为 0 或 Y&lt;2 时跳过扩展。  
+> 4. **落点**：`ExpandLutSegmentByPeakValleyDistanceAsync`；`CTAutoSlicerSettings.LutExpandLeftYFactor/RightYFactor`；单测文案同步覆盖 2d。
 
 > **2026-08-07 增量（正负极 LUT 双预设 + 双套标点）**：  
 > 1. **背景**：正极/负极体积灰阶分布不同，单一 `testlut` 与单一 LUT 端点无法兼顾。  
@@ -169,12 +175,13 @@ flowchart TD
 
 ---
 
-## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐）
+## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐；2026-08-12 增按 Y 扩展）
 
 > 背景：LUT 预设不保存直方图中间红色阈值竖线位置，需截图分析后拖拽。  
 > 半坡目标约定：取**高度最高的两个尖峰**；左线=两峰间波谷，右线=右侧尖峰；  
 > **目标线（红线）** = 左线 + (右线−左线)×**2/3**（靠右约三分之一，利于压掉左侧噪点灰阶；**2026-07-22 起不再用左右中点**）。  
-> **2c LUT 中点对齐（2026-07-31）**：预设关键斜段两端一次性标定 → 中点水平拖到红线目标列，使折线随峰值左右偏自适应。
+> **2c LUT 中点对齐（2026-07-31）**：预设关键斜段两端一次性标定 → 中点水平拖到红线目标列，使折线随峰值左右偏自适应。  
+> **2d 按 Y 扩展（2026-08-12）**：`Y = TargetX − ValleyX`；中点对齐后左端再左移 `左因子×Y`、右端再右移 `右因子×Y`，适配同电极下灰度跨度差异（非对称扩展后中点可略偏红线）。
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
@@ -186,7 +193,8 @@ flowchart TD
 | 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T*（目标线） |
 | **LUT 关键段两端标定** | ✅ UI | 「标定正极/负极 LUT 两点」→ 全屏依次点选；`LutSegmentPoint*Positive/Negative` |
 | **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 按 `-Z`/`-F` 取对应套中点 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
-| 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过整步；未标定 LUT 两点则跳过 2c |
+| **LUT 按 Y 非对称扩展** | ✅ 单步 + 主流程 | `Y=Target−Valley`；左×`LutExpandLeftYFactor`、右×`LutExpandRightYFactor`；ROI 钳制；Y&lt;2 或因子 0 跳过 |
+| 接入主流程 | ✅ | `ImportSingleVglAsync`：预设之后、厚板之前；未标定 ROI 则跳过整步；未标定 LUT 两点则跳过 2c/2d |
 
 **关键入口**：
 
@@ -196,15 +204,17 @@ flowchart TD
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
 | `ScreenTwoPointPickerOverlayWindow` | 全屏两点标定（LUT 关键段 P1→P2） |
 | `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图；**TargetX = 左+(右−左)×2/3** |
-| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐 |
+| `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐→按 Y 扩展 |
 | `VGAutomationService.DragLutSegmentMidpointToRedLineAsync` | 2c：标定中点 → 红线目标列 |
+| `VGAutomationService.ExpandLutSegmentByPeakValleyDistanceAsync` | 2d：按 Y 非对称扩展两端 |
 | Settings：`HistogramMaskColor` / `HistogramMaskTolerance` / ROI / 截图目录（按日子目录，**保留 7 天**） | |
-| Settings：`LutSegmentPoint*Positive/Negative` / `LutSegmentPointsCalibratedPositive/Negative` | 正/负极 LUT 关键段两端；主流程未标定对应套则跳过 2c |
+| Settings：`LutSegmentPoint*Positive/Negative` / `LutSegmentPointsCalibratedPositive/Negative` | 正/负极 LUT 关键段两端；主流程未标定对应套则跳过 2c/2d |
+| Settings：`LutExpandLeftYFactor` / `LutExpandRightYFactor`（默认 **2** / **3**） | 2d 左右扩展倍数；UI「直方图标定」可调 |
 | Settings：`Vision3dRoi*` / `VisionTopViewRoi*` / `Simple321ToolbarClickX/Y` / `Simple321OffsetEditX/Y` / `VisionCaptureDir`（`jietu`） / `Vision2dVectorCaptureDir`（`2Dxianglaing`） / **`EnableVisionAlignmentSteps`（默认开）** | 阶段四标定与主流程开关；均按日保留 **7 天** |
 | Settings：`Pre321View*`（Click / Drag / WaitMs） | 找点前视角准备；仅 `Simple321PointSource=Local` 时 UI 显示 **且** 主流程执行；VisionDll 跳过 |
 | Settings：`PostAlignCaptureButton*` / `PostAlignDrag*` / **`EnablePostAlignCaptureDragSteps`（默认开）** | 对齐后捕捉按钮 + 箭头拖拽；主流程在 3-2-1 后、导出前 |
 
-**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **分别应用正/负极预设后标定对应 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后，关键斜段中点是否对齐红线。
+**真机步骤**：露出直方图 → 取色对准填充灰 → 截图标定 ROI → **分别应用正/负极预设后标定对应 LUT 关键段两端** → 「测试直方图灰度调整」→ 核对 `compare`/`peaks` 图中「左/右/**目标**」线 → 观察红线拖到目标线后关键斜段中点是否对齐红线，再核对两端是否按 Y 因子左右扩展。
 
 ---
 
@@ -272,7 +282,7 @@ flowchart TD
 | 9 | 轮询进度框消失 | 超时上限 `ImportTimeoutMinutes` |
 | 10 | `PostImportWaitTime` 稳定等待 | 默认 3000ms |
 | 11 | `ApplyRenderingPresetAsync` | 等待 `PresetApplyWaitTime` → 按文件名 `-Z`/`-F` 选正/负极预设 → 打开「渲染」面板 ComboBox → 选中对应 ListItem |
-| 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线→LUT中点对齐；未标定 ROI 跳过整步；未标定 LUT 两点跳过 2c |
+| 11b | `ApplyHistogramGrayScaleAdjustAsync` | 已标定 ROI 时：截图→峰谷半坡→拖红线→LUT中点对齐→按Y扩展；未标定 ROI 跳过整步；未标定 LUT 两点跳过 2c/2d |
 | 12 | `ApplyThickPlateForQuadrantsAsync` | 象限 1→2→3：视口右键 →「厚板」→ 启用厚板模式 → 组合模式「平均值」→ 确定 |
 
 **失败策略**：单文件任意步骤超时/异常 → `@@IMPORT_FAIL@@文件名|原因` → **跳过继续**下一个文件。
@@ -359,7 +369,7 @@ flowchart TD
 | `.../VgAutomation/VGAutomationService.ThickPlate.cs` | `ApplyThickPlateForQuadrantsAsync` | 阶段三：厚板 |
 | `.../VgAutomation/VGAutomationService.Simple321.cs` | `RunSimple321AlignmentAsync` | 阶段四：简单 3-2-1（Local 截 3D 前可接 Pre321；VisionDll 跳过） |
 | `.../VgAutomation/VGAutomationService.Pre321ViewPrep.cs` | `RunPre321ViewPrepAsync` | 找点前视角准备（点击+拖拽） |
-| `.../VgAutomation/VGAutomationService.HistogramAndPostAlign.cs` | `ApplyHistogramGrayScaleAdjustAsync` / `DragLutSegmentMidpointToRedLineAsync` / `RunPostAlignCaptureDragAsync` | 直方图灰度（含 LUT 中点）+ 对齐后捕捉拖拽 |
+| `.../VgAutomation/VGAutomationService.HistogramAndPostAlign.cs` | `ApplyHistogramGrayScaleAdjustAsync` / `DragLutSegmentMidpointToRedLineAsync` / `ExpandLutSegmentByPeakValleyDistanceAsync` / `RunPostAlignCaptureDragAsync` | 直方图灰度（含 LUT 中点 + 按 Y 扩展）+ 对齐后捕捉拖拽 |
 | `.../VgAutomation/VGAutomationService.SliceExport.cs` | `ExportImageStackSlicesAsync` | 阶段五：切片导出 |
 | `.../VgAutomation/VGAutomationService.UiPrimitives.cs` | 点击/重试/键盘/`Find*` 包装 | UIA 原语；通用查找转发至 `VgElementFinder` |
 | `.../VgAutomation/VgElementFinder.cs` | `FindWindowByNameScoped` 等 | **内部**通用查找类（不改动 `Tool/Helper`） |
@@ -427,6 +437,7 @@ flowchart TD
 | `PostImportWaitTime` | 3000 ms | 导入完成后稳定等待 |
 | `RenderingPresetNamePositive` | `testlut_Z` | 正极；文件名含 `-Z` 时选用 |
 | `RenderingPresetNameNegative` | `testlut_F` | 负极；文件名含 `-F` 或无法识别时默认选用 |
+| `LutExpandLeftYFactor` / `LutExpandRightYFactor` | **2** / **3** | 直方图 2d：按 `Y=Target−Valley` 左右扩展倍数；0 关闭对应侧 |
 | ~~`RenderingPresetName`~~ | ~~`testlut`~~ | **已拆为正负极双预设**（见上） |
 | `PresetApplyWaitTime` | 2000 ms | 导入完成后、打开预设下拉前的等待 |
 | `PresetDropdownWaitTime` | 5000 ms | 打开下拉后等待 `ListItem` 出现的超时 |
@@ -484,6 +495,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 2. 应用渲染 LUT 预设（「渲染」面板 ComboBox）
 ✅ 2b. 直方图灰度阈值（截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
 ✅ 2c. LUT 关键段中点对齐红线（两端一次性标定；未标定则跳过）
+✅ 2d. LUT 按峰谷 Y 非对称扩展两端（`Y=Target−Valley`；左×2 / 右×3 默认可配；未标定两端则跳过）
 
 ✅ 3. 第一、二、三象限：各视口右键 →「厚板」→ 启用 → 组合模式「平均值」→ 确定
       （`ApplyThickPlateForQuadrantsAsync`）
@@ -536,7 +548,7 @@ VG 四象限布局下，单个体积从 **导入 + LUT 预设** 到 **切片完�
 ✅ 多 .vgl 顺序导入（Ctrl+F+I 快速导入 →「请耐心等待」消失；检测禁止桌面整树扫描）
 ✅ 导入后短暂稳定等待（PostImportWaitTime，默认 3000ms）
 ✅ 渲染 LUT 预设应用（PresetApplyWaitTime 后 → 按 `-Z`/`-F` 选正极/负极 →「渲染」面板 ComboBox）
-✅ 直方图灰度阈值（预设后：截图→峰谷半坡→拖红线；未标定 ROI 则跳过）
+✅ 直方图灰度阈值（预设后：截图→峰谷半坡→拖红线→中点对齐→按Y扩展；未标定 ROI 则跳过）
 ✅ 三象限厚板设置（`ApplyThickPlateForQuadrantsAsync`，象限 1→2→3）
 ✅ 简单 3-2-1 对齐（含偏移置0 + 黄框向量；`RunSimple321AlignmentAsync` + `EnableVisionAlignmentSteps`）
 ✅ 对齐后捕捉拖拽（`TryRunPostAlignCaptureDragInMainFlowAsync` + `EnablePostAlignCaptureDragSteps`）
@@ -1130,6 +1142,7 @@ flowchart TD
 | 2 | LUT 预设 | ✅ |
 | 2b | 直方图拖红线 | ✅（未标定则跳过） |
 | 2c | LUT 关键段中点对齐红线 | ✅（未标定两端则跳过） |
+| 2d | LUT 按 Y 非对称扩展 | ✅（未标定两端 / Y&lt;2 / 因子 0 则跳过） |
 | 3 | Q1～Q3 厚板 + 平均值 | ✅ |
 | **4** | **简单 3-2-1（三点 + 偏移置0 + 黄框向量 + 原点）** | ✅ **单测 + 主流程** |
 | **4'** | **对齐后捕捉拖拽** | ✅ **单测 + 主流程**（§20） |

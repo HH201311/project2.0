@@ -412,7 +412,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
-                AppendFlowLog("——— 直方图灰度调整测试开始（拖红线 + LUT中点对齐） ———");
+                AppendFlowLog("——— 直方图灰度调整测试开始（拖红线 + LUT中点对齐 + 按Y扩展） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
                 var flowToken = BeginActiveFlow();
                 await _ctAutoSlicerService.TestHistogramGrayScaleAdjustAsync(

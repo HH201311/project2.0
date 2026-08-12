@@ -30,7 +30,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             var productTag = SliceExportNamingHelper.BuildCaptureProductTag(namingSourcePath);
-            progress?.Report($"开始直方图灰度调整（截图→峰谷→拖红线→LUT中点对齐；产品={productTag}）");
+            progress?.Report($"开始直方图灰度调整（截图→峰谷→拖红线→LUT中点对齐→按Y扩展；产品={productTag}）");
             _logger.Info(
                 $"直方图灰度调整：产品={productTag}，ROI=({settings.HistogramRoiX},{settings.HistogramRoiY}," +
                 $"{settings.HistogramRoiWidth}x{settings.HistogramRoiHeight})");
@@ -78,6 +78,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 await DragRedLineToTargetAsync(capture, cancellationToken, progress).ConfigureAwait(false);
 
                 await DragLutSegmentMidpointToRedLineAsync(
+                        settings,
+                        capture,
+                        cancellationToken,
+                        progress,
+                        requireCalibrated: !softFailOnError,
+                        namingSourcePath: namingSourcePath)
+                    .ConfigureAwait(false);
+
+                await ExpandLutSegmentByPeakValleyDistanceAsync(
                         settings,
                         capture,
                         cancellationToken,
@@ -236,6 +245,185 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
 
             progress?.Report($"LUT 关键段中点对齐完成（{polarity}）");
+        }
+
+        /// <summary>
+        /// 2d：中点已对齐红线后，按 Y=TargetX−ValleyX 非对称扩展关键段两端。
+        /// 左端点再向左移动 LeftFactor×Y，右端点再向右移动 RightFactor×Y；坐标钳制在直方图 ROI 内。
+        /// 端点屏幕位置由「标定坐标 + 中点平移量」推算（不重新截图识别）。
+        /// </summary>
+        private async Task ExpandLutSegmentByPeakValleyDistanceAsync(
+            CTAutoSlicerSettings settings,
+            HistogramCaptureResult capture,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress,
+            bool requireCalibrated,
+            string? namingSourcePath = null)
+        {
+            var polarity = settings.ResolveRenderingPresetPolarityLabel(namingSourcePath);
+            if (!settings.TryResolveLutSegmentPoints(
+                    namingSourcePath,
+                    out var point1X,
+                    out var point1Y,
+                    out var point2X,
+                    out var point2Y))
+            {
+                var msg =
+                    $"跳过 LUT 按 Y 扩展：尚未标定{polarity}两端点" +
+                    "（请先在「直方图标定」中分别标定正极/负极 LUT 关键段两点）";
+                if (requireCalibrated)
+                {
+                    throw new InvalidOperationException(
+                        $"尚未标定{polarity} LUT 关键段两端点，请先在「直方图标定」中标定对应电极的两点");
+                }
+
+                progress?.Report(msg);
+                _logger.Info(msg);
+                return;
+            }
+
+            if (capture.TargetScreenX is not int targetX)
+            {
+                throw new InvalidOperationException("半坡目标屏幕坐标无效，无法按 Y 扩展 LUT 端点");
+            }
+
+            // Y：红线目标列相对左侧波谷的水平距离（ROI 列距 ≡ 屏幕像素）
+            var yPx = Math.Max(0, capture.TargetX - capture.ValleyX);
+            if (yPx < 2)
+            {
+                progress?.Report($"LUT 按 Y 扩展跳过：Y={yPx}（TargetX−ValleyX）过小");
+                _logger.Info($"LUT 按 Y 扩展跳过：Y={yPx}");
+                return;
+            }
+
+            var leftFactor = Math.Max(0, settings.LutExpandLeftYFactor);
+            var rightFactor = Math.Max(0, settings.LutExpandRightYFactor);
+            if (leftFactor <= 0 && rightFactor <= 0)
+            {
+                progress?.Report("LUT 按 Y 扩展跳过：左右扩展因子均为 0");
+                _logger.Info("LUT 按 Y 扩展跳过：因子均为 0");
+                return;
+            }
+
+            // 与 2c 一致：中点对齐后两端 = 标定坐标 + (Target − mid)
+            var midX = (point1X + point2X) / 2;
+            var deltaX = targetX - midX;
+
+            int leftX;
+            int leftY;
+            int rightX;
+            int rightY;
+            if (point1X <= point2X)
+            {
+                leftX = point1X + deltaX;
+                leftY = point1Y;
+                rightX = point2X + deltaX;
+                rightY = point2Y;
+            }
+            else
+            {
+                leftX = point2X + deltaX;
+                leftY = point2Y;
+                rightX = point1X + deltaX;
+                rightY = point1Y;
+            }
+
+            var leftShift = (int)Math.Round(leftFactor * yPx);
+            var rightShift = (int)Math.Round(rightFactor * yPx);
+            var leftEndX = leftX - leftShift;
+            var rightEndX = rightX + rightShift;
+
+            // 钳制在直方图 ROI 左右边界内（留 1px 边距）
+            var roiMinX = capture.RoiX + 1;
+            var roiMaxX = capture.RoiX + Math.Max(2, capture.RoiWidth) - 2;
+            leftEndX = Math.Clamp(leftEndX, roiMinX, roiMaxX);
+            rightEndX = Math.Clamp(rightEndX, roiMinX, roiMaxX);
+
+            if (leftEndX >= rightEndX)
+            {
+                progress?.Report(
+                    $"LUT 按 Y 扩展跳过：钳制后左右端点交叉或重合（左={leftEndX}, 右={rightEndX}）");
+                _logger.Warn(
+                    $"LUT 按 Y 扩展跳过：钳制后交叉 left={leftEndX} right={rightEndX} " +
+                    $"Y={yPx} L×{leftFactor} R×{rightFactor}");
+                return;
+            }
+
+            progress?.Report(
+                $"LUT 按 Y 扩展（{polarity}）：Y={yPx}=Target({capture.TargetX})−Valley({capture.ValleyX})，" +
+                $"左×{leftFactor}→Δ{leftShift}px，右×{rightFactor}→Δ{rightShift}px；" +
+                $"左 ({leftX},{leftY})→({leftEndX},{leftY})，右 ({rightX},{rightY})→({rightEndX},{rightY})");
+            _logger.Info(
+                $"LUT 按 Y 扩展（{polarity}）：Y={yPx} LFactor={leftFactor} RFactor={rightFactor} " +
+                $"left {leftX}→{leftEndX} right {rightX}→{rightEndX} ROI=[{roiMinX},{roiMaxX}]");
+
+            await DragLutEndpointHorizontallyAsync(
+                    leftX,
+                    leftY,
+                    leftEndX,
+                    cancellationToken,
+                    progress,
+                    "左下")
+                .ConfigureAwait(false);
+
+            await DragLutEndpointHorizontallyAsync(
+                    rightX,
+                    rightY,
+                    rightEndX,
+                    cancellationToken,
+                    progress,
+                    "右上")
+                .ConfigureAwait(false);
+
+            var midAfter = (leftEndX + rightEndX) / 2;
+            progress?.Report(
+                $"LUT 按 Y 扩展完成（{polarity}）：终态中点X={midAfter}（红线目标={targetX}，" +
+                $"因左右非对称扩展中点可偏离约 {(rightShift - leftShift) / 2.0:F1}px）");
+        }
+
+        /// <summary>
+        /// 将单个 LUT 控制点水平拖到目标 X（保持 Y 不变）。
+        /// </summary>
+        private async Task DragLutEndpointHorizontallyAsync(
+            int startX,
+            int startY,
+            int endX,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress,
+            string pointLabel)
+        {
+            var sx = (short)Math.Clamp(startX, short.MinValue, short.MaxValue);
+            var ex = (short)Math.Clamp(endX, short.MinValue, short.MaxValue);
+            var y = (short)Math.Clamp(startY, short.MinValue, short.MaxValue);
+
+            if (Math.Abs(ex - sx) < 2)
+            {
+                progress?.Report($"LUT {pointLabel}端点已接近目标（ΔX={ex - sx}），跳过拖拽");
+                return;
+            }
+
+            var path = HistogramGrayScaleAnalyzer.BuildHorizontalDragPath(sx, y, ex);
+            progress?.Report($"拖拽 LUT {pointLabel}端点：({sx},{y}) → ({ex},{y})，路径点 {path.Count}");
+            _logger.Info($"拖拽 LUT {pointLabel}端点：({sx},{y}) → ({ex},{y})");
+
+            Unlock();
+            try
+            {
+                await Task.Delay(80, cancellationToken).ConfigureAwait(false);
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    MouseSimulationHelper.MouseDragPressMoveRelease(
+                        _simulator,
+                        MouseButton.Button1,
+                        path,
+                        stepDelayMs: 4);
+                }).ConfigureAwait(false);
+                await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Lock();
+            }
         }
 
         /// <summary>

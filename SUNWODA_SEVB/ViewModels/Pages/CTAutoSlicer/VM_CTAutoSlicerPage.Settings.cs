@@ -155,6 +155,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(LutSegmentPoint1YNegative));
             OnPropertyChanged(nameof(LutSegmentPoint2XNegative));
             OnPropertyChanged(nameof(LutSegmentPoint2YNegative));
+            LutExpandLeftYFactor = LoadDoubleSetting(nameof(LutExpandLeftYFactor), 2.0);
+            LutExpandRightYFactor = LoadDoubleSetting(nameof(LutExpandRightYFactor), 3.0);
+            _lutExpandLeftYFactorText = null;
+            _lutExpandRightYFactorText = null;
+            OnPropertyChanged(nameof(LutExpandLeftYFactorText));
+            OnPropertyChanged(nameof(LutExpandRightYFactorText));
             RefreshLutSegmentPointsDisplay();
             RefreshHistogramRoiDisplay();
             RefreshMaskColorBrush();
@@ -674,6 +680,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 LutSegmentPoint2XNegative = LutSegmentPoint2XNegative,
                 LutSegmentPoint2YNegative = LutSegmentPoint2YNegative,
                 LutSegmentPointsCalibratedNegative = _lutSegmentPointsCalibratedNegative,
+                LutExpandLeftYFactor = LutExpandLeftYFactor,
+                LutExpandRightYFactor = LutExpandRightYFactor,
                 VisionCaptureDir = VisionCaptureDir,
                 VisionCaptureKeepDays = CTAutoSlicerSettings.DefaultCaptureKeepDays,
                 Vision2dVectorCaptureDir = Vision2dVectorCaptureDir,

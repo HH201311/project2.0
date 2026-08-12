@@ -127,7 +127,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         namingSourcePath: namingSource)
                     .ConfigureAwait(false);
 
-                progress?.Report("直方图灰度调整单步测试完成（截图+峰谷+拖红线+LUT中点对齐）");
+                progress?.Report("直方图灰度调整单步测试完成（截图+峰谷+拖红线+LUT中点对齐+按Y扩展）");
                 _logger.Info("直方图灰度单步测试完成");
             }
             finally

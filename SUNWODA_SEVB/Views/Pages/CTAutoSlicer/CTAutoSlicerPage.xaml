@@ -1046,7 +1046,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="LUT 关键段两点（正/负极）" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="两种预设折线端点位置不同，须分别标定。先在 VG 应用对应预设，再点选关键段两端控制点。运行时按文件名 -Z/-F 选用对应套，取中点水平拖到红线。未标定对应套则主流程跳过本子步。" />
+                                        Text="两种预设折线端点位置不同，须分别标定。先在 VG 应用对应预设，再点选关键段两端控制点。运行时按文件名 -Z/-F 选用对应套：中点水平拖到红线后，再按 Y=Target−Valley 非对称扩展两端（左×因子、右×因子）。未标定对应套则主流程跳过本子步。" />
 
                                     <TextBlock Margin="0,4,0,8" FontWeight="SemiBold" Text="正极（-Z / testlut_Z）" />
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -1114,6 +1114,39 @@
                                             Content="标定负极 LUT 两点"
                                             IsEnabled="{Binding IsEnableSimulationBtn}"
                                             ToolTip="先应用负极预设 testlut_F → 依次点选关键段两端；右键/Esc 取消" />
+                                    </WrapPanel>
+
+                                    <TextBlock Margin="0,8,0,8" FontWeight="SemiBold" Text="按峰谷尺度扩展（第三步）" />
+                                    <TextBlock
+                                        Style="{StaticResource CasFormSectionDescStyle}"
+                                        Text="Y = 红线目标列 − 左侧波谷列。中点对齐红线后：左下端点再向左移「左×Y」，右上端点再向右移「右×Y」。可填小数（如 1.5、2.75）；设为 0 可关闭对应侧扩展。" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <hc:TextBox
+                                            Width="120"
+                                            Margin="0,0,8,8"
+                                            hc:InfoElement.Title="左×Y"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            ToolTip="左下端点向左移动的 Y 倍数，默认 2，可填小数如 1.5">
+                                            <hc:TextBox.Text>
+                                                <Binding
+                                                    Path="LutExpandLeftYFactorText"
+                                                    UpdateSourceTrigger="PropertyChanged"
+                                                    Mode="TwoWay" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
+                                        <hc:TextBox
+                                            Width="120"
+                                            Margin="0,0,8,8"
+                                            hc:InfoElement.Title="右×Y"
+                                            hc:InfoElement.TitlePlacement="Left"
+                                            ToolTip="右上端点向右移动的 Y 倍数，默认 3，可填小数如 2.5">
+                                            <hc:TextBox.Text>
+                                                <Binding
+                                                    Path="LutExpandRightYFactorText"
+                                                    UpdateSourceTrigger="PropertyChanged"
+                                                    Mode="TwoWay" />
+                                            </hc:TextBox.Text>
+                                        </hc:TextBox>
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>

@@ -123,6 +123,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _lutSegmentPoint2YNegative;
         private bool _lutSegmentPointsCalibratedNegative;
         private string _lutSegmentPointsDisplayTextNegative = "未标定";
+        private double _lutExpandLeftYFactor = 2.0;
+        private double _lutExpandRightYFactor = 3.0;
+        private string? _lutExpandLeftYFactorText;
+        private string? _lutExpandRightYFactorText;
         private System.Windows.Media.Brush _histogramMaskColorBrush =
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6E, 0x6E, 0x6E));
         private int _vision3dRoiX;
@@ -1433,6 +1437,115 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             get => _lutSegmentPointsDisplayTextNegative;
             private set => SetProperty(ref _lutSegmentPointsDisplayTextNegative, value);
+        }
+
+        /// <summary>LUT 按峰谷 Y 扩展：左端点向左倍数（默认 2）</summary>
+        public double LutExpandLeftYFactor
+        {
+            get => _lutExpandLeftYFactor;
+            set
+            {
+                var clamped = Math.Max(0, value);
+                if (SetProperty(ref _lutExpandLeftYFactor, clamped))
+                {
+                    _lutExpandLeftYFactorText = null;
+                    SaveDoubleSetting(nameof(LutExpandLeftYFactor), clamped);
+                    OnPropertyChanged(nameof(LutExpandLeftYFactorText));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 左×Y 界面编辑（字符串）：支持小数点与逗号，合法数值才写回 <see cref="LutExpandLeftYFactor"/>。
+        /// </summary>
+        public string LutExpandLeftYFactorText
+        {
+            get => _lutExpandLeftYFactorText
+                ?? _lutExpandLeftYFactor.ToString("G", CultureInfo.InvariantCulture);
+            set
+            {
+                if (SetProperty(ref _lutExpandLeftYFactorText, value))
+                {
+                    TryCommitLutExpandYFactorText(
+                        value,
+                        ref _lutExpandLeftYFactor,
+                        nameof(LutExpandLeftYFactor));
+                }
+            }
+        }
+
+        /// <summary>LUT 按峰谷 Y 扩展：右端点向右倍数（默认 3）</summary>
+        public double LutExpandRightYFactor
+        {
+            get => _lutExpandRightYFactor;
+            set
+            {
+                var clamped = Math.Max(0, value);
+                if (SetProperty(ref _lutExpandRightYFactor, clamped))
+                {
+                    _lutExpandRightYFactorText = null;
+                    SaveDoubleSetting(nameof(LutExpandRightYFactor), clamped);
+                    OnPropertyChanged(nameof(LutExpandRightYFactorText));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 右×Y 界面编辑（字符串）：支持小数点与逗号，合法数值才写回 <see cref="LutExpandRightYFactor"/>。
+        /// </summary>
+        public string LutExpandRightYFactorText
+        {
+            get => _lutExpandRightYFactorText
+                ?? _lutExpandRightYFactor.ToString("G", CultureInfo.InvariantCulture);
+            set
+            {
+                if (SetProperty(ref _lutExpandRightYFactorText, value))
+                {
+                    TryCommitLutExpandYFactorText(
+                        value,
+                        ref _lutExpandRightYFactor,
+                        nameof(LutExpandRightYFactor));
+                }
+            }
+        }
+
+        /// <summary>尝试提交左右扩展因子文本；中间态（如「2.」）不强制回滚。</summary>
+        private void TryCommitLutExpandYFactorText(
+            string? text,
+            ref double backingField,
+            string valuePropName)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            var raw = text.Trim().Replace(',', '.');
+            if (raw is "." or "-" or "-." || raw.EndsWith('.'))
+            {
+                return;
+            }
+
+            if (!double.TryParse(
+                    raw,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var parsed)
+                || parsed < 0
+                || double.IsNaN(parsed)
+                || double.IsInfinity(parsed))
+            {
+                return;
+            }
+
+            if (Math.Abs(backingField - parsed) < 1e-15)
+            {
+                return;
+            }
+
+            backingField = parsed;
+            SaveDoubleSetting(valuePropName, parsed);
+            OnPropertyChanged(valuePropName);
         }
 
         public int Vision3dRoiX

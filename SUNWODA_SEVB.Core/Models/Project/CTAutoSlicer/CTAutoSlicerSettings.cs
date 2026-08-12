@@ -641,6 +641,17 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>负极 LUT 关键段两端点是否已标定</summary>
         public bool LutSegmentPointsCalibratedNegative { get; set; }
 
+        /// <summary>
+        /// LUT 关键段按峰谷尺度扩展：左端点向左移动的 Y 倍数（默认 2）。
+        /// Y = TargetX − ValleyX（ROI 列距，与屏幕拖拽像素 1:1）。
+        /// </summary>
+        public double LutExpandLeftYFactor { get; set; } = 2.0;
+
+        /// <summary>
+        /// LUT 关键段按峰谷尺度扩展：右端点向右移动的 Y 倍数（默认 3）。
+        /// </summary>
+        public double LutExpandRightYFactor { get; set; } = 3.0;
+
         /// <summary>正极 LUT 关键段两端点是否可用</summary>
         public bool HasLutSegmentPointsPositive =>
             LutSegmentPointsCalibratedPositive

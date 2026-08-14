@@ -44,6 +44,27 @@
                         FloderText="{Binding ItemSource.SavePathOfCCD, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         PickerContent="更改" />
                 </uccc:PairContentControl>
+                <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据中转（一人多机）" />
+                <uccc:PairContentControl PairKeyText="PLC数据中转是否开启" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.DataTransferOfOpmmPLCDataEnable, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <uccc:PairContentControl PairKeyText="CCD数据中转是否开启" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.DataTransferOfOpmmCCDDataEnable, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
+                <uccc:PairContentControl PairKeyText="测厚仪数据中转是否开启" Style="{StaticResource PPairContentControlStyle}">
+                    <uccc:SimpleToggleButton
+                        d:IsChecked="True"
+                        IsChecked="{Binding ItemSource.DataTransferOfOpmmWeightDataEnable, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
+                </uccc:PairContentControl>
             </StackPanel>
         </ScrollViewer>
 

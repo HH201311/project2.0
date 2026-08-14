@@ -31,7 +31,7 @@ using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
 {
-    [Module("VM_AdjustmentRecordPage", "调机动作", Order = 2, Category = "VM_CCTBRecordsPage/VM_AdjustmentRecordPage")]
+    [Module("VM_AdjustmentRecordPage", "调机记录", Order = 2, Category = "VM_CCTBRecordsPage/VM_AdjustmentRecordPage")]
     class VM_AdjustmentRecordPage : ViewModelBase
     {
         private readonly ILoggerService<VM_AdjustmentRecordPage> _logger;
@@ -63,9 +63,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         public ICommand? GotoPageCommand => new RelayCommand(OnGotoPageAsync);
 
         /// <summary>
-        /// 展示信息
+        /// 展示信息-泵速调机
         /// </summary>
-        public ICommand? ShowMessageCommand => new RelayCommand(OnShowMessageAsync);
+        public ICommand? ShowBMessageCommand => new RelayCommand(OnShowBMessageAsync);
+
+        /// <summary>
+        /// 展示信息-T块调机
+        /// </summary>
+        public ICommand? ShowTMessageCommand => new RelayCommand(OnShowTMessageAsync);
 
         /// <summary>
         /// 构造函数
@@ -104,6 +109,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// </summary>
         private async void OnQueryAsync()
         {
+            _logger.UserInfo($"用户点击了 调机记录/查询 按钮！");
             var records = await _appLogRepository.GetAdjustmentRecordsPagedAsync(1, PageSize, StartDate, EndDate);
             _ = VM_CCTBMessageBoxDialog.InfoAsync($"已查询到[{records.Total}]条数据！", "提示");
             RefreshRecordInfo(1, records);
@@ -118,6 +124,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             try
             {
+                _logger.UserInfo($"用户点击了 调机记录/导出当前页 按钮！");
                 if (Records.Count == 0)
                 {
                     await VM_CCTBMessageBoxDialog.InfoAsync("查询到0条数据，已停止导出！", "提示");
@@ -170,6 +177,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             try
             {
+                _logger.UserInfo($"用户点击了 调机记录/导出当前查询 按钮！");
                 var count = await _appLogRepository.GetAdjustmentRecordsCountAsync(startDateCache, endDateCache);
                 if (count == 0)
                 {
@@ -211,7 +219,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
                                   var records = await _appLogRepository.GetAdjustmentRecordsPagedAsync(i + 1, PageSize, startDateCache, endDateCache);
                                   for (int j = 0; j < records.Items.Count; j++)
                                   {
-                                      var record = ConvertToRecord(records.Items[j]);
+                                      var record = AdjustmentRecordModel.ConvertToRecord(records.Items[j]);
                                       record.ID = i * PageSize + j + 1;
                                       rows.Add(ConvertToDic(record));
                                   }
@@ -248,18 +256,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             if (!(arg is int pageNumber)) return;
             LoadRecordsAsync(pageNumber);
+            _logger.UserInfo($"用户切换了当前界面 调机记录 页码[{CurrentPageNumber} => {pageNumber}]!");
         }
 
         /// <summary>
         /// 当点击信息时触发
         /// </summary>
         /// <param name="arg"></param>
-        private async void OnShowMessageAsync(object? arg)
+        private async void OnShowBMessageAsync(object? arg)
         {
-            if (!(arg is string message)) return;
-            if (string.IsNullOrEmpty(message)) return;
+            if (!(arg is AdjustmentRecordModel record)) return;
+            if (record == null) return;
+            var message = record.BAdjustOffsetsDisplay;
 
-            await VM_CCTBMessageBoxDialog.InfoAsync(message, "调机动作记录");
+            await VM_CCTBMessageBoxDialog.InfoAsync(message, "泵速调机动作记录");
+        }
+
+        /// <summary>
+        /// 当点击信息时触发
+        /// </summary>
+        /// <param name="arg"></param>
+        private async void OnShowTMessageAsync(object? arg)
+        {
+            if (!(arg is AdjustmentRecordModel record)) return;
+            if (record == null) return;
+            var message = record.TAdjustOffsetsDisplay;
+
+            await VM_CCTBMessageBoxDialog.InfoAsync(message, "T快调机动作记录");
         }
 
         #region 系统操作日志记录
@@ -345,34 +368,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
 
             for (int i = 0; i < records.Items.Count; i++)
             {
-                var record = ConvertToRecord(records.Items[i]);
+                var record = AdjustmentRecordModel.ConvertToRecord(records.Items[i]);
                 record.ID = (pageNumber - 1) * PageSize + i + 1;
                 Records.Add(record);
             }
 
             SelectedRecord = Records.FirstOrDefault();
-        }
-
-        private AdjustmentRecordModel ConvertToRecord(AppLogModel log)
-        {
-            AdjustmentRecordModel? record;
-            try
-            {
-                record = JsonConvert.DeserializeObject<AdjustmentRecordModel>(log.Message);
-            }
-            catch
-            {
-                record = null;
-            }
-
-            if (record == null)
-            {
-                record = new AdjustmentRecordModel();
-                record.AdjustMode = "DeserializeObjectError";
-            }
-            record.RecordTime = log.LogTime;
-
-            return record;
         }
 
         /// <summary>
@@ -384,7 +385,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             var result = new Dictionary<string, string>();
             result["排序"] = record.ID.ToString();
-            result["调机模式"] = record.AdjustMode ?? string.Empty;
+            result["调机模式"] = record.AdjustDescripation;
             result["T块当前位置"] = record.TPositions?.Count > 0 ? string.Join(',', record.TPositions) : string.Empty;
             result["T块调整偏移量"] = record.TAdjustOffsets?.Count > 0 ? string.Join(',', record.TAdjustOffsets) : string.Empty;
             result["泵速当前位置"] = record.BPositions?.Count > 0 ? string.Join(',', record.BPositions) : string.Empty;

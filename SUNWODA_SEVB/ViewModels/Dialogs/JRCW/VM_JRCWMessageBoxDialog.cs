@@ -121,7 +121,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW
                     CloseAction?.Invoke();
                 });
             }
-            catch (Exception ex)
+            catch
             {
                 timer?.Stop();
                 // 执行关闭操作

@@ -26,7 +26,8 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             _runningTasks = new Dictionary<EBusinessType, Task>();
 
             // 在管理器构造时完成注册
-            _factory.RegisterService<YWC05BusinessService>(EBusinessType.BusinessType1);
+            _factory.RegisterService<YWC05BusinessService>();
+            _factory.RegisterService<DYC04BusinessService>();
         }
 
         /// <summary>

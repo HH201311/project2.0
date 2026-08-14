@@ -95,8 +95,23 @@ namespace SUNWODA_SEVB.Core.Models.Web
     /// <summary>
     /// 库文件.dll下载接口响应
     /// </summary>
-    public class DownloadDllResponse : BaseResponse
+    public class DownloadDllResponse
     {
+        [JsonPropertyName("code")]
+        public string? Code { get; set; }
+
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
+
+        [JsonPropertyName("success")]
+        public bool IsSuccess { get; set; }
+
+        /// <summary>
+        /// 接收到的字节流文件数据
+        /// </summary>
+        [JsonPropertyName("data")]
+        public string? Data { get; set; }
+
         /// <summary>
         /// 接收到的字节流文件数据
         /// </summary>

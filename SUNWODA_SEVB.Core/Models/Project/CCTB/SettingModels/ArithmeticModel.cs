@@ -17,6 +17,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
     {
         private bool isEnable;
         private string algorithmName = string.Empty;
+        private string algorithmName1 = string.Empty;
 
         /// <summary>
         /// 请求调用的接口用户Key，由Web组提供
@@ -47,10 +48,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         public string AlgorithmName { get => algorithmName; set => SetProperty(ref algorithmName, value); }
 
         /// <summary>
-        /// 算法类型
+        /// 文件配置编码:由Web组提供
         /// </summary>
-        [JsonIgnore]
-        public EAlgorithmType AlgorithmType { get; set; }
+        public string AlgorithmName1 { get => algorithmName1; set => SetProperty(ref algorithmName1, value); }
 
         /// <summary>
         /// 获取算法类型
@@ -60,18 +60,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
-        public static EAlgorithmType GetEAlgorithmType(EClosedLoopType closedLoopType, string algorithmName)
+        public static EAlgorithmType GetEAlgorithmType(EClosedLoopType closedLoopType, string algorithmName, int code = 0)
         {
             switch (closedLoopType)
             {
                 case EClosedLoopType.MD:
                     {
                         if (algorithmName is null) throw new ArgumentNullException(nameof(algorithmName), "算法名称不能为空");
-                        var isMatch = Regex.Match(algorithmName, @"^.*_FLU_.*$");
-                        if (isMatch.Success) return EAlgorithmType.流量PID;
-                        isMatch = Regex.Match(algorithmName, @"^.*PID_.*$");
-                        if (isMatch.Success) return EAlgorithmType.专家PID;
-                        return EAlgorithmType.Unknown;
+                        if (code == 0) return EAlgorithmType.专家PID;
+                        else if (code == 1) return EAlgorithmType.流量PID;
+                        else return EAlgorithmType.Unknown;
                     }
                 case EClosedLoopType.TD:
                     {

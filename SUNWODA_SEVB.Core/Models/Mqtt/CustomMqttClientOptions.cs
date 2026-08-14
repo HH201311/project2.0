@@ -79,7 +79,7 @@ namespace SUNWODA_SEVB.Core.Models.Mqtt
     {
         private string? ipAddress = "localhost";
         private int port = 1883;
-        private string? clientId = Guid.NewGuid().ToString("N");
+        private string? clientId = "ime";
         private int connectTimeout = 5000;
         private string? userName = "ime";
         private string? password = "123456";

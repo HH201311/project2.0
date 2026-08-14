@@ -31,6 +31,18 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
 
         protected override async Task ExecuteAsync(CancellationToken ct)
         {
+            try
+            {
+                // 等待数据库初始化完成
+                await App.DatabaseInitTask;
+            }
+            catch (Exception ex)
+            {
+                // 初始化失败
+                _logger.Error($"数据库初始化失败,已退出通讯监控服务！", ex);
+                return;
+            }
+
             // 如果不是CCTB项目，则退出
             var appStartMainWindow = _globalSettingRepository.GetSettingValue("AppStartMainWindow");
             if (appStartMainWindow != "CCTBMainWindow") return;

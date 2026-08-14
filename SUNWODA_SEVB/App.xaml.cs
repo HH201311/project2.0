@@ -47,6 +47,14 @@ namespace SUNWODA_SEVB
                 "WatchDogService\\SUNWODA_SEVB.WatchDogService.exe"
             );
 
+        // 数据库初始化完成信号
+        private static readonly TaskCompletionSource<bool> _databaseInitTcs = new();
+
+        /// <summary>
+        /// 数据库初始化任务
+        /// </summary>
+        public static Task DatabaseInitTask => _databaseInitTcs.Task;
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -62,17 +70,22 @@ namespace SUNWODA_SEVB
                 // 步骤2：启动Host
                 await _host.StartAsync();
 
+                // *** 在这里初始化Core项目的服务定位器 ***
+                Core.Common.Services.ServiceLocator.Initialize(_host.Services);
+
                 var appLogger = _host.Services.GetRequiredService<ILoggerService<App>>();
 
                 // 步骤3：初始化数据库（核心步骤，必须首先完成）
                 if (!await InitializeDatabaseWithRetry(appLogger))
                 {
+                    _databaseInitTcs.TrySetResult(false);
                     await ShowErrorAndExit("数据库初始化失败！请检查连接配置。");
                     return;
                 }
 
                 // 步骤4：配置NLog数据库目标（数据库就绪后）
                 await ConfigureNLogDatabase(appLogger);
+                _databaseInitTcs.TrySetResult(true);
 
                 // 步骤5：初始化应用设置(账户、项目)
                 await InitializeApplicationSettings(appLogger);
@@ -703,7 +716,7 @@ namespace SUNWODA_SEVB
             {
                 logger?.Error($"CTOL环境初始化失败: {ex.Message}", ex);
             }
-            
+
         }
 
         /// <summary>
@@ -775,6 +788,8 @@ namespace SUNWODA_SEVB
             }
 
             Shutdown();
+            Process.GetCurrentProcess().Kill();
+            Environment.Exit(0);
             Environment.Exit(1);
         }
 
@@ -794,6 +809,9 @@ namespace SUNWODA_SEVB
                 // 取消后台任务
                 _shutdownCts.Cancel();
                 _logCleanupTimer.Stop();
+
+                // 停止python环境
+                _ = Task.Run(() => { PythonConfigHelper.Stop(); });
 
                 var appLogger = _host?.Services?.GetService<ILoggerService<App>>();
 

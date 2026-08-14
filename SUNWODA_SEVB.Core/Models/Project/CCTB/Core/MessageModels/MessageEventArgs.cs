@@ -12,6 +12,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels
     /// <typeparam name="T"></typeparam>
     public class MessageEventArgs<T> : EventArgs where T : class
     {
+        /// <summary>
+        /// 自定义标识
+        /// </summary>
+        public string? Tag { get; set; }
+
+        /// <summary>
+        /// 消息
+        /// </summary>
         public T? Message { get; set; }
     }
 }

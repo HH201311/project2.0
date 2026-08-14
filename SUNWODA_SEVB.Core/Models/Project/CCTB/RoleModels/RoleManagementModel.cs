@@ -24,8 +24,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels
         /// 构造函数
         /// </summary>
         public RoleManagementModel(string? code, string? name,
-            EUserPermission guestPermission = EUserPermission.ReadOnly,
-            EUserPermission engineerPermission = EUserPermission.ReadAndEdit,
+            EUserPermission guestPermission = EUserPermission.NoPermission,
+            EUserPermission engineerPermission = EUserPermission.ReadOnly,
             EUserPermission adminPermission = EUserPermission.ReadAndEdit)
         {
             this.code = code;
@@ -37,8 +37,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels
 
         private string? code;
         private string? name;
-        private EUserPermission guestPermission = EUserPermission.ReadOnly;
-        private EUserPermission engineerPermission = EUserPermission.ReadAndEdit;
+        private EUserPermission guestPermission = EUserPermission.NoPermission;
+        private EUserPermission engineerPermission = EUserPermission.ReadOnly;
         private EUserPermission adminPermission = EUserPermission.ReadAndEdit;
         private EUserPermission sadminPermission = EUserPermission.ReadAndEdit;
 
@@ -50,6 +50,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels
         /// <summary>
         /// 管理模块名称
         /// </summary>
+        [JsonIgnore]
         public string? Name { get => name; set => SetProperty(ref name, value); }
 
         /// <summary>

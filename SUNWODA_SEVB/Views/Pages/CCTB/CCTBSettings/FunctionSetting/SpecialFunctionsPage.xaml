@@ -38,6 +38,7 @@
                     x:Name="IndexCalculationRB"
                     d:IsChecked="True"
                     Command="{Binding ControlPageNavigateCommand}"
+                    CommandParameter="指标计算"
                     Content="指标计算"
                     IsChecked="{Binding ControlPageName, Mode=TwoWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='ICFunctionControl'}"
                     Style="{StaticResource TabNavigationRadioButtonStyle}" />
@@ -45,6 +46,7 @@
                     x:Name="InterfaceSettingsRB"
                     d:IsChecked="False"
                     Command="{Binding ControlPageNavigateCommand}"
+                    CommandParameter="界面设置"
                     Content="界面设置"
                     IsChecked="{Binding ControlPageName, Mode=TwoWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='ISFunctionControl'}"
                     Style="{StaticResource TabNavigationRadioButtonStyle}" />

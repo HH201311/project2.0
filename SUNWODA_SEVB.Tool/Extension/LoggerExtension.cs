@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Enumerations.Logging;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.RecordModels;
@@ -108,109 +109,258 @@ namespace SUNWODA_SEVB.Tool.Extension
         #region 调机动作日志记录扩展
         public const string AdjustmentLog = "AdjustmentLog";
 
-        public static void AdjustmentInfo<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AdjustmentInfo<T>(this ILoggerService<T> logger,
+        /// <summary>
+        /// 泵速调机推荐动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="passCount"></param>
+        /// <param name="positions"></param>
+        /// <param name="adjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AdjustmentBRecommend<T>(this ILoggerService<T> logger,
             ESideType sideType,
-            string adjustMode,
-            int passCount,
-            List<float> tPositions,
-            List<float> tAdjustOffsets,
-            List<float> bPositions,
-            List<float> bAdjustOffsets,
+            EClosedLoopType closedLoopType,
+            float passCount,
+            List<float> positions,
+            List<float> adjustOffsets,
             bool isToDatabase = true,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            var record = new AdjustmentRecordModel()
-            {
-                SideType = sideType,
-                AdjustMode = adjustMode,
-                PassCount = passCount,
-                TPositions = tPositions,
-                TAdjustOffsets = tAdjustOffsets,
-                BPositions = bPositions,
-                BAdjustOffsets = bAdjustOffsets
-            };
-            var message = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AdjustmentLog, message, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
+            logger.AdjustmentInfo(sideType, closedLoopType, 0, passCount, positions, adjustOffsets, new List<int>(), new List<int>(), isToDatabase, memberName, filePath, lineNumber);
+        }
+
+        /// <summary>
+        /// 泵速调机成功动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="passCount"></param>
+        /// <param name="positions"></param>
+        /// <param name="adjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AdjustmentBSuccess<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            EClosedLoopType closedLoopType,
+            float passCount,
+            List<float> positions,
+            List<float> adjustOffsets,
+            bool isToDatabase = true,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+        {
+            logger.AdjustmentInfo(sideType, closedLoopType, 1, passCount, positions, adjustOffsets, new List<int>(), new List<int>(), isToDatabase, memberName, filePath, lineNumber);
+        }
+
+        /// <summary>
+        /// 泵速调机失败动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="passCount"></param>
+        /// <param name="positions"></param>
+        /// <param name="adjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AdjustmentBFailed<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            EClosedLoopType closedLoopType,
+            float passCount,
+            List<float> positions,
+            List<float> adjustOffsets,
+            bool isToDatabase = true,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+        {
+            logger.AdjustmentInfo(sideType, closedLoopType, 2, passCount, positions, adjustOffsets, new List<int>(), new List<int>(), isToDatabase, memberName, filePath, lineNumber);
+        }
+
+        /// <summary>
+        /// T块调机推荐动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="passCount"></param>
+        /// <param name="positions"></param>
+        /// <param name="adjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AdjustmentTRecommend<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            EClosedLoopType closedLoopType,
+            float passCount,
+            List<int> positions,
+            List<int> adjustOffsets,
+            bool isToDatabase = true,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+        {
+            logger.AdjustmentInfo(sideType, closedLoopType, 0, passCount, new List<float>(), new List<float>(), positions, adjustOffsets, isToDatabase, memberName, filePath, lineNumber);
+        }
+
+        /// <summary>
+        /// T块调机成功动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="passCount"></param>
+        /// <param name="positions"></param>
+        /// <param name="adjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AdjustmentTSuccess<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            EClosedLoopType closedLoopType,
+            float passCount,
+            List<int> positions,
+            List<int> adjustOffsets,
+            bool isToDatabase = true,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+        {
+            logger.AdjustmentInfo(sideType, closedLoopType, 1, passCount, new List<float>(), new List<float>(), positions, adjustOffsets, isToDatabase, memberName, filePath, lineNumber);
+        }
+
+        /// <summary>
+        /// T块调机失败动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="passCount"></param>
+        /// <param name="positions"></param>
+        /// <param name="adjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AdjustmentTFailed<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            EClosedLoopType closedLoopType,
+            float passCount,
+            List<int> positions,
+            List<int> adjustOffsets,
+            bool isToDatabase = true,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+        {
+            logger.AdjustmentInfo(sideType, closedLoopType, 2, passCount, new List<float>(), new List<float>(), positions, adjustOffsets, isToDatabase, memberName, filePath, lineNumber);
+        }
+
+        /// <summary>
+        /// 调机动作日志记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="sideType"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="adjustModel"></param>
+        /// <param name="passCount"></param>
+        /// <param name="bPositions"></param>
+        /// <param name="bAdjustOffsets"></param>
+        /// <param name="tPositions"></param>
+        /// <param name="tAdjustOffsets"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        private static void AdjustmentInfo<T>(this ILoggerService<T> logger,
+            ESideType sideType,
+            EClosedLoopType closedLoopType,
+            int adjustModel,
+            float passCount,
+            List<float> bPositions,
+            List<float> bAdjustOffsets,
+            List<int> tPositions,
+            List<int> tAdjustOffsets,
+            bool isToDatabase = true,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+        {
+            var record = new AdjustmentRecordModel();
+            record.SideType = sideType;
+            record.ClosedLoopType = closedLoopType;
+            record.AdjustModel = adjustModel;
+            record.PassCount = passCount;
+            record.BPositions = bPositions;
+            record.BAdjustOffsets = bAdjustOffsets;
+            record.TPositions = tPositions;
+            record.TAdjustOffsets = tAdjustOffsets;
+            var msg = JsonConvert.SerializeObject(record);
+            logger.LogToSpecialFile(AdjustmentLog, msg, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
         }
         #endregion
 
         #region 报警日志记录扩展
         public const string AlarmLog = "AlarmLog";
 
-        public static void AlarmTrace<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
+        /// <summary>
+        /// 报警记录
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="logger"></param>
+        /// <param name="code"></param>
+        /// <param name="message"></param>
+        /// <param name="isToDatabase"></param>
+        /// <param name="memberName"></param>
+        /// <param name="filePath"></param>
+        /// <param name="lineNumber"></param>
+        public static void AlarmRecord<T>(this ILoggerService<T> logger,
+            string code,
+            string message,
+            bool isToDatabase = true,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
         {
-            var record = new AlarmRecordModel();
-            record.AlarmMessage = message;
-            var msg = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Trace, isToDatabase, memberName, filePath, lineNumber);
-        }
+            var ac = CCTBCore.AlarmConfigs.FirstOrDefault(o => o.Code == code);
+            var level = ac?.Level switch
+            {
+                EAlarmLevel.一般 => CoreLogLevel.Warn,
+                EAlarmLevel.中等 => CoreLogLevel.Error,
+                EAlarmLevel.严重 => CoreLogLevel.Fatal,
+                _ => CoreLogLevel.Info
+            };
 
-        public static void AlarmDebug<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
             var record = new AlarmRecordModel();
+            record.Code = code;
             record.AlarmMessage = message;
             var msg = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Debug, isToDatabase, memberName, filePath, lineNumber);
-        }
+            logger.LogToSpecialFile(AlarmLog, msg, level, isToDatabase, memberName, filePath, lineNumber);
 
-        public static void AlarmInfo<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            var record = new AlarmRecordModel();
-            record.AlarmMessage = message;
-            var msg = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Info, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AlarmWarn<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            var record = new AlarmRecordModel();
-            record.AlarmMessage = message;
-            var msg = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Warn, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AlarmError<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            var record = new AlarmRecordModel();
-            record.AlarmMessage = message;
-            var msg = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Error, isToDatabase, memberName, filePath, lineNumber);
-        }
-
-        public static void AlarmFatal<T>(this ILoggerService<T> logger, string message, bool isToDatabase = true,
-            [CallerMemberName] string memberName = "",
-            [CallerFilePath] string filePath = "",
-            [CallerLineNumber] int lineNumber = 0)
-        {
-            var record = new AlarmRecordModel();
-            record.AlarmMessage = message;
-            var msg = JsonConvert.SerializeObject(record);
-            logger.LogToSpecialFile(AlarmLog, msg, CoreLogLevel.Fatal, isToDatabase, memberName, filePath, lineNumber);
+            // 弹窗
+            CCTBCore.ShowGrowAlarm(record);
         }
         #endregion
     }

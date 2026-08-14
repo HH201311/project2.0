@@ -2,7 +2,6 @@
     x:Class="SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls.CCDCommunicationControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:hc="https://handyorg.github.io/handycontrol"
@@ -21,8 +20,6 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
-            <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
 
             <!--  键值对容器样式  -->
             <Style BasedOn="{StaticResource ParamPairContentControlStyle}" TargetType="{x:Type uccc:PairContentControl}">
@@ -103,7 +100,7 @@
                 <uccc:PairContentControl PairKeyText="是否启用通讯服务">
                     <uccc:SimpleToggleButton
                         d:IsChecked="True"
-                        IsChecked="{Binding ItemSource.OPMMCCDBSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        IsChecked="{Binding ItemSource.OPMMCCDSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
                 <hc:TextBox
@@ -117,7 +114,7 @@
                 <uccc:PairContentControl PairKeyText="是否启用通讯服务">
                     <uccc:SimpleToggleButton
                         d:IsChecked="True"
-                        IsChecked="{Binding ItemSource.OPMMWeightBSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        IsChecked="{Binding ItemSource.OPMMWeightSocketClientEnabled, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                 </uccc:PairContentControl>
                 <hc:TextBox

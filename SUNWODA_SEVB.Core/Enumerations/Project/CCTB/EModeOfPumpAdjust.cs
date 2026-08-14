@@ -11,6 +11,6 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB
     /// </summary>
     public enum EModeOfPumpAdjust
     {
-        PLC, Socket
+        PLC, Network
     }
 }

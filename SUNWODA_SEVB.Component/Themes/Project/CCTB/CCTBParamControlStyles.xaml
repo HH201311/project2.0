@@ -105,6 +105,12 @@
                             <Setter Property="Opacity" Value="0.8" />
                             <Setter Property="Background" Value="#2DFFFFFF" />
                         </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.8" />
+                            <Setter Property="Background" Value="#2DFFFFFF" />
+                            <Setter Property="BorderBrush" Value="#2DFFFFFF" />
+                            <Setter Property="Foreground" Value="#2DFFFFFF" />
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -274,7 +280,6 @@
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="IsReadOnly" Value="False" />
         <Setter Property="CaretBrush" Value="#FFFFFFFF" />
-        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type uccc:AffixedTextBox}">
@@ -283,7 +288,7 @@
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="{Binding (hc:BorderElement.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                        CornerRadius="5">
                         <Grid Margin="5,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />

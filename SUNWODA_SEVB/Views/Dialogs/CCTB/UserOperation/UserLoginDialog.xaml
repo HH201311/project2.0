@@ -69,6 +69,9 @@
                 FontFamily="{StaticResource CCTB.SourceHanSansCN-Regular}"
                 FontSize="14"
                 Foreground="#99FFFFFF"
+                InputMethod.IsInputMethodEnabled="True"
+                InputMethod.PreferredImeState="Off"
+                Language="en-US"
                 Text="{Binding UserModel.Account, UpdateSourceTrigger=PropertyChanged}" />
 
             <hc:PasswordBox
@@ -98,6 +101,7 @@
                 Margin="10,0,0,0"
                 Command="{Binding ConfirmCommand}"
                 Content="登录"
+                IsDefault="True"
                 Style="{StaticResource ParamOKButtonStyle}" />
             <Button
                 Margin="10,0,0,0"

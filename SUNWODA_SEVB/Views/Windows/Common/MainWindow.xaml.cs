@@ -2,6 +2,7 @@
 using SUNWODA_SEVB.ViewModels.Windows.Common;
 //using System.Windows;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Controls.Primitives;
 
 namespace SUNWODA_SEVB.Views.Windows.Common
@@ -66,6 +67,8 @@ namespace SUNWODA_SEVB.Views.Windows.Common
                 if (canExit)
                 {
                     _isClosingConfirmed = true;
+                    Process.GetCurrentProcess().Kill();
+                    Environment.Exit(0);
                     this.Close(); // 再次触发 Close，此时会通过
                 }
             }
@@ -92,6 +95,8 @@ namespace SUNWODA_SEVB.Views.Windows.Common
             if (result == System.Windows.MessageBoxResult.Yes)
             {
                 _isClosingConfirmed = true;
+                Process.GetCurrentProcess().Kill();
+                Environment.Exit(0);
                 this.Close();
             }
         }

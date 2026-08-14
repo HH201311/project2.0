@@ -1,7 +1,9 @@
-﻿using SUNWODA_SEVB.Core.Interfaces.Mqtt;
+﻿using HslCommunication.MQTT;
+using SUNWODA_SEVB.Core.Interfaces.Mqtt;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Services.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Socket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -71,6 +73,17 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CCTB
         /// 设备状态变化时触发
         /// </summary>
         event EventHandler<DeviceStatusEventArgs> DeviceStatusChanged;
+        event EventHandler<DataReceivedEventArgs> WMSocketSererDataReceived;
+        event EventHandler<DataReceivedEventArgs> DHSocketSererDataReceived;
+        event EventHandler<DataReceivedEventArgs> CCDSocketSererDataReceived;
+        event EventHandler<ClientDataReceivedEventArgs> WMSocketClientDataReceived;
+        event EventHandler<ClientDataReceivedEventArgs> DHASocketClientDataReceived;
+        event EventHandler<ClientDataReceivedEventArgs> DHBSocketClientDataReceived;
+        event EventHandler<ClientDataReceivedEventArgs> OPMMPLCSocketClientDataReceived;
+        event EventHandler<ClientDataReceivedEventArgs> OPMMCCDSocketClientDataReceived;
+        event EventHandler<ClientDataReceivedEventArgs> OPMMWeightSocketClientDataReceived;
+        event EventHandler<MqttApplicationMessage> DHAMqttMessageReceived;
+        event EventHandler<MqttApplicationMessage> DHBMqttMessageReceived;
 
         /// <summary>
         /// 配置信息

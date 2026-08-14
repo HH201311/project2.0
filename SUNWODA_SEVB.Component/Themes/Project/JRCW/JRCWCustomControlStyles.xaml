@@ -218,13 +218,13 @@
                         <!--  选中状态  -->
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="TabBorder" Property="Background" Value="#0DFFFFFF" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            <Setter Property="Foreground" Value="#FF3DCC84" />
                             <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Bold}" />
                         </Trigger>
                         <!--  鼠标悬停状态  -->
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="TabBorder" Property="Background" Value="#10FFFFFF" />
-                            <Setter Property="Foreground" Value="#CCFFFFFF" />
+                            <Setter Property="Foreground" Value="#FF3DCC84" />
                         </Trigger>
                         <!--  不可用状态  -->
                         <Trigger Property="IsEnabled" Value="False">

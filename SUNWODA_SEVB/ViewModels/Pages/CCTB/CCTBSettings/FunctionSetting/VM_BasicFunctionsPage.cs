@@ -20,6 +20,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
 {
@@ -59,7 +60,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <summary>
         /// 膜卷号读取地址验证
         /// </summary>
-        public ICommand? RollNumPathVerifyCommand => new RelayCommand(OnRollNumPathVerify);
+        public ICommand? RollNumPathVerifyCommand => new RelayCommand(OnRollNumPathVerifyAsync);
 
         /// <summary>
         /// 构造函数
@@ -104,8 +105,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <summary>
         /// 功能参数界面切换时触发
         /// </summary>
-        private void OnControlPageNavigate()
+        private void OnControlPageNavigate(object? arg)
         {
+            if (!(arg is string pageName)) return;
+
+            _logger.UserInfo($"用户导航到了 基础功能/{pageName} 界面！");
+
             LoadFunctionSettingModel();
         }
 
@@ -115,7 +120,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         private async void OnParamSaveAsync()
         {
             var re = _projectSettingRepository.SaveBasicFunctionSettingProjectParameters(FunctionModel);
-            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            if (re)
+            {
+                // 参数更新通知
+                CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                {
+                    Tag = "基础功能参数保存成功！",
+                    Message = FunctionModel
+                });
+
+                _logger.UserInfo($"用户保存了 基础功能/{ControlPageName} 参数修改！");
+                await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            }
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 
@@ -166,9 +182,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// 点击验证膜卷号获取地址时触发
         /// </summary>
         /// <param name="arg"></param>
-        private void OnRollNumPathVerify(object? arg)
+        private async void OnRollNumPathVerifyAsync(object? arg)
         {
+            if (!(arg is string filePath)) return;
 
+            try
+            {
+                var productSn = CCTBCore.GetProductSn(filePath);
+                if (string.IsNullOrEmpty(productSn)) await VM_CCTBMessageBoxDialog.WarningAsync("获取的膜卷号为空值！！", "获取膜卷号失败");
+                else await VM_CCTBMessageBoxDialog.InfoAsync($"膜卷号:[{productSn}]！", "获取膜卷号成功");
+            }
+            catch (Exception ex)
+            {
+                await VM_CCTBMessageBoxDialog.ErrorAsync(ex.Message, "获取膜卷号异常");
+            }
         }
         #endregion
     }

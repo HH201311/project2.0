@@ -6,9 +6,20 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
     public class DataLimitParamModel : ModelBase
     {
+        /// <summary>
+        /// 构造函数
+        /// </summary>
         public DataLimitParamModel() { }
 
-        public DataLimitParamModel(double downDanger, double dowmWarning, double center, double upWarning, double upDanger)
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="downDanger"></param>
+        /// <param name="dowmWarning"></param>
+        /// <param name="center"></param>
+        /// <param name="upWarning"></param>
+        /// <param name="upDanger"></param>
+        public DataLimitParamModel(float downDanger, float dowmWarning, float center, float upWarning, float upDanger)
         {
             upDangerLimit = upDanger;
             upWarningLimit = upWarning;
@@ -17,40 +28,35 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
             downDangerLimit = downDanger;
         }
 
-        private double upDangerLimit;
-        private double upWarningLimit;
-        private double centerLimit;
-        private double downWarningLimit;
-        private double downDangerLimit;
+        private float upDangerLimit;
+        private float upWarningLimit;
+        private float centerLimit;
+        private float downWarningLimit;
+        private float downDangerLimit;
 
-        public double UpDangerLimit
-        {
-            get => upDangerLimit;
-            set => SetProperty(ref upDangerLimit, value);
-        }
+        /// <summary>
+        /// 危险上限
+        /// </summary>
+        public float UpDangerLimit { get => upDangerLimit; set => SetProperty(ref upDangerLimit, value); }
 
-        public double UpWarningLimit
-        {
-            get => upWarningLimit;
-            set => SetProperty(ref upWarningLimit, value);
-        }
+        /// <summary>
+        /// 警告上限
+        /// </summary>
+        public float UpWarningLimit { get => upWarningLimit; set => SetProperty(ref upWarningLimit, value); }
 
-        public double CenterLimit
-        {
-            get => centerLimit;
-            set => SetProperty(ref centerLimit, value);
-        }
+        /// <summary>
+        /// 中线
+        /// </summary>
+        public float CenterLimit { get => centerLimit; set => SetProperty(ref centerLimit, value); }
 
-        public double DownWarningLimit
-        {
-            get => downWarningLimit;
-            set => SetProperty(ref downWarningLimit, value);
-        }
+        /// <summary>
+        /// 警告下限
+        /// </summary>
+        public float DownWarningLimit { get => downWarningLimit; set => SetProperty(ref downWarningLimit, value); }
 
-        public double DownDangerLimit
-        {
-            get => downDangerLimit;
-            set => SetProperty(ref downDangerLimit, value);
-        }
+        /// <summary>
+        /// 危险下限
+        /// </summary>
+        public float DownDangerLimit { get => downDangerLimit; set => SetProperty(ref downDangerLimit, value); }
     }
 }

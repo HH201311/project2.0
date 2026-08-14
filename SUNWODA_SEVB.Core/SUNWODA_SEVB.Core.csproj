@@ -12,27 +12,26 @@
   <ItemGroup>
     <Compile Remove="Interfaces\Project\**" />
     <Compile Remove="Interfaces\Repositories\**" />
-    <Compile Remove="Interfaces\Services\**" />
     <EmbeddedResource Remove="Interfaces\Project\**" />
     <EmbeddedResource Remove="Interfaces\Repositories\**" />
-    <EmbeddedResource Remove="Interfaces\Services\**" />
     <None Remove="Interfaces\Project\**" />
     <None Remove="Interfaces\Repositories\**" />
-    <None Remove="Interfaces\Services\**" />
     <Page Remove="Interfaces\Project\**" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Interfaces\Project\CCTB\Core\IGlobalContextInitializer.cs" />
     <Compile Include="Interfaces\Project\CCTB\IAlgorithmService.cs" />
+    <Compile Include="Interfaces\Project\CCTB\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\CCTB\ICommunicationService.cs" />
     <Compile Include="Interfaces\Project\IScrewControllerService.cs" />
-    <Compile Include="Interfaces\Project\JECW\IBusinessService.cs" />
-    <Compile Include="Interfaces\Project\JECW\IMonitorService.cs" />
+    <Compile Include="Interfaces\Project\JRCW\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="33.1.0" />
+    <PackageReference Include="HandyControl" Version="3.5.1" />
     <PackageReference Include="HslCommunication" Version="12.3.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.7" />

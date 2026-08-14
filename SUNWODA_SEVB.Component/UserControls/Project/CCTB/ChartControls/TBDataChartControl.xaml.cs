@@ -47,7 +47,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
                             .Subscribe(_ => Dispatcher.Invoke(() => DrawChart()));
         }
 
-        private const double yStep = 2;
+        private const float yStep = 2;
 
         #region 事件
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -126,17 +126,17 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         #endregion
 
         #region YMin
-        public double YMin
+        public float YMin
         {
-            get { return (double)GetValue(YMinProperty); }
+            get { return (float)GetValue(YMinProperty); }
             set { SetValue(YMinProperty, value); }
         }
 
         public static readonly DependencyProperty YMinProperty = DependencyProperty.Register(
             "YMin",
-            typeof(double),
+            typeof(float),
             typeof(TBDataChartControl),
-            new PropertyMetadata(370d, new PropertyChangedCallback(OnYMinChanged))
+            new PropertyMetadata(370f, new PropertyChangedCallback(OnYMinChanged))
         );
 
         private static void OnYMinChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -150,17 +150,17 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         #endregion
 
         #region YMax
-        public double YMax
+        public float YMax
         {
-            get { return (double)GetValue(YMaxProperty); }
+            get { return (float)GetValue(YMaxProperty); }
             set { SetValue(YMaxProperty, value); }
         }
 
         public static readonly DependencyProperty YMaxProperty = DependencyProperty.Register(
             "YMax",
-            typeof(double),
+            typeof(float),
             typeof(TBDataChartControl),
-            new PropertyMetadata(382d, new PropertyChangedCallback(OnYMaxChanged))
+            new PropertyMetadata(382f, new PropertyChangedCallback(OnYMaxChanged))
         );
 
         private static void OnYMaxChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -215,15 +215,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         #endregion
 
         #region ItemSource
-        public IEnumerable<double> ItemSource
+        public IEnumerable<float> ItemSource
         {
-            get { return (IEnumerable<double>)GetValue(ItemSourceProperty); }
+            get { return (IEnumerable<float>)GetValue(ItemSourceProperty); }
             set { SetValue(ItemSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ItemSourceProperty = DependencyProperty.Register(
             "ItemSource",
-            typeof(IEnumerable<double>),
+            typeof(IEnumerable<float>),
             typeof(TBDataChartControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnItemSourceChanged))
         );
@@ -271,7 +271,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             YAxisPainter.RotationAngle = 0;
             YAxisPainter.Update(370, 382, 372, 374, 376, 378, 380);
 
-            (double yMin, double yMax) = RefreshYAxis();
+            (float yMin, float yMax) = RefreshYAxis();
             var yRange = yMax - yMin;
 
             RefreshDashLine(ref dashLine0, DataLimitParam.UpDangerLimit, yMin, yRange, dangerLimitLineStroke);
@@ -292,7 +292,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             var datas = ItemSource.ToList();
             var xLabels = ItemSource.Select((v, i) => (i + 1).ToString()).ToList();
             RefreshXAxis(xLabels);
-            (double yMin, double yMax) = RefreshYAxis(datas.ToArray());
+            (float yMin, float yMax) = RefreshYAxis(datas.ToArray());
             var yRange = yMax - yMin;
 
             RefreshDashLine(ref dashLine0, DataLimitParam.UpDangerLimit, yMin, yRange, dangerLimitLineStroke);
@@ -313,13 +313,13 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             XAxisPainter.Update(labels.ToArray());
         }
 
-        private (double yMin, double yMax) RefreshYAxis(params double[] values)
+        private (float yMin, float yMax) RefreshYAxis(params float[] values)
         {
             var datas = values.Where(o => o != 0).ToArray();
             var vMin = datas?.Length > 0 ? datas.Min() : 0;
             var vMax = datas?.Length > 0 ? datas.Max() : 0;
             var range = vMax - vMin;
-            double yMin = vMin - range / 5, yMax = vMax + range / 5;
+            float yMin = vMin - range / 5, yMax = vMax + range / 5;
             if (YMax > YMin)
             {
                 yMin = YMin; yMax = YMax;
@@ -342,7 +342,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         private readonly Brush centerLimitLineStroke = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF3DCC84"));
 
         private Style? subLineStyle;
-        private void RefreshDashLine(ref Line subLine, double yValue, double yMin, double yRange, Brush stroke, double opacity = 0.5)
+        private void RefreshDashLine(ref Line subLine, float yValue, float yMin, float yRange, Brush stroke, float opacity = 0.5f)
         {
             if (subLineStyle == null) subLineStyle = this.Resources["SubLineStyle"] as Style;
             subLine.Style = subLineStyle;
@@ -375,7 +375,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
 
         private Style? barGraphStyle;
         private Style? chartToolTipStyle;
-        private void RefreshBarGraph(List<double> datas, double yMin, double yRange)
+        private void RefreshBarGraph(List<float> datas, float yMin, float yRange)
         {
             if (barGraphStyle == null) barGraphStyle = this.Resources["BarGraphPathStyle"] as Style;
             if (chartToolTipStyle == null) chartToolTipStyle = this.Resources["ChartToolTipStyle"] as Style;
@@ -431,7 +431,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         #region 折线
         // 数据折线颜色
         private Style? linePathStyle;
-        private void RefreshLine(List<double> datas, double yMin, double yRange)
+        private void RefreshLine(List<float> datas, float yMin, float yRange)
         {
             if (linePathStyle == null) linePathStyle = this.Resources["LinePathStyle"] as Style;
 
@@ -440,8 +440,8 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
 
             #region 按照0数据分组
             var dataPairs = datas.Select((v, i) => (v, i)).ToList();
-            var dataPairGroups = new List<List<(double v, int i)>>();
-            var currentDataPairGroup = new List<(double v, int i)>();
+            var dataPairGroups = new List<List<(float v, int i)>>();
+            var currentDataPairGroup = new List<(float v, int i)>();
             for (int i = 0; i < dataPairs.Count; i++)
             {
                 if (dataPairs[i].v == 0 || i == dataPairs.Count - 1)
@@ -449,7 +449,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
                     if (currentDataPairGroup.Count > 0)
                     {
                         dataPairGroups.Add(currentDataPairGroup);
-                        currentDataPairGroup = new List<(double, int)>();
+                        currentDataPairGroup = new List<(float, int)>();
                     }
                     continue;
                 }

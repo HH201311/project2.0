@@ -37,7 +37,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW.BusinessDialogs
         /// <summary>
         /// 关闭
         /// </summary>
-        public ICommand CloseCommand => new RelayCommand(() => { Result = true; CloseAction?.Invoke(); });
+        public ICommand CloseCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
 
         /// <summary>
         /// 
@@ -47,6 +47,6 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW.BusinessDialogs
         /// <summary>
         /// 
         /// </summary>
-        public ICommand? CancleCommand => new RelayCommand(() => { Result = true; CloseAction?.Invoke(); });
+        public ICommand? CancleCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
     }
 }

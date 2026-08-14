@@ -7,16 +7,27 @@ using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.Tool.Helper
 {
+    /// <summary>
+    /// 值监听器
+    /// </summary>
     public class ValueListener
     {
         private string? _name;
         private string? _value;
+        private string? _description;
+
+        /// <summary>
+        /// 名称
+        /// </summary>
         public string? Name
         {
             get => _name;
             set => _name = value;
         }
 
+        /// <summary>
+        /// 值
+        /// </summary>
         public string? Value
         {
             get { return _value; }
@@ -31,6 +42,15 @@ namespace SUNWODA_SEVB.Tool.Helper
                     OnValueChangedEven?.Invoke(this, args);
                 }
             }
+        }
+
+        /// <summary>
+        /// 描述
+        /// </summary>
+        public string? Description
+        {
+            get => _description;
+            set => _description = value;
         }
 
         public delegate void OnValueChangedEvnentHandle(object? sender, EventArgs<string> args);

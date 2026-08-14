@@ -3,12 +3,15 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:cctbmodels="[cctbmodels ]clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
+    xmlns:core="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB.Core;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBSettings"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:pjconvert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:sc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls;assembly=SUNWODA_SEVB.Component"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB;assembly=SUNWODA_SEVB.Component"
     xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls;assembly=SUNWODA_SEVB.Component"
@@ -23,6 +26,14 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <pjconvert:ContentToStringConverter x:Key="ContentToStringConverter" />
+            <pjconvert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
+            <pjconvert:UMToEnableConverter x:Key="UMToEnableConverter" />
+            <pjconvert:UMToReadOnlyConverter x:Key="UMToReadOnlyConverter" />
+            <pjconvert:UMToVisibilityConverter x:Key="UMToVisibilityConverter" />
+            <convert:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+            <convert:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
 
             <!--  文本样式  -->
             <Style BasedOn="{StaticResource HCTitleValueTextBox}" TargetType="{x:Type hc:TextBox}">
@@ -89,6 +100,7 @@
                     AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MD}"
                     IsAlgorithmEnabled="{Binding AlgorithmModel_MDA.IsEnable, Mode=TwoWay}"
+                    IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM003'}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.A}" />
                 <sc:AlgorithmSettingControl
@@ -98,6 +110,7 @@
                     AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.TD}"
                     IsAlgorithmEnabled="{Binding AlgorithmModel_TDA.IsEnable, Mode=TwoWay}"
+                    IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM003'}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.A}" />
                 <sc:AlgorithmSettingControl
@@ -107,6 +120,7 @@
                     AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MDTD}"
                     IsAlgorithmEnabled="{Binding AlgorithmModel_MDTDA.IsEnable, Mode=TwoWay}"
+                    IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM003'}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.A}" />
             </UniformGrid>
@@ -128,6 +142,7 @@
                     AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MD}"
                     IsAlgorithmEnabled="{Binding AlgorithmModel_MDB.IsEnable, Mode=TwoWay}"
+                    IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM003'}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.B}" />
                 <sc:AlgorithmSettingControl
@@ -137,6 +152,7 @@
                     AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.TD}"
                     IsAlgorithmEnabled="{Binding AlgorithmModel_TDB.IsEnable, Mode=TwoWay}"
+                    IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM003'}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.B}" />
                 <sc:AlgorithmSettingControl
@@ -146,6 +162,7 @@
                     AlgorithmVerifyCommand="{Binding AlgorithmVerifyCommand}"
                     ClosedLoopType="{x:Static enums:EClosedLoopType.MDTD}"
                     IsAlgorithmEnabled="{Binding AlgorithmModel_MDTDB.IsEnable, Mode=TwoWay}"
+                    IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM003'}"
                     ParamSettingClickCommand="{Binding ParamSettingClickCommand}"
                     SideType="{x:Static enums:ESideType.B}" />
             </UniformGrid>
@@ -177,11 +194,6 @@
                                     ItemsSource="{Binding EMembraneZoneTypeSource}"
                                     SelectedValue="{Binding GeneralSettingsModel.MembraneZoneType, Mode=TwoWay}"
                                     SelectedValuePath="ItemValue" />
-                                <hc:TextBox
-                                    Width="260"
-                                    hc:InfoElement.Placeholder="请输入"
-                                    hc:InfoElement.Title="刀距滞后变化值（mm）"
-                                    Text="{Binding GeneralSettingsModel.Lag_DearanceConditiont, Mode=TwoWay}" />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="PLC设定泵速读取配置" Style="{StaticResource ParamGroupBoxStyle}">
@@ -220,6 +232,19 @@
                                     hc:InfoElement.Placeholder="请输入"
                                     hc:InfoElement.Title="AB面走带间隔距离（m）"
                                     Text="{Binding GeneralSettingsModel.DistanceBetweenAB, Mode=TwoWay}" />
+                                <hc:ComboBox
+                                    Width="260"
+                                    d:SelectedIndex="0"
+                                    hc:InfoElement.Title="机架类型"
+                                    DisplayMemberPath="DisplayName"
+                                    ItemsSource="{Binding RackTypeSource}"
+                                    SelectedValue="{Binding GeneralSettingsModel.RackType, Mode=TwoWay}"
+                                    SelectedValuePath="ItemValue" />
+                                <hc:TextBox
+                                    Width="260"
+                                    hc:InfoElement.Placeholder="请输入"
+                                    hc:InfoElement.Title="调节泵个数"
+                                    Text="{Binding GeneralSettingsModel.PumpCount, Mode=TwoWay}" />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="膜区配置" Style="{StaticResource ParamGroupBoxStyle}">

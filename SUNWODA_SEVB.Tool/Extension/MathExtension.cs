@@ -15,23 +15,23 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="values"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public static double STDEVP(this IEnumerable<double> values)
+        public static float STDEVP(this IEnumerable<float> values)
         {
             if (values == null || !values.Any())
                 throw new ArgumentException("输入的数据不能为空！");
 
             // 计算数据的平均值
-            double mean = values.Average();
+            var mean = values.Average();
 
             // 计算每个数据点与平均值的差的平方和
-            double sumOfSquaredDifferences = values.Sum(x => Math.Pow(x - mean, 2));
+            var sumOfSquaredDifferences = values.Sum(x => Math.Pow(x - mean, 2));
 
             // 计算方差，这里使用总体标准差的计算公式（除以数据的总数）
-            double variance = sumOfSquaredDifferences / values.Count();
+            var variance = sumOfSquaredDifferences / values.Count();
 
             // 计算标准差，即方差的平方根
-            double stdevp = Math.Sqrt(variance);
-            return stdevp;
+            var stdevp = Math.Sqrt(variance);
+            return (float)stdevp;
         }
 
         /// <summary>
@@ -42,29 +42,29 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="toleranceValue">公差值</param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public static double CPK(this IEnumerable<double> values, double targetValue, double toleranceValue)
+        public static float CPK(this IEnumerable<float> values, float targetValue, float toleranceValue)
         {
             if (values == null || !values.Any()) return 0;
             //throw new ArgumentException("输入的数据不能为空！");
             if (values.Count() < 2) return 0;
             //throw new InvalidOperationException("需至少2个数据点");
             // 计算均值
-            double mean = values.Average();
+            var mean = values.Average();
             // 计算总体标准差
-            double sigma = values.STDEVP();
-            if (sigma == 0) return double.NaN;
+            var sigma = values.STDEVP();
+            if (sigma == 0) return float.NaN;
             // 计算上限
-            double upper = targetValue + toleranceValue - mean;
+            var upper = targetValue + toleranceValue - mean;
             // 计算下限
-            double lower = mean - targetValue + toleranceValue;
+            var lower = mean - targetValue + toleranceValue;
             // 计算最小值
-            double minValue = Math.Min(upper, lower);
+            var minValue = Math.Min(upper, lower);
             // 计算cpk
-            double cpk = minValue / 3 / sigma;
+            var cpk = minValue / 3 / sigma;
             return cpk;
         }
 
-        public static double COV(this IEnumerable<double> values)
+        public static float COV(this IEnumerable<float> values)
         {
             if (values == null || !values.Any())
                 throw new ArgumentException("输入的数据不能为空！");
@@ -75,7 +75,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             return sigma / mean;
         }
 
-        public static double Sigma(this IEnumerable<double> values)
+        public static float Sigma(this IEnumerable<float> values)
         {
             return values.STDEVP();
         }

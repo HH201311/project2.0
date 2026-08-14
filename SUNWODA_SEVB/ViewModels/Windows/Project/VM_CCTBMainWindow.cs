@@ -1,4 +1,5 @@
-﻿using HandyControl.Controls;
+﻿using DocumentFormat.OpenXml.Drawing;
+using HandyControl.Controls;
 using HandyControl.Tools.Extension;
 using Microsoft.VisualBasic.ApplicationServices;
 using SUNWODA_SEVB.Core.Common;
@@ -12,11 +13,16 @@ using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Models;
 using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Services.Project.CCTB;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.Services.Project.CCTB;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation;
 using SUNWODA_SEVB.ViewModels.Dialogs.Common;
@@ -27,6 +33,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace SUNWODA_SEVB.ViewModels.Windows.Project
 {
@@ -36,12 +43,14 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         private readonly INavigationService _navigationService;
         private readonly IModuleManager _moduleManager;
         private readonly IGlobalSettingRepository _globalSettingRepository;
+        private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IUsersRepository _usersRepository;
         private readonly ICommunicationService _communicationService1;
 
         private Page? _navigationPage;
         private ModuleInfo? _selectedModule;
         private bool _isNavigating;
+        private bool _isExiting = false;
 
         // 添加导航防抖
         private CancellationTokenSource? _navigationCts;
@@ -74,12 +83,20 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             set => SetProperty(ref _isNavigating, value);
         }
 
+        /// <summary>
+        /// 是否正在退出
+        /// </summary>
+        public bool IsExiting
+        {
+            get => _isExiting;
+            set => SetProperty(ref _isExiting, value);
+        }
+
         public ICommand? ChangeAccountCommand => new RelayCommand(OnChangeAccountAsync);
         public ICommand? ChangePasswordCommand => new RelayCommand(OnChangePasswordCommandAsync);
         public ICommand? LogoutCommand => new RelayCommand(OnLogoutAsync);
 
-        public ICommand? DeviceSwitchoverCommand => new RelayCommand(() => { });
-        public ICommand? ControlSwitchoverCommand => new RelayCommand(() => { });
+        public ICommand? ControlSwitchoverCommand => new RelayCommand(OnClosedLoopSwitchChanged);
         public ICommand? MonitoringCommand => new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBMonitoringPage"));
         public ICommand? SettingsCommand => new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBSettingsPage"));
         public ICommand? RecordingsCommand => new RelayCommand(() => NavigateToSpecialModuleAsync("VM_CCTBRecordingsPage"));
@@ -89,6 +106,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             INavigationService navigationService,
             IModuleManager moduleManager,
             IGlobalSettingRepository globalSettingRepository,
+            IProjectSettingRepository projectSettingRepository,
             IUsersRepository usersRepository,
             ICommunicationService communicationService
         )
@@ -97,15 +115,24 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             _navigationService = navigationService;
             _moduleManager = moduleManager;
             _globalSettingRepository = globalSettingRepository;
+            _projectSettingRepository = projectSettingRepository;
             _usersRepository = usersRepository;
             _communicationService1 = communicationService;
 
             UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
             UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
-            OnUserStateChanged("guest");
 
             _communicationService1.DeviceStatusChanged -= OnDeviceStatusChanged;
             _communicationService1.DeviceStatusChanged += OnDeviceStatusChanged;
+        }
+
+        /// <summary>
+        /// 清理
+        /// </summary>
+        public override void OnCleanup()
+        {
+            CCTBCore.SettingMessageNotificationEvent -= OnSettingMessageChanged;
+            base.OnCleanup();
         }
 
         /// <summary>
@@ -114,11 +141,27 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         /// <exception cref="ArgumentNullException"></exception>
         public void InitNavigation()
         {
+            // 初始化涂布闭环全局参数
+            InitializeCCTBCore();
+
+            // 初始化用户
+            UserStateChangedEvent.Raise("Guest");
+
             // 显示加载提示
             IsNavigating = true;
 
-            // 加载模块
+            // 加载图不闭环所有模块
+            _moduleManager.AutoRegisterModulesByName("VM_SummaryPage", "VM_TBDataPage", "VM_CCDDataPage");
             _moduleManager.AutoRegisterModulesByName("VM_CCTBMonitoringPage", "VM_CCTBSettingsPage", "VM_CCTBRecordingsPage");
+            _moduleManager.AutoRegisterModulesByName("VM_ClosedLoopSettingPage", "VM_FunctionSettingPage", "VM_AlarmSettingPage", "VM_CommunicationSettingPage", "VM_PermissionSettingPage");
+            _moduleManager.AutoRegisterModulesByName("VM_BasicFunctionsPage", "VM_SpecialFunctionsPage");
+            _moduleManager.AutoRegisterModulesByName("VM_RoleManagementPage", "VM_UserManagementPage");
+            _moduleManager.AutoRegisterModulesByName("VM_SystemRecordPage", "VM_AdjustmentRecordPage", "VM_AlarmRecordPage");
+
+            // 创建实例（下列界面后台数据需要更新）
+            _moduleManager.GetViewModel("VM_SummaryPage");
+            _moduleManager.GetViewModel("VM_TBDataPage");
+            _moduleManager.GetViewModel("VM_CCDDataPage");
 
             // 导航到默认界面
             NavigateToDefaultAsync();
@@ -188,6 +231,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
                 NavigationPage = _moduleManager.GetView(module.Name);
                 var viewModel = NavigationPage?.DataContext as ViewModelBase;
                 viewModel?.OnNavigatedTo(null);
+
+                _logger.UserInfo($"用户导航到了 {module.DisplayName} 界面！");
             }
             catch (Exception ex)
             {
@@ -221,13 +266,196 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             SelectedModule = module;
         }
 
+        /// <summary>
+        /// 当退出清理时触发
+        /// </summary>
+        /// <returns></returns>
         protected override async Task OnCleanupAsync()
         {
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+
             _navigationCts?.Cancel();
             _navigationCts?.Dispose();
 
             await base.OnCleanupAsync();
         }
+
+        /// <summary>
+        /// 请求退出应用程序
+        /// </summary>
+        /// <returns>是否允许退出</returns>
+        public async Task<bool> RequestExitAsync()
+        {
+            if (IsExiting)
+                return true; // 避免重复执行
+
+            IsExiting = true;
+
+            try
+            {
+                // 1. 检查是否有运行中的模块需要确认
+                bool hasRunningTasks = await CheckRunningTasksAsync();
+
+                // 2. 弹窗确认
+                string message = hasRunningTasks
+                    ? "当前有任务正在运行，确定要退出吗？\n退出后当前进度将丢失！"
+                    : "确定要退出软件吗？";
+
+                var result = await Application.Current.Dispatcher.InvokeAsync(() =>
+                    System.Windows.MessageBox.Show(
+                        message,
+                        "确认退出",
+                        MessageBoxButton.YesNo,
+                        hasRunningTasks ? MessageBoxImage.Warning : MessageBoxImage.Question
+                    )
+                );
+
+                if (result == MessageBoxResult.No)
+                {
+                    IsExiting = false;
+                    return false; // 用户取消退出
+                }
+
+                // 3. 执行清理工作
+                await PerformCleanupAsync();
+
+                _logger.Info("应用程序正常退出");
+                return true; // 允许退出
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("退出时发生错误", ex);
+                IsExiting = false;
+
+                // 即使发生错误也询问用户是否强制退出
+                var forceExit = await Application.Current.Dispatcher.InvokeAsync(() =>
+                    System.Windows.MessageBox.Show(
+                        $"退出时发生错误：{ex.Message}\n\n是否强制退出？",
+                        "退出错误",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Error
+                    )
+                );
+
+                return forceExit == MessageBoxResult.Yes;
+            }
+        }
+
+        /// <summary>
+        /// 检查是否有运行中的任务
+        /// </summary>
+        private async Task<bool> CheckRunningTasksAsync()
+        {
+            try
+            {
+                // 检查所有已加载的模块是否有运行中的任务
+                foreach (var module in _moduleManager.Modules)
+                {
+                    var viewModel = _moduleManager.GetViewModel(module);
+
+                    // 如果 ViewModel 实现了特定接口，检查其状态
+                    if (viewModel is ITaskRunningChecker checker)
+                    {
+                        if (await checker.HasRunningTasksAsync())
+                        {
+                            _logger.Info($"模块 {module.DisplayName} 有运行中的任务");
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("检查运行任务时发生错误", ex);
+                return false; // 检查失败时保守处理
+            }
+        }
+
+        /// <summary>
+        /// 执行退出前的清理工作
+        /// </summary>
+        private async Task PerformCleanupAsync()
+        {
+            try
+            {
+                // 1. 通知所有模块准备退出
+                foreach (var module in _moduleManager.Modules)
+                {
+                    try
+                    {
+                        var viewModel = _moduleManager.GetViewModel(module);
+                        if (viewModel is ViewModelBase vm)
+                        {
+                            vm.OnCleanup();
+                            _logger.Info($"模块 {module.DisplayName} 清理完成");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"清理模块 {module.DisplayName} 时发生错误", ex);
+                    }
+                }
+
+                // 2. 保存全局设置
+                //_globalSettingRepository.SaveSettings();
+
+                // 3. 取消所有导航任务
+                _navigationCts?.Cancel();
+
+                // 4. 执行 ViewModel 自身的清理
+                await OnCleanupAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("执行清理工作时发生错误", ex);
+            }
+        }
+
+        /// <summary>
+        /// 当用户角色变化时触发
+        /// </summary>
+        /// <param name="userAccount"></param>
+        private void OnUserStateChanged(string userAccount)
+        {
+            var role = _usersRepository.GetByUserAccount(userAccount);
+            if (role == null) return;
+
+            NavigateToDefaultAsync();
+        }
+
+        #region 闭环开关
+        /// <summary>
+        /// 当业务闭环开关字段变化时触发
+        /// </summary>
+        /// <param name="arg"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        private void OnClosedLoopSwitchChanged(object? arg)
+        {
+            if (!(arg is string flag)) return;
+            var globalContext = GlobalContextModel.Instance;
+            (ESideType sideType, EClosedLoopType clType, bool clSwitch) = flag switch
+            {
+                "TDA" => (ESideType.A, EClosedLoopType.TD, globalContext.ClosedLoopSwitchTDA),
+                "MDA" => (ESideType.A, EClosedLoopType.MD, globalContext.ClosedLoopSwitchMDA),
+                "CCDA" => (ESideType.A, EClosedLoopType.MDTD, globalContext.ClosedLoopSwitchCCDA),
+                "TDB" => (ESideType.B, EClosedLoopType.TD, globalContext.ClosedLoopSwitchTDB),
+                "MDB" => (ESideType.B, EClosedLoopType.MD, globalContext.ClosedLoopSwitchMDB),
+                "CCDB" => (ESideType.B, EClosedLoopType.MDTD, globalContext.ClosedLoopSwitchCCDB),
+                _ => throw new NotImplementedException($"未实现此标识[{flag}]!")
+            };
+            var oldCLSwitch = !clSwitch;
+            var result = _projectSettingRepository.SaveClosedLoopSwitchProjectParameters(clType, sideType, clSwitch);
+            var message = $"{clType} 业务{sideType}面闭环开关切换{(result ? "成功" : "失败")}([{oldCLSwitch}=>{clSwitch}])";
+            if (result)
+            {
+                _logger.Info(message);
+                _logger.UserInfo($"用户切换了业务闭环开关状态：{message}");
+            }
+            else _logger.Error(message);
+        }
+        #endregion
 
         #region 设备状态
         private DeviceStatusModel wmDeviceStatus = new("涂布机"), cmDeviceStatus = new("测重仪"), dhADeviceStatus = new("模头A"), dhBDeviceStatus = new("模头B"), ccdDeviceStatus = new("CCD");
@@ -320,47 +548,13 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         }
         #endregion
 
-        #region 用户
-        private string? userName, userIcon;
-        private Visibility changePasswordVisibility = Visibility.Collapsed;
-        private Visibility logoutVisibility = Visibility.Collapsed;
-
-        public string? UserName { get => userName; set => SetProperty(ref userName, value); }
-        public string? UserIcon { get => userIcon; set => SetProperty(ref userIcon, value); }
-        public Visibility ChangePasswordVisibility { get => changePasswordVisibility; set => SetProperty(ref changePasswordVisibility, value); }
-        public Visibility LogoutVisibility { get => logoutVisibility; set => SetProperty(ref logoutVisibility, value); }
-
-        /// <summary>
-        /// 更新用户显示信息
-        /// </summary>
-        /// <param name="userAccount"></param>
-        private void OnUserStateChanged(string userAccount)
-        {
-            var role = _usersRepository.GetByUserAccount(userAccount);
-            UserName = string.IsNullOrEmpty(role?.UserName) ? "*****" : role?.UserName;
-            UserIcon = string.IsNullOrEmpty(role?.UserAccount) ? "*" :
-                role?.UserAccount switch
-                {
-                    "guest" => "访",
-                    "engineer" => "工",
-                    "admin" => "管",
-                    "sadmin" => "超",
-                    _ => string.IsNullOrEmpty(role?.UserName) ? "*" : role?.UserName.Last().ToString(),
-                };
-
-            ChangePasswordVisibility = role?.RoleId < (int)UserRole.Engineer ? Visibility.Collapsed : Visibility.Visible;
-            LogoutVisibility = userAccount == "guest" ? Visibility.Collapsed : Visibility.Visible;
-
-            CCTBCore.UserAccount = role?.UserAccount;
-            CCTBCore.UserName = role?.UserName;
-            CCTBCore.UserRoleID = role?.RoleId ?? -1;
-        }
-
+        #region 用户操作
         /// <summary>
         /// 档切换用户登录时触发
         /// </summary>
         private async void OnChangeAccountAsync()
         {
+            _logger.UserInfo("用户点击了 切换用户 按钮！");
             var userModel = new UserManagementModel();
             var password = string.Empty;
             await Dialog
@@ -376,6 +570,12 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
                   });
             if (string.IsNullOrEmpty(password)) return;
 
+            if (!string.IsNullOrEmpty(userModel.Account) && userModel.Account == CCTBCore.UserAccount)
+            {
+                Growl.WarningGlobal("当前账号已登录");
+                return;
+            }
+
             (bool isLoggedIn, UsersModel? user) = await LoginAsync(userModel?.Account, password);
             if (isLoggedIn)
             {
@@ -385,12 +585,12 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
                     user!.UserAccount
                 );
                 UserStateChangedEvent.Raise(user.UserAccount);
-                _logger.Info($"{user.UserAccount} 在 {user.LastLoginTime:yyyy-MM-dd HH:mm:ss} 登录成功");
+                _logger.UserInfo($"用户 {user.UserName}:{user.UserAccount} 在 {user.LastLoginTime:yyyy-MM-dd HH:mm:ss} 登录成功!");
                 Growl.SuccessGlobal("登录成功");
             }
             else
             {
-                _logger.Warn($"账号: {userModel?.Account}, 账号或密码错误", true);
+                _logger.UserWarn($"用户 {userModel?.Name}:{userModel?.Account} 登录失败！", true);
                 Growl.WarningGlobal("账号或密码错误");
             }
         }
@@ -407,12 +607,10 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
                 return (false, null);
 
             var user = await _usersRepository.GetByUserAccountAsync(userAccount);
-            if (user == null)
-                return (false, user);
+            if (user == null) return (false, user);
 
-            if (BCrypt.Net.BCrypt.Verify(password, user.Password))
-                return (true, user);
-            return (false, user);
+            var result = BCrypt.Net.BCrypt.Verify(password, user.Password);
+            return (result, user);
         }
 
         /// <summary>
@@ -420,6 +618,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         /// </summary>
         private async void OnLogoutAsync()
         {
+            _logger.UserInfo("用户点击了 退出登录 按钮！");
             // 获取当前用户角色
             var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
             var role = _usersRepository.GetByUserAccount(userAccount);
@@ -428,7 +627,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             var result = await VM_CCTBMessageBoxDialog.ShowAsync($"注销用户 '{role.UserName}({role.UserAccount})' ?", "是否注销", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes) return;
 
-            _logger.Info($"{userAccount} 在 {DateTime.Now:yyyy-MM-dd HH:mm:ss} 退出登录");
+            _logger.UserInfo($"{userAccount} 在 {DateTime.Now:yyyy-MM-dd HH:mm:ss} 退出登录");
             await _globalSettingRepository.UpdateSettingValueAsync("CurrentUserAccount", "guest");
             UserStateChangedEvent.Raise("guest");
             Growl.SuccessGlobal("退出登录");
@@ -439,10 +638,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
         /// </summary>
         private async void OnChangePasswordCommandAsync()
         {
+            _logger.UserInfo("用户点击了 修改密码 按钮！");
             // 获取当前用户角色
             var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
-            //var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
-
             var user = await _usersRepository.GetByUserAccountAsync(userAccount);
             if (user != null)
             {
@@ -460,15 +658,14 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
                     user.Password = newPassword;
                     if (await _usersRepository.UpdateAsync(user))
                     {
-                        _logger.Warn($"修改 {user.UserAccount} 账号密码成功！");
-                        Growl.SuccessGlobal($"修改 {user.UserAccount} 账号密码成功！");
-                        //RefreshUsersAsync();
+                        _logger.UserInfo($"用户 {user.UserName}:{user.UserAccount} 修改密码成功！");
+                        Growl.SuccessGlobal($"用户 {user.UserName}:{user.UserAccount} 修改密码成功！");
                         return;
                     }
                     else
                     {
-                        _logger.Warn($"修改 {user.UserAccount} 账号密码失败！", true);
-                        Growl.WarningGlobal($"修改 {user.UserAccount} 账号密码失败！");
+                        _logger.Warn($"用户 {user.UserName}:{user.UserAccount} 修改密码失败！", true);
+                        Growl.WarningGlobal($"用户 {user.UserName}:{user.UserAccount} 修改密码失败！");
                     }
                 }
             }
@@ -476,6 +673,91 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             {
                 _logger.Warn($"{userAccount} 账号未找到！", true);
                 Growl.WarningGlobal($"{userAccount} 账号未找到！");
+            }
+        }
+        #endregion
+
+        #region 全局&业务相关
+        /// <summary>
+        /// 初始化全局参数
+        /// </summary>
+        private void InitializeCCTBCore()
+        {
+            CCTBCore.RoleManagementConfigs = _projectSettingRepository.LoadRoleManagementConfigWithDefault();
+            CCTBCore.AlarmConfigs = _projectSettingRepository.LoadAlarmConfigWithDefault();
+            CCTBCore.AlarmParamConfig = _projectSettingRepository.LoadAlarmConfigParamProjectParameters();
+
+            CCTBCore.ClosedLoopSettingMDA = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(EClosedLoopType.MD, ESideType.A);
+            CCTBCore.ClosedLoopSettingTDA = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(EClosedLoopType.TD, ESideType.A);
+            CCTBCore.ClosedLoopSettingMDTDA = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(EClosedLoopType.MDTD, ESideType.A);
+            CCTBCore.ClosedLoopSettingMDB = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(EClosedLoopType.MD, ESideType.B);
+            CCTBCore.ClosedLoopSettingTDB = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(EClosedLoopType.TD, ESideType.B);
+            CCTBCore.ClosedLoopSettingMDTDB = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(EClosedLoopType.MDTD, ESideType.B);
+
+            CCTBCore.GeneralSettings = _projectSettingRepository.LoadGeneralSettingsProjectParameters();
+            CCTBCore.BasicFunctionSetting = _projectSettingRepository.LoadBasicFunctionSettingProjectParameters();
+            CCTBCore.SpecialFunctionSetting = _projectSettingRepository.LoadSpecialFunctionSettingProjectParameters();
+
+            CCTBCore.SettingMessageNotificationEvent -= OnSettingMessageChanged;
+            CCTBCore.SettingMessageNotificationEvent += OnSettingMessageChanged;
+        }
+
+        /// <summary>
+        /// 当参数变化时更新全局缓存
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnSettingMessageChanged(object? sender, MessageEventArgs<object> e)
+        {
+            if (e.Message is List<RoleManagementModel> rms)
+            {
+                CCTBCore.RoleManagementConfigs = rms;
+                return;
+            }
+
+            if (e.Message is List<AlarmConfigModel> acs)
+            {
+                CCTBCore.AlarmConfigs = acs;
+                return;
+            }
+
+            if (e.Message is AlarmConfigParamModel acp)
+            {
+                CCTBCore.AlarmParamConfig = acp;
+                return;
+            }
+
+            if (e.Message is ClosedLoopSettingModel pm)
+            {
+                switch (e.Tag)
+                {
+                    case "MDA": CCTBCore.ClosedLoopSettingMDA = pm; break;
+                    case "TDA": CCTBCore.ClosedLoopSettingTDA = pm; break;
+                    case "MDTDA": CCTBCore.ClosedLoopSettingMDTDA = pm; break;
+                    case "MDB": CCTBCore.ClosedLoopSettingMDB = pm; break;
+                    case "TDB": CCTBCore.ClosedLoopSettingTDB = pm; break;
+                    case "MDTDB": CCTBCore.ClosedLoopSettingMDTDB = pm; break;
+                    default: return;
+                }
+                return;
+            }
+
+            if (e.Message is GeneralSettingsModel gm)
+            {
+                CCTBCore.GeneralSettings = gm;
+                return;
+            }
+
+            if (e.Message is BasicFunctionSettingModel bf)
+            {
+                CCTBCore.BasicFunctionSetting = bf;
+                return;
+            }
+
+            if (e.Message is SpecialFunctionSettingModel sf)
+            {
+                CCTBCore.SpecialFunctionSetting = sf;
+                return;
             }
         }
         #endregion

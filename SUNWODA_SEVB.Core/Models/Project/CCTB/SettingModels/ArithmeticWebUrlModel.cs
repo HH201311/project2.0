@@ -31,12 +31,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         public string? BaseUrl { get => baseUrl; set => SetProperty(ref baseUrl, value); }
 
         /// <summary>
-        /// URL名称，由Web组提供
+        /// URL名称
         /// </summary>
         public string? Name { get => name; set => SetProperty(ref name, value); }
 
         /// <summary>
-        /// URL描述，由Web组提供
+        /// URL描述
         /// </summary>
         public string? Description { get => description; set => SetProperty(ref description, value); }
     }

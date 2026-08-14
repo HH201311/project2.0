@@ -1,21 +1,27 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using SUNWODA_SEVB.Core.Enumerations.Project.JRCW;
 using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Mqtt;
 using SUNWODA_SEVB.Core.Interfaces.Project;
 using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
-using SUNWODA_SEVB.Core.Interfaces.Project.JECW;
+using SUNWODA_SEVB.Core.Interfaces.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Models.Mqtt;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Services.Project;
 using SUNWODA_SEVB.Services.Project.CCTB;
+using SUNWODA_SEVB.Services.Project.CCTB.Business;
 using SUNWODA_SEVB.Services.Project.JRCW.Business;
 using SUNWODA_SEVB.Tool.Services.Mqtt;
 using SUNWODA_SEVB.Tool.Services.Socket;
 using SUNWODA_SEVB.WEB.Services.STC;
+using CCTBBusinessServiceFactory = SUNWODA_SEVB.Services.Project.CCTB.Business.BusinessServiceFactory;
+using CCTBBusinessServiceManager = SUNWODA_SEVB.Services.Project.CCTB.Business.BusinessServiceManager;
+using ICCTBBusinessService = SUNWODA_SEVB.Core.Interfaces.Project.CCTB.IBusinessService;
+using IJRCWBusinessService = SUNWODA_SEVB.Core.Interfaces.Project.JRCW.IBusinessService;
+using JRCWBusinessServiceFactory = SUNWODA_SEVB.Services.Project.JRCW.Business.BusinessServiceFactory;
+using JRCWBusinessServiceManager = SUNWODA_SEVB.Services.Project.JRCW.Business.BusinessServiceManager;
 
 namespace SUNWODA_SEVB.Services
 {
@@ -115,8 +121,13 @@ namespace SUNWODA_SEVB.Services
         /// <returns></returns>
         public static IServiceCollection AddCCTBServices(this IServiceCollection services)
         {
+            // 注册 界面全局上下文初始化服务
+            services.AddSingleton<IGlobalContextInitializer, GlobalContextInitializer>();
+
             // 注册 算法服务
             services.AddSingleton<IAlgorithmService, AlgorithmService>();
+
+            #region 设备/通讯
             // 注册 通讯服务
             services.AddSingleton<ICommunicationService, CommunicationService>();
             // 注册后台服务
@@ -143,6 +154,25 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<ICustomMqttClient, CustomMqttClient>();
             services.AddSingleton<ICustomMqttOptionsLoader, CustomMqttOptionsLoader>();
             services.AddSingleton<ICustomMqttClientFactory, CustomMqttClientFactory>();
+            #endregion
+
+            #region 业务/逻辑
+            // 注册具体业务类型
+            services.AddSingleton<BackBusinessService>();
+            services.AddSingleton<MDBusinessService>();
+            services.AddSingleton<TDBusinessService>();
+            services.AddSingleton<MDTDBusinessService>();
+
+            // 注册接口映射
+            services.AddSingleton<ICCTBBusinessService>(sp => sp.GetRequiredService<BackBusinessService>());
+            services.AddSingleton<ICCTBBusinessService>(sp => sp.GetRequiredService<MDBusinessService>());
+            services.AddSingleton<ICCTBBusinessService>(sp => sp.GetRequiredService<TDBusinessService>());
+            services.AddSingleton<ICCTBBusinessService>(sp => sp.GetRequiredService<MDTDBusinessService>());
+
+            // 注册工厂和管理器
+            services.AddSingleton<CCTBBusinessServiceFactory>();
+            services.AddSingleton<CCTBBusinessServiceManager>();
+            #endregion
 
             return services;
         }
@@ -156,13 +186,15 @@ namespace SUNWODA_SEVB.Services
         {
             // 注册具体业务类型
             services.AddSingleton<YWC05BusinessService>();
+            services.AddSingleton<DYC04BusinessService>();
 
             // 注册接口映射
-            services.AddSingleton<IBusinessService>(sp => sp.GetRequiredService<YWC05BusinessService>());
+            services.AddSingleton<IJRCWBusinessService>(sp => sp.GetRequiredService<YWC05BusinessService>());
+            services.AddSingleton<IJRCWBusinessService>(sp => sp.GetRequiredService<DYC04BusinessService>());
 
             // 注册工厂和管理器
-            services.AddSingleton<BusinessServiceFactory>();
-            services.AddSingleton<BusinessServiceManager>();
+            services.AddSingleton<JRCWBusinessServiceFactory>();
+            services.AddSingleton<JRCWBusinessServiceManager>();
 
             return services;
         }

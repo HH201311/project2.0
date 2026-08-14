@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.FunctionSettingControls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB"
@@ -25,19 +26,143 @@
         </Grid.RowDefinitions>
         <ScrollViewer Grid.Row="0" Margin="20">
             <StackPanel Orientation="Vertical">
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="T块位置坐标轴刻度设置" />
-                <uccc:PairContentControl PairKeyText="刻度上限" Style="{StaticResource PPairContentControlStyle}">
-                    <TextBox
-                        d:Text="1000"
-                        Style="{StaticResource PValueTextBoxStyle}"
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="T块位置坐标轴刻度设置" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度上限"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
                         Text="{Binding ItemSource.UpperLimitOfTBlock, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                </uccc:PairContentControl>
-                <uccc:PairContentControl PairKeyText="刻度下限" Style="{StaticResource PPairContentControlStyle}">
-                    <TextBox
-                        d:Text="1500"
-                        Style="{StaticResource PValueTextBoxStyle}"
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="700"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度下限"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
                         Text="{Binding ItemSource.LowerLimitOfTBlock, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                </uccc:PairContentControl>
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="200"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度间隔"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.IntervalOfTBlock, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="0"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度中线"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.CenterValueOfTBlock, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+
+                    <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                    <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="面密度坐标轴刻度及标识线设置-A面" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度上限"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.UpperLimitOfCoatingA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度下限"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.LowerLimitOfCoatingA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="面密度目标值"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.TargetValueOfCoatingA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="面密度预警偏差值"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.WarningOffsetOfCoatingA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="面密度危险偏差值"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DangerOffsetOfCoatingA, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+
+                    <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
+
+                    <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="面密度坐标轴刻度及标识线设置-B面" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度上限"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.UpperLimitOfCoatingB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刻度下限"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.LowerLimitOfCoatingB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="面密度目标值"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.TargetValueOfCoatingB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="面密度预警偏差值"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.WarningOffsetOfCoatingB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <hc:TextBox
+                        MinWidth="360"
+                        Margin="0,10,0,0"
+                        d:Text="-300"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="面密度危险偏差值"
+                        hc:InfoElement.TitleWidth="260"
+                        Style="{StaticResource HCTitleValueTextBox}"
+                        Text="{Binding ItemSource.DangerOffsetOfCoatingB, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 

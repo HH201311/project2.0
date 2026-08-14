@@ -102,15 +102,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
         #endregion
 
         #region ItemsSource
-        public ObservableCollection<double[]> ItemsSource
+        public ObservableCollection<float[]> ItemsSource
         {
-            get { return (ObservableCollection<double[]>)GetValue(ItemsSourceProperty); }
+            get { return (ObservableCollection<float[]>)GetValue(ItemsSourceProperty); }
             set { SetValue(ItemsSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
             nameof(ItemsSource),
-            typeof(ObservableCollection<double[]>),
+            typeof(ObservableCollection<float[]>),
             typeof(TBDataGridControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnItemsSourceChanged))
         );

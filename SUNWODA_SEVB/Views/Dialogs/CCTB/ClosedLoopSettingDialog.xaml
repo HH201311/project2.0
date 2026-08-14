@@ -2,11 +2,12 @@
     x:Class="SUNWODA_SEVB.Views.Dialogs.CCTB.ClosedLoopSettingDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:enums="clr-namespace:SUNWODA_SEVB.Core.Enumerations.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:pconvert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:ucc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB;assembly=SUNWODA_SEVB.Component"
     xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls;assembly=SUNWODA_SEVB.Component"
     Width="Auto"
@@ -28,9 +29,9 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+
+            <convert:EnumToBoolConverter x:Key="EnumToBoolConverter" />
             <convert:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
-            <convert:ConfigToVisibilityMultiValueConverter x:Key="ConfigToVisibilityMultiValueConverter" />
 
             <!--  标题样式  -->
             <Style x:Key="TitleTextBlockStyle" TargetType="TextBlock">
@@ -40,6 +41,19 @@
                 <Setter Property="Opacity" Value="0.8" />
                 <Setter Property="HorizontalAlignment" Value="Left" />
                 <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!--  文本样式  -->
+            <Style TargetType="TextBlock">
+                <Setter Property="Margin" Value="0,20,0,0" />
+                <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Foreground" Value="#CCFFFFFF" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="TextAlignment" Value="Left" />
+                <Setter Property="TextWrapping" Value="NoWrap" />
+                <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
             </Style>
 
             <!--  文本样式  -->
@@ -113,19 +127,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="异常数据设置"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                <x:Static Member="enums:EClosedLoopType.MD" />
-                                <x:Static Member="enums:EClosedLoopType.TD" />
-                                <x:Static Member="enums:EClosedLoopType.MDTD" />
-                            </x:Array>
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD,TD,MDTD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
@@ -151,20 +154,9 @@
             </GroupBox>
             <GroupBox
                 d:Visibility="Visible"
-                Header="开机判断设置"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                <x:Static Member="enums:EClosedLoopType.MD" />
-                                <x:Static Member="enums:EClosedLoopType.TD" />
-                                <x:Static Member="enums:EClosedLoopType.MDTD" />
-                            </x:Array>
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Header="开机/滞后判断设置"
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD,TD,MDTD'}">
                 <StackPanel Margin="20,0,20,20">
                     <uccc:PairContentControl PairKeyText="开机判定">
                         <StackPanel Orientation="Horizontal">
@@ -173,7 +165,7 @@
                                 Command="{Binding SelectBootUpTypeCommand}"
                                 CommandParameter="{x:Static enums:EBootUpType.DataNumber}"
                                 Content="趟数"
-                                IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EBootUpType.DataNumber}}"
+                                IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static enums:EBootUpType.DataNumber}}"
                                 Style="{StaticResource ParamValueRadioButtonStyle}" />
                             <Rectangle Width="10" />
                             <RadioButton
@@ -181,7 +173,7 @@
                                 Command="{Binding SelectBootUpTypeCommand}"
                                 CommandParameter="{x:Static enums:EBootUpType.Time}"
                                 Content="时间"
-                                IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static enums:EBootUpType.Time}}"
+                                IsChecked="{Binding ClosedLoopSettingModel.BootUp_EBootUpType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static enums:EBootUpType.Time}}"
                                 Style="{StaticResource ParamValueRadioButtonStyle}" />
                         </StackPanel>
                     </uccc:PairContentControl>
@@ -202,95 +194,86 @@
                         hc:InfoElement.Placeholder="请输入"
                         hc:InfoElement.Title="开机剔除躺数"
                         Text="{Binding ClosedLoopSettingModel.BootUp_RidCount, Mode=TwoWay}" />
+                    <hc:TextBox
+                        Width="260"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="滞后躺数"
+                        Text="{Binding ClosedLoopSettingModel.Lag_DataCount, Mode=TwoWay}"
+                        Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}" />
+                    <hc:TextBox
+                        Width="260"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="刀距滞后变化值"
+                        Text="{Binding ClosedLoopSettingModel.Lag_DearanceValue, Mode=TwoWay}"
+                        Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='TD,MDTD'}" />
                 </StackPanel>
             </GroupBox>
             <GroupBox
                 d:Visibility="Visible"
                 Header="算法信息配置"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                <x:Static Member="enums:EClosedLoopType.MD" />
-                                <x:Static Member="enums:EClosedLoopType.TD" />
-                                <x:Static Member="enums:EClosedLoopType.MDTD" />
-                            </x:Array>
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD,TD,MDTD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
                         hc:InfoElement.Placeholder="请输入"
                         hc:InfoElement.Title="入参躺数"
                         Text="{Binding ClosedLoopSettingModel.Arithmetic_InputDataCount, Mode=TwoWay}" />
+                    <TextBlock Text="PID参数配置：" Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}" />
+                    <UniformGrid Columns="2" Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
+                        <hc:TextBox
+                            Margin="10,20,0,0"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="T"
+                            hc:InfoElement.TitleWidth="30"
+                            Text="{Binding ClosedLoopSettingModel.PID.T, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Margin="10,20,0,0"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="P"
+                            hc:InfoElement.TitleWidth="30"
+                            Text="{Binding ClosedLoopSettingModel.PID.P, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Margin="10,20,0,0"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="I"
+                            hc:InfoElement.TitleWidth="30"
+                            Text="{Binding ClosedLoopSettingModel.PID.I, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Margin="10,20,0,0"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="D"
+                            hc:InfoElement.TitleWidth="30"
+                            Text="{Binding ClosedLoopSettingModel.PID.D, Mode=TwoWay}" />
+                    </UniformGrid>
                 </StackPanel>
             </GroupBox>
+
             <GroupBox
                 d:Visibility="Visible"
                 Header="调机下发配置"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                <x:Static Member="enums:EClosedLoopType.MD" />
-                                <x:Static Member="enums:EClosedLoopType.TD" />
-                                <x:Static Member="enums:EClosedLoopType.MDTD" />
-                            </x:Array>
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD,TD,MDTD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
                         hc:InfoElement.Placeholder="请输入"
                         hc:InfoElement.Title="泵速下发系数"
-                        Text="{Binding ClosedLoopSettingModel.SetB_Coefficient, Mode=TwoWay}">
-                        <hc:TextBox.Visibility>
-                            <Binding Converter="{StaticResource EnumToVisibilityConverter}" Path="ClosedLoopType">
-                                <Binding.ConverterParameter>
-                                    <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                        <x:Static Member="enums:EClosedLoopType.MD" />
-                                        <x:Static Member="enums:EClosedLoopType.MDTD" />
-                                    </x:Array>
-                                </Binding.ConverterParameter>
-                            </Binding>
-                        </hc:TextBox.Visibility>
-                    </hc:TextBox>
+                        Text="{Binding ClosedLoopSettingModel.SetB_Coefficient, Mode=TwoWay}"
+                        Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD,MDTD'}" />
                     <hc:TextBox
                         Width="260"
                         hc:InfoElement.Placeholder="请输入"
                         hc:InfoElement.Title="T块下发系数"
-                        Text="{Binding ClosedLoopSettingModel.SetT_Coefficient, Mode=TwoWay}">
-                        <hc:TextBox.Visibility>
-                            <Binding Converter="{StaticResource EnumToVisibilityConverter}" Path="ClosedLoopType">
-                                <Binding.ConverterParameter>
-                                    <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                        <x:Static Member="enums:EClosedLoopType.TD" />
-                                        <x:Static Member="enums:EClosedLoopType.MDTD" />
-                                    </x:Array>
-                                </Binding.ConverterParameter>
-                            </Binding>
-                        </hc:TextBox.Visibility>
-                    </hc:TextBox>
+                        Text="{Binding ClosedLoopSettingModel.SetT_Coefficient, Mode=TwoWay}"
+                        Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='TD,MDTD'}" />
                 </StackPanel>
             </GroupBox>
             <GroupBox
                 d:Visibility="Visible"
                 Header="MA运算设置"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <uccc:PairContentControl PairKeyText="流量趋势计算MA使能">
                         <uccc:SimpleToggleButton
@@ -308,15 +291,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="阈值判定"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
@@ -338,15 +314,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="趋势判定"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
@@ -358,15 +327,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="位置判定"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
@@ -383,15 +345,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="比例判定"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
@@ -425,15 +380,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="动态判定"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <uccc:PairContentControl PairKeyText="动态判定">
                         <Slider
@@ -452,15 +400,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="流量趋势判定"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <uccc:PairContentControl PairKeyText="流量趋势判定使能">
                         <uccc:SimpleToggleButton
@@ -488,15 +429,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="极差拦截"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <hc:TextBox
                         Width="260"
@@ -508,15 +442,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="泵速拦截"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Static Member="enums:EClosedLoopType.MD" />
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD'}">
                 <StackPanel Margin="20,0,20,20">
                     <uccc:PairContentControl PairKeyText="泵速调节区间">
                         <Slider
@@ -535,19 +462,8 @@
             <GroupBox
                 d:Visibility="Visible"
                 Header="目标值设置"
-                Style="{StaticResource ParamGroupBoxStyle}">
-                <GroupBox.Visibility>
-                    <MultiBinding Converter="{StaticResource ConfigToVisibilityMultiValueConverter}">
-                        <MultiBinding.ConverterParameter>
-                            <x:Array xmlns:sys="clr-namespace:System;assembly=mscorlib" Type="sys:Object">
-                                <x:Static Member="enums:EClosedLoopType.MD" />
-                                <x:Static Member="enums:EClosedLoopType.TD" />
-                                <x:Static Member="enums:EClosedLoopType.MDTD" />
-                            </x:Array>
-                        </MultiBinding.ConverterParameter>
-                        <Binding Path="ClosedLoopType" />
-                    </MultiBinding>
-                </GroupBox.Visibility>
+                Style="{StaticResource ParamGroupBoxStyle}"
+                Visibility="{Binding ClosedLoopType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='MD,TD,MDTD'}">
                 <StackPanel Margin="20,0,20,20">
                     <uccc:PairContentControl PairKeyText="使用动态目标值">
                         <uccc:SimpleToggleButton

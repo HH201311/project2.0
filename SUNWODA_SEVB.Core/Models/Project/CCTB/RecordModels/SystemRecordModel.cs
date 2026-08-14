@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using System;
 using System.Collections.Generic;
@@ -56,5 +57,35 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.RecordModels
         /// </summary>
         [JsonIgnore]
         public DateTime? RecordTime { get => recordTime; set => SetProperty(ref recordTime, value); }
+
+        #region 辅助方法
+        /// <summary>
+        /// 将日志模型转换为系统记录模型
+        /// </summary>
+        /// <param name="log"></param>
+        /// <returns></returns>
+        public static SystemRecordModel ConvertToRecord(AppLogModel log)
+        {
+            SystemRecordModel? record;
+            try
+            {
+                record = JsonConvert.DeserializeObject<SystemRecordModel>(log.Message);
+            }
+            catch
+            {
+                record = null;
+            }
+
+            if (record == null)
+            {
+                record = new SystemRecordModel();
+                record.Message = log.Message;
+            }
+            record.RecordLevel = log.LogLevel;
+            record.RecordTime = log.LogTime;
+
+            return record;
+        }
+        #endregion
     }
 }

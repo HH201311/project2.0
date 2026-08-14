@@ -1,7 +1,18 @@
-﻿using SUNWODA_SEVB.Core.Enumerations;
+﻿using HandyControl.Controls;
+using HandyControl.Data;
+using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
+using SUNWODA_SEVB.Core.Interfaces.PLC;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.BusinessModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.ProtocolModels.CCDSocketServer;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.RecordModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -28,17 +39,17 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         /// <summary>
         /// 当前登录用户账号
         /// </summary>
-        public static string? UserAccount;
+        public static string? UserAccount { get; set; }
 
         /// <summary>
         /// 当前登录用户名称
         /// </summary>
-        public static string? UserName;
+        public static string? UserName { get; set; }
 
         /// <summary>
         /// 当前登录用户角色
         /// </summary>
-        public static int UserRoleID;
+        public static int UserRoleID { get; set; }
 
         #region 用户/角色相关
         /// <summary>
@@ -101,33 +112,177 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         #endregion
         #endregion
 
+        #region 项目配置参数
+        public static ClosedLoopSettingModel? ClosedLoopSettingMDA { get; set; } = null;
+        public static ClosedLoopSettingModel? ClosedLoopSettingMDB { get; set; } = null;
+        public static ClosedLoopSettingModel? ClosedLoopSettingTDA { get; set; } = null;
+        public static ClosedLoopSettingModel? ClosedLoopSettingTDB { get; set; } = null;
+        public static ClosedLoopSettingModel? ClosedLoopSettingMDTDA { get; set; } = null;
+        public static ClosedLoopSettingModel? ClosedLoopSettingMDTDB { get; set; } = null;
+        public static GeneralSettingsModel? GeneralSettings { get; set; } = null;
+        public static BasicFunctionSettingModel? BasicFunctionSetting { get; set; } = null;
+        public static SpecialFunctionSettingModel? SpecialFunctionSetting { get; set; } = null;
+
+        public static List<RoleManagementModel> RoleManagementConfigs { get; set; } = [];
+        public static List<AlarmConfigModel> AlarmConfigs { get; set; } = [];
+        public static AlarmConfigParamModel? AlarmParamConfig { get; set; }
+        #endregion
+
+        #region 业务相关
+        /// <summary>
+        /// 膜卷号
+        /// </summary>
+        public static string? ProductSn { get; set; } = null;
+        #endregion
+
         #region 涂布项目全局消息通知
         public delegate void MessageEventHandler<T>(object? sender, MessageEventArgs<T> e) where T : class;
 
         /// <summary>
         /// 涂布消息通知
         /// </summary>
-        public static MessageEventHandler<CoatingMessage>? CoatingMessageNotificationEvent;
+        public static MessageEventHandler<CoatingDataModel>? CoatingMessageNotificationEvent;
 
         /// <summary>
         /// 涂布消息通知
         /// </summary>
-        public static MessageEventHandler<TBlockMessage>? TBlockMessageNotificationEvent;
+        public static MessageEventHandler<TBlockDataModel>? TBlockMessageNotificationEvent;
 
         /// <summary>
         /// CCD消息通知
         /// </summary>
-        public static MessageEventHandler<CCDMessage>? CCDMessageNotificationEvent;
+        public static MessageEventHandler<Tuple<string, WeightMessageModel>>? CCDMessageNotificationEvent;
 
         /// <summary>
         /// 设置消息通知
         /// </summary>
-        public static MessageEventHandler<string>? SettingMessageNotificationEvent;
+        public static MessageEventHandler<object>? SettingMessageNotificationEvent;
+        #endregion
+
+        #region 辅助方法
+        #region 膜卷号
+        /// <summary>
+        /// 获取膜卷号
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+
+        public static string GetProductSn(string filePath)
+        {
+            var content = ReadFileSafely(filePath, Encoding.UTF8);
+            var match = Regex.Match(content,
+                @"MachineID：*(.+)\r\nMoNumber：*(.+)\r\nPreProductSn：*(.+)\r\nOperatorID：*(.+)\r\nGroupCode：*(.+)\r\nProductSn：*(.+)\r\nModelNum：*(.+)\r\nOperatorNumber：*(.+)\r\n*(.+)");
+
+            return match.Success ? match.Groups[6].Value.Trim() : string.Empty;
+        }
 
         /// <summary>
-        /// CPK文件监控配置更新通知
+        /// 安全地读取文件内容
         /// </summary>
-        public static MessageEventHandler<CPKWatcherConfigMessage>? CPKWatcherConfigMessageNotificationEvent;
+        /// <param name="path"></param>
+        /// <param name="encoding"></param>
+        /// <returns></returns>
+        private static string ReadFileSafely(string path, Encoding encoding)
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var sr = new StreamReader(fs, encoding, detectEncodingFromByteOrderMarks: true);
+            return sr.ReadToEnd();
+        }
+        #endregion
+
+        #region Grow主界面弹窗
+        public static void ShowGrowSuccess(string message, string caption)
+        {
+            Growl.Success(new GrowlInfo
+            {
+                Message = $"{caption}：{message}",
+                Token = "ProductionMonitor",
+                ShowDateTime = false,
+                StaysOpen = false,
+                WaitTime = 5,
+            });
+        }
+        public static void ShowGrowInfo(string message, string caption)
+        {
+            Growl.Info(new GrowlInfo
+            {
+                Message = $"{caption}：{message}",
+                Token = "ProductionMonitor",
+                ShowDateTime = false,
+                StaysOpen = false,
+                WaitTime = 5,
+            });
+        }
+        public static void ShowGrowWarning(string message, string caption)
+        {
+            Growl.Warning(new GrowlInfo
+            {
+                Message = $"{caption}：{message}",
+                Token = "ProductionMonitor",
+                ShowDateTime = true,
+                StaysOpen = false,
+                WaitTime = 5,
+            });
+        }
+        public static void ShowGrowError(string message, string caption)
+        {
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"{caption}：{message}",
+                Token = "ProductionMonitor",
+                ShowDateTime = false,
+                StaysOpen = false,
+                WaitTime = 5,
+            });
+        }
+        public static void ShowGrowFatal(string message, string caption)
+        {
+            Growl.Fatal(new GrowlInfo
+            {
+                Message = $"{caption}：{message}",
+                Token = "ProductionMonitor",
+                ShowDateTime = false,
+                StaysOpen = false,
+                WaitTime = 5,
+            });
+        }
+        public static void ShowGrowAsk(string message, string caption)
+        {
+            Growl.Ask(new GrowlInfo
+            {
+                Message = $"{caption}：{message}",
+                Token = "ProductionMonitor",
+                ShowDateTime = false,
+                StaysOpen = false,
+                WaitTime = 5,
+            });
+        }
+
+        /// <summary>
+        /// 报警弹窗Grow
+        /// </summary>
+        /// <param name="record"></param>
+        public static void ShowGrowAlarm(AlarmRecordModel record)
+        {
+            var ac = CCTBCore.AlarmConfigs.FirstOrDefault(o => o.Code == record.Code);
+            if (ac == null || !ac.IsEnabled) return;
+            if (string.IsNullOrEmpty(ac.Name) || string.IsNullOrEmpty(record.AlarmMessage)) return;
+
+            switch (ac.Level)
+            {
+                case EAlarmLevel.一般:
+                    ShowGrowWarning(record.AlarmMessage, ac.Name);
+                    break;
+                case EAlarmLevel.中等:
+                    ShowGrowError(record.AlarmMessage, ac.Name);
+                    break;
+                case EAlarmLevel.严重:
+                    ShowGrowFatal(record.AlarmMessage, ac.Name);
+                    break;
+                default: return;
+            }
+        }
+        #endregion
         #endregion
     }
 }

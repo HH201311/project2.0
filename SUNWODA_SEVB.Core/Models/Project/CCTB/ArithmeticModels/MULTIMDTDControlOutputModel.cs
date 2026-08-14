@@ -34,11 +34,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.ArithmeticModels
         /// <summary>
         /// T块调整描述
         /// </summary>
-        public Dictionary<string, string>? TAdjustDescription { get; set; }
+        public Dictionary<string, string> TAdjustDescription { get; set; } = [];
 
         /// <summary>
         /// T块调整偏移值
         /// </summary>
-        public Dictionary<string, int>? TAdjustOffset { get; set; }
+        public Dictionary<string, int> TAdjustOffset { get; set; } = [];
     }
 }

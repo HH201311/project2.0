@@ -18,6 +18,7 @@ using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Project.HawkEye;
@@ -124,22 +125,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 (EClosedLoopType.MDTD, ESideType.B) => AlgorithmModel_MDTDB,
                 _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
             };
+
             // 若校验成功则执行更新(界面+数据库)
             var re = _projectSettingRepository.SaveAlgorithmProjectParameters(closedLoopType, sideType, settingModel);
             if (!re)
             {
                 settingModel.IsEnable = !page.IsAlgorithmEnabled;
                 page.IsAlgorithmEnabled = !page.IsAlgorithmEnabled;
+                return;
             }
+
+            _logger.UserInfo($"用户{(settingModel.IsEnable ? "启用" : "关闭")}了{sideType}面{closedLoopType}算法！");
         }
 
         private async void AlgorithmVerifyAsync(object? arg)
         {
-            if (!(arg is object[] args && args?.Length == 4)) return;
+            if (!(arg is object[] args && args?.Length == 6)) return;
             if (!(args[0] is ESideType sideType)) return;
             if (!(args[1] is EClosedLoopType closedLoopType)) return;
             if (!(args[2] is string newAlgorithmName)) return;
             if (!(args[3] is string oldAlgorithmName)) return;
+            if (!(args[4] is int code)) return;
+            if (!(args[5] is Action<bool> callback)) return;
 
             if (string.IsNullOrEmpty(newAlgorithmName)) return;
             //if (string.Equals(newAlgorithmName, oldAlgorithmName)) return;
@@ -156,32 +163,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 _ => throw new ArgumentException($"未找到匹配的组合: {closedLoopType}, {sideType}")
             };
 
-            var (verifyResult, verifyMessage) = await _algorithmService.VerifyAlgorithmAsync(sideType, closedLoopType, newAlgorithmName);
+            var algorithmType = AlgorithmModel.GetEAlgorithmType(closedLoopType, newAlgorithmName, code);
+            var (verifyResult, verifyMessage) = await _algorithmService.VerifyAlgorithmAsync(sideType, algorithmType, newAlgorithmName);
+
+            callback?.Invoke(verifyResult);
+
+            switch (code)
+            {
+                case 0: settingModel.AlgorithmName = verifyResult ? newAlgorithmName : oldAlgorithmName; break;
+                case 1: settingModel.AlgorithmName1 = verifyResult ? newAlgorithmName : oldAlgorithmName; break;
+            }
+
             // 校验算法
             if (!verifyResult)// 校验失败则弹窗提示
             {
-                await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.ErrorAsync(verifyMessage, $"{sideType}面{closedLoopType}算法校验失败"));
-                settingModel.AlgorithmName = string.Empty;
-                settingModel.AlgorithmName = oldAlgorithmName;
+                await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.ErrorAsync(verifyMessage, $"{sideType}面{algorithmType}算法校验失败"));
                 return;
             }
 
-            settingModel.AlgorithmName = newAlgorithmName;
             var re = _projectSettingRepository.SaveAlgorithmProjectParameters(closedLoopType, sideType, settingModel);
             if (!re)
             {
-                await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.ErrorAsync($"{sideType}面{closedLoopType}算法[{newAlgorithmName}]校验成功，保存数据库失败!", "提示"));
-                settingModel.AlgorithmName = oldAlgorithmName;
+                await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.ErrorAsync($"{sideType}面{algorithmType}算法[{newAlgorithmName}]校验成功，保存数据库失败!", "提示"));
                 return;
             }
 
-            await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.SuccessAsync($"{sideType}面{closedLoopType}算法[{newAlgorithmName}]校验成功，已保存数据库!", "提示"));
+            await RunOnUIThreadAsync(async () => await VM_CCTBMessageBoxDialog.SuccessAsync($"{sideType}面{algorithmType}算法[{newAlgorithmName}]校验成功，已保存数据库!", "提示"));
         }
 
         private void LoadAlgorithmModel()
         {
-            var closedLoopTypes = Enum.GetValues(typeof(EClosedLoopType));
-            var sideTypes = Enum.GetValues(typeof(ESideType));
+            var sideTypes = new[] { ESideType.A, ESideType.B };
+            var closedLoopTypes = new[] { EClosedLoopType.MD, EClosedLoopType.TD, EClosedLoopType.MDTD };
             foreach (EClosedLoopType closedLoopType in closedLoopTypes)
             {
                 foreach (ESideType sideType in sideTypes)
@@ -220,6 +233,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 var settingModel = _projectSettingRepository.LoadClosedLoopSettingProjectParameters(closedLoopType, sideType);
                 if (settingModel == null) return;
 
+                _logger.UserInfo($"用户打开了{sideType}面{closedLoopType}业务 参数设置 窗口！");
                 // 获取当前用户角色
                 var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
                 var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
@@ -260,12 +274,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 var isUpdateSuccess = _projectSettingRepository.SaveClosedLoopSettingProjectParameters(closedLoopType, sideType, settingModel);
                 if (isUpdateSuccess)
                 {
-                    _logger.Info($"[{sideType}面{closedLoopType}闭环参数] 配置保存成功");
+                    // 参数更新通知
+                    CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                    {
+                        Tag = $"{closedLoopType}{sideType}",
+                        Message = settingModel
+                    });
+                    _logger.UserInfo($"用户保存了 [{sideType}面{closedLoopType}闭环参数] 配置配置修改！");
                     await VM_CCTBMessageBoxDialog.SuccessAsync($"[{sideType}面{closedLoopType}闭环参数] 配置更新完成！", "提示");
                 }
                 else
                 {
-                    _logger.Error($"[{sideType}面{closedLoopType}闭环参数]  配置保存失败");
+                    _logger.Error($"[{sideType}面{closedLoopType}闭环参数] 配置保存失败");
                     await VM_CCTBMessageBoxDialog.ErrorAsync($"[{sideType}面{closedLoopType}闭环参数] 配置更新失败！", "提示");
                 }
             }
@@ -282,6 +302,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             new ObservableCollection<ComboboxItemModel<EWeightDataType>>(
             Enum.GetValues(typeof(EWeightDataType)).Cast<EWeightDataType>()
             .Select(v => new ComboboxItemModel<EWeightDataType>() { ItemValue = v, DisplayName = v.ToString().Substring(0, v.ToString().Length - 2) }));
+
+        public ObservableCollection<ComboboxItemModel<ERackType>> RackTypeSource { get; } =
+            new ObservableCollection<ComboboxItemModel<ERackType>>(
+            Enum.GetValues(typeof(ERackType)).Cast<ERackType>()
+            .Select(v => new ComboboxItemModel<ERackType>() { ItemValue = v, DisplayName = v.ToString() }));
 
         public ObservableCollection<ComboboxItemModel<EMembraneZoneType>> EMembraneZoneTypeSource { get; } =
             new ObservableCollection<ComboboxItemModel<EMembraneZoneType>>(
@@ -327,7 +352,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 var isUpdateSuccess = _projectSettingRepository.SaveGeneralSettingsProjectParameters(GeneralSettingsModel);
                 if (isUpdateSuccess)
                 {
-                    _logger.Info($"[通用设置] 配置保存成功");
+                    // 参数更新通知
+                    CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                    {
+                        Tag = "通用设置参数保存成功！",
+                        Message = GeneralSettingsModel
+                    });
+                    _logger.UserInfo($"用户保存了 闭环设置/通用设置 参数修改！");
                     await VM_CCTBMessageBoxDialog.SuccessAsync($"[通用设置] 配置更新完成！", "提示");
                 }
                 else

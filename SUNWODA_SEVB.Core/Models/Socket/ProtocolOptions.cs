@@ -1,5 +1,6 @@
 ﻿
 using SUNWODA_SEVB.Core.Common;
+using System.ComponentModel;
 
 namespace SUNWODA_SEVB.Core.Models.Socket
 {
@@ -58,46 +59,55 @@ namespace SUNWODA_SEVB.Core.Models.Socket
         /// <summary>
         /// 起始符 (可为null表示无起始符)
         /// </summary>
+        [Description("FramingMode为StartEndDelimiter")]
         public byte[]? StartDelimiter { get => startDelimiter; set => SetProperty(ref startDelimiter, value); }
 
         /// <summary>
         /// 结束符 (可为null表示无结束符)
         /// </summary>
+        [Description("FramingMode为StartEndDelimiter/EndDelimiterOnly")]
         public byte[]? EndDelimiter { get => endDelimiter; set => SetProperty(ref endDelimiter, value); }
 
         /// <summary>
         /// 固定长度 (FixedLength模式使用)
         /// </summary>
+        [Description("FramingMode为FixedLength")]
         public int FixedFrameLength { get => fixedFrameLength; set => SetProperty(ref fixedFrameLength, value); }
 
         /// <summary>
         /// 长度字段偏移量 (LengthPrefixed模式使用)
         /// </summary>
+        [Description("FramingMode为LengthPrefixed")]
         public int LengthFieldOffset { get => lengthFieldOffset; set => SetProperty(ref lengthFieldOffset, value); }
 
         /// <summary>
         /// 长度字段字节数 (1, 2, 4)
         /// </summary>
+        [Description("FramingMode为LengthPrefixed")]
         public int LengthFieldSize { get => lengthFieldSize; set => SetProperty(ref lengthFieldSize, value); }
 
         /// <summary>
         /// 长度值是否包含头部长度
         /// </summary>
+        [Description("FramingMode为LengthPrefixed")]
         public bool LengthIncludesHeader { get => lengthIncludesHeader; set => SetProperty(ref lengthIncludesHeader, value); }
 
         /// <summary>
         /// 是否使用大端字节序
         /// </summary>
+        [Description("FramingMode为LengthPrefixed")]
         public bool BigEndian { get => bigEndian; set => SetProperty(ref bigEndian, value); }
 
         /// <summary>
         /// 是否在解析后移除起止符
         /// </summary>
+        [Description("FramingMode为StartEndDelimiter/EndDelimiterOnly")]
         public bool StripDelimiters { get => stripDelimiters; set => SetProperty(ref stripDelimiters, value); }
 
         /// <summary>
         /// 最大帧长度 (防止内存溢出)
         /// </summary>
+        [Description("FramingMode为StartEndDelimiter/EndDelimiterOnly/FixedLength/LengthPrefixed")]
         public int MaxFrameLength { get => maxFrameLength; set => SetProperty(ref maxFrameLength, value); }
     }
 }

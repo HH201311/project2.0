@@ -12,6 +12,8 @@ using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
@@ -78,12 +80,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             var re = _projectSettingRepository.SaveAlarmConfigProjectParameters(AlarmConfigs.ToList());
             if (!re)
             {
+                // 参数更新通知
+                CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                {
+                    Tag = "报警设置参数保存成功！",
+                    Message = AlarmConfigs.ToList()
+                });
                 await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
                 return;
             }
             re = _projectSettingRepository.SaveAlarmConfigParamProjectParameters(AlarmConfigParam);
-            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
-            else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
+            if (!re)
+            {
+                // 参数更新通知
+                CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                {
+                    Tag = "报警设置参数保存成功！",
+                    Message = AlarmConfigParam
+                });
+                await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
+                return;
+            }
+
+            _logger.UserInfo($"用户保存了 报警设置 参数修改！");
+            await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
         }
 
         #region 报警配置表格
@@ -94,7 +114,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                  new ObservableCollection<ComboboxItemModel<EAlarmLevel>>(
                  Enum.GetValues(typeof(EAlarmLevel)).Cast<EAlarmLevel>()
                  .Select(v => new ComboboxItemModel<EAlarmLevel>() { ItemValue = v, DisplayName = v.ToString() }));
-
 
         private AlarmConfigParamModel alarmConfigParam = new();
 

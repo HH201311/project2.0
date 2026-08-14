@@ -111,8 +111,8 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
 
             var verityResult = true;
             var verityMessage = new StringBuilder();
-            var sideTypes = Enum.GetValues<ESideType>();
-            var closedLoopTypes = Enum.GetValues<EClosedLoopType>();
+            var sideTypes = new[] { ESideType.A, ESideType.B };
+            var closedLoopTypes = new[] { EClosedLoopType.MD, EClosedLoopType.TD, EClosedLoopType.MDTD };
 
             foreach (var sideType in sideTypes)
             {
@@ -121,13 +121,22 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
                     var algoModel = _projectSettingRepository.LoadAlgorithmProjectParameters(closedLoopType, sideType);
                     if (!algoModel.IsEnable)
                     {
-                        _logger.Info($"[{sideType}面{algoModel.AlgorithmType}算法未启用，已跳过验证！");
+                        _logger.Info($"[{sideType}面{closedLoopType}算法未启用，已跳过验证！");
                         continue;
                     }
 
-                    var (ok, msg) = await EnsureAlgorithmLatestAsync(sideType, algoModel.AlgorithmType, algoModel, forceUpdate: true);
+                    var algorithmType = AlgorithmModel.GetEAlgorithmType(closedLoopType, algoModel.AlgorithmName);
+                    var (ok, msg) = await EnsureAlgorithmLatestAsync(sideType, algorithmType, algoModel.AlgorithmName, forceUpdate: true);
                     verityResult &= ok;
-                    if (!ok) verityMessage.AppendLine($"[{sideType}面{algoModel.AlgorithmType}算法验证失败：{msg}");
+                    if (!ok) verityMessage.AppendLine($"[{sideType}面{algorithmType}算法验证失败：{msg}");
+
+                    if (closedLoopType.Equals(EClosedLoopType.MD))
+                    {
+                        algorithmType = AlgorithmModel.GetEAlgorithmType(closedLoopType, algoModel.AlgorithmName, 1);
+                        (ok, msg) = await EnsureAlgorithmLatestAsync(sideType, algorithmType, algoModel.AlgorithmName, forceUpdate: true);
+                        verityResult &= ok;
+                        if (!ok) verityMessage.AppendLine($"[{sideType}面{algorithmType}算法验证失败：{msg}");
+                    }
                 }
             }
 
@@ -145,16 +154,9 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         /// <summary>
         /// 供配置界面调用的单算法校验
         /// </summary>
-        public async Task<(bool isSuccess, string message)> VerifyAlgorithmAsync(ESideType sideType, EClosedLoopType closedLoopType, string algorithmName)
+        public async Task<(bool isSuccess, string message)> VerifyAlgorithmAsync(ESideType sideType, EAlgorithmType algorithmType, string algorithmName)
         {
-            var algorithmType = AlgorithmModel.GetEAlgorithmType(closedLoopType, algorithmName);
-            var algoModel = new AlgorithmModel
-            {
-                AlgorithmType = algorithmType,
-                AlgorithmName = algorithmName,
-                IsEnable = true
-            };
-            var (ok, msg) = await EnsureAlgorithmLatestAsync(sideType, algorithmType, algoModel, forceUpdate: true);
+            var (ok, msg) = await EnsureAlgorithmLatestAsync(sideType, algorithmType, algorithmName, forceUpdate: true);
             return (ok, msg);
         }
 
@@ -197,7 +199,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         /// 确保指定算法为最新版本（从 Web 下载并验证）
         /// forceUpdate: true 时会忽略缓存版本强制重新下载校验
         /// </summary>
-        private async Task<(bool success, string message)> EnsureAlgorithmLatestAsync(ESideType sideType, EAlgorithmType algorithmType, AlgorithmModel algoModel, bool forceUpdate = false)
+        private async Task<(bool success, string message)> EnsureAlgorithmLatestAsync(ESideType sideType, EAlgorithmType algorithmType, string algorithmName, bool forceUpdate = false)
         {
             var key = (sideType, algorithmType);
             var semaphore = updateLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
@@ -209,7 +211,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
                 // 如果不强制更新，先尝试用缓存中记录的 WebUrl 快速检查版本
                 if (!forceUpdate && cache != null && cache.WebUrl != null)
                 {
-                    var (verOk, verMsg, latestVersion) = await TryGetVersionAsync(cache.WebUrl, algoModel.AlgorithmName);
+                    var (verOk, verMsg, latestVersion) = await TryGetVersionAsync(cache.WebUrl, algorithmName);
                     if (verOk && latestVersion == cache.Version && !string.IsNullOrEmpty(cache.Version))
                     {
                         // 版本未变，无需更新
@@ -224,7 +226,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
                 List<string> errors = new();
                 foreach (var url in webUrls)
                 {
-                    var (dlOk, dlMsg) = await TryDownloadAndVerifyAsync(sideType, algorithmType, algoModel, url);
+                    var (dlOk, dlMsg) = await TryDownloadAndVerifyAsync(sideType, algorithmType, algorithmName, url);
                     if (dlOk) return (true, "更新成功");
                     errors.Add($"[{url.Name}]: {dlMsg}");
                 }
@@ -241,37 +243,36 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         /// <summary>
         /// 尝试从单个 WebUrl 获取版本、下载 pyd、验证并更新缓存
         /// </summary>
-        private async Task<(bool success, string message)> TryDownloadAndVerifyAsync(ESideType sideType, EAlgorithmType algorithmType, AlgorithmModel algoModel, AlgorithmWebUrlModel webUrl)
+        private async Task<(bool success, string message)> TryDownloadAndVerifyAsync(ESideType sideType, EAlgorithmType algorithmType, string algorithmName, AlgorithmWebUrlModel webUrl)
         {
             if (!webUrl.IsEnable || string.IsNullOrEmpty(webUrl.BaseUrl))
                 return (false, "WebUrl 未启用或地址为空");
 
-            var algoName = algoModel.AlgorithmName;
-            if (string.IsNullOrEmpty(algoName)) return (false, "算法名称为空");
+            if (string.IsNullOrEmpty(algorithmName)) return (false, "算法名称为空");
 
             // 1. 获取版本
-            var (verOk, verMsg, version) = await TryGetVersionAsync(webUrl, algoName);
+            var (verOk, verMsg, version) = await TryGetVersionAsync(webUrl, algorithmName);
             if (!verOk) return (false, verMsg);
 
             // 2. 下载加密 pyd 文件
             var xmlPublicKey = RasHelper.ToXmlPublicKey(AlgorithmModel.PublicKey);
             var signature = RasHelper.RSAEncrypt(xmlPublicKey, AlgorithmModel.AppKey);
-            var fileResp = await _webApiClient.DownloadDllAsync(webUrl.BaseUrl, AlgorithmModel.AppKey, signature, algoName, AlgorithmModel.ExecuteType);
+            var fileResp = await _webApiClient.DownloadDllAsync(webUrl.BaseUrl, AlgorithmModel.AppKey, signature, algorithmName, AlgorithmModel.ExecuteType);
             if (fileResp?.DataStr is not byte[] fileBuffer || fileBuffer.Length == 0)
                 return (false, $"下载 pyd 文件失败：{fileResp?.Message}");
 
             // 3. 保存到版本隔离目录
             var uniqueId = Guid.NewGuid().ToString("N");
             var modelPath = Path.Combine(PythonPydRootPath, "TBPyds", $"{algorithmType}_{sideType}", $"{version}_{uniqueId}");
-            var pydFilePath = Path.Combine(modelPath, $"{algoName}.pyd");
+            var pydFilePath = Path.Combine(modelPath, $"{algorithmName}.pyd");
             if (!Directory.Exists(modelPath)) Directory.CreateDirectory(modelPath);
             await File.WriteAllBytesAsync(pydFilePath, fileBuffer);
 
             // 4. 构造 Python 验证代码并执行
-            var pydImportPath = $"TBPyds.{algorithmType}_{sideType}.{version}_{uniqueId}.{algoName}"; // 将路径转换为 Python 模块导入格式
+            var pydImportPath = $"TBPyds.{algorithmType}_{sideType}.{version}_{uniqueId}.{algorithmName}"; // 将路径转换为 Python 模块导入格式
             var pythonCode = GetAlgorithmCode(algorithmType, pydImportPath);
 
-            var (verifyOk, verifyMsg) = AlgorithmVerify(algorithmType, algoName, pythonCode);
+            var (verifyOk, verifyMsg) = AlgorithmVerify(algorithmType, algorithmName, pythonCode);
             if (!verifyOk)
             {
                 // 验证失败，删除刚下载的文件
@@ -285,7 +286,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
                 WebUrl = webUrl,
                 Version = version,
                 ModlePath = modelPath,
-                AlgorithmName = algoName,
+                AlgorithmName = algorithmName,
                 PythonCode = pythonCode
             };
 
@@ -520,7 +521,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         /// <returns></returns>
         public FlowPIDOutputModel ExcuteFlowPID(ESideType sideType, double pumpSpeed1, double pumpSpeed2,
             string? flowData, int ma, float r, double allTrend, double trend, int trendRule, float single,
-            object? inputData1, object? inputData2)
+            object? inputData1 = null, object? inputData2 = null)
         {
             var algoType = EAlgorithmType.流量PID;
             var cache = EnsureLatestSync(sideType, algoType);
@@ -640,7 +641,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
             if (algoModel == null) throw new InvalidOperationException($"找不到算法配置 {sideType}/{algoType}");
 
             // 同步等待异步更新
-            var task = EnsureAlgorithmLatestAsync(sideType, algoType, algoModel, forceUpdate: false);
+            var task = EnsureAlgorithmLatestAsync(sideType, algoType, algoModel.AlgorithmName, forceUpdate: false);
             task.Wait(); // 调用线程应为后台线程，不会死锁
             if (!task.Result.success) throw new Exception($"算法 [{sideType}/{algoType}] 更新失败：{task.Result.message}");
 

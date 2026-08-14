@@ -190,7 +190,16 @@ namespace SUNWODA_SEVB.Tool.Helper
             // 1. 通知工作线程退出
             isWorking = false;
 
-            // 2. 等待线程自然结束（避免强制中止）
+            // 2. 清空未执行的任务队列（安全清空，因为工作线程已停止或即将停止）
+            lock (queueLock)
+            {
+                actions.Clear();
+            }
+
+            // 3. 执行通知，结束循环任务
+            ar.Set();
+
+            // 4. 等待线程自然结束（避免强制中止）
             if (PythonThread != null && PythonThread.IsAlive)
             {
                 // 给线程一些时间完成当前任务和清理（例如 2 秒）
@@ -201,14 +210,9 @@ namespace SUNWODA_SEVB.Tool.Helper
                     // 这里可以设置一个超时后的备用逻辑，例如置空线程引用，但保留 Python 资源不释放
                 }
             }
+            PythonThread = null;
 
-            // 3. 清空未执行的任务队列（安全清空，因为工作线程已停止或即将停止）
-            lock (queueLock)
-            {
-                actions.Clear();
-            }
-
-            // 4. 关闭 Python 运行时并重置状态
+            // 5. 关闭 Python 运行时并重置状态
             if (IsInitConfig)
             {
                 try
@@ -222,8 +226,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
                 IsInitConfig = false;
             }
-
-            PythonThread = null;
         }
 
         /// <summary>
@@ -265,17 +267,17 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <param name="action">Python任务</param>
         public static void AddAction((Action<object[]>, object[]) action)
         {
-            if (isWorking)
+            if (!isWorking) return;
+
+            Task.Run(() =>
             {
-                Task.Run(() =>
+                lock (queueLock)
                 {
-                    lock (queueLock)
-                    {
-                        actions.Enqueue(action);
-                        ar.Set(); // 通知工作线程有新任务
-                    }
-                });
-            }
+                    if (!isWorking) return;
+                    actions.Enqueue(action);
+                    ar.Set(); // 通知工作线程有新任务
+                }
+            });
         }
     }
 }

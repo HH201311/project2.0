@@ -580,19 +580,21 @@ namespace SUNWODA_SEVB.WEB.Services
                 var json = JsonHelper.Serialize(request);
                 var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json"));
 
+                var resultStr = Encoding.Default.GetString(result);
                 // 接口报错返回字符串包含failed
-                if (Encoding.Default.GetString(result).Contains("failed"))
+                if (resultStr.Contains("failed"))
                 {
                     return new DownloadDllResponse
                     {
                         IsSuccess = false,
-                        Message = Encoding.Default.GetString(result)
+                        Message = resultStr
                     };
                 }
 
                 // 尝试反序列化，如果失败则将结果作为 DataStr 返回
-                if (JsonHelper.TryDeserialize<DownloadDllResponse>(Encoding.Default.GetString(result), out var response) && response != null)
+                if (JsonHelper.TryDeserialize<DownloadDllResponse>(resultStr, out var response) && response != null)
                 {
+                    response.DataStr = result;
                     return response;
                 }
 
@@ -1148,7 +1150,7 @@ namespace SUNWODA_SEVB.WEB.Services
                     return new DownloadDllResponse
                     {
                         IsSuccess = false,
-                        Message = "WebTestUrlSysCenter未配置"
+                        Message = "WebUrl配置为空"
                     };
                 }
 
@@ -1164,18 +1166,19 @@ namespace SUNWODA_SEVB.WEB.Services
                 var json = JsonHelper.Serialize(request);
                 var result = await Task.Run(() => _httpHelper.IMEWebPost(url, json, "application/json"));
 
+                var resultStr = Encoding.Default.GetString(result);
                 // 接口报错返回字符串包含failed
-                if (Encoding.Default.GetString(result).Contains("failed"))
+                if (resultStr.Contains("failed"))
                 {
                     return new DownloadDllResponse
                     {
                         IsSuccess = false,
-                        Message = Encoding.Default.GetString(result)
+                        Message = resultStr
                     };
                 }
 
                 // 尝试反序列化，如果失败则将结果作为 DataStr 返回
-                if (JsonHelper.TryDeserialize<DownloadDllResponse>(Encoding.Default.GetString(result), out var response) && response != null)
+                if (JsonHelper.TryDeserialize<DownloadDllResponse>(resultStr, out var response) && response != null)
                 {
                     return response;
                 }

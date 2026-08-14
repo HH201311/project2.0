@@ -57,7 +57,32 @@ namespace SUNWODA_SEVB.Core.Converters
         /// </summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            throw new NotSupportedException("EnumToBoolConverter 不支持双向绑定");
+            if (!(value is bool boolValue && boolValue && parameter != null)) return Binding.DoNothing;
+
+            var paramString = parameter.ToString();
+            if (string.IsNullOrEmpty(paramString)) return Binding.DoNothing;
+
+            // 处理反向逻辑
+            var isInverted = paramString.StartsWith("!");
+            if (isInverted) paramString = paramString.Substring(1);
+
+            // 取第一个值作为返回的枚举值
+            var expectedValue = paramString.Split(',')[0].Trim();
+
+            // 从 targetType 获取枚举类型
+            var enumType = targetType;
+            if (enumType.IsEnum)
+            {
+                return Enum.Parse(enumType, expectedValue);
+            }
+
+            // 如果 targetType 是 Nullable<Enum>，提取基础类型
+            if (Nullable.GetUnderlyingType(enumType)?.IsEnum == true)
+            {
+                return Enum.Parse(Nullable.GetUnderlyingType(enumType), expectedValue);
+            }
+
+            return Binding.DoNothing;
         }
     }
 }

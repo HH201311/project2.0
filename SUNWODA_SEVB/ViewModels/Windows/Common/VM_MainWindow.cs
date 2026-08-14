@@ -341,6 +341,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
 
             await base.OnCleanupAsync();
         }
+
         /// <summary>
         /// 请求退出应用程序
         /// </summary>
@@ -449,9 +450,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
                     try
                     {
                         var viewModel = _moduleManager.GetViewModel(module);
-                        if (viewModel is ICleanupable cleanupable)
+                        if (viewModel is ViewModelBase vm)
                         {
-                            await cleanupable.CleanupAsync();
+                            vm.OnCleanup();
                             _logger.Info($"模块 {module.DisplayName} 清理完成");
                         }
                     }

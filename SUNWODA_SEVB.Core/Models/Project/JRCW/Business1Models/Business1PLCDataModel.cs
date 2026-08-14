@@ -17,7 +17,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// PLC采集时间
         /// </summary>
         [DataColumn("PLC采集时间")]
-        public DateTime GatherTime { get; set; } = DateTime.Now;
+        public DateTime GatherTime { get; set; }
 
         /// <summary>
         /// 卷针处虚拟码
@@ -35,25 +35,25 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// 正极错位量
         /// </summary>
         [DataColumn("正极错位量")]
-        public float MalpositionValueOfPositive { get; set; }
+        public float MVOf { get; set; }
 
         /// <summary>
         /// 负极错位量
         /// </summary>
         [DataColumn("负极错位量")]
-        public float MalpositionValueOfNegative { get; set; }
+        public float MVOfN { get; set; }
 
         /// <summary>
         /// 正极极耳错位偏差量
         /// </summary>
         [DataColumn("极耳错位偏差量", ColumnNameFormat = "正极第{0}个{1}")]
-        public List<float> MalpositionDeviationValueOfPositiveBatteryTab { get; set; } = new();
+        public List<float> MDVOfPBTab { get; set; } = new();
 
         /// <summary>
         /// 负极极耳错位偏差量
         /// </summary>
         [DataColumn("极耳错位偏差量", ColumnNameFormat = "负极第{0}个{1}")]
-        public List<float> MalpositionDeviationValueOfNegativeBatteryTab { get; set; } = new();
+        public List<float> MDVOfNBTab { get; set; } = new();
 
         /// <summary>
         /// 卷针1变径位置
@@ -103,7 +103,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// 调节系数K值
         /// </summary>
         [DataColumn("k")]
-        public double K { get; set; }
+        public float K { get; set; }
         #endregion
     }
 }

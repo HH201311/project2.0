@@ -64,10 +64,27 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
         public VM_AlarmRecordDialog(IAppLogRepository appLogRepository)
         {
             _appLogRepository = appLogRepository;
-            ILoggerService.OnLoggerReportGlobalEvent -= OnLoggerReportGlobal;
-            ILoggerService.OnLoggerReportGlobalEvent += OnLoggerReportGlobal;
 
             InitializeRecords();
+        }
+
+        public override void OnNavigatedTo(object? parameter)
+        {
+            ILoggerService.OnLoggerReportGlobalEvent -= OnLoggerReportGlobal;
+            ILoggerService.OnLoggerReportGlobalEvent += OnLoggerReportGlobal;
+            base.OnNavigatedTo(parameter);
+        }
+
+        public override void OnNavigatedFrom()
+        {
+            ILoggerService.OnLoggerReportGlobalEvent -= OnLoggerReportGlobal;
+            base.OnNavigatedFrom();
+        }
+
+        public override void OnCleanup()
+        {
+            ILoggerService.OnLoggerReportGlobalEvent -= OnLoggerReportGlobal;
+            base.OnCleanup();
         }
 
         /// <summary>
@@ -82,6 +99,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
             await VM_CCTBMessageBoxDialog.InfoAsync(message, "报警记录");
         }
 
+
         /// <summary>
         /// 初始化
         /// </summary>
@@ -94,7 +112,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
             {
                 if (!(item.Logger?.StartsWith(header) ?? false)) continue;
 
-                var record = ConvertToRecord(item);
+                var record = AlarmRecordModel.ConvertToRecord(item);
                 AddRecord(record);
             }
         }
@@ -107,48 +125,23 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
         {
             if (!(logModel.Logger?.StartsWith(header) ?? false)) return;
 
-            var record = ConvertToRecord(logModel);
+            var record = AlarmRecordModel.ConvertToRecord(logModel);
             AddRecord(record);
         }
 
+        private int lastedRecordId = 0;
         /// <summary>
         /// 
         /// </summary>
         /// <param name="record"></param>
         private async void AddRecord(AlarmRecordModel record)
         {
+            record.ID = lastedRecordId++;
             await RunOnUIThreadAsync(() =>
             {
                 Records.Add(record);
                 if (Records.Count > 20) Records.RemoveAt(0);
             });
-        }
-
-        /// <summary>
-        /// 转换
-        /// </summary>
-        /// <param name="log"></param>
-        /// <returns></returns>
-        private AlarmRecordModel ConvertToRecord(AppLogModel log)
-        {
-            AlarmRecordModel? record;
-            try
-            {
-                record = JsonConvert.DeserializeObject<AlarmRecordModel>(log.Message);
-            }
-            catch
-            {
-                record = null;
-            }
-
-            if (record == null)
-            {
-                record = new AlarmRecordModel();
-                record.AlarmMessage = "DeserializeObjectError";
-            }
-            record.RecordTime = log.LogTime;
-
-            return record;
         }
     }
 }

@@ -7,8 +7,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
 {
     public class ProductionInfoModel : ModelBase
     {
-        private string? cellModel;
-        private string? filmRollNumber;
+        private string cellModel = "---";
+        private string filmRollNumber = "************";
         private double netWeightSpecification_A;
         private double netWeightSpecificationLimit_A;
         private double netWeightSpecification_B;
@@ -26,12 +26,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB
         /// <summary>
         /// 生产型号
         /// </summary>
-        public string? CellModel { get => cellModel; set => SetProperty(ref cellModel, value); }
+        public string CellModel { get => cellModel; set => SetProperty(ref cellModel, value); }
 
         /// <summary>
         /// 膜卷号
         /// </summary>
-        public string? FilmRollNumber { get => filmRollNumber; set => SetProperty(ref filmRollNumber, value); }
+        public string FilmRollNumber { get => filmRollNumber; set => SetProperty(ref filmRollNumber, value); }
 
         #region 面密度净重规格
         /// <summary>

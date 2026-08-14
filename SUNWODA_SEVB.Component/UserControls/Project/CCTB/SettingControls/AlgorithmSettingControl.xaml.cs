@@ -110,6 +110,26 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls
         }
         #endregion
 
+        #region AlgorithmName1
+        public string AlgorithmName1
+        {
+            get { return (string)GetValue(AlgorithmName1Property); }
+            set { SetValue(AlgorithmName1Property, value); }
+        }
+
+        public static readonly DependencyProperty AlgorithmName1Property = DependencyProperty.Register(
+            "AlgorithmName1",
+            typeof(string),
+            typeof(AlgorithmSettingControl),
+            new PropertyMetadata("-------------", new PropertyChangedCallback(OnAlgorithmName1Changed))
+        );
+
+        private static void OnAlgorithmName1Changed(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as AlgorithmSettingControl;
+        }
+        #endregion
+
         #region IsAlgorithmEnabled
         public bool IsAlgorithmEnabled
         {
@@ -190,37 +210,36 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls
         }
         #endregion
 
+        #region 算法1流程
         private string algorithmNameTemp = string.Empty;
-
-        private void EditBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!(sender is Button btn)) return;
-            algorithmNameTemp = AlgorithmName;
-            AlgorithmName_TB.IsReadOnly = false;
-            AlgorithmName_TB.Focus();
-        }
 
         private void AlgorithmTB_KeyDown(object sender, KeyEventArgs e)
         {
+            if (!(sender is TextBox tb)) return;
+
             if (e.Key == Key.Escape)
             {
-                AlgorithmName = algorithmNameTemp;
-                AlgorithmName_TB.Text = algorithmNameTemp;
-                AlgorithmName_TB.IsReadOnly = true;
+                tb.Text = algorithmNameTemp;
+                tb.IsReadOnly = true;
+                Keyboard.ClearFocus();
                 return;
             }
             if (e.Key != Key.Enter) return;
+            var callback = new Action<bool>((isSuccess) => { if (!isSuccess) tb.Text = algorithmNameTemp; });
             try
             {
-                AlgorithmNameVerify();
+                var arg = new object[] { SideType, ClosedLoopType, tb.Text, algorithmNameTemp, 0, callback };
+                AlgorithmVerifyCommand?.Execute(arg);
             }
-            catch (Exception ex)
+            catch
             {
-                AlgorithmName = algorithmNameTemp;
-                AlgorithmName_TB.Text = algorithmNameTemp;
-                throw new Exception(ex.Message);
+                tb.Text = algorithmNameTemp;
             }
-            finally { AlgorithmNameEditEnd(); }
+            finally
+            {
+                tb.IsReadOnly = true;
+                Keyboard.ClearFocus();
+            }
         }
 
         private void AlgorithmTB_LostFocus(object sender, RoutedEventArgs e)
@@ -229,32 +248,70 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls
             if (tb.IsReadOnly) return;
             if (tb.IsFocused) return;
 
-            AlgorithmName = algorithmNameTemp; 
-            AlgorithmName_TB.Text = algorithmNameTemp;
-            AlgorithmNameEditEnd();
-        }
-
-        private void AlgorithmNameVerify()
-        {
-            var algorithmName = AlgorithmName_TB.Text;
-            if (string.IsNullOrEmpty(algorithmName))
-            {
-                AlgorithmName = algorithmNameTemp;
-                AlgorithmName_TB.Text = algorithmNameTemp;
-                return;
-            }
-
-            if (AlgorithmVerifyCommand == null)
-                throw new Exception($"{nameof(AlgorithmVerifyCommand)} 参数未赋值！");
-
-            var arg = new object[] { SideType, ClosedLoopType, algorithmName, algorithmNameTemp };
-            AlgorithmVerifyCommand.Execute(arg);
-        }
-
-        private void AlgorithmNameEditEnd()
-        {
-            this.AlgorithmName_TB.IsReadOnly = true;
+            tb.Text = algorithmNameTemp;
+            tb.IsReadOnly = true;
             Keyboard.ClearFocus();
         }
+
+        private void AlgorithmNameTB_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (!(sender is TextBox tb)) return;
+            algorithmNameTemp = AlgorithmName;
+            tb.IsReadOnly = false;
+            tb.Focus();
+        }
+        #endregion
+
+        #region 算法2流程
+        private string algorithmName1Temp = string.Empty;
+
+        private void AlgorithmTB1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (!(sender is TextBox tb)) return;
+
+            if (e.Key == Key.Escape)
+            {
+                tb.Text = algorithmName1Temp;
+                tb.IsReadOnly = true;
+                Keyboard.ClearFocus();
+                return;
+            }
+            if (e.Key != Key.Enter) return;
+            var callback = new Action<bool>((isSuccess) => { if (!isSuccess) tb.Text = algorithmName1Temp; });
+            try
+            {
+                var arg = new object[] { SideType, ClosedLoopType, tb.Text, algorithmName1Temp, 1, callback };
+                AlgorithmVerifyCommand?.Execute(arg);
+            }
+            catch
+            {
+                tb.Text = algorithmName1Temp;
+            }
+            finally
+            {
+                tb.IsReadOnly = true;
+                Keyboard.ClearFocus();
+            }
+        }
+
+        private void AlgorithmTB1_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is TextBox tb)) return;
+            if (tb.IsReadOnly) return;
+            if (tb.IsFocused) return;
+
+            tb.Text = algorithmName1Temp;
+            tb.IsReadOnly = true;
+            Keyboard.ClearFocus();
+        }
+
+        private void AlgorithmNameTB1_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (!(sender is TextBox tb)) return;
+            algorithmName1Temp = AlgorithmName1;
+            tb.IsReadOnly = false;
+            tb.Focus();
+        }
+        #endregion
     }
 }

@@ -114,6 +114,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         /// </summary>
         private async void OnQueryAsync()
         {
+            _logger.UserInfo($"用户点击了 系统操作/查询 按钮！");
             var records = await _appLogRepository.GetUserRecordsPagedAsync(1, PageSize, StartDate, EndDate);
             _ = VM_CCTBMessageBoxDialog.InfoAsync($"已查询到[{records.Total}]条数据！", "提示");
             RefreshRecordInfo(1, records);
@@ -128,6 +129,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             try
             {
+                _logger.UserInfo($"用户点击了 系统操作/导出当前页 按钮！");
                 if (Records.Count == 0)
                 {
                     await VM_CCTBMessageBoxDialog.InfoAsync("查询到0条数据，已停止导出！", "提示");
@@ -180,6 +182,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             try
             {
+                _logger.UserInfo($"用户点击了 系统操作/导出当前查询 按钮！");
                 var fileName = $"SystemRecords_{DateTime.Now:yyyyMMddHHmmss}.csv";
                 var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
                 var fullPath = Path.Combine(desktopPath, "系统操作记录");
@@ -221,7 +224,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
                                   var records = await _appLogRepository.GetUserRecordsPagedAsync(i + 1, PageSize, startDateCache, endDateCache);
                                   for (int j = 0; j < records.Items.Count; j++)
                                   {
-                                      var record = ConvertToRecord(records.Items[j]);
+                                      var record = SystemRecordModel.ConvertToRecord(records.Items[j]);
                                       record.ID = i * PageSize + j + 1;
                                       rows.Add(ConvertToDic(record));
                                   }
@@ -258,6 +261,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
         {
             if (!(arg is int pageNumber)) return;
             LoadRecordsAsync(pageNumber);
+            _logger.UserInfo($"用户切换了当前界面 系统操作 页码[{CurrentPageNumber} => {pageNumber}]!");
         }
 
         /// <summary>
@@ -355,35 +359,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBRecords
 
             for (int i = 0; i < records.Items.Count; i++)
             {
-                var record = ConvertToRecord(records.Items[i]);
+                var record = SystemRecordModel.ConvertToRecord(records.Items[i]);
                 record.ID = (pageNumber - 1) * PageSize + i + 1;
                 Records.Add(record);
             }
 
             SelectedRecord = Records.FirstOrDefault();
-        }
-
-        private SystemRecordModel ConvertToRecord(AppLogModel log)
-        {
-            SystemRecordModel? record;
-            try
-            {
-                record = JsonConvert.DeserializeObject<SystemRecordModel>(log.Message);
-            }
-            catch
-            {
-                record = null;
-            }
-
-            if (record == null)
-            {
-                record = new SystemRecordModel();
-                record.Message = log.Message;
-            }
-            record.RecordLevel = log.LogLevel;
-            record.RecordTime = log.LogTime;
-
-            return record;
         }
 
         /// <summary>

@@ -85,6 +85,7 @@
         <Grid Margin="20" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -107,8 +108,20 @@
                 Padding="20"
                 Background="#0DFFFFFF"
                 CornerRadius="10">
-                <StackPanel Grid.Row="1" Orientation="Vertical">
-                    <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="通讯配置" />
+                <StackPanel Orientation="Vertical">
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="通讯配置" />
+                        <Button
+                            Width="110"
+                            Margin="10,0,0,0"
+                            BorderBrush="#FF3DCC84"
+                            Command="{Binding ResetOptionCommand}"
+                            CommandParameter="{Binding CommunicationOptions}"
+                            Content="恢复默认设置"
+                            DockPanel.Dock="Right"
+                            Foreground="#FF3DCC84"
+                            Style="{StaticResource ParamCancleButtonStyle}" />
+                    </DockPanel>
                     <Rectangle Margin="0,20,0,0" Style="{StaticResource ParamLineRectangleStyle}" />
                     <UniformGrid Columns="2">
                         <hc:TextBox
@@ -145,9 +158,74 @@
                 </StackPanel>
             </Border>
 
+            <!--  地址配置  -->
+            <Border
+                Grid.Row="2"
+                Margin="0,20,0,0"
+                Padding="20"
+                Background="#0DFFFFFF"
+                CornerRadius="10">
+                <StackPanel Orientation="Vertical">
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="地址信息配置" />
+                        <Button
+                            Width="110"
+                            Margin="10,0,0,0"
+                            BorderBrush="#FF3DCC84"
+                            Command="{Binding ResetAddressCommand}"
+                            CommandParameter="{Binding AddressModel}"
+                            Content="恢复默认设置"
+                            DockPanel.Dock="Right"
+                            Foreground="#FF3DCC84"
+                            Style="{StaticResource ParamCancleButtonStyle}" />
+                    </DockPanel>
+                    <Rectangle Margin="0,20,0,0" Style="{StaticResource ParamLineRectangleStyle}" />
+                    <UniformGrid Columns="2">
+                        <hc:ComboBox
+                            Width="400"
+                            d:SelectedIndex="0"
+                            hc:InfoElement.Title="通讯协议"
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{Binding ProtocolSource}"
+                            SelectedValue="{Binding AddressModel.Protocol, Mode=TwoWay}"
+                            SelectedValuePath="ItemValue" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="泵1调节地址"
+                            Text="{Binding AddressModel.PumpAddress1, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="泵2调节地址"
+                            Text="{Binding AddressModel.PumpAddress2, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="泵3调节地址"
+                            Text="{Binding AddressModel.PumpAddress3, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="泵4调节地址"
+                            Text="{Binding AddressModel.PumpAddress4, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="泵5调节地址"
+                            Text="{Binding AddressModel.PumpAddress5, Mode=TwoWay}" />
+                        <hc:TextBox
+                            Width="400"
+                            hc:InfoElement.Placeholder="请输入"
+                            hc:InfoElement.Title="泵速调节信号地址"
+                            Text="{Binding AddressModel.FlagAddress, Mode=TwoWay}" />
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
             <!--  功能按钮  -->
             <StackPanel
-                Grid.Row="2"
+                Grid.Row="3"
                 Margin="0,20,0,0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"

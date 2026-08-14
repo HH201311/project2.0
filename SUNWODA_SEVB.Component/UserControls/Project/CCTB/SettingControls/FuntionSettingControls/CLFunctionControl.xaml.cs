@@ -29,10 +29,22 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Funct
             InitializeComponent();
         }
 
-        public ObservableCollection<ComboboxItemModel<EWeightDataTypeOfArithmeticParam>> WeightDataTypeOfArithmeticParamSource { get; } =
-            new ObservableCollection<ComboboxItemModel<EWeightDataTypeOfArithmeticParam>>(
-            Enum.GetValues(typeof(EWeightDataTypeOfArithmeticParam)).Cast<EWeightDataTypeOfArithmeticParam>()
-            .Select(v => new ComboboxItemModel<EWeightDataTypeOfArithmeticParam>() { ItemValue = v, DisplayName = v.ToString().Substring(0, v.ToString().Length - 2) }));
+        private static readonly EDataSourceOfClosedLoop[] coatingDataSource = new[] { EDataSourceOfClosedLoop.WMSocketClient, EDataSourceOfClosedLoop.WMSocketServer, EDataSourceOfClosedLoop.DHSocketServer, EDataSourceOfClosedLoop.DHMqttClient };
+        private static readonly EDataSourceOfClosedLoop[] tBlockDataSource = new[] { EDataSourceOfClosedLoop.DHSocketServer, EDataSourceOfClosedLoop.DHMqttClient };
+
+        /// <summary>
+        /// 闭环算法入参数据源选择：涂布重量数据源
+        /// </summary>
+        public ObservableCollection<ComboboxItemModel<EDataSourceOfClosedLoop>> CoatingDataSource { get; } =
+            new ObservableCollection<ComboboxItemModel<EDataSourceOfClosedLoop>>(coatingDataSource.Cast<EDataSourceOfClosedLoop>()
+            .Select(v => new ComboboxItemModel<EDataSourceOfClosedLoop>() { ItemValue = v, DisplayName = v.ToString() }));
+
+        /// <summary>
+        /// 闭环算法入参数据源选择：T块数据源
+        /// </summary>
+        public ObservableCollection<ComboboxItemModel<EDataSourceOfClosedLoop>> TBlockDataSource { get; } =
+            new ObservableCollection<ComboboxItemModel<EDataSourceOfClosedLoop>>(tBlockDataSource.Cast<EDataSourceOfClosedLoop>()
+            .Select(v => new ComboboxItemModel<EDataSourceOfClosedLoop>() { ItemValue = v, DisplayName = v.ToString() }));
 
         #region ItemSource
         public BasicFunctionSettingModel ItemSource

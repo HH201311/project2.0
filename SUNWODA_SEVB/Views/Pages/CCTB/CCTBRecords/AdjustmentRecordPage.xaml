@@ -4,10 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:alarm="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;assembly=SUNWODA_SEVB.Core"
     xmlns:behavior="clr-namespace:SUNWODA_SEVB.Core.Behavior;assembly=SUNWODA_SEVB.Core"
-    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
+    xmlns:core="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB.Core;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBRecords"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:pjconvert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:uccc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls;assembly=SUNWODA_SEVB.Component"
     Title="SystemRecordPage"
     d:DesignHeight="940"
@@ -22,8 +24,13 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBDataGridControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <convert:ContentToStringConverter x:Key="ContentToStringConverter" />
-            <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
+            <pjconvert:ContentToStringConverter x:Key="ContentToStringConverter" />
+            <pjconvert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
+            <pjconvert:UMToEnableConverter x:Key="UMToEnableConverter" />
+            <pjconvert:UMToReadOnlyConverter x:Key="UMToReadOnlyConverter" />
+            <pjconvert:UMToVisibilityConverter x:Key="UMToVisibilityConverter" />
+            <convert:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+            <convert:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
 
             <Style x:Key="RecordTextBlockStyle" TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
@@ -100,14 +107,18 @@
                         Margin="0,0,20,0"
                         Command="{Binding ExportCurrentPageCommand}"
                         Content="导出当前页"
-                        Style="{StaticResource ParamFunctionButtonStyle}" />
+                        IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM008'}"
+                        Style="{StaticResource ParamFunctionButtonStyle}"
+                        Visibility="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToVisibilityConverter}, ConverterParameter='RM008'}" />
 
                     <Button
                         Width="100"
                         Margin="0,0,20,0"
                         Command="{Binding ExportCurrentQueryCommand}"
                         Content="导出当前查询"
-                        Style="{StaticResource ParamFunctionButtonStyle}" />
+                        IsEnabled="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToEnableConverter}, ConverterParameter='RM008'}"
+                        Style="{StaticResource ParamFunctionButtonStyle}"
+                        Visibility="{Binding Source={x:Static core:GlobalContextModel.Instance}, Path=UserRole, Converter={StaticResource UMToVisibilityConverter}, ConverterParameter='RM008'}" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -164,30 +175,12 @@
                                         <TextBlock
                                             Margin="20,0,5,0"
                                             Style="{StaticResource RecordTextBlockStyle}"
-                                            Text="{Binding AdjustMode}" />
+                                            Text="{Binding AdjustDescripation}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTemplateColumn Width="*" Header="当前位置">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock
-                                            Margin="20,0,5,0"
-                                            Style="{StaticResource RecordTextBlockStyle}"
-                                            Text="{Binding TPositionsDisplay}">
-                                            <TextBlock.InputBindings>
-                                                <MouseBinding
-                                                    Command="{Binding DataContext.ShowMessageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding TPositionsDisplay}"
-                                                    MouseAction="LeftClick" />
-                                            </TextBlock.InputBindings>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <DataGridTemplateColumn Width="*" Header="偏移量">
+                            <DataGridTemplateColumn Width="*" Header="T块调机值">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
@@ -196,8 +189,8 @@
                                             Text="{Binding TAdjustOffsetsDisplay}">
                                             <TextBlock.InputBindings>
                                                 <MouseBinding
-                                                    Command="{Binding DataContext.ShowMessageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding TAdjustOffsetsDisplay}"
+                                                    Command="{Binding DataContext.ShowTMessageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
                                                     MouseAction="LeftClick" />
                                             </TextBlock.InputBindings>
                                         </TextBlock>
@@ -205,7 +198,7 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTemplateColumn Width="200" Header="泵速">
+                            <DataGridTemplateColumn Width="200" Header="泵速调机值">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
@@ -214,8 +207,8 @@
                                             Text="{Binding BAdjustOffsetsDisplay}">
                                             <TextBlock.InputBindings>
                                                 <MouseBinding
-                                                    Command="{Binding DataContext.ShowMessageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding BAdjustOffsetsDisplay}"
+                                                    Command="{Binding DataContext.ShowBMessageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
                                                     MouseAction="LeftClick" />
                                             </TextBlock.InputBindings>
                                         </TextBlock>

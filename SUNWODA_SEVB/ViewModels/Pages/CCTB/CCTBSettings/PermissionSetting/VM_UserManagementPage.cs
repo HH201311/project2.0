@@ -8,6 +8,7 @@ using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
@@ -19,6 +20,7 @@ using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Data.Repositories;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB.UserOperation;
@@ -32,6 +34,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
 {
@@ -81,8 +84,28 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         /// <param name="parameter"></param>
         public override void OnNavigatedTo(object? parameter)
         {
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
             LoadRoleAccounts();
             base.OnNavigatedTo(parameter);
+        }
+
+        /// <summary>
+        /// 导航离开前
+        /// </summary>
+        public override void OnNavigatedFrom()
+        {
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+            base.OnNavigatedFrom();
+        }
+
+        /// <summary>
+        /// 更新用户显示信息
+        /// </summary>
+        /// <param name="userAccount"></param>
+        private void OnUserStateChanged(string userAccount)
+        {
+            LoadRoleAccounts(userAccount);
         }
 
         /// <summary>
@@ -90,6 +113,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         /// </summary>
         private async void OnUserAddAsync()
         {
+            _logger.UserInfo($"用户点击了 用户管理/新增用户 按钮!");
             // 获取当前用户角色
             var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
             var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
@@ -116,8 +140,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                     );
                     if (isAddSuccess)
                     {
-                        _logger.Info($"添加 {userModel.Account} 账号成功！");
-                        Growl.SuccessGlobal($"添加 {userModel.Account} 账号成功！");
+                        _logger.UserInfo($"用户新增了 {userModel.Role} 账号 [{userModel.Name}:{userModel.Account}]！");
+                        Growl.SuccessGlobal($"用户新增了 {userModel.Role} 账号 [{userModel.Name}:{userModel.Account}]！");
                         LoadRoleAccounts();
                     }
                     else
@@ -139,6 +163,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         /// </summary>
         private async void OnUserDeleteInBatchesAsync()
         {
+            _logger.UserInfo($"用户点击了 用户管理/批量删除 按钮!");
             var selectedUsers = UserAccounts.Where(u => u.IsChecked).ToList();
             if (selectedUsers == null || selectedUsers.Count <= 0)
             {
@@ -165,7 +190,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                 failCount++;
             }
             LoadRoleAccounts();
-            _logger.Warn($"{successCount} 个账号删除成功！{failCount} 个账号删除失败！", true);
+            _logger.UserInfo($"用户执行了用户账号的批量删除操作:[{successCount} 个账号删除成功！{failCount} 个账号删除失败]", true);
             Growl.WarningGlobal($"{successCount} 个账号删除成功！{failCount} 个账号删除失败！");
         }
 
@@ -193,6 +218,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             if (!(arg is UserManagementModel selectedUser)) return;
             if (selectedUser == null) return;
 
+            _logger.UserInfo($"用户点击了用户[账号:{selectedUser.Account}] 重置密码 按钮!");
             // 获取当前用户角色
             var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
             var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
@@ -213,8 +239,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                 user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
                 if (await _usersRepository.UpdateAsync(user))
                 {
-                    _logger.Warn($"重置 {user.UserAccount} 账号密码成功！");
-                    Growl.SuccessGlobal($"重置 {user.UserAccount} 账号密码成功！");
+                    _logger.UserInfo($"用户重置了账号[{selectedUser.Account}]密码！");
+                    Growl.SuccessGlobal($"用户重置了账号[{selectedUser.Account}]密码！");
                     LoadRoleAccounts();
                     return;
                 }
@@ -239,6 +265,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             if (!(arg is UserManagementModel selectedUser)) return;
             if (selectedUser == null) return;
 
+            _logger.UserInfo($"用户点击了用户[账号:{selectedUser.Account}] 修改 按钮!");
             // 获取当前用户角色
             var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
             var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
@@ -263,8 +290,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                 user.RoleId = CCTBCore.StringToRoleID(userModel.Role!);
                 if (await _usersRepository.UpdateAsync(user))
                 {
-                    _logger.Warn($"修改 {user.UserAccount} 账号信息成功！");
-                    Growl.SuccessGlobal($"修改 {user.UserAccount} 账号信息成功！");
+                    _logger.UserInfo($"用户修改了账号[{selectedUser.Account}]信息 [姓名:{selectedUser.Name} => {userModel.Name},权限:{selectedUser.Role} => {userModel.Role}]！");
+                    Growl.SuccessGlobal($"用户修改了账号[{selectedUser.Account}]信息 [姓名:{selectedUser.Name} => {userModel.Name},权限:{selectedUser.Role} => {userModel.Role}]！");
                     LoadRoleAccounts();
                     return;
                 }
@@ -289,6 +316,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             if (!(arg is UserManagementModel selectedUser)) return;
             if (selectedUser == null) return;
 
+            _logger.UserInfo($"用户点击了用户[账号:{selectedUser.Account}] 删除 按钮!");
             var result = await VM_CCTBMessageBoxDialog.ShowAsync($"删除用户'{selectedUser.Name}({selectedUser.Account})'?", "确认删除", MessageBoxButton.OKCancel, MessageBoxImage.Question);
 
             if (result != MessageBoxResult.OK) return;
@@ -298,8 +326,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
             {
                 if (await _usersRepository.DeleteAsync(user))
                 {
-                    _logger.Warn($"{selectedUser.Account} 账号删除！", true);
-                    Growl.WarningGlobal($"{selectedUser.Account} 账号删除！");
+                    _logger.UserInfo($"用户删除了用户账号{selectedUser.Account}！", true);
+                    Growl.WarningGlobal($"用户删除了用户账号{selectedUser.Account}！");
                     LoadRoleAccounts();
                     return;
                 }
@@ -317,16 +345,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                  Enum.GetValues(typeof(UserRole)).Cast<UserRole>()
                  .Select(v => new ComboboxItemModel<UserRole>() { ItemValue = v, DisplayName = CCTBCore.RoleIDToString((int)v) }));
 
+        private UserRole userRole = UserRole.Guest;
+
+        /// <summary>
+        /// 角色
+        /// </summary>
+        public UserRole UserRole { get => userRole; set => SetProperty(ref userRole, value); }
+
         public ObservableCollection<UserAccountModel> UserAccounts { get; set; } = [];
 
         /// <summary>
         /// 加载用户账号信息
         /// </summary>
-        private void LoadRoleAccounts()
+        private void LoadRoleAccounts(string? userAccount = null)
         {
             // 获取当前用户角色
-            var userAccount = _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
-            var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
+            var account = userAccount ?? _globalSettingRepository.GetByName("CurrentUserAccount")?.Value ?? string.Empty;
+            var roleId = _usersRepository.GetByUserAccount(account)?.RoleId ?? 0;
+
+            UserRole = (UserRole)roleId;
 
             // 加载用户账号信息，过滤掉角色等级高于或等于当前用户的账号，以及系统预设账号
             UserAccounts.Clear();

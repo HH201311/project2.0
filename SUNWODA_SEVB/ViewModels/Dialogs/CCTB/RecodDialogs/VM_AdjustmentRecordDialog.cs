@@ -42,9 +42,9 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
         /// </summary>
         public ICommand CloseCommand => new RelayCommand(() =>
         {
+            ILoggerService.OnLoggerReportGlobalEvent -= OnLoggerReportGlobal;
             Result = false;
             CloseAction?.Invoke();
-            ILoggerService.OnLoggerReportGlobalEvent -= OnLoggerReportGlobal;
         });
 
 
@@ -83,6 +83,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
             await VM_CCTBMessageBoxDialog.InfoAsync(message, "控制记录");
         }
 
+
         /// <summary>
         /// 初始化
         /// </summary>
@@ -95,7 +96,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
             {
                 if (!(item.Logger?.StartsWith(header) ?? false)) continue;
 
-                var record = ConvertToRecord(item);
+                var record = AdjustmentRecordModel.ConvertToRecord(item);
                 AddRecord(record);
             }
         }
@@ -108,52 +109,23 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.RecodDialogs
         {
             if (!(logModel.Logger?.StartsWith(header) ?? false)) return;
 
-            var record = ConvertToRecord(logModel);
+            var record = AdjustmentRecordModel.ConvertToRecord(logModel);
             AddRecord(record);
         }
 
+        private int lastedRecordId = 0;
         /// <summary>
         /// 新增记录
         /// </summary>
         /// <param name="record"></param>
         private void AddRecord(AdjustmentRecordModel record)
         {
+            record.ID = lastedRecordId++;
             RunOnUIThread(() =>
             {
-                Records.Insert(0, record);
-                while (Records.Count > 20)
-                {
-                    var record = Records.Last();
-                    Records.Remove(record);
-                }
+                Records.Add(record);
+                if (Records.Count > 20) Records.RemoveAt(0);
             });
-        }
-
-        /// <summary>
-        /// 转换
-        /// </summary>
-        /// <param name="log"></param>
-        /// <returns></returns>
-        private AdjustmentRecordModel ConvertToRecord(AppLogModel log)
-        {
-            AdjustmentRecordModel? record;
-            try
-            {
-                record = JsonConvert.DeserializeObject<AdjustmentRecordModel>(log.Message);
-            }
-            catch
-            {
-                record = null;
-            }
-
-            if (record == null)
-            {
-                record = new AdjustmentRecordModel();
-                record.AdjustMode = "DeserializeObjectError";
-            }
-            record.RecordTime = log.LogTime;
-
-            return record;
         }
     }
 }

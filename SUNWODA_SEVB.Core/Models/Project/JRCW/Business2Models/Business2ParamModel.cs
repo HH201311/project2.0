@@ -11,6 +11,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
     public class Business2ParamModel : ModelBase
     {
         private ENeedleType needleType;
+        private int tabCount;
         private int nb;
         private int na;
         private PerfectBatteryInfo perfectBattery1 = new();
@@ -22,11 +23,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         private int s_Nan;
         private int t4;
         private int u_limit;
-        private double k;
-        private double cb1;
-        private double cbn;
-        private double ca1;
-        private double can;
+        private float k;
+        private float cb1;
+        private float cbn;
+        private float ca1;
+        private float can;
         private int t1;
         private int t2;
         private int t3;
@@ -36,6 +37,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// 卷针类型
         /// </summary>
         public ENeedleType NeedleType { get => needleType; set => SetProperty(ref needleType, value); }
+
+        /// <summary>
+        /// 数采触发极耳层数
+        /// </summary>
+        public int TabCount { get => tabCount; set => SetProperty(ref tabCount, value); }
 
         /// <summary>
         /// 正极极耳层数
@@ -95,27 +101,27 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// <summary>
         /// 0.1变径与周长对应变化关系
         /// </summary>
-        public double K { get => k; set => SetProperty(ref k, value); }
+        public float K { get => k; set => SetProperty(ref k, value); }
 
         /// <summary>
         /// 稳定首极耳圈周长-正极
         /// </summary>
-        public double Cb1 { get => cb1; set => SetProperty(ref cb1, value); }
+        public float Cb1 { get => cb1; set => SetProperty(ref cb1, value); }
 
         /// <summary>
         /// 稳定尾极耳圈周长-正极
         /// </summary>
-        public double Cbn { get => cbn; set => SetProperty(ref cbn, value); }
+        public float Cbn { get => cbn; set => SetProperty(ref cbn, value); }
 
         /// <summary>
         /// 稳定首极耳圈周长-负极
         /// </summary>
-        public double Ca1 { get => ca1; set => SetProperty(ref ca1, value); }
+        public float Ca1 { get => ca1; set => SetProperty(ref ca1, value); }
 
         /// <summary>
         /// 稳定尾极耳圈周长-负极
         /// </summary>
-        public double Can { get => can; set => SetProperty(ref can, value); }
+        public float Can { get => can; set => SetProperty(ref can, value); }
 
         /// <summary>
         /// 闭环判定调节阈值t1
@@ -136,12 +142,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// 变径调节精度
         /// </summary>
         public int J_d { get => j_d; set => SetProperty(ref j_d, value); }
-
-        /// <summary>
-        /// 完美电芯数据
-        /// </summary>
-        [JsonIgnore]
-        public List<PerfectBatteryInfo?> PerfectBatteryInfos => new() { PerfectBattery1, PerfectBattery2, PerfectBattery3 };
     }
 
     /// <summary>
@@ -150,12 +150,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
     public class PerfectBatteryInfo : ModelBase
     {
         private string? batteryCode;
-        private double p_θb1;
-        private double p_θbn;
-        private double p_θa1;
-        private double p_θan;
-        private double b120;
-        private double b121;
+        private float p_θb1;
+        private float p_θbn;
+        private float p_θa1;
+        private float p_θan;
+        private float b120;
+        private float b121;
 
         /// <summary>
         /// 完美电芯条码
@@ -165,31 +165,31 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// <summary>
         /// 完美电芯的首极耳角度-正极
         /// </summary>
-        public double P_θb1 { get => p_θb1; set => SetProperty(ref p_θb1, value); }
+        public float P_θb1 { get => p_θb1; set => SetProperty(ref p_θb1, value); }
 
         /// <summary>
         /// 完美电芯的尾极耳角度-正极
         /// </summary>
-        public double P_θbn { get => p_θbn; set => SetProperty(ref p_θbn, value); }
+        public float P_θbn { get => p_θbn; set => SetProperty(ref p_θbn, value); }
 
         /// <summary>
         /// 完美电芯的首极耳角度-负极
         /// </summary>
-        public double P_θa1 { get => p_θa1; set => SetProperty(ref p_θa1, value); }
+        public float P_θa1 { get => p_θa1; set => SetProperty(ref p_θa1, value); }
 
         /// <summary>
         /// 完美电芯的尾极耳角度-负极
         /// </summary>
-        public double P_θan { get => p_θan; set => SetProperty(ref p_θan, value); }
+        public float P_θan { get => p_θan; set => SetProperty(ref p_θan, value); }
 
         /// <summary>
         /// 完美电芯错位量-正极
         /// </summary>
-        public double B120 { get => b120; set => SetProperty(ref b120, value); }
+        public float B120 { get => b120; set => SetProperty(ref b120, value); }
 
         /// <summary>
         /// 完美电芯错位量-负极
         /// </summary>
-        public double B121 { get => b121; set => SetProperty(ref b121, value); }
+        public float B121 { get => b121; set => SetProperty(ref b121, value); }
     }
 }

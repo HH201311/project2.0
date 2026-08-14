@@ -11,6 +11,6 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB
     /// </summary>
     public enum EClosedLoopType
     {
-        MD, TD, MDTD
+        MD, TD, MDTD, CCD, Other
     }
 }

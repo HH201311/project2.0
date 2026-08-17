@@ -192,8 +192,57 @@ namespace SUNWODA_SEVB.Component.UserControls
 
         #region 属性
         //private ScottPlot.Plottables.Crosshair? _crosshair;
-        private ToolTip? _plotToolTip;
+        //private ToolTip? _plotToolTip;
         #endregion
+        #region 字段
+
+        /// <summary>
+        /// 图表鼠标悬停提示。
+        /// </summary>
+        private System.Windows.Controls.ToolTip? _plotToolTip;
+
+        /// <summary>
+        /// 保存 ViewModel 曲线和 ScottPlot 实际绘制曲线之间的关系。
+        /// </summary>
+        private sealed class RenderedLine
+        {
+            /// <summary>
+            /// ViewModel 中的曲线数据。
+            /// </summary>
+            public PlotDataSeries Series { get; init; } = null!;
+
+            /// <summary>
+            /// ScottPlot 实际创建的 SignalXY 曲线。
+            /// </summary>
+            public ScottPlot.Plottables.SignalXY Plot { get; init; } = null!;
+
+            /// <summary>
+            /// 曲线原始宽度，用于取消高亮时恢复。
+            /// </summary>
+            public float BaseLineWidth { get; init; }
+        }
+
+        /// <summary>
+        /// 当前已经绘制到 ScottPlot 中的所有折线。
+        /// </summary>
+        private readonly List<RenderedLine> _renderedLines = new();
+
+        /// <summary>
+        /// 当前鼠标命中的高亮曲线。
+        /// </summary>
+        private RenderedLine? _highlightedLine;
+
+        /// <summary>
+        /// 鼠标距离曲线多少个像素以内时触发提示。
+        /// </summary>
+        private const float HoverPixelThreshold = 12f;
+
+        private const int MaxVisibleLegendCount = 6;
+
+        #endregion
+
+
+
 
         #region 依赖属性
 
@@ -437,33 +486,40 @@ namespace SUNWODA_SEVB.Component.UserControls
 
         private void UpdatePlot()
         {
-            if (PlotControl?.Plot == null) return;
+            if (PlotControl?.Plot == null)
+                return;
+
+            if (_plotToolTip != null)
+            {
+                _plotToolTip.IsOpen = false;
+            }
+
+            // 清除旧曲线和 ViewModel 曲线之间的映射关系
+            _renderedLines.Clear();
+            _highlightedLine = null;
 
             PlotControl.Plot.Clear();
 
-            // 优先使用多组数据集合
-            if (DataSeriesCollection != null && DataSeriesCollection.Count > 0)
+            if (DataSeriesCollection != null &&
+                DataSeriesCollection.Count > 0)
             {
                 UpdateMultiSeriesPlot();
             }
-            // 兼容单组数据
-            else if (DataPoints != null && DataPoints.Count > 0)
+            else if (DataPoints != null &&
+                     DataPoints.Count > 0)
             {
                 UpdateSingleSeriesPlot();
             }
 
-            // 配置图例
             ConfigureLegend();
-
-            // 应用配置（标题、标签、网格）
             ApplyPlotConfiguration();
 
-            // 设置坐标轴范围
             PlotControl.Plot.Axes.AutoScale();
             SetAxisLimits();
 
             PlotControl.Refresh();
         }
+
 
         private void UpdateMultiSeriesPlot()
         {
@@ -485,22 +541,56 @@ namespace SUNWODA_SEVB.Component.UserControls
                 }
 
                 // 获取颜色：优先使用用户指定的颜色，否则使用自动分配的颜色
-                var color = series.Color.HasValue
-                    ? ScottPlot.Color.FromHex(series.Color.Value.ToString())
-                    : GetColorForIndex(colorIndex);  // 修改：使用新的颜色获取方法
+                // 注意：原实现 ScottPlot.Color.FromHex(color.ToString()) 在 .NET6+ 下
+                // System.Drawing.Color.ToString() 返回非十六进制串会导致 FromHex 失败。
+                // ScottPlot 5 的 Color 提供 FromSDColor(System.Drawing.Color) 直接按
+                // A/R/G/B 分量转换（Color 无 FromArgb(byte,byte,byte,byte) 方法）。
+                ScottPlot.Color color;
+                if (series.Color.HasValue)
+                {
+                    color = ScottPlot.Color.FromSDColor(series.Color.Value);
+                }
+                else
+                {
+                    color = GetColorForIndex(colorIndex);
+                }
 
                 // 根据系列自己的图表类型或全局图表类型绘制
                 var plotType = series.SeriesPlotType ?? PlotType;
 
                 switch (plotType)
                 {
+                    //case PlotType.Line:
+                    //    var linePlot = PlotControl.Plot.Add.SignalXY(xData, yData);
+                    //    linePlot.LegendText = series.Name ?? $"Series {colorIndex + 1}";
+                    //    linePlot.Color = color;
+                    //    if (series.LineWidth.HasValue)
+                    //        linePlot.LineWidth = series.LineWidth.Value;
+                    //    break;
                     case PlotType.Line:
-                        var linePlot = PlotControl.Plot.Add.SignalXY(xData, yData);
-                        linePlot.LegendText = series.Name ?? $"Series {colorIndex + 1}";
-                        linePlot.Color = color;
-                        if (series.LineWidth.HasValue)
-                            linePlot.LineWidth = series.LineWidth.Value;
-                        break;
+                        {
+                            var linePlot =
+                                PlotControl.Plot.Add.SignalXY(xData, yData);
+
+                            linePlot.LegendText =
+                                series.Name ?? $"Series {colorIndex + 1}";
+
+                            linePlot.Color = color;
+
+                            float baseLineWidth =
+                                series.LineWidth ?? 1.5f;
+
+                            linePlot.LineWidth = baseLineWidth;
+
+                            _renderedLines.Add(new RenderedLine
+                            {
+                                Series = series,
+                                Plot = linePlot,
+                                BaseLineWidth = baseLineWidth
+                            });
+
+                            break;
+                        }
 
                     case PlotType.Scatter:
                         var scatterPlot = PlotControl.Plot.Add.Scatter(xData, yData);
@@ -577,13 +667,26 @@ namespace SUNWODA_SEVB.Component.UserControls
 
         private void ConfigureLegend()
         {
-            if (PlotControl?.Plot == null) return;
+            if (PlotControl?.Plot == null)
+                return;
 
-            if (ShowLegend && DataSeriesCollection != null && DataSeriesCollection.Count > 0
-                && DataSeriesCollection.Count < 4)
+            // 只统计真正有名称且有数据点的有效曲线
+            int validSeriesCount =
+                DataSeriesCollection?.Count(series =>
+                    !string.IsNullOrWhiteSpace(series.Name) &&
+                    series.DataPoints != null &&
+                    series.DataPoints.Count > 0) ?? 0;
+
+            // 1～6 条显示图例，超过 6 条隐藏
+            bool shouldShowLegend =
+                ShowLegend &&
+                validSeriesCount > 0 &&
+                validSeriesCount <= MaxVisibleLegendCount;
+
+            if (shouldShowLegend)
             {
                 var legend = PlotControl.Plot.ShowLegend();
-                legend.Alignment = ScottPlot.Alignment.LowerRight;
+                legend.Alignment = ScottPlot.Alignment.UpperRight;
             }
             else
             {
@@ -633,16 +736,24 @@ namespace SUNWODA_SEVB.Component.UserControls
         /// </summary>
         private void InitializeMouseHover()
         {
-            if (PlotControl == null) return;
+            if (PlotControl == null)
+                return;
 
-            // 创建ToolTip
             _plotToolTip = new ToolTip
             {
-                Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse,
-                HasDropShadow = true
+                Placement =
+                    System.Windows.Controls.Primitives.PlacementMode.Mouse,
+
+                PlacementTarget = PlotControl,
+                HasDropShadow = true,
+                StaysOpen = true
             };
 
-            // 订阅鼠标移动事件
+            PlotControl.ToolTip = _plotToolTip;
+
+            PlotControl.MouseMove -= OnPlotMouseMove;
+            PlotControl.MouseLeave -= OnPlotMouseLeave;
+
             PlotControl.MouseMove += OnPlotMouseMove;
             PlotControl.MouseLeave += OnPlotMouseLeave;
         }
@@ -652,32 +763,84 @@ namespace SUNWODA_SEVB.Component.UserControls
         /// </summary>
         private void OnPlotMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (PlotControl?.Plot == null || _plotToolTip == null) return;
+            if (PlotControl?.Plot == null || _plotToolTip == null|| _renderedLines.Count == 0) return;
 
             try
             {
-                // 获取鼠标位置对应的数据坐标
-                var position = e.GetPosition(PlotControl);
-                var pixel = new ScottPlot.Pixel((float)position.X, (float)position.Y);
-                var coordinates = PlotControl.Plot.GetCoordinates(pixel);
+                var mousePosition =
+            e.GetPosition(PlotControl);
 
-                // 查找最近的数据点
-                var nearestInfo = FindNearestDataPoint(coordinates.X, coordinates.Y);
+                // WPF 高 DPI 下必须结合 DisplayScale
+                float displayScale = PlotControl.DisplayScale;
 
-                if (nearestInfo != null)
+                var mousePixel = new ScottPlot.Pixel(
+                    (float)mousePosition.X * displayScale,
+                    (float)mousePosition.Y * displayScale);
+
+                var mouseCoordinates =
+                    PlotControl.Plot.GetCoordinates(mousePixel);
+
+                var hits = new List<(
+                    RenderedLine Item,
+                    ScottPlot.DataPoint Point,
+                    float Distance)>();
+
+                foreach (var item in _renderedLines)
                 {
-                    _plotToolTip.Content = nearestInfo;
-                    _plotToolTip.IsOpen = true;
-                    PlotControl.ToolTip = _plotToolTip;
+                    var nearest = item.Plot.Data.GetNearest(
+                        mouseCoordinates,
+                        PlotControl.Plot.LastRender);
+
+                    if (!nearest.IsReal)
+                        continue;
+
+                    var nearestPixel =
+                        PlotControl.Plot.GetPixel(
+                            nearest.Coordinates);
+
+                    float dx = nearestPixel.X - mousePixel.X;
+                    float dy = nearestPixel.Y - mousePixel.Y;
+
+                    float distance =
+                        MathF.Sqrt(dx * dx + dy * dy);
+
+                    if (distance <= HoverPixelThreshold)
+                    {
+                        hits.Add((
+                            item,
+                            nearest,
+                            distance));
+                    }
                 }
-                else
+
+                if (hits.Count == 0)
                 {
-                    _plotToolTip.IsOpen = false;
+                    CloseHover();
+                    return;
                 }
+
+                // 趋势重合时，不只显示一条，而是显示鼠标附近的多条曲线
+                var nearestHits = hits
+                    .OrderBy(hit => hit.Distance)
+                    .Take(6)
+                    .ToList();
+
+                var nearestLine = nearestHits[0].Item;
+
+                HighlightLine(nearestLine);
+
+                _plotToolTip.Content = string.Join(
+                    Environment.NewLine,
+                    nearestHits.Select(hit =>
+                        $"{hit.Item.Series.Name}" +
+                        $"    X={hit.Point.X:0.##}" +
+                        $"    Y={hit.Point.Y:0.###}"));
+
+                _plotToolTip.IsOpen = true;
             }
             catch
             {
-                _plotToolTip.IsOpen = false;
+                CloseHover();
             }
         }
 
@@ -686,11 +849,45 @@ namespace SUNWODA_SEVB.Component.UserControls
         /// </summary>
         private void OnPlotMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            CloseHover();
+        }
+
+        /// <summary>
+        /// 曲线高亮
+        /// </summary>
+        /// <param name="target"></param>
+        private void HighlightLine(RenderedLine? target)
+        {
+            if (ReferenceEquals(_highlightedLine, target))
+                return;
+
+            foreach (var item in _renderedLines)
+            {
+                item.Plot.LineWidth =
+                    ReferenceEquals(item, target)
+                        ? item.BaseLineWidth + 2.0f
+                        : item.BaseLineWidth;
+            }
+
+            _highlightedLine = target;
+
+            PlotControl.Refresh();
+        }
+
+        /// <summary>
+        /// 关闭悬停提示
+        /// </summary>
+        private void CloseHover()
+        {
             if (_plotToolTip != null)
             {
                 _plotToolTip.IsOpen = false;
             }
+
+            HighlightLine(null);
         }
+
+
 
         /// <summary>
         /// 查找最近的数据点信息
@@ -997,4 +1194,5 @@ namespace SUNWODA_SEVB.Component.UserControls
     }
 
     #endregion
+
 }

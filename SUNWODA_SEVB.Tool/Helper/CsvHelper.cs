@@ -55,6 +55,95 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
+        /// 将对象列表追加写入 CSV 文件。
+        /// 如果文件不存在或为空，并且 includeHeader 为 true，则自动写入表头；
+        /// 如果文件已存在且非空，则只追加数据行，避免重复表头。
+        /// </summary>
+        public static void AppendToFile<T>(
+            string filePath,
+            IEnumerable<T> data,
+            bool includeHeader = true,
+            char delimiter = DefaultDelimiter,
+            Encoding? encoding = null)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+
+            encoding ??= Encoding.UTF8;
+
+            var needWriteHeader = includeHeader &&
+                                  (!File.Exists(filePath) || new FileInfo(filePath).Length == 0);
+
+            using var writer = new StreamWriter(filePath, append: true, encoding);
+
+            var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            // 文件不存在或为空时，才写表头
+            if (needWriteHeader)
+            {
+                var headerLine = string.Join(delimiter,
+                    properties.Select(p => EscapeField(p.Name, delimiter)));
+
+                writer.WriteLine(headerLine);
+            }
+
+            // 追加数据行
+            foreach (var item in data)
+            {
+                var values = properties.Select(p =>
+                    EscapeField(p.GetValue(item)?.ToString() ?? string.Empty, delimiter));
+
+                writer.WriteLine(string.Join(delimiter, values));
+            }
+        }
+
+        /// <summary>
+        /// 将对象列表异步追加写入 CSV 文件。
+        /// 如果文件不存在或为空，并且 includeHeader 为 true，则自动写入表头；
+        /// 如果文件已存在且非空，则只追加数据行。
+        /// </summary>
+        public static async Task AppendToFileAsync<T>(
+            string filePath,
+            IEnumerable<T> data,
+            bool includeHeader = true,
+            char delimiter = DefaultDelimiter,
+            Encoding? encoding = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+
+            encoding ??= Encoding.UTF8;
+
+            var needWriteHeader = includeHeader &&
+                                  (!File.Exists(filePath) || new FileInfo(filePath).Length == 0);
+
+            await using var writer = new StreamWriter(filePath, append: true, encoding);
+
+            var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            if (needWriteHeader)
+            {
+                var headerLine = string.Join(delimiter,
+                    properties.Select(p => EscapeField(p.Name, delimiter)));
+
+                await writer.WriteLineAsync(headerLine.AsMemory(), cancellationToken);
+            }
+
+            foreach (var item in data)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var values = properties.Select(p =>
+                    EscapeField(p.GetValue(item)?.ToString() ?? string.Empty, delimiter));
+
+                var line = string.Join(delimiter, values);
+
+                await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+            }
+        }
+
+        /// <summary>
         /// 将 DataTable 写入 CSV 文件
         /// </summary>
         public static void WriteToFile(
@@ -81,6 +170,131 @@ namespace SUNWODA_SEVB.Tool.Helper
             encoding ??= Encoding.UTF8;
             var content = ConvertToCsv(dataTable, includeHeader, delimiter);
             await File.WriteAllTextAsync(filePath, content, encoding, cancellationToken);
+        }
+
+        /// <summary>
+        /// 将 DataTable 追加写入 CSV 文件。
+        /// 如果文件不存在或为空，并且 includeHeader 为 true，则自动写入表头；
+        /// 如果文件已存在且非空，则只追加数据行。
+        /// </summary>
+        public static void AppendToFile(
+            string filePath,
+            DataTable dataTable,
+            bool includeHeader = true,
+            char delimiter = DefaultDelimiter,
+            Encoding? encoding = null)
+        {
+            if (dataTable == null)
+                throw new ArgumentNullException(nameof(dataTable));
+
+            encoding ??= Encoding.UTF8;
+
+            var needWriteHeader = includeHeader &&
+                                  (!File.Exists(filePath) || new FileInfo(filePath).Length == 0);
+
+            using var writer = new StreamWriter(filePath, append: true, encoding);
+
+            if (needWriteHeader)
+            {
+                var headerLine = string.Join(delimiter,
+                    dataTable.Columns.Cast<DataColumn>()
+                        .Select(c => EscapeField(c.ColumnName, delimiter)));
+
+                writer.WriteLine(headerLine);
+            }
+
+            foreach (DataRow row in dataTable.Rows)
+            {
+                var values = row.ItemArray.Select(v =>
+                    EscapeField(v?.ToString() ?? string.Empty, delimiter));
+
+                writer.WriteLine(string.Join(delimiter, values));
+            }
+        }
+
+        /// <summary>
+        /// 将 DataTable 异步追加写入 CSV 文件。
+        /// 如果文件不存在或为空，并且 includeHeader 为 true，则自动写入表头；
+        /// 如果文件已存在且非空，则只追加数据行。
+        /// </summary>
+        public static async Task AppendToFileAsync(
+            string filePath,
+            DataTable dataTable,
+            bool includeHeader = true,
+            char delimiter = DefaultDelimiter,
+            Encoding? encoding = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (dataTable == null)
+                throw new ArgumentNullException(nameof(dataTable));
+
+            encoding ??= Encoding.UTF8;
+
+            var needWriteHeader = includeHeader &&
+                                  (!File.Exists(filePath) || new FileInfo(filePath).Length == 0);
+
+            await using var writer = new StreamWriter(filePath, append: true, encoding);
+
+            if (needWriteHeader)
+            {
+                var headerLine = string.Join(delimiter,
+                    dataTable.Columns.Cast<DataColumn>()
+                        .Select(c => EscapeField(c.ColumnName, delimiter)));
+
+                await writer.WriteLineAsync(headerLine.AsMemory(), cancellationToken);
+            }
+
+            foreach (DataRow row in dataTable.Rows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var values = row.ItemArray.Select(v =>
+                    EscapeField(v?.ToString() ?? string.Empty, delimiter));
+
+                var line = string.Join(delimiter, values);
+
+                await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// 追加写入 CSV 内容。
+        /// 如果文件不存在或为空，则先写入表头；
+        /// 如果文件已存在且非空，则只追加内容。
+        /// </summary>
+        /// <param name="filePath">CSV 文件路径</param>
+        /// <param name="header">CSV 表头，例如：Name,Age,Address</param>
+        /// <param name="content">CSV 内容行，例如：张三,18,深圳</param>
+        public static void AppendToFile(
+            string filePath,
+            string header,
+            string content)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("文件路径不能为空。", nameof(filePath));
+
+            if (string.IsNullOrWhiteSpace(header))
+                throw new ArgumentException("表头不能为空。", nameof(header));
+
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var needWriteHeader = !File.Exists(filePath) || new FileInfo(filePath).Length == 0;
+
+            using var writer = new StreamWriter(filePath, append: true, Encoding.UTF8);
+
+            if (needWriteHeader)
+            {
+                writer.WriteLine(header);
+            }
+
+            writer.WriteLine(content);
         }
 
         /// <summary>

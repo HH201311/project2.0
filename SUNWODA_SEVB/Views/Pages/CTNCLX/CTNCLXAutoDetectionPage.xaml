@@ -2,6 +2,7 @@
     x:Class="SUNWODA_SEVB.Views.Pages.CTNCLX.CTNCLXAutoDetectionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreConverter="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CTNCLX"
@@ -12,6 +13,10 @@
     d:DesignWidth="1920"
     FontSize="15"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <coreConverter:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+    </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -40,6 +45,12 @@
                             Header="文件选择"
                             IsEnabled="{Binding IsEnableFileSelect}" />
                     </MenuItem>
+                    <MenuItem Header="按文件夹导入">
+                        <MenuItem
+                            Command="{Binding DirSelectCommand}"
+                            Header="文件夹选择"
+                            IsEnabled="{Binding IsEnableFileSelect}" />
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="导出">
                     <MenuItem
@@ -48,29 +59,93 @@
                         IsEnabled="{Binding IsEnableSetGapLimit}"
                         ToolTip="{Binding ExportPath, UpdateSourceTrigger=PropertyChanged}" />
                 </MenuItem>
-                <MenuItem Header="保存">
+                <MenuItem Header="保存" Visibility="Collapsed">
                     <CheckBox Content="AI增强结果" IsChecked="{Binding IsSaveAIEnhanceResult}" />
                 </MenuItem>
-                <MenuItem Header="Gap标准" IsEnabled="{Binding IsEnableSetGapLimit}">
-                    <DockPanel>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            DockPanel.Dock="Left"
-                            Text="最内层 Gap ≤" />
+                <MenuItem Header="Gap标准">
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
                         <hc:NumericUpDown
                             Margin="10,0"
                             DecimalPlaces="3"
-                            Value="{Binding InnerGapLimit}" />
+                            Value="{Binding InnerGapLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 最内层 Gap ≤" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding InnerGapUpperLimit}" />
                     </DockPanel>
-                    <DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
                         <TextBlock
                             VerticalAlignment="Center"
                             DockPanel.Dock="Left"
-                            Text="五层均值 Gap ≥" />
+                            Text="内五层 Gap 均值的三方向均值 ≤" />
                         <hc:NumericUpDown
                             Margin="10,0"
                             DecimalPlaces="3"
-                            Value="{Binding FiveGapMeanLimit}" />
+                            Value="{Binding InnerFiveMeanMeanUpperLimit}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="中五层 Gap 均值的三方向均值 ≤" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding MiddleFiveMeanMeanUpperLimit}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="外五层 Gap 均值的三方向均值 ≤" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding OutsideFiveMeanMeanUpperLimit}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="4"
+                            Value="{Binding JRGapMeanLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 整个卷芯的 Gap 均值" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding InnerFiveMeanLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 水平方向内五层均值" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding Z0NeToAnRatioSecondLapLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 0°方向负凸到正凹比值第2圈规格" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding Z0NeToAnRatioThreeToSixLapLowerLimit}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 0°方向负凸到正凹比值第3圈到第6圈规格" />
                     </DockPanel>
                 </MenuItem>
             </MenuItem>
@@ -329,6 +404,20 @@
                 Margin="5"
                 HorizontalAlignment="Right"
                 Text="Copyright ©欣旺达动力科技 — 仿真及AI部 — 工程AI部" />
+        </Border>
+
+        <Border
+            Grid.RowSpan="3"
+            Background="#80B2B0"
+            Opacity="0.2"
+            Visibility="{Binding IsInitCompleted, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+            <TextBlock
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="100"
+                Foreground="White"
+                Opacity="1.0"
+                Text="运行资源请求中，请耐心等待！" />
         </Border>
     </Grid>
 </Page>

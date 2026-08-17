@@ -3,10 +3,27 @@
 namespace SUNWODA_SEVB.Core.Models.Project.STC
 {
     /// <summary>
+    /// 螺丝控制器 REST API 版本。
+    /// </summary>
+    public enum ControllerApiVersion
+    {
+        /// <summary>INSIGHTqc / WbaRest-Py 旧版：session Cookie，Base64 登录体，/rest/db/ CouchDB 路径。</summary>
+        LegacyInsightQc = 0,
+
+        /// <summary>Express 新版：connect.sid Cookie，纯 JSON 登录体，/rest/get-eor-logs/ + /rest/get-trace-logs/。</summary>
+        Express = 1
+    }
+
+    /// <summary>
     /// 螺丝枪控制器数据读取配置
     /// </summary>
     public class ScrewControllerSettings
     {
+        /// <summary>
+        /// 控制器 API 版本
+        /// </summary>
+        public ControllerApiVersion ApiVersion { get; set; } = ControllerApiVersion.LegacyInsightQc;
+
         /// <summary>
         /// 是否启用曲线数据获取
         /// </summary>

@@ -1,0 +1,63 @@
+﻿<UserControl
+    x:Class="SUNWODA_SEVB.Component.UserControls.Project.OPMMRemote.VncViewerWithParameterBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.OPMMRemote"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls"
+    xmlns:vnc="clr-namespace:VNCViewer.WPF.Controls;assembly=VNCViewer.WPF"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+    <Grid>
+        <vnc:VncViewer x:Name="MainArea" />
+        <Border
+            x:Name="SettingsPanel"
+            Height="2"
+            VerticalAlignment="Top"
+            Background="#D7E9E7"
+            BorderBrush="LightGray"
+            BorderThickness="1">
+            <StackPanel Height="100" Orientation="Horizontal">
+                <TextBlock
+                    Margin="5"
+                    VerticalAlignment="Center"
+                    Text="IP" />
+                <TextBox
+                    x:Name="HostTextBox"
+                    Width="70"
+                    Margin="5"
+                    VerticalAlignment="Center"
+                    Text="{Binding RelativeSource={RelativeSource AncestorType=local:VncViewerWithParameterBar}, Path=HostIP}" />
+                <TextBlock VerticalAlignment="Center" Text="端口" />
+                <TextBox
+                    x:Name="PortTextBox"
+                    Width="50"
+                    Margin="5"
+                    VerticalAlignment="Center"
+                    Text="{Binding RelativeSource={RelativeSource AncestorType=local:VncViewerWithParameterBar}, Path=HostPort}" />
+                <TextBlock VerticalAlignment="Center" Text="密码" />
+                <uc:PasswordInputBox
+                    x:Name="PasswordBox"
+                    Width="70"
+                    Margin="5"
+                    VerticalAlignment="Center"
+                    Password="{Binding RelativeSource={RelativeSource AncestorType=local:VncViewerWithParameterBar}, Path=HostPassword}" />
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <Button
+                        x:Name="ConnectButton"
+                        Margin="5"
+                        Click="ConnectButton_Click"
+                        Content="连接" />
+                    <Button
+                        x:Name="DisconnectButton"
+                        Margin="5"
+                        Click="DisconnectButton_Click"
+                        Content="断开连接"
+                        IsEnabled="False" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

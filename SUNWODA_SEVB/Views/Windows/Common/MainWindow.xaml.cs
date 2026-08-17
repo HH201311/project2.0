@@ -1,9 +1,9 @@
-﻿using HandyControl.Controls;
-using SUNWODA_SEVB.ViewModels.Windows.Common;
-//using System.Windows;
+﻿//using System.Windows;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows.Controls.Primitives;
+using HandyControl.Controls;
+using SUNWODA_SEVB.ViewModels.Windows.Common;
 
 namespace SUNWODA_SEVB.Views.Windows.Common
 {
@@ -69,13 +69,13 @@ namespace SUNWODA_SEVB.Views.Windows.Common
                     _isClosingConfirmed = true;
                     Process.GetCurrentProcess().Kill();
                     Environment.Exit(0);
-                    this.Close(); // 再次触发 Close，此时会通过
+                    Close(); // 再次触发 Close，此时会通过
                 }
             }
             catch (Exception ex)
             {
                 // 记录错误日志
-                HandyControl.Controls.MessageBox.Show(
+                MessageBox.Show(
                     $"退出时发生错误：{ex.Message}",
                     "错误"
                 );
@@ -87,7 +87,7 @@ namespace SUNWODA_SEVB.Views.Windows.Common
         /// </summary>
         private void ShowSimpleExitConfirmation()
         {
-            var result = HandyControl.Controls.MessageBox.Show(
+            var result = MessageBox.Show(
                 "确定要退出软件吗？",
                 "确认退出"
             );
@@ -97,7 +97,7 @@ namespace SUNWODA_SEVB.Views.Windows.Common
                 _isClosingConfirmed = true;
                 Process.GetCurrentProcess().Kill();
                 Environment.Exit(0);
-                this.Close();
+                Close();
             }
         }
     }

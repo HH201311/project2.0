@@ -1,24 +1,14 @@
-﻿#define C06
+﻿#define C01
 
-using System.Collections.Concurrent;
 using System.IO;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using DocumentFormat.OpenXml.Drawing.Charts;
-using HalconDotNet;
 using RemoteFileMonitor.Abstractions;
 using RemoteFileMonitor.Models;
 using RemoteFileMonitor.Options;
 using SUNWODA_SEVB.Core.Interfaces;
-using SUNWODA_SEVB.Core.Models.Project.CoatingOPMM;
-using Xceed.Wpf.Toolkit;
-#if C06
-using Yolo11seg_CT06;
-using ZZC6OnlineCTModel;
-#else
-using Yolo11seg_CT01;
-using ZZC1OnlineCTModel;
-#endif
+using SUNWODA_SEVB.Communication.CTOL;
+using SUNWODA_SEVB.Core.Models.Project.CTOL;
+using SUNWODA_SEVB.Tool.Helper;
+using System.Diagnostics;
 
 namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
 {
@@ -31,28 +21,57 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
     ///   - UI 预览通知（ProcessingResultService）
     ///   - 向 BarcodeGroupingService 汇报检测结果（通过 FileProcessingResult 返回值）
     ///
-    /// <b>路径来源：</b>从 <see cref="IMonitorManager.Controls"/> 实时读取 Options，
-    /// 确保 UI 修改并调用 UpdateOptions 后输出路径立即生效（不依赖 IOptionsMonitor 快照）。
+    /// <b>算法执行（重要变更）：</b>
+    /// 算法不再在本进程内加载模型运行，而是由本基类<b>独占启动并管理一个 C01OnlineCT.exe 子进程</b>
+    /// （server 模式，模型只在子进程内加载一次）。每个继承本基类的处理器实例都拥有一个
+    /// <see cref="CtSubprocessClient"/>，即“一个工位 = 一个独立 C01OnlineCT 子进程”，
+    /// 工位之间天然进程隔离、互不影响，子进程崩溃时下一次请求会自动重启并重新加载模型。
     ///
-    /// 子类只需实现 <see cref="ProcessImage"/> 中的图像变换与检测逻辑。
+    /// 基类在 <see cref="ProcessAsync"/> 中负责调用子进程拿到 <see cref="CtAlgorithmResult"/>，
+    /// 子类只需在 <see cref="ProcessImage"/> 中基于该结果完成判定、绘图与输出。
+    ///
+    /// <b>路径来源：</b>从 <see cref="IMonitorManager.Controls"/> 实时读取 Options。
     /// </summary>
-    public abstract class ImageProcessorBase : IFileProcessor
+    public abstract class ImageProcessorBase : IFileProcessor, IAsyncDisposable
     {
         /// <summary>本处理器只响应此 monitorId 的文件</summary>
         protected abstract string TargetMonitorId { get; }
 
-        // 每路工位独立信号量，站内串行、跨站并行。
-        // 同一通道的多张图按队列顺序依次推理，保证 ZZC6CTModel/ZZC1CTModel 实例内 OpenCV Mat 不被并发访问；
-        // 不同通道各自持有独立 ZZC6CTModel/ZZC1CTModel 实例，可安全并行，不互相阻塞。
-        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _aiChannelSemaphores = new();
+        // ==================== C01OnlineCT 独立子进程 ====================
 
+        // 每个处理器实例独占一个 C01OnlineCT.exe 子进程（lazy 启动）。
+        // 站内串行由 _stationLock 保证（子进程内单线程串行推理），跨站则由各自独立子进程并行。
+        private readonly Lazy<CtSubprocessClient> _worker;
+        private readonly SemaphoreSlim _stationLock = new SemaphoreSlim(1, 1);
+
+        /// <summary>
+        /// 子进程绑定的工位编号（用于工位硬隔离日志/校验）。
+        /// 由于每个实例独占一个子进程，默认 0 即可；如需可在子类重写。
+        /// </summary>
+        protected virtual int WorkerStationId => 0;
+
+        /// <summary>
+        /// C01OnlineCT.exe（Worker）可执行文件完整路径。解析优先级：
+        ///   1) 环境变量 CT_WORKER_EXE；
+        ///   2) 程序目录下的 Worker\C01OnlineCT.exe（C06 时为 C06OnlineCT.exe）。
+        /// 子类可重写以指向自定义位置。
+        /// </summary>
+        protected virtual string WorkerExePath
+        {
+            get
+            {
+                var env = Environment.GetEnvironmentVariable("CT_WORKER_EXE");
+                if (!string.IsNullOrWhiteSpace(env))
+                {
+                    return Path.GetFullPath(env.Trim('"'));
+                }
 #if C06
-        protected ZZC6CTModel AI { get; } = new ZZC6CTModel();
+                return Path.Combine(AppContext.BaseDirectory, "Worker", "C06OnlineCT.exe");
 #else
-        protected ZZC1CTModel AI { get } = new ZZC1CTModel();
+                return Path.Combine(AppContext.BaseDirectory, "Worker", "C01OnlineCT.exe");
 #endif
-
-        protected IPredictor? Model;
+            }
+        }
 
         // 直接持有 Manager，从 Controls[].Options 读取运行时参数，而非配置快照
         private readonly IMonitorManager _manager;
@@ -77,7 +96,25 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             _gapThresholds = gapThresholds;
             _gapCsv = gapCsv;
             Logger = logger;
+
+            // 子进程 lazy 创建：首张图片到来时才启动并加载模型。
+            _worker = new Lazy<CtSubprocessClient>(
+                () => new CtSubprocessClient(
+                    WorkerExePath,
+                    WorkerStationId,
+                    requestTimeout: TimeSpan.FromMinutes(2),
+                    logInfo: msg => Logger.Info(msg),
+                    logError: msg => Logger.Error(msg)
+                ),
+                LazyThreadSafetyMode.ExecutionAndPublication
+            );
         }
+
+        /// <summary>
+        /// 提前启动并预热本实例的 C01OnlineCT 子进程（加载模型）。可选调用，
+        /// 不调用则在首张图片处理时自动启动。
+        /// </summary>
+        public Task WarmupAsync(CancellationToken ct = default) => _worker.Value.StartAsync(ct);
 
         // ==================== 间隙判断阈值 ====================
         // 说明：视野编号 1-4 对应电芯四个扫描位置；X/Y 对应拍摄方向。
@@ -167,6 +204,12 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             var target = FindTarget(file.MonitorId);
             ApplyThresholds(); // 运行前将界面配置的阈值写入本实例字段
 
+            if (!IsOKDir(file.FilePath, target))
+            {
+                Logger.Warn($"[{file.MonitorId}] 非OK文件下图片，跳过：{file.FilePath}");
+                return;
+            }
+
             // outputBarcodeDir 在 ProcessImage 之前确定，确保算法异常时也能正确聚合
             var outputBarcodeDir = BuildOutputBarcodeDir(file.FilePath, target);
 
@@ -180,21 +223,44 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             double[]? yOhValues = null;
             double[]? gapValues = null;
 
-            // 取本通道专用信号量（同通道串行、跨通道并行），防止同一 ZZC6CTModel/ZZC1CTModel 实例并发推理
-            var channelSemaphore = _aiChannelSemaphores.GetOrAdd(TargetMonitorId, _ => new SemaphoreSlim(1, 1));
-            await channelSemaphore.WaitAsync(ct);
+            // 站内串行（同实例的多张图按队列依次提交给独占子进程），跨实例各自子进程并行。
+            await _stationLock.WaitAsync(ct);
+
+            // 为本张图片创建独立工作目录，子进程会在其中写出 recNE/recPE/recMiddlePE.hobj，
+            // 避免 8 张图共用一个目录互相覆盖。处理完成后尽量清理。
+            string workDir = CreateImageWorkDir(file.MonitorId, file.FilePath);
             try
             {
-                (isOk, defectType, outputPath, yOhValues, gapValues) = ProcessImage(file.FilePath);
+                // === 调用独立 C01OnlineCT 子进程执行算法（模型常驻于子进程，无需每次加载）===
+                Stopwatch totalStopwatch = Stopwatch.StartNew();
+                Stopwatch algoStopwatch = Stopwatch.StartNew();
+                CtAlgorithmResult algo = await _worker.Value
+                    .ProcessImageAsync(file.FilePath, workDir, ct)
+                    .ConfigureAwait(false);
+                algoStopwatch.Stop();
 
-                var result = isOk ? "OK" : $"NG /{defectType}";
-                algorithmError = (defectType == "算法异常") ? true : false;
-                Logger.Info(
-                    $"[{file.MonitorId}] 图片处理完成 [{result}]：{Path.GetFileName(file.FilePath)} → {outputPath}"
-                );
+                Stopwatch renderStopwatch = Stopwatch.StartNew();
+                //Logger.Info($"[{file.MonitorId}] 子进程算法处理耗时：{stopwatch.ElapsedMilliseconds} ms");
+                if (!algo.Success)
+                {
+                    algorithmError = true;
+                    Logger.Error($"[{file.MonitorId}] 子进程算法处理失败：{file.FilePath}；{algo.ErrorReport}");
+                }
+                else
+                {
+                    (isOk, defectType, outputPath, yOhValues, gapValues) = ProcessImage(file.FilePath, algo);
+                    renderStopwatch.Stop();
+                    var result = isOk ? "OK" : $"NG /{defectType}";
+                    algorithmError = (defectType == "算法异常");
+                    Logger.Info(
+                        $"[{file.MonitorId}] 图片处理完成 [{result}]：{Path.GetFileName(file.FilePath)} → {outputPath}"
+                    );
 
-                // 通知 UI 更新预览图和计数
-                _resultService.NotifyProcessed(file.MonitorId, outputPath);
+                    // 通知 UI 更新预览图和计数
+                    _resultService.NotifyProcessed(file.MonitorId, outputPath);
+                }
+                totalStopwatch.Stop();
+                CsvSaveHelper.AppendToFile($"{file.MonitorId}.csv", "图片路径,算法处理耗时,渲染耗时,总耗时", $"{file.FilePath},{algoStopwatch.ElapsedMilliseconds},{renderStopwatch.ElapsedMilliseconds},{totalStopwatch.ElapsedMilliseconds}");
             }
             catch (Exception ex)
             {
@@ -203,7 +269,8 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             }
             finally
             {
-                channelSemaphore.Release();
+                _stationLock.Release();
+                TryDeleteDirectory(workDir);
             }
 
             // 通知业务层聚合服务记录本张结果（含算法异常标志，以触发整个 barcode 的异常归档）
@@ -234,14 +301,77 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             );
         }
 
+        private protected bool IsOKDir(string sourcePath, MonitorTargetOptions? target)
+        {
+            if (target is null || string.IsNullOrWhiteSpace(target.OutputDirectory))
+            {
+                return false;
+            }
+
+            var sourceFullPath = Path.GetFullPath(sourcePath);
+
+            var remoteRoot = string.IsNullOrWhiteSpace(target.RemotePath)
+                ? string.Empty
+                : Path.GetFullPath(target.RemotePath);
+
+            if (!string.IsNullOrWhiteSpace(remoteRoot) &&
+                sourceFullPath.StartsWith(
+                    remoteRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(remoteRoot, sourceFullPath);
+
+                var parts = relativePath
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToList();
+
+                // 目录结构：
+                // 2026-04-25\OH不良\355126226K41300\file.png
+                //
+                // parts[0] = 2026-04-25
+                // parts[1] = OH不良 / OK / 其他结果目录
+                // parts[2] = barcode
+                //
+                // 判定是否是OK文件夹
+                if (parts.Count >= 2)
+                {
+                    return parts[1] == "OK";
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         // ==================== 子类扩展点 ====================
 
         /// <summary>
-        /// 对已加载的图像执行检测，返回判断结论。
+        /// 基于独立 C01OnlineCT 子进程返回的算法结果完成本张图片的判定、绘图与输出。
+        /// <para>
+        /// 子类可使用 <paramref name="algorithm"/> 中的字段：
+        /// <see cref="CtAlgorithmResult.RecNEPath"/> / <see cref="CtAlgorithmResult.RecPEPath"/> /
+        /// <see cref="CtAlgorithmResult.RecMiddlePEPath"/>（HObject .hobj 文件，使用
+        /// HOperatorSet.ReadObject 读取后用于绘图）、<see cref="CtAlgorithmResult.DistOHInt"/>（正极 OH 内侧）、
+        /// <see cref="CtAlgorithmResult.DistOHOut"/>（负极 OH 外侧）、<see cref="CtAlgorithmResult.GapMax"/>、
+        /// <see cref="CtAlgorithmResult.HDNe"/>（负极差）、<see cref="CtAlgorithmResult.NeNGFlag"/>、
+        /// <see cref="CtAlgorithmResult.NeTQFlag"/> 等。
+        /// </para>
+        /// <para>
+        /// 判定可调用 <see cref="NgOkJudge"/> + <see cref="NormalizeResult"/>；
+        /// 输出路径用 <see cref="BuildOutputPath"/> + <see cref="FindTarget"/> 构建。
+        /// </para>
         /// </summary>
         /// <param name="filePath">图像文件完整路径（用于提取视野类型标识，如 "1-X"、"2-Y"）</param>
+        /// <param name="algorithm">独立子进程返回的算法结果（已保证 Success == true）</param>
         /// <returns>
-        /// (isOk: true=OK / false=NG, defectType: 缺陷类型中文名，OK 时填 "OK")
+        /// (isOk: true=OK / false=NG, defectType: 缺陷类型中文名（OK 时为 "OK"，算法异常时为 "算法异常"),
+        ///  outputPath: 结果图片输出路径, yOhValues: 供跨图 Y 掉片判断的 OH 值, gapValues: 间隙值)
         /// </returns>
         protected abstract (
             bool isOk,
@@ -249,9 +379,37 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             string outputPath,
             double[]? yOhValues,
             double[]? gapValues
-        ) ProcessImage(string filePath);
+        ) ProcessImage(string filePath, CtAlgorithmResult algorithm);
 
         // ==================== 路径构建 ====================
+
+        /// <summary>为单张图片创建独立的临时工作目录（子进程写出 hobj 的位置）。</summary>
+        private string CreateImageWorkDir(string monitorId, string imagePath)
+        {
+            string dir = Path.Combine(
+                Path.GetTempPath(),
+                "OnlineCT_work",
+                string.IsNullOrWhiteSpace(monitorId) ? "default" : monitorId,
+                Path.GetFileNameWithoutExtension(imagePath) + "_" + Guid.NewGuid().ToString("N")
+            );
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private void TryDeleteDirectory(string dir)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+            }
+            catch
+            {
+                // 清理失败不影响主流程，忽略。
+            }
+        }
 
         /// <summary>
         /// 仅计算输出 barcode 目录（不含文件名），与结果无关，用于算法异常时也能正确聚合。
@@ -259,23 +417,57 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
         private string BuildOutputBarcodeDir(string sourcePath, MonitorTargetOptions? target)
         {
             if (target is null || string.IsNullOrWhiteSpace(target.OutputDirectory))
+            {
                 return Path.GetDirectoryName(sourcePath) ?? ".";
+            }
 
-            var normalizedRoot = Path.GetFullPath(target.RemotePath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var sourceFullPath = Path.GetFullPath(sourcePath);
 
-            var relativeSubPath = sourcePath.StartsWith(
-                normalizedRoot,
-                StringComparison.OrdinalIgnoreCase
-            )
-                ? sourcePath[(normalizedRoot.Length + 1)..]
-                : Path.GetFileName(sourcePath);
+            var remoteRoot = string.IsNullOrWhiteSpace(target.RemotePath)
+                ? string.Empty
+                : Path.GetFullPath(target.RemotePath);
 
-            var relativeDir = Path.GetDirectoryName(relativeSubPath) ?? string.Empty;
-            var outputBase = Path.GetFullPath(target.OutputDirectory);
-            return string.IsNullOrEmpty(relativeDir)
-                ? outputBase
-                : Path.Combine(outputBase, relativeDir);
+            var outputRoot = Path.GetFullPath(target.OutputDirectory);
+
+            var relativeDir = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(remoteRoot) &&
+                sourceFullPath.StartsWith(
+                    remoteRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(remoteRoot, sourceFullPath);
+
+                var parts = relativePath
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToList();
+
+                // 目录结构：
+                // 2026-04-25\OH不良\355126226K41300\file.png
+                //
+                // parts[0] = 2026-04-25
+                // parts[1] = OH不良 / OK / 其他结果目录
+                // parts[2] = barcode
+                //
+                // 初始输出统一改到 OK 文件夹下
+                if (parts.Count >= 2)
+                {
+                    parts[1] = "OK";
+                }
+
+                var relativeDirParts = parts
+                    .Take(parts.Count - 1)
+                    .ToArray();
+
+                relativeDir = relativeDirParts.Length == 0
+                    ? string.Empty
+                    : Path.Combine(relativeDirParts);
+            }
+
+            return string.IsNullOrWhiteSpace(relativeDir)
+                ? outputRoot
+                : Path.Combine(outputRoot, relativeDir);
         }
 
         private protected string BuildOutputPath(
@@ -301,34 +493,54 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 return Path.Combine(sourceDir, outputFileName);
             }
 
-            var normalizedRoot = Path.GetFullPath(target.RemotePath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var sourceFullPath = Path.GetFullPath(sourcePath);
 
-            var relativeSubPath = sourcePath.StartsWith(
-                normalizedRoot,
-                StringComparison.OrdinalIgnoreCase
-            )
-                ? sourcePath[(normalizedRoot.Length + 1)..]
-                : Path.GetFileName(sourcePath);
+            var remoteRoot = string.IsNullOrWhiteSpace(target.RemotePath)
+                ? string.Empty
+                : Path.GetFullPath(target.RemotePath);
 
-            var relativeDir = Path.GetDirectoryName(relativeSubPath) ?? string.Empty;
-            var outputBase = Path.GetFullPath(target.OutputDirectory);
-            var outputDir = string.IsNullOrEmpty(relativeDir)
-                ? outputBase
-                : Path.Combine(outputBase, relativeDir);
+            var outputRoot = Path.GetFullPath(target.OutputDirectory);
+
+            string relativeDir = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(remoteRoot) &&
+                sourceFullPath.StartsWith(
+                    remoteRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(remoteRoot, sourceFullPath);
+
+                var parts = relativePath
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToList();
+
+                // 目录结构：
+                // 2026-04-25\OH不良\355126226K41300\file.png
+                //
+                // parts[0] = 2026-04-25
+                // parts[1] = OH不良 / OK
+                // parts[2] = 355126226K41300
+                //
+                // 初始都放到 OK 文件夹下
+                if (parts.Count >= 2)
+                {
+                    parts[1] = "OK";
+                }
+
+                var relativeDirParts = parts
+                    .Take(parts.Count - 1)
+                    .ToArray();
+
+                relativeDir = Path.Combine(relativeDirParts);
+            }
+
+            var outputDir = string.IsNullOrWhiteSpace(relativeDir)
+                ? outputRoot
+                : Path.Combine(outputRoot, relativeDir);
 
             return Path.Combine(outputDir, outputFileName);
         }
-
-        ///// <summary>
-        ///// 从文件名第二段提取视野类型标识（如 "1-X"、"2-Y"）。
-        ///// 文件命名规则：{条码}_{视野}_{...}，拆分失败时返回空串。
-        ///// </summary>
-        //private static string ExtractImageType(string filePath)
-        //{
-        //    var parts = Path.GetFileNameWithoutExtension(filePath).Split('_');
-        //    return parts.Length >= 2 ? parts[1] : string.Empty;
-        //}
 
         // 从 MonitorControl.Options 读取——这是 UpdateOptions() 实际写入的对象
         private protected MonitorTargetOptions? FindTarget(string monitorId) =>
@@ -338,7 +550,6 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 )
                 ?.Options;
 
-        /// <summary>
         /// <summary>
         /// 将 <see cref="GapThresholdService"/> 中的覆盖值写入本实例的 Gap 字段。
         /// 在每次 <see cref="ProcessAsync"/> 开始时调用，确保界面修改的阈值即时生效。
@@ -482,18 +693,6 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             int neTQflag
         )
         {
-            //// 1. 间隙最大值判断（负极边缘 / 正极边缘 / 正极中间，按优先级依次判断）
-            //if (CheckGapMax(imageType, gapMax, out string? gapResult))
-            //    return gapResult!;
-
-            //// 2. 负极压伤判断
-            //if (negPressureFlag == 1)
-            //    return "NG_负极压伤";
-
-            //// 3. 负极突起判断
-            //if (neTQflag == 1)
-            //    return "NG_负极突起";
-
 #if C06
             // 1. 间隙最大值判断（负极边缘 / 正极边缘 / 正极中间，按优先级依次判断）
             if (negativeCount == 77 && positiveCount == 76 && CheckGapMax(imageType, gapMax, out string? gapResult))
@@ -888,25 +1087,6 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             return positions;
         }
 
-        private protected void GetModel()
-        {
-#if C06
-            AI.Model_init(@".\model\1222\C06_best.onnx", true, out Model, out string runinfo);
-#else
-            AI.Model_init(
-                    @".\model\1119\C01_best.onnx",
-                    true,
-                    out Model,
-                    out string runinfo
-                );
-#endif
-
-            if (!string.IsNullOrEmpty(runinfo))
-            {
-                Logger.Error($"{TargetMonitorId} 模型初始化异常：{runinfo}");
-            }
-        }
-
         private protected (string Barcode, string ViewField) ParseImageFileName(string imageFilePath)
         {
             string fileName = Path.GetFileNameWithoutExtension(imageFilePath);
@@ -931,6 +1111,22 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             }
 
             return (barcode, viewField);
+        }
+
+        // ==================== 资源释放 ====================
+
+        /// <summary>
+        /// 释放本实例独占的 C01OnlineCT 子进程（通知其退出并回收资源）。
+        /// 宿主在停止处理器时应调用本方法，避免子进程残留。
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (_worker.IsValueCreated)
+            {
+                await _worker.Value.DisposeAsync().ConfigureAwait(false);
+            }
+            _stationLock.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

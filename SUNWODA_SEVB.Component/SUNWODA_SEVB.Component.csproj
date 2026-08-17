@@ -53,6 +53,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="VNCViewer.WPF">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\VNCViewer.WPF.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="UserControls\Project\CCTB\SettingControls\CommunicationSettingControls\DHCommunicationControl.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

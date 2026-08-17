@@ -530,10 +530,6 @@ namespace SUNWODA_SEVB.PLC
             {
                 address = $"{rwConfig.AreaName}{rwConfig.StartAddress}";
             }
-            //var result = await Task.Run(
-            //    () => plc.Device?.Read(address, (ushort)rwConfig.Length),
-            //    cancellationToken
-            //);
 
             // 不能触发cancellationToken取消操作，修改为下面的方式执行     -By2210120078  -20260522
             //var result = await Task.Run(
@@ -613,7 +609,7 @@ namespace SUNWODA_SEVB.PLC
                 address =>
                 {
                     try
-                    {
+                    {                                              
                         if (rwConfig.AddressType == 0 && address.Type?.ToUpperInvariant() == "STRING")
                         {
                             ushort len = BitConverter.ToUInt16(data, 0);
@@ -940,9 +936,9 @@ namespace SUNWODA_SEVB.PLC
         {
             string[] result = source.Split('.');
             if (result.Length > 2)
-                return int.Parse(result[2]);
+                return int.Parse(AddressNumberRegex.Replace(result[2], ""));
             else if (result.Length == 2)
-                return int.Parse(result[1]);
+                return int.Parse(AddressNumberRegex.Replace(result[1], ""));
             else
                 return 0;
         }

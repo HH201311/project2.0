@@ -72,6 +72,25 @@ namespace SUNWODA_SEVB.Tool.Helper
             return encryptedContent;
         }
 
+        /// <summary>    
+        /// RSA公钥pem-->XML格式转换， 
+        /// </summary>    
+        /// <param name="publicKey">pem公钥</param>    
+        /// <param name="content">要加密的内容：比如密码</param>  
+        /// <returns></returns>    
+        public static string RSAPublicKey(string publicKey, string content)
+        {
+            RsaKeyParameters publicKeyParam = (RsaKeyParameters)PublicKeyFactory.CreateKey(Convert.FromBase64String(publicKey));
+            string XML = string.Format("<RSAKeyValue><Modulus>{0}</Modulus><Exponent>{1}</Exponent></RSAKeyValue>",
+                Convert.ToBase64String(publicKeyParam.Modulus.ToByteArrayUnsigned()),
+                Convert.ToBase64String(publicKeyParam.Exponent.ToByteArrayUnsigned()));
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider();
+            byte[] cipherbytes;
+            rsa.FromXmlString(XML);
+            cipherbytes = rsa.Encrypt(Encoding.UTF8.GetBytes(content), false);
+            return Convert.ToBase64String(cipherbytes);
+        }
+
         /// <summary>
         /// RSA私钥解密数据
         /// </summary>

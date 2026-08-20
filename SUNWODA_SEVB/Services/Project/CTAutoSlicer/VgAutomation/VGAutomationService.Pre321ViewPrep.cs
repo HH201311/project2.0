@@ -15,7 +15,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 if (!settings.HasPre321ViewPrepPrerequisites)
@@ -48,7 +48,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }

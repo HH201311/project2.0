@@ -19,7 +19,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 var namingSource = TryResolveNamingSourceFromCtFolder(settings);
@@ -59,7 +59,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }
@@ -72,7 +72,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 if (!settings.HasHistogramRoi)
@@ -132,7 +132,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }
@@ -145,7 +145,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 if (!settings.HasVision3dRoi)
@@ -209,7 +209,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }

@@ -970,6 +970,15 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress)
         {
+            int? processId = null;
+            try
+            {
+                processId = qualityDialog.Current.ProcessId;
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+
             var okButton = FindJpegQualityConfirmButton(qualityDialog);
             if (okButton == null)
             {
@@ -990,6 +999,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     {
                         progress?.Report("JPEG 质量对话框已确认");
                         _logger.Info("JPEG 质量对话框已确认");
+                        await TryDismissFileOverwriteWarningAfterJpegAsync(
+                                settings,
+                                processId,
+                                cancellationToken,
+                                progress)
+                            .ConfigureAwait(false);
                         return;
                     }
                 }
@@ -1005,6 +1020,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 {
                     progress?.Report("JPEG 质量对话框已确认");
                     _logger.Info("JPEG 质量对话框已确认");
+                    await TryDismissFileOverwriteWarningAfterJpegAsync(
+                            settings,
+                            processId,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
                     return;
                 }
             }
@@ -1026,6 +1047,174 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             progress?.Report("JPEG 质量对话框已确认");
             _logger.Info("JPEG 质量对话框已确认");
+            await TryDismissFileOverwriteWarningAfterJpegAsync(
+                    settings,
+                    processId,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// JPEG「确定」之后：若目标路径已有残留文件，可能弹出「VGSTUDIO MAX 警告」覆盖确认；
+        /// 有则点「全部是(A)」，无则短等后继续（不阻断流程）。
+        /// </summary>
+        private async Task TryDismissFileOverwriteWarningAfterJpegAsync(
+            CTAutoSlicerSettings settings,
+            int? processId,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            progress?.Report(
+                $"检查是否出现「{VgAlignedWarningDialogName}」覆盖确认（有则点「{VgOverwriteYesToAllButtonName}」）");
+            _logger.Info(
+                $"JPEG 确认后检查「{VgAlignedWarningDialogName}」文件覆盖弹窗（可选，按钮「{VgOverwriteYesToAllButtonName}」）");
+
+            // 残留文件时弹窗通常紧随 JPEG 关闭；无弹窗时短等即可，避免白等整段超时
+            var appearWaitMs = Math.Min(2000, Math.Max(500, settings.SliceExportDialogWaitTime));
+            var warningDialog = await UIAutomationHelper.WaitForElementAsync(
+                    () => FindFileOverwriteWarningDialog(processId),
+                    TimeSpan.FromMilliseconds(appearWaitMs),
+                    cancellationToken,
+                    pollIntervalMs: 200)
+                .ConfigureAwait(false);
+
+            if (warningDialog == null)
+            {
+                _logger.Info("未出现文件覆盖警告，继续流程");
+                return;
+            }
+
+            progress?.Report(
+                $"已检测到「{VgAlignedWarningDialogName}」，点击「{VgOverwriteYesToAllButtonName}」");
+            _logger.Info(
+                $"检测到文件覆盖警告「{VgAlignedWarningDialogName}」，准备点击「{VgOverwriteYesToAllButtonName}」");
+
+            await ClickOverwriteYesToAllAsync(warningDialog, cancellationToken).ConfigureAwait(false);
+
+            var closed = await WaitUntilDisappearedAsync(
+                    () => FindFileOverwriteWarningDialog(processId),
+                    settings.SliceExportDialogWaitTime,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!closed)
+            {
+                throw new InvalidOperationException(
+                    $"未能关闭「{VgAlignedWarningDialogName}」覆盖确认（已尝试 Invoke / Win32 点击「{VgOverwriteYesToAllButtonName}」）");
+            }
+
+            progress?.Report("文件覆盖警告已确认（全部是）");
+            _logger.Info("文件覆盖警告已点击「全部是」并关闭");
+        }
+
+        /// <summary>
+        /// 查找含「全部是」的「VGSTUDIO MAX 警告」（与对齐完成后仅含「是(Y)」的警告区分）。
+        /// </summary>
+        private static AutomationElement? FindFileOverwriteWarningDialog(int? processId)
+        {
+            if (processId is not > 0)
+            {
+                return null;
+            }
+
+            foreach (var topWindow in EnumerateSameProcessTopLevelWindows(processId.Value))
+            {
+                try
+                {
+                    if (IsFileOverwriteWarningWindow(topWindow))
+                    {
+                        return topWindow;
+                    }
+
+                    foreach (var controlType in new[] { ControlType.Window, ControlType.Pane })
+                    {
+                        var condition = new PropertyCondition(
+                            AutomationElement.ControlTypeProperty,
+                            controlType);
+                        foreach (AutomationElement child in topWindow.FindAll(TreeScope.Children, condition))
+                        {
+                            try
+                            {
+                                if (IsFileOverwriteWarningWindow(child))
+                                {
+                                    return child;
+                                }
+                            }
+                            catch (ElementNotAvailableException)
+                            {
+                                // continue
+                            }
+                        }
+                    }
+                }
+                catch (ElementNotAvailableException)
+                {
+                    // continue
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsFileOverwriteWarningWindow(AutomationElement window)
+        {
+            var name = window.Current.Name ?? string.Empty;
+            if (!name.Contains(VgAlignedWarningDialogName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!IsProgressUiVisible(window))
+            {
+                return false;
+            }
+
+            return FindOverwriteYesToAllButton(window) != null;
+        }
+
+        private static AutomationElement? FindOverwriteYesToAllButton(AutomationElement warningDialog)
+        {
+            var byName = UIAutomationHelper.FindButtonByName(
+                    warningDialog,
+                    VgOverwriteYesToAllButtonName,
+                    exactMatch: true)
+                ?? UIAutomationHelper.FindButtonByName(
+                    warningDialog,
+                    VgOverwriteYesToAllButtonName,
+                    exactMatch: false);
+            if (byName != null)
+            {
+                return byName;
+            }
+
+            return UIAutomationHelper.FindDescendantByName(
+                warningDialog,
+                ControlType.Button,
+                "全部是",
+                nameContains: true);
+        }
+
+        private async Task ClickOverwriteYesToAllAsync(
+            AutomationElement warningDialog,
+            CancellationToken cancellationToken)
+        {
+            var yesToAllButton = FindOverwriteYesToAllButton(warningDialog)
+                ?? throw new InvalidOperationException(
+                    $"已出现「{VgAlignedWarningDialogName}」，但未找到按钮「{VgOverwriteYesToAllButtonName}」");
+
+            var buttonName = yesToAllButton.Current.Name ?? VgOverwriteYesToAllButtonName;
+            if (UIAutomationHelper.TryInvokeButton(yesToAllButton))
+            {
+                _logger.Info($"文件覆盖警告：Invoke「{buttonName}」");
+            }
+            else
+            {
+                _logger.Info($"文件覆盖警告：Invoke 无效，Win32 点击「{buttonName}」");
+                await NativeClickElementAsync(yesToAllButton, cancellationToken).ConfigureAwait(false);
+            }
+
+            // 给模态框一点关闭时间
+            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task FocusAutomationWindowAsync(
@@ -1101,6 +1290,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     cancellationToken,
                     progress)
                 .ConfigureAwait(false);
+            await TryDismissLateFileOverwriteWarningAsync(
+                    settings,
+                    ctViewerProcess,
+                    cancellationToken,
+                    progress)
+                .ConfigureAwait(false);
 
             const int pollIntervalMs = 500;
             var progressWindow = await UIAutomationHelper.WaitForElementAsync(
@@ -1123,8 +1318,14 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             if (progressWindow == null)
             {
-                // 可能卡在质量框导致写入进度未出现：再试一次质量确认
+                // 可能卡在质量框/覆盖确认导致写入进度未出现：再试一次
                 await TryDismissLateJpegQualityDialogAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+                await TryDismissLateFileOverwriteWarningAsync(
                         settings,
                         ctViewerProcess,
                         cancellationToken,
@@ -1144,6 +1345,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 cancellationToken.ThrowIfCancellationRequested();
 
                 await TryDismissLateJpegQualityDialogAsync(
+                        settings,
+                        ctViewerProcess,
+                        cancellationToken,
+                        progress)
+                    .ConfigureAwait(false);
+                await TryDismissLateFileOverwriteWarningAsync(
                         settings,
                         ctViewerProcess,
                         cancellationToken,
@@ -1213,6 +1420,52 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 .ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// 若当前已出现含「全部是」的覆盖警告则立即确认；未出现则立刻返回（不空等）。
+        /// </summary>
+        private async Task TryDismissLateFileOverwriteWarningAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            int? processId = null;
+            try
+            {
+                processId = ctViewerProcess.Id;
+            }
+            catch
+            {
+                return;
+            }
+
+            var warningDialog = FindFileOverwriteWarningDialog(processId);
+            if (warningDialog == null)
+            {
+                return;
+            }
+
+            progress?.Report(
+                $"检测到晚弹出的「{VgAlignedWarningDialogName}」，点击「{VgOverwriteYesToAllButtonName}」");
+            _logger.Info(
+                $"检测到晚弹出的文件覆盖警告，点击「{VgOverwriteYesToAllButtonName}」");
+            await ClickOverwriteYesToAllAsync(warningDialog, cancellationToken).ConfigureAwait(false);
+
+            var closed = await WaitUntilDisappearedAsync(
+                    () => FindFileOverwriteWarningDialog(processId),
+                    settings.SliceExportDialogWaitTime,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!closed)
+            {
+                throw new InvalidOperationException(
+                    $"未能关闭晚弹出的「{VgAlignedWarningDialogName}」覆盖确认（「{VgOverwriteYesToAllButtonName}」）");
+            }
+
+            progress?.Report("晚弹出的文件覆盖警告已确认（全部是）");
+            _logger.Info("晚弹出的文件覆盖警告已点击「全部是」并关闭");
+        }
+
         private static async Task WaitForSliceExportDialogClosedAsync(
             Process ctViewerProcess,
             TimeSpan timeout,
@@ -1241,7 +1494,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))
@@ -1294,7 +1547,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }

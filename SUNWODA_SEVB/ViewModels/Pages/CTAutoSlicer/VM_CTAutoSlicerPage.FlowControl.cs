@@ -290,6 +290,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 WinAPIHelper.BlockInput(false);
                 IsFlowPaused = false;
+                RefreshInputBlockStatus();
                 HideManualInterventionPanel();
                 IsEnableSimulationBtn = true;
                 MessageShower = $"流程已通过 {trigger} 中断";
@@ -324,7 +325,27 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     MessageShower = "流程已继续（Alt+P）";
                     AppendFlowLog("流程已继续（Alt+P）");
                 }
+
+                RefreshInputBlockStatus();
             });
+        }
+
+        private void OnAltOPressed()
+        {
+            var locked = _ctAutoSlicerService.ToggleInputBlock();
+            Dispatcher.Invoke(() =>
+            {
+                RefreshInputBlockStatus();
+                MessageShower = locked
+                    ? "键鼠已锁定（Alt+O 可解锁）"
+                    : "键鼠已解锁（Alt+O 可重新锁定）";
+                AppendFlowLog(locked ? "Alt+O：已锁定键鼠" : "Alt+O：已解锁键鼠");
+            });
+        }
+
+        private void RefreshInputBlockStatus()
+        {
+            IsInputBlockEnabled = _ctAutoSlicerService.IsInputBlockEnabled;
         }
     }
 }

@@ -77,6 +77,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _thickPlateMenuAfterRightClickDelayMs = LoadIntSetting("ThickPlateMenuAfterRightClickDelayMs", 200);
             SliceExportFolder = LoadStringSetting(nameof(SliceExportFolder), string.Empty);
             TopViewHandoffFolder = LoadStringSetting(nameof(TopViewHandoffFolder), string.Empty);
+            _enableAiAnnotationAutoRun =
+                LoadIntSetting(nameof(EnableAiAnnotationAutoRun), 0) != 0;
             // 机台角色存本机 JSON（Config/CTAutoSlicer/local.json），不落共享 DB
             PipelineRunMode = (int)_localConfigService.LoadPipelineRunMode();
             _logger.Info(
@@ -396,6 +398,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
 
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
+            OnPropertyChanged(nameof(EnableAiAnnotationAutoRun));
+            OnPropertyChanged(nameof(IsAiAnnotationAutoModeActive));
+            OnPropertyChanged(nameof(ShowAiAnnotationAutoRunOption));
+            OnPropertyChanged(nameof(IsPrimaryActionEnabled));
+            OnPropertyChanged(nameof(PrimaryActionButtonText));
+            OnPropertyChanged(nameof(PrimaryActionToolTip));
             OnPropertyChanged(nameof(OfflineCtIsRunCuda));
             OnPropertyChanged(nameof(OfflineCtBlackHeight));
             OnPropertyChanged(nameof(OfflineCtBlackHeightHint));
@@ -449,6 +457,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
             // 首次进入模块：设置加载完成后尝试恢复自定义主窗尺寸
             Dispatcher.BeginInvoke(new Action(TryApplyRememberedMainWindowSize), DispatcherPriority.Loaded);
+            SyncAiAnnotationAutoRunMonitor();
         }
 
         private string LoadStringSetting(string name, string defaultValue)
@@ -647,6 +656,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 ThickPlateMenuAfterRightClickDelayMs = _thickPlateMenuAfterRightClickDelayMs,
                 SliceExportFolder = SliceExportFolder,
                 TopViewHandoffFolder = TopViewHandoffFolder,
+                EnableAiAnnotationAutoRun = EnableAiAnnotationAutoRun,
                 PipelineRunMode = (Core.Models.Project.CTAutoSlicer.PipelineRunMode)Math.Clamp(
                     _pipelineRunMode,
                     0,

@@ -2,6 +2,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Windows;
@@ -721,6 +722,219 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     IsEnableSimulationBtn = true;
                     RefreshLatestAiAnnotationPreview();
                 });
+            }
+        }
+
+        private const int AiAnnotationAutoRunPollMs = 2000;
+        private const int AiAnnotationAutoRunStableMs = 800;
+        private const int AiAnnotationAutoRunStableRetries = 8;
+
+        /// <summary>
+        /// 按当前 AI 自动模式状态启停交接目录轮询；切图模式或未勾选时停止。
+        /// </summary>
+        private void SyncAiAnnotationAutoRunMonitor()
+        {
+            if (!IsAiAnnotationAutoModeActive)
+            {
+                StopAiAnnotationAutoRunMonitor();
+                return;
+            }
+
+            if (_aiAnnotationAutoRunTimer == null)
+            {
+                _aiAnnotationAutoRunTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(AiAnnotationAutoRunPollMs),
+                };
+                _aiAnnotationAutoRunTimer.Tick += OnAiAnnotationAutoRunTick;
+            }
+
+            if (!_aiAnnotationAutoRunTimer.IsEnabled)
+            {
+                _aiAnnotationAutoRunTimer.Start();
+                _logger.Info(
+                    $"AI 标注自动模式已启动：监控交接目录 jpg → {TopViewHandoffFolder}");
+                AppendFlowLog($"【自动模式】已启动，监控：{TopViewHandoffFolder}");
+            }
+
+            // 勾选/切回 AI 模式后立刻扫一次，避免空等一个轮询周期
+            _ = TryTriggerAiAnnotationAutoRunAsync();
+        }
+
+        private void StopAiAnnotationAutoRunMonitor()
+        {
+            if (_aiAnnotationAutoRunTimer == null)
+            {
+                return;
+            }
+
+            _aiAnnotationAutoRunTimer.Stop();
+            _aiAnnotationAutoRunTimer.Tick -= OnAiAnnotationAutoRunTick;
+            _aiAnnotationAutoRunTimer = null;
+            Interlocked.Exchange(ref _aiAnnotationAutoRunGate, 0);
+        }
+
+        private void OnAiAnnotationAutoRunTick(object? sender, EventArgs e)
+        {
+            _ = TryTriggerAiAnnotationAutoRunAsync();
+        }
+
+        /// <summary>
+        /// 自动模式：交接目录存在可打开的 jpg/jpeg 时触发批处理（空目录静默跳过）。
+        /// </summary>
+        private async Task TryTriggerAiAnnotationAutoRunAsync()
+        {
+            if (Interlocked.CompareExchange(ref _aiAnnotationAutoRunGate, 1, 0) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!IsAiAnnotationAutoModeActive)
+                {
+                    return;
+                }
+
+                if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+                {
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(TopViewHandoffFolder)
+                    || !Directory.Exists(TopViewHandoffFolder)
+                    || string.IsNullOrWhiteSpace(SliceExportFolder))
+                {
+                    return;
+                }
+
+                var jpgFiles = EnumerateHandoffJpgFiles(TopViewHandoffFolder);
+                if (jpgFiles.Count == 0)
+                {
+                    return;
+                }
+
+                if (!await WaitForJpgFilesReadyAsync(jpgFiles).ConfigureAwait(true))
+                {
+                    return;
+                }
+
+                // 等待期间可能被取消自动模式或已有流程占用
+                if (!IsAiAnnotationAutoModeActive
+                    || !IsEnableSimulationBtn
+                    || _ctAutoSlicerService.IsRunning)
+                {
+                    return;
+                }
+
+                AppendFlowLog(
+                    $"【自动模式】检测到 {jpgFiles.Count} 张 jpg，开始自动批处理");
+                await Dispatcher.InvokeAsync(() =>
+                    MessageShower = $"自动模式：检测到 {jpgFiles.Count} 张 jpg，开始执行…");
+                await ExecuteAiAnnotationBatchAsync().ConfigureAwait(false);
+
+                if (IsAiAnnotationAutoModeActive)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                        MessageShower = "当前为自动模式：继续监控交接目录 jpg…");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("AI 标注自动模式触发失败", ex);
+                await Dispatcher.InvokeAsync(() =>
+                    MessageShower = $"自动模式触发失败：{ex.Message}");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _aiAnnotationAutoRunGate, 0);
+            }
+        }
+
+        private static List<string> EnumerateHandoffJpgFiles(string handoffFolder)
+        {
+            if (string.IsNullOrWhiteSpace(handoffFolder) || !Directory.Exists(handoffFolder))
+            {
+                return [];
+            }
+
+            return Directory.EnumerateFiles(handoffFolder)
+                .Where(IsJpgOrJpegPath)
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool IsJpgOrJpegPath(string path)
+        {
+            var ext = Path.GetExtension(path);
+            return ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 等待 jpg 写完（体积稳定且可独占打开），避免切图机仍在拷贝时误开批处理。
+        /// </summary>
+        private static async Task<bool> WaitForJpgFilesReadyAsync(IReadOnlyList<string> paths)
+        {
+            if (paths.Count == 0)
+            {
+                return false;
+            }
+
+            long[]? lastSizes = null;
+            for (var i = 0; i < AiAnnotationAutoRunStableRetries; i++)
+            {
+                var sizes = new long[paths.Count];
+                var allReady = true;
+                for (var j = 0; j < paths.Count; j++)
+                {
+                    if (!TryGetReadyFileLength(paths[j], out sizes[j]) || sizes[j] <= 0)
+                    {
+                        allReady = false;
+                        break;
+                    }
+                }
+
+                if (allReady
+                    && lastSizes != null
+                    && sizes.SequenceEqual(lastSizes))
+                {
+                    return true;
+                }
+
+                lastSizes = sizes;
+                await Task.Delay(AiAnnotationAutoRunStableMs).ConfigureAwait(true);
+            }
+
+            // 最后再判一次可读即可（网络盘偶发 size 抖动）
+            return paths.All(p => TryGetReadyFileLength(p, out var len) && len > 0);
+        }
+
+        private static bool TryGetReadyFileLength(string path, out long length)
+        {
+            length = 0;
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    return false;
+                }
+
+                using var stream = new FileStream(
+                    path,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite);
+                length = stream.Length;
+                return length > 0;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
             }
         }
     }

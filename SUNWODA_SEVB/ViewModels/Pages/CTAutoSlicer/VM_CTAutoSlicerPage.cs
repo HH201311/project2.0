@@ -43,12 +43,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private readonly ProcessMonitorService _processMonitorService;
         private readonly CTAutoSlicerLocalConfigService _localConfigService;
         private CancellationTokenSource? _activeFlowCts;
+        private CancellationTokenSource? _stageTestCts;
         private DispatcherTimer? _manualInterventionCountdownTimer;
         private DateTime _manualInterventionDeadlineUtc;
 
         private string _messageShower = "CT自动化切片模块已加载";
         private bool _isEnableSimulationBtn = true;
+        private bool _isStageTestRunning;
         private bool _isFlowPaused;
+        private bool _isInputBlockEnabled = true;
         private bool _isManualInterventionVisible;
         private string _manualInterventionFileName = string.Empty;
         private string _manualInterventionReason = string.Empty;
@@ -78,6 +81,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private int _viewportClickOffsetY;
         private string _sliceExportFolder = string.Empty;
         private string _topViewHandoffFolder = string.Empty;
+        private bool _enableAiAnnotationAutoRun;
+        private DispatcherTimer? _aiAnnotationAutoRunTimer;
+        private int _aiAnnotationAutoRunGate;
         private int _pipelineRunMode = (int)Core.Models.Project.CTAutoSlicer.PipelineRunMode.SliceOnly;
         private int _sliceExportImageWidth = 3000;
         private int _sliceExportQuantity = 100;
@@ -406,9 +412,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             IsAiPipelineMode ? "标注结果根目录" : "切片导出目录";
 
         public string PrimaryActionToolTip =>
-            IsAiPipelineMode
-                ? "AI 标注入口：扫描上视图交接目录，批量调用 NJCT（不启 VG）"
-                : "切图入口：按 CT 体素文件夹排队执行导入→对齐→三视图导出→交接上视图送检图";
+            IsAiAnnotationAutoModeActive
+                ? "当前为自动模式：已锁定手动开始；检测到交接目录有 jpg/jpeg 将自动批处理"
+                : IsAiPipelineMode
+                    ? "AI 标注入口：扫描上视图交接目录，批量调用 NJCT（不启 VG）"
+                    : "切图入口：按 CT 体素文件夹排队执行导入→对齐→三视图导出→交接上视图送检图";
 
         private void NotifyPipelineModeUiChanged()
         {
@@ -418,9 +426,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             OnPropertyChanged(nameof(ShowAiPipelineNav));
             OnPropertyChanged(nameof(RunModeDisplayText));
             OnPropertyChanged(nameof(PrimaryActionToolTip));
+            OnPropertyChanged(nameof(PrimaryActionButtonText));
+            OnPropertyChanged(nameof(ShowAiAnnotationAutoRunOption));
+            OnPropertyChanged(nameof(IsAiAnnotationAutoModeActive));
+            OnPropertyChanged(nameof(IsPrimaryActionEnabled));
             OnPropertyChanged(nameof(OverviewHeroTitle));
             OnPropertyChanged(nameof(SliceExportFolderLabel));
             EnsureNavValidForPipelineMode();
+            SyncAiAnnotationAutoRunMonitor();
 
             // AI 模式默认进入带结果图预览的「二次手动标注」页
             if (IsAiPipelineMode && SelectedNavIndex == NavOverview)
@@ -741,14 +754,73 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         }
 
         public string PrimaryActionButtonText =>
-            IsEnableSimulationBtn ? "开始流程" : "运行中…";
+            IsAiAnnotationAutoModeActive
+                ? "自动模式"
+                : IsEnableSimulationBtn ? "开始流程" : "运行中…";
+
+        /// <summary>
+        /// 「开始流程」是否可点：运行中不可点；AI 自动模式下锁定为灰色不可点。
+        /// </summary>
+        public bool IsPrimaryActionEnabled =>
+            IsEnableSimulationBtn && !IsAiAnnotationAutoModeActive;
+
+        /// <summary>AI 模式且已勾选「自动执行」。</summary>
+        public bool IsAiAnnotationAutoModeActive =>
+            IsAiPipelineMode && EnableAiAnnotationAutoRun;
+
+        /// <summary>仅 AI 流水线显示「自动执行」勾选。</summary>
+        public bool ShowAiAnnotationAutoRunOption => IsAiPipelineMode;
+
+        /// <summary>
+        /// 阶段单测是否可点：空闲可点；主流程 Alt+P 暂停时可点；运行中未暂停不可点。
+        /// </summary>
+        public bool IsStageTestEnabled =>
+            !_isStageTestRunning && (IsEnableSimulationBtn || IsFlowPaused);
 
         /// <summary>流程暂停中（Alt+P 切换）；用于主界面醒目横幅。</summary>
         public bool IsFlowPaused
         {
             get => _isFlowPaused;
-            private set => SetProperty(ref _isFlowPaused, value);
+            private set
+            {
+                if (SetProperty(ref _isFlowPaused, value))
+                {
+                    OnPropertyChanged(nameof(IsStageTestEnabled));
+                }
+            }
         }
+
+        /// <summary>键鼠是否处于锁定期望（开始流程默认开；Alt+O 切换）。</summary>
+        public bool IsInputBlockEnabled
+        {
+            get => _isInputBlockEnabled;
+            private set
+            {
+                if (SetProperty(ref _isInputBlockEnabled, value))
+                {
+                    OnPropertyChanged(nameof(InputBlockStatusText));
+                }
+            }
+        }
+
+        /// <summary>键鼠锁定状态文案（总览/底部栏）。</summary>
+        public string InputBlockStatusText
+        {
+            get
+            {
+                // 空闲：键鼠未锁；开始流程后才会默认锁定
+                if (IsEnableSimulationBtn && !_ctAutoSlicerService.IsRunning)
+                {
+                    return "键鼠：空闲";
+                }
+
+                return IsInputBlockEnabled ? "键鼠：已锁定" : "键鼠：已解锁";
+            }
+        }
+
+        /// <summary>主页展示的全局快捷键说明。</summary>
+        public string HotkeyHelpText { get; } =
+            "Alt+O 锁定/解锁键鼠（开始流程默认锁定）　|　Alt+P 暂停/继续　|　Alt+X 中断流程";
 
         /// <summary>流程异常/超时：等待人工处理的醒目面板。</summary>
         public bool IsManualInterventionVisible
@@ -783,6 +855,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _isEnableSimulationBtn, value))
                 {
                     OnPropertyChanged(nameof(PrimaryActionButtonText));
+                    OnPropertyChanged(nameof(IsPrimaryActionEnabled));
+                    OnPropertyChanged(nameof(IsStageTestEnabled));
+                    OnPropertyChanged(nameof(InputBlockStatusText));
                     if (value)
                     {
                         IsFlowPaused = false;
@@ -1047,6 +1122,43 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 if (SetProperty(ref _topViewHandoffFolder, value ?? string.Empty))
                 {
                     SaveSetting(nameof(TopViewHandoffFolder), value ?? string.Empty);
+                    SyncAiAnnotationAutoRunMonitor();
+                }
+            }
+        }
+
+        /// <summary>
+        /// AI 标注「自动执行」：勾选后监控交接目录 jpg，有则自动批处理；开始按钮锁定为自动模式。
+        /// </summary>
+        public bool EnableAiAnnotationAutoRun
+        {
+            get => _enableAiAnnotationAutoRun;
+            set
+            {
+                if (!SetProperty(ref _enableAiAnnotationAutoRun, value))
+                {
+                    return;
+                }
+
+                SaveSetting(nameof(EnableAiAnnotationAutoRun), value ? 1 : 0);
+                OnPropertyChanged(nameof(IsAiAnnotationAutoModeActive));
+                OnPropertyChanged(nameof(IsPrimaryActionEnabled));
+                OnPropertyChanged(nameof(PrimaryActionButtonText));
+                OnPropertyChanged(nameof(PrimaryActionToolTip));
+                SyncAiAnnotationAutoRunMonitor();
+
+                if (_isLoadingSettings)
+                {
+                    return;
+                }
+
+                if (value && IsAiPipelineMode)
+                {
+                    MessageShower = "当前为自动模式：检测到交接目录有 jpg 将自动执行；「开始流程」已锁定";
+                }
+                else if (!value && IsAiPipelineMode)
+                {
+                    MessageShower = "已关闭自动模式，可手动点击「开始流程」";
                 }
             }
         }
@@ -2978,7 +3090,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand TestSimple321AlignmentCommand { get; }
         public ICommand TestPostAlignCaptureDragCommand { get; }
         public ICommand TestPre321ViewPrepCommand { get; }
-        public ICommand OpenVision3dPointsStepDebugCommand { get; }
         public ICommand TestOfflineCtVisionAnnotationCommand { get; }
         public ICommand BrowseCutImgDllTestSectionFolderCommand { get; }
         public ICommand BrowseCutImgDllTestVectorFolderCommand { get; }
@@ -3079,7 +3190,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             TestSimple321AlignmentCommand = new RelayCommandAsync(ExecuteTestSimple321AlignmentAsync);
             TestPostAlignCaptureDragCommand = new RelayCommandAsync(ExecuteTestPostAlignCaptureDragAsync);
             TestPre321ViewPrepCommand = new RelayCommandAsync(ExecuteTestPre321ViewPrepAsync);
-            OpenVision3dPointsStepDebugCommand = new RelayCommand(_ => ExecuteOpenVision3dPointsStepDebug());
             TestOfflineCtVisionAnnotationCommand = new RelayCommandAsync(ExecuteTestOfflineCtVisionAnnotationAsync);
             BrowseCutImgDllTestSectionFolderCommand = new RelayCommand(ExecuteBrowseCutImgDllTestSectionFolder);
             BrowseCutImgDllTestVectorFolderCommand = new RelayCommand(ExecuteBrowseCutImgDllTestVectorFolder);
@@ -3123,6 +3233,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 Dispatcher.Invoke(() => IsFlowPaused = _ctAutoSlicerService.IsPaused);
             };
+            _ctAutoSlicerService.InputBlockStateChanged += (_, _) =>
+            {
+                Dispatcher.Invoke(RefreshInputBlockStatus);
+            };
+            IsInputBlockEnabled = _ctAutoSlicerService.IsInputBlockEnabled;
         }
 
         private void ExecuteSelectNav(object? parameter)
@@ -3222,8 +3337,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         public override void OnNavigatedTo(object? parameter)
         {
-            _inputHookService.Start(OnAltXPressed, OnAltPPressed);
+            _inputHookService.Start(OnAltXPressed, OnAltPPressed, OnAltOPressed);
             _folderMonitorService.Start(CTFileFolder);
+            SyncAiAnnotationAutoRunMonitor();
             Dispatcher.BeginInvoke(new Action(TryApplyRememberedMainWindowSize), DispatcherPriority.Loaded);
             base.OnNavigatedTo(parameter);
         }
@@ -3231,6 +3347,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public override void OnNavigatedFrom()
         {
             _inputHookService.Stop();
+            StopAiAnnotationAutoRunMonitor();
             _ctAutoSlicerService.Cancel();
             // 离开本项目时恢复默认全屏，避免影响其它模块
             TryRestoreDefaultMainWindowMaximized();
@@ -3240,6 +3357,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public override void OnCleanup()
         {
             CloseRoiPreviewOverlay(restoreMainWindow: true);
+            StopAiAnnotationAutoRunMonitor();
             _inputHookService.Dispose();
             _folderMonitorService.Dispose();
             _activeFlowCts?.Cancel();

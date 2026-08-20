@@ -45,7 +45,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _logger.Info($"流程开始：文件 {totalCount} 个，最大 VG 进程数 {maxSlots}");
             progress?.Report($"找到 {totalCount} 个体素文件（含快捷方式），最大并发 VG={maxSlots}");
 
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 while (pending.Count > 0 || slots.Count > 0)
@@ -271,7 +271,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
 
                 slots.Clear();
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }

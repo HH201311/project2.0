@@ -129,20 +129,94 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return (started, IsColdStart: true);
         }
 
+        /// <summary>
+        /// 用户/流程期望是否锁定键鼠。为 false 时 <see cref="Lock"/> 不再 BlockInput，
+        /// 便于 Alt+O 解锁后自动化短暂 Unlock/Lock 不会再次锁死。
+        /// </summary>
+        private volatile bool _inputBlockEnabled = true;
+
+        /// <summary>当前是否处于「期望锁定键鼠」状态（Alt+O 可切换）。</summary>
+        public bool IsInputBlockEnabled => _inputBlockEnabled;
+
+        public event EventHandler? InputBlockStateChanged;
+
+        /// <summary>
+        /// 流程开始时调用：默认重新开启键鼠锁定并立即 BlockInput。
+        /// </summary>
+        public void PrepareInputBlockForRun()
+        {
+            _inputBlockEnabled = true;
+            ForceBlockInput(true);
+            RaiseInputBlockStateChanged();
+            _logger.Info("流程开始：已默认锁定键鼠（Alt+O 可解锁）");
+        }
+
+        /// <summary>
+        /// Alt+O：切换键鼠锁定期望；立即生效。返回切换后是否锁定。
+        /// </summary>
+        public bool ToggleInputBlock()
+        {
+            _inputBlockEnabled = !_inputBlockEnabled;
+            ForceBlockInput(_inputBlockEnabled);
+            RaiseInputBlockStateChanged();
+            _logger.Info(
+                _inputBlockEnabled
+                    ? "Alt+O：已锁定键鼠"
+                    : "Alt+O：已解锁键鼠（自动化后续 Lock 将跳过，直至再次 Alt+O 或重新开始流程）");
+            return _inputBlockEnabled;
+        }
+
+        /// <summary>流程结束/中断：强制解除 BlockInput（不改变「开始默认锁定」策略）。</summary>
+        public void ReleaseInputBlock()
+        {
+            ForceBlockInput(false);
+            RaiseInputBlockStateChanged();
+        }
+
         public void Lock()
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            if (!_inputBlockEnabled)
             {
-                WinAPIHelper.BlockInput(true);
-            });
+                return;
+            }
+
+            ForceBlockInput(true);
         }
 
         public void Unlock()
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            ForceBlockInput(false);
+        }
+
+        private void ForceBlockInput(bool block)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null)
             {
-                WinAPIHelper.BlockInput(false);
-            });
+                WinAPIHelper.BlockInput(block);
+                return;
+            }
+
+            if (dispatcher.CheckAccess())
+            {
+                WinAPIHelper.BlockInput(block);
+            }
+            else
+            {
+                dispatcher.Invoke(() => WinAPIHelper.BlockInput(block));
+            }
+        }
+
+        private void RaiseInputBlockStateChanged()
+        {
+            try
+            {
+                InputBlockStateChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch
+            {
+                // 订阅方异常不影响自动化
+            }
         }
 
         private static Task InvokeOnUiThreadAsync(Action action)

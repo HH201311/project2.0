@@ -296,6 +296,12 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Foreground="{StaticResource CasMutedTextBrush}"
+                                   Text="{Binding HotkeyHelpText}"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="640"/>
                     </StackPanel>
                     <Border DockPanel.Dock="Right" Style="{StaticResource CasPillBorderStyle}" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -417,12 +423,69 @@
                                 <TextBlock Style="{StaticResource CasMutedTextStyle}" Margin="0,0,0,2" Text="上视图交接目录"/>
                                 <TextBlock Foreground="{StaticResource CasPrimaryTextBrush}" FontSize="15"
                                            Text="{Binding TopViewHandoffFolder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,12"/>
-                                <Button Style="{StaticResource CasPrimaryButtonStyle}"
-                                        HorizontalAlignment="Left"
-                                        Content="{Binding PrimaryActionButtonText}"
-                                        Command="{Binding RunSimulationCommand}"
-                                        IsEnabled="{Binding IsEnableSimulationBtn}"
-                                        ToolTip="{Binding PrimaryActionToolTip}"/>
+                                <Border Background="#F5F7FA"
+                                        BorderBrush="{StaticResource CasBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="12,10"
+                                        Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                                            <TextBlock DockPanel.Dock="Left"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource CasPrimaryTextBrush}"
+                                                       Text="快捷键"/>
+                                            <TextBlock DockPanel.Dock="Right"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding InputBlockStatusText}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsInputBlockEnabled}" Value="False">
+                                                                <Setter Property="Foreground" Value="#EF6C00"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DockPanel>
+                                        <TextBlock FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource CasPrimaryTextBrush}">
+                                            <Run FontWeight="SemiBold" Text="Alt+O"/>
+                                            <Run Text="　锁定/解锁键鼠（点击「开始流程」默认锁定，防止人为干扰）"/>
+                                            <LineBreak/>
+                                            <Run FontWeight="SemiBold" Text="Alt+P"/>
+                                            <Run Text="　暂停 / 继续（暂停时自动解锁键鼠，便于检查 VG）"/>
+                                            <LineBreak/>
+                                            <Run FontWeight="SemiBold" Text="Alt+X"/>
+                                            <Run Text="　中断当前流程并解锁键鼠"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <CheckBox
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,14,0"
+                                        Content="自动执行"
+                                        Visibility="{Binding ShowAiAnnotationAutoRunOption, Converter={StaticResource BoolToVis}}"
+                                        IsChecked="{Binding EnableAiAnnotationAutoRun}"
+                                        ToolTip="勾选后监控交接目录：检测到 jpg/jpeg 自动批处理；开始按钮锁定为自动模式" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,14,0"
+                                        FontSize="13"
+                                        FontWeight="SemiBold"
+                                        Foreground="#FFEF6C00"
+                                        Text="当前为自动模式"
+                                        Visibility="{Binding IsAiAnnotationAutoModeActive, Converter={StaticResource BoolToVis}}" />
+                                    <Button Style="{StaticResource CasPrimaryButtonStyle}"
+                                            HorizontalAlignment="Left"
+                                            Content="{Binding PrimaryActionButtonText}"
+                                            Command="{Binding RunSimulationCommand}"
+                                            IsEnabled="{Binding IsPrimaryActionEnabled}"
+                                            ToolTip="{Binding PrimaryActionToolTip}"/>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -1471,7 +1534,7 @@
                                                 Background="#33E67E22"
                                                 Command="{Binding TestPre321ViewPrepCommand}"
                                                 Content="测试：点击切换视图 + 拖拽"
-                                                IsEnabled="{Binding IsEnableSimulationBtn}"
+                                                IsEnabled="{Binding IsStageTestEnabled}"
                                                 ToolTip="VG 已导入且 3D 可见时：绝对坐标点击切换视图 → 等待 → 沿箭头拖拽；用于验证极耳遮挡场景下的视角效果" />
                                             <TextBlock
                                                 Margin="0,8,0,0"
@@ -2476,7 +2539,7 @@
                                     <TextBlock Style="{StaticResource CasFormSectionTitleStyle}" Text="输入与输出目录" />
                                     <TextBlock
                                         Style="{StaticResource CasFormSectionDescStyle}"
-                                        Text="「开始流程」扫描交接目录根下一层图像（{产品名}.jpg），结果写入标注结果根目录下各子文件夹。" />
+                                        Text="「开始流程」扫描交接目录根下一层图像（{产品名}.jpg），结果写入标注结果根目录下各子文件夹。勾选底部「自动执行」后，检测到 jpg 将自动批处理，开始按钮锁定为自动模式。" />
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />
@@ -3526,53 +3589,47 @@
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestRenderingPresetCommand}"
                                             Content="1  测试应用渲染预设"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestHistogramGrayScaleCommand}"
                                             Content="2  测试直方图灰度调整"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="需已标定 ROI + LUT 关键段两点：截图→峰谷→拖红线→中点对齐红线"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestThickPlateCommand}"
                                             Content="3  测试厚板设置(三象限)"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestSimple321AlignmentCommand}"
                                             Content="4  测试简单3-2-1对齐"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="需已标定 3D ROI +「上」ROI + 简单对齐下拉 + 三点后偏移Edit"
-                                            Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
-                                        <Button
-                                            Style="{StaticResource CasStepTestButtonStyle}"
-                                            Command="{Binding OpenVision3dPointsStepDebugCommand}"
-                                            Content="4b 本地3D找点分步调试"
-                                            ToolTip="不跑 VG：对 vision_3d 截图逐步执行 Vision3dSectionPointsDetector，查看每步中间图定位失败点"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestPostAlignCaptureDragCommand}"
                                             Content="5  测试对齐后拖拽"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="需已标定 3D图正视图切换按钮位置与拖拽箭头；VG 已打开且处于可对齐后视图操作的状态"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestSliceExportCommand}"
                                             Content="6  测试切片导出+交接"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="三视图导出后复制上视图送检图到交接目录"
                                             Visibility="{Binding IsSlicePipelineMode, Converter={StaticResource BoolToVis}}" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestOfflineCtVisionAnnotationCommand}"
                                             Content="测试 AI 图像标注"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="选手动图，或从交接目录/切片目录取图后调用 NJCT"
                                             Visibility="{Binding IsAiPipelineMode, Converter={StaticResource BoolToVis}}" />
                                     </UniformGrid>
@@ -3652,13 +3709,13 @@
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestCutImgGetSectionReferencePointsCommand}"
                                             Content="测 GetSectionReferencePoints"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="对 3D侧视图文件夹内全部图片调用 DLL 标上盖三点+原点，输出 *_section_*.png" />
                                         <Button
                                             Style="{StaticResource CasStepTestButtonStyle}"
                                             Command="{Binding TestCutImgGetObjectTopBottomPointsCommand}"
                                             Content="测 GetObjectTopBottomPoints"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
+                                            IsEnabled="{Binding IsStageTestEnabled}"
                                             ToolTip="对 2D侧视图文件夹内全部图片调用 DLL 标起点[0]+终点[1]，输出 *_topbottom_*.png" />
                                     </UniformGrid>
                                 </StackPanel>
@@ -4151,14 +4208,51 @@
                                 Style="{StaticResource CasPrimaryButtonStyle}"
                                 Content="{Binding PrimaryActionButtonText}"
                                 Command="{Binding RunSimulationCommand}"
-                                IsEnabled="{Binding IsEnableSimulationBtn}"
+                                IsEnabled="{Binding IsPrimaryActionEnabled}"
                                 Margin="12,0,0,0"
                                 ToolTip="{Binding PrimaryActionToolTip}"/>
+                        <StackPanel DockPanel.Dock="Right"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Margin="12,0,0,0"
+                                    Visibility="{Binding ShowAiAnnotationAutoRunOption, Converter={StaticResource BoolToVis}}">
+                            <CheckBox
+                                VerticalAlignment="Center"
+                                Content="自动执行"
+                                IsChecked="{Binding EnableAiAnnotationAutoRun}"
+                                ToolTip="勾选后监控交接目录：检测到 jpg/jpeg 自动批处理；开始按钮锁定为自动模式" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Margin="10,0,0,0"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Foreground="#FFEF6C00"
+                                Text="当前为自动模式"
+                                Visibility="{Binding IsAiAnnotationAutoModeActive, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
                         <Button DockPanel.Dock="Right"
                                 Style="{StaticResource CasSecondaryButtonStyle}"
                                 Content="清除日志"
                                 Command="{Binding ClearImportLogCommand}"
                                 VerticalAlignment="Center"/>
+                        <TextBlock DockPanel.Dock="Right"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding InputBlockStatusText}"
+                                   ToolTip="{Binding HotkeyHelpText}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#2E7D32"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsInputBlockEnabled}" Value="False">
+                                            <Setter Property="Foreground" Value="#EF6C00"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
                                    Style="{StaticResource CasMutedTextStyle}"
                                    Text="{Binding MessageShower}"/>

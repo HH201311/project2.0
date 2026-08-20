@@ -1,12 +1,18 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-12（直方图 LUT 按峰谷 Y 非对称扩展）  
+> **文档版本**：2026-08-20（切片导出：JPEG 后处理文件覆盖「全部是」）  
 > **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；进程池并行导入 ✅。  
 > **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-20 增量（切片导出：残留文件覆盖确认「全部是」）**：  
+> 1. **背景**：上次导出中断时目标目录可能已有 JPEG 残留；再次保存会弹出「VGSTUDIO MAX 警告」（文件已存在，是否替换）。  
+> 2. **做法**：点完「JPEG 质量」→「确定」后，短等并检测含 **「全部是(A)」** 的警告窗；有则 Invoke/Win32 点击「全部是」；写入等待环同步兜底。  
+> 3. **区分**：与 3-2-1 完成后仅含「是(Y)」的同名警告窗区分——必须存在「全部是」按钮才处理。  
+> 4. **落点**：`ConfirmJpegQualityDialogAsync` → `TryDismissFileOverwriteWarningAfterJpegAsync`；`TryDismissLateFileOverwriteWarningAsync`；常量 `VgOverwriteYesToAllButtonName`。
 
 > **2026-08-12 增量（直方图 2d：按峰谷距离 Y 非对称扩展 LUT 两端）**：  
 > 1. **背景**：同名正极预设下灰度跨度仍可能差数倍；仅中点平移无法适配段宽。  
@@ -339,6 +345,7 @@ flowchart TD
 | 切片导出对话框 | 窗口 `保存切片/图像堆栈` / Group `2D 视图`+ComboBox / Group `图像大小`+Edit / Group `堆栈设置` 内 Text `切片图数量：` + **Custom** 输入框 / Group `切片图范围` 内 Text `开始 [mm]`/`结束 [mm]` + **Custom** 输入框 / Button `保存...` | **Alt+F+T** |
 | 保存图像对话框 | 嵌套 `对话框 保存图像...` / Edit `文件名:`（Alt+N）/ Button `保存(S)` | 保存后弹出 |
 | JPEG 质量对话框 | 嵌套 `窗口 JPEG 质量` / Button `确定`（AccessKey **Enter**） | Invoke → Win32 点击 → Enter |
+| 文件覆盖警告（残留） | `VGSTUDIO MAX 警告` / 文案含「已经存在」/ Button **`全部是(A)`**（AccessKey 常为 Enter） | JPEG「确定」后短等；有则 Invoke → Win32 点击「全部是」；写入等待环兜底 |
 | 导出写入进度 | 嵌套 `窗口 请耐心等待...` / Text `正在写入图像` | 消失后再导出下一视图；默认超时 60s |
 | ~~菜单 Plan B~~ | ~~`文件(F)` / `快速导入(I) Ctrl+I`~~ | **2026-07-15 已从主路径删除**（曾作为 Ctrl+I 失败后备） |
 | VG 启动就绪 | `文件(F)` MenuItem 可交互 | `IsEnabled` + 非离屏 + 有尺寸 |
@@ -645,7 +652,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段五：切片导出（✅ 已完成）
 
 - **`OpenSaveImageStackDialogAsync`** — **Alt+F+T**，等待「保存影片/图像堆栈」对话框。
-- **`ExportImageStackSlicesAsync`** — 循环 **上 / 前 / 右** 三视图（**先上**）：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → 等待写入进度 → 重开对话框。
+- **`ExportImageStackSlicesAsync`** — 循环 **上 / 前 / 右** 三视图（**先上**）：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → **（可选）覆盖警告「全部是」** → 等待写入进度 → 重开对话框。
 - 命名规则见 `SliceExportNamingHelper`：导出名取导入文件名主干**前 6 字符**（例 `1161-F 2026-7-25….vgi - 快捷方式` → `1161-F`）；路径 `{导出根}/{1161-F}/{1161-F} 前|右|上/…`；阶段七结果图 `{1161-F}/{1161-F}.jpg`；二次标注叠加图亦以该名为主干。
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
@@ -813,7 +820,8 @@ await ExportImageStackSlicesAsync(...);
 - [x] 三视图依次选择 + 参数填写 + 导出（上/前/右；先上）
 - [x] **切片范围取自 UI**（按视角 Front/Right/Top）
 - [x] 输出路径与命名规则可配置（`SliceExportNamingHelper`）
-- [ ] 真机巩固（可选）：堆栈 Edit、保存对话框、JPEG 质量窗、写入进度
+- [x] JPEG「确定」后：残留文件「VGSTUDIO MAX 警告」→「全部是(A)」（可选弹窗）
+- [ ] 真机巩固（可选）：堆栈 Edit、保存对话框、JPEG 质量窗、覆盖「全部是」、写入进度
 
 ### 阶段七（AI 图像标注）— ✅ 代码已接入；真机联调待确认
 

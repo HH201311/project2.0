@@ -24,7 +24,6 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Services.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Tool.Helper;
-using SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 {
@@ -33,6 +32,70 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
     /// </summary>
     public partial class VM_CTAutoSlicerPage
     {
+        /// <summary>
+        /// 空闲或主流程暂停时可开单测；运行中未暂停拒绝。
+        /// </summary>
+        private bool TryBeginStageTest()
+        {
+            if (_isStageTestRunning)
+            {
+                return false;
+            }
+
+            if (IsEnableSimulationBtn && !_ctAutoSlicerService.IsRunning)
+            {
+                _isStageTestRunning = true;
+                IsEnableSimulationBtn = false;
+                OnPropertyChanged(nameof(IsStageTestEnabled));
+                return true;
+            }
+
+            if (IsFlowPaused
+                && _ctAutoSlicerService.IsRunning
+                && _ctAutoSlicerService.IsPaused)
+            {
+                _isStageTestRunning = true;
+                OnPropertyChanged(nameof(IsStageTestEnabled));
+                AppendFlowLog("【暂停态单测】主流程保持暂停，开始阶段单测");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 单测用令牌：暂停嵌套时不得 Cancel 主流程的 <see cref="_activeFlowCts"/>。
+        /// </summary>
+        private CancellationToken BeginStageTestFlowToken()
+        {
+            if (_ctAutoSlicerService.IsRunning && _ctAutoSlicerService.IsPaused)
+            {
+                _stageTestCts?.Cancel();
+                _stageTestCts?.Dispose();
+                _stageTestCts = new CancellationTokenSource();
+                return _stageTestCts.Token;
+            }
+
+            return BeginActiveFlow();
+        }
+
+        private void EndStageTest()
+        {
+            _isStageTestRunning = false;
+            if (_stageTestCts != null)
+            {
+                _stageTestCts.Dispose();
+                _stageTestCts = null;
+            }
+
+            if (!_ctAutoSlicerService.IsRunning)
+            {
+                IsEnableSimulationBtn = true;
+            }
+
+            OnPropertyChanged(nameof(IsStageTestEnabled));
+        }
+
         private void OpenHistogramCaptureDir(object? _)
         {
             var initial = HistogramCaptureDir;
@@ -242,7 +305,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
         private async Task ExecuteTestRenderingPresetAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -251,22 +314,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 && string.IsNullOrWhiteSpace(RenderingPresetNameNegative))
             {
                 MessageShower = "请先在「直方图标定」中填写正极或负极预设名称";
+                
+                EndStageTest();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 渲染预设单步测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService
                     .TestRenderingPresetAsync(BuildSettings(), flowToken, progress);
                 AppendFlowLog("——— 渲染预设单步测试结束 ———");
@@ -283,13 +349,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
         }
 
         private async Task ExecuteTestThickPlateAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -297,16 +363,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 厚板三象限测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestThickPlateAsync(
                     BuildSettings(),
                     flowToken,
@@ -325,13 +392,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
         }
 
         private async Task ExecuteTestSliceExportAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -339,28 +406,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(SliceExportFolder))
             {
                 MessageShower = "请先配置切片导出目录";
+                
+                EndStageTest();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(CTFileFolder) || !Directory.Exists(CTFileFolder))
             {
                 MessageShower = "请先选择有效的 CT 体素文件夹（用于命名规则）";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 切片导出三视图测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestSliceExportAsync(
                     BuildSettings(),
                     flowToken,
@@ -379,13 +451,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
         }
 
         private async Task ExecuteTestHistogramGrayScaleAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -393,28 +465,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (_histogramRoiWidth <= 0 || _histogramRoiHeight <= 0)
             {
                 MessageShower = "请先点击「标定直方图区域」框选直方图 ROI";
+                
+                EndStageTest();
                 return;
             }
 
             if (!_lutSegmentPointsCalibratedPositive && !_lutSegmentPointsCalibratedNegative)
             {
                 MessageShower = "请先在「直方图标定」中分别标定正极/负极 LUT 关键段两点（至少标定当前测试文件对应电极）";
+                
+                EndStageTest();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 直方图灰度调整测试开始（拖红线 + LUT中点对齐 + 按Y扩展） ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestHistogramGrayScaleAdjustAsync(
                     BuildSettings(),
                     flowToken,
@@ -433,13 +510,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
         }
 
         private async Task ExecuteTestSimple321AlignmentAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -447,24 +524,32 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (_vision3dRoiWidth <= 0 || _vision3dRoiHeight <= 0)
             {
                 MessageShower = "尚未标定 3D 视图区域，请先在「阶段四视觉对齐」中标定 3D 区域";
+                
+                EndStageTest();
                 return;
             }
 
             if (_visionTopViewRoiWidth <= 0 || _visionTopViewRoiHeight <= 0)
             {
                 MessageShower = "尚未标定「上」视图区域，请先在「阶段四视觉对齐」中标定「上」视图（向量两点需要）";
+                
+                EndStageTest();
                 return;
             }
 
             if (!_simple321ToolbarClickCalibrated)
             {
                 MessageShower = "尚未标定「简单对齐」下拉点击位置，请先在「阶段四视觉对齐」中标定下拉框";
+                
+                EndStageTest();
                 return;
             }
 
             if (!_simple321OffsetEditCalibrated)
             {
                 MessageShower = "尚未标定三点后偏移 Edit，请先在「阶段四视觉对齐」中标定「偏移置0」编辑框";
+                
+                EndStageTest();
                 return;
             }
 
@@ -473,19 +558,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 var sourceLabel = Simple321PointSourceDisplay;
                 AppendFlowLog(
                     $"——— 简单 3-2-1 对齐测试开始（三点→偏移置0→向量两点→原点） ———");
                 AppendFlowLog($"【找点算法】当前调用：{sourceLabel}");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestSimple321AlignmentAsync(
                     BuildSettings(),
                     flowToken,
@@ -504,47 +590,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
-        }
-
-        /// <summary>
-        /// 打开本地 3D 斜俯视找点分步调试窗：对 vision_3d 截图逐步执行算法并显示中间图。
-        /// </summary>
-        private void ExecuteOpenVision3dPointsStepDebug()
-        {
-            string? initial = null;
-            try
-            {
-                var root = string.IsNullOrWhiteSpace(VisionCaptureDir)
-                    ? CTAutoSlicerSettings.DefaultVisionCaptureDir
-                    : VisionCaptureDir.Trim();
-                if (Directory.Exists(root))
-                {
-                    var latest = Directory.EnumerateFiles(root, "vision_3d_*.png", SearchOption.AllDirectories)
-                        .OrderByDescending(File.GetLastWriteTimeUtc)
-                        .FirstOrDefault();
-                    initial = latest;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Warn($"查找最新 vision_3d 截图失败：{ex.Message}");
-            }
-
-            var win = new Vision3dPointsStepDebugWindow(initial)
-            {
-                Owner = Application.Current?.MainWindow,
-            };
-            win.Show();
-            MessageShower = initial == null
-                ? "已打开本地 3D 找点分步调试（请自行浏览截图）"
-                : $"已打开本地 3D 找点分步调试：{Path.GetFileName(initial)}";
         }
 
         private async Task ExecuteTestPostAlignCaptureDragAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -552,6 +604,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (!_postAlignCaptureButtonCalibrated)
             {
                 MessageShower = "尚未标定 3D图正视图切换按钮位置，请先在「对齐后拖拽」中点击「标定按钮位置」";
+                
+                EndStageTest();
                 return;
             }
 
@@ -559,22 +613,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 || (_postAlignDragStartX == _postAlignDragEndX && _postAlignDragStartY == _postAlignDragEndY))
             {
                 MessageShower = "尚未标定拖拽箭头，请先「标定拖拽箭头」";
+                
+                EndStageTest();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 对齐后拖拽测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestPostAlignCaptureDragAsync(
                     BuildSettings(),
                     flowToken,
@@ -593,13 +650,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
         }
 
         private async Task ExecuteTestPre321ViewPrepAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -607,6 +664,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (!_pre321ViewClickCalibrated)
             {
                 MessageShower = "尚未标定切换视图点击，请先在「视觉对齐」中点击「标定切换视图点击」";
+                
+                EndStageTest();
                 return;
             }
 
@@ -614,22 +673,25 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 || (_pre321ViewDragStartX == _pre321ViewDragEndX && _pre321ViewDragStartY == _pre321ViewDragEndY))
             {
                 MessageShower = "尚未标定找点前拖拽箭头，请先「标定拖拽箭头」";
+                
+                EndStageTest();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(VGAppPath))
             {
                 MessageShower = "请先配置 VG 应用路径";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— 临时·3D找点前视角准备测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestPre321ViewPrepAsync(
                     BuildSettings(),
                     flowToken,
@@ -648,13 +710,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                Dispatcher.Invoke(() => IsEnableSimulationBtn = true);
+                Dispatcher.Invoke(EndStageTest);
             }
         }
 
         private async Task ExecuteTestOfflineCtVisionAnnotationAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
+            if (!TryBeginStageTest())
             {
                 return;
             }
@@ -667,6 +729,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MessageBoxImage.Question);
             if (pick == MessageBoxResult.Cancel)
             {
+                
+                EndStageTest();
                 return;
             }
 
@@ -680,6 +744,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 };
                 if (dialog.ShowDialog() != true)
                 {
+                    
+                EndStageTest();
                     return;
                 }
 
@@ -688,16 +754,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             else if (string.IsNullOrWhiteSpace(SliceExportFolder))
             {
                 MessageShower = "请先配置切片导出目录，或改为手动选图测试";
+                
+                EndStageTest();
                 return;
             }
 
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— AI 图像标注测试开始 ———");
                 var progress = new Progress<string>(HandleSimulationProgress);
-                var flowToken = BeginActiveFlow();
+                var flowToken = BeginStageTestFlowToken();
                 await _ctAutoSlicerService.TestOfflineCtVisionAnnotationAsync(
                     BuildSettings(),
                     flowToken,
@@ -719,7 +786,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             {
                 Dispatcher.Invoke(() =>
                 {
-                    IsEnableSimulationBtn = true;
+                    EndStageTest();
                     RefreshLatestAiAnnotationPreview();
                 });
             }

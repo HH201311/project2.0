@@ -373,6 +373,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// </summary>
         public string TopViewHandoffFolder { get; set; } = string.Empty;
 
+        /// <summary>
+        /// AI 标注自动模式：勾选后监控交接目录，检测到 jpg/jpeg 则自动批处理；
+        /// 「开始流程」按钮锁定不可点。仅 <see cref="PipelineRunMode.AiAnnotateOnly"/> 生效。
+        /// </summary>
+        public bool EnableAiAnnotationAutoRun { get; set; }
+
         /// <summary>切片导出图像宽度（像素）</summary>
         public int SliceExportImageWidth { get; set; } = 3000;
         /// <summary>局部图像（非 QJ）导出数量</summary>

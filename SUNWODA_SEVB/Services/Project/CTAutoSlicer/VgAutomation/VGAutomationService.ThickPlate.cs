@@ -19,7 +19,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 if (string.IsNullOrWhiteSpace(settings.VGAppPath))
@@ -48,7 +48,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
                 _activeVgProcess = null;
             }
         }

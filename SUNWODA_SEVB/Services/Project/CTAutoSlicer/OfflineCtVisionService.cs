@@ -12,6 +12,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     /// <summary>
     /// 反射调用 NJCT.NJSwdCT（ModelInit / ModelAction / ModelAction_origin）。
     /// DLL 与 Halcon/ONNX 原生依赖位于输出目录 Dlls\。
+    /// 每次推理后按视觉约定释放：ResultImg、List&lt;HObject&gt;（AllPointRegion）、List&lt;HTuple&gt; 各索引。
     /// </summary>
     public sealed class OfflineCtVisionService : ICTOfflineVisionService, IDisposable
     {
@@ -227,17 +228,25 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                     null,
                 ];
 
+                // 视觉侧约定：ResultImg / List<HObject> / List<HTuple> 均须手动 Dispose，否则原生内存泄漏
                 HObject? resultImg = null;
-                List<HObject>? pointRegions = null;
+                object? rawPointRegions = null;
+                object? rawRegionRows = null;
+                object? rawRegionCols = null;
+                object? rawPrintfValues = null;
                 try
                 {
                     method.Invoke(_algorithmInstance, parameters);
 
                     resultImg = parameters[3] as HObject;
-                    pointRegions = parameters[4] as List<HObject>;
-                    var regionRows = ExtractHTupleList(parameters[5]);
-                    var regionCols = ExtractHTupleList(parameters[6]);
-                    var printfValues = ExtractHTupleList(parameters[7]);
+                    rawPointRegions = parameters[4];
+                    rawRegionRows = parameters[5];
+                    rawRegionCols = parameters[6];
+                    rawPrintfValues = parameters[7];
+                    var pointRegions = ExtractHObjectList(rawPointRegions);
+                    var regionRows = ExtractHTupleList(rawRegionRows);
+                    var regionCols = ExtractHTupleList(rawRegionCols);
+                    var printfValues = ExtractHTupleList(rawPrintfValues);
                     var runInfo = parameters[8] as string ?? string.Empty;
 
                     // NJCT 内部 catch 会把任意异常吞成该文案；自动检测后给出具体原因
@@ -322,8 +331,19 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 }
                 finally
                 {
-                    DisposeHObjectList(pointRegions);
-                    resultImg?.Dispose();
+                    // 与 CTNCLX / 视觉文档一致：先释放 List 内各对象，再释放 ResultImg
+                    DisposeHObjectList(rawPointRegions);
+                    DisposeHTupleList(rawRegionRows);
+                    DisposeHTupleList(rawRegionCols);
+                    DisposeHTupleList(rawPrintfValues);
+                    try
+                    {
+                        resultImg?.Dispose();
+                    }
+                    catch
+                    {
+                        // 忽略释放异常，避免掩盖主异常
+                    }
                 }
             }
             finally
@@ -557,6 +577,36 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             return writePath;
         }
 
+        private static IReadOnlyList<HObject>? ExtractHObjectList(object? raw)
+        {
+            if (raw is null)
+            {
+                return null;
+            }
+
+            if (raw is List<HObject> typed)
+            {
+                return typed;
+            }
+
+            if (raw is not System.Collections.IEnumerable enumerable)
+            {
+                return null;
+            }
+
+            // 反射出参偶发非 List<HObject>（跨程序集/装箱），逐项挑出 HObject 供叠加绘制
+            var list = new List<HObject>();
+            foreach (var item in enumerable)
+            {
+                if (item is HObject ho)
+                {
+                    list.Add(ho);
+                }
+            }
+
+            return list.Count > 0 ? list : null;
+        }
+
         private static IReadOnlyList<double[]> ExtractHTupleList(object? raw)
         {
             if (raw is null)
@@ -623,9 +673,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return Array.Empty<double>();
             }
 
+            // 必须拷贝：随后会 Dispose 原 HTuple，不能持有其内部缓冲引用
             try
             {
-                return ht.DArr;
+                var dArr = ht.DArr;
+                var copy = new double[dArr.Length];
+                Array.Copy(dArr, copy, dArr.Length);
+                return copy;
             }
             catch
             {
@@ -639,22 +693,134 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
         }
 
-        private static void DisposeHObjectList(List<HObject>? list)
+        /// <summary>
+        /// 释放 DLL 出参 <c>List&lt;HObject&gt;</c> 各索引对象（视觉文档强制要求，否则原生内存泄漏）。
+        /// </summary>
+        private static void DisposeHObjectList(object? raw)
         {
-            if (list is null)
+            if (raw is null)
             {
                 return;
             }
 
-            foreach (var obj in list)
+            if (raw is System.Collections.IList list)
             {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    try
+                    {
+                        if (list[i] is HObject ho)
+                        {
+                            ho.Dispose();
+                        }
+                        else if (list[i] is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略单元素释放异常
+                    }
+                }
+
                 try
                 {
-                    obj?.Dispose();
+                    list.Clear();
                 }
                 catch
                 {
-                    // 忽略释放异常，避免掩盖主异常
+                    // 部分只读集合不支持 Clear
+                }
+
+                return;
+            }
+
+            if (raw is System.Collections.IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    try
+                    {
+                        if (item is HObject ho)
+                        {
+                            ho.Dispose();
+                        }
+                        else if (item is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略单元素释放异常
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 释放 DLL 出参 <c>List&lt;HTuple&gt;</c>（与 CTNCLX 一致；拷贝为 double[] 后即可释放原生句柄）。
+        /// </summary>
+        private static void DisposeHTupleList(object? raw)
+        {
+            if (raw is null)
+            {
+                return;
+            }
+
+            if (raw is System.Collections.IList list)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    try
+                    {
+                        if (list[i] is HTuple ht)
+                        {
+                            ht.Dispose();
+                        }
+                        else if (list[i] is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略单元素释放异常
+                    }
+                }
+
+                try
+                {
+                    list.Clear();
+                }
+                catch
+                {
+                    // 部分只读集合不支持 Clear
+                }
+
+                return;
+            }
+
+            if (raw is System.Collections.IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    try
+                    {
+                        if (item is HTuple ht)
+                        {
+                            ht.Dispose();
+                        }
+                        else if (item is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略单元素释放异常
+                    }
                 }
             }
         }

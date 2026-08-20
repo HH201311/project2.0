@@ -19,6 +19,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// <summary>切换暂停/继续；返回切换后是否处于暂停。仅流程运行中有效。</summary>
         bool TogglePause();
 
+        /// <summary>当前是否期望锁定键鼠（Alt+O 切换；开始流程默认锁定）。</summary>
+        bool IsInputBlockEnabled { get; }
+
+        /// <summary>Alt+O：切换键鼠锁定；返回切换后是否锁定。</summary>
+        bool ToggleInputBlock();
+
+        /// <summary>键鼠锁定期望变化（供 UI 刷新状态）。</summary>
+        event EventHandler? InputBlockStateChanged;
+
         /// <summary>操作员点击「放入异常文件夹并跳过」后调用。</summary>
         void ConfirmManualIntervention();
 

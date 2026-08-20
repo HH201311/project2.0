@@ -15,7 +15,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             CancellationToken cancellationToken,
             IProgress<string>? progress = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 if (string.IsNullOrWhiteSpace(settings.TopViewHandoffFolder)
@@ -124,7 +124,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
             }
         }
 
@@ -455,7 +455,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             string? explicitImagePath = null,
             string? explicitOutputFolder = null)
         {
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 progress?.Report("开始 AI 图像标注单步测试");
@@ -499,7 +499,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
             }
         }
 
@@ -562,7 +562,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             var mode = settings.OfflineCtResultImageMode;
             var modelPath = settings.ResolveOfflineCtModelPath();
 
-            Lock();
+            PrepareInputBlockForRun();
             try
             {
                 progress?.Report(
@@ -662,7 +662,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             finally
             {
-                Unlock();
+                ReleaseInputBlock();
             }
         }
     }

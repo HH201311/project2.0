@@ -52,6 +52,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string SliceExportWriteProgressText = "正在写入图像";
         private const string SliceExportQtyProgressPrefix = "@@SLICE_QTY@@";
         private const string SystemSaveFileEditName = "文件名:";
+        /// <summary>
+        /// JPEG 确定后可能弹出的覆盖确认（残留文件）：Insights Name = 全部是(A)，AccessKey 常为 Enter。
+        /// </summary>
+        private const string VgOverwriteYesToAllButtonName = "全部是(A)";
 
         private const string Simple321MenuItemName = "简单 3-2-1 对齐(S)...";
         private const string Simple321MenuItemNameContains = "简单 3-2-1 对齐";
@@ -169,6 +173,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             }
             else
             {
+                // 继续：若用户未用 Alt+O 关闭锁定期望，则立刻重新锁定
+                Lock();
                 _logger.Info("流程已继续");
             }
 
@@ -176,6 +182,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         }
 
         public void ClearPause() => _pauseGate.Reset();
+
+        /// <summary>
+        /// 暂停态下跑嵌套单测：忽略 WaitIfPaused，主流程仍停在暂停循环。
+        /// </summary>
+        public IDisposable BeginNestedStageTestIgnoringPause() =>
+            _pauseGate.BeginNestedWorkIgnoringPause();
 
         /// <summary>操作员点击「放入异常文件夹并跳过」后调用，放行人工干预等待。</summary>
         public void ConfirmManualIntervention()

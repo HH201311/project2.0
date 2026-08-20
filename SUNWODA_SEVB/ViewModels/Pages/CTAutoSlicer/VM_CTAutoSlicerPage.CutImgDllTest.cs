@@ -213,11 +213,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         /// </summary>
         private async Task ExecuteTestCutImgGetSectionReferencePointsAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
-            {
-                return;
-            }
-
             var folder = CutImgDllTestSectionFolder?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
             {
@@ -232,9 +227,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            if (!TryBeginStageTest())
+            {
+                return;
+            }
+
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— CTAutoCutImg 离线批量测：GetSectionReferencePoints（3D侧视图）开始 ———");
                 AppendFlowLog($"输入目录：{folder}（共 {images.Count} 张）");
@@ -310,7 +309,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                IsEnableSimulationBtn = true;
+                EndStageTest();
             }
         }
 
@@ -320,11 +319,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         /// </summary>
         private async Task ExecuteTestCutImgGetObjectTopBottomPointsAsync()
         {
-            if (!IsEnableSimulationBtn || _ctAutoSlicerService.IsRunning)
-            {
-                return;
-            }
-
             var folder = CutImgDllTestVectorFolder?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
             {
@@ -339,9 +333,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 return;
             }
 
+            if (!TryBeginStageTest())
+            {
+                return;
+            }
+
             try
             {
-                IsEnableSimulationBtn = false;
                 _lastFlowLogMessage = null;
                 AppendFlowLog("——— CTAutoCutImg 离线批量测：GetObjectTopBottomPoints（2D侧视图）开始 ———");
                 AppendFlowLog($"输入目录：{folder}（共 {images.Count} 张）");
@@ -416,7 +414,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
             finally
             {
-                IsEnableSimulationBtn = true;
+                EndStageTest();
             }
         }
     }

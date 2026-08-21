@@ -24,6 +24,10 @@
     <Compile Include="Interfaces\Project\CCTB\IAlgorithmService.cs" />
     <Compile Include="Interfaces\Project\CCTB\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\CCTB\ICommunicationService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\IAngleAlgorithmService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\ICutImgAlgorithmService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\ICTAutoSlicerService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\ICTOfflineVisionService.cs" />
     <Compile Include="Interfaces\Project\JRCW\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\STC\IScrewControllerService.cs" />
     <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
@@ -95,6 +99,20 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Dlls\XCloudSDK.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Dlls\V.NJ.L246.01.01.03.240924.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- 切图 DLL：随 Core\Dlls 复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
+    <None Update="Dlls\CTAutoCutImg.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- 惠州离线 CT AI：反射加载路径为输出目录 Dlls\NJCT.dll -->
+    <None Update="Dlls\NJCT.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Dlls\CF.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Dlls\YingYanAlgoCore.dll">

@@ -1,0 +1,333 @@
+<Window
+    x:Class="SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer.ManualMeasureAnnotateWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer"
+    Title="二次手动标注 · 测距"
+    Width="1280"
+    Height="800"
+    MinWidth="960"
+    MinHeight="600"
+    WindowStartupLocation="CenterScreen"
+    WindowState="Maximized"
+    Background="#FF1E1E1E"
+    PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <Style x:Key="ToolBtnStyle" TargetType="Button">
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="MinWidth" Value="72" />
+            <Setter Property="Background" Value="#FF2D2D30" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#FF3F3F46" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FF3E3E42" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PrimaryToolBtnStyle" TargetType="Button" BasedOn="{StaticResource ToolBtnStyle}">
+            <Setter Property="Background" Value="#FF0E639C" />
+            <Setter Property="BorderBrush" Value="#FF1177BB" />
+        </Style>
+        <Style x:Key="ImageListItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="#FFE0E0E0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border
+                            x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="4"
+                            Margin="2,1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF2A2A2E" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF094771" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 工具栏 -->
+        <Border Grid.Row="0" Background="#FF252526" Padding="10,8" BorderBrush="#FF3F3F46" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock
+                        Text="二次手动标注"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Foreground="White"
+                        VerticalAlignment="Center"
+                        Margin="0,0,16,0" />
+                    <Button
+                        x:Name="BtnAnnotateMode"
+                        Style="{StaticResource PrimaryToolBtnStyle}"
+                        Content="标注模式 (A)"
+                        Click="BtnMeasureMode_Click"
+                        ToolTip="标注模式：左键两点测距。快捷键 A / M&#x0a;拖端点微调；单击直线整体拖移；选中后 Delete 删除&#x0a;拖标签避挡；双击标签改名&#x0a;定 P1 后右键或 Esc 取消起点" />
+                    <Button
+                        x:Name="BtnMoveMode"
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="移动模式 (H)"
+                        Click="BtnBrowseMode_Click"
+                        ToolTip="移动模式：左键拖拽平移。快捷键 H&#x0a;滚轮缩放；中键拖拽；Ctrl+Z 撤回" />
+                    <Border Width="1" Background="#FF3F3F46" Margin="8,4" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="撤销上一条"
+                        Command="{Binding UndoLastMeasureCommand}" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="清空当前"
+                        Command="{Binding ClearCurrentMeasuresCommand}"
+                        ToolTip="清除当前图全部测距标记" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="删除选中"
+                        Command="{Binding DeleteSelectedMeasureCommand}" />
+                    <Border Width="1" Background="#FF3F3F46" Margin="8,4" />
+                    <TextBlock
+                        Text="导出目录"
+                        Foreground="#FFAAAAAA"
+                        VerticalAlignment="Center"
+                        Margin="0,0,6,0" />
+                    <TextBox
+                        Width="280"
+                        Height="28"
+                        VerticalContentAlignment="Center"
+                        Padding="6,2"
+                        Background="#FF2D2D30"
+                        Foreground="White"
+                        BorderBrush="#FF3F3F46"
+                        Text="{Binding ExportFolder, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{Binding ExportFolder}" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="浏览…"
+                        Command="{Binding BrowseExportFolderCommand}"
+                        ToolTip="选择手动标注导出目录（默认 \\192.168.1.120\3Ddeliever\result，改后本机记住）" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="默认"
+                        Command="{Binding ResetExportFolderCommand}"
+                        ToolTip="恢复为默认导出目录 \\192.168.1.120\3Ddeliever\result" />
+                    <Button
+                        Style="{StaticResource PrimaryToolBtnStyle}"
+                        Content="导出"
+                        Click="BtnExport_Click"
+                        ToolTip="导出到上方所选目录：扁平叠加图（产品名.png）+ CT产品尺寸.csv + CT手动测距.csv" />
+                    <Button
+                        Style="{StaticResource ToolBtnStyle}"
+                        Content="关闭"
+                        Click="BtnClose_Click" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
+                               Text="滚轮缩放 · 中键/空格拖拽 · Ctrl+Z撤回" />
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
+                               Text="{Binding AnnotatedCountText}" />
+                    <TextBlock Foreground="#FFE0E0E0" VerticalAlignment="Center" Margin="0,0,12,0"
+                               FontFamily="Consolas"
+                               ToolTip="当前图片像素宽×高"
+                               Text="{Binding CurrentImageSizeText, StringFormat=尺寸: {0}}" />
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
+                               FontFamily="Consolas"
+                               ToolTip="与 AI 出图共用 OfflineCtBlackHeight（原图自动 ÷2）"
+                               Text="{Binding CurrentBlackHeightText, StringFormat=打黑: {0}}" />
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,12,0"
+                               Text="{Binding PixelSizeDisplay, StringFormat=像素精度: {0}}" />
+                    <TextBlock Foreground="#FFAAAAAA" VerticalAlignment="Center"
+                               Text="{Binding ZoomPercent, StringFormat=缩放: {0:0}%}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="220" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧图片列表 -->
+            <Border Grid.Column="0" Background="#FF1B1B1C" BorderBrush="#FF3F3F46" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <TextBlock
+                        DockPanel.Dock="Top"
+                        Margin="12,10,12,6"
+                        Foreground="#FFCCCCCC"
+                        FontWeight="SemiBold"
+                        Text="待标注图片（含子目录）" />
+                    <TextBlock
+                        DockPanel.Dock="Top"
+                        Margin="12,0,12,8"
+                        Foreground="#FF888888"
+                        FontSize="11"
+                        TextWrapping="Wrap"
+                        Text="绿点=已标，灰点=未标；点击可返回重标。↑↓ 切换。大批量时列表后台载入，首张即可标注。" />
+                    <ListBox
+                        x:Name="ImageListBox"
+                        ItemsSource="{Binding Images}"
+                        SelectedItem="{Binding SelectedImage, Mode=TwoWay}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ItemContainerStyle="{StaticResource ImageListItemStyle}"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        VirtualizingPanel.IsVirtualizing="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:ManualMeasureImageListItem}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse
+                                        Grid.Column="0"
+                                        Width="8"
+                                        Height="8"
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="#FF666666" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAnnotated}" Value="True">
+                                                        <Setter Property="Fill" Value="#FF3DDC84" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        Text="{Binding DisplayName}"
+                                        TextWrapping="Wrap"
+                                        FontSize="12"
+                                        VerticalAlignment="Center" />
+                                    <TextBlock
+                                        Grid.Column="2"
+                                        Margin="8,0,0,0"
+                                        FontSize="11"
+                                        VerticalAlignment="Center"
+                                        Foreground="#FF999999"
+                                        Text="{Binding StatusText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- 中部画布 -->
+            <Grid Grid.Column="1" Background="#FF121212" ClipToBounds="True">
+                <ScrollViewer
+                    x:Name="ImageScrollViewer"
+                    HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Auto"
+                    Background="Transparent"
+                    PreviewMouseWheel="ImageScrollViewer_PreviewMouseWheel"
+                    PreviewMouseDown="Viewport_PreviewMouseDown"
+                    PreviewMouseMove="Viewport_PreviewMouseMove"
+                    PreviewMouseUp="Viewport_PreviewMouseUp"
+                    LostMouseCapture="Viewport_LostMouseCapture">
+                    <!-- Left/Top：放大时滚动范围（边界）随内容同步扩大；居中靠滚动偏移实现 -->
+                    <Grid
+                        x:Name="ImageHost"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        ClipToBounds="False">
+                        <Image
+                            x:Name="MainImage"
+                            Stretch="Fill"
+                            RenderOptions.BitmapScalingMode="NearestNeighbor"
+                            SnapsToDevicePixels="True" />
+                        <Canvas
+                            x:Name="OverlayCanvas"
+                            IsHitTestVisible="True"
+                            Background="Transparent" />
+                    </Grid>
+                </ScrollViewer>
+
+                <Border
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="12"
+                    Padding="10,6"
+                    Background="#CC000000"
+                    CornerRadius="4"
+                    IsHitTestVisible="False">
+                    <TextBlock
+                        x:Name="LiveDistanceText"
+                        FontFamily="Consolas"
+                        FontSize="13"
+                        Foreground="#FFFFEB3B"
+                        Text="" />
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <Border Grid.Row="2" Background="#FF007ACC" Padding="12,6">
+            <DockPanel>
+                <TextBlock
+                    DockPanel.Dock="Left"
+                    Foreground="White"
+                    Text="{Binding StatusText}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    DockPanel.Dock="Right"
+                    HorizontalAlignment="Right"
+                    Foreground="#FFE0E0E0"
+                    FontFamily="Consolas"
+                    Margin="16,0,0,0"
+                    Text="{Binding CurrentImageSizeText, StringFormat=尺寸 {0}}"
+                    ToolTip="当前图片像素宽×高" />
+                <TextBlock
+                    DockPanel.Dock="Right"
+                    HorizontalAlignment="Right"
+                    Foreground="#FFE0E0E0"
+                    Text="{Binding CurrentRelativePath}"
+                    TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

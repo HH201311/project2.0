@@ -3475,7 +3475,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 //BottomBlackHeight = 1600;
 
                 _logger.Info($"开始调用算法");
-                AlgorithmParameters = new object[11];
+                // 惠州 NJCT.dll：ModelAction 已去掉 AllJianXiValue，签名为 9 参数
+                // （与 CTAutoSlicer 共用 Dlls\NJCT.dll；实例为 object，需反射调用）
+                AlgorithmParameters = new object[9];
                 AlgorithmParameters[0] = imageFilePath;
                 AlgorithmParameters[1] = ModelHandle;
                 AlgorithmParameters[2] = BottomBlackHeight;
@@ -3483,43 +3485,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTNCLX
                 AlgorithmParameters[4] = new List<HObject>();
                 AlgorithmParameters[5] = new List<HTuple>();
                 AlgorithmParameters[6] = new List<HTuple>();
-                AlgorithmParameters[7] = new List<List<HTuple>>();
-                AlgorithmParameters[8] = new List<HTuple>();
-                AlgorithmParameters[9] = new List<HTuple>();
-                AlgorithmParameters[10] = "";
+                AlgorithmParameters[7] = new List<HTuple>();
+                AlgorithmParameters[8] = "";
                 var startTime = DateTime.Now;
-                //CTDetectionAlgorithmIstance!.ModelAction(
-                //    imageFilePath,
-                //    ModelHandle,
-                //    BottomBlackHeight,
-                //    out HObject resultImage,
-                //    out List<HObject> allPointRegion,
-                //    out List<HTuple> allRegionRow,
-                //    out List<HTuple> allRegionCol,
-                //    out List<List<HTuple>> lingDuNei5BiZhi,
-                //    out List<HTuple> allJianXiValue,
-                //    out List<HTuple> allPrintfValue,
-                //    out string runInfo
-                //);
-                //ResultImage = resultImage;
-                //AllPointRegion = allPointRegion;
-                //AllRegionRow = allRegionRow;
-                //AllRegionCol = allRegionCol;
-                //LingDuNei5BiZhi = lingDuNei5BiZhi;
-                //AllJianXiValue = allJianXiValue;
-                //AllPrintfValue = allPrintfValue;
-                //RunInfo = runInfo;
-
                 ModelActionMethod?.Invoke(CTDetectionAlgorithmIstance, AlgorithmParameters);
                 ResultImage = AlgorithmParameters[3] as HObject;
                 AllPointRegion = AlgorithmParameters[4] as List<HObject>;
                 AllRegionRow = AlgorithmParameters[5] as List<HTuple>;
                 AllRegionCol = AlgorithmParameters[6] as List<HTuple>;
-                LingDuNei5BiZhi = AlgorithmParameters[7] as List<List<HTuple>>;
-                AllJianXiValue = AlgorithmParameters[8] as List<HTuple>;
-                AllPrintfValue = AlgorithmParameters[9] as List<HTuple>;
-                RunInfo = AlgorithmParameters[10] as string;
-
+                AllJianXiValue = null;
+                AllPrintfValue = AlgorithmParameters[7] as List<HTuple>;
+                RunInfo = AlgorithmParameters[8] as string;
                 var duringTime = (DateTime.Now - startTime).TotalSeconds;
                 _logger.Info($"算法耗时：{duringTime} s");
                 if (ResultImage is null)

@@ -166,18 +166,61 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 续标：优先从导出目录 <c>CT手动测距.csv</c> 加载；兼容历史单图 JSON。
+        /// 一次加载主导出目录 + 历史 output 的手动测距 CSV 索引（主目录优先）。
+        /// </summary>
+        public static Dictionary<string, List<ManualMeasureItem>> BuildManualMeasureLookup(
+            string exportDir,
+            string? legacyExportDir = null)
+        {
+            var map = OfflineCtCsvExportHelper.LoadAllManualMeasuresByProduct(exportDir);
+            if (string.IsNullOrWhiteSpace(legacyExportDir))
+            {
+                return map;
+            }
+
+            try
+            {
+                var primary = Path.GetFullPath(NormalizeExportDir(exportDir));
+                var legacy = Path.GetFullPath(NormalizeExportDir(legacyExportDir));
+                if (string.Equals(primary, legacy, StringComparison.OrdinalIgnoreCase))
+                {
+                    return map;
+                }
+            }
+            catch
+            {
+                return map;
+            }
+
+            var secondary = OfflineCtCsvExportHelper.LoadAllManualMeasuresByProduct(legacyExportDir);
+            OfflineCtCsvExportHelper.MergeManualMeasureLookup(map, secondary);
+            return map;
+        }
+
+        /// <summary>
+        /// 续标：优先用已建好的 CSV 索引，再回退历史单图 JSON（避免每图重读整表）。
         /// </summary>
         public static List<ManualMeasureItem> TryLoadImageMeasures(
             string exportDir,
             string relativePath,
-            string? legacyExportDir = null)
+            string? legacyExportDir = null,
+            IReadOnlyDictionary<string, List<ManualMeasureItem>>? csvLookup = null)
         {
             var product = OfflineCtCsvExportHelper.ResolveProductName(relativePath);
-            var fromCsv = OfflineCtCsvExportHelper.TryLoadManualMeasures(exportDir, product);
-            if (fromCsv.Count > 0)
+            if (csvLookup is not null)
             {
-                return fromCsv;
+                if (csvLookup.TryGetValue(product, out var indexed) && indexed.Count > 0)
+                {
+                    return CloneMeasureList(indexed);
+                }
+            }
+            else
+            {
+                var fromCsv = OfflineCtCsvExportHelper.TryLoadManualMeasures(exportDir, product);
+                if (fromCsv.Count > 0)
+                {
+                    return fromCsv;
+                }
             }
 
             var loaded = TryLoadLegacyImageJson(exportDir, relativePath);
@@ -205,13 +248,39 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return [];
             }
 
-            fromCsv = OfflineCtCsvExportHelper.TryLoadManualMeasures(legacyExportDir, product);
-            if (fromCsv.Count > 0)
+            if (csvLookup is null)
             {
-                return fromCsv;
+                var fromLegacyCsv = OfflineCtCsvExportHelper.TryLoadManualMeasures(legacyExportDir, product);
+                if (fromLegacyCsv.Count > 0)
+                {
+                    return fromLegacyCsv;
+                }
             }
 
             return TryLoadLegacyImageJson(legacyExportDir, relativePath);
+        }
+
+        private static List<ManualMeasureItem> CloneMeasureList(IReadOnlyList<ManualMeasureItem> source)
+        {
+            var list = new List<ManualMeasureItem>(source.Count);
+            foreach (var m in source)
+            {
+                list.Add(new ManualMeasureItem
+                {
+                    Label = m.Label,
+                    X1 = m.X1,
+                    Y1 = m.Y1,
+                    X2 = m.X2,
+                    Y2 = m.Y2,
+                    LengthMm = m.LengthMm,
+                    PixelLength = m.PixelLength,
+                    LengthUm = m.LengthUm,
+                    LabelX = m.LabelX,
+                    LabelY = m.LabelY,
+                });
+            }
+
+            return list;
         }
 
         /// <summary>

@@ -202,7 +202,7 @@
                         Foreground="#FF888888"
                         FontSize="11"
                         TextWrapping="Wrap"
-                        Text="绿点=已标，灰点=未标；点击可返回重标。↑↓ 切换。" />
+                        Text="绿点=已标，灰点=未标；点击可返回重标。↑↓ 切换。大批量时列表后台载入，首张即可标注。" />
                     <ListBox
                         x:Name="ImageListBox"
                         ItemsSource="{Binding Images}"

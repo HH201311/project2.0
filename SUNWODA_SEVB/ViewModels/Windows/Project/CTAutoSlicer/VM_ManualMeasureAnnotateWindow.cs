@@ -2,7 +2,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
@@ -14,7 +16,11 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
     /// <summary>二次手动标注全屏工作台 ViewModel。</summary>
     public sealed class VM_ManualMeasureAnnotateWindow : INotifyPropertyChanged
     {
+        /// <summary>后台扫描后每批插入 UI 的条数；过小增加调度开销，过大仍可能卡顿一帧。</summary>
+        private const int UiBatchSize = 80;
+
         private readonly CTAutoSlicerLocalConfigService _localConfig = new();
+        private readonly CancellationTokenSource _loadCts = new();
         private ManualMeasureImageListItem? _selectedImage;
         private bool _isMeasureMode = true;
         private bool _hasUnsavedChanges;
@@ -25,6 +31,8 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         private bool _persistExportFolderEnabled;
         private int _currentImageWidthPx;
         private int _currentImageHeightPx;
+        private bool _isLoadingImages;
+        private int _pendingImageTotal;
 
         public VM_ManualMeasureAnnotateWindow(
             string rootFolder,
@@ -56,22 +64,41 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             DeleteSelectedMeasureCommand = new RelayCommand(_ => DeleteSelectedMeasure(), _ => !string.IsNullOrEmpty(SelectedMeasureId));
             SelectPreviousImageCommand = new RelayCommand(_ => MoveSelection(-1), _ => Images.Count > 0);
             SelectNextImageCommand = new RelayCommand(_ => MoveSelection(1), _ => Images.Count > 0);
-            ExportCommand = new RelayCommand(_ => Export(), _ => Images.Count > 0);
+            ExportCommand = new RelayCommand(_ => Export(), _ => Images.Count > 0 && !IsLoadingImages);
             BrowseExportFolderCommand = new RelayCommand(_ => BrowseExportFolder());
             ResetExportFolderCommand = new RelayCommand(_ =>
                 ExportFolder = ManualMeasureExportHelper.DefaultManualExportFolder);
 
-            // 把目录下已有 annotation.json / 本进程 AI 出图缓存载入，左栏显示 AI 尺寸
-            OfflineCtAnnotationHelper.PreloadAiSummariesUnderFolder(RootFolder, PixelSizeUm);
-            LoadImages();
             _persistExportFolderEnabled = true;
             // 首次打开若尚无本机记录，把当前默认写入 local.json
             PersistExportFolder(_exportFolder);
+
+            // 不阻塞构造：先进窗，后台枚举 + CSV 一次索引 + 分批填列表
+            StatusText = "正在扫描图片…";
+            IsLoadingImages = true;
+            _ = BeginLoadImagesAsync(_loadCts.Token);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public string RootFolder { get; }
+
+        /// <summary>后台仍在枚举/填充列表时为 true；首张到位后即可标注。</summary>
+        public bool IsLoadingImages
+        {
+            get => _isLoadingImages;
+            private set
+            {
+                if (_isLoadingImages == value)
+                {
+                    return;
+                }
+
+                _isLoadingImages = value;
+                OnPropertyChanged();
+                RaiseCommandCanExecute();
+            }
+        }
 
         /// <summary>手动标注导出目录；默认 UNC，改选后写入本机 local.json。</summary>
         public string ExportFolder
@@ -251,7 +278,9 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             get
             {
                 var done = Images.Count(i => i.IsAnnotated);
-                return $"已标 {done} / {Images.Count}";
+                return _pendingImageTotal > Images.Count
+                    ? $"已标 {done} / {Images.Count}（扫描中 {_pendingImageTotal}）"
+                    : $"已标 {done} / {Images.Count}";
             }
         }
 
@@ -267,6 +296,19 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
         public ICommand ExportCommand { get; }
         public ICommand BrowseExportFolderCommand { get; }
         public ICommand ResetExportFolderCommand { get; }
+
+        /// <summary>窗口关闭时取消后台扫描，避免关闭后仍往 UI 灌数据。</summary>
+        public void CancelBackgroundLoad()
+        {
+            try
+            {
+                _loadCts.Cancel();
+            }
+            catch
+            {
+                // ignore
+            }
+        }
 
         public void AddMeasure(double x1, double y1, double x2, double y2)
         {
@@ -395,6 +437,98 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             return outDir;
         }
 
+        /// <summary>
+        /// 删除已成功导出的源图，并从左侧列表移除；不删除导出目录内的叠加图/CSV。
+        /// </summary>
+        /// <returns>实际从磁盘删除的文件数。</returns>
+        public int RemoveAndDeleteSourceFiles(IReadOnlyList<ManualMeasureImageListItem> exportedItems)
+        {
+            if (exportedItems.Count == 0)
+            {
+                return 0;
+            }
+
+            string? rootFull = null;
+            try
+            {
+                rootFull = Path.GetFullPath(RootFolder)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                // 根路径异常时仍尝试按绝对路径删文件，但更严格校验
+            }
+
+            var selectedWasRemoved = false;
+            var deleted = 0;
+            var failHints = new List<string>();
+
+            foreach (var item in exportedItems)
+            {
+                if (item is null || string.IsNullOrWhiteSpace(item.AbsolutePath))
+                {
+                    continue;
+                }
+
+                string full;
+                try
+                {
+                    full = Path.GetFullPath(item.AbsolutePath);
+                }
+                catch
+                {
+                    failHints.Add(item.RelativePath);
+                    continue;
+                }
+
+                // 安全：只允许删除标注结果根目录下的源图，禁止误删导出目录或其它盘
+                if (!string.IsNullOrEmpty(rootFull)
+                    && !full.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(full, rootFull, StringComparison.OrdinalIgnoreCase))
+                {
+                    failHints.Add(item.RelativePath);
+                    continue;
+                }
+
+                try
+                {
+                    if (File.Exists(full))
+                    {
+                        File.Delete(full);
+                        deleted++;
+                    }
+                }
+                catch
+                {
+                    failHints.Add(item.RelativePath);
+                    // 删失败仍从列表移除？用户要求避免下次再加载——若文件还在则会再进来。
+                    // 删失败则保留在列表，便于用户重试。
+                    continue;
+                }
+
+                if (ReferenceEquals(SelectedImage, item))
+                {
+                    selectedWasRemoved = true;
+                }
+
+                Images.Remove(item);
+            }
+
+            if (selectedWasRemoved)
+            {
+                SelectedImage = Images.FirstOrDefault();
+            }
+
+            OnPropertyChanged(nameof(AnnotatedCountText));
+            RaiseCommandCanExecute();
+
+            StatusText = failHints.Count == 0
+                ? $"导出完成：已删除源图 {deleted} 张，列表剩余 {Images.Count} 张"
+                : $"导出完成：已删除源图 {deleted} 张；{failHints.Count} 张删除失败已保留在列表";
+
+            return deleted;
+        }
+
         private void BrowseExportFolder()
         {
             using var dialog = new CommonOpenFileDialog
@@ -417,9 +551,6 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
                 ExportFolder = dialog.FileName;
             }
         }
-
-        private string ResolveInitialExportFolder(string? exportFolder) =>
-            NormalizeExportFolderInput(exportFolder);
 
         private void PersistExportFolder(string folder)
         {
@@ -482,25 +613,166 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
             return full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
-        private void LoadImages()
+        private async Task BeginLoadImagesAsync(CancellationToken ct)
         {
-            Images.Clear();
-            var files = ManualMeasureExportHelper.EnumerateImagesRecursive(RootFolder, ExportFolder);
-            var legacyDir = ManualMeasureExportHelper.ResolveLegacyExportDir(RootFolder);
-            foreach (var abs in files)
-            {
-                var rel = ManualMeasureExportHelper.ToRelativePath(RootFolder, abs);
-                var measures = ManualMeasureExportHelper.TryLoadImageMeasures(
-                    ExportFolder,
-                    rel,
-                    legacyDir);
-                var item = new ManualMeasureImageListItem(abs, rel, measures);
-                Images.Add(item);
-            }
+            var root = RootFolder;
+            var exportFolder = ExportFolder;
+            var pixelSizeUm = PixelSizeUm;
+            var dispatcher = Application.Current?.Dispatcher
+                             ?? Dispatcher.CurrentDispatcher;
 
-            SelectedImage = Images.FirstOrDefault();
-            UpdateStatusHint();
-            OnPropertyChanged(nameof(AnnotatedCountText));
+            try
+            {
+                // AI 摘要与文件枚举并行；摘要失败不影响列表
+                var preloadTask = Task.Run(
+                    () =>
+                    {
+                        try
+                        {
+                            OfflineCtAnnotationHelper.PreloadAiSummariesUnderFolder(root, pixelSizeUm);
+                        }
+                        catch
+                        {
+                            // ignore
+                        }
+                    },
+                    ct);
+
+                // 后台只建轻量 DTO，UI 项在 Dispatcher 上创建，避免跨线程 ObservableCollection
+                var buildTask = Task.Run(
+                    () =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var files = ManualMeasureExportHelper.EnumerateImagesRecursive(root, exportFolder);
+                        ct.ThrowIfCancellationRequested();
+                        var legacyDir = ManualMeasureExportHelper.ResolveLegacyExportDir(root);
+                        var lookup = ManualMeasureExportHelper.BuildManualMeasureLookup(
+                            exportFolder,
+                            legacyDir);
+                        ct.ThrowIfCancellationRequested();
+
+                        var items = new List<(string Abs, string Rel, List<ManualMeasureItem> Measures)>(
+                            files.Count);
+                        foreach (var abs in files)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            var rel = ManualMeasureExportHelper.ToRelativePath(root, abs);
+                            var measures = ManualMeasureExportHelper.TryLoadImageMeasures(
+                                exportFolder,
+                                rel,
+                                legacyDir,
+                                lookup);
+                            items.Add((abs, rel, measures));
+                        }
+
+                        return items;
+                    },
+                    ct);
+
+                var items = await buildTask.ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                await dispatcher.InvokeAsync(
+                    () =>
+                    {
+                        _pendingImageTotal = items.Count;
+                        OnPropertyChanged(nameof(AnnotatedCountText));
+                        if (items.Count == 0)
+                        {
+                            IsLoadingImages = false;
+                            StatusText = "未找到图片（jpg/png/bmp/tif）";
+                        }
+                        else
+                        {
+                            StatusText = $"已找到 {items.Count} 张，正在载入列表…";
+                        }
+                    },
+                    DispatcherPriority.Background);
+
+                if (items.Count == 0)
+                {
+                    await preloadTask.ConfigureAwait(false);
+                    return;
+                }
+
+                // 先插入首张并选中，用户可立即标注；其余分批灌入不堵交互
+                await dispatcher.InvokeAsync(
+                    () =>
+                    {
+                        Images.Clear();
+                        var first = items[0];
+                        Images.Add(new ManualMeasureImageListItem(first.Abs, first.Rel, first.Measures));
+                        SelectedImage = Images[0];
+                        OnPropertyChanged(nameof(AnnotatedCountText));
+                        UpdateStatusHint();
+                    },
+                    DispatcherPriority.Normal);
+
+                for (var i = 1; i < items.Count; i += UiBatchSize)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var start = i;
+                    var end = Math.Min(i + UiBatchSize, items.Count);
+                    await dispatcher.InvokeAsync(
+                        () =>
+                        {
+                            for (var j = start; j < end; j++)
+                            {
+                                var row = items[j];
+                                Images.Add(new ManualMeasureImageListItem(row.Abs, row.Rel, row.Measures));
+                            }
+
+                            OnPropertyChanged(nameof(AnnotatedCountText));
+                            if (IsLoadingImages)
+                            {
+                                StatusText =
+                                    $"列表载入中 {Images.Count}/{_pendingImageTotal}（可先标注当前图）";
+                            }
+                        },
+                        DispatcherPriority.Background);
+
+                    // 让出一帧，保证测距点击不被大批量 Add 饿死
+                    await dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                }
+
+                await preloadTask.ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                await dispatcher.InvokeAsync(
+                    () =>
+                    {
+                        _pendingImageTotal = Images.Count;
+                        IsLoadingImages = false;
+                        OnPropertyChanged(nameof(AnnotatedCountText));
+                        UpdateStatusHint();
+                        StatusText =
+                            IsMeasureMode
+                                ? $"已载入 {Images.Count} 张 · 标注：左键两点测距；拖端点微调；选中后 Delete 删除"
+                                : $"已载入 {Images.Count} 张 · 移动模式：左键拖拽平移；滚轮缩放";
+                    },
+                    DispatcherPriority.Background);
+            }
+            catch (OperationCanceledException)
+            {
+                // 窗口已关
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    await dispatcher.InvokeAsync(
+                        () =>
+                        {
+                            IsLoadingImages = false;
+                            StatusText = $"扫描失败：{ex.Message}";
+                        },
+                        DispatcherPriority.Background);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
         }
 
         private void UndoLastMeasure()
@@ -577,6 +849,13 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project.CTAutoSlicer
 
         private void UpdateStatusHint()
         {
+            if (IsLoadingImages && Images.Count > 0)
+            {
+                StatusText =
+                    $"列表载入中 {Images.Count}/{Math.Max(_pendingImageTotal, Images.Count)}（可先标注当前图）";
+                return;
+            }
+
             StatusText = IsMeasureMode
                 ? "标注：左键两点测距；拖端点微调；单击直线整体拖；选中后 Delete 删除；拖标签/双击改名"
                 : "移动模式：左键拖拽平移；滚轮缩放；中键拖拽；Ctrl+Z 撤回；按 A 回标注";

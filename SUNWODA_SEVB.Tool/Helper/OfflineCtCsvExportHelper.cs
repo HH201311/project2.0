@@ -156,41 +156,130 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>从手动测距 CSV 按产品名加载（续标）。</summary>
         public static List<ManualMeasureItem> TryLoadManualMeasures(string csvFolderOrPath, string productName)
         {
-            var path = ResolveCsvPath(csvFolderOrPath, ManualMeasureFileName);
-            if (!File.Exists(path) || string.IsNullOrWhiteSpace(productName))
+            if (string.IsNullOrWhiteSpace(productName))
             {
                 return [];
             }
 
+            var all = LoadAllManualMeasuresByProduct(csvFolderOrPath);
+            return all.TryGetValue(productName.Trim(), out var list)
+                ? CloneMeasures(list)
+                : [];
+        }
+
+        /// <summary>
+        /// 一次读取手动测距 CSV，按产品名建索引（大批量打开标注窗时避免每图重读整表）。
+        /// </summary>
+        public static Dictionary<string, List<ManualMeasureItem>> LoadAllManualMeasuresByProduct(
+            string csvFolderOrPath)
+        {
+            var map = new Dictionary<string, List<ManualMeasureItem>>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(csvFolderOrPath))
+            {
+                return map;
+            }
+
+            string path;
+            try
+            {
+                path = ResolveCsvPath(csvFolderOrPath, ManualMeasureFileName);
+            }
+            catch
+            {
+                return map;
+            }
+
+            if (!File.Exists(path))
+            {
+                return map;
+            }
+
             var rows = ReadDataRows(path, ManualMeasureHeaders.Length);
-            var list = new List<ManualMeasureItem>();
             foreach (var r in rows)
             {
-                if (!string.Equals(GetField(r, 0), productName.Trim(), StringComparison.OrdinalIgnoreCase))
+                var product = GetField(r, 0).Trim();
+                if (string.IsNullOrEmpty(product))
                 {
                     continue;
                 }
 
-                if (!TryParseDouble(GetField(r, 4), out var x1)
-                    || !TryParseDouble(GetField(r, 5), out var y1)
-                    || !TryParseDouble(GetField(r, 6), out var x2)
-                    || !TryParseDouble(GetField(r, 7), out var y2))
+                if (!TryParseMeasureRow(r, out var item))
                 {
                     continue;
                 }
 
-                TryParseDouble(GetField(r, 2), out var mm);
-                TryParseDouble(GetField(r, 3), out var px);
+                if (!map.TryGetValue(product, out var list))
+                {
+                    list = [];
+                    map[product] = list;
+                }
+
+                list.Add(item);
+            }
+
+            return map;
+        }
+
+        /// <summary>合并多份 CSV 索引；后者同名产品不覆盖已有（主目录优先）。</summary>
+        public static void MergeManualMeasureLookup(
+            Dictionary<string, List<ManualMeasureItem>> primary,
+            IReadOnlyDictionary<string, List<ManualMeasureItem>> secondary)
+        {
+            foreach (var kv in secondary)
+            {
+                if (primary.ContainsKey(kv.Key) && primary[kv.Key].Count > 0)
+                {
+                    continue;
+                }
+
+                primary[kv.Key] = CloneMeasures(kv.Value);
+            }
+        }
+
+        private static bool TryParseMeasureRow(string[] r, out ManualMeasureItem item)
+        {
+            item = null!;
+            if (!TryParseDouble(GetField(r, 4), out var x1)
+                || !TryParseDouble(GetField(r, 5), out var y1)
+                || !TryParseDouble(GetField(r, 6), out var x2)
+                || !TryParseDouble(GetField(r, 7), out var y2))
+            {
+                return false;
+            }
+
+            TryParseDouble(GetField(r, 2), out var mm);
+            TryParseDouble(GetField(r, 3), out var px);
+            item = new ManualMeasureItem
+            {
+                Label = GetField(r, 1),
+                X1 = x1,
+                Y1 = y1,
+                X2 = x2,
+                Y2 = y2,
+                LengthMm = mm,
+                PixelLength = px,
+                LengthUm = mm * 1000.0,
+            };
+            return true;
+        }
+
+        private static List<ManualMeasureItem> CloneMeasures(IReadOnlyList<ManualMeasureItem> source)
+        {
+            var list = new List<ManualMeasureItem>(source.Count);
+            foreach (var m in source)
+            {
                 list.Add(new ManualMeasureItem
                 {
-                    Label = GetField(r, 1),
-                    X1 = x1,
-                    Y1 = y1,
-                    X2 = x2,
-                    Y2 = y2,
-                    LengthMm = mm,
-                    PixelLength = px,
-                    LengthUm = mm * 1000.0,
+                    Label = m.Label,
+                    X1 = m.X1,
+                    Y1 = m.Y1,
+                    X2 = m.X2,
+                    Y2 = m.Y2,
+                    LengthMm = m.LengthMm,
+                    PixelLength = m.PixelLength,
+                    LengthUm = m.LengthUm,
+                    LabelX = m.LabelX,
+                    LabelY = m.LabelY,
                 });
             }
 

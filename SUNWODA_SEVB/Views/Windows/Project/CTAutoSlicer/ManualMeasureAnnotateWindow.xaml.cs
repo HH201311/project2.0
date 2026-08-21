@@ -133,21 +133,23 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (!_vm.HasUnsavedChanges)
+            if (_vm.HasUnsavedChanges)
             {
-                return;
+                var r = MessageBox.Show(
+                    this,
+                    "存在未导出的标注变更，是否仍要关闭？\n（选择「否」可返回后点击导出）",
+                    "二次手动标注",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (r != MessageBoxResult.Yes)
+                {
+                    e.Cancel = true;
+                    return;
+                }
             }
 
-            var r = MessageBox.Show(
-                this,
-                "存在未导出的标注变更，是否仍要关闭？\n（选择「否」可返回后点击导出）",
-                "二次手动标注",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (r != MessageBoxResult.Yes)
-            {
-                e.Cancel = true;
-            }
+            // 无论是否有未保存变更，关闭时都取消后台扫描
+            _vm.CancelBackgroundLoad();
         }
 
         private void LoadSelectedImage()
@@ -707,16 +709,30 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         private void BtnExport_Click(object sender, RoutedEventArgs e)
         {
+            if (_vm.IsLoadingImages)
+            {
+                MessageBox.Show(
+                    this,
+                    "图片列表仍在后台载入中，请等待载入完成后再导出（否则可能漏图）。",
+                    "二次手动标注",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
             try
             {
                 var path = _vm.Export();
-                var captured = CaptureAnnotatedImagesToExportDir(path);
+                var exportedItems = CaptureAnnotatedImagesToExportDir(path);
+                // 导出成功后删源图，避免下次打开同一结果根目录再次进入待标列表
+                var deleted = RemoveExportedSourceImages(exportedItems);
                 MessageBox.Show(
                     this,
                     $"已导出到：\n{path}\n\n"
-                    + $"· 叠加图：全部图片均导出（截屏 {captured} 张，含未手动标注）\n"
+                    + $"· 叠加图：全部图片均导出（截屏 {exportedItems.Count} 张，含未手动标注）\n"
                     + $"· {OfflineCtCsvExportHelper.ProductDimensionFileName}\n"
-                    + $"· {OfflineCtCsvExportHelper.ManualMeasureFileName}",
+                    + $"· {OfflineCtCsvExportHelper.ManualMeasureFileName}\n"
+                    + $"· 已删除源图 {deleted} 张（下次打开不再载入）",
                     "导出成功",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -729,23 +745,24 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
 
         /// <summary>
         /// 逐张切换全部图片（无论是否已手动标注），zoom=1 后把 ImageHost 截成 PNG。
+        /// 返回本次成功写出叠加图的列表项（供随后删除源图）。
         /// </summary>
-        private int CaptureAnnotatedImagesToExportDir(string exportDir)
+        private List<ManualMeasureImageListItem> CaptureAnnotatedImagesToExportDir(string exportDir)
         {
             CancelPendingMeasure();
             EndLineEdit(commit: true);
             EndLabelDrag(commit: true);
 
             var targets = _vm.Images.ToList();
+            var exported = new List<ManualMeasureImageListItem>(targets.Count);
             if (targets.Count == 0)
             {
-                return 0;
+                return exported;
             }
 
             var prevImage = _vm.SelectedImage;
             var prevMeasureId = _vm.SelectedMeasureId;
             var prevZoom = _zoom;
-            var count = 0;
 
             try
             {
@@ -769,13 +786,13 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                         exportDir,
                         item.RelativePath);
                     SaveVisualAsPng(ImageHost, _bitmap.PixelWidth, _bitmap.PixelHeight, outPath);
-                    count++;
+                    exported.Add(item);
                 }
             }
             finally
             {
                 _vm.SelectedMeasureId = prevMeasureId;
-                if (prevImage is not null)
+                if (prevImage is not null && _vm.Images.Contains(prevImage))
                 {
                     _vm.SelectedImage = prevImage;
                 }
@@ -785,7 +802,35 @@ namespace SUNWODA_SEVB.Views.Windows.Project.CTAutoSlicer
                 RedrawCommittedOverlays();
             }
 
-            return count;
+            return exported;
+        }
+
+        /// <summary>
+        /// 释放画布引用后删除已成功导出的源图，并从左侧列表移除。
+        /// </summary>
+        private int RemoveExportedSourceImages(IReadOnlyList<ManualMeasureImageListItem> exportedItems)
+        {
+            if (exportedItems.Count == 0)
+            {
+                return 0;
+            }
+
+            // 先卸下当前位图，避免个别解码路径仍占文件句柄
+            MainImage.Source = null;
+            _bitmap = null;
+            OverlayCanvas.Children.Clear();
+
+            var deleted = _vm.RemoveAndDeleteSourceFiles(exportedItems);
+            if (_vm.SelectedImage is null && _vm.Images.Count > 0)
+            {
+                _vm.SelectedImage = _vm.Images[0];
+            }
+            else if (_vm.SelectedImage is null)
+            {
+                _vm.SetCurrentImagePixelSize(0, 0);
+            }
+
+            return deleted;
         }
 
         private static void SaveVisualAsPng(FrameworkElement visual, int pixelWidth, int pixelHeight, string outputPath)

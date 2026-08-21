@@ -171,17 +171,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 SliceExportFolder = root;
             }
 
-            var images = ManualMeasureExportHelper.EnumerateImagesRecursive(root);
-            if (images.Count == 0)
-            {
-                MessageBox.Show(
-                    "所选文件夹（含子目录）未找到图片（jpg/png/bmp/tif）。",
-                    "二次手动标注",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
+            // 不再同步枚举整树（大目录会卡主界面）：先进标注窗，后台扫描并分批载入
             var win = new ManualMeasureAnnotateWindow(
                 root,
                 OfflineCtPixelSizeUm,
@@ -190,7 +180,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 Owner = Application.Current?.MainWindow,
             };
             win.ShowDialog();
-            MessageShower = $"二次手动标注已结束：{root}（共 {images.Count} 张）";
+            MessageShower = $"二次手动标注已结束：{root}";
             RefreshLatestAiAnnotationPreview();
         }
 

@@ -70,6 +70,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
         private bool _isSharedThresholdMode = true;
         private double _sharedGap45Limit = 0.3;
         private double _sharedGap46Limit = 0.8;
+        /// <summary>负极突起（翻折）面积阈值默认值，单位 mm²。正式默认值待产品确认。</summary>
+        private double _sharedGap48Limit = 0.1;
+
+        /// <summary>负极压伤：角度 α 分界，单位 °。默认 100。判级待接口文档，当前仅界面/持久化。</summary>
+        private double _sharedGap49Limit = 100;
+
+        /// <summary>负极压伤：压伤宽度阈值，单位 mm。默认 0.5。判级待接口文档，当前仅界面/持久化。</summary>
+        private double _sharedGap50Limit = 0.5;
+
+        /// <summary>负极压伤：撞伤宽度阈值，单位 mm。默认 1.0。判级待接口文档，当前仅界面/持久化。</summary>
+        private double _sharedGap51Limit = 1.0;
 
         private bool _isEnabled;
         private string _uploadTargetDirectory = string.Empty;
@@ -209,6 +220,65 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             set
             {
                 _sharedGap46Limit = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// 负极突起（翻折）面积阈值，对应持久化键 <c>Gap48Limit</c>，单位 mm²。
+        /// 比较规则：算法输出面积 ≥ 本值则 NG_负极突起；面积为 0 亦 NG。
+        /// 必须用 Gap 前缀，否则 <c>LoadSharedThresholds</c> 读不回来。
+        /// 停机可改，点「保存设置」后写入 ProjectSetting。
+        /// </summary>
+        public double SharedGap48Limit
+        {
+            get => _sharedGap48Limit;
+            set
+            {
+                _sharedGap48Limit = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// 负极压伤角度 α 分界，对应持久化键 <c>Gap49Limit</c>，单位 °。
+        /// 2026-08：仅界面可调 + 落库；判级等 DLL 接口文档后再接（角度/压伤宽为负极逐层数组）。
+        /// 必须用 Gap 前缀，否则 <c>LoadSharedThresholds</c> 读不回来。停机可改，点「保存设置」写入 ProjectSetting。
+        /// </summary>
+        public double SharedGap49Limit
+        {
+            get => _sharedGap49Limit;
+            set
+            {
+                _sharedGap49Limit = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// 负极压伤宽度阈值，对应持久化键 <c>Gap50Limit</c>，单位 mm。
+        /// 判级暂未接入，见 <see cref="SharedGap49Limit"/>。
+        /// </summary>
+        public double SharedGap50Limit
+        {
+            get => _sharedGap50Limit;
+            set
+            {
+                _sharedGap50Limit = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// 负极撞伤宽度阈值，对应持久化键 <c>Gap51Limit</c>，单位 mm。
+        /// 判级暂未接入；DLL 目前口头只提层数/角度/压伤宽，本项按交接原文先保留在界面。
+        /// </summary>
+        public double SharedGap51Limit
+        {
+            get => _sharedGap51Limit;
+            set
+            {
+                _sharedGap51Limit = value;
                 OnPropertyChanged();
             }
         }
@@ -551,6 +621,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             };
             _sharedGap45Limit = GetS("Gap45Limit", 0.3);
             _sharedGap46Limit = GetS("Gap46Limit", 0.8);
+            // 负极突起（翻折）面积阈值；键必须是 Gap* 才能被 LoadSharedThresholds 加载
+            _sharedGap48Limit = GetS("Gap48Limit", 0.1);
+            // 负极压伤三阈值；键必须是 Gap* 才能被 LoadSharedThresholds 加载。判级尚未接入。
+            _sharedGap49Limit = GetS("Gap49Limit", 100);
+            _sharedGap50Limit = GetS("Gap50Limit", 0.5);
+            _sharedGap51Limit = GetS("Gap51Limit", 1.0);
 
             // 加载上次的模式并同步到服务
             _isSharedThresholdMode = _configFileService.LoadSharedMode();
@@ -847,6 +923,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             rows[7].PosMiddle = 0.45;
             SharedGap45Limit = 0.3;
             SharedGap46Limit = 0.8;
+            SharedGap48Limit = 0.1; // 翻折面积默认占位，单位 mm²，待产品确认
+            SharedGap49Limit = 100; // 压伤角度分界 °，判级待接口文档
+            SharedGap50Limit = 0.5; // 压伤宽度 mm
+            SharedGap51Limit = 1.0; // 撞伤宽度 mm
             _logger.Info("重置阈值设置成功");
             Growl.InfoGlobal("重置阈值设置成功");
             return Task.CompletedTask;
@@ -954,6 +1034,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 ["Gap44Limit"] = rows[7].PosMiddle,
                 ["Gap45Limit"] = SharedGap45Limit,
                 ["Gap46Limit"] = SharedGap46Limit,
+                // 负极突起（翻折）面积阈值，单位 mm²；与掉片参数同一套保存/加载链路
+                ["Gap48Limit"] = SharedGap48Limit,
+                // 负极压伤三阈值（仅界面/持久化；判级等 DLL 接口文档）
+                ["Gap49Limit"] = SharedGap49Limit,
+                ["Gap50Limit"] = SharedGap50Limit,
+                ["Gap51Limit"] = SharedGap51Limit,
             };
         }
 

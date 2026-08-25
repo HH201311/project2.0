@@ -184,6 +184,16 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
         protected double Gap45Limit = 0.3; // 单张图内相邻正极层 OH 差值上限（单图掉片初判）
         protected double Gap46Limit = 0.8; // 四张 Y 图联合：|1Y+3Y−2Y−4Y| 上限
 
+        // --- 负极突起（翻折）面积阈值 ---
+        // 键名必须用 Gap 前缀：LoadSharedThresholds 只加载 Name.StartsWith("Gap") 的项。
+        // 默认 0.1 mm² 为占位，现场以界面保存值为准；产品正式默认值待确认。
+        protected double Gap48Limit = 0.1;
+
+        // --- 负极压伤阈值（2026-08：仅 ApplyThresholds 接入，NgOkJudge 暂不读取；等 DLL 接口文档）---
+        protected double Gap49Limit = 100; // 角度 α 分界，单位 °
+        protected double Gap50Limit = 0.5; // 压伤宽度阈值，单位 mm
+        protected double Gap51Limit = 1.0; // 撞伤宽度阈值，单位 mm
+
         // ==================== IFileProcessor ====================
 
         public bool CanProcess(string monitorId, string filePath) =>
@@ -359,7 +369,8 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
         /// HOperatorSet.ReadObject 读取后用于绘图）、<see cref="CtAlgorithmResult.DistOHInt"/>（正极 OH 内侧）、
         /// <see cref="CtAlgorithmResult.DistOHOut"/>（负极 OH 外侧）、<see cref="CtAlgorithmResult.GapMax"/>、
         /// <see cref="CtAlgorithmResult.HDNe"/>（负极差）、<see cref="CtAlgorithmResult.NeNGFlag"/>、
-        /// <see cref="CtAlgorithmResult.NeTQFlag"/> 等。
+        /// <see cref="CtAlgorithmResult.NeFoldArea"/>（翻折距离正极面积，mm²；接口未到时为 null）等。
+        /// <see cref="CtAlgorithmResult.NeTQFlag"/> 为旧布尔方案，2026-08 起不再用于判级。
         /// </para>
         /// <para>
         /// 判定可调用 <see cref="NgOkJudge"/> + <see cref="NormalizeResult"/>；
@@ -652,31 +663,46 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 Gap45Limit = v;
             if (d.TryGetValue("Gap46Limit", out v))
                 Gap46Limit = v;
+            // 负极突起（翻折）面积阈值：界面「翻折距离正极面积≥」，单位 mm²
+            if (d.TryGetValue("Gap48Limit", out v))
+                Gap48Limit = v;
+            // 负极压伤三阈值：已从界面落库；判级尚未使用（等 DLL 接口文档）
+            if (d.TryGetValue("Gap49Limit", out v))
+                Gap49Limit = v;
+            if (d.TryGetValue("Gap50Limit", out v))
+                Gap50Limit = v;
+            if (d.TryGetValue("Gap51Limit", out v))
+                Gap51Limit = v;
         }
 
         // ==================== 检测判断辅助方法 ====================
 
         /// <summary>
         /// 核心 OK/NG 判断规则（移植自 NGOK 方法）。
-        /// <para>判断优先级（由高到低）：</para>
+        /// <para>判断优先级（由高到低，与下方代码顺序一致）：</para>
         /// <list type="number">
-        ///   <item>OH 越限（偏大 / 偏小）</item>
+        ///   <item>间隙超差（负极边缘 / 正极边缘 / 正极中间）——仅层数符合期望时</item>
+        ///   <item>负极压伤（neNGflag == 1）——仅层数符合期望时</item>
+        ///   <item>负极突起 / 翻折（面积规则，见 <paramref name="neFoldArea"/>）——仅层数符合期望时</item>
         ///   <item>极片层数异常（正极多片 / 少片；负极多片 / 少片）</item>
-        ///   <item>间隙超差（负极边缘 / 正极边缘 / 正极中间）</item>
-        ///   <item>负极差超差（仅 1-X / 1-Y / 4-X / 4-Y 视野参与）</item>
-        ///   <item>负极压伤（neNGflag == 1）</item>
         ///   <item>Y 方向正极掉片（单图内相邻层 OH 差值超 Gap45Limit）</item>
+        ///   <item>OH 越限（偏大 / 偏小）</item>
+        ///   <item>负极差超差（仅 1-X / 1-Y / 4-X / 4-Y 视野参与）</item>
         /// </list>
         /// </summary>
-        /// <param name="positiveCount">AI 输出的正极实测层数（期望值：76）</param>
-        /// <param name="negativeCount">AI 输出的负极实测层数（期望值：77）</param>
+        /// <param name="positiveCount">AI 输出的正极实测层数（C06 期望 76，C01 期望 107）</param>
+        /// <param name="negativeCount">AI 输出的负极实测层数（C06 期望 77，C01 期望 108）</param>
         /// <param name="ohInner">正极 OH 内侧值数组（distOHInt.SArr 转 double[]）</param>
         /// <param name="ohOuter">负极 OH 外侧值数组（distOHOut.SArr 转 double[]，暂未在本方法中直接用于越限判断）</param>
         /// <param name="negDiff">负极差值（Algorithm_Action 输出的 hDNe）</param>
         /// <param name="imageType">文件名第二段，如 "1-X"、"2-Y"（Path.GetFileName(filePath).Split('_')[1]）</param>
         /// <param name="gapMax">间隙最大值数组 [0]=负极边缘, [1]=正极边缘, [2]=正极中间（_gapMax.SArr 转 double[]）</param>
         /// <param name="negPressureFlag">负极压伤标志（Algorithm_Action 输出的 neNGflag，0=正常，1=压伤）</param>
-        /// <param name="neTQflag">负极突起标志（Algorithm_Action 输出的 neTQflag，0=正常，1=突起）</param>
+        /// <param name="neFoldArea">
+        /// 翻折距离正极面积（mm²）。来自算法新接口 <see cref="CtAlgorithmResult.NeFoldArea"/>。
+        /// <c>null</c> = 接口未交付，本条跳过；0 = 打日志并 NG；≥ Gap48Limit = NG。
+        /// 缺陷归档名沿用「负极突起」（产品确认不改名）。
+        /// </param>
         /// <returns>"OK" 或 "NG_缺陷类型" 格式的字符串</returns>
         protected string NgOkJudge(
             int positiveCount,
@@ -687,7 +713,7 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             string imageType,
             double[] gapMax,
             int negPressureFlag,
-            int neTQflag
+            double? neFoldArea
         )
         {
 #if C06
@@ -695,13 +721,15 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             if (negativeCount == 77 && positiveCount == 76 && CheckGapMax(imageType, gapMax, out string? gapResult))
                 return gapResult!;
 
-            // 2. 负极压伤判断
+            // 2. 负极压伤判断（旧方案：neNGflag==1 直判）
+            //    2026-08：界面 Gap49/50/51 已可调并落库，组合规则等 DLL 接口文档后再替换本条。
             if (negativeCount == 77 && positiveCount == 76 && negPressureFlag == 1)
                 return "NG_负极压伤";
 
-            // 3. 负极突起判断
-            if (negativeCount == 77 && positiveCount == 76 && neTQflag == 1)
-                return "NG_负极突起";
+            // 3. 负极突起（翻折）判断：旧 neTQflag==1 已废弃，改为面积比较
+            if (negativeCount == 77 && positiveCount == 76
+                && TryJudgeNegativeProtrusion(neFoldArea, imageType, out string? foldResultC06))
+                return foldResultC06!;
 
             // 4. 负极层数判断（期望 77 片）
             bool? negativeCountFlag = null;
@@ -717,13 +745,15 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
             if (negativeCount == 108 && positiveCount == 107 && CheckGapMax(imageType, gapMax, out string? gapResult))
                 return gapResult!;
 
-            // 2. 负极压伤判断
+            // 2. 负极压伤判断（旧方案：neNGflag==1 直判）
+            //    2026-08：界面 Gap49/50/51 已可调并落库，组合规则等 DLL 接口文档后再替换本条。
             if (negativeCount == 108 && positiveCount == 107 && negPressureFlag == 1)
                 return "NG_负极压伤";
 
-            // 3. 负极突起判断
-            if (negativeCount == 108 && positiveCount == 107 && neTQflag == 1)
-                return "NG_负极突起";
+            // 3. 负极突起（翻折）判断：旧 neTQflag==1 已废弃，改为面积比较
+            if (negativeCount == 108 && positiveCount == 107
+                && TryJudgeNegativeProtrusion(neFoldArea, imageType, out string? foldResultC01))
+                return foldResultC01!;
 
             bool? negativeCountFlag = null;
             // 4. 负极层数判断（期望 108 片）
@@ -766,6 +796,52 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 return diffResult!;
 
             return "OK";
+        }
+
+        /// <summary>
+        /// 负极突起（翻折）面积判级。缺陷归档名沿用「负极突起」，不新增「负极翻折」。
+        /// <para>
+        /// 旧方案（已废弃）：算法输出 <c>neTQflag</c>，上位机 <c>==1</c> 即 NG，无比阈值、无界面参数。
+        /// 新方案（2026-08）：算法输出翻折距离正极面积（mm²），上位机与 <see cref="Gap48Limit"/> 比较。
+        /// </para>
+        /// <list type="bullet">
+        ///   <item><c>neFoldArea == null</c>：Worker 尚未输出该字段（接口未到），本条跳过，不误判。</item>
+        ///   <item>面积 ≤ 0：视为无效/异常面积，打 Warn 日志并判 NG。</item>
+        ///   <item>面积 ≥ Gap48Limit：超设定面积，判 NG。</item>
+        ///   <item>0 &lt; 面积 &lt; 阈值：本条通过，继续后续规则。</item>
+        /// </list>
+        /// </summary>
+        /// <returns>true 表示已给出 NG 结论；false 表示本条不参与（跳过或未超限）。</returns>
+        private bool TryJudgeNegativeProtrusion(double? neFoldArea, string imageType, out string? result)
+        {
+            result = null;
+
+            // 接口未到：JSON 无 NeFoldArea 时反序列化为 null，此处直接跳过。
+            if (!neFoldArea.HasValue)
+                return false;
+
+            double area = neFoldArea.Value;
+
+            // 产品约定：面积为 0（含负值，属异常输出）→ 记日志并 NG
+            if (area <= 0)
+            {
+                Logger.Warn(
+                    $"[负极突起] 翻折距离正极面积为 {area} mm²（视野={imageType}，阈值 Gap48Limit={Gap48Limit} mm²），按约定判 NG。"
+                );
+                result = "NG_负极突起";
+                return true;
+            }
+
+            if (area >= Gap48Limit)
+            {
+                Logger.Info(
+                    $"[负极突起] 翻折距离正极面积 {area} mm² ≥ 设定阈值 {Gap48Limit} mm²（视野={imageType}），判 NG。"
+                );
+                result = "NG_负极突起";
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -72,8 +72,24 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         public ICustomMqttClient? DHAMqttClient => dhAMqttClient;
         public ICustomMqttClient? DHBMqttClient => dhBMqttClient;
 
-        // 事件
+        #region 通知事件
+        /// <summary>
+        /// 设备状态通知事件
+        /// </summary>
         public event EventHandler<DeviceStatusEventArgs>? DeviceStatusChanged;
+
+        public event EventHandler<DataReceivedEventArgs>? WMSocketSererDataReceived;
+        public event EventHandler<DataReceivedEventArgs>? DHSocketSererDataReceived;
+        public event EventHandler<DataReceivedEventArgs>? CCDSocketSererDataReceived;
+        public event EventHandler<ClientDataReceivedEventArgs>? WMSocketClientDataReceived;
+        public event EventHandler<ClientDataReceivedEventArgs>? DHASocketClientDataReceived;
+        public event EventHandler<ClientDataReceivedEventArgs>? DHBSocketClientDataReceived;
+        public event EventHandler<ClientDataReceivedEventArgs>? OPMMPLCSocketClientDataReceived;
+        public event EventHandler<ClientDataReceivedEventArgs>? OPMMCCDSocketClientDataReceived;
+        public event EventHandler<ClientDataReceivedEventArgs>? OPMMWeightSocketClientDataReceived;
+        public event EventHandler<MqttApplicationMessage>? DHAMqttMessageReceived;
+        public event EventHandler<MqttApplicationMessage>? DHBMqttMessageReceived;
+        #endregion
 
         // 配置缓存
         private CommunicationSettingModel? settings;
@@ -348,26 +364,37 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         private void WMSocketServer_OnDataReceived(object? sender, DataReceivedEventArgs e)
         {
             if (sender is not ISocketServer server) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = server.ActiveOptions.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据：[{message}]");
+
+            WMSocketSererDataReceived?.Invoke(sender, e);
         }
 
         private void DHSocketServer_OnDataReceived(object? sender, DataReceivedEventArgs e)
         {
             if (sender is not ISocketServer server) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = server.ActiveOptions.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据：[{message}]");
+
+            DHSocketSererDataReceived?.Invoke(sender, e);
         }
 
         private void CCDSocketServer_OnDataReceived(object? sender, DataReceivedEventArgs e)
         {
             if (sender is not ISocketServer server) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = server.ActiveOptions.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据：[{message}]");
+
+            CCDSocketSererDataReceived?.Invoke(sender, e);
         }
 
         private void SocketServer_OnClientDisconnected(object? sender, ClientConnectionEventArgs e)
@@ -581,67 +608,79 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         private void WMSocketClient_OnDataReceived(object? sender, ClientDataReceivedEventArgs e)
         {
             if (!(sender is ISocketClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             _logger.Info($"[{deviceName}] 收到数据: {message}");
-            // TODO: 解析数据并处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据 [{message}]");
+
+            WMSocketClientDataReceived?.Invoke(sender, e);
         }
 
         private void DHASocketClient_OnDataReceived(object? sender, ClientDataReceivedEventArgs e)
         {
             if (!(sender is ISocketClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             _logger.Info($"[{deviceName}] 收到数据: {message}");
-            // TODO: 解析数据并处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据 [{message}]");
+
+            DHASocketClientDataReceived?.Invoke(sender, e);
         }
 
         private void DHBSocketClient_OnDataReceived(object? sender, ClientDataReceivedEventArgs e)
         {
             if (!(sender is ISocketClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             _logger.Info($"[{deviceName}] 收到数据: {message}");
-            // TODO: 解析数据并处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据 [{message}]");
+
+            DHBSocketClientDataReceived?.Invoke(sender, e);
         }
 
         private void OPMMPLCSocketClient_OnDataReceived(object? sender, ClientDataReceivedEventArgs e)
         {
             if (!(sender is ISocketClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             _logger.Info($"[{deviceName}] 收到数据: {message}");
-            // TODO: 解析数据并处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据 [{message}]");
+
+            OPMMPLCSocketClientDataReceived?.Invoke(sender, e);
         }
 
         private void OPMMCCDSocketClient_OnDataReceived(object? sender, ClientDataReceivedEventArgs e)
         {
             if (!(sender is ISocketClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             _logger.Info($"[{deviceName}] 收到数据: {message}");
-            // TODO: 解析数据并处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据 [{message}]");
+
+            OPMMCCDSocketClientDataReceived?.Invoke(sender, e);
         }
 
         private void OPMMWeightSocketClient_OnDataReceived(object? sender, ClientDataReceivedEventArgs e)
         {
             if (!(sender is ISocketClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var message = Encoding.UTF8.GetString(e.Data);
             _logger.Info($"[{deviceName}] 收到数据: {message}");
-            // TODO: 解析数据并处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到数据 [{message}]");
+
+            OPMMWeightSocketClientDataReceived?.Invoke(sender, e);
         }
 
         private void SocketClient_OnConnected(object? sender, EventArgs e)
@@ -810,23 +849,27 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         private void DHAMqttClient_OnMessageReceived(object? sender, MqttApplicationMessage message)
         {
             if (!(sender is ICustomMqttClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var payload = Encoding.UTF8.GetString(message.Payload);
             _logger.Info($"[{deviceName}] 收到消息 [{message.Topic}]: {payload}");
-            // TODO: 根据 Topic 分发处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到消息 [{message.Topic}]: {payload}");
+
+            DHAMqttMessageReceived?.Invoke(sender, message);
         }
 
         private void DHBMqttClient_OnMessageReceived(object? sender, MqttApplicationMessage message)
         {
             if (!(sender is ICustomMqttClient client)) return;
+
+            // 弹窗显示，后续可删除
             var deviceName = client.ActiveOptions?.ModuleName ?? "Unknow";
             var payload = Encoding.UTF8.GetString(message.Payload);
             _logger.Info($"[{deviceName}] 收到消息 [{message.Topic}]: {payload}");
-            // TODO: 根据 Topic 分发处理
-
             HandyControl.Controls.Growl.InfoGlobal($"[{deviceName}] 收到消息 [{message.Topic}]: {payload}");
+
+            DHBMqttMessageReceived?.Invoke(sender, message);
         }
 
         private void MqttClient_OnConnectionChanged(object? sender, CustomMqttConnectionChangedEventArgs e)
@@ -930,30 +973,31 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         /// </summary>
         public async Task RefreshDeviceStatusAsync(CancellationToken cancellationToken = default)
         {
+            var newSettings = LoadSettings();
             var args = new DeviceStatusEventArgs();
-            args.DeviceStatus = GetDeviceStatus(CMPLCDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, CMPLCDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(WMSocketServerDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, WMSocketServerDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(DHSocketServerDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, DHSocketServerDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(CCDSocketServerDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, CCDSocketServerDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(WMSocketClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, WMSocketClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(DHASocketClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, DHASocketClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(DHBSocketClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, DHBSocketClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(DHAMqttClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, DHAMqttClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(DHBMqttClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, DHBMqttClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(OPMMPLCSocketClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, OPMMPLCSocketClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(OPMMCCDSocketClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, OPMMCCDSocketClientDeviceName);
             RaiseDeviceStatusChanged(args);
-            args.DeviceStatus = GetDeviceStatus(OPMMWeightSocketClientDeviceName);
+            args.DeviceStatus = GetDeviceStatus(newSettings, OPMMWeightSocketClientDeviceName);
             RaiseDeviceStatusChanged(args);
         }
 
@@ -1085,7 +1129,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB
         /// </summary>
         /// <param name="deviceName"></param>
         /// <returns></returns>
-        private DeviceStatusModel? GetDeviceStatus(string deviceName)
+        private DeviceStatusModel? GetDeviceStatus(CommunicationSettingModel settings, string deviceName)
         {
             var deviceStatus = new DeviceStatusModel();
             deviceStatus.DeviceName = deviceName;

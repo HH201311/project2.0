@@ -16,7 +16,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// CCD采集时间
         /// </summary>
         [DataColumn("CCD采集时间")]
-        public DateTime GatherTime { get; set; } = DateTime.Now;
+        public DateTime GatherTime { get; set; }
         /// <summary>
         /// 扫码处虚拟码
         /// </summary>

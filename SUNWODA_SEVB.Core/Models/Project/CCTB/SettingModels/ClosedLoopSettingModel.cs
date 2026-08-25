@@ -18,7 +18,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
     public class ClosedLoopSettingModel : ModelBase
     {
         private byte rid_VelocityCondition = 20;
-        private double rid_Threshold = 6.0;
+        private float rid_Threshold = 6.0f;
         private byte rid_Count = 2;
         private byte rid_Interval = 3;
 
@@ -26,26 +26,29 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         private byte bootUp_ZeroCount = 3;
         private byte bootUp_BootTime = 60;
         private byte bootUp_RidCount = 3;
+        private byte lag_DataCount;
+        private byte lag_DearanceValue;
 
         private byte arithmetic_InputDataCount = 7;
+        private PIDModel pid = new();
 
-        private double setB_Coefficient = 1;
-        private double setT_Coefficient = 1;
+        private float setB_Coefficient = 1;
+        private float setT_Coefficient = 1;
 
         private bool isEnableFlowTrendMA = false;
         private byte ewma_Count = 1;
 
-        private double judgThreshold_Threshold = 2;
+        private float judgThreshold_Threshold = 2;
         private byte judgThreshold_Range = 5;
         private byte judgThreshold_Count = 3;
 
         private byte judgTrend_Count = 6;
 
-        private double judgPosition_Threshold = 1;
+        private float judgPosition_Threshold = 1;
         private byte judgPosition_Count = 9;
 
-        private double judgRatio_Threshold = 2.5;
-        private double judgRatio_Ratio = 0.6;
+        private float judgRatio_Threshold = 2.5f;
+        private float judgRatio_Ratio = 0.6f;
         private byte judgRatio_Range = 3;
         private byte judgRatio_Count = 2;
 
@@ -53,12 +56,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
 
         private bool judgFluTrend_IsEnable = false;
         private int judgFluTrend_Count = 5;
-        private double judgFluTrend_VariationThreshold = 0.5;
-        private double judgFluTrend_BoundaryThreshold = 0.5;
+        private float judgFluTrend_VariationThreshold = 0.5f;
+        private float judgFluTrend_BoundaryThreshold = 0.5f;
 
-        private double judgRange_Threshold = 10d;
+        private float judgRange_Threshold = 10f;
 
-        private double judgSpeed_Range = 0.02d;
+        private float judgSpeed_Range = 0.02f;
 
         private bool isUseDynamicTargetValue = false;
         private float tChange = 50;
@@ -74,7 +77,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 阈值判异-剔除规格
         /// </summary>
         [Description("MD/TD/MDTD")]
-        public double Rid_Threshold { get => rid_Threshold; set => SetProperty(ref rid_Threshold, value); }
+        public float Rid_Threshold { get => rid_Threshold; set => SetProperty(ref rid_Threshold, value); }
         /// <summary>
         /// 阈值判异-判定个数
         /// </summary>
@@ -108,6 +111,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// </summary>
         [Description("MD/TD/MDTD")]
         public byte BootUp_RidCount { get => bootUp_RidCount; set => SetProperty(ref bootUp_RidCount, value); }
+
+        /// <summary>
+        /// 滞后躺数
+        /// </summary>
+        [Description("MD")]
+        public byte Lag_DataCount { get => lag_DataCount; set => SetProperty(ref lag_DataCount, value); }
+
+        /// <summary>
+        /// 刀距滞后变化值
+        /// </summary>
+        [Description("TD/MDTD")]
+        public byte Lag_DearanceValue { get => lag_DearanceValue; set => SetProperty(ref lag_DearanceValue, value); }
         #endregion
 
         #region 算法信息配置
@@ -116,6 +131,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// </summary>
         [Description("MD/TD/MDTD")]
         public byte Arithmetic_InputDataCount { get => arithmetic_InputDataCount; set => SetProperty(ref arithmetic_InputDataCount, value); }
+
+        /// <summary>
+        /// 算法信息配置-PID参数
+        /// </summary>
+        [Description("MD")]
+        public PIDModel PID { get => pid; set => SetProperty(ref pid, value); }
         #endregion
 
         #region 调机下发配置
@@ -123,12 +144,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// PLC泵速下发系数
         /// </summary>
         [Description("MD/MDTD")]
-        public double SetB_Coefficient { get => setB_Coefficient; set => SetProperty(ref setB_Coefficient, value); }
+        public float SetB_Coefficient { get => setB_Coefficient; set => SetProperty(ref setB_Coefficient, value); }
         /// <summary>
         /// T块下发系数
         /// </summary>
         [Description("TD/MDTD")]
-        public double SetT_Coefficient { get => setT_Coefficient; set => SetProperty(ref setT_Coefficient, value); }
+        public float SetT_Coefficient { get => setT_Coefficient; set => SetProperty(ref setT_Coefficient, value); }
         #endregion
 
         #region MA运算设置
@@ -149,7 +170,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 调节阈值
         /// </summary>
         [Description("MD")]
-        public double JudgThreshold_Threshold { get => judgThreshold_Threshold; set => SetProperty(ref judgThreshold_Threshold, value); }
+        public float JudgThreshold_Threshold { get => judgThreshold_Threshold; set => SetProperty(ref judgThreshold_Threshold, value); }
         /// <summary>
         /// 判定范围
         /// </summary>
@@ -175,7 +196,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 调节阈值
         /// </summary>
         [Description("MD")]
-        public double JudgPosition_Threshold { get => judgPosition_Threshold; set => SetProperty(ref judgPosition_Threshold, value); }
+        public float JudgPosition_Threshold { get => judgPosition_Threshold; set => SetProperty(ref judgPosition_Threshold, value); }
         /// <summary>
         /// 连续个数
         /// </summary>
@@ -188,12 +209,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 调节阈值
         /// </summary>
         [Description("MD")]
-        public double JudgRatio_Threshold { get => judgRatio_Threshold; set => SetProperty(ref judgRatio_Threshold, value); }
+        public float JudgRatio_Threshold { get => judgRatio_Threshold; set => SetProperty(ref judgRatio_Threshold, value); }
         /// <summary>
         /// 判定值
         /// </summary>
         [Description("MD")]
-        public double JudgRatio_Ratio { get => judgRatio_Ratio; set => SetProperty(ref judgRatio_Ratio, value); }
+        public float JudgRatio_Ratio { get => judgRatio_Ratio; set => SetProperty(ref judgRatio_Ratio, value); }
         /// <summary>
         /// 判定范围
         /// </summary>
@@ -229,12 +250,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 流量趋势变化阈值
         /// </summary>
         [Description("MD")]
-        public double JudgFluTrend_VariationThreshold { get => judgFluTrend_VariationThreshold; set => SetProperty(ref judgFluTrend_VariationThreshold, value); }
+        public float JudgFluTrend_VariationThreshold { get => judgFluTrend_VariationThreshold; set => SetProperty(ref judgFluTrend_VariationThreshold, value); }
         /// <summary>
         /// 上下流量趋势阈值
         /// </summary>
         [Description("MD")]
-        public double JudgFluTrend_BoundaryThreshold { get => judgFluTrend_BoundaryThreshold; set => SetProperty(ref judgFluTrend_BoundaryThreshold, value); }
+        public float JudgFluTrend_BoundaryThreshold { get => judgFluTrend_BoundaryThreshold; set => SetProperty(ref judgFluTrend_BoundaryThreshold, value); }
         #endregion
 
         #region 极差拦截
@@ -242,7 +263,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 极差拦截阈值
         /// </summary>
         [Description("MD")]
-        public double JudgRange_Threshold { get => judgRange_Threshold; set => SetProperty(ref judgRange_Threshold, value); }
+        public float JudgRange_Threshold { get => judgRange_Threshold; set => SetProperty(ref judgRange_Threshold, value); }
         #endregion
 
         #region 泵速拦截
@@ -250,7 +271,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 泵速调节区间
         /// </summary>
         [Description("MD")]
-        public double JudgSpeed_Range { get => judgSpeed_Range; set => SetProperty(ref judgSpeed_Range, value); }
+        public float JudgSpeed_Range { get => judgSpeed_Range; set => SetProperty(ref judgSpeed_Range, value); }
         #endregion
 
         #region 目标值设置

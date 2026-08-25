@@ -94,14 +94,14 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <UniformGrid HorizontalAlignment="Right" Columns="3">
+                <UniformGrid HorizontalAlignment="Right" Rows="1">
                     <ContentControl
                         Margin="10,0"
                         d:Content="已连接"
                         Content="{Binding ItemSource.PLCConnectStatus, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource DeviceStatusContentControlStyle}"
                         Tag="PLC通信状态" />
-                    <ContentControl
+                    <!--<ContentControl
                         Margin="10,0"
                         d:Content="离线"
                         Content="{Binding ItemSource.MESConnectStatus, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -112,7 +112,7 @@
                         d:Content="未启用"
                         Content="{Binding ItemSource.WEBConnectStatus, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource DeviceStatusContentControlStyle}"
-                        Tag="WEB通信状态" />
+                        Tag="WEB通信状态" />-->
                 </UniformGrid>
                 <UniformGrid
                     Grid.Row="1"

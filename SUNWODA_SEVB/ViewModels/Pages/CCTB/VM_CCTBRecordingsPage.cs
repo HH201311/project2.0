@@ -7,6 +7,7 @@ using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.ViewModels.Windows.Project;
 using SUNWODA_SEVB.Views.Pages.CCTB;
@@ -67,9 +68,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             get => _isNavigating;
             set => SetProperty(ref _isNavigating, value);
         }
-        public ICommand? SystemRecordCommand { get; set; }
-        public ICommand? AdjustmentRecordCommand { get; set; }
-        public ICommand? AlarmRecordCommand { get; set; }
+        public ICommand? SystemRecordCommand => new RelayCommand(() => NavigateToSpecialModule("VM_SystemRecordPage"));
+        public ICommand? AdjustmentRecordCommand => new RelayCommand(() => NavigateToSpecialModule("VM_AdjustmentRecordPage"));
+        public ICommand? AlarmRecordCommand => new RelayCommand(() => NavigateToSpecialModule("VM_AlarmRecordPage"));
 
         /// <summary>
         /// 构造函数
@@ -107,18 +108,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
         /// </summary>
         private void InitNavigation()
         {
-            // 显示加载提示
-            IsNavigating = true;
-
-            // 加载模块
-            _moduleManager.AutoRegisterModulesByName("VM_SystemRecordPage", "VM_AdjustmentRecordPage", "VM_AlarmRecordPage");
-
-            SystemRecordCommand = new RelayCommand(() => NavigateToSpecialModule("VM_SystemRecordPage"));
-            AdjustmentRecordCommand = new RelayCommand(() => NavigateToSpecialModule("VM_AdjustmentRecordPage"));
-            AlarmRecordCommand = new RelayCommand(() => NavigateToSpecialModule("VM_AlarmRecordPage"));
-
-            IsNavigating = false;
-
             NavigateToDefault();
         }
 
@@ -176,9 +165,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             try
             {
                 IsNavigating = true;
+
+                // 处理之前的界面的导航离开
+                if (NavigationPage?.DataContext is ViewModelBase oldVM) oldVM.OnNavigatedFrom();
+
                 NavigationPage = _moduleManager.GetView(module.Name);
                 var viewModel = NavigationPage?.DataContext as ViewModelBase;
                 viewModel?.OnNavigatedTo(null);
+
+                _logger.UserInfo($"用户导航到了 {module.DisplayName} 界面！");
             }
             catch (Exception ex)
             {

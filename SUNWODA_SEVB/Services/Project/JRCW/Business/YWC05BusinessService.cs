@@ -5,21 +5,22 @@ using HslCommunication;
 using Newtonsoft.Json;
 using Python.Runtime;
 using SUNWODA_SEVB.Core.Attributes.Project.JRCW;
+using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Enumerations.Project.JRCW;
 using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.PLC;
-using SUNWODA_SEVB.Core.Interfaces.Project.JECW;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.PLC;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.ArithmeticModels;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Core;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper;
 using SUNWODA_SEVB.Tool.Helper.JRCWHelper;
-using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.ViewModels.Dialogs.JRCW;
+using SUNWODA_SEVB.ViewModels.Dialogs.JRCW.BusinessDialogs;
 using SUNWODA_SEVB.ViewModels.Pages.JRCW;
 using System;
 using System.Collections;
@@ -62,7 +63,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
             IModuleManager moduleManager
-        ) : base(logger, plcService)
+        ) : base(logger, plcService, projectSettingRepository)
         {
             _logger = logger;
             _plcService = plcService;
@@ -72,6 +73,10 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
+
+            // 用户角色更新时触发
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
         }
 
         /// <summary>
@@ -83,10 +88,9 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         {
             _logger.Info($"初始化业务 {BusinessType} - {BusinessName}");
 
-            // 初始化参数配置
-            paramSettingModel = _projectSettingRepository.LoadBusiness1ParamProjectParameters();
             // 初始化项目设置
-            fileSaveRootPath = _projectSettingRepository.LoadFileSaveRootPathProjectParameter();
+            var rootPath = _projectSettingRepository.LoadFileSaveRootPathProjectParameter();
+            fileSaveRootPath = Path.Combine(rootPath, BusinessType.ToString());
             // 初始化各个任务
             InitializePLCSigalListenerMonitor();
 
@@ -129,11 +133,59 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
 
             // 清理资源
             gatherPLCDataModels?.Dispose();
+            gatherCCDDataModels?.Clear();
             _cts?.Cancel();
             _cts?.Dispose();
 
             await Task.CompletedTask;
         }
+
+        /// <summary>
+        /// 显示业务配置对话框
+        /// </summary>
+        /// <returns></returns>
+        public override async Task ShowBusinessParamConfigDialogAsync()
+        {
+            await ShowBusinessConfigDialogAsync<Business1ParamModel>(ShowBusinessConfigDialog);
+        }
+
+        #region 参数配置
+        private UserRole userRole;
+
+        /// <summary>
+        /// 当前的锅炉账号权限
+        /// </summary>
+        public UserRole UserRole { get => userRole; set => SetProperty(ref userRole, value); }
+
+        /// <summary>
+        /// 登录用户
+        /// </summary>
+        /// <param name="userAccount"></param>
+        private void OnUserStateChanged(string userAccount)
+        {
+            var roleId = _usersRepository.GetByUserAccount(userAccount)?.RoleId ?? 0;
+
+            UserRole = (UserRole)roleId;
+        }
+
+        /// <summary>
+        /// 显示业务类型1的配置对话框
+        /// </summary>
+        /// <typeparam name="TConfig"></typeparam>
+        /// <param name="config"></param>
+        /// <returns></returns>
+        private async Task<bool> ShowBusinessConfigDialog<TConfig>(TConfig config) where TConfig : class
+        {
+            if (!(config is Business1ParamModel model)) return false;
+            var result = await Dialog.Show(new VM_Business1ParamDialog().UIElement)
+                    .Initialize<VM_Business1ParamDialog>(vm =>
+                    {
+                        vm.UserRole = UserRole;
+                        vm.ItemSource = model;
+                    }).GetResultAsync<bool>();
+            return result;
+        }
+        #endregion
 
         #region 闭环逻辑开发
         #region 闭环全局参数
@@ -141,11 +193,6 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// 文件保存根目录
         /// </summary>
         private string fileSaveRootPath = string.Empty;
-
-        /// <summary>
-        /// 配置参数
-        /// </summary>
-        private Business1ParamModel paramSettingModel = new();
 
         /// <summary>
         /// PLC采集数据缓存
@@ -281,32 +328,34 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                 _logger.Debug($"[{listener.Name}]读取数据信号置位1");
 
                 await Task.Delay(200);
+                var paramModel = LoadJRCWParamSettingModel();
                 short valueShort;
                 float valueFloat;
                 var plcDataModel = new Business1PLCDataModel();
+                plcDataModel.GatherTime = DateTime.Now;
                 plcDataModel.ZJData_XNM = GetPLCAddressValue("卷针处虚拟码");
                 plcDataModel.ZJData_JZH = short.TryParse(GetPLCAddressValue("卷针号"), out valueShort) ? valueShort : (short)0;
-                plcDataModel.MalpositionValueOfPositive = float.TryParse(GetPLCAddressValue("正极错位量"), out valueFloat) ? valueFloat : 0f;
-                plcDataModel.MalpositionValueOfNegative = float.TryParse(GetPLCAddressValue("负极错位量"), out valueFloat) ? valueFloat : 0f;
+                plcDataModel.MVOf = float.TryParse(GetPLCAddressValue("正极错位量"), out valueFloat) ? valueFloat : 0f;
+                plcDataModel.MVOfN = float.TryParse(GetPLCAddressValue("负极错位量"), out valueFloat) ? valueFloat : 0f;
                 for (int i = 0; i < 35; i++)
                 {
                     var value = float.TryParse(GetPLCAddressValue($"正极第{i + 1}个极耳错位偏差量"), out valueFloat) ? valueFloat : 0f;
-                    plcDataModel.MalpositionDeviationValueOfPositiveBatteryTab.Add(value);
+                    plcDataModel.MDVOfPBTab.Add(value);
                 }
                 for (int i = 0; i < 36; i++)
                 {
                     var value = float.TryParse(GetPLCAddressValue($"负极第{i + 1}个极耳错位偏差量"), out valueFloat) ? valueFloat : 0f;
-                    plcDataModel.MalpositionDeviationValueOfNegativeBatteryTab.Add(value);
+                    plcDataModel.MDVOfNBTab.Add(value);
                 }
                 plcDataModel.SV_Pos1 = float.TryParse(GetPLCAddressValue("卷针1变径位置"), out valueFloat) ? valueFloat : 0f;
                 plcDataModel.SV_Pos2 = float.TryParse(GetPLCAddressValue("卷针2变径位置"), out valueFloat) ? valueFloat : 0f;
                 plcDataModel.StampingAirPressure = float.TryParse(GetPLCAddressValue("实时压花气压"), out valueFloat) ? valueFloat : 0f;
 
-                plcDataModel.T1 = paramSettingModel.T1;
-                plcDataModel.T2 = paramSettingModel.T2;
-                plcDataModel.T3 = paramSettingModel.T3;
-                plcDataModel.T4 = paramSettingModel.T4;
-                plcDataModel.K = paramSettingModel.K;
+                plcDataModel.T1 = paramModel.T1;
+                plcDataModel.T2 = paramModel.T2;
+                plcDataModel.T3 = paramModel.T3;
+                plcDataModel.T4 = paramModel.T4;
+                plcDataModel.K = paramModel.K;
 
                 // 缓存
                 gatherPLCDataModels.Add(plcDataModel);
@@ -347,6 +396,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                 await Task.Delay(200);
                 float valueFloat;
                 var ccdDataModel = new Business1CCDDataModel();
+                ccdDataModel.GatherTime = DateTime.Now;
                 ccdDataModel.CCD_ScanCode = GetPLCAddressValue("扫码处虚拟码");
                 ccdDataModel.CCD_Barcode = GetPLCAddressValue("Barcode码");
                 ccdDataModel.FeedInletPositionOfPositive = float.TryParse(GetPLCAddressValue("入料位置-正极"), out valueFloat) ? valueFloat : 0f;
@@ -423,18 +473,21 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                     var ccdData = new Business1CCDDataModel();
                     foreach (var plcData in gatherPLCDataModels.GetConsumingEnumerable())
                     {
-                        var calculateModel = new Business1CalculateModel();
-                        calculateModel.JSingleCache = jSingleCache;
-                        calculateModel.OverJNumCache = overJNumCache;
-                        calculateModel.J1Cache = j1Cache;
-                        calculateModel.J2Cache = j2Cache;
+                        var paramModel = LoadJRCWParamSettingModel();
+                        var cm = new Business1CalculateModel();
+                        cm.CalculateTime = DateTime.Now;
+                        cm.JSingleCache = jSingleCache;
+                        cm.OverJNumCache = overJNumCache;
+                        cm.J1Cache = j1Cache;
+                        cm.J2Cache = j2Cache;
                         try
                         {
                             #region 1.接帯/换卷信号处理
-                            calculateModel.Host_TapeSplicing = await CheckOfChangeOrRewindSignalAsync("接带信号");
-                            calculateModel.Host_ReelAlternatioan = await CheckOfChangeOrRewindSignalAsync("换卷信号");
-                            calculateModel.ChangeOfArithmetic = calculateModel.Host_ReelAlternatioan == 1 ? 2 : (calculateModel.Host_TapeSplicing == 1 ? 1 : 0);
-                            if (calculateModel.ChangeOfArithmetic != 0) calculateDatasCache.Clear();
+                            cm.Host_TapeSplicing = await CheckOfChangeOrRewindSignalAsync("接带信号");
+                            cm.Host_ReelAlternatioan = await CheckOfChangeOrRewindSignalAsync("换卷信号");
+                            if (cm.Host_TapeSplicing == 1) cm.ChangeOfArithmetic = 1;
+                            if (cm.Host_ReelAlternatioan == 1) cm.ChangeOfArithmetic = 2;
+                            if (cm.ChangeOfArithmetic != 0) calculateDatasCache.Clear();
                             #endregion
 
                             #region 2.CCD数据匹配
@@ -445,89 +498,85 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                                 ccdData = new Business1CCDDataModel();
                             }
                             else lock (gatherCCDDataModels) gatherCCDDataModels.Remove(ccdData);
-                            calculateDatasCache.add((calculateModel, plcData));
+                            calculateDatasCache.add((cm, plcData));
                             // 闭环参数最多12条
                             if (calculateDatasCache.Count > 12) calculateDatasCache.RemoveAt(0);
-                            calculateModel.PLCBorcode = plcData.ZJData_XNM;
-                            calculateModel.JZH = plcData.ZJData_JZH;
+                            cm.PLCBorcode = plcData.ZJData_XNM;
+                            cm.JZH = plcData.ZJData_JZH;
                             #endregion
 
-                            #region 3.参数加载:每次重新加载一下参数
-                            LoadJRCWParamSettingModel();
-                            #endregion
-
-                            #region 4.正/负极错位量处理
-                            var reOfMV = await CheckOfMalpositionValueAsync(plcData.MalpositionValueOfPositive, plcData.MalpositionValueOfNegative, paramSettingModel);
+                            #region 3.正/负极错位量处理
+                            var reOfMV = await CheckOfMalpositionValueAsync(plcData.MVOf, plcData.MVOfN, paramModel);
                             if (!reOfMV.result)
                             {
-                                calculateModel.M = reOfMV.m;
-                                calculateModel.EndMessage = reOfMV.message;
+                                cm.M = reOfMV.m;
+                                cm.EndMessage = reOfMV.message;
                                 continue;
                             }
                             #endregion
 
-                            #region 5.算法入参处理(错位分类算法&错位分解算法)
-                            var mdValuesOfPLis = plcData.MalpositionDeviationValueOfPositiveBatteryTab;
+                            #region 4.算法入参处理(错位分类算法&错位分解算法)
+                            var mdValuesOfPLis = plcData.MDVOfPBTab;
                             var mdValuesOfPArr = mdValuesOfPLis.Take(35).Skip(2).Take(mdValuesOfPLis.Count - 4).ToArray();
-                            var mdValuesOfNLis = plcData.MalpositionDeviationValueOfNegativeBatteryTab;
+                            var mdValuesOfNLis = plcData.MDVOfNBTab;
                             var mdValuesOfNArr = mdValuesOfNLis.Take(36).Skip(2).Take(mdValuesOfNLis.Count - 4).ToArray();
                             #endregion
 
-                            #region 6.错位分类算法
+                            #region 5.错位分类算法
                             var cOfM = ExcuteDisclass(mdValuesOfPArr, mdValuesOfNArr);
-                            calculateModel.CategoryOfPositiveMalposition = cOfM.COfPM;
-                            calculateModel.CategoryOfNegativeMalposition = cOfM.COfNM;
+                            cm.CategoryOfPM = cOfM.COfPM;
+                            cm.CategoryOfNM = cOfM.COfNM;
                             #endregion
 
-                            #region 7.错位分解算法
+                            #region 6.错位分解算法
                             // 两个编码是否存在非0值：若存在，则执行错位分解算法
                             if (!(cOfM.COfPM == 0 && cOfM.COfNM == 0))
                             {
                                 var dOfEC = ExcuteErrorCompensation(mdValuesOfPArr, mdValuesOfNArr);
-                                calculateModel.DeltaCOfPositive = dOfEC.DeltaCOfP;
-                                calculateModel.DeltaTCOfPositive = dOfEC.DeltaTCOfP;
-                                calculateModel.DeltaCOfNegative = dOfEC.DeltaCOfN;
-                                calculateModel.DeltaTCOfNegative = dOfEC.DeltaTCOfN;
+                                cm.DeltaCOfP = dOfEC.DeltaCOfP;
+                                cm.DeltaTCOfP = dOfEC.DeltaTCOfP;
+                                cm.DeltaCOfN = dOfEC.DeltaCOfN;
+                                cm.DeltaTCOfN = dOfEC.DeltaTCOfN;
                             }
                             #endregion
 
-                            #region 8.闭环算法
+                            #region 7.闭环算法
                             var data = GetDataOfMisJudge(calculateDatasCache.ToArray());
-                            var t = paramSettingModel.K * (paramSettingModel.Na + paramSettingModel.Nb) / 2;
-                            var reOfMJ = ExcuteMisJudge(data, paramSettingModel, calculateModel.ChangeOfArithmetic, t, jSingleCache, overJNumCache);
+                            var t = paramModel.K * (paramModel.Na + paramModel.Nb) / 2;
+                            var reOfMJ = ExcuteMisJudge(data, paramModel, cm.ChangeOfArithmetic, t, jSingleCache, overJNumCache);
                             jSingleCache = reOfMJ.J_Signal;
                             overJNumCache = reOfMJ.Over_J_Num;
-                            calculateModel.J1 = reOfMJ.J1;
-                            calculateModel.J2 = reOfMJ.J2;
-                            calculateModel.PressJ = reOfMJ.Press_J;
-                            calculateModel.Notes = reOfMJ.Notes;
-                            calculateModel.Dialog = reOfMJ.Dialog;
-                            calculateModel.JSingle = reOfMJ.J_Signal;
-                            calculateModel.OverJNum = reOfMJ.Over_J_Num;
+                            cm.J1 = reOfMJ.J1;
+                            cm.J2 = reOfMJ.J2;
+                            cm.PressJ = reOfMJ.Press_J;
+                            cm.Notes = reOfMJ.Notes;
+                            cm.Dialog = reOfMJ.Dialog;
+                            cm.JSingle = reOfMJ.J_Signal;
+                            cm.OverJNum = reOfMJ.Over_J_Num;
                             // 清空数据表data
                             if (reOfMJ.J1 != 0 || reOfMJ.J2 != 0 || reOfMJ.Press_J != 0) calculateDatasCache.clear();
                             #endregion
                         }
                         catch (Exception ex)
                         {
-                            calculateModel.EndMessage += ex.Message;
+                            cm.EndMessage += ex.Message;
                             _logger.Error("卷绕极耳错位闭环计算异常！", ex);
                         }
                         finally
                         {
                             try
                             {
-                                #region 9.调机下发  闭环执行异常，但有缓存值则依旧下发
-                                var jOfAdjust = await JJPAdjustAsync(plcData.ZJData_JZH, calculateModel.J1, calculateModel.J2, calculateModel.PressJ, calculateModel.Dialog, j1Cache, j2Cache);
+                                #region 8.调机下发  闭环执行异常，但有缓存值则依旧下发
+                                var jOfAdjust = await JJPAdjustAsync(plcData.ZJData_JZH, cm.J1, cm.J2, cm.PressJ, cm.Dialog, j1Cache, j2Cache);
                                 // 缓存
                                 j1Cache = jOfAdjust.j1Cache;
                                 j2Cache = jOfAdjust.j2Cache;
-                                calculateModel.EndMessage = jOfAdjust.message;
+                                cm.EndMessage = jOfAdjust.message;
                                 #endregion
                             }
                             catch (Exception ex)
                             {
-                                calculateModel.EndMessage += ex.Message;
+                                cm.EndMessage += ex.Message;
                                 _logger.Error("卷绕极耳错位闭环下发异常！", ex);
                             }
 
@@ -537,7 +586,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                                 var savePath = Path.Combine(fileSaveRootPath, $"卷绕错位CCD及闭环过程数据\\{DateTime.Now:yyyyMMdd}");
                                 var dic = new Dictionary<string, string>();
                                 ToDictionalByDataColumn(ccdData, ref dic);
-                                ToDictionalByDataColumn(calculateModel, ref dic);
+                                ToDictionalByDataColumn(cm, ref dic);
                                 //var dics = ToDictionalsByDataColumn(ccdData, calculateModel);
                                 var dt = JRCWCsvHelper.DicToTable(dic);
                                 lock (JRCWCsvHelper.WriteLocker) JRCWCsvHelper.WriteCSV(savePath, dt);
@@ -593,7 +642,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <param name="mvOfN"></param>
         /// <param name="pm"></param>
         /// <returns></returns>
-        private async Task<(bool result, double m, string message)> CheckOfMalpositionValueAsync(float mvOfP, float mvOfN, Business1ParamModel pm)
+        private async Task<(bool result, float m, string message)> CheckOfMalpositionValueAsync(float mvOfP, float mvOfN, Business1ParamModel pm)
         {
             var msg = "Success";
 
@@ -622,16 +671,15 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             msg = $"错位异常偏大，推荐变径调整量：{m}，请结合实际情况进行调整！";
             _ = MessageBoxShowDialog(msg, "警告");
 
-            return (false, m, msg);
+            return (false, (float)m, msg);
         }
 
         /// <summary>
         /// 加载业务参数配置
         /// </summary>
-        private void LoadJRCWParamSettingModel()
+        private Business1ParamModel LoadJRCWParamSettingModel()
         {
-            var value = _projectSettingRepository.LoadBusiness1ParamProjectParameters();
-            if (value != null) paramSettingModel = value;
+            return _projectSettingRepository.LoadBusiness1ParamProjectParameters();
         }
 
         #region Python算法相关
@@ -697,7 +745,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
 
                 // 返回算法结果
                 pyResoult.IsSuccess = true;
-                pyResoult.PyOutPut = re;
+                pyResoult.PyOutPut = re.ToString();
                 pyResoult.Result = pyRes;
                 pyResoult.Message = "Success";
             }
@@ -776,7 +824,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
 
                 // 返回算法结果
                 pyResoult.IsSuccess = true;
-                pyResoult.PyOutPut = re;
+                pyResoult.PyOutPut = re.ToString();
                 pyResoult.Result = pyRes;
                 pyResoult.Message = "Success";
             }
@@ -801,7 +849,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <param name="over_j_num"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private MisJudgeOutputModel ExcuteMisJudge(string data, Business1ParamModel pm, int change, double t, int j_single, int over_j_num)
+        private MisJudgeOutputModel ExcuteMisJudge(string data, Business1ParamModel pm, int change, float t, int j_single, int over_j_num)
         {
             var pyResoult = new PyResultModel<MisJudgeInputModel, MisJudgeOutputModel>();
             pyResoult.PyInPut = new MisJudgeInputModel();
@@ -870,7 +918,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
 
                 // 返回算法结果
                 pyResoult.IsSuccess = true;
-                pyResoult.PyOutPut = re;
+                pyResoult.PyOutPut = re.ToString();
                 pyResoult.Result = pyRes;
                 pyResoult.Message = "Success";
             }
@@ -895,12 +943,12 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             foreach (var obj in objs)
             {
                 var dic = new Dictionary<string, string>();
-                dic["正极错位分类类型"] = obj.cm.CategoryOfPositiveMalposition.ToString();
-                dic["负极错位分类类型"] = obj.cm.CategoryOfNegativeMalposition.ToString();
-                dic["正极卷针周长波动"] = obj.cm.DeltaCOfPositive.ToString();
-                dic["正极极片厚度波动"] = obj.cm.DeltaTCOfPositive.ToString();
-                dic["负极卷针周长波动"] = obj.cm.DeltaCOfNegative.ToString();
-                dic["负极极片厚度波动"] = obj.cm.DeltaTCOfNegative.ToString();
+                dic["正极错位分类类型"] = obj.cm.CategoryOfPM.ToString();
+                dic["负极错位分类类型"] = obj.cm.CategoryOfNM.ToString();
+                dic["正极卷针周长波动"] = obj.cm.DeltaCOfP.ToString();
+                dic["正极极片厚度波动"] = obj.cm.DeltaTCOfP.ToString();
+                dic["负极卷针周长波动"] = obj.cm.DeltaCOfN.ToString();
+                dic["负极极片厚度波动"] = obj.cm.DeltaTCOfN.ToString();
                 ToDictionalByDataColumn(obj.pd, ref dic);
                 lis.Add(dic);
             }

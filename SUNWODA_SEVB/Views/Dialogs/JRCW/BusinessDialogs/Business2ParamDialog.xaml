@@ -230,6 +230,12 @@
                 <StackPanel VerticalAlignment="Top" Orientation="Vertical">
                     <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="参数设置" />
                     <Rectangle />
+                    <hc:TextBox
+                        Width="360"
+                        hc:InfoElement.Placeholder="请输入"
+                        hc:InfoElement.Title="数采触发极耳层数"
+                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Engineer,Admin,SuperAdmin'}"
+                        Text="{Binding ItemSource.TabCount, Mode=TwoWay}" />
                     <hc:ComboBox
                         Width="360"
                         Margin="0,10,0,0"
@@ -337,106 +343,58 @@
                 </StackPanel>
             </Border>
 
-            <hc:TabControl Grid.Row="1" Grid.ColumnSpan="2">
-                <!--  1#完美电芯  -->
-                <hc:TabItem Header="1#完美电芯" Style="{StaticResource HCTabItemStyle}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+            <Grid Grid.Row="1" Grid.ColumnSpan="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <hc:TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTabIndex}">
+                    <!--  1#完美电芯  -->
+                    <hc:TabItem Header="1#完美电芯" Style="{StaticResource HCTabItemStyle}">
                         <ContentPresenter Content="{Binding ItemSource.PerfectBattery1}" ContentTemplate="{StaticResource PerfectBatteryDataTemplate}" />
-                        <Rectangle Grid.Row="1" Margin="0,20,0,0" />
-                        <StackPanel
-                            Grid.Row="2"
-                            Margin="0,20,0,0"
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal">
-                            <hc:TextBox
-                                MinWidth="180"
-                                Margin="0"
-                                hc:InfoElement.Placeholder="请输入电芯条码"
-                                hc:InfoElement.TitleWidth="0"
-                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Engineer,Admin,SuperAdmin'}"
-                                Text="{Binding ItemSource.PerfectBattery1.BatteryCode, Mode=TwoWay}" />
-                            <Button
-                                Command="{Binding PerfectBatteryConfigCommand}"
-                                CommandParameter="1"
-                                Content="开始配置"
-                                IsEnabled="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='Engineer,Admin,SuperAdmin'}"
-                                Style="{StaticResource ConfirmButtonStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </hc:TabItem>
-
-                <!--  2#完美电芯  -->
-                <hc:TabItem Header="2#完美电芯" Style="{StaticResource HCTabItemStyle}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                    </hc:TabItem>
+                    <!--  2#完美电芯  -->
+                    <hc:TabItem Header="2#完美电芯" Style="{StaticResource HCTabItemStyle}">
                         <ContentPresenter Content="{Binding ItemSource.PerfectBattery2}" ContentTemplate="{StaticResource PerfectBatteryDataTemplate}" />
-                        <Rectangle Grid.Row="1" Margin="0,20,0,0" />
-                        <StackPanel
-                            Grid.Row="2"
-                            Margin="0,20,0,0"
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal">
-                            <hc:TextBox
-                                MinWidth="180"
-                                Margin="0"
-                                hc:InfoElement.Placeholder="请输入电芯条码"
-                                hc:InfoElement.TitleWidth="0"
-                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Engineer,Admin,SuperAdmin'}"
-                                Text="{Binding ItemSource.PerfectBattery2.BatteryCode, Mode=TwoWay}" />
-                            <Button
-                                Command="{Binding PerfectBatteryConfigCommand}"
-                                CommandParameter="2"
-                                Content="开始配置"
-                                IsEnabled="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='Engineer,Admin,SuperAdmin'}"
-                                Style="{StaticResource ConfirmButtonStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </hc:TabItem>
-
-                <!--  3#完美电芯（根据针型控制显示）  -->
-                <hc:TabItem
-                    Header="3#完美电芯"
-                    Style="{StaticResource HCTabItemStyle}"
-                    Visibility="{Binding ItemSource.NeedleType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=三针}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                    </hc:TabItem>
+                    <!--  3#完美电芯（根据针型控制显示）  -->
+                    <hc:TabItem
+                        Header="3#完美电芯"
+                        Style="{StaticResource HCTabItemStyle}"
+                        Visibility="{Binding ItemSource.NeedleType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=三针}">
                         <ContentPresenter Content="{Binding ItemSource.PerfectBattery3}" ContentTemplate="{StaticResource PerfectBatteryDataTemplate}" />
-                        <Rectangle Grid.Row="1" Margin="0,20,0,0" />
-                        <StackPanel
-                            Grid.Row="2"
-                            Margin="0,20,0,0"
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal">
-                            <hc:TextBox
-                                MinWidth="180"
-                                Margin="0"
-                                hc:InfoElement.Placeholder="请输入电芯条码"
-                                hc:InfoElement.TitleWidth="0"
-                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Engineer,Admin,SuperAdmin'}"
-                                Text="{Binding ItemSource.PerfectBattery3.BatteryCode, Mode=TwoWay}" />
-                            <Button
-                                Command="{Binding PerfectBatteryConfigCommand}"
-                                CommandParameter="3"
-                                Content="开始配置"
-                                IsEnabled="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='Engineer,Admin,SuperAdmin'}"
-                                Style="{StaticResource ConfirmButtonStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </hc:TabItem>
-            </hc:TabControl>
+                    </hc:TabItem>
+                </hc:TabControl>
+                <Border
+                    Grid.Row="1"
+                    Margin="0,0,20,0"
+                    CornerRadius="0">
+                    <Rectangle Margin="0" />
+                </Border>
+                <Border
+                    Grid.Row="2"
+                    Margin="0,0,20,0"
+                    CornerRadius="0">
+                    <StackPanel
+                        Margin="0,-20,0,0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal">
+                        <hc:TextBox
+                            MinWidth="180"
+                            Margin="0"
+                            hc:InfoElement.Placeholder="请输入电芯条码"
+                            hc:InfoElement.TitleWidth="0"
+                            IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Engineer,Admin,SuperAdmin'}"
+                            Text="{Binding VerifyBatteryCode, Mode=TwoWay}" />
+                        <Button
+                            Command="{Binding VerifyBatteryCodeCommand}"
+                            Content="开始配置"
+                            IsEnabled="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='Engineer,Admin,SuperAdmin'}"
+                            Style="{StaticResource ConfirmButtonStyle}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
 
             <Border
                 Grid.Row="1"
@@ -462,7 +420,7 @@
                         hc:InfoElement.Placeholder="请输入"
                         hc:InfoElement.Title="稳定首极耳圈周长-负极"
                         IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.Can, Mode=TwoWay}" />
+                        Text="{Binding ItemSource.Ca1, Mode=TwoWay}" />
                     <hc:TextBox
                         Width="360"
                         hc:InfoElement.Placeholder="请输入"

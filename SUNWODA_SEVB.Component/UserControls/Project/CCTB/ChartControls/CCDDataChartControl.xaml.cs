@@ -120,15 +120,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         #endregion
 
         #region ItemASource
-        public CCDModel ItemASource
+        public CCDMessageModel ItemASource
         {
-            get { return (CCDModel)GetValue(ItemASourceProperty); }
+            get { return (CCDMessageModel)GetValue(ItemASourceProperty); }
             set { SetValue(ItemASourceProperty, value); }
         }
 
         public static readonly DependencyProperty ItemASourceProperty = DependencyProperty.Register(
             nameof(ItemASource),
-            typeof(CCDModel),
+            typeof(CCDMessageModel),
             typeof(CCDDataChartControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnItemASourceChanged))
         );
@@ -144,15 +144,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         #endregion
 
         #region ItemBSource
-        public CCDModel ItemBSource
+        public CCDMessageModel ItemBSource
         {
-            get { return (CCDModel)GetValue(ItemBSourceProperty); }
+            get { return (CCDMessageModel)GetValue(ItemBSourceProperty); }
             set { SetValue(ItemBSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ItemBSourceProperty = DependencyProperty.Register(
             nameof(ItemBSource),
-            typeof(CCDModel),
+            typeof(CCDMessageModel),
             typeof(CCDDataChartControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnItemBSourceChanged))
         );
@@ -191,7 +191,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        private int GetFilmCount(CCDModel? model)
+        private int GetFilmCount(CCDMessageModel? model)
         {
             if (model == null) return 0;
             var filmCount1 = model.BatteryTabDatas?.Length - 1 ?? 0;
@@ -308,7 +308,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         private Style? tbStyle;
         private List<TextBlock> tbsA = new(), tbsB = new();
 
-        private void UpdateData(ref Grid dataGrid, ref List<TextBlock> tbs, CCDModel itemSource, bool isDataA = true, int maxFilmCount = 1)
+        private void UpdateData(ref Grid dataGrid, ref List<TextBlock> tbs, CCDMessageModel itemSource, bool isDataA = true, int maxFilmCount = 1)
         {
             if (maxFilmCount < 1) return;
             var columnCount = 1 + 6 * maxFilmCount;

@@ -111,13 +111,13 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Width="120" Header="极面">
+                        <DataGridTemplateColumn Width="120" Header="名称">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock
                                         Margin="20,0,5,0"
                                         Style="{StaticResource RecordTextBlockStyle}"
-                                        Text="{Binding SideType}" />
+                                        Text="{Binding Name}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

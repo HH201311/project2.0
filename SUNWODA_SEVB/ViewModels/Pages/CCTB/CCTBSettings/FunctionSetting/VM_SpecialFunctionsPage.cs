@@ -10,10 +10,11 @@ using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
-using SUNWODA_SEVB.Tool.Extension;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -94,8 +95,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <summary>
         /// 功能参数界面切换时触发
         /// </summary>
-        private void OnControlPageNavigateCommand()
+        private void OnControlPageNavigateCommand(object? arg)
         {
+            if (!(arg is string pageName)) return;
+
+            _logger.UserInfo($"用户导航到了 特殊功能/{pageName} 界面！");
+
             LoadFunctionSettingModel();
         }
 
@@ -105,7 +110,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         private async void OnParamSaveAsync()
         {
             var re = _projectSettingRepository.SaveSpecialFunctionSettingProjectParameters(FunctionModel);
-            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            if (re)
+            {
+                // 参数更新通知
+                CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                {
+                    Tag = "特殊功能参数保存成功！",
+                    Message = FunctionModel
+                });
+                _logger.UserInfo($"用户保存了 特殊功能/{ControlPageName} 参数修改！");
+                await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            }
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 

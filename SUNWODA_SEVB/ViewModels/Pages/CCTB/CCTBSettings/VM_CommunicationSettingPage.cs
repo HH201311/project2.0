@@ -3,6 +3,7 @@ using HandyControl.Tools.Extension;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Mqtt;
@@ -10,8 +11,11 @@ using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
+using SUNWODA_SEVB.Core.Models.Mqtt;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.ProtocolModels.WMSocketClient;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
+using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
@@ -23,6 +27,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using TouchSocket.Sockets;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 {
@@ -125,8 +130,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// <summary>
         /// 通讯设置界面切换时触发
         /// </summary>
-        private void OnControlPageNavigateCommand()
+        private void OnControlPageNavigateCommand(object? arg)
         {
+            if (!(arg is string pageName)) return;
+
+            _logger.UserInfo($"用户导航到了 通讯设置/{pageName} 界面！");
+
             LoadCommunicationSettingModel();
         }
 
@@ -144,7 +153,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             }
 
             var re = _projectSettingRepository.SaveCommunicationSettingProjectParameters(CommunicationModel);
-            if (re) await VM_CCTBMessageBoxDialog.SuccessAsync("保存成功！相关设备将自动更新配置或连接！", "保存提示");
+            if (re)
+            {
+                _logger.UserInfo($"用户保存了 通讯设置/{ControlPageName} 参数修改！");
+                await VM_CCTBMessageBoxDialog.SuccessAsync("保存成功！相关设备将自动更新配置或连接！", "保存提示");
+            }
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 
@@ -227,17 +240,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 var moduleName = ICommunicationService.ModuleToConfigGroupMap[deviceName];
 
                 var options = await _socketOptionsLoader.LoadClientOptionsAsync(moduleName);
+                _logger.UserInfo($"用户打开了 Socket 客户端[{moduleName}]配置窗口！");
                 var result = await Dialog.Show(new VM_SocketClientConfigDialog().UIElement)
                             .Initialize<VM_SocketClientConfigDialog>(o =>
                             {
                                 o.CommunicationOptions = options;
                                 o.ProtocolOptions = options.Protocol;
+                                o.ResetOptionCommand = new RelayCommand(async (arg) =>
+                                {
+                                    if (!(arg is SocketClientOptions options)) return;
+                                    ReserSocketOptions(ref options);
+                                    await VM_CCTBMessageBoxDialog.SuccessAsync($"通讯配置已恢复默认配置，您可点击 保存 按钮保存您的修改！", "提示");
+                                });
+                                o.ResetProtocolCommand = new RelayCommand(async (arg) =>
+                                {
+                                    if (!(arg is ProtocolOptions protocol)) return;
+                                    ResetSocketProtocol(deviceName, ref protocol);
+                                    await VM_CCTBMessageBoxDialog.SuccessAsync($"协议配置已恢复默认配置，您可点击 保存 按钮保存您的修改！", "提示");
+                                });
                             })
                             .GetResultAsync<bool>();
 
                 if (!result)
                 {
-                    _logger.Info($"用户取消 Socket 客户端[{moduleName}]配置修改");
+                    _logger.UserInfo($"用户取消 Socket 客户端[{moduleName}]配置修改");
                     return;
                 }
                 var old = await _socketOptionsLoader.LoadClientOptionsAsync(moduleName);
@@ -256,7 +282,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                     $"协议配置: {(isProtocolChanged ? "已修改" : "未修改")}", "确认保存");
                 if (confirmResult != System.Windows.MessageBoxResult.OK)
                 {
-                    _logger.Info($"用户取消保存Socket客户端[{moduleName}]配置");
+                    _logger.UserInfo($"用户取消保存Socket客户端[{moduleName}]配置");
                     return;
                 }
 
@@ -277,21 +303,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 
                 if (updateErrors.Count == 0)
                 {
-                    _logger.Info($"Socket 客户端[{moduleName}]配置保存成功");
+                    _logger.UserInfo($"Socket 客户端[{moduleName}]配置保存成功");
                     await VM_CCTBMessageBoxDialog.SuccessAsync($"Socket 客户端[{moduleName}]配置更新完成！", "提示");
                 }
-                else if (updateErrors.Count == 1 && !serverUpdateSuccess && !protocolUpdateSuccess)
+                else if (!serverUpdateSuccess && !protocolUpdateSuccess)
                 {
-                    _logger.Error($"Socket 客户端[{moduleName}]配置保存完全失败");
+                    _logger.UserError($"Socket 客户端[{moduleName}]配置保存完全失败");
                     await VM_CCTBMessageBoxDialog.ErrorAsync($"Socket 客户端[{moduleName}]配置更新失败！\n原因：{string.Join("、", updateErrors)}", "提示");
+                    _communicationService.NotifyModulesChanged(deviceName);
                 }
                 else
                 {
-                    _logger.Warn($"Socket 客户端[{moduleName}]配置部分保存失败");
+                    _logger.UserWarn($"Socket 客户端[{moduleName}]配置部分保存失败");
                     await VM_CCTBMessageBoxDialog.WarningAsync($"Socket 客户端[{moduleName}]配置部分更新成功！\n失败项：{string.Join("、", updateErrors)}", "提示");
                 }
-
-                _communicationService.NotifyModulesChanged(deviceName);
             }
             catch (Exception ex)
             {
@@ -312,18 +337,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                 var moduleName = ICommunicationService.ModuleToConfigGroupMap[deviceName];
 
                 var options = await _socketOptionsLoader.LoadServerOptionsAsync(moduleName);
-                var result = await Dialog
-                            .Show(new VM_SocketServerConfigDialog().UIElement)
+                _logger.UserInfo($"用户打开了 Socket 服务端[{moduleName}]配置窗口！");
+                var result = await Dialog.Show(new VM_SocketServerConfigDialog().UIElement)
                             .Initialize<VM_SocketServerConfigDialog>(o =>
                             {
                                 o.CommunicationOptions = options;
                                 o.ProtocolOptions = options.Protocol;
+                                o.ResetOptionCommand = new RelayCommand(async (arg) =>
+                                {
+                                    if (!(arg is SocketServerOptions options)) return;
+                                    ReserSocketOptions(ref options);
+                                    await VM_CCTBMessageBoxDialog.SuccessAsync($"通讯配置已恢复默认配置，您可点击 保存 按钮保存您的修改！", "提示");
+                                });
+                                o.ResetProtocolCommand = new RelayCommand(async (arg) =>
+                                {
+                                    if (!(arg is ProtocolOptions protocol)) return;
+                                    ResetSocketProtocol(deviceName, ref protocol);
+                                    await VM_CCTBMessageBoxDialog.SuccessAsync($"协议配置已恢复默认配置，您可点击 保存 按钮保存您的修改！", "提示");
+                                });
                             })
                             .GetResultAsync<bool>();
 
                 if (!result)
                 {
-                    _logger.Info($"用户取消 Socket 服务端[{moduleName}]配置修改");
+                    _logger.UserInfo($"用户取消 Socket 服务端[{moduleName}]配置修改");
                     return;
                 }
                 var old = await _socketOptionsLoader.LoadServerOptionsAsync(moduleName);
@@ -342,7 +379,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
                     $"协议配置: {(isProtocolChanged ? "已修改" : "未修改")}", "确认保存");
                 if (confirmResult != System.Windows.MessageBoxResult.OK)
                 {
-                    _logger.Info($"用户取消保存Socket服务端[{moduleName}]配置");
+                    _logger.UserInfo($"用户取消保存Socket服务端[{moduleName}]配置");
                     return;
                 }
 
@@ -363,17 +400,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
 
                 if (updateErrors.Count == 0)
                 {
-                    _logger.Info($"Socket 服务端[{moduleName}]配置保存成功");
+                    _logger.UserInfo($"Socket 服务端[{moduleName}]配置保存成功");
                     await VM_CCTBMessageBoxDialog.SuccessAsync($"Socket 服务端[{moduleName}]配置更新完成！", "提示");
                 }
-                else if (updateErrors.Count == 1 && !serverUpdateSuccess && !protocolUpdateSuccess)
+                else if (!serverUpdateSuccess && !protocolUpdateSuccess)
                 {
-                    _logger.Error($"Socket 服务端[{moduleName}]配置保存完全失败");
+                    _logger.UserError($"Socket 服务端[{moduleName}]配置保存完全失败");
                     await VM_CCTBMessageBoxDialog.ErrorAsync($"Socket 服务端[{moduleName}]配置更新失败！\n原因：{string.Join("、", updateErrors)}", "提示");
                 }
                 else
                 {
-                    _logger.Warn($"Socket 服务端[{moduleName}]配置部分保存失败");
+                    _logger.UserWarn($"Socket 服务端[{moduleName}]配置部分保存失败");
                     await VM_CCTBMessageBoxDialog.WarningAsync($"Socket 服务端[{moduleName}]配置部分更新成功！\n失败项：{string.Join("、", updateErrors)}", "提示");
                 }
 
@@ -402,57 +439,232 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             {
                 if (!(parameter is string deviceName)) return;
                 var moduleName = ICommunicationService.ModuleToConfigGroupMap[deviceName];
+                var sideType = deviceName switch
+                {
+                    ICommunicationService.DHAMqttClientDeviceName => ESideType.A,
+                    ICommunicationService.DHBMqttClientDeviceName => ESideType.B,
+                    _ => throw new Exception($"不支持的设备：{deviceName}")
+                };
 
                 var options = await _customMqttOptionsLoader.LoadMqttClientOptionsAsync(moduleName);
-
+                var addressModel = _projectSettingRepository.LoadMqttAddressSettingProjectParameters(sideType);
+                _logger.UserInfo($"用户打开了 Mqtt 客户端[{moduleName}]配置窗口！");
                 var result = await Dialog.Show(new VM_MqttClientConfigDialog().UIElement)
                             .Initialize<VM_MqttClientConfigDialog>(o =>
                             {
                                 o.CommunicationOptions = options;
+                                o.AddressModel = addressModel;
+                                o.ResetOptionCommand = new RelayCommand(async (arg) =>
+                                {
+                                    if (!(arg is CustomMqttClientOptions options)) return;
+                                    ResetMqttOptions(deviceName, ref options);
+                                    await VM_CCTBMessageBoxDialog.SuccessAsync($"通讯配置已恢复默认配置，您可点击 保存 按钮保存您的修改！", "提示");
+                                });
+                                o.ResetAddressCommand = new RelayCommand(async (arg) =>
+                                {
+                                    if (!(arg is MqttAddressModel address)) return;
+                                    ResetMqttAddress(deviceName, ref address);
+                                    await VM_CCTBMessageBoxDialog.SuccessAsync($"通讯配置已恢复默认配置，您可点击 保存 按钮保存您的修改！", "提示");
+                                });
                             })
                             .GetResultAsync<bool>();
 
                 if (!result)
                 {
-                    _logger.Info($"用户取消 Mqtt 客户端[{moduleName}]配置修改");
+                    _logger.UserInfo($"用户取消 Mqtt 客户端[{moduleName}]配置修改");
                     return;
                 }
 
-                var old = await _customMqttOptionsLoader.LoadMqttClientOptionsAsync(moduleName);
-                var isChanged = !options.EqualsByJson(old);
-                if (!isChanged)
+                var oldOption = await _customMqttOptionsLoader.LoadMqttClientOptionsAsync(moduleName);
+                var oldAddress = _projectSettingRepository.LoadMqttAddressSettingProjectParameters(sideType);
+                var isOptionChanged = !options.EqualsByJson(oldOption);
+                var isAddressChanged = !addressModel.EqualsByJson(oldAddress);
+                if (!isOptionChanged && !isAddressChanged)
                 {
                     await VM_CCTBMessageBoxDialog.InfoAsync($"Mqtt 客户端[{moduleName}]配置未修改，无需保存！", "提示");
                     return;
                 }
 
-                var confirmResult = await VM_CCTBMessageBoxDialog.AskAsync($"确认保存 Mqtt 客户端[{moduleName}]配置修改？", "确认保存");
-
+                var confirmResult = await VM_CCTBMessageBoxDialog.AskAsync(
+                        $"确认保存 Mqtt 客户端[{moduleName}]配置修改？\n\n" +
+                        $"通讯配置: {(isOptionChanged ? "已修改" : "未修改")}\n" +
+                        $"地址信息配置: {(isAddressChanged ? "已修改" : "未修改")}", "确认保存");
                 if (confirmResult != System.Windows.MessageBoxResult.OK)
                 {
-                    _logger.Info($"用户取消保存 Mqtt 客户端[{moduleName}]配置");
+                    _logger.UserInfo($"用户取消保存Mqtt客户端[{moduleName}]配置");
                     return;
                 }
 
-                var isUpdateSuccess = await _customMqttOptionsLoader.UpdateMqttClientOptionsAsync(moduleName, options);
+                bool optionUpdateSuccess = true, addressUpdateSuccess = true;
+                var updateErrors = new List<string>();
 
-                if (isUpdateSuccess)
+                if (isOptionChanged)
                 {
-                    _logger.Info($"Mqtt 客户端[{moduleName}]配置保存成功");
+                    optionUpdateSuccess = await _customMqttOptionsLoader.UpdateMqttClientOptionsAsync(moduleName, options);
+                    if (!optionUpdateSuccess) updateErrors.Add("客户器通讯配置更新失败");
+                }
+
+                if (isAddressChanged)
+                {
+                    addressUpdateSuccess = _projectSettingRepository.SaveMqttAddressSettingProjectParameters(sideType, addressModel);
+                    if (!addressUpdateSuccess) updateErrors.Add("客户器地址信息配置更新失败");
+                }
+
+                if (updateErrors.Count == 0)
+                {
+                    _logger.UserInfo($"Mqtt 客户端[{moduleName}]配置保存成功");
                     await VM_CCTBMessageBoxDialog.SuccessAsync($"Mqtt 客户端[{moduleName}]配置更新完成！", "提示");
+                }
+                else if (!optionUpdateSuccess && !addressUpdateSuccess)
+                {
+                    _logger.UserError($"Mqtt 客户端[{moduleName}]配置保存完全失败");
+                    await VM_CCTBMessageBoxDialog.ErrorAsync($"Mqtt 客户端[{moduleName}]配置更新失败！\n原因：{string.Join("、", updateErrors)}", "提示");
                 }
                 else
                 {
-                    _logger.Error($"Mqtt 客户端[{moduleName}]配置保存失败");
-                    await VM_CCTBMessageBoxDialog.ErrorAsync($"Mqtt 客户端[{moduleName}]配置更新失败！", "提示");
+                    _logger.UserWarn($"Mqtt 客户端[{moduleName}]配置部分保存失败");
+                    await VM_CCTBMessageBoxDialog.WarningAsync($"Mqtt 客户端[{moduleName}]配置部分更新成功！\n失败项：{string.Join("、", updateErrors)}", "提示");
                 }
 
-                _communicationService.NotifyModulesChanged(deviceName);
+                if (optionUpdateSuccess) _communicationService.NotifyModulesChanged(deviceName);
             }
             catch (Exception ex)
             {
                 _logger.Error($"Mqtt 客户端配置保存异常: {ex.Message}", ex);
                 await VM_CCTBMessageBoxDialog.ErrorAsync($"保存配置时发生异常：{ex.Message}", "错误");
+            }
+        }
+
+        /// <summary>
+        /// 重置通讯配置
+        /// </summary>
+        /// <param name="options"></param>
+        private void ReserSocketOptions(ref SocketServerOptions options)
+        {
+            options.MaxClients = 5;
+            options.ReceiveBufferSize = 8192;
+            options.Backlog = 100;
+            options.ReceiveTimeoutMilliseconds = 0;
+            options.DefaultPort = 8080;
+        }
+
+        /// <summary>
+        /// 重置通讯配置
+        /// </summary>
+        /// <param name="options"></param>
+        private void ReserSocketOptions(ref SocketClientOptions options)
+        {
+            options.ConnectTimeoutMilliseconds = 5000;
+            options.ReceiveBufferSize = 8192;
+            options.ReceiveTimeout = 5000;
+            options.SendTimeout = 5000;
+            options.defaultIP = "localhost";
+            options.defaultPort = 8080;
+        }
+
+        /// <summary>
+        /// 重置协议配置
+        /// </summary>
+        /// <param name="deviceName"></param>
+        /// <param name="protocol"></param>
+        private void ResetSocketProtocol(string deviceName, ref ProtocolOptions protocol)
+        {
+            switch (deviceName)
+            {
+                case ICommunicationService.WMSocketClientDeviceName:
+                    {
+                        protocol.FramingMode = FramingMode.StartEndDelimiter;
+                        protocol.StartDelimiter = MeasurementFrame.StartMarker.ToArray();
+                        protocol.EndDelimiter = MeasurementFrame.EndMarker.ToArray();
+                        protocol.StripDelimiters = false;
+                        break;
+                    }
+                case ICommunicationService.WMSocketServerDeviceName:
+                case ICommunicationService.DHSocketServerDeviceName:
+                case ICommunicationService.DHASocketClientDeviceName:
+                case ICommunicationService.DHBSocketClientDeviceName:
+                    {
+                        protocol.FramingMode = FramingMode.StartEndDelimiter;
+                        protocol.StartDelimiter = Encoding.UTF8.GetBytes("\u0002");
+                        protocol.EndDelimiter = Encoding.UTF8.GetBytes("\u0003");
+                        break;
+                    }
+                case ICommunicationService.CCDSocketServerDeviceName:
+                    {
+                        protocol.FramingMode = FramingMode.EndDelimiterOnly;
+                        protocol.StartDelimiter = Encoding.UTF8.GetBytes("|||");
+                        protocol.EndDelimiter = Encoding.UTF8.GetBytes("|||");
+                        protocol.StripDelimiters = true;
+                        break;
+                    }
+                default:
+                    {
+                        protocol.FramingMode = FramingMode.None;
+                        break;
+                    }
+            }
+        }
+
+        /// <summary>
+        /// 重置协议配置
+        /// </summary>
+        /// <param name="deviceName"></param>
+        /// <param name="options"></param>
+        private void ResetMqttOptions(string deviceName, ref CustomMqttClientOptions options)
+        {
+            switch (deviceName)
+            {
+                case ICommunicationService.DHAMqttClientDeviceName:
+                case ICommunicationService.DHBMqttClientDeviceName:
+                    {
+                        options.ClientId = "ime";
+                        options.ConnectTimeout = 5000;
+                        options.UserName = "ime";
+                        options.Password = "123456";
+                        options.KeepAlivePeriod = 10;
+                        options.KeepAliveSendInterval = 10;
+                        options.IpAddress = "localhost";
+                        options.Port = 183;
+                        options.PublishTopics = new();
+                        options.SubscribeTopics = new();
+                        break;
+                    }
+                default: break;
+            }
+        }
+
+        /// <summary>
+        /// 重置Mqtt地址配置
+        /// </summary>
+        /// <param name="deviceName"></param>
+        /// <param name="address"></param>
+        private void ResetMqttAddress(string deviceName, ref MqttAddressModel address)
+        {
+            switch (deviceName)
+            {
+                case ICommunicationService.DHAMqttClientDeviceName:
+                    {
+                        address.Protocol = "fins";
+                        address.PumpAddress1 = "8176";
+                        address.PumpAddress2 = string.Empty;
+                        address.PumpAddress3 = string.Empty;
+                        address.PumpAddress4 = string.Empty;
+                        address.PumpAddress5 = string.Empty;
+                        address.FlagAddress = "8186";
+                        break;
+                    }
+                case ICommunicationService.DHBMqttClientDeviceName:
+                    {
+                        address.Protocol = "fins";
+                        address.PumpAddress1 = "8236";
+                        address.PumpAddress2 = string.Empty;
+                        address.PumpAddress3 = string.Empty;
+                        address.PumpAddress4 = string.Empty;
+                        address.PumpAddress5 = string.Empty;
+                        address.FlagAddress = "8226";
+                        break;
+                    }
+                default: break;
             }
         }
         #endregion

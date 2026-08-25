@@ -2,6 +2,7 @@
     x:Class="SUNWODA_SEVB.Views.Dialogs.CCTB.CommunicationOptions.SocketServerConfigDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.CoatingOPMM"
@@ -24,6 +25,9 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBParamControlStyles.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <convert:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+            <convert:ByteArrayToHexStringConverter x:Key="ByteArrayToHexStringConverter" />
 
             <!--  标题样式  -->
             <Style x:Key="ConfigTitleTextBlockStyle" TargetType="TextBlock">
@@ -109,7 +113,19 @@
                 Background="#0DFFFFFF"
                 CornerRadius="10">
                 <StackPanel Grid.Row="1" Orientation="Vertical">
-                    <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="通讯配置" />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="通讯配置" />
+                        <Button
+                            Width="110"
+                            Margin="10,0,0,0"
+                            BorderBrush="#FF3DCC84"
+                            Command="{Binding ResetOptionCommand}"
+                            CommandParameter="{Binding CommunicationOptions}"
+                            Content="恢复默认设置"
+                            DockPanel.Dock="Right"
+                            Foreground="#FF3DCC84"
+                            Style="{StaticResource ParamCancleButtonStyle}" />
+                    </DockPanel>
                     <Rectangle Margin="0,20,0,0" Style="{StaticResource ParamLineRectangleStyle}" />
                     <UniformGrid Columns="2">
                         <hc:TextBox
@@ -144,7 +160,19 @@
                 Background="#0DFFFFFF"
                 CornerRadius="10">
                 <StackPanel Orientation="Vertical">
-                    <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="协议配置" />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Style="{StaticResource ConfigHeaderTextBlockStyle}" Text="协议配置" />
+                        <Button
+                            Width="110"
+                            Margin="10,0,0,0"
+                            BorderBrush="#FF3DCC84"
+                            Command="{Binding ResetProtocolCommand}"
+                            CommandParameter="{Binding ProtocolOptions}"
+                            Content="恢复默认设置"
+                            DockPanel.Dock="Right"
+                            Foreground="#FF3DCC84"
+                            Style="{StaticResource ParamCancleButtonStyle}" />
+                    </DockPanel>
                     <Rectangle Margin="0,20,0,0" Style="{StaticResource ParamLineRectangleStyle}" />
                     <UniformGrid Columns="2">
                         <hc:ComboBox
@@ -157,42 +185,58 @@
                             SelectedValuePath="ItemValue" />
                         <hc:TextBox
                             Width="400"
-                            hc:InfoElement.Placeholder="可为空，表示无起始符"
+                            hc:InfoElement.Necessary="False"
+                            hc:InfoElement.Placeholder="16进制字符,eg:02 A3 B1"
                             hc:InfoElement.Title="起始符"
-                            Text="{Binding ProtocolOptions.StartDelimiter, Mode=TwoWay}" />
+                            IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='StartEndDelimiter'}"
+                            Text="{Binding ProtocolOptions.StartDelimiter, Mode=TwoWay, Converter={StaticResource ByteArrayToHexStringConverter}}" />
                         <hc:TextBox
                             Width="400"
-                            hc:InfoElement.Placeholder="可为空，表示无结束符"
+                            hc:InfoElement.Placeholder="16进制字符,eg:02 A3 B1"
                             hc:InfoElement.Title="结束符"
-                            Text="{Binding ProtocolOptions.EndDelimiter, Mode=TwoWay}" />
+                            IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='StartEndDelimiter,EndDelimiterOnly'}"
+                            Text="{Binding ProtocolOptions.EndDelimiter, Mode=TwoWay, Converter={StaticResource ByteArrayToHexStringConverter}}" />
                         <uccc:PairContentControl PairKeyText="是否在解析后移除起止符">
-                            <uccc:SimpleToggleButton IsChecked="{Binding ProtocolOptions.StripDelimiters, Mode=TwoWay}" Style="{StaticResource YNSimpleToggleButtonStyle}" />
+                            <uccc:SimpleToggleButton
+                                IsChecked="{Binding ProtocolOptions.StripDelimiters, Mode=TwoWay}"
+                                IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='StartEndDelimiter,EndDelimiterOnly'}"
+                                Style="{StaticResource YNSimpleToggleButtonStyle}" />
                         </uccc:PairContentControl>
                         <hc:TextBox
                             Width="400"
                             hc:InfoElement.Placeholder="FixedLength模式使用"
                             hc:InfoElement.Title="固定长度"
+                            IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='FixedLength'}"
                             Text="{Binding ProtocolOptions.FixedFrameLength, Mode=TwoWay}" />
                         <hc:TextBox
                             Width="400"
                             hc:InfoElement.Placeholder="LengthPrefixed模式使用"
                             hc:InfoElement.Title="长度字段偏移量"
+                            IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='LengthPrefixed'}"
                             Text="{Binding ProtocolOptions.LengthFieldOffset, Mode=TwoWay}" />
                         <hc:TextBox
                             Width="400"
                             hc:InfoElement.Placeholder="长度字段字节数 (1, 2, 4)"
                             hc:InfoElement.Title="长度字段字节数"
+                            IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='LengthPrefixed'}"
                             Text="{Binding ProtocolOptions.LengthFieldSize, Mode=TwoWay}" />
                         <uccc:PairContentControl PairKeyText="长度值是否包含头部长度">
-                            <uccc:SimpleToggleButton IsChecked="{Binding ProtocolOptions.LengthIncludesHeader, Mode=TwoWay}" Style="{StaticResource YNSimpleToggleButtonStyle}" />
+                            <uccc:SimpleToggleButton
+                                IsChecked="{Binding ProtocolOptions.LengthIncludesHeader, Mode=TwoWay}"
+                                IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='LengthPrefixed'}"
+                                Style="{StaticResource YNSimpleToggleButtonStyle}" />
                         </uccc:PairContentControl>
                         <uccc:PairContentControl PairKeyText="是否使用大端字节序">
-                            <uccc:SimpleToggleButton IsChecked="{Binding ProtocolOptions.BigEndian, Mode=TwoWay}" Style="{StaticResource YNSimpleToggleButtonStyle}" />
+                            <uccc:SimpleToggleButton
+                                IsChecked="{Binding ProtocolOptions.BigEndian, Mode=TwoWay}"
+                                IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='LengthPrefixed'}"
+                                Style="{StaticResource YNSimpleToggleButtonStyle}" />
                         </uccc:PairContentControl>
                         <hc:TextBox
                             Width="400"
                             hc:InfoElement.Placeholder="请输入"
                             hc:InfoElement.Title="最大帧长度"
+                            IsEnabled="{Binding ProtocolOptions.FramingMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='StartEndDelimiter,EndDelimiterOnly,FixedLength,LengthPrefixed'}"
                             Text="{Binding ProtocolOptions.MaxFrameLength, Mode=TwoWay}" />
                     </UniformGrid>
                 </StackPanel>

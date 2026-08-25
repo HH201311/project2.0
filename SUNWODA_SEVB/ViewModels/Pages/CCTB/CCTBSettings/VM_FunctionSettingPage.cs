@@ -5,6 +5,7 @@ using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Services;
 using System;
 using System.Collections.Concurrent;
@@ -61,8 +62,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             get => _isNavigating;
             set => SetProperty(ref _isNavigating, value);
         }
-        public ICommand? BasicFunctionsCommand { get; set; }
-        public ICommand? SpecialFunctionsCommand { get; set; }
+        public ICommand? BasicFunctionsCommand => new RelayCommand(() => NavigateToSpecialModule("VM_BasicFunctionsPage"));
+        public ICommand? SpecialFunctionsCommand => new RelayCommand(() => NavigateToSpecialModule("VM_SpecialFunctionsPage"));
 
         /// <summary>
         /// 构造函数
@@ -109,17 +110,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
         /// </summary>
         private void InitNavigation()
         {
-            // 显示加载提示
-            IsNavigating = true;
-
-            // 加载模块
-            _moduleManager.AutoRegisterModulesByName("VM_BasicFunctionsPage", "VM_SpecialFunctionsPage");
-
-            BasicFunctionsCommand = new RelayCommand(() => NavigateToSpecialModule("VM_BasicFunctionsPage"));
-            SpecialFunctionsCommand = new RelayCommand(() => NavigateToSpecialModule("VM_SpecialFunctionsPage"));
-
-            IsNavigating = false;
-
             NavigateToDefault();
         }
 
@@ -176,9 +166,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings
             try
             {
                 IsNavigating = true;
+
+                // 处理之前的界面的导航离开
+                if (NavigationPage?.DataContext is ViewModelBase oldVM) oldVM.OnNavigatedFrom();
+
                 NavigationPage = _moduleManager.GetView(module.Name);
                 var viewModel = NavigationPage?.DataContext as ViewModelBase;
                 viewModel?.OnNavigatedTo(null);
+
+                _logger.UserInfo($"用户导航到了 {module.DisplayName} 界面！");
             }
             catch (Exception ex)
             {

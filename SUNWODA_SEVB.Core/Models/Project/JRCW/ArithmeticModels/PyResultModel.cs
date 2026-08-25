@@ -25,7 +25,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.ArithmeticModels
         /// <summary>
         /// python算法出参
         /// </summary>
-        public dynamic? PyOutPut { get; set; }
+        public string PyOutPut { get; set; } = string.Empty;
 
         /// <summary>
         /// python解析后的算法结果
@@ -35,6 +35,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.ArithmeticModels
         /// <summary>
         /// python算法结果信息
         /// </summary>
-        public string? Message { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

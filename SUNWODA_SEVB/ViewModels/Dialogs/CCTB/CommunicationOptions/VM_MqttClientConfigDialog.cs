@@ -12,6 +12,7 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Mqtt;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Tool.Helper;
 using System;
@@ -50,20 +51,32 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.CommunicationOptions
         public ICommand CancleCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
 
         /// <summary>
+        /// 恢复默认设置：通讯配置
+        /// </summary>
+        public ICommand? ResetOptionCommand { get; set; }
+
+        /// <summary>
+        /// 恢复默认设置：地址配置
+        /// </summary>
+        public ICommand? ResetAddressCommand { get; set; }
+
+        /// <summary>
         /// 通讯配置
         /// </summary>
         public CustomMqttClientOptions? CommunicationOptions { get; set; }
 
         /// <summary>
-        /// 数据接收协议配置
+        /// 地址信息配置
         /// </summary>
-        public ProtocolOptions? ProtocolOptions { get; set; }
+        public MqttAddressModel? AddressModel { get; set; }
+
+        private static readonly string[] protocols = new[] { "s7", "fins", "mc" };
 
         /// <summary>
-        /// 分包模型选项数据源
+        /// 通讯协议数据源
         /// </summary>
-        public ObservableCollection<ComboboxItemModel<FramingMode>> FramingModeSource { get; } =
-               new ObservableCollection<ComboboxItemModel<FramingMode>>(FramingMode.GetValues<FramingMode>().Select(v =>
-               new ComboboxItemModel<FramingMode> { ItemValue = v, DisplayName = v.ToString() }));
+        public ObservableCollection<ComboboxItemModel<string>> ProtocolSource { get; } =
+               new ObservableCollection<ComboboxItemModel<string>>(protocols.Select(v =>
+               new ComboboxItemModel<string> { ItemValue = v, DisplayName = v.ToString() }));
     }
 }

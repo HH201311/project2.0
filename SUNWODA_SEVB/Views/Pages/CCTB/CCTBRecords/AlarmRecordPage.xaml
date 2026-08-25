@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:alarm="clr-namespace:SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;assembly=SUNWODA_SEVB.Core"
     xmlns:behavior="clr-namespace:SUNWODA_SEVB.Core.Behavior;assembly=SUNWODA_SEVB.Core"
-    xmlns:convert="clr-namespace:SUNWODA_SEVB.Core.Converters.Project.CCTB;assembly=SUNWODA_SEVB.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.CCTB.CCTBRecords"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -21,9 +20,6 @@
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/FunctionParamControlStyle.xaml" />
                 <ResourceDictionary Source="/SUNWODA_SEVB.Component;component/Themes/Project/CCTB/CCTBDataGridControlStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
-            <convert:ContentToStringConverter x:Key="ContentToStringConverter" />
-            <convert:StringToBooleanConverter x:Key="StringToBooleanConverter" />
 
             <Style x:Key="RecordTextBlockStyle" TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource CCTB.SourceHanSansCN-Medium}" />
@@ -148,13 +144,13 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTemplateColumn Width="120" Header="极面">
+                            <DataGridTemplateColumn Width="320" Header="名称">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
                                             Margin="20,0,5,0"
                                             Style="{StaticResource RecordTextBlockStyle}"
-                                            Text="{Binding SideType}" />
+                                            Text="{Binding Name}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -172,7 +168,7 @@
 
                             <DataGridTemplateColumn Width="*" Header="报警内容">
                                 <DataGridTemplateColumn.HeaderStyle>
-                                    <Style BasedOn="{StaticResource {x:Type DataGridColumnHeader}}" TargetType="DataGridColumnHeader">
+                                    <Style BasedOn="{StaticResource CustomDataGridColumnHeaderStyle}" TargetType="DataGridColumnHeader">
                                         <Setter Property="HorizontalContentAlignment" Value="Center" />
                                     </Style>
                                 </DataGridTemplateColumn.HeaderStyle>

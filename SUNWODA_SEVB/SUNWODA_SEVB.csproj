@@ -196,7 +196,7 @@
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\UIAutoMonitorCore.dll</HintPath>
     </Reference>
     <Reference Include="V11Core">
-      <HintPath>..\..\SWD\DLL\V11Core.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\V11Core.dll</HintPath>
     </Reference>
     <Reference Include="YingYanAlgoCore">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\YingYanAlgoCore.dll</HintPath>
@@ -272,7 +272,7 @@
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZC6OnlineCTModel.dll</HintPath>
     </Reference>
     <Reference Include="ZZJiErRongYu">
-      <HintPath>..\..\SWD\DLL\ZZJiErRongYu.dll</HintPath>
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZJiErRongYu.dll</HintPath>
     </Reference>
   </ItemGroup>
 

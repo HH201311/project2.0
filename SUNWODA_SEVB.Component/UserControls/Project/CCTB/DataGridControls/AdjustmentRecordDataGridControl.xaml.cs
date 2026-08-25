@@ -192,14 +192,12 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
 
             // 2. P0-Pn (按数字排序)
             var pKeys = keys.Where(k => k.StartsWith("P") && k.Length > 1 && char.IsDigit(k[1]))
-                           .OrderBy(k => int.Parse(k.Substring(1)))
-                           .ToList();
+                           .OrderBy(k => int.Parse(k.Substring(1))).ToList();
             orderedKeys.AddRange(pKeys);
 
             // 3. 泵速1-泵速n (按数字排序)
             var pumpKeys = keys.Where(k => k.StartsWith("泵速"))
-                              .OrderBy(k => int.Parse(k.Replace("泵速", "")))
-                              .ToList();
+                              .OrderBy(k => int.Parse(k.Replace("泵速", ""))).ToList();
             orderedKeys.AddRange(pumpKeys);
 
             // 4. 刀距-左, 刀距-右

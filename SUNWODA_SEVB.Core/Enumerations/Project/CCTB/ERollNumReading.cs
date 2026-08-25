@@ -11,6 +11,6 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB
     /// </summary>
     public enum ERollNumReading
     {
-        PLC, txt
+        PLC, RemoteFile
     }
 }

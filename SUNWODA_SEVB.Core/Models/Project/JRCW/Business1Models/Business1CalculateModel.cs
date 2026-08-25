@@ -16,7 +16,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// 闭环计算时间
         /// </summary>
         [DataColumn("闭环计算时间")]
-        public DateTime CalculateTime { get; set; } = DateTime.Now;
+        public DateTime CalculateTime { get; set; }
 
         #region PLC采集数据
         /// <summary>
@@ -55,7 +55,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// 推荐变径调整量
         /// </summary>
         [DataColumn("推荐变径调整量")]
-        public double M { get; set; }
+        public float M { get; set; }
         #endregion
 
         #region 错位分类算法
@@ -63,13 +63,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// 正极错位分类类型
         /// </summary>
         [DataColumn("正极错位分类类型")]
-        public int CategoryOfPositiveMalposition { get; set; }
+        public int CategoryOfPM { get; set; }
 
         /// <summary>
         /// 负极错位分类类型
         /// </summary>
         [DataColumn("负极错位分类类型")]
-        public int CategoryOfNegativeMalposition { get; set; }
+        public int CategoryOfNM { get; set; }
         #endregion
 
         #region 错位分解算法
@@ -77,25 +77,25 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// 正极卷针周长波动
         /// </summary>
         [DataColumn("正极卷针周长波动")]
-        public float DeltaCOfPositive { get; set; }
+        public float DeltaCOfP { get; set; }
 
         /// <summary>
         /// 正极极片厚度波动
         /// </summary>
         [DataColumn("正极极片厚度波动")]
-        public float DeltaTCOfPositive { get; set; }
+        public float DeltaTCOfP { get; set; }
 
         /// <summary>
         /// 负极卷针周长波动
         /// </summary>
         [DataColumn("负极卷针周长波动")]
-        public float DeltaCOfNegative { get; set; }
+        public float DeltaCOfN { get; set; }
 
         /// <summary>
         /// 负极极片厚度波动
         /// </summary>
         [DataColumn("负极极片厚度波动")]
-        public float DeltaTCOfNegative { get; set; }
+        public float DeltaTCOfN { get; set; }
         #endregion
 
         #region 闭环算法

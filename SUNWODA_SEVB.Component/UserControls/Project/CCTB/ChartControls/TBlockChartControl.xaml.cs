@@ -36,15 +36,12 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         /// </summary>
         public TBlockChartControl()
         {
-            InitializeComponent(); 
+            InitializeComponent();
 
             _subscription = _dataUpdateRequests
                             .Throttle(TimeSpan.FromMilliseconds(200)) // 200ms内合并请求
                             .Subscribe(_ => Dispatcher.Invoke(() => DrawChart()));
         }
-
-        private const double yStep = 200;
-        private const double centerValue = 0;
 
         #region 事件
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -55,6 +52,54 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         private void ChartGrid_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             _dataUpdateRequests.OnNext(Unit.Default);
+        }
+        #endregion
+
+        #region CenterValue
+        public double CenterValue
+        {
+            get { return (double)GetValue(CenterValueProperty); }
+            set { SetValue(CenterValueProperty, value); }
+        }
+
+        public static readonly DependencyProperty CenterValueProperty = DependencyProperty.Register(
+            "CenterValue",
+            typeof(double),
+            typeof(TBlockChartControl),
+            new PropertyMetadata(0d, new PropertyChangedCallback(OnCenterValueChanged))
+        );
+
+        private static void OnCenterValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as TBlockChartControl;
+            if (uc != null)
+            {
+                uc._dataUpdateRequests.OnNext(Unit.Default);
+            }
+        }
+        #endregion
+
+        #region YStep
+        public uint YStep
+        {
+            get { return (uint)GetValue(YStepProperty); }
+            set { SetValue(YStepProperty, value); }
+        }
+
+        public static readonly DependencyProperty YStepProperty = DependencyProperty.Register(
+            "YStep",
+            typeof(uint),
+            typeof(TBlockChartControl),
+            new PropertyMetadata(200u, new PropertyChangedCallback(OnYStepChanged))
+        );
+
+        private static void OnYStepChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as TBlockChartControl;
+            if (uc != null)
+            {
+                uc._dataUpdateRequests.OnNext(Unit.Default);
+            }
         }
         #endregion
 
@@ -166,7 +211,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             (double yMin, double yMax) = RefreshYAxis();
             var yRange = yMax - yMin;
 
-            RefreshSubLine(ref subLine, 0, yMin, yRange, subLineStroke);
+            RefreshSubLine(ref subLine, CenterValue, yMin, yRange);
         }
 
         private void DrawChart()
@@ -183,7 +228,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             (double yMin, double yMax) = RefreshYAxis(datas.Select(o => o.TBlockPosition).ToArray());
             var yRange = yMax - yMin;
 
-            RefreshSubLine(ref subLine, 0, yMin, yRange, subLineStroke);
+            RefreshSubLine(ref subLine, CenterValue, yMin, yRange);
             RefreshBarGraph(datas, yMin, yRange);
         }
 
@@ -208,13 +253,13 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
                 yMin = YMin; yMax = YMax;
                 if (datas?.Length > 0)
                 {
-                    while (yMin >= vMin) yMin -= yStep;
-                    while (yMax <= vMax) yMax += yStep;
+                    while (yMin >= vMin) yMin -= YStep;
+                    while (yMax <= vMax) yMax += YStep;
                 }
             }
 
             var yValues = new List<double>();
-            for (var i = yMin; i <= yMax; i += yStep) yValues.Add(i);
+            for (var i = yMin; i <= yMax; i += YStep) yValues.Add(i);
 
             YAxisPainter.RotationAngle = 0;
             YAxisPainter.Update(yMin, yMax, yValues.ToArray());
@@ -225,11 +270,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
         private readonly Brush subLineStroke = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF3DCC84"));
 
         private Style? subLineStyle;
-        private void RefreshSubLine(ref Line subLine, double yValue, double yMin, double yRange, Brush stroke, double opacity = 0.5)
+        private void RefreshSubLine(ref Line subLine, double yValue, double yMin, double yRange, Brush? stroke = null, double opacity = 0.5)
         {
             if (subLineStyle == null) subLineStyle = this.Resources["SubLineStyle"] as Style;
             subLine.Style = subLineStyle;
-            subLine.Stroke = stroke;
+            subLine.Stroke = stroke ?? subLineStroke;
             subLine.Opacity = opacity;
             Panel.SetZIndex(subLine, 1);
 
@@ -283,7 +328,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             var stepX = w / (datas.Count + 1); // X轴步长
             for (int i = 0; i < datas.Count; i++)
             {
-                if (datas[i].TBlockPosition == centerValue)
+                if (datas[i].TBlockPosition == CenterValue)
                 {
                     barGraphs[i].Visibility = Visibility.Hidden;
                     continue;
@@ -291,11 +336,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
                 var x = (i + 1) * stepX;
                 var y = GraphicHelper.Normalize(datas[i].TBlockPosition, yMin, yRange, h, true);
                 var center = GraphicHelper.Normalize(0, yMin, yRange, h, true);
-                var pointLB = datas[i].TBlockPosition > centerValue ? new Point(x - 10, center) : new Point(x - 10, y);
-                var pointLT = datas[i].TBlockPosition > centerValue ? new Point(x - 10, y) : new Point(x - 10, center);
-                var pointRT = datas[i].TBlockPosition > centerValue ? new Point(x + 10, y) : new Point(x + 10, center);
-                var pointRB = datas[i].TBlockPosition > centerValue ? new Point(x + 10, center) : new Point(x + 10, y);
-                var geometry = datas[i].TBlockPosition > centerValue
+                var pointLB = datas[i].TBlockPosition > CenterValue ? new Point(x - 10, center) : new Point(x - 10, y);
+                var pointLT = datas[i].TBlockPosition > CenterValue ? new Point(x - 10, y) : new Point(x - 10, center);
+                var pointRT = datas[i].TBlockPosition > CenterValue ? new Point(x + 10, y) : new Point(x + 10, center);
+                var pointRB = datas[i].TBlockPosition > CenterValue ? new Point(x + 10, center) : new Point(x + 10, y);
+                var geometry = datas[i].TBlockPosition > CenterValue
                     ? GraphicHelper.CreatUpStreamGeometryWithCorner(pointLB, pointLT, pointRT, pointRB, true)
                     : GraphicHelper.CreatDownStreamGeometryWithCorner(pointLB, pointLT, pointRT, pointRB, true);
                 barGraphs[i].Data = geometry;

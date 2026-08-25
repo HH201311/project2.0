@@ -65,10 +65,12 @@ namespace SUNWODA_SEVB.Tool.Extension
                     // 处理引用类型的深拷贝
                     if (value != null && !property.PropertyType.IsValueType && property.PropertyType != typeof(string))
                     {
-                        var method = typeof(ObjectExtension).GetMethod(nameof(DeepCopy),
-                            BindingFlags.Public | BindingFlags.Static);
-                        var genericMethod = method.MakeGenericMethod(property.PropertyType);
-                        value = genericMethod.Invoke(null, new[] { value });
+                        var method = typeof(ObjectExtension).GetMethod(nameof(DeepCopy), BindingFlags.Public | BindingFlags.Static);
+                        if (method != null)
+                        {
+                            var genericMethod = method.MakeGenericMethod(property.PropertyType);
+                            value = genericMethod.Invoke(null, new[] { value });
+                        }
                     }
 
                     property.SetValue(newObj, value);

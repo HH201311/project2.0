@@ -39,6 +39,7 @@
                     x:Name="WeightMeasureRB"
                     d:IsChecked="True"
                     Command="{Binding ControlPageNavigateCommand}"
+                    CommandParameter="测重仪"
                     Content="测重仪"
                     IsChecked="{Binding ControlPageName, Mode=TwoWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='WMCommunicationControl'}"
                     Style="{StaticResource TabNavigationRadioButtonStyle}" />
@@ -46,6 +47,7 @@
                     x:Name="CoatingMachineRB"
                     d:IsChecked="False"
                     Command="{Binding ControlPageNavigateCommand}"
+                    CommandParameter="涂布机"
                     Content="涂布机"
                     IsChecked="{Binding ControlPageName, Mode=TwoWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='CMCommunicationControl'}"
                     Style="{StaticResource TabNavigationRadioButtonStyle}" />
@@ -53,6 +55,7 @@
                     x:Name="DieHeadRB"
                     d:IsChecked="False"
                     Command="{Binding ControlPageNavigateCommand}"
+                    CommandParameter="模头"
                     Content="模头"
                     IsChecked="{Binding ControlPageName, Mode=TwoWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='DHCommunicationControl'}"
                     Style="{StaticResource TabNavigationRadioButtonStyle}" />
@@ -60,6 +63,7 @@
                     x:Name="CCDRB"
                     d:IsChecked="False"
                     Command="{Binding ControlPageNavigateCommand}"
+                    CommandParameter="CCD"
                     Content="CCD"
                     IsChecked="{Binding ControlPageName, Mode=TwoWay, Converter={StaticResource StringToBooleanConverter}, ConverterParameter='CCDCommunicationControl'}"
                     Style="{StaticResource TabNavigationRadioButtonStyle}" />

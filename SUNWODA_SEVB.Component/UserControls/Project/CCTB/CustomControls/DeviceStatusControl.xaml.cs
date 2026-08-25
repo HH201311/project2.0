@@ -42,6 +42,13 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
                 new FrameworkPropertyMetadata(EDeviceStatus.未启用, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnDeviceStatusChanged));
 
         /// <summary>
+        /// 是否显示接入设备
+        /// </summary>
+        public static readonly DependencyProperty IsShowAcceptProperty =
+            DependencyProperty.Register("IsShowAccept", typeof(bool), typeof(DeviceStatusControl),
+                new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnIsShowAcceptChanged));
+
+        /// <summary>
         /// 接入设备个数
         /// </summary>
         public static readonly DependencyProperty AcceptDeviceCountProperty =
@@ -59,6 +66,11 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         /// 设备状态
         /// </summary>
         public EDeviceStatus DeviceStatus { get => (EDeviceStatus)GetValue(DeviceStatusProperty); set => SetValue(DeviceStatusProperty, value); }
+
+        /// <summary>
+        /// 接入设备个数
+        /// </summary>
+        public bool IsShowAccept { get => (bool)GetValue(IsShowAcceptProperty); set => SetValue(IsShowAcceptProperty, value); }
 
         /// <summary>
         /// 接入设备个数
@@ -88,6 +100,16 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         }
 
         /// <summary>
+        /// 当是否显示接入设备发生变化时触发
+        /// </summary>
+        /// <param name="d"></param>
+        /// <param name="e"></param>
+        private static void OnIsShowAcceptChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+
+        }
+
+        /// <summary>
         /// 当接入设备个数发生变化时触发
         /// </summary>
         /// <param name="d"></param>
@@ -96,7 +118,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
         {
             if (!(d is DeviceStatusControl uc)) return;
             if (!(e.NewValue is int value)) return;
-            uc.AcceptDeviceCountTextBlock.Text = value < 0 ? "0" : (value > 99 ? "99+" : value.ToString());
+            //uc.AcceptDeviceCountTextBlock.Text = value < 0 ? "0" : (value > 99 ? "99+" : value.ToString());
         }
         #endregion
     }

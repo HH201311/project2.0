@@ -6,11 +6,14 @@ using System.Threading.Tasks;
 
 namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB
 {
-    public enum EWeightDataTypeOfArithmeticParam
+    /// <summary>
+    /// 闭环计算所需的数据来源（4套协议）：大成、锐奇、上川/宇世嘉、曼恩斯特
+    /// </summary>
+    public enum EDataSourceOfClosedLoop
     {
-        模头干膜数据,
-        测重仪毫米数据,
-        测重仪干膜总重分区,
-        测重仪干膜净重分区
+        WMSocketClient,
+        WMSocketServer,
+        DHSocketServer,
+        DHMqttClient,
     }
 }

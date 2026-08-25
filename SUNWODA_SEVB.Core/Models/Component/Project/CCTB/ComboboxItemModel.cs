@@ -11,7 +11,7 @@ namespace SUNWODA_SEVB.Core.Models.Component.Project.CCTB
     /// 自定义下拉框绑定数据元使用的模型类
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class ComboboxItemModel<T> : ModelBase where T : Enum
+    public class ComboboxItemModel<T> : ModelBase
     {
         private T? itemValue;
         private string? displayName;

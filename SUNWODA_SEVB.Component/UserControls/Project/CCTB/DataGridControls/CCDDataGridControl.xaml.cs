@@ -51,15 +51,15 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
         public ObservableCollection<List<CellItem>> Rows { get; set; } = [];
 
         #region ItemsSource
-        public ObservableCollection<CCDModel> ItemsSource
+        public ObservableCollection<CCDMessageModel> ItemsSource
         {
-            get { return (ObservableCollection<CCDModel>)GetValue(ItemsSourceProperty); }
+            get { return (ObservableCollection<CCDMessageModel>)GetValue(ItemsSourceProperty); }
             set { SetValue(ItemsSourceProperty, value); }
         }
 
         public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
             nameof(ItemsSource),
-            typeof(ObservableCollection<CCDModel>),
+            typeof(ObservableCollection<CCDMessageModel>),
             typeof(CCDDataGridControl),
             new PropertyMetadata(null, new PropertyChangedCallback(OnItemsSourceChanged))
         );
@@ -128,7 +128,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.DataGridControls
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        private int GetFilmCount(CCDModel? model)
+        private int GetFilmCount(CCDMessageModel? model)
         {
             if (model == null) return 0;
             var filmCount1 = model.BatteryTabDatas?.Length - 1 ?? 0;

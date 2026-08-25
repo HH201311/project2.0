@@ -34,6 +34,8 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW.BusinessDialogs
 
         private UserRole userRole;
         private Business2ParamModel itemSource = new();
+        private string? verifyBatteryCode;
+        private int selectedTabIndex;
 
         /// <summary>
         /// 用户角色
@@ -46,9 +48,25 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW.BusinessDialogs
         public Business2ParamModel ItemSource { get => itemSource; set => SetProperty(ref itemSource, value); }
 
         /// <summary>
+        /// 完美电芯页码编号
+        /// </summary>
+        public int SelectedTabIndex { get => selectedTabIndex; set => SetProperty(ref selectedTabIndex, value); }
+
+        /// <summary>
+        /// 校验的完美电芯条码
+        /// 备注：根据卷针号自动匹配
+        /// </summary>
+        public string? VerifyBatteryCode { get => verifyBatteryCode; set => SetProperty(ref verifyBatteryCode, value); }
+
+        /// <summary>
+        /// 完美电芯条码校验命令
+        /// </summary>
+        public ICommand? VerifyBatteryCodeCommand { get; set; }
+
+        /// <summary>
         /// 关闭
         /// </summary>
-        public ICommand CloseCommand => new RelayCommand(() => { Result = true; CloseAction?.Invoke(); });
+        public ICommand? CloseCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
 
         /// <summary>
         /// 
@@ -58,6 +76,6 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.JRCW.BusinessDialogs
         /// <summary>
         /// 
         /// </summary>
-        public ICommand? CancleCommand => new RelayCommand(() => { Result = true; CloseAction?.Invoke(); });
+        public ICommand? CancleCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
     }
 }

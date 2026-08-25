@@ -1,5 +1,5 @@
 ﻿using SUNWODA_SEVB.Core.Enumerations.Project.JRCW;
-using SUNWODA_SEVB.Core.Interfaces.Project.JECW;
+using SUNWODA_SEVB.Core.Interfaces.Project.JRCW;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,11 +25,12 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <summary>
         /// 注册业务服务
         /// </summary>
-        public void RegisterService<T>(EBusinessType businessType) where T : IBusinessService
+        public void RegisterService<T>() where T : IBusinessService
         {
             var service = (IBusinessService?)_serviceProvider.GetService(typeof(T));
             if (service != null)
             {
+                var businessType = service.BusinessType;
                 _services[businessType] = service;
             }
         }

@@ -5,6 +5,7 @@ using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Services;
 using SUNWODA_SEVB.ViewModels.Pages.HawkEye;
 using System;
@@ -105,14 +106,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
         /// </summary>
         private void InitNavigation()
         {
-            // 显示加载提示
-            IsNavigating = true;
-
-            // 加载模块
-            _moduleManager.AutoRegisterModulesByName("VM_ClosedLoopSettingPage", "VM_FunctionSettingPage", "VM_AlarmSettingPage", "VM_CommunicationSettingPage", "VM_PermissionSettingPage");
-
-            IsNavigating = false;
-
             NavigateToDefault();
         }
 
@@ -170,9 +163,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB
             try
             {
                 IsNavigating = true;
+
+                // 处理之前的界面的导航离开
+                if (NavigationPage?.DataContext is ViewModelBase oldVM) oldVM.OnNavigatedFrom();
+
                 NavigationPage = _moduleManager.GetView(module.Name);
                 var viewModel = NavigationPage?.DataContext as ViewModelBase;
                 viewModel?.OnNavigatedTo(null);
+
+                _logger.UserInfo($"用户导航到了 {module.DisplayName} 界面！");
             }
             catch (Exception ex)
             {

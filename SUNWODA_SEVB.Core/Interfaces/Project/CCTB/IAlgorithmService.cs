@@ -26,7 +26,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CCTB
         /// <param name="closedLoopType">闭环类型</param>
         /// <param name="algorithmName">算法名称</param>
         /// <returns>isSuccess: 是否校验通过；message: 结果信息</returns>
-        Task<(bool isSuccess, string message)> VerifyAlgorithmAsync(ESideType sideType, EClosedLoopType closedLoopType, string algorithmName);
+        Task<(bool isSuccess, string message)> VerifyAlgorithmAsync(ESideType sideType, EAlgorithmType algorithmType, string algorithmName);
 
         #endregion
 
@@ -51,7 +51,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CCTB
         /// <exception cref="Exception">算法执行异常或版本更新失败</exception>
         FlowPIDOutputModel ExcuteFlowPID(ESideType sideType, double pumpSpeed1, double pumpSpeed2,
             string? flowData, int ma, float r, double allTrend, double trend, int trendRule, float single,
-            object? inputData1, object? inputData2);
+            object? inputData1 = null, object? inputData2 = null);
 
         /// <summary>
         /// 执行专家PID算法（自动保证为最新校验通过的版本）

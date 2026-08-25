@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+using System.IO;
 
 namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
 {
@@ -21,7 +22,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         private bool isUseDryFilmTotalDataOfPartitioned;
         private bool isUseDryFilmNetDataOfPartitioned;
         private byte collectFrequencyOfWeightData = 1;
-        private string? savePathOfWM = "D:\\通用上位机\\闭环数据";
+        private string savePathOfWM = "D:\\通用上位机\\闭环数据";
 
         /// <summary>
         /// 数据采集：测重仪数采功能是否开启
@@ -51,13 +52,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// <summary>
         /// 数据保存：保存路径
         /// </summary>
-        public string? SavePathOfWM { get => savePathOfWM; set => SetProperty(ref savePathOfWM, value); }
+        public string SavePathOfWM { get => savePathOfWM; set => SetProperty(ref savePathOfWM, value); }
         #endregion
 
         #region 涂布机:CoatingMachine       
         private bool isUseCollectFunctionOfPLCData;
         private byte collectFrequencyOfPLCData = 1;
-        private string? savePathOfCM = "D:\\通用上位机\\闭环数据";
+        private string savePathOfCM = "D:\\通用上位机\\闭环数据";
 
         /// <summary>
         /// 数据采集：涂布机PLC数采功能是否开启
@@ -72,15 +73,14 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// <summary>
         /// 数据保存：保存路径
         /// </summary>
-        public string? SavePathOfCM { get => savePathOfCM; set => SetProperty(ref savePathOfCM, value); }
+        public string SavePathOfCM { get => savePathOfCM; set => SetProperty(ref savePathOfCM, value); }
         #endregion
 
         #region 模头:DiaHead
         private bool isUseCollectFunctionOfDHWeightData;
         private bool isUseCollectFunctionOfDHTBlockData;
-        private byte collectFrequencyOfDHWeightData = 1;
         private byte collectFrequencyOfDHTBlockData = 7;
-        private string? savePathOfDH = "D:\\通用上位机\\闭环数据";
+        private string savePathOfDH = "D:\\通用上位机\\闭环数据";
 
         /// <summary>
         /// 数据采集：模头面密度数采功能是否开启
@@ -93,11 +93,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         public bool IsUseCollectFunctionOfDHTBlockData { get => isUseCollectFunctionOfDHTBlockData; set => SetProperty(ref isUseCollectFunctionOfDHTBlockData, value); }
 
         /// <summary>
-        /// 采集频率：模头面密度采集频率（s/次）
-        /// </summary>
-        public byte CollectFrequencyOfDHWeightData { get => collectFrequencyOfDHWeightData; set => SetProperty(ref collectFrequencyOfDHWeightData, value); }
-
-        /// <summary>
         /// 采集频率：T块数据采集频率（s/次）
         /// </summary>
         public byte CollectFrequencyOfDHTBlockData { get => collectFrequencyOfDHTBlockData; set => SetProperty(ref collectFrequencyOfDHTBlockData, value); }
@@ -105,13 +100,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// <summary>
         /// 数据保存：保存路径
         /// </summary>
-        public string? SavePathOfDH { get => savePathOfDH; set => SetProperty(ref savePathOfDH, value); }
+        public string SavePathOfDH { get => savePathOfDH; set => SetProperty(ref savePathOfDH, value); }
         #endregion
 
         #region CCD:CCD
         private bool isUseCollectFunctionOfCCDData;
-        private byte collectFrequencyOfCCDData = 1;
-        private string? savePathOfCCD = "D:\\通用上位机\\闭环数据";
+        private string savePathOfCCD = "D:\\通用上位机\\闭环数据";
+        private bool dataTransferOfOpmmPLCDataEnable;
+        private bool dataTransferOfOpmmCCDDataEnable;
+        private bool dataTransferOfOpmmWeightDataEnable;
 
         /// <summary>
         /// 数据采集：涂布机PLC数采功能是否开启
@@ -119,67 +116,53 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         public bool IsUseCollectFunctionOfCCDData { get => isUseCollectFunctionOfCCDData; set => SetProperty(ref isUseCollectFunctionOfCCDData, value); }
 
         /// <summary>
-        /// 采集频率：CCD尺寸数据采集频率（s/次）
-        /// </summary>
-        public byte CollectFrequencyOfCCDData { get => collectFrequencyOfCCDData; set => SetProperty(ref collectFrequencyOfCCDData, value); }
-
-        /// <summary>
         /// 数据保存：保存路径
         /// </summary>
-        public string? SavePathOfCCD { get => savePathOfCCD; set => SetProperty(ref savePathOfCCD, value); }
+        public string SavePathOfCCD { get => savePathOfCCD; set => SetProperty(ref savePathOfCCD, value); }
+
+        /// <summary>
+        /// 数据中转（一人多机）：PLC数据中转至一人多机是否启用
+        /// </summary>
+        public bool DataTransferOfOpmmPLCDataEnable { get => dataTransferOfOpmmPLCDataEnable; set => SetProperty(ref dataTransferOfOpmmPLCDataEnable, value); }
+
+        /// <summary>
+        /// 数据中转（一人多机）：CCD数据中转至一人多机是否启用
+        /// </summary>
+        public bool DataTransferOfOpmmCCDDataEnable { get => dataTransferOfOpmmCCDDataEnable; set => SetProperty(ref dataTransferOfOpmmCCDDataEnable, value); }
+
+        /// <summary>
+        /// 数据中转（一人多机）：重量数据中转至一人多机是否启用
+        /// </summary>
+        public bool DataTransferOfOpmmWeightDataEnable { get => dataTransferOfOpmmWeightDataEnable; set => SetProperty(ref dataTransferOfOpmmWeightDataEnable, value); }
         #endregion
 
         #region 闭环:ClosedLoop
-        private bool isUseArithmetic;
-        private bool isUseWeightDataOfArithmeticParam;
-        private bool isUsePLCDataOfArithmeticParam;
-        private bool isUseCCDDataOfArithmeticParam;
-        private EWeightDataTypeOfArithmeticParam weightDataTypeOfArithmeticParam;
-        private byte exportFrequencyOfCL = 7;
-        private string? savePathOfCL = "D:\\通用上位机\\闭环数据";
+        private EDataSourceOfClosedLoop coatingDataSource = EDataSourceOfClosedLoop.WMSocketClient;
+        private EDataSourceOfClosedLoop tBlockDataSource = EDataSourceOfClosedLoop.DHSocketServer;
+        private string savePathOfCL = "D:\\通用上位机\\闭环数据";
 
         private bool isUseReminderOfClosedLoopSwitch;
         private bool isUseJudgeOfKnife;
         private bool isUseFTPUpload;
         private EModeOfPumpAdjust modeOfPumpAdjust;
         private ERollNumReading modeOfRollNumReading;
-        private string? pathOfRollNumReadingTxt = @"\\DESKTOP-986B1JE\MESClientData\MESClientData.txt";
+        private string pathOfRollNumReadingTxt = @"\\DESKTOP-986B1JE\MESClientData\MESClientData.txt";
         private bool isClosedLoopAutoStart;
-
-        /// <summary>
-        /// 算法调用：上位机是否调用算法
-        /// </summary>
-        public bool IsUseArithmetic { get => isUseArithmetic; set => SetProperty(ref isUseArithmetic, value); }
-
-        /// <summary>
-        /// 闭环入参数据选择：面密度数据
-        /// </summary>
-        public bool IsUseWeightDataOfArithmeticParam { get => isUseWeightDataOfArithmeticParam; set => SetProperty(ref isUseWeightDataOfArithmeticParam, value); }
-
-        /// <summary>
-        /// 闭环入参数据选择：涂布机PLC数据
-        /// </summary>
-        public bool IsUsePLCDataOfArithmeticParam { get => isUsePLCDataOfArithmeticParam; set => SetProperty(ref isUsePLCDataOfArithmeticParam, value); }
-
-        /// <summary>
-        /// 闭环入参数据选择：CCD尺寸数据
-        /// </summary>
-        public bool IsUseCCDDataOfArithmeticParam { get => isUseCCDDataOfArithmeticParam; set => SetProperty(ref isUseCCDDataOfArithmeticParam, value); }
 
         /// <summary>
         /// 闭环入参数据选择：面密度数据类型
         /// </summary>
-        public EWeightDataTypeOfArithmeticParam WeightDataTypeOfArithmeticParam { get => weightDataTypeOfArithmeticParam; set => SetProperty(ref weightDataTypeOfArithmeticParam, value); }
+        public EDataSourceOfClosedLoop CoatingDataSource { get => coatingDataSource; set => SetProperty(ref coatingDataSource, value); }
 
         /// <summary>
-        /// 数据输出频率：上位机输出数据频率（s/次）
+        /// 闭环入参数据选择：T块数据类型
         /// </summary>
-        public byte ExportFrequencyOfCL { get => exportFrequencyOfCL; set => SetProperty(ref exportFrequencyOfCL, value); }
+        public EDataSourceOfClosedLoop TBlockDataSource { get => tBlockDataSource; set => SetProperty(ref tBlockDataSource, value); }
 
         /// <summary>
         /// 数据保存：保存路径
         /// </summary>
-        public string? SavePathOfCL { get => savePathOfCL; set => SetProperty(ref savePathOfCL, value); }
+        public string SavePathOfCL { get => savePathOfCL; set => SetProperty(ref savePathOfCL, value); }
 
         /// <summary>
         /// 其他："涂布机闭环开关旋钮未开后"提醒功能
@@ -209,12 +192,83 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// <summary>
         /// 其他：膜卷号读取方式_txt路径
         /// </summary>
-        public string? PathOfRollNumReadingTxt { get => pathOfRollNumReadingTxt; set => SetProperty(ref pathOfRollNumReadingTxt, value); }
+        public string PathOfRollNumReadingTxt { get => pathOfRollNumReadingTxt; set => SetProperty(ref pathOfRollNumReadingTxt, value); }
 
         /// <summary>
         /// 其他：闭环自动启动
         /// </summary>
         public bool IsClosedLoopAutoStart { get => isClosedLoopAutoStart; set => SetProperty(ref isClosedLoopAutoStart, value); }
+        #endregion
+
+        #region 辅助方法
+        #region 面密度路径
+        /// <summary>
+        /// 获取面密度数据保存文件夹路径
+        /// </summary>
+        /// <returns></returns>
+        public string GetFullPathOfCoatingData()
+        {
+            var folderName = GetFolderNameOfCoatingData(CoatingDataSource);
+            return CoatingDataSource switch
+            {
+                EDataSourceOfClosedLoop.WMSocketClient => Path.Combine(SavePathOfWM, folderName),
+                EDataSourceOfClosedLoop.WMSocketServer => Path.Combine(SavePathOfWM, folderName),
+                EDataSourceOfClosedLoop.DHSocketServer => Path.Combine(SavePathOfDH, folderName),
+                EDataSourceOfClosedLoop.DHMqttClient => Path.Combine(SavePathOfDH, folderName),
+                _ => Path.Combine(SavePathOfCL, folderName)
+            };
+        }
+
+        /// <summary>
+        /// 获取面密度数据保存文件夹名称
+        /// </summary>
+        /// <param name="dataSource">数据源类型-关联设备</param>
+        /// <returns></returns>
+        private string GetFolderNameOfCoatingData(EDataSourceOfClosedLoop dataSource)
+        {
+            return dataSource switch
+            {
+                EDataSourceOfClosedLoop.WMSocketClient => "测重仪客户端面密度采集数据",
+                EDataSourceOfClosedLoop.WMSocketServer => "测重仪服务端面密度采集数据",
+                EDataSourceOfClosedLoop.DHSocketServer => "模头服务端面密度采集数据",
+                EDataSourceOfClosedLoop.DHMqttClient => "Matt客户端面密度采集数据",
+                _ => $"{dataSource}面密度采集数据"
+            };
+        }
+        #endregion
+        #region T块路径
+        /// <summary>
+        /// 获取T块数据保存文件夹路径
+        /// </summary>
+        /// <returns></returns>
+        public string GetFullPathOfTBlockData()
+        {
+            var folderName = GetFolderNameOfTBlockData(TBlockDataSource);
+            return TBlockDataSource switch
+            {
+                EDataSourceOfClosedLoop.WMSocketClient => Path.Combine(SavePathOfWM, folderName),
+                EDataSourceOfClosedLoop.WMSocketServer => Path.Combine(SavePathOfWM, folderName),
+                EDataSourceOfClosedLoop.DHSocketServer => Path.Combine(SavePathOfDH, folderName),
+                EDataSourceOfClosedLoop.DHMqttClient => Path.Combine(SavePathOfDH, folderName),
+                _ => Path.Combine(SavePathOfCL, folderName)
+            };
+        }
+
+        /// <summary>
+        /// 获取T块数据保存文件夹名称
+        /// </summary>
+        /// <param name="dataSource">数据源类型-关联设备</param>
+        /// <returns></returns>
+        private string GetFolderNameOfTBlockData(EDataSourceOfClosedLoop dataSource)
+        {
+            return dataSource switch
+            {
+                EDataSourceOfClosedLoop.WMSocketServer => "测重仪服务端T块采集数据",
+                EDataSourceOfClosedLoop.DHMqttClient => "Matt客户端T块采集数据",
+                _ => $"{dataSource}T块采集数据"
+            };
+        }
+        #endregion
         #endregion
     }
 }

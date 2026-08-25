@@ -1,5 +1,6 @@
 ﻿using CsvHelper;
 using CsvHelper.Configuration;
+using Dm.util;
 using Mapster.Models;
 using OpenCvSharp;
 using OxyPlot;
@@ -7,17 +8,22 @@ using SkiaSharp;
 using SqlSugar;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+using SUNWODA_SEVB.Core.Enumerations.Project.JRCW;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Interfaces.PLC;
+using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AssistanceModels;
-using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.BusinessModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Data.Repositories;
 using SUNWODA_SEVB.PLC;
 using SUNWODA_SEVB.Tool.Extension;
@@ -41,7 +47,7 @@ using TouchSocket.Core;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
 {
-    [Module("VM_SummaryPage", "系统设置", Order = 1, Category = "VM_CCTBMonitoringPage/VM_SummaryPage")]
+    [Module("VM_SummaryPage", "总况", Order = 1, Category = "VM_CCTBMonitoringPage/VM_SummaryPage")]
     class VM_SummaryPage : ViewModelBase
     {
         private readonly ILoggerService<VM_SummaryPage> _logger;
@@ -51,6 +57,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
+
+        private CancellationTokenSource _globalCts = new();
+        private bool _isDisplaying = false;
 
         /// <summary>
         /// 构造函数
@@ -74,20 +83,66 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             _moduleManager = moduleManager;
         }
 
+        /// <summary>
+        /// 初始化
+        /// </summary>
         public override void OnInitialize()
         {
             InitializeProjectSettings();
 
-            _ = RunOnUIThreadAsync(InitializeLineInfo);
-
-            _ = RunOnUIThreadAsync(InitializeProductionInfo);
-
-            _ = RunInBackgroundAsync(InitializeKeyControlParametersAsync);
-            _ = RunInBackgroundAsync(InitializeMonitoringParametersAsync);
-
-            _ = RunInBackgroundAsync(InitializeCPKWatcherConfigAsync);
-
             base.OnInitialize();
+        }
+
+        /// <summary>
+        /// 异步初始化
+        /// </summary>
+        /// <returns></returns>
+        protected override async Task OnInitializeAsync()
+        {
+            await InitializeLineInfoAsync(_globalCts.Token);
+
+            await InitializeKeyControlParametersAsync(_globalCts.Token);
+            await InitializeMonitoringParametersAsync(_globalCts.Token);
+
+            await InitializeCPKWatcherConfigAsync(_globalCts.Token);
+
+            await base.OnInitializeAsync();
+        }
+
+        /// <summary>
+        /// 清理资源
+        /// </summary>
+        protected override async Task OnCleanupAsync()
+        {
+            CCTBCore.SettingMessageNotificationEvent -= OnBasicFunctionSettingChangedAsync;
+            CCTBCore.SettingMessageNotificationEvent -= OnSpecialFunctionSettingChangedAsync;
+
+            _globalCts?.Cancel();
+            _globalCts?.Dispose();
+
+            await base.OnCleanupAsync();
+        }
+
+        /// <summary>
+        /// 当离开界面时触发
+        /// </summary>
+        /// <returns></returns>
+        protected override Task OnNavigatedFromAsync()
+        {
+            _isDisplaying = false;
+            return base.OnNavigatedFromAsync();
+        }
+
+        /// <summary>
+        /// 当进入界面时触发
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <returns></returns>
+        protected override Task OnNavigatedToAsync(object? parameter)
+        {
+            _isDisplaying = true;
+
+            return base.OnNavigatedToAsync(parameter);
         }
 
         private void InitializeProjectSettings()
@@ -118,179 +173,136 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             }
         }
 
-        #region 拉线信息
-        public LineInfoModel LineInfo { get; set; } = new();
-        private void InitializeLineInfo()
-        {
-            var workships = _globalSettingRepository.GetByName("workship")?.Value?.Split(':') ?? new string[0];
-            var electrode = _projectSettingRepository.GetByNameAndVM("Electrode", CCTBCore.BelongToVM)?.Value;
-            var deviceName = _globalSettingRepository.GetByName("DeviceName")?.Value;
-            var ipHeader = _globalSettingRepository.GetByName("IPHeader")?.Value ?? "";
-            var networkInfo = NetworkHelper.GetNetworkInfo(ipHeader);
+        #region 双缓存机制：界面刷新应用
 
-            LineInfo.LineBase = (workships?.Length > 0 ? workships[0] : "---") + "基地";
-            LineInfo.Electrode = electrode ?? "---";
-            LineInfo.LineName = workships?.Length > 2 ? workships[2] : "---";
-            LineInfo.DeviceName = deviceName ?? "---";
-            LineInfo.DeviceIp = networkInfo?.IpAddress ?? "---";
-        }
         #endregion
 
-        #region 生产信息
-        private ProductionInfoModel productionInfo = new();
-        public ProductionInfoModel ProductionInfo { get => productionInfo; set => SetProperty(ref productionInfo, value); }
+        #region 拉线信息
+        public LineInfoModel LineInfo { get; set; } = new();
 
-        private void InitializeProductionInfo()
+        /// <summary>
+        /// 初始化拉信息异步任务
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        private async Task InitializeLineInfoAsync(CancellationToken ct)
         {
-            ProductionInfo.CellModel = "314AH";
-            ProductionInfo.FilmRollNumber = "AY47X1125L2804";
-            ProductionInfo.NetWeightSpecification_A = 324;
-            ProductionInfo.NetWeightSpecificationLimit_A = 4;
-            ProductionInfo.NetWeightSpecification_B = 648;
-            ProductionInfo.NetWeightSpecificationLimit_B = 7;
-            ProductionInfo.CCDSpecification_MembraneZone = 375;
-            ProductionInfo.CCDSpecificationLimit_MembraneZone = 0.5;
-            ProductionInfo.CCDSpecification_BatteryTabSide = 33;
-            ProductionInfo.CCDSpecificationLimit_BatteryTabSide = 0.5;
-            ProductionInfo.CCDSpecification_BatteryTabMiddle = 33;
-            ProductionInfo.CCDSpecificationLimit_BatteryTabMiddle = 0.5;
-            ProductionInfo.CCDSpecification_Ceramic = 5;
-            ProductionInfo.CCDSpecificationLimit_Ceramic = 1;
-            ProductionInfo.CCDSpecificationLimit_Mismatch = 0.5;
+            var t = Task.Run(() =>
+            {
+                var workships = _globalSettingRepository.GetByName("workship")?.Value?.Split(':') ?? new string[0];
+                var electrode = _projectSettingRepository.GetByNameAndVM("Electrode", CCTBCore.BelongToVM)?.Value;
+                var deviceName = _globalSettingRepository.GetByName("DeviceName")?.Value;
+                var ipHeader = _globalSettingRepository.GetByName("IPHeader")?.Value ?? "";
+                var networkInfo = NetworkHelper.GetNetworkInfo(ipHeader);
 
-            //  -TODO   后续注册到数据更新处
+                LineInfo.LineBase = (workships?.Length > 0 ? workships[0] : "---") + "基地";
+                LineInfo.Electrode = electrode ?? "---";
+                LineInfo.LineName = workships?.Length > 2 ? workships[2] : "---";
+                LineInfo.DeviceName = deviceName ?? "---";
+                LineInfo.DeviceIp = networkInfo?.IpAddress ?? "---";
+            });
+
+            await t.WaitAsync(ct);
         }
         #endregion
 
         #region 关键控制
         public ObservableCollection<ParametersModel<double>> KeyControlParameters { get; set; } = [];
 
-        private async Task InitializeKeyControlParametersAsync()
+        /// <summary>
+        /// 初始化关键控制异步任务
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        private async Task InitializeKeyControlParametersAsync(CancellationToken ct)
         {
             var addresses = _plcService.RWAddresses.Values.Where(o => o.CategoryId == 1 && !string.IsNullOrEmpty(o.ParameterName));
             var parameters = addresses.Select(o => { return new ParametersModel<double>(o.ParameterName, o.MonitorValue); }).ToList();
-            await RunOnUIThreadAsync(() =>
-            {
-                parameters.ForEach(o => { KeyControlParameters.Add(o); });
+            var t1 = RunOnUIThreadAsync(() => { parameters.ForEach(o => { KeyControlParameters.Add(o); }); });
+            await t1.WaitAsync(ct);
 
-                // 测试
-                KeyControlParameters.Add(new ParametersModel<double>("机头A设定速度", 127d));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                KeyControlParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-            });
-
-            var rm = new Random();
-            while (true)
+            var t2 = Task.Run(async () =>
             {
-                try
+                var rm = new Random();
+                using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000));
+                while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
                 {
-                    var validAddresses = _plcService.RWAddresses.Values.Where(o => o.CategoryId == 1 && !string.IsNullOrEmpty(o.ParameterName)).ToDictionary(o => o.ParameterName!, o => o);
-                    await RunOnUIThreadAsync(() =>
+                    try
                     {
-                        foreach (var p in KeyControlParameters)
+                        var validAddresses = _plcService.RWAddresses.Values.Where(o => o.CategoryId == 1 && !string.IsNullOrEmpty(o.ParameterName)).ToDictionary(o => o.ParameterName!, o => o);
+                        await RunOnUIThreadAsync(() =>
                         {
-                            p.PValue = 300 * rm.NextDouble();
-                            continue;
-                            //if (!string.IsNullOrEmpty(p.PName)) continue;
-                            //if (validAddresses.TryGetValue(p.PName!, out var plcRWAddress))
-                            //{
-                            //    var value = plcRWAddress.MonitorValue?.ToString().ToDouble();
-                            //    p.PValue = value;
-                            //}
-                        }
-                    });
+                            foreach (var p in KeyControlParameters)
+                            {
+                                //p.PValue = 300 * rm.NextDouble();
+                                //continue;
+                                if (!string.IsNullOrEmpty(p.PName)) continue;
+                                if (!validAddresses.TryGetValue(p.PName!, out var plcRWAddress)) continue;
 
-                    await Task.Delay(1000);
+                                var value = plcRWAddress.MonitorValue?.ToString().ToDouble();
+                                p.PValue = value;
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"生产监控/总况/关键控制 PLC地址数据更新异常！", ex);
+                        await Task.Delay(5000);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.Error($"生产监控/总况/关键控制 PLC地址数据更新异常！", ex);
-                    await Task.Delay(5000);
-                }
-            }
+            });
+            await t2.WaitAsync(ct);
         }
         #endregion
 
         #region 设备监控
         public ObservableCollection<ParametersModel<double>> MonitoringParameters { get; set; } = [];
 
-        private async Task InitializeMonitoringParametersAsync()
+        /// <summary>
+        /// 初始化设备监控异步任务
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        private async Task InitializeMonitoringParametersAsync(CancellationToken ct)
         {
             var addresses = _plcService.RWAddresses.Values.Where(o => o.CategoryId == 2 && !string.IsNullOrEmpty(o.ParameterName));
             var parameters = addresses.Select(o => { return new ParametersModel<double>(o.ParameterName, o.MonitorValue); }).ToList();
-            await RunOnUIThreadAsync(() =>
-            {
-                parameters.ForEach(o => { MonitoringParameters.Add(o); });
 
-                // 测试
-                MonitoringParameters.Add(new ParametersModel<double>("机头A设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B设定速度", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
-                MonitoringParameters.Add(new ParametersModel<double>("机头B刀距设定间隙-左", 127));
+            var t1 = RunOnUIThreadAsync(() => { parameters.ForEach(o => { MonitoringParameters.Add(o); }); });
+            await t1.WaitAsync(ct);
+
+            var t2 = Task.Run(async () =>
+            {
+                var rm = new Random();
+                using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000));
+                while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+                {
+                    try
+                    {
+                        var validAddresses = _plcService.RWAddresses.Values.Where(o => o.CategoryId == 2 && !string.IsNullOrEmpty(o.ParameterName)).ToDictionary(o => o.ParameterName!, o => o);
+                        await RunOnUIThreadAsync(() =>
+                        {
+                            foreach (var p in MonitoringParameters)
+                            {
+                                //p.PValue = 300 * rm.NextDouble();
+                                //continue;
+                                if (!string.IsNullOrEmpty(p.PName)) continue;
+                                if (!validAddresses.TryGetValue(p.PName!, out var plcRWAddress)) continue;
+
+                                var value = plcRWAddress.MonitorValue?.ToString().ToDouble();
+                                p.PValue = value;
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"生产监控/总况/设备监控 PLC地址数据更新异常！", ex);
+                        await Task.Delay(5000);
+                    }
+                }
             });
 
-            var rm = new Random();
-            while (true)
-            {
-                try
-                {
-                    var validAddresses = _plcService.RWAddresses.Values.Where(o => o.CategoryId == 2 && !string.IsNullOrEmpty(o.ParameterName)).ToDictionary(o => o.ParameterName!, o => o);
-                    await RunOnUIThreadAsync(() =>
-                    {
-                        foreach (var p in MonitoringParameters)
-                        {
-                            p.PValue = 300 * rm.NextDouble();
-                            continue;
-                            //if (!string.IsNullOrEmpty(p.PName)) continue;
-                            //if (validAddresses.TryGetValue(p.PName!, out var plcRWAddress))
-                            //{
-                            //    var value = plcRWAddress.MonitorValue?.ToString().ToDouble();
-                            //    p.PValue = value;
-                            //}
-                        }
-                    });
-
-                    await Task.Delay(1000);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error($"生产监控/总况/设备监控 PLC地址数据更新异常！", ex);
-                    await Task.Delay(5000);
-                }
-            }
+            await t2.WaitAsync(ct);
         }
         #endregion
 
@@ -479,8 +491,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         #endregion
 
         #region CPK文件监控
-        private string? productionDataPathCache;
-        private EDataSourceType dataSourceTypeCache;
+        private string? watcherPathCache;
         private EWeightDataType weightDataTypeCache;
         private DebounceWatcher? cpkWatcherA;
         private DebounceWatcher? cpkWatcherB;
@@ -489,55 +500,76 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// 初始化cpk文件监控配置字段
         /// </summary>
         /// <returns></returns>
-        private async Task InitializeCPKWatcherConfigAsync()
+        private async Task InitializeCPKWatcherConfigAsync(CancellationToken ct)
         {
-            // 订阅更新
-            CCTBCore.CPKWatcherConfigMessageNotificationEvent -= OnCPKWatcherConfigChangedAsunc;
-            CCTBCore.CPKWatcherConfigMessageNotificationEvent += OnCPKWatcherConfigChangedAsunc;
-
-            // 初始化一次
-            var productionDataPath = _projectSettingRepository.GetByNameAndVM("ProductionDataPath", CCTBCore.BelongToVM)?.Value ?? "";
-            var dataSourceTypeStr = _projectSettingRepository.GetByNameAndVM("DataSourceType", CCTBCore.BelongToVM)?.Value ?? "";
-            var success = Enum.TryParse(dataSourceTypeStr, out EDataSourceType dataSourceType);
-            if (!success)
+            var t = Task.Run(() =>
             {
-                _logger.Error($"CPK计算引用的数据源类型[{dataSourceTypeStr}]配置异常！");
-                return;
-            }
-            var weightDataTypeStr = _projectSettingRepository.GetByNameAndVM("WeightDataType", CCTBCore.BelongToVM)?.Value ?? "";
-            success = Enum.TryParse(weightDataTypeStr, out EWeightDataType weightDataType);
-            if (!success)
-            {
-                _logger.Error($"CPK计算引用的数据类型[{weightDataTypeStr}]配置异常！");
-                return;
-            }
+                // 订阅更新
+                CCTBCore.SettingMessageNotificationEvent -= OnBasicFunctionSettingChangedAsync;
+                CCTBCore.SettingMessageNotificationEvent += OnBasicFunctionSettingChangedAsync;
+                CCTBCore.SettingMessageNotificationEvent -= OnSpecialFunctionSettingChangedAsync;
+                CCTBCore.SettingMessageNotificationEvent += OnSpecialFunctionSettingChangedAsync;
 
-            var config = new CPKWatcherConfigMessage();
-            config.ProductionDataPath = productionDataPath;
-            config.DataSourceType = dataSourceType;
-            config.WeightDataType = weightDataType;
-            var cpkWatcherConfig = new MessageEventArgs<CPKWatcherConfigMessage>();
-            cpkWatcherConfig.Message = config;
-            OnCPKWatcherConfigChangedAsunc(this, cpkWatcherConfig);
+                var bf = CCTBCore.BasicFunctionSetting;
+                var sf = CCTBCore.SpecialFunctionSetting;
+                if (bf == null || sf == null) return;
+
+                // 初始化一次
+                var watcherPath = bf.GetFullPathOfCoatingData();
+                if (string.IsNullOrEmpty(watcherPath)) return;
+                var weightDataType = sf.FormChartDataType;
+
+                ReloadCPKWatcherAsync(watcherPath, weightDataType);
+            });
+            await t.WaitAsync(ct);
         }
 
         /// <summary>
         /// cpk文件监控配置改变时触发
         /// </summary>
         /// <param name="obj"></param>
-        private async void OnCPKWatcherConfigChangedAsunc(object? sender, MessageEventArgs<CPKWatcherConfigMessage> cpkWatcherConfig)
+        private async void OnBasicFunctionSettingChangedAsync(object? sender, MessageEventArgs<object> e)
         {
-            if (cpkWatcherConfig == null) return;
-            var config = cpkWatcherConfig.Message;
-            if (config == null || string.IsNullOrEmpty(config.ProductionDataPath)) return;
-            if (productionDataPathCache == config.ProductionDataPath &&
-                dataSourceTypeCache == config.DataSourceType &&
-                weightDataTypeCache == config.WeightDataType) return;
+            if (!(e.Message is BasicFunctionSettingModel bf)) return;
+            var sf = CCTBCore.SpecialFunctionSetting;
+            if (bf == null || sf == null) return;
+            var watcherPath = bf.GetFullPathOfCoatingData();
+            var weightDataType = sf.FormChartDataType;
 
+            if (string.IsNullOrEmpty(watcherPath)) return;
+            if (watcherPathCache == watcherPath && weightDataTypeCache == weightDataType) return;
+
+            ReloadCPKWatcherAsync(watcherPath, weightDataType);
+        }
+
+        /// <summary>
+        /// cpk文件监控配置改变时触发
+        /// </summary>
+        /// <param name="obj"></param>
+        private async void OnSpecialFunctionSettingChangedAsync(object? sender, MessageEventArgs<object> e)
+        {
+            if (!(e.Message is SpecialFunctionSettingModel sf)) return;
+            var bf = CCTBCore.BasicFunctionSetting;
+            if (bf == null || sf == null) return;
+            var watcherPath = bf.GetFullPathOfCoatingData();
+            var weightDataType = sf.FormChartDataType;
+
+            if (string.IsNullOrEmpty(watcherPath)) return;
+            if (watcherPathCache == watcherPath && weightDataTypeCache == weightDataType) return;
+
+            ReloadCPKWatcherAsync(watcherPath, weightDataType);
+        }
+
+        /// <summary>
+        /// 重新加载文件监控配置
+        /// </summary>
+        /// <param name="watcherPath"></param>
+        /// <param name="weightDataType"></param>
+        private async void ReloadCPKWatcherAsync(string watcherPath, EWeightDataType weightDataType)
+        {
             // 缓存配置
-            productionDataPathCache = config.ProductionDataPath;
-            dataSourceTypeCache = config.DataSourceType;
-            weightDataTypeCache = config.WeightDataType;
+            watcherPathCache = watcherPath;
+            weightDataTypeCache = weightDataType;
 
             // 先清理再重新加载
             await RunOnUIThreadAsync(() =>
@@ -549,17 +581,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             });
 
             // 初始化监控文件夹路径
-            var watcherPath = Path.Combine(productionDataPathCache, "涂布重量数据", dataSourceTypeCache.ToString());
-            if (!Directory.Exists(watcherPath)) Directory.CreateDirectory(watcherPath);
+            if (!Directory.Exists(watcherPathCache)) Directory.CreateDirectory(watcherPathCache);
 
             // 先加载一次
-            var fullPath = Path.Combine(watcherPath, DateTime.Today.ToString("yyyy-MM-dd"));
+            var fullPath = Path.Combine(watcherPathCache, DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
             await InitializeCPKParametersAsync(fullPath, ESideType.A);
             await InitializeCPKParametersAsync(fullPath, ESideType.B);
 
             // 初始化CPK文件监控实例
-            InitializeCPKWatcher(watcherPath, ESideType.A);
-            InitializeCPKWatcher(watcherPath, ESideType.B);
+            InitializeCPKWatcher(watcherPathCache, ESideType.A);
+            InitializeCPKWatcher(watcherPathCache, ESideType.B);
         }
 
         /// <summary>
@@ -572,7 +603,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
             var watcher = new DebounceWatcher(watcherPath, $"*_{sideType}面.csv");
             watcher.Interval = 50;
             watcher.IncludeSubdirectories = true;
-            //watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime;
             watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Attributes;
             watcher.DeletedDebunce += OnWeightDataDeleted;
             watcher.RenamedDebunce += OnWeightDataRenamed;
@@ -690,9 +720,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <returns></returns>
         private bool IsMatch(string fullPath, ESideType sideType)
         {
-            var pattern = @$"涂布重量数据\\{dataSourceTypeCache}\\{DateTime.Today:yyyy-MM-dd}\\.*_{sideType}面\.csv";
+            // 将路径中的反斜杠转义为正则表达式中的反斜杠
+            var escapedPath = Regex.Escape(watcherPathCache ?? string.Empty);
+            var dateStr = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var escapedDateStr = Regex.Escape(dateStr);
+
+            var pattern = @$"{escapedPath}\\{escapedDateStr}\\.*_{sideType}面\.csv";
             var match = Regex.Match(fullPath, pattern);
-            if (match == null) return false;
             return match.Success;
         }
 
@@ -721,7 +755,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <param name="filePath"></param>
         /// <param name="sideType"></param>
         private async Task RefreshCPKOperation(string filePath, ESideType sideType)
-        {   
+        {
             // 获取对应面的锁；如果正在刷新，直接丢弃本次请求
             var semaphore = sideType == ESideType.A ? _cpkRefreshLockA : _cpkRefreshLockB;
             if (!await semaphore.WaitAsync(0))
@@ -793,8 +827,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
                 ESideType.B => CPKByRollModelsB,
                 _ => throw new NotImplementedException($"无[{sideType}]配置实现！"),
             };
-            double targetValue = 0, toleranceValue = 0;
-            var weights = new List<double>();
+            float targetValue = 0, toleranceValue = 0;
+            var weights = new List<float>();
             var weightDatas = ReadWeightDataCsvSafely(file.FullName, Encoding.UTF8);
             foreach (var weightData in weightDatas)
             {
@@ -870,17 +904,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBMonitoring
         /// <param name="filePath"></param>
         /// <param name="encoding"></param>
         /// <returns></returns>
-        private IEnumerable<WeightDataModel> ReadWeightDataCsvSafely(string filePath, Encoding encoding)
+        private IEnumerable<CoatingDataModel> ReadWeightDataCsvSafely(string filePath, Encoding encoding)
         {
-            var _records = new List<WeightDataModel>();
+            var _records = new List<CoatingDataModel>();
             try
             {
-                var config = WeightDataModelMap.GetCsvConfiguration();
+                var config = CoatingDataModelMap.GetCsvConfiguration();
                 using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 using var sr = new StreamReader(fs, encoding);
                 using var csv = new CsvReader(sr, config);
-                csv.Context.RegisterClassMap<WeightDataModelMap>();
-                var records = csv.GetRecords<WeightDataModel>();
+                csv.Context.RegisterClassMap<CoatingDataModelMap>();
+                var records = csv.GetRecords<CoatingDataModel>();
                 _records.AddRange(records);
             }
             catch (Exception ex)

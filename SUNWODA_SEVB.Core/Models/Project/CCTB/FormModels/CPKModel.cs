@@ -12,7 +12,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels
         private DateTime creationTime;
         private DateTime gatherTime;
         private string? rollName;
-        private int passCount;
+        private float passCount;
         private double cpkValue;
         private string? displayName;
         private bool isManual;
@@ -35,7 +35,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels
             set => SetProperty(ref rollName, value);
         }
 
-        public int PassCount
+        public float PassCount
         {
             get => passCount;
             set => SetProperty(ref passCount, value);

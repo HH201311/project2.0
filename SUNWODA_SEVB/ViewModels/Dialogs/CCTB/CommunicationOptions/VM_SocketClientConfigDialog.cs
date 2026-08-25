@@ -50,6 +50,16 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB.CommunicationOptions
         public ICommand CancleCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
 
         /// <summary>
+        /// 恢复默认设置：通讯配置
+        /// </summary>
+        public ICommand? ResetOptionCommand { get; set; }
+
+        /// <summary>
+        /// 恢复默认设置：协议配置
+        /// </summary>
+        public ICommand? ResetProtocolCommand { get; set; }
+
+        /// <summary>
         /// 通讯配置
         /// </summary>
         public SocketClientOptions? CommunicationOptions { get; set; }

@@ -219,6 +219,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                     return;
                 }
             }
+            PythonThread = null;
 
             lock (queueLock)
             {
@@ -237,8 +238,6 @@ namespace SUNWODA_SEVB.Tool.Helper
                     MessageBox.Show($"PythonEngine.Shutdown 失败：{ex.Message}");
                 }
             }
-
-            PythonThread = null;
         }
 
         /// <summary>
@@ -288,17 +287,17 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <param name="action">Python任务</param>
         public static void AddAction((Action<object[]>, object[]) action)
         {
-            if (isWorking)
+            if (!isWorking) return;
+
+            Task.Run(() =>
             {
-                Task.Run(() =>
+                lock (queueLock)
                 {
-                    lock (queueLock)
-                    {
-                        actions.Enqueue(action);
-                        ar.Set(); // 通知工作线程有新任务
-                    }
-                });
-            }
+                    if (!isWorking) return;
+                    actions.Enqueue(action);
+                    ar.Set(); // 通知工作线程有新任务
+                }
+            });
         }
     }
 }

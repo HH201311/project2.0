@@ -16,34 +16,26 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// 闭环计算时间
         /// </summary>
         [DataColumn("闭环计算时间")]
-        public DateTime CalculateTime { get; set; } = DateTime.Now;
-
-        #region PLC采集数据
-        /// <summary>
-        /// PLC采集数据条码
-        /// </summary>
-        [DataColumn("PLC采集数据条码")]
-        public string? PLCBorcode { get; set; }
-        #endregion
+        public DateTime CalculateTime { get; set; }
 
         #region 接带/换卷处理
         /// <summary>
         /// 卷针号
         /// </summary>
-        [DataColumn("卷针号")]
-        public short JZH { get; set; }
+        [DataColumn("闭环开启信号")]
+        public float CLEnableSigle { get; set; }
 
         /// <summary>
         /// 接带信号
         /// </summary>
         [DataColumn("接带信号")]
-        public short Host_TapeSplicing { get; set; }
+        public float Host_TapeSplicing { get; set; }
 
         /// <summary>
         /// 换卷信号
         /// </summary>
         [DataColumn("换卷信号")]
-        public short Host_ReelAlternatioan { get; set; }
+        public float Host_ReelAlternatioan { get; set; }
 
         /// <summary>
         /// 算法参数change
@@ -55,22 +47,72 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// 推荐变径调整量
         /// </summary>
         [DataColumn("推荐变径调整量")]
-        public double M { get; set; }
+        public float M { get; set; }
+        #endregion
+
+        #region 错位量计算数据
+        /// <summary>
+        /// 实时电芯的首极耳角度-正极
+        /// </summary>
+        [DataColumn("实时电芯的首极耳角度-正极")]
+        public float Θb1 { get; set; }
+
+        /// <summary>
+        /// 实时电芯的尾极耳角度-正极
+        /// </summary>
+        [DataColumn("实时电芯的尾极耳角度-正极")]
+        public float Θbn { get; set; }
+
+        /// <summary>
+        /// 实时电芯的首极耳角度-负极
+        /// </summary>
+        [DataColumn("实时电芯的首极耳角度-负极")]
+        public float Θa1 { get; set; }
+
+        /// <summary>
+        /// 实时电芯的尾极耳角度-负极
+        /// </summary>
+        [DataColumn("实时电芯的尾极耳角度-负极")]
+        public float Θan { get; set; }
+
+        /// <summary>
+        /// 稳定极耳错位-正极
+        /// </summary>
+        [DataColumn("稳定极耳错位-正极")]
+        public float S_ΔDb { get; set; }
+
+        /// <summary>
+        /// 稳定极耳错位-负极
+        /// </summary>
+        [DataColumn("稳定极耳错位-负极")]
+        public float S_ΔDa { get; set; }
+
+        /// <summary>
+        /// 缺失错位补偿-正极
+        /// </summary>
+        [DataColumn("缺失错位补偿-正极")]
+        public float Bb { get; set; }
+
+        /// <summary>
+        /// 缺失错位补偿-负极
+        /// </summary>
+        [DataColumn("缺失错位补偿-负极")]
+        public float Ba { get; set; }
+
+        /// <summary>
+        /// 正极错位量
+        /// </summary>
+        [DataColumn("正极错位量")]
+        public float ΔDb { get; set; }
+
+        /// <summary>
+        /// 负极错位量
+        /// </summary>
+        [DataColumn("负极错位量")]
+        public float ΔDa { get; set; }
         #endregion
 
         #region 闭环算法
-        /// <summary>
-        /// J1缓存值
-        /// </summary>
-        [DataColumn("J1缓存值")]
-        public float J1Cache { get; set; }
-
-        /// <summary>
-        /// J2缓存值
-        /// </summary>
-        [DataColumn("J2缓存值")]
-        public float J2Cache { get; set; }
-
         /// <summary>
         /// JSingle缓存值
         /// </summary>
@@ -96,10 +138,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         public float J2 { get; set; }
 
         /// <summary>
-        /// PressJ
+        /// J3
         /// </summary>
-        [DataColumn("PressJ")]
-        public float PressJ { get; set; }
+        [DataColumn("J3")]
+        public float J3 { get; set; }
 
         /// <summary>
         /// Notes

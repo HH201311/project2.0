@@ -12,13 +12,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         private int na;
         private int t4;
         private int u_limit;
-        private double k;
+        private float k;
         private int t1;
         private int t2;
         private int t3;
         private int j_d;
-        private double p_switch;
-        private double p_t;
+        private float p_switch;
+        private float p_t;
         private int p_j_d;
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// <summary>
         /// 0.1变径与周长对应变化关系
         /// </summary>
-        public double K { get => k; set => SetProperty(ref k, value); }
+        public float K { get => k; set => SetProperty(ref k, value); }
 
         /// <summary>
         /// 闭环判定调节阈值t1
@@ -69,12 +69,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models
         /// <summary>
         /// 压花调节阈值
         /// </summary>
-        public double P_Switch { get => p_switch; set => SetProperty(ref p_switch, value); }
+        public float P_Switch { get => p_switch; set => SetProperty(ref p_switch, value); }
 
         /// <summary>
         /// 压花调节系数
         /// </summary>
-        public double P_t { get => p_t; set => SetProperty(ref p_t, value); }
+        public float P_t { get => p_t; set => SetProperty(ref p_t, value); }
 
         /// <summary>
         /// 压花调节精度

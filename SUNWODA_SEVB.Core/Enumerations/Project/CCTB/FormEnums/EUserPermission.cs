@@ -12,19 +12,14 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums
     public enum EUserPermission
     {
         /// <summary>
-        /// 无权限
+        /// 无权限(不可查看&不可编辑)
         /// </summary>
-        //NoPermission,
+        NoPermission,
 
         /// <summary>
         /// 仅可查看
         /// </summary>
         ReadOnly,
-
-        /// <summary>
-        /// 仅可编辑（不可查看）
-        /// </summary>
-        //EditOnly,
 
         /// <summary>
         /// 可查看且可编辑

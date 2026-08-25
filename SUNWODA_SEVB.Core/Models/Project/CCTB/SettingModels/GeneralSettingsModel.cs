@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,7 +19,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
     {
         private EWeightDataType weightDataType;
         private EMembraneZoneType membraneZoneType;
-        private byte lag_DearanceConditiont;
 
         private byte setB_Digits;
         private bool setB_IsRound;
@@ -26,7 +26,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         private byte velocityCondition;
         private float targetOffset;
 
-        private byte distanceBetweenAB;
+        private byte distanceBetweenAB = 100;
+        private ERackType rackType;
+        private byte pumpCount = 1;
 
         private EPartitionedType partitionedType;
         private List<PartitionedModel> partitionedModels = new();
@@ -41,11 +43,6 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// 膜区处理
         /// </summary>
         public EMembraneZoneType MembraneZoneType { get => membraneZoneType; set => SetProperty(ref membraneZoneType, value); }
-
-        /// <summary>
-        /// 刀距之后变化值
-        /// </summary>
-        public byte Lag_DearanceConditiont { get => lag_DearanceConditiont; set => SetProperty(ref lag_DearanceConditiont, value); }
         #endregion
 
         #region PLC设定泵速读取设置
@@ -77,6 +74,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels
         /// AB面走嗲间隔距离
         /// </summary>
         public byte DistanceBetweenAB { get => distanceBetweenAB; set => SetProperty(ref distanceBetweenAB, value); }
+
+        /// <summary>
+        /// 机架类型
+        /// </summary>
+        public ERackType RackType { get => rackType; set => SetProperty(ref rackType, value); }
+
+        /// <summary>
+        /// 调节泵个数
+        /// </summary>
+        public byte PumpCount { get => pumpCount; set => SetProperty(ref pumpCount, value); }
         #endregion
 
         #region 膜区设置

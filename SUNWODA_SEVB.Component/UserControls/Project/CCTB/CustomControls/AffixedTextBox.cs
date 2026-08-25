@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
+using HandyControl.Controls;
 
 namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.CustomControls
 {

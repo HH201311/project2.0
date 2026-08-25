@@ -11,6 +11,9 @@ using static SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls.Axis
 
 namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
 {
+    /// <summary>
+    /// 坐标轴绘制
+    /// </summary>
     public class AxisRenderer : FrameworkElement
     {
         /// <summary>
@@ -188,7 +191,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.ChartControls
             }
             #endregion
 
-            #region 回执X轴刻度标签
+            #region 绘制X轴刻度标签
             if (min >= max) throw new ArgumentException("最大最小值异常！");
             var range = max - min;
             foreach (var axisValue in axisValues)

@@ -14,6 +14,7 @@ using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.AlarmModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Tool.Extension;
@@ -38,6 +39,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
+
+        /// <summary>
+        /// 重置按钮
+        /// </summary>
+        public ICommand? ParamResetCommand => new RelayCommand(OnParamResetAsync);
 
         /// <summary>
         /// 保存按钮
@@ -75,12 +81,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
         }
 
         /// <summary>
+        /// 当参数重置时触发
+        /// </summary>
+        private async void OnParamResetAsync()
+        {
+            var configs = (List<RoleManagementModel>?)RoleManagementDefaultConfig.Configs.Values.ToList().CopyByJson();
+            if (configs == null) return;
+
+            RoleManagementConfigs.Clear();
+            RoleManagementConfigs.AddRange(configs);
+
+            _logger.UserInfo($"用户重置了 权限设置/角色管理 参数！");
+            await VM_CCTBMessageBoxDialog.InfoAsync("参数重置完成！", "重置提示");
+        }
+
+        /// <summary>
         /// 当参数保存时触发
         /// </summary>
         private async void OnParamSaveAsync()
         {
             var re = _projectSettingRepository.SaveRoleManagementConfigProjectParameters(RoleManagementConfigs.ToList());
-            if (re) await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            if (re)
+            {
+                // 参数更新通知
+                CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+                {
+                    Tag = "角色权限设置参数保存成功！",
+                    Message = RoleManagementConfigs.ToList()
+                });
+                _logger.UserInfo($"用户保存了 权限设置/角色管理 参数修改！");
+                await VM_CCTBMessageBoxDialog.InfoAsync("保存成功！", "保存提示");
+            }
             else await VM_CCTBMessageBoxDialog.ErrorAsync("保存失败！", "保存提示");
         }
 
@@ -92,7 +123,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.PermissionSetting
                  new ObservableCollection<ComboboxItemModel<EUserPermission>>(
                  Enum.GetValues(typeof(EUserPermission)).Cast<EUserPermission>()
                  .Select(v => new ComboboxItemModel<EUserPermission>() { ItemValue = v, DisplayName = v.ToString() }));
-
 
         /// <summary>
         /// 角色管理信息

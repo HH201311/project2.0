@@ -19,6 +19,8 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using ECCTBBusinessType = SUNWODA_SEVB.Core.Enumerations.Project.CCTB.EBusinessType;
+using EJRCWBusinessType = SUNWODA_SEVB.Core.Enumerations.Project.JRCW.EBusinessType;
 
 namespace SUNWODA_SEVB.Tool.Extension
 {
@@ -45,7 +47,7 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="value"></param>
         /// <param name="belongToVM"></param>
         /// <returns></returns>
-        private static bool SaveProjectParametersAsJson(this IProjectSettingRepository projectSettingRepository, string paramName, object value, string belongToVM)
+        private static bool SaveProjectParametersAsJson(this IProjectSettingRepository projectSettingRepository, string paramName, object? value, string belongToVM)
         {
             var paramrer = projectSettingRepository.GetByNameAndVM(paramName, belongToVM);
             if (paramrer == null) return false;
@@ -67,8 +69,19 @@ namespace SUNWODA_SEVB.Tool.Extension
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"IsStringReverseByteWord";
             var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return false;
-            return bool.TryParse(paramModel.Value, out bool result) ? result : false;
+            if (paramModel != null) return bool.TryParse(paramModel.Value, out bool result) ? result : false;
+
+            var models = false;
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, models.ToString(), "bool", 2)
+                    {
+                        Remark = "涂布闭环PLC字符串颠倒参数配置"
+                    }
+                );
+            }
+            return models;
         }
 
         /// <summary>
@@ -94,6 +107,34 @@ namespace SUNWODA_SEVB.Tool.Extension
             if (paramModel == null) return false;
             paramModel.Value = value.ToString();
             return projectSettingRepository.Update(paramModel);
+        }
+        #endregion
+
+        #region 产品型号ProductModel参数
+        /// <summary>
+        /// 加载产品型号参数
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static string LoadProductModelProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"ProductModel";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null) return paramModel.Value;
+
+            var models = "---";
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, models, "string", 2)
+                    {
+                        Remark = "涂布闭环产品型号配置[ProductModel]"
+                    }
+                );
+            }
+            return models;
         }
         #endregion
 
@@ -160,6 +201,13 @@ namespace SUNWODA_SEVB.Tool.Extension
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"AlgorithmWebUrls";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null)
+            {
+                var result = paramModel.Value.TryDeserializeObject(out List<AlgorithmWebUrlModel>? paramValues);
+                if (result && paramValues != null) return paramValues;
+            }
+
             var models = new List<AlgorithmWebUrlModel>();
             models.Add(new AlgorithmWebUrlModel() { IsEnable = true, Name = "惠州WEB服务器", BaseUrl = "http://10.201.88.151:10100/" });
             models.Add(new AlgorithmWebUrlModel() { IsEnable = true, Name = "南昌WEB服务器", BaseUrl = "http://10.117.243.32:7097/" });
@@ -172,11 +220,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return models;
-            var result = paramModel.Value.TryDeserializeObject(out List<AlgorithmWebUrlModel>? paramValues);
-            if (!result) return models;
-            return paramValues ?? models;
+            return models;
         }
 
         /// <summary>
@@ -219,10 +263,19 @@ namespace SUNWODA_SEVB.Tool.Extension
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"AlgorithmSetting_{closedLoopType}{sideType}";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var result = paramModel.Value.TryDeserializeObject(out AlgorithmModel? paramValue);
+                if (result && paramValue != null)
+                {
+                    return paramValue;
+                }
+            }
+
             var model = new AlgorithmModel();
             model.IsEnable = false;
             model.AlgorithmName = $"DY_{closedLoopType}_L1_1_N_{(sideType == ESideType.A ? "S" : "D")}_314Ah";
-            model.AlgorithmType = AlgorithmModel.GetEAlgorithmType(closedLoopType, model.AlgorithmName);
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
                 projectSettingRepository.Add(
@@ -232,13 +285,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return model;
-            var result = paramModel.Value.TryDeserializeObject(out AlgorithmModel? paramValue);
-            if (result == false) return model;
-            if (paramValue == null) return model;
-            paramValue.AlgorithmType = AlgorithmModel.GetEAlgorithmType(closedLoopType, paramValue.AlgorithmName);
-            return paramValue;
+            return model;
         }
 
         /// <summary>
@@ -270,19 +317,72 @@ namespace SUNWODA_SEVB.Tool.Extension
         }
         #endregion
 
-        #region ClosedLoopSetting参数
+        #region ClosedLoopSwitch参数
         /// <summary>
-        /// 加载涂布闭环参数设置，参数名称格式为"ClosedLoopSetting_{closedLoopType}{sideType}"，如"ClosedLoopSetting_MD_A"
+        /// 加载业务闭环开关参数，参数名称格式为"ClosedLoopSwitch{closedLoopType}{sideType}"，如"ClosedLoopSwitchMDA"
         /// </summary>
         /// <param name="projectSettingRepository"></param>
         /// <param name="closedLoopType"></param>
         /// <param name="sideType"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static ClosedLoopSettingModel? LoadClosedLoopSettingProjectParameters(this IProjectSettingRepository projectSettingRepository, EClosedLoopType closedLoopType, ESideType sideType)
+        public static bool LoadClosedLoopSwitchProjectParameters(this IProjectSettingRepository projectSettingRepository, EClosedLoopType closedLoopType, ESideType sideType)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"ClosedLoopSwitch{closedLoopType}{sideType}";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel == null) return false;
+            return bool.TryParse(paramModel.Value, out bool result) ? result : false;
+        }
+
+        /// <summary>
+        /// 保存业务闭环开关参数
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="sideType"></param>
+        /// <param name="value"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveClosedLoopSwitchProjectParameters(this IProjectSettingRepository projectSettingRepository, EClosedLoopType closedLoopType, ESideType sideType, bool value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"ClosedLoopSwitch{closedLoopType}{sideType}";
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, "False", "bool", 2)
+                    {
+                        Remark = "涂布业务闭环开关配置"
+                    }
+                );
+            }
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel == null) return false;
+            paramModel.Value = value.ToString();
+            return projectSettingRepository.Update(paramModel);
+        }
+        #endregion
+
+        #region ClosedLoopSetting参数
+        /// <summary>
+        /// 加载涂布闭环参数设置，参数名称格式为"ClosedLoopSetting_{closedLoopType}{sideType}"，如"ClosedLoopSetting_MDA"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="closedLoopType"></param>
+        /// <param name="sideType"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static ClosedLoopSettingModel LoadClosedLoopSettingProjectParameters(this IProjectSettingRepository projectSettingRepository, EClosedLoopType closedLoopType, ESideType sideType)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"ClosedLoopSetting_{closedLoopType}{sideType}";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<ClosedLoopSettingModel>(paramModel?.Value ?? "", JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new ClosedLoopSettingModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -293,10 +393,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return null;
-            var paramValue = JsonSerializer.Deserialize<ClosedLoopSettingModel>(paramModel?.Value ?? "", JsonOptions);
-            return paramValue;
+            return model;
         }
 
         /// <summary>
@@ -333,10 +430,17 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="projectSettingRepository"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static GeneralSettingsModel? LoadGeneralSettingsProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        public static GeneralSettingsModel LoadGeneralSettingsProjectParameters(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"GeneralSettings";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<GeneralSettingsModel>(paramModel?.Value ?? "", JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new GeneralSettingsModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -347,10 +451,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return null;
-            var paramValue = JsonSerializer.Deserialize<GeneralSettingsModel>(paramModel?.Value ?? "", JsonOptions);
-            return paramValue;
+            return model;
         }
 
         /// <summary>
@@ -385,10 +486,17 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="projectSettingRepository"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static BasicFunctionSettingModel? LoadBasicFunctionSettingProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        public static BasicFunctionSettingModel LoadBasicFunctionSettingProjectParameters(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"BasicFunctionSetting";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<BasicFunctionSettingModel>(paramModel?.Value ?? "", JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new BasicFunctionSettingModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -399,10 +507,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return null;
-            var paramValue = JsonSerializer.Deserialize<BasicFunctionSettingModel>(paramModel?.Value ?? "", JsonOptions);
-            return paramValue;
+            return model;
         }
 
         /// <summary>
@@ -437,10 +542,17 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="projectSettingRepository"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static SpecialFunctionSettingModel? LoadSpecialFunctionSettingProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        public static SpecialFunctionSettingModel LoadSpecialFunctionSettingProjectParameters(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"SpecialFunctionSetting";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<SpecialFunctionSettingModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new SpecialFunctionSettingModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -451,10 +563,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return null;
-            var paramValue = JsonSerializer.Deserialize<SpecialFunctionSettingModel>(paramModel?.Value ?? "", JsonOptions);
-            return paramValue;
+            return model;
         }
 
         /// <summary>
@@ -490,16 +599,25 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <returns></returns>
         public static List<AlarmConfigModel> LoadAlarmConfigWithDefault(this IProjectSettingRepository projectSettingRepository)
         {
-            var configs = projectSettingRepository.LoadAlarmConfigProjectParameters();
-            foreach (var config in AlarmDefaultConfig.Configs)
+            var result = new List<AlarmConfigModel>();
+            var configs = LoadAlarmConfigProjectParameters(projectSettingRepository);
+            foreach (var kv in AlarmDefaultConfig.Configs)
             {
-                if (configs.Exists(o => o.Code == config.Key)) continue;
-                var newConfig = config.Value.CopyByJson();
-                if (newConfig == null) continue;
-                configs.Add(newConfig);
+                if (configs.Exists(o => o.Code == kv.Key))
+                {
+                    var config = configs.First(o => o.Code == kv.Key);
+                    config.Name = kv.Value.Name;
+                    result.Add(config);
+                    continue;
+                }
+                else
+                {
+                    var config = kv.Value.CopyByJson();
+                    if (config != null) result.Add(config);
+                }
             }
 
-            return configs;
+            return result;
         }
 
         /// <summary>
@@ -508,10 +626,17 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="projectSettingRepository"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static List<AlarmConfigModel> LoadAlarmConfigProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        private static List<AlarmConfigModel> LoadAlarmConfigProjectParameters(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"AlarmConfig";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<List<AlarmConfigModel>>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new List<AlarmConfigModel>();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -522,11 +647,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramValues = new List<AlarmConfigModel>();
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return paramValues;
-            paramValues = JsonSerializer.Deserialize<List<AlarmConfigModel>>(paramModel?.Value ?? "", JsonOptions);
-            return paramValues ?? new List<AlarmConfigModel>();
+            return model;
         }
 
         /// <summary>
@@ -565,6 +686,13 @@ namespace SUNWODA_SEVB.Tool.Extension
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"AlarmConfigParam";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<AlarmConfigParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new AlarmConfigParamModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -575,10 +703,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return null;
-            var paramValue = JsonSerializer.Deserialize<AlarmConfigParamModel>(paramModel?.Value ?? "", JsonOptions);
-            return paramValue;
+            return model;
         }
 
         /// <summary>
@@ -617,6 +742,13 @@ namespace SUNWODA_SEVB.Tool.Extension
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"CommunicationSetting";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<CommunicationSettingModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new CommunicationSettingModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -627,10 +759,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null || string.IsNullOrEmpty(paramModel.Value)) return model;
-            var paramValue = JsonSerializer.Deserialize<CommunicationSettingModel>(paramModel.Value, JsonOptions);
-            return paramValue ?? model;
+            return model;
         }
 
         /// <summary>
@@ -658,6 +787,64 @@ namespace SUNWODA_SEVB.Tool.Extension
         }
         #endregion
 
+        #region MqttAddressSetting参数
+        /// <summary>
+        /// 加载Mqtt地址配置，参数名称为"MqttAddressSetting"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="sideType"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static MqttAddressModel LoadMqttAddressSettingProjectParameters(this IProjectSettingRepository projectSettingRepository, ESideType sideType)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"MqttAddressSetting{sideType}";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<MqttAddressModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
+            var model = new MqttAddressModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 2)
+                    {
+                        Remark = "Mqtt地址配置"
+                    }
+                );
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// 保存Mqtt地址配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="sideType"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveMqttAddressSettingProjectParameters(this IProjectSettingRepository projectSettingRepository, ESideType sideType, MqttAddressModel value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"MqttAddressSetting{sideType}";
+            var model = new MqttAddressModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 2)
+                    {
+                        Remark = "Mqtt地址配置"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, CCTBCore.BelongToVM);
+        }
+        #endregion
+
         #region RoleManagementConfig参数
         /// <summary>
         /// 加载涂布闭环角色管理信息配置，参数名称为"RoleManagementConfig"，如果没有配置则加载默认配置
@@ -666,16 +853,25 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <returns></returns>
         public static List<RoleManagementModel> LoadRoleManagementConfigWithDefault(this IProjectSettingRepository projectSettingRepository)
         {
+            var result = new List<RoleManagementModel>();
             var configs = LoadRoleManagementConfigProjectParameters(projectSettingRepository);
-            foreach (var config in RoleManagementDefaultConfig.Configs)
+            foreach (var kv in RoleManagementDefaultConfig.Configs)
             {
-                if (configs.Exists(o => o.Code == config.Key)) continue;
-                var newConfig = config.Value.CopyByJson();
-                if (newConfig == null) continue;
-                configs.Add(newConfig);
+                if (configs.Exists(o => o.Code == kv.Key))
+                {
+                    var config = configs.First(o => o.Code == kv.Key);
+                    config.Name = kv.Value.Name;
+                    result.Add(config);
+                    continue;
+                }
+                else
+                {
+                    var config = kv.Value.CopyByJson();
+                    if (config != null) result.Add(config);
+                }
             }
 
-            return configs;
+            return result;
         }
 
         /// <summary>
@@ -684,10 +880,17 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="projectSettingRepository"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static List<RoleManagementModel> LoadRoleManagementConfigProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        private static List<RoleManagementModel> LoadRoleManagementConfigProjectParameters(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"RoleManagementConfig";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null)
+            {
+                var paramValues = JsonSerializer.Deserialize<List<RoleManagementModel>>(paramModel.Value, JsonOptions);
+                if (paramValues != null) return paramValues;
+            }
+
             var model = new List<RoleManagementModel>();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
             {
@@ -698,11 +901,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramValues = new List<RoleManagementModel>();
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
-            if (paramModel == null) return paramValues;
-            paramValues = JsonSerializer.Deserialize<List<RoleManagementModel>>(paramModel?.Value ?? "", JsonOptions);
-            return paramValues ?? new List<RoleManagementModel>();
+            return model;
         }
 
         /// <summary>
@@ -739,22 +938,23 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="projectSettingRepository"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static EBusinessType LoadBusinessTypeProjectParameter(this IProjectSettingRepository projectSettingRepository)
+        public static EJRCWBusinessType LoadBusinessTypeProjectParameter(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"BusinessType";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
+            if (paramModel != null && Enum.TryParse(paramModel.Value, out EJRCWBusinessType result)) return result;
+
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
                 projectSettingRepository.Add(
-                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, EBusinessType.BusinessType1.ToString(), "string", 4)
+                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, EJRCWBusinessType.BusinessType1.ToString(), "string", 2)
                     {
                         Remark = "卷绕极耳错位闭环业务类型配置"
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
-            if (paramModel == null) return default;
-            return Enum.TryParse(paramModel.Value, out EBusinessType result) ? result : default;
+            return default;
         }
 
         /// <summary>
@@ -764,14 +964,14 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="value"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static bool SaveBusinessTypeProjectParameter(this IProjectSettingRepository projectSettingRepository, EBusinessType value)
+        public static bool SaveBusinessTypeProjectParameter(this IProjectSettingRepository projectSettingRepository, EJRCWBusinessType value)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"BusinessType";
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
                 projectSettingRepository.Add(
-                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, value.ToString(), "string", 4)
+                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, value.ToString(), "string", 2)
                     {
                         Remark = "卷绕极耳错位闭环业务类型配置"
                     }
@@ -794,8 +994,11 @@ namespace SUNWODA_SEVB.Tool.Extension
         public static string LoadFileSaveRootPathProjectParameter(this IProjectSettingRepository projectSettingRepository)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
-            var defauleValue = "D:\\通用上位机\\JRCWDatas";
             var paramName = $"FileSaveRootPath";
+            var paramValue = projectSettingRepository.GetSettingValue(paramName, JRCWCore.BelongToVM);
+            if (paramValue != null) return paramValue.ToString();
+
+            var defauleValue = "D:\\通用上位机\\JRCWDatas";
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
                 projectSettingRepository.Add(
@@ -805,9 +1008,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramValue = projectSettingRepository.GetSettingValue(paramName, JRCWCore.BelongToVM);
-            if (paramValue == null) return defauleValue;
-            return paramValue.ToString();
+            return defauleValue;
         }
 
         /// <summary>
@@ -837,6 +1038,37 @@ namespace SUNWODA_SEVB.Tool.Extension
         }
         #endregion
 
+        #region PyCodes
+        /// <summary>
+        /// 加载极耳错位闭环PyCodes参数配置，参数名称为"PyCodes"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static List<string> LoadPyCodesProjectParamter(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"PyCodes";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var pyCodes = paramModel.Value.Split(',').ToList();
+                return pyCodes;
+            }
+
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, "MIS_JUDGE_C04_325", "string", 2)
+                    {
+                        Remark = "极耳错位闭环算法pyCode配置(英文逗号分隔)"
+                    }
+                );
+            }
+            return new();
+        }
+        #endregion
+
         #region BusinessType1Param参数
         #region 业务类型1-Business1Param
         /// <summary>
@@ -849,6 +1081,13 @@ namespace SUNWODA_SEVB.Tool.Extension
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"Business1Param";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<Business1ParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new Business1ParamModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
@@ -859,10 +1098,7 @@ namespace SUNWODA_SEVB.Tool.Extension
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
-            if (paramModel == null || string.IsNullOrEmpty(paramModel.Value)) return model;
-            var paramValue = JsonSerializer.Deserialize<Business1ParamModel>(paramModel.Value, JsonOptions);
-            return paramValue ?? model;
+            return model;
         }
 
         /// <summary>
@@ -872,7 +1108,7 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="value"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static bool SaveBusiness1ParamProjectParameters(this IProjectSettingRepository projectSettingRepository, Business1ParamModel value)
+        public static bool SaveBusiness1ParamProjectParameters(this IProjectSettingRepository projectSettingRepository, Business1ParamModel? value)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"Business1Param";
@@ -901,20 +1137,24 @@ namespace SUNWODA_SEVB.Tool.Extension
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
             var paramName = $"Business2Param";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<Business2ParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
             var model = new Business2ParamModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
                 projectSettingRepository.Add(
                     new ProjectSettingModel(paramName, JRCWCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
                     {
-                        Remark = "极耳错位闭环参数配置-业务1"
+                        Remark = "极耳错位闭环参数配置-业务2"
                     }
                 );
             }
-            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JRCWCore.BelongToVM);
-            if (paramModel == null || string.IsNullOrEmpty(paramModel.Value)) return model;
-            var paramValue = JsonSerializer.Deserialize<Business2ParamModel>(paramModel.Value, JsonOptions);
-            return paramValue ?? model;
+            return model;
         }
 
         /// <summary>
@@ -924,17 +1164,17 @@ namespace SUNWODA_SEVB.Tool.Extension
         /// <param name="value"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static bool SaveBusiness2ParamProjectParameters(this IProjectSettingRepository projectSettingRepository, Business2ParamModel value)
+        public static bool SaveBusiness2ParamProjectParameters(this IProjectSettingRepository projectSettingRepository, Business2ParamModel? value)
         {
             if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
-            var paramName = $"Business1Param";
-            var model = new Business1ParamModel();
+            var paramName = $"Business2Param";
+            var model = new Business2ParamModel();
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
                 projectSettingRepository.Add(
                     new ProjectSettingModel(paramName, JRCWCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
                     {
-                        Remark = "极耳错位闭环参数配置-业务1"
+                        Remark = "极耳错位闭环参数配置-业务2"
                     }
                 );
             }

@@ -492,7 +492,7 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
             ).Name;
 
         /// <summary>
-        /// 跨四张 Y 图掉片二次判断（HandleZJYDP 移植），逐层检查，三个条件同时满足才判NG。
+        /// 跨四张 Y 图掉片二次判断（HandleZJYDP 移植），逐层检查，两个条件同时满足才判 NG。
         /// <para>
         /// 仅当 1-Y、2-Y、3-Y、4-Y 图片的 ohInner 数组均已记录时执行。
         /// 对每一层索引 i，需同时满足以下全部条件才判定为掉片：
@@ -500,7 +500,6 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
         /// <list type="bullet">
         ///   <item>① 该层在任一 Y 图中存在相邻层 OH 差值 ≥ Gap45Limit（单图内相邻掉片初判）</item>
         ///   <item>② |Y1[i]+Y3[i]−Y2[i]−Y4[i]| ≥ Gap46Limit（对角和差）</item>
-        ///   <item>③ |Y1[i]−Y3[i]| ≥ Gap47Limit 或 |Y2[i]−Y4[i]| ≥ Gap47Limit（同侧差）</item>
         /// </list>
         /// </summary>
         private bool CheckCrossYDrop(BarcodeState state, string monitorId)
@@ -520,16 +519,13 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
 
             var thresholds = _gapThresholds.Get(monitorId);
             double gap45 = 0.3,
-                gap46 = 0.3,
-                gap47 = 0.5; // 默认值与 PngProcessorBase 字段保持一致
+                gap46 = 0.8;
             if (thresholds is { Count: > 0 })
             {
                 if (thresholds.TryGetValue("Gap45Limit", out var v45))
                     gap45 = v45;
                 if (thresholds.TryGetValue("Gap46Limit", out var v46))
                     gap46 = v46;
-                if (thresholds.TryGetValue("Gap47Limit", out var v47))
-                    gap47 = v47;
             }
 
             for (int i = 0; i < length; i++)
@@ -547,9 +543,7 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
                 if (Math.Abs(y1[i] + y3[i] - y2[i] - y4[i]) < gap46)
                     continue;
 
-                // ③ |Y1[i]−Y3[i]| ≥ Gap47Limit 或 |Y2[i]−Y4[i]| ≥ Gap47Limit
-                if (Math.Abs(y1[i] - y3[i]) >= gap47 || Math.Abs(y2[i] - y4[i]) >= gap47)
-                    return true; // ①②③ 同时满足 → 掉片
+                return true; // ①② 同时满足 → 掉片
             }
 
             return false;

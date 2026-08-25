@@ -182,8 +182,7 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
 
         // --- 掉片判断专用阈值（跨视野计算）---
         protected double Gap45Limit = 0.3; // 单张图内相邻正极层 OH 差值上限（单图掉片初判）
-        protected double Gap46Limit = 0.3; // 四张 Y 图联合：|1Y+3Y−2Y−4Y| 上限
-        protected double Gap47Limit = 0.5; // 四张 Y 图联合：|1Y−3Y| 或 |2Y−4Y| 上限
+        protected double Gap46Limit = 0.8; // 四张 Y 图联合：|1Y+3Y−2Y−4Y| 上限
 
         // ==================== IFileProcessor ====================
 
@@ -653,8 +652,6 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 Gap45Limit = v;
             if (d.TryGetValue("Gap46Limit", out v))
                 Gap46Limit = v;
-            if (d.TryGetValue("Gap47Limit", out v))
-                Gap47Limit = v;
         }
 
         // ==================== 检测判断辅助方法 ====================

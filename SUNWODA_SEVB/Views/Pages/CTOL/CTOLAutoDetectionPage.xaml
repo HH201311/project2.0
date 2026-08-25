@@ -816,7 +816,7 @@
                                                 Value="{Binding SharedGap45Limit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         </DockPanel>
 
-                                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                                        <DockPanel LastChildFill="True">
                                             <TextBlock
                                                 Width="160"
                                                 VerticalAlignment="Center"
@@ -831,23 +831,6 @@
                                                 Increment="0.001"
                                                 Minimum="0"
                                                 Value="{Binding SharedGap46Limit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                        </DockPanel>
-
-                                        <DockPanel LastChildFill="True">
-                                            <TextBlock
-                                                Width="160"
-                                                VerticalAlignment="Center"
-                                                DockPanel.Dock="Left"
-                                                FontSize="12"
-                                                Text="|1-Y - 3-Y| 或 |2-Y - 4-Y|≥" />
-                                            <hc:NumericUpDown
-                                                Height="22"
-                                                VerticalContentAlignment="Center"
-                                                DecimalPlaces="3"
-                                                FontSize="12"
-                                                Increment="0.001"
-                                                Minimum="0"
-                                                Value="{Binding SharedGap47Limit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         </DockPanel>
 
                                     </StackPanel>

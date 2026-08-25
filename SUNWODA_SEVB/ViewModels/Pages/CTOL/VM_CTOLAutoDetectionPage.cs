@@ -69,8 +69,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
 
         private bool _isSharedThresholdMode = true;
         private double _sharedGap45Limit = 0.3;
-        private double _sharedGap46Limit = 0.3;
-        private double _sharedGap47Limit = 0.5;
+        private double _sharedGap46Limit = 0.8;
 
         private bool _isEnabled;
         private string _uploadTargetDirectory = string.Empty;
@@ -210,16 +209,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             set
             {
                 _sharedGap46Limit = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public double SharedGap47Limit
-        {
-            get => _sharedGap47Limit;
-            set
-            {
-                _sharedGap47Limit = value;
                 OnPropertyChanged();
             }
         }
@@ -561,8 +550,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 ),
             };
             _sharedGap45Limit = GetS("Gap45Limit", 0.3);
-            _sharedGap46Limit = GetS("Gap46Limit", 0.3);
-            _sharedGap47Limit = GetS("Gap47Limit", 0.5);
+            _sharedGap46Limit = GetS("Gap46Limit", 0.8);
 
             // 加载上次的模式并同步到服务
             _isSharedThresholdMode = _configFileService.LoadSharedMode();
@@ -858,8 +846,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
             rows[7].PosEnd = 0.45;
             rows[7].PosMiddle = 0.45;
             SharedGap45Limit = 0.3;
-            SharedGap46Limit = 0.3;
-            SharedGap47Limit = 0.5;
+            SharedGap46Limit = 0.8;
             _logger.Info("重置阈值设置成功");
             Growl.InfoGlobal("重置阈值设置成功");
             return Task.CompletedTask;
@@ -967,7 +954,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTOL
                 ["Gap44Limit"] = rows[7].PosMiddle,
                 ["Gap45Limit"] = SharedGap45Limit,
                 ["Gap46Limit"] = SharedGap46Limit,
-                ["Gap47Limit"] = SharedGap47Limit,
             };
         }
 

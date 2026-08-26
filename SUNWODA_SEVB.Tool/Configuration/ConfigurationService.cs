@@ -76,7 +76,7 @@ namespace SUNWODA_SEVB.Tool.Configuration
         {
             var connectionStrings = new ConnectionStrings();
             // 默认
-            connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda_demo;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";
+            connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda_ctol;uid=root;pwd=root;Port=3306;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";
 
             //现场默认
             //connectionStrings.DefaultConnection = "server=127.0.0.1;database=sunwoda2;uid=root;pwd=root;Port=3300;Min Pool Size=5;Max Pool Size=100;Persist Security Info=True;SslMode=None;AllowPublicKeyRetrieval=True;";

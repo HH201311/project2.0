@@ -85,7 +85,9 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                 double[] gapMaxArr = algorithm.GapMax; // [neg边缘, pos边缘, pos中间]
                 float hDNe = algorithm.HDNe; // 负极差值
                 int neNGflag = algorithm.NeNGFlag; // 负极压伤标志（0=正常，1=压伤）
-                int neTQflag = algorithm.NeTQFlag; // 负极突起标志（0=正常，1=突起）
+                // 负极突起（翻折）：新方案读面积 mm²；null=算法接口未到，判级会跳过本条。
+                // 旧字段 NeTQFlag（0/1）不再传入 NgOkJudge。
+                double? neFoldArea = algorithm.NeFoldArea;
 
                 // 重建绘图所需的 HTuple（由 double[] 构造）。
                 distOHInt = new HTuple(ohInner);
@@ -116,7 +118,7 @@ namespace SUNWODA_SEVB.Services.Project.CTOL.Processing
                     imageType, // 视野类型标识（路由阈值分支）
                     gapMaxArr, // 间隙最大值数组（用于边缘 / 中间间隙判断）
                     neNGflag, // 负极压伤标志
-                    neTQflag // 负极突起标志
+                    neFoldArea // 翻折距离正极面积（mm²）；接口未到时为 null
                 );
 
                 // 结果编码嵌入文件名：OK → "_result_OK"；NG → "_result_NG_{缺陷类型}"

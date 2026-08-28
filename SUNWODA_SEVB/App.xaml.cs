@@ -230,7 +230,7 @@ namespace SUNWODA_SEVB
             services.AddMvvmFramework();
 
             // 添加CTOL远程文件监控服务，后续开发（利用 appsettings.json 来决定是否添加）
-            //services.AddCTOLRemoteFileMonitor(configuration);
+            services.AddCTOLRemoteFileMonitor(configuration);
 
             // 添加JRRY远程文件监控服务
             //services.AddJRRYRemoteFileMonitor(configuration);

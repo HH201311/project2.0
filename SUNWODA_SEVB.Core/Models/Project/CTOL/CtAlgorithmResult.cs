@@ -69,9 +69,25 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTOL
         public int NeNGFlag { get; set; }
 
         /// <summary>
-        /// 负极突起标志（0=正常，1=突起）。
+        /// 【旧方案，2026-08 起不再用于判级】负极突起布尔标志（0=正常，1=突起）。
+        /// 旧逻辑：算法侧直接给出 flag，上位机 <c>neTQflag==1</c> 即 NG，无比面积阈值。
+        /// 新逻辑改由 <see cref="NeFoldArea"/> 与界面阈值比较，本字段仅保留兼容旧 Worker JSON。
         /// </summary>
         public int NeTQFlag { get; set; }
+
+        /// <summary>
+        /// 【新方案，待算法接口交付】翻折距离正极的面积，单位 mm²。
+        /// <para>
+        /// 上位机比较规则（见 <c>ImageProcessorBase.NgOkJudge</c>）：
+        /// 面积为 0 → 打日志并 NG；面积 ≥ 界面 <c>Gap48Limit</c> → NG_负极突起。
+        /// </para>
+        /// <para>
+        /// 默认 <c>null</c> 表示 Worker JSON 尚未输出该字段（接口未到），判级跳过本条，避免误报。
+        /// 算法到位后，请保证 stdout JSON 属性名为 <c>NeFoldArea</c>（System.Text.Json 默认区分大小写）；
+        /// 若对方字段名不同，在本属性上补 <c>[JsonPropertyName("对方字段名")]</c>。
+        /// </para>
+        /// </summary>
+        public double? NeFoldArea { get; set; }
 
         public string ErrorReport { get; set; } = "";
     }

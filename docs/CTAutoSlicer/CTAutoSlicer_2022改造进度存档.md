@@ -1,12 +1,21 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-20（切片导出：JPEG 后处理文件覆盖「全部是」）  
-> **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；进程池并行导入 ✅。  
-> **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参。  
+> **文档版本**：2026-08-28（NJCT 双类名 + 远端 DLL 更新）  
+> **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；**NJCT 远端更新 ✅**；进程池并行导入 ✅。  
+> **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参；**AI 机 NJCT 远端下载与白名单联调**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-28 增量（NJCT 双类名 + 远端 DLL 更新）**：  
+> 1. **背景**：南昌 / 惠州原各有一份同名 `NJCT.dll`；视觉合并为单文件，类名区分 `NJSwdCT` / `HZSwdCT`。CTNCLX 保持 develop 逻辑不动。  
+> 2. **反射**：CTAutoSlicer 改为 `NJCT.HZSwdCT`（`OfflineCtVisionService`）；CTNCLX 仍 `NJCT.NJSwdCT`。  
+> 3. **远端**：新增 `OfflineCtDllUpdateService`；SysCenter `pythonCode=HZ_LianXianCT_Dll`，`appKey=hz_lixian_ct`，RSA 公钥见 `CTAutoSlicerSettings.OfflineCtDllPublicKey`。  
+> 4. **UI**：AI 标注 → 模型与推理 →「开启远端下载 NJCT.dll」+ 白名单说明；仅 **AI 标注模式**启动时查版本 → 弹窗 → 下载 → 重启。  
+> 5. **落盘**：下载后同时写入 `Dlls\NJCT.dll` 与 exe 同级 `NJCT.dll`；本机版本记 `Config/CTAutoSlicer/local.json` → `OfflineCtDllCachedVersion`。  
+> 6. **日志**：拉取/网络失败统一 `[NJCT远端]` ERROR；CF.dll 仍用本地。  
+> 7. 落点：`CTAutoSlicerSettings` / `OfflineCtDllUpdateService` / `VM_CTAutoSlicerPage.OfflineCtDllUpdate.cs` / `CTAutoSlicerPage.xaml` / `CT离线AI视觉接口文档.md` §1.5。
 
 > **2026-08-20 增量（切片导出：残留文件覆盖确认「全部是」）**：  
 > 1. **背景**：上次导出中断时目标目录可能已有 JPEG 残留；再次保存会弹出「VGSTUDIO MAX 警告」（文件已存在，是否替换）。  
@@ -668,7 +677,7 @@ await ExportImageStackSlicesAsync(...);
 
 | 项 | 说明 |
 |----|------|
-| 服务 | `ICTOfflineVisionService` / `OfflineCtVisionService`（反射 `NJCT.NJSwdCT`） |
+| 服务 | `ICTOfflineVisionService` / `OfflineCtVisionService`（反射 `NJCT.HZSwdCT`） |
 | 选图/落盘 | `OfflineCtAnnotationHelper`（`TryPickTopViewImageByIndex`） |
 | 主流程 | `TryRunOfflineCtVisionAnnotationAsync`（软失败） |
 | UI | 侧栏「AI图像标注」；单测「测试 AI 图像标注」 |
@@ -1395,7 +1404,7 @@ screenY = Ry + Py
 
 > **状态**：✅ **已从切图主链拆出**；`PipelineRunMode=AiAnnotateOnly` 下「开始流程」批处理；单测保留；**上视图 CW90°**；真机两机联调待确认。  
 > **位置**：不再挂在 `RunPostImportPipelineAsync` 末尾；切图机只负责把送检图写入 `TopViewHandoffFolder`。  
-> **与阶段四区别**：阶段四用 OpenCV 本地找点做 VG 内 3-2-1 对齐；本阶段用 **`NJCT.NJSwdCT`** 对交接目录中的 JPEG 做抓点区域与 L1～L5 标注。
+> **与阶段四区别**：阶段四用 OpenCV 本地找点做 VG 内 3-2-1 对齐；本阶段用 **`NJCT.HZSwdCT`** 对交接目录中的 JPEG 做抓点区域与 L1～L5 标注。
 
 ### 22.0 两机部署与流水线模式
 
@@ -1415,7 +1424,7 @@ screenY = Ry + Py
 | 编制 | 罗奕雄，2026-07-27，V1.0 |
 | 业务 | 惠州离线 CT 正极 |
 | DLL | `NJCT.dll`（依赖同目录 `CF.dll`） |
-| 类型 | `NJCT.NJSwdCT` |
+| 类型 | `NJCT.HZSwdCT`（同 DLL 内另有 `NJSwdCT` 供 CTNCLX） |
 | 模型 | `Dlls\Models\CTOffline\model_500000_900.onnx` |
 
 ### 22.2 三个接口方法
@@ -1484,7 +1493,8 @@ RunAiAnnotationBatchAsync：
 
 ### 22.6 清单
 
-- [x] 封装 `ICTOfflineVisionService`（反射 `NJCT.NJSwdCT`）  
+- [x] 封装 `ICTOfflineVisionService`（反射 `NJCT.HZSwdCT`）
+- [x] **NJCT 远端更新**：`OfflineCtDllUpdateService` + AI 页开关 + 启动查版本/弹窗/双路径落盘  
 - [x] Settings + UI 栏目（模型/CUDA/BlackHeight/结果图模式/JSON/CSV/**切片序号/像素精度**）  
 - [x] 单测：「测试 AI 图像标注」  
 - [x] **两机拆分**：`PipelineRunMode` + `TopViewHandoffFolder`；切图交接硬失败；AI 批处理独立入口  

@@ -28,6 +28,7 @@
     <Compile Include="Interfaces\Project\CTAutoSlicer\ICutImgAlgorithmService.cs" />
     <Compile Include="Interfaces\Project\CTAutoSlicer\ICTAutoSlicerService.cs" />
     <Compile Include="Interfaces\Project\CTAutoSlicer\ICTOfflineVisionService.cs" />
+    <Compile Include="Interfaces\Project\CTAutoSlicer\IOfflineCtDllUpdateService.cs" />
     <Compile Include="Interfaces\Project\JRCW\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\STC\IScrewControllerService.cs" />
     <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />

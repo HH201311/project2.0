@@ -2667,6 +2667,18 @@
                                         Style="{StaticResource CasFormSectionDescStyle}"
                                         Text="ONNX 模型路径、CUDA；打黑高度以增强图为基准（原图按尺寸约一半自动 ÷2）；结果图模式决定落盘增强图 / 原图。" />
 
+                                    <StackPanel Margin="0,4,0,8">
+                                        <CheckBox
+                                            VerticalAlignment="Center"
+                                            Content="开启远端下载 NJCT.dll"
+                                            IsChecked="{Binding EnableOfflineCtRemoteDllDownload}" />
+                                        <TextBlock
+                                            Margin="24,4,0,0"
+                                            Style="{StaticResource CasFormHintStyle}"
+                                            Text="{Binding OfflineCtRemoteDllDownloadHint}"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
                                     <Grid Style="{StaticResource CasFormRowStyle}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="140" />

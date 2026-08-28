@@ -9,6 +9,20 @@
 | --- | --- | --- | --- |
 | 2026-07-27 | 罗奕雄 | V1.0 | 惠州离线CT正极接口 |
 | 2026-08-01 | 上位机 | V1.1 | 补充四参数实测结构与样例（便于 AI 结果图绘制） |
+| 2026-08-28 | 上位机 | V1.2 | 合并 DLL 双类名说明（NJSwdCT / HZSwdCT）；CTAutoSlicer 远端 NJCT.dll 更新 |
+
+## 0. DLL 类名与项目对应（V1.2）
+
+视觉将南昌 / 惠州两份同名 `NJCT.dll` **合并为一个文件**，通过**类名**区分站点（文件名仍为 `NJCT.dll`）：
+
+| 项目 | 命名空间 | 反射类名 | 说明 |
+| --- | --- | --- | --- |
+| 南昌 CT（CTNCLX） | `NJCT` | **`NJSwdCT`** | develop 原逻辑，**上位机不改** |
+| 惠州 CT（CTAutoSlicer） | `NJCT` | **`HZSwdCT`** | AI 标注反射入口；方法名与 V1.0 一致 |
+
+同一物理 `NJCT.dll` 内**同时包含**上述两个类。`ModelInit` / `ModelAction` / `ModelAction_origin` 签名不变。
+
+---
 
 ## 1.1 模型初始化接口
 
@@ -16,11 +30,11 @@
 
 **Dll依赖环境：C#8.0 + Net Framework4.8 + CF.dll + halcondotnet.dll【22.11版本】 + ONNX包 (1.20.1版本 + 12.4Cuda)**
 
-**Dll名称：x.dll 注：名称随着版本更新存在变更**
+**Dll名称：NJCT.dll（注：早期文档写 x.dll，现场统一为 NJCT.dll）**
 
 **命名空间：NJCT**
 
-**接口类名称：NJSwdCT**
+**接口类名称：HZSwdCT**（惠州 CTAutoSlicer；南昌 CTNCLX 仍用 `NJSwdCT`）
 
 **接口方法名：ModelInit**
 
@@ -43,11 +57,11 @@
 
 **Dll依赖环境：C#8.0 + Net Framework4.8 + CF.dll + halcondotnet.dll【22.11版本】 + ONNX包 (1.20.1版本 + 12.4Cuda)**
 
-**Dll名称：x.dll 注：名称随着版本更新存在变更**
+**Dll名称：NJCT.dll（注：早期文档写 x.dll，现场统一为 NJCT.dll）**
 
 **命名空间：NJCT**
 
-**接口类名称：NJSwdCT**
+**接口类名称：HZSwdCT**（惠州 CTAutoSlicer；南昌 CTNCLX 仍用 `NJSwdCT`）
 
 **接口方法名：ModelAction**
 
@@ -73,11 +87,11 @@
 
 **Dll依赖环境：C#8.0 + Net Framework4.8 + CF.dll + halcondotnet.dll【22.11版本】 + ONNX包 (1.20.1版本 + 12.4Cuda)**
 
-**Dll名称：x.dll 注：名称随着版本更新存在变更**
+**Dll名称：NJCT.dll（注：早期文档写 x.dll，现场统一为 NJCT.dll）**
 
 **命名空间：NJCT**
 
-**接口类名称：NJSwdCT**
+**接口类名称：HZSwdCT**（惠州 CTAutoSlicer；南昌 CTNCLX 仍用 `NJSwdCT`）
 
 **接口方法名：ModelAction_origin**
 
@@ -242,3 +256,38 @@ L 段展开（origin）：
 - `SUNWODA_SEVB.Tool/Helper/OfflineCtResultOverlayHelper.cs`
 - `OfflineCtVisionService.Infer*` 成功写盘前调用
 - `VGAutomationService.OfflineCtVision` 传入像素精度与界面 `OfflineCtBlackHeight`
+
+---
+
+## 1.5 CTAutoSlicer 远端 NJCT.dll 更新（V1.2）
+
+> **代码常量**：`SUNWODA_SEVB.Core/Models/Project/CTAutoSlicer/CTAutoSlicerSettings.cs`  
+> **服务**：`OfflineCtDllUpdateService` / `IOfflineCtDllUpdateService`
+
+### 1.5.1 SysCenter 账号（惠州离线 CT）
+
+| 项 | 值 |
+| --- | --- |
+| appKey | `hz_lixian_ct` |
+| pythonCode | `HZ_LianXianCT_Dll` |
+| executeType | `PRED` |
+| 默认 baseUrl | `http://10.201.88.151:10100/`（可配置 `DllDownloadBaseUrl`） |
+| IP 白名单 | `10.215.111.1`（AI 标注机；切图机不在白名单） |
+| RSA 公钥 | 见代码 `OfflineCtDllPublicKey`（与 Web 组邮件一致，勿在文档重复粘贴） |
+
+### 1.5.2 上位机行为
+
+1. 配置项：**AI 图像标注 → 模型与推理 →「开启远端下载 NJCT.dll」**（`EnableOfflineCtRemoteDllDownload`）。
+2. **仅**本机流水线模式为 **AI 标注模式**（`PipelineRunMode.AiAnnotateOnly`）且开关开启时，**软件启动**调用 `selFileVersion` 比对版本。
+3. 远端版本与 `Config/CTAutoSlicer/local.json` 中 `OfflineCtDllCachedVersion` 不一致，或本地缺少 DLL → 弹窗询问是否下载。
+4. 用户确认后 `downloadFile` 下载，落盘至：
+   - `{程序目录}\Dlls\NJCT.dll`
+   - `{程序目录}\NJCT.dll`（exe 同级）
+5. 下载成功后提示**重启软件**；网络/鉴权/文件校验失败写 **`[NJCT远端]`** 前缀 ERROR 日志。
+6. **CF.dll** 暂不随 NJCT 远端更新，仍用本地 `Dlls\CF.dll`。
+
+### 1.5.3 反射加载
+
+- CTAutoSlicer：`NJCT.HZSwdCT`（`OfflineCtVisionService`）
+- 加载路径：优先 `Dlls\NJCT.dll`，其次 exe 同级 `NJCT.dll`
+- CTNCLX：**不改**，仍 `NJCT.NJSwdCT`

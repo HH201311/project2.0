@@ -47,6 +47,17 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>CTAutoCutImg DLL 离线单测标注图默认输出目录</summary>
         public const string DefaultCutImgDllTestOutputDir = @"C:\AutoSlice\cutpicture\CutImgDllTest";
         public const string OfflineCtDllFileName = "NJCT.dll";
+        /// <summary>惠州离线 CT AI 反射类名（DLL 内同时含 NJSwdCT / HZSwdCT）。</summary>
+        public const string OfflineCtAlgorithmTypeName = "NJCT.HZSwdCT";
+        /// <summary>惠州离线 CT — SysCenter 下载账号 appKey。</summary>
+        public const string OfflineCtDllAppKey = "hz_lixian_ct";
+        /// <summary>惠州离线 CT — SysCenter 文件注册编码（pythonCode）。</summary>
+        public const string OfflineCtDllPythonCode = "HZ_LianXianCT_Dll";
+        /// <summary>惠州离线 CT — SysCenter 下载 executeType。</summary>
+        public const string OfflineCtDllExecuteType = "PRED";
+        /// <summary>惠州离线 CT — SysCenter RSA 公钥（与 appKey 配对）。</summary>
+        public const string OfflineCtDllPublicKey =
+            "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCR6QHBF7SKsedutBQ5/25sLFPbWgPTGSI11WWkP2pWPn5mFtnYzHKshAVsrq9/nr8Ok+VVZnnzph7C2N7NMOxOf+mVWnlP0P1FeT0t6ovgmeNrcA1gqhglZPegUALSRntuG8XJ4jz4c8m5+fSTn7/U4xK6VvpWK3+LLrJdoeMsVQIDAQAB";
         public const string OfflineCtModelRelativePath = @"Models\CTOffline\model_500000_900.onnx";
         /// <summary>
         /// 界面「打黑高度」未配置时的初始值（图像像素，仅上位机遮罩用）。
@@ -171,6 +182,32 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// <summary>惠州离线 CT AI 业务 DLL：{程序目录}\Dlls\NJCT.dll</summary>
         public static string GetOfflineCtDllPath() =>
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllsFolderName, OfflineCtDllFileName);
+
+        /// <summary>惠州离线 CT AI 业务 DLL（exe 同级）：{程序目录}\NJCT.dll</summary>
+        public static string GetOfflineCtDllExeRootPath() =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, OfflineCtDllFileName);
+
+        /// <summary>本机是否已存在 NJCT.dll（Dlls\ 或 exe 同级任一即可）。</summary>
+        public static bool OfflineCtDllExistsLocally() =>
+            File.Exists(GetOfflineCtDllPath()) || File.Exists(GetOfflineCtDllExeRootPath());
+
+        /// <summary>解析 NJCT.dll 加载路径：优先 Dlls\，其次 exe 同级。</summary>
+        public static string ResolveOfflineCtDllLoadPath()
+        {
+            var dllsPath = GetOfflineCtDllPath();
+            if (File.Exists(dllsPath))
+            {
+                return dllsPath;
+            }
+
+            var exeRootPath = GetOfflineCtDllExeRootPath();
+            if (File.Exists(exeRootPath))
+            {
+                return exeRootPath;
+            }
+
+            return dllsPath;
+        }
 
         /// <summary>默认 ONNX 模型：{程序目录}\Dlls\Models\CTOffline\model_500000_900.onnx</summary>
         public static string GetDefaultOfflineCtModelPath() =>
@@ -448,6 +485,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// 现行主链以 <see cref="PipelineRunMode"/> 为准，不再串行阶段七。
         /// </summary>
         public bool EnableOfflineCtVisionAnnotation { get; set; } = false;
+
+        /// <summary>
+        /// 是否在 AI 标注模式下启动时向 SysCenter 检查 NJCT.dll 更新（需 IP 白名单）。
+        /// 仅 <see cref="PipelineRunMode.AiAnnotateOnly"/> 生效。
+        /// </summary>
+        public bool EnableOfflineCtRemoteDllDownload { get; set; }
 
         /// <summary>ONNX 模型绝对路径（空则使用默认 Dlls\Models\CTOffline\…）</summary>
         public string OfflineCtModelPath { get; set; } = string.Empty;

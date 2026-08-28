@@ -283,6 +283,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
 
             _enableOfflineCtVisionAnnotation =
                 LoadIntSetting(nameof(EnableOfflineCtVisionAnnotation), 0) != 0;
+            _enableOfflineCtRemoteDllDownload =
+                LoadIntSetting(nameof(EnableOfflineCtRemoteDllDownload), 0) != 0;
             OfflineCtModelPath = LoadStringSetting(nameof(OfflineCtModelPath), string.Empty);
             _offlineCtIsRunCuda = LoadIntSetting(nameof(OfflineCtIsRunCuda), 1) != 0;
             _offlineCtBlackHeight = LoadIntSetting(
@@ -398,6 +400,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             ThemeColorsChanged?.Invoke(this, EventArgs.Empty);
 
             OnPropertyChanged(nameof(EnableOfflineCtVisionAnnotation));
+            OnPropertyChanged(nameof(EnableOfflineCtRemoteDllDownload));
+            OnPropertyChanged(nameof(OfflineCtRemoteDllDownloadHint));
             OnPropertyChanged(nameof(EnableAiAnnotationAutoRun));
             OnPropertyChanged(nameof(IsAiAnnotationAutoModeActive));
             OnPropertyChanged(nameof(ShowAiAnnotationAutoRunOption));
@@ -746,6 +750,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 MainWindowLeft = MainWindowLeft,
                 MainWindowTop = MainWindowTop,
                 EnableOfflineCtVisionAnnotation = EnableOfflineCtVisionAnnotation,
+                EnableOfflineCtRemoteDllDownload = EnableOfflineCtRemoteDllDownload,
                 OfflineCtModelPath = OfflineCtModelPath,
                 OfflineCtIsRunCuda = OfflineCtIsRunCuda,
                 OfflineCtBlackHeight = OfflineCtBlackHeight,

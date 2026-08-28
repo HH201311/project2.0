@@ -10,7 +10,7 @@ using SUNWODA_SEVB.Tool.Helper;
 namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 {
     /// <summary>
-    /// 反射调用 NJCT.NJSwdCT（ModelInit / ModelAction / ModelAction_origin）。
+    /// 反射调用 NJCT.HZSwdCT（ModelInit / ModelAction / ModelAction_origin）。
     /// DLL 与 Halcon/ONNX 原生依赖位于输出目录 Dlls\。
     /// 每次推理后按视觉约定释放：ResultImg、List&lt;HObject&gt;（AllPointRegion）、List&lt;HTuple&gt; 各索引。
     /// </summary>
@@ -18,7 +18,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
     {
          
 
-        private const string AlgorithmTypeName = "NJCT.NJSwdCT";
+        private static readonly string AlgorithmTypeName = CTAutoSlicerSettings.OfflineCtAlgorithmTypeName;
         private const string ModelInitMethodName = "ModelInit";
         private const string ModelActionMethodName = "ModelAction";
         private const string ModelActionOriginMethodName = "ModelAction_origin";
@@ -362,11 +362,13 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 return;
             }
 
-            var dllPath = CTAutoSlicerSettings.GetOfflineCtDllPath();
+            var dllPath = CTAutoSlicerSettings.ResolveOfflineCtDllLoadPath();
             if (!File.Exists(dllPath))
             {
                 throw new FileNotFoundException(
-                    $"未找到离线 CT AI DLL：{dllPath}。请将 NJCT.dll / CF.dll 放到程序目录 Dlls\\。",
+                    $"未找到离线 CT AI DLL（{CTAutoSlicerSettings.OfflineCtAlgorithmTypeName}）。"
+                    + $"请将 {CTAutoSlicerSettings.OfflineCtDllFileName} 放到 Dlls\\ 或程序根目录，"
+                    + $"或开启 AI 标注模式下的远端下载。",
                     dllPath);
             }
 

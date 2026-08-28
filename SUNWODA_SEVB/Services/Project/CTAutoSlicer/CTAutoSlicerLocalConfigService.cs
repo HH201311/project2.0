@@ -96,5 +96,27 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             config.ManualMeasureExportFolder = trimmed;
             Save(config);
         }
+
+        public string? LoadOfflineCtDllCachedVersion()
+        {
+            var version = Load().OfflineCtDllCachedVersion?.Trim();
+            return string.IsNullOrWhiteSpace(version) ? null : version;
+        }
+
+        public void SaveOfflineCtDllCachedVersion(string? version)
+        {
+            var config = Load();
+            var trimmed = version?.Trim() ?? string.Empty;
+            if (string.Equals(
+                    config.OfflineCtDllCachedVersion?.Trim(),
+                    trimmed,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            config.OfflineCtDllCachedVersion = trimmed;
+            Save(config);
+        }
     }
 }

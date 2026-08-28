@@ -2,7 +2,7 @@
 
 > 编制目的：汇总当前仓库已知信息，说明如何使用 `NJCT.dll` / `CF.dll` 做电芯 CT 视觉检测接入。  
 > 源码来源：工作区内 `CF/`、`NJCT/` 为从 DLL 反编译得到，接口文档见 `CT离线AI视觉接口文档.md`。  
-> 日期：2026-07-28
+> 日期：2026-07-28（**2026-08-28 增补**：双类名、远端更新、CTAutoSlicer 落盘路径）
 
 ---
 
@@ -16,14 +16,23 @@
 - 输入主要是：**模型路径 + 图片路径 + 底部打黑高度**；
 - 输出主要是：**结果图 + 两电芯抓点区域/坐标/尺寸 + 运行信息**。
 
+**V1.2 变更（2026-08-28）**：南昌 / 惠州合并为**同一 `NJCT.dll` 文件名**，类名区分：
+
+| 项目 | 反射类 |
+| --- | --- |
+| CTNCLX（南昌） | `NJCT.NJSwdCT` |
+| CTAutoSlicer（惠州） | `NJCT.HZSwdCT` |
+
+CTAutoSlicer 支持从 SysCenter **远端检查/下载** NJCT.dll（详见 §14）。
+
 ---
 
 ## 2. 目录与组件职责
 
 | 路径/文件 | 职责 |
 |---|---|
-| `NJCT.dll` / `NJCT/` | **对外业务 DLL**。命名空间 `NJCT`，类 `NJSwdCT`。接口文档中的方法都在这里。 |
-| `CF.dll` / `CF/` / `NJCT/lib/CF.dll` | **ONNX 推理库**。`SeDPredictor` 实现 `IPredictor`，被 NJCT 的 `ModelInit` 创建。 |
+| `NJCT.dll` / `NJCT/` | **对外业务 DLL**。命名空间 `NJCT`。**惠州**类 `HZSwdCT`；**南昌**类 `NJSwdCT`（同文件双类）。 |
+| `CF.dll` / `CF/` / `NJCT/lib/CF.dll` | **ONNX 推理库**。`SeDPredictor` 实现 `IPredictor`，被 NJCT 的 `ModelInit` 创建。**暂用本地部署，不随 NJCT 远端更新。** |
 | `model_500000_900.onnx` | 现场模型文件（示例/部署用）。 |
 | `图片/` | 测试用 CT 图。 |
 | `CT离线AI视觉接口文档.md` | 官方接口表（V1.0，2026-07-27）。 |
@@ -49,7 +58,10 @@
 上位机(反射调用)
     │
     ▼
-NJCT.NJSwdCT  ──ModelInit/Predict──►  CF.SeDPredictor  ──►  *.onnx (+CUDA)
+NJCT.HZSwdCT（惠州） / NJCT.NJSwdCT（南昌）
+    │  ModelInit/Predict
+    ▼
+CF.SeDPredictor  ──►  *.onnx (+CUDA)
     │
     └── Halcon 后处理 ──► ResultImg + 抓点/坐标/尺寸 + RunInfo
 ```
@@ -77,7 +89,7 @@ NJCT.NJSwdCT  ──ModelInit/Predict──►  CF.SeDPredictor  ──►  *.on
 ## 4. 接入调用顺序（推荐）
 
 ```
-1. 反射加载 NJCT.dll，创建 NJSwdCT 实例
+1. 反射加载 NJCT.dll，创建 HZSwdCT 实例（惠州 CTAutoSlicer；南昌 CTNCLX 用 NJSwdCT）
 2. 调用 ModelInit(ModelPath, out handle, out ExInfo, IsRunCuda?)
    └─ handle == null 则失败，记录 ExInfo，停止
 3. 对每张图调用：
@@ -334,9 +346,41 @@ else
 | 问题 | 答案 |
 |---|---|
 | 接哪个 DLL？ | 主要接 **NJCT**；依赖 **CF** + Halcon + ONNX |
-| 入口类？ | `NJCT.NJSwdCT` |
+| 入口类？ | 惠州 **`NJCT.HZSwdCT`**；南昌 **`NJCT.NJSwdCT`** |
 | 必调接口？ | `ModelInit` + (`ModelAction` 或 `ModelAction_origin`) |
 | 外部最少输入？ | 模型路径、图片路径、BlackHeight（+可选 CUDA） |
+| NJCT 落盘路径？ | `Dlls\NJCT.dll` **与** exe 同级 `NJCT.dll`（远端下载写两份） |
+| 远端更新？ | AI 标注模式 + 开关开启 → 启动查版本 → 弹窗下载 → 重启 |
+
+---
+
+## 14. CTAutoSlicer 远端 NJCT.dll（2026-08-28）
+
+### 14.1 代码位置
+
+| 文件 | 说明 |
+|---|---|
+| `CTAutoSlicerSettings.cs` | `OfflineCtDllAppKey` / `OfflineCtDllPythonCode` / `OfflineCtDllPublicKey` 等常量 |
+| `OfflineCtDllUpdateService.cs` | 版本检查、下载、双路径落盘 |
+| `OfflineCtVisionService.cs` | 反射 `NJCT.HZSwdCT` |
+| `VM_CTAutoSlicerPage.OfflineCtDllUpdate.cs` | 启动弹窗与重启 |
+| `CTAutoSlicerPage.xaml` | 「开启远端下载 NJCT.dll」+ 白名单说明 |
+
+### 14.2 SysCenter 参数
+
+| 常量名 | 值 |
+|---|---|
+| `OfflineCtDllAppKey` | `hz_lixian_ct` |
+| `OfflineCtDllPythonCode` | `HZ_LianXianCT_Dll` |
+| `OfflineCtDllExecuteType` | `PRED` |
+| `OfflineCtDllPublicKey` | RSA 公钥（`CTAutoSlicerSettings`，与 Web 组邮件一致） |
+
+### 14.3 配置与版本记录
+
+- **开关**：`EnableOfflineCtRemoteDllDownload`（project_setting / AI 页）
+- **本机版本号**：`Config/CTAutoSlicer/local.json` → `OfflineCtDllCachedVersion`
+- **触发条件**：`PipelineRunMode=AiAnnotateOnly` 且开关开启；**切图机勿开**（IP 白名单 `10.215.111.1`）
+- **失败日志**：统一 `[NJCT远端]` 前缀，含 baseUrl、pythonCode、异常信息
 | 返回什么？ | 结果图、2 电芯抓点区域/坐标/尺寸、RunInfo |
 | 增强和原图区别？ | 检测同套路；图效果与坐标尺度不同 |
 | 文档所有参数都要填？ | **否**，只填 Input；Out 是返回 |

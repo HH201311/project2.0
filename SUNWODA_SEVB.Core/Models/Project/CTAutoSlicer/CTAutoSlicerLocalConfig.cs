@@ -14,5 +14,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer
         /// 空则使用内置默认 <c>\\192.168.1.120\3Ddeliever\result</c>。
         /// </summary>
         public string ManualMeasureExportFolder { get; set; } = string.Empty;
+
+        /// <summary>本机已安装的 NJCT.dll 远端版本号（SysCenter selFileVersion 返回值）。</summary>
+        public string OfflineCtDllCachedVersion { get; set; } = string.Empty;
     }
 }

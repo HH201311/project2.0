@@ -42,6 +42,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private readonly CTAutoSlicerInputHookService _inputHookService;
         private readonly ProcessMonitorService _processMonitorService;
         private readonly CTAutoSlicerLocalConfigService _localConfigService;
+        private readonly IOfflineCtDllUpdateService _offlineCtDllUpdateService;
         private CancellationTokenSource? _activeFlowCts;
         private CancellationTokenSource? _stageTestCts;
         private DispatcherTimer? _manualInterventionCountdownTimer;
@@ -174,6 +175,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private string _postAlignDragDisplayText = "未标定";
         private bool _enablePostAlignCaptureDragSteps = true;
         private bool _enableOfflineCtVisionAnnotation;
+        private bool _enableOfflineCtRemoteDllDownload;
         private string _offlineCtModelPath = string.Empty;
         private bool _offlineCtIsRunCuda = true;
         private int _offlineCtBlackHeight = CTAutoSlicerSettings.DefaultOfflineCtBlackHeight;
@@ -3144,7 +3146,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             CTFolderMonitorService folderMonitorService,
             CTAutoSlicerInputHookService inputHookService,
             ProcessMonitorService processMonitorService,
-            CTAutoSlicerLocalConfigService localConfigService)
+            CTAutoSlicerLocalConfigService localConfigService,
+            IOfflineCtDllUpdateService offlineCtDllUpdateService)
         {
             _logger = logger;
             _projectSettingRepository = projectSettingRepository;
@@ -3155,6 +3158,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _inputHookService = inputHookService;
             _processMonitorService = processMonitorService;
             _localConfigService = localConfigService;
+            _offlineCtDllUpdateService = offlineCtDllUpdateService;
 
             OpenVGAppPathCommand = new RelayCommand(OpenVGAppPath);
             OpenCTFileFolderCommand = new RelayCommand(OpenCTFileFolder);
@@ -3325,6 +3329,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 }
 
                 await Dispatcher.InvokeAsync(() => MessageShower = "CT自动化切片模块初始化完成");
+
+                await TryCheckOfflineCtDllUpdateOnStartupAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {

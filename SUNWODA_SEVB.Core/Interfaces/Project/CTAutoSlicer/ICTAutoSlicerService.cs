@@ -36,6 +36,9 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// <summary>操作员点击「放入异常文件夹并跳过」后调用。</summary>
         void ConfirmManualIntervention();
 
+        /// <summary>操作员点击「人工处理完成」后调用：跳过视觉校验，继续后续步骤。</summary>
+        void ConfirmManualInterventionRetry();
+
         /// <summary>操作员点击「校验完毕」后调用，放行导出前亮度校验。</summary>
         void ConfirmPreExportBrightnessCheck();
 

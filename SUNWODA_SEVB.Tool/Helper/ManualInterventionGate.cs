@@ -9,7 +9,10 @@ namespace SUNWODA_SEVB.Tool.Helper
         CompletedByOperator = 0,
 
         /// <summary>等待超时（默认 10 分钟）。</summary>
-        TimedOut = 1
+        TimedOut = 1,
+
+        /// <summary>操作员点击「人工处理完成」，人工 321 已做完，跳过视觉校验继续后续步骤。</summary>
+        Manual321Completed = 2
     }
 
     /// <summary>
@@ -18,7 +21,7 @@ namespace SUNWODA_SEVB.Tool.Helper
     public sealed class ManualInterventionGate
     {
         private readonly object _sync = new();
-        private TaskCompletionSource<bool>? _tcs;
+        private TaskCompletionSource<ManualInterventionWaitResult>? _tcs;
         private int _awaiting;
 
         public bool IsAwaiting => Volatile.Read(ref _awaiting) != 0;
@@ -28,11 +31,12 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>开始一轮人工干预等待（会取消上一轮未完成的等待）。</summary>
         public void Begin()
         {
-            TaskCompletionSource<bool>? old;
+            TaskCompletionSource<ManualInterventionWaitResult>? old;
             lock (_sync)
             {
                 old = _tcs;
-                _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _tcs = new TaskCompletionSource<ManualInterventionWaitResult>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
                 Volatile.Write(ref _awaiting, 1);
             }
 
@@ -43,19 +47,33 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>操作员确认「放入异常文件夹并跳过」。</summary>
         public void SignalCompleted()
         {
-            TaskCompletionSource<bool>? tcs;
+            SignalResult(ManualInterventionWaitResult.CompletedByOperator);
+        }
+
+        /// <summary>操作员确认「人工处理完成」：人工 321 已做完，跳过视觉校验。</summary>
+        public void SignalManual321Completed()
+        {
+            SignalResult(ManualInterventionWaitResult.Manual321Completed);
+        }
+
+        /// <summary>兼容旧调用名。</summary>
+        public void SignalRetry() => SignalManual321Completed();
+
+        private void SignalResult(ManualInterventionWaitResult result)
+        {
+            TaskCompletionSource<ManualInterventionWaitResult>? tcs;
             lock (_sync)
             {
                 tcs = _tcs;
             }
 
-            tcs?.TrySetResult(true);
+            tcs?.TrySetResult(result);
         }
 
         /// <summary>流程取消或结束时清出门闩。</summary>
         public void Reset()
         {
-            TaskCompletionSource<bool>? tcs;
+            TaskCompletionSource<ManualInterventionWaitResult>? tcs;
             lock (_sync)
             {
                 tcs = _tcs;
@@ -74,7 +92,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
-            TaskCompletionSource<bool>? tcs;
+            TaskCompletionSource<ManualInterventionWaitResult>? tcs;
             lock (_sync)
             {
                 tcs = _tcs;
@@ -93,8 +111,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             try
             {
-                await tcs.Task.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
-                return ManualInterventionWaitResult.CompletedByOperator;
+                return await tcs.Task.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

@@ -62,6 +62,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public void ConfirmManualIntervention() => _vgAutomationService.ConfirmManualIntervention();
 
+        public void ConfirmManualInterventionRetry() => _vgAutomationService.ConfirmManualInterventionRetry();
+
         public void ConfirmPreExportBrightnessCheck() =>
             _vgAutomationService.ConfirmPreExportBrightnessCheck();
 

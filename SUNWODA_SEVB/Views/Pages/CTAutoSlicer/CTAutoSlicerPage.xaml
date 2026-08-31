@@ -1141,8 +1141,7 @@
                                             Command="{Binding CalibrateLutSegmentPointsCommand}"
                                             CommandParameter="Positive"
                                             Content="标定正极 LUT 两点"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="先应用正极预设 testlut_Z → 依次点选关键段两端；右键/Esc 取消" />
+                                            ToolTip="先应用正极预设 testlut_Z → 依次点选关键段两端；右键/Esc 取消（流程运行中亦可标定）" />
                                     </WrapPanel>
 
                                     <TextBlock Margin="0,4,0,8" FontWeight="SemiBold" Text="负极（-F / testlut_F，默认）" />
@@ -1175,8 +1174,7 @@
                                             Command="{Binding CalibrateLutSegmentPointsCommand}"
                                             CommandParameter="Negative"
                                             Content="标定负极 LUT 两点"
-                                            IsEnabled="{Binding IsEnableSimulationBtn}"
-                                            ToolTip="先应用负极预设 testlut_F → 依次点选关键段两端；右键/Esc 取消" />
+                                            ToolTip="先应用负极预设 testlut_F → 依次点选关键段两端；右键/Esc 取消（流程运行中亦可标定）" />
                                     </WrapPanel>
 
                                     <TextBlock Margin="0,8,0,8" FontWeight="SemiBold" Text="按峰谷尺度扩展（第三步）" />
@@ -4177,7 +4175,7 @@
                                        Foreground="#FFFF5252"
                                        HorizontalAlignment="Center"
                                        Margin="0,0,0,12"/>
-                            <TextBlock Text="自动化已暂停。请检查 VG / 现场状态，确认后点击下方按钮将该文件放入异常文件夹并跳过，继续下一文件。"
+                            <TextBlock Text="{Binding ManualInterventionInstructionText}"
                                        FontSize="16"
                                        Foreground="#FFFFE082"
                                        TextWrapping="Wrap"
@@ -4198,6 +4196,20 @@
                                        HorizontalAlignment="Center"
                                        Margin="0,0,0,20"
                                        Text="{Binding ManualInterventionCountdownText}"/>
+                            <Button Content="人工处理完成，跳过视觉校验"
+                                    FontSize="20"
+                                    FontWeight="Bold"
+                                    Height="52"
+                                    MinWidth="320"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,0,0,12"
+                                    Background="#FF1976D2"
+                                    Foreground="White"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    Visibility="{Binding IsVisionManualIntervention, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding ConfirmManualInterventionRetryCommand}"
+                                    ToolTip="人工完成简单 3-2-1 对齐后点击，跳过视觉选点校验并继续后续步骤"/>
                             <Button Content="放入异常文件夹并跳过"
                                     FontSize="20"
                                     FontWeight="Bold"

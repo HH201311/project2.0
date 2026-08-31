@@ -597,9 +597,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                         progress)
                     .ConfigureAwait(false);
 
-                await TryRunVisionAlignmentInMainFlowAsync(
+                await TryRunVisionAlignmentWithManualRetryAsync(
                         settings,
                         ctViewerProcess,
+                        vglPath,
                         cancellationToken,
                         progress,
                         namingSourcePath: namingSourcePath ?? vglPath)
@@ -693,6 +694,131 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
                 catch
                 {
                     // ignore
+                }
+            }
+        }
+
+        /// <summary>
+        /// 主流程阶段四：视觉对齐失败时进入人工干预；操作员人工 321 完成后可跳过视觉校验继续后续步骤。
+        /// </summary>
+        private async Task TryRunVisionAlignmentWithManualRetryAsync(
+            CTAutoSlicerSettings settings,
+            Process ctViewerProcess,
+            string vglPath,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress,
+            string? namingSourcePath = null)
+        {
+            var displayName = Path.GetFileName(string.IsNullOrWhiteSpace(namingSourcePath) ? vglPath : namingSourcePath);
+
+            while (true)
+            {
+                try
+                {
+                    await TryRunVisionAlignmentInMainFlowAsync(
+                            settings,
+                            ctViewerProcess,
+                            cancellationToken,
+                            progress,
+                            namingSourcePath)
+                        .ConfigureAwait(false);
+                    return;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    var reason = GetFullExceptionMessage(ex);
+                    progress?.Report($"阶段四视觉对齐失败：{reason}");
+                    _logger.Error("阶段四视觉对齐失败，等待人工处理", ex);
+
+                    try
+                    {
+                        await TryCloseSimple321DialogBestEffortAsync(
+                                ctViewerProcess,
+                                cancellationToken,
+                                progress)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception closeEx)
+                    {
+                        _logger.Warn($"关闭 3-2-1 对话框失败（忽略）：{closeEx.Message}");
+                    }
+
+                    var waitResult = await AwaitVisionManualInterventionAsync(
+                            ctViewerProcess,
+                            displayName,
+                            reason,
+                            cancellationToken,
+                            progress)
+                        .ConfigureAwait(false);
+
+                    if (waitResult == ManualInterventionWaitResult.Manual321Completed)
+                    {
+                        progress?.Report("操作员确认人工 321 对齐完成，跳过视觉校验，继续后续步骤…");
+                        _logger.Info($"视觉人工干预：操作员确认跳过视觉校验 — {displayName}");
+                        return;
+                    }
+
+                    if (waitResult == ManualInterventionWaitResult.TimedOut)
+                    {
+                        progress?.Report(
+                            $"视觉人工处理超时：将关闭 VG，归档失败文件并继续下一文件 — {displayName}");
+                        _logger.Warn($"视觉人工干预超时：{displayName}");
+                    }
+                    else
+                    {
+                        progress?.Report($"已确认放入异常文件夹并跳过 — {displayName}");
+                        _logger.Info($"视觉人工干预已确认跳过：{displayName}");
+                    }
+
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 视觉算法异常：暂停自动化 → 提示人工 321 对齐 → 等「人工处理完成」跳过视觉 / 「归档跳过」/ 超时。
+        /// </summary>
+        private async Task<ManualInterventionWaitResult> AwaitVisionManualInterventionAsync(
+            Process? ctViewerProcess,
+            string fileName,
+            string reason,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            try
+            {
+                Unlock();
+                _pauseGate.Pause();
+                _manualInterventionGate.Begin();
+
+                var timeout = CTAutoSlicerSettings.DefaultManualInterventionTimeout;
+                progress?.Report($"{ManualInterveneVisionProgressPrefix}{fileName}|{reason}");
+                progress?.Report(
+                    $"视觉算法异常，已暂停等待人工处理：{fileName}（请在 VG 完成简单 321 对齐后点击「人工处理完成」跳过视觉校验；限时 {timeout.TotalMinutes:0} 分钟）");
+                _logger.Warn(
+                    $"等待视觉人工干预：文件={fileName}，超时={timeout.TotalMinutes}分钟，原因={reason}");
+
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+
+                return await _manualInterventionGate
+                    .WaitAsync(timeout, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                progress?.Report(ManualInterveneEndProgressPrefix);
+                _pauseGate.Reset();
+                try
+                {
+                    Lock();
+                }
+                catch (Exception lockEx)
+                {
+                    _logger.Warn($"视觉人工干预结束后重新 Lock 失败（忽略）：{lockEx.Message}");
                 }
             }
         }

@@ -75,8 +75,12 @@ namespace SUNWODA_SEVB.Tool.Helper
 
             var maskPixelCount = CountMask(mask, width, height);
             var heights = BuildColumnHeightsFromBottom(mask, width, height);
+            // 毛边直方图：先去孤立尖刺，再自适应中值 + 高斯平滑，避免局部锯齿被当成峰/谷
             DespikeColumnHeights(heights);
-            MedianFilterInPlace(heights, radius: 1);
+            var medianR = Math.Max(2, width / 120);
+            var gaussR = Math.Max(4, width / 60);
+            MedianFilterInPlace(heights, radius: medianR);
+            GaussianSmoothInPlace(heights, radius: gaussR);
 
             var peaks = FindBimodalHalfSlope(heights);
 
@@ -178,6 +182,7 @@ namespace SUNWODA_SEVB.Tool.Helper
 
         /// <summary>
         /// 取高度最高的两个尖峰；左线=两峰间波谷，右线=右侧尖峰，目标线=左线到右线的 3/4 处（靠右约四分之一）。
+        /// 依赖上游平滑后的柱高；峰距/合并距按宽度自适应，并要求两峰间有足够谷深（显著性）。
         /// </summary>
         public static HistogramPeakAnalysis FindBimodalHalfSlope(int[] heights)
         {
@@ -193,28 +198,28 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return HistogramPeakAnalysis.Fail("柱高全为 0");
             }
 
-            // 尖峰阈值；峰距允许较近（双尖峰常紧挨）
-            var minPeakH = Math.Max(3, (int)(maxH * 0.18));
-            var minSep = Math.Max(4, n / 80);
-            var mergeDist = Math.Max(3, minSep / 2);
+            // 尖峰阈值；峰距/合并距按宽度自适应
+            var minPeakH = Math.Max(3, (int)(maxH * 0.12));
+            var minSepStrict = Math.Max(16, n / 24);
+            var minSepRelaxed = Math.Max(8, n / 50);
+            var mergeDist = Math.Max(10, n / 40);
+            // 局部极大：在 ±peakWin 邻域内最高，压制单列毛刺
+            var peakWin = Math.Max(2, n / 100);
 
-            // 平台顶也算尖尖：允许左右相等，但至少一侧严格更低
             var candidates = new List<int>();
-            for (var i = 1; i < n - 1; i++)
+            for (var i = peakWin; i < n - peakWin; i++)
             {
                 if (heights[i] < minPeakH)
                 {
                     continue;
                 }
 
-                var left = heights[i - 1];
-                var right = heights[i + 1];
-                if (heights[i] >= left
-                    && heights[i] >= right
-                    && (heights[i] > left || heights[i] > right))
+                if (!IsLocalMaximum(heights, i, peakWin))
                 {
-                    candidates.Add(i);
+                    continue;
                 }
+
+                candidates.Add(i);
             }
 
             candidates = MergeNearbyPeaks(candidates, heights, mergeDist);
@@ -223,10 +228,12 @@ namespace SUNWODA_SEVB.Tool.Helper
                 return HistogramPeakAnalysis.Fail($"显著尖峰不足（候选 {candidates.Count}）");
             }
 
-            // 按高度取最高的两个尖尖（同高时取更尖/更左者已由合并保证）
-            if (!TryPickTwoHighestPeaks(candidates, heights, minSep, out var tipA, out var tipB))
+            // 优先严格规则（抗毛边）；失败则放宽间距/谷深，适配双峰近、谷浅的常见直方图
+            if (!TryPickTwoHighestPeaks(candidates, heights, minSepStrict, maxH, strictProminence: true, out var tipA, out var tipB)
+                && !TryPickTwoHighestPeaks(candidates, heights, minSepRelaxed, maxH, strictProminence: false, out tipA, out tipB)
+                && !TryPickTwoHighestPeaks(candidates, heights, minSep: Math.Max(6, n / 80), maxH, strictProminence: false, out tipA, out tipB))
             {
-                return HistogramPeakAnalysis.Fail("未能选出间距足够的两个最高尖峰");
+                return HistogramPeakAnalysis.Fail("未能选出间距与谷深足够的两个最高尖峰");
             }
 
             var leftTip = Math.Min(tipA, tipB);
@@ -280,12 +287,43 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 在候选峰中按高度取最高的两个，且横向间距 ≥ minSep。
+        /// 在 ±window 邻域内为局部极大（允许平台顶：至少一侧严格更低）。
+        /// </summary>
+        private static bool IsLocalMaximum(int[] heights, int i, int window)
+        {
+            var h = heights[i];
+            var hasStrictLower = false;
+            for (var k = -window; k <= window; k++)
+            {
+                if (k == 0)
+                {
+                    continue;
+                }
+
+                var neighbor = heights[i + k];
+                if (neighbor > h)
+                {
+                    return false;
+                }
+
+                if (neighbor < h)
+                {
+                    hasStrictLower = true;
+                }
+            }
+
+            return hasStrictLower;
+        }
+
+        /// <summary>
+        /// 在候选峰中按高度取最高的两个：横向间距 ≥ minSep，且两峰间谷深足够。
         /// </summary>
         private static bool TryPickTwoHighestPeaks(
             List<int> candidates,
             int[] heights,
             int minSep,
+            int maxH,
+            bool strictProminence,
             out int peakA,
             out int peakB)
         {
@@ -296,23 +334,26 @@ namespace SUNWODA_SEVB.Tool.Helper
                 .ThenBy(i => i)
                 .ToList();
 
+            // 优先：最高峰 + 第一个间距与显著性都够的次高峰
             peakA = ordered[0];
             for (var i = 1; i < ordered.Count; i++)
             {
                 var b = ordered[i];
-                if (Math.Abs(b - peakA) >= minSep)
+                if (Math.Abs(b - peakA) >= minSep
+                    && HasSufficientProminence(heights, peakA, b, maxH, strictProminence))
                 {
                     peakB = b;
                     return true;
                 }
             }
 
-            // 最高峰附近被同高簇挡住时，退而求次高对：在高度排序中找第一对间距够的
+            // 退而求次：在高度排序中找第一对间距+显著性够的
             for (var i = 0; i < ordered.Count; i++)
             {
                 for (var j = i + 1; j < ordered.Count; j++)
                 {
-                    if (Math.Abs(ordered[j] - ordered[i]) >= minSep)
+                    if (Math.Abs(ordered[j] - ordered[i]) >= minSep
+                        && HasSufficientProminence(heights, ordered[i], ordered[j], maxH, strictProminence))
                     {
                         peakA = ordered[i];
                         peakB = ordered[j];
@@ -322,6 +363,46 @@ namespace SUNWODA_SEVB.Tool.Helper
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 两峰间最低点相对较矮峰的下凹深度。
+        /// 严格模式用于抗毛边；宽松模式允许浅谷（双峰近、谷浅时人眼仍可分）。
+        /// </summary>
+        private static bool HasSufficientProminence(
+            int[] heights,
+            int a,
+            int b,
+            int maxH,
+            bool strict)
+        {
+            var lo = Math.Min(a, b);
+            var hi = Math.Max(a, b);
+            if (hi - lo < 2)
+            {
+                return false;
+            }
+
+            var peakMin = Math.Min(heights[a], heights[b]);
+            if (peakMin <= 0)
+            {
+                return false;
+            }
+
+            var valleyMin = heights[lo];
+            for (var i = lo; i <= hi; i++)
+            {
+                if (heights[i] < valleyMin)
+                {
+                    valleyMin = heights[i];
+                }
+            }
+
+            var drop = peakMin - valleyMin;
+            var minDrop = strict
+                ? Math.Max(3, (int)(peakMin * 0.12))
+                : Math.Max(2, Math.Min((int)(peakMin * 0.06), (int)(maxH * 0.04)));
+            return drop >= minDrop;
         }
 
         private static List<int> MergeNearbyPeaks(List<int> peaks, int[] heights, int mergeDist)
@@ -673,7 +754,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             using var smallFont = new Font("Consolas", 9f);
             using var white = new SolidBrush(Color.White);
 
-            g.DrawString("左线=两尖峰间波谷 / 右线=右侧尖峰 / 目标线=靠右约1/4(3/4处)", titleFont, white, pad, pad);
+            g.DrawString("左线=两尖峰间波谷 / 右线=右侧尖峰 / 目标线=靠右约1/4(3/4处)（柱高已平滑）", titleFont, white, pad, pad);
             var yImg = pad + labelH;
             g.DrawImage(cleaned, pad, yImg, w, h);
             DrawPeakMarkers(g, pad, yImg, h, peaks);

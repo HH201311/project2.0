@@ -58,13 +58,23 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     return;
                 }
 
+                if (message.StartsWith("@@MANUAL_INTERVENE_VISION@@", StringComparison.Ordinal))
+                {
+                    var payload = message["@@MANUAL_INTERVENE_VISION@@".Length..];
+                    var separatorIndex = payload.IndexOf('|', StringComparison.Ordinal);
+                    var fileName = separatorIndex >= 0 ? payload[..separatorIndex] : payload;
+                    var reason = separatorIndex >= 0 ? payload[(separatorIndex + 1)..] : "未知原因";
+                    Dispatcher.Invoke(() => ShowManualInterventionPanel(fileName, reason, isVisionFailure: true));
+                    return;
+                }
+
                 if (message.StartsWith("@@MANUAL_INTERVENE@@", StringComparison.Ordinal))
                 {
                     var payload = message["@@MANUAL_INTERVENE@@".Length..];
                     var separatorIndex = payload.IndexOf('|', StringComparison.Ordinal);
                     var fileName = separatorIndex >= 0 ? payload[..separatorIndex] : payload;
                     var reason = separatorIndex >= 0 ? payload[(separatorIndex + 1)..] : "未知原因";
-                    Dispatcher.Invoke(() => ShowManualInterventionPanel(fileName, reason));
+                    Dispatcher.Invoke(() => ShowManualInterventionPanel(fileName, reason, isVisionFailure: false));
                     return;
                 }
 
@@ -130,12 +140,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             }
         }
 
-        private void ShowManualInterventionPanel(string fileName, string reason)
+        private void ShowManualInterventionPanel(string fileName, string reason, bool isVisionFailure)
         {
             ManualInterventionFileName = string.IsNullOrWhiteSpace(fileName) ? "(未知文件)" : fileName;
             ManualInterventionReason = string.IsNullOrWhiteSpace(reason) ? "流程异常或超时" : reason;
-            MessageShower = $"需要人工处理：{ManualInterventionFileName}";
-            AppendFlowLog($"需要人工处理：{ManualInterventionFileName} — {ManualInterventionReason}", isFailure: true);
+            IsVisionManualIntervention = isVisionFailure;
+            ManualInterventionInstructionText = isVisionFailure
+                ? "视觉算法调用异常，自动化已暂停。请在 VG 中人工完成「简单 3-2-1 对齐」，确认无误后点击下方「人工处理完成」跳过视觉校验并继续后续步骤；若无法恢复则放入异常文件夹并跳过。"
+                : "自动化已暂停。请检查 VG / 现场状态，确认后点击下方按钮将该文件放入异常文件夹并跳过，继续下一文件。";
+            MessageShower = isVisionFailure
+                ? $"视觉算法异常，请人工 321 对齐后跳过视觉校验：{ManualInterventionFileName}"
+                : $"需要人工处理：{ManualInterventionFileName}";
+            AppendFlowLog($"{MessageShower} — {ManualInterventionReason}", isFailure: true);
 
             _manualInterventionDeadlineUtc =
                 DateTime.UtcNow + CTAutoSlicerSettings.DefaultManualInterventionTimeout;
@@ -201,7 +217,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             _manualInterventionCountdownTimer?.Stop();
             _manualInterventionCountdownTimer = null;
             IsManualInterventionVisible = false;
+            IsVisionManualIntervention = false;
             ManualInterventionCountdownText = string.Empty;
+            ManualInterventionInstructionText = string.Empty;
         }
 
         /// <summary>
@@ -282,6 +300,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             catch (Exception ex)
             {
                 _logger.Error("确认人工干预失败", ex);
+                MessageShower = $"确认失败：{ex.Message}";
+            }
+        }
+
+        private void ExecuteConfirmManualInterventionRetry(object? _)
+        {
+            try
+            {
+                AppendFlowLog("操作员点击「人工处理完成，跳过视觉校验」");
+                MessageShower = "人工 321 对齐已确认，跳过视觉校验，继续后续步骤…";
+                _ctAutoSlicerService.ConfirmManualInterventionRetry();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("确认跳过视觉校验失败", ex);
                 MessageShower = $"确认失败：{ex.Message}";
             }
         }

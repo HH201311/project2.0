@@ -16,6 +16,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string ImportFailProgressPrefix = "@@IMPORT_FAIL@@";
         /// <summary>请求 UI 弹出人工干预面板：@@MANUAL_INTERVENE@@文件名|原因</summary>
         private const string ManualInterveneProgressPrefix = "@@MANUAL_INTERVENE@@";
+        private const string ManualInterveneVisionProgressPrefix = "@@MANUAL_INTERVENE_VISION@@";
         /// <summary>关闭人工干预面板。</summary>
         private const string ManualInterveneEndProgressPrefix = "@@MANUAL_INTERVENE_END@@";
         /// <summary>请求 UI 弹出导出前亮度校验遮罩（与 Alt+P 暂停独立）。</summary>
@@ -214,6 +215,18 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             _logger.Info("操作员确认人工干预「放入异常文件夹并跳过」");
             _manualInterventionGate.SignalCompleted();
+        }
+
+        /// <summary>操作员点击「人工处理完成」后调用：人工 321 已做完，跳过视觉校验继续后续步骤。</summary>
+        public void ConfirmManualInterventionRetry()
+        {
+            if (!_manualInterventionGate.IsAwaiting)
+            {
+                return;
+            }
+
+            _logger.Info("操作员确认人工干预「人工处理完成，跳过视觉校验」");
+            _manualInterventionGate.SignalManual321Completed();
         }
 
         /// <summary>操作员点击「校验完毕」后调用，放行导出前亮度校验等待。</summary>

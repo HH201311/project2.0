@@ -54,9 +54,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private bool _isFlowPaused;
         private bool _isInputBlockEnabled = true;
         private bool _isManualInterventionVisible;
+        private bool _isVisionManualIntervention;
         private bool _isPreExportBrightnessCheckVisible;
         private string _manualInterventionFileName = string.Empty;
         private string _manualInterventionReason = string.Empty;
+        private string _manualInterventionInstructionText = string.Empty;
         private string _manualInterventionCountdownText = string.Empty;
         private string _vgAppPath = @"D:\App\VG\vgstudiomax20241.exe";
         private int _vgOpenWaitTime = CTAutoSlicerSettings.DefaultVGOpenWaitTime;
@@ -832,6 +834,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _isManualInterventionVisible, value);
         }
 
+        /// <summary>视觉算法异常时显示 321 人工对齐提示与「跳过视觉校验」按钮。</summary>
+        public bool IsVisionManualIntervention
+        {
+            get => _isVisionManualIntervention;
+            private set => SetProperty(ref _isVisionManualIntervention, value);
+        }
+
         /// <summary>
         /// 切片导出前：亮度/视图人工校验遮罩。
         /// 与 <see cref="IsFlowPaused"/>（Alt+P）相互独立。
@@ -852,6 +861,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             get => _manualInterventionReason;
             private set => SetProperty(ref _manualInterventionReason, value);
+        }
+
+        public string ManualInterventionInstructionText
+        {
+            get => _manualInterventionInstructionText;
+            private set => SetProperty(ref _manualInterventionInstructionText, value);
         }
 
         public string ManualInterventionCountdownText
@@ -3128,6 +3143,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
         public ICommand ConfirmManualInterventionCommand { get; }
+        public ICommand ConfirmManualInterventionRetryCommand { get; }
         public ICommand ConfirmPreExportBrightnessCheckCommand { get; }
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
@@ -3229,6 +3245,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
             ConfirmManualInterventionCommand = new RelayCommand(ExecuteConfirmManualIntervention);
+            ConfirmManualInterventionRetryCommand = new RelayCommand(ExecuteConfirmManualInterventionRetry);
             ConfirmPreExportBrightnessCheckCommand = new RelayCommand(ExecuteConfirmPreExportBrightnessCheck);
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);

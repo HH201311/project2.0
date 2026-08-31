@@ -1,12 +1,17 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-31（直方图目标线靠右约 1/4）  
+> **文档版本**：2026-08-31（直方图峰谷毛边平滑）  
 > **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；**NJCT 远端更新 ✅**；进程池并行导入 ✅；**导出前亮度校验 ✅**。  
 > **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参；**AI 机 NJCT 远端下载与白名单联调**；**导出前亮度校验真机操作节奏**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-31 增量（直方图峰谷：毛边平滑 + 显著性）**：  
+> 1. **背景**：部分直方图顶缘锯齿明显，局部极大把同峰毛刺当成双峰，谷/右峰落点错误。  
+> 2. **做法**：柱高去尖刺后改为自适应**中值 + 高斯**平滑；局部峰在 ±peakWin 邻域判定；加大 `minSep`/`mergeDist`；两峰间须有 ≥18% 谷深。  
+> 3. **落点**：`HistogramGrayScaleAnalyzer.Optimize` / `FindBimodalHalfSlope`。
 
 > **2026-08-31 增量（直方图目标线：靠右约 1/4）**：  
 > 1. **背景**：红线目标原为谷→右峰的 2/3（距峰约 1/3）；希望更贴近右侧波峰以压噪。  
@@ -203,10 +208,10 @@ flowchart TD
 
 ---
 
-## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐；2026-08-12 增按 Y 扩展；2026-08-31 目标线改靠右约 1/4）
+## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐；2026-08-12 增按 Y 扩展；2026-08-31 目标线改靠右约 1/4 + 毛边平滑）
 
 > 背景：LUT 预设不保存直方图中间红色阈值竖线位置，需截图分析后拖拽。  
-> 半坡目标约定：取**高度最高的两个尖峰**；左线=两峰间波谷，右线=右侧尖峰；  
+> 半坡目标约定：取**高度最高的两个尖峰**（柱高先中值+高斯平滑，峰距/谷深约束防毛边误检）；左线=两峰间波谷，右线=右侧尖峰；  
 > **目标线（红线）** = 左线 + (右线−左线)×**3/4**（靠右约四分之一，更贴近波峰以压噪；**2026-08-31 由 2/3 调整**；此前 2026-07-22 起不再用左右中点）。  
 > **2c LUT 中点对齐（2026-07-31）**：预设关键斜段两端一次性标定 → 中点水平拖到红线目标列，使折线随峰值左右偏自适应。  
 > **2d 按 Y 扩展（2026-08-12）**：`Y = TargetX − ValleyX`；中点对齐后左端再左移 `左因子×Y`、右端再右移 `右因子×Y`，适配同电极下灰度跨度差异（非对称扩展后中点可略偏红线）。
@@ -217,7 +222,7 @@ flowchart TD
 | 掩膜取色 | 🟡 UI 已实现 | 「取色」→ 9×9 放大格 + HEX/RGB → 左键填入 `HistogramMaskColor`（默认 `#6E6E6E`） |
 | 按坐标截图 + 颜色替换 | 🟡 单步可测 | 目标色→纯绿 → **去全宽绿带 + 下填接回** → 峰谷 → `histogram_compare_*.png` |
 | 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
-| 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰 → 左线=谷、右线=右尖、**目标=靠右 3/4**；调试图 `histogram_peaks_*.png` |
+| 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰（平滑后）→ 左线=谷、右线=右尖、**目标=靠右 3/4**；调试图 `histogram_peaks_*.png` |
 | 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T*（目标线） |
 | **LUT 关键段两端标定** | ✅ UI | 「标定正极/负极 LUT 两点」→ 全屏依次点选；`LutSegmentPoint*Positive/Negative` |
 | **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 按 `-Z`/`-F` 取对应套中点 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
@@ -231,7 +236,7 @@ flowchart TD
 | `ScreenColorPickerOverlayWindow` | 全屏取色（先截虚拟屏再采样，避免取到预览窗） |
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
 | `ScreenTwoPointPickerOverlayWindow` | 全屏两点标定（LUT 关键段 P1→P2） |
-| `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图；**TargetX = 左+(右−左)×3/4** |
+| `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + **中值/高斯平滑** + 峰谷半坡（间距+显著性）+ 对比/峰谷调试图；**TargetX = 左+(右−左)×3/4** |
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐→按 Y 扩展 |
 | `VGAutomationService.DragLutSegmentMidpointToRedLineAsync` | 2c：标定中点 → 红线目标列 |
 | `VGAutomationService.ExpandLutSegmentByPeakValleyDistanceAsync` | 2d：按 Y 非对称扩展两端 |

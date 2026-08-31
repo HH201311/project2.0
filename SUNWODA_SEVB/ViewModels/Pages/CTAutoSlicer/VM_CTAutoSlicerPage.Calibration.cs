@@ -199,12 +199,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         /// </summary>
         private void ExecuteCalibrateLutSegmentPoints(object? parameter)
         {
-            if (_ctAutoSlicerService.IsRunning)
-            {
-                MessageShower = "流程运行中，请先结束后再标定";
-                return;
-            }
-
             var isPositive = string.Equals(
                 parameter?.ToString(),
                 "Positive",

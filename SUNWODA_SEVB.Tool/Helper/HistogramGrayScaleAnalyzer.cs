@@ -177,7 +177,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         }
 
         /// <summary>
-        /// 取高度最高的两个尖峰；左线=两峰间波谷，右线=右侧尖峰，目标线=左线到右线的 2/3 处（靠右约三分之一）。
+        /// 取高度最高的两个尖峰；左线=两峰间波谷，右线=右侧尖峰，目标线=左线到右线的 3/4 处（靠右约四分之一）。
         /// </summary>
         public static HistogramPeakAnalysis FindBimodalHalfSlope(int[] heights)
         {
@@ -262,10 +262,10 @@ namespace SUNWODA_SEVB.Tool.Helper
                 }
             }
 
-            // 左线=波谷，右线=右侧尖峰，目标线=靠右约 1/3（左→右 2/3 处），利于压掉左侧噪点灰阶
+            // 左线=波谷，右线=右侧尖峰，目标线=靠右约 1/4（左→右 3/4 处），更贴近波峰以压掉左侧噪点灰阶
             var leftLine = valley;
             var rightLine = rightTip;
-            var midLine = leftLine + (int)Math.Round((rightLine - leftLine) * (2.0 / 3.0));
+            var midLine = leftLine + (int)Math.Round((rightLine - leftLine) * (3.0 / 4.0));
 
             return new HistogramPeakAnalysis(
                 true,
@@ -673,7 +673,7 @@ namespace SUNWODA_SEVB.Tool.Helper
             using var smallFont = new Font("Consolas", 9f);
             using var white = new SolidBrush(Color.White);
 
-            g.DrawString("左线=两尖峰间波谷 / 右线=右侧尖峰 / 目标线=靠右约1/3(2/3处)", titleFont, white, pad, pad);
+            g.DrawString("左线=两尖峰间波谷 / 右线=右侧尖峰 / 目标线=靠右约1/4(3/4处)", titleFont, white, pad, pad);
             var yImg = pad + labelH;
             g.DrawImage(cleaned, pad, yImg, w, h);
             DrawPeakMarkers(g, pad, yImg, h, peaks);
@@ -715,7 +715,7 @@ namespace SUNWODA_SEVB.Tool.Helper
                 VLine(peaks.LeftPeakX, Color.FromArgb(160, 0, 200, 0), "P1", 1f);
             }
 
-            // 左线=波谷，右线=右侧尖峰，目标线=靠右约1/3（业务线，粗）
+            // 左线=波谷，右线=右侧尖峰，目标线=靠右约1/4（业务线，粗）
             VLine(peaks.ValleyX, Color.Yellow, "左");
             VLine(peaks.RightPeakX, Color.Cyan, "右");
             VLine(peaks.TargetX, Color.Magenta, "目标");
@@ -864,7 +864,7 @@ namespace SUNWODA_SEVB.Tool.Helper
         /// <summary>右线：两最高尖峰中偏右的尖峰列</summary>
         public int RightPeakX { get; }
         public int RightPeakHeight { get; }
-        /// <summary>中线/目标线：ValleyX→RightPeakX 的 2/3 处（靠右约三分之一），红线拖拽目标</summary>
+        /// <summary>中线/目标线：ValleyX→RightPeakX 的 3/4 处（靠右约四分之一），红线拖拽目标</summary>
         public int TargetX { get; }
     }
 }

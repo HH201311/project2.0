@@ -12,9 +12,14 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
         /// <summary>是否正在等待人工干预（醒目面板可见期间为 true）。</summary>
         bool IsAwaitingManualIntervention { get; }
 
+        /// <summary>是否正在等待导出前亮度校验（遮罩可见期间为 true）。</summary>
+        bool IsAwaitingPreExportBrightnessCheck { get; }
+
         event EventHandler? PauseStateChanged;
 
         event EventHandler? ManualInterventionStateChanged;
+
+        event EventHandler? PreExportBrightnessCheckStateChanged;
 
         /// <summary>切换暂停/继续；返回切换后是否处于暂停。仅流程运行中有效。</summary>
         bool TogglePause();
@@ -30,6 +35,9 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
 
         /// <summary>操作员点击「放入异常文件夹并跳过」后调用。</summary>
         void ConfirmManualIntervention();
+
+        /// <summary>操作员点击「校验完毕」后调用，放行导出前亮度校验。</summary>
+        void ConfirmPreExportBrightnessCheck();
 
         Task RunSimulationAsync(
             CTAutoSlicerSettings settings,

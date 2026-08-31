@@ -18,6 +18,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private const string ManualInterveneProgressPrefix = "@@MANUAL_INTERVENE@@";
         /// <summary>关闭人工干预面板。</summary>
         private const string ManualInterveneEndProgressPrefix = "@@MANUAL_INTERVENE_END@@";
+        /// <summary>请求 UI 弹出导出前亮度校验遮罩（与 Alt+P 暂停独立）。</summary>
+        private const string PreExportBrightnessCheckProgressPrefix = "@@PRE_EXPORT_BRIGHTNESS_CHECK@@";
+        /// <summary>关闭导出前亮度校验遮罩。</summary>
+        private const string PreExportBrightnessCheckEndProgressPrefix = "@@PRE_EXPORT_BRIGHTNESS_CHECK_END@@";
         private const string SaveDialogWindowName = "VGSTUDIO MAX 问题";
         private const string SaveDialogNoButtonName = "否(N)";
         private const string AutoSaveRecoveryDialogWindowName = "自动保存恢复";
@@ -93,6 +97,8 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         private readonly EventSimulator _simulator;
         private readonly AutomationPauseGate _pauseGate = new();
         private readonly ManualInterventionGate _manualInterventionGate = new();
+        /// <summary>导出前亮度校验门闩；与 Alt+P 的 <see cref="_pauseGate"/> 互不共用。</summary>
+        private readonly PreExportBrightnessCheckGate _preExportBrightnessCheckGate = new();
         /// <summary>
         /// 可能于任意时刻弹出的中断窗口队列。步骤异常/失败时先 Drain，处理后重试该步骤。
         /// 后续可继续 Register 其它弹窗（保存提示等）。
@@ -150,6 +156,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public bool IsAwaitingManualIntervention => _manualInterventionGate.IsAwaiting;
 
+        /// <summary>是否正在等待导出前亮度/视图人工校验（遮罩可见期间为 true）。</summary>
+        public bool IsAwaitingPreExportBrightnessCheck => _preExportBrightnessCheckGate.IsAwaiting;
+
         public event EventHandler? PauseStateChanged
         {
             add => _pauseGate.PauseStateChanged += value;
@@ -160,6 +169,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             add => _manualInterventionGate.StateChanged += value;
             remove => _manualInterventionGate.StateChanged -= value;
+        }
+
+        public event EventHandler? PreExportBrightnessCheckStateChanged
+        {
+            add => _preExportBrightnessCheckGate.StateChanged += value;
+            remove => _preExportBrightnessCheckGate.StateChanged -= value;
         }
 
         /// <summary>切换暂停/继续。暂停时解除 BlockInput，便于手动检查 VG。</summary>
@@ -201,8 +216,23 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             _manualInterventionGate.SignalCompleted();
         }
 
-        /// <summary>取消/结束流程时清出暂停与人工干预门闩。</summary>
+        /// <summary>操作员点击「校验完毕」后调用，放行导出前亮度校验等待。</summary>
+        public void ConfirmPreExportBrightnessCheck()
+        {
+            if (!_preExportBrightnessCheckGate.IsAwaiting)
+            {
+                return;
+            }
+
+            _logger.Info("操作员确认导出前亮度校验「校验完毕」");
+            _preExportBrightnessCheckGate.SignalCompleted();
+        }
+
+        /// <summary>取消/结束流程时清出人工干预门闩。</summary>
         public void ClearManualIntervention() => _manualInterventionGate.Reset();
+
+        /// <summary>取消/结束流程时清出导出前亮度校验门闩。</summary>
+        public void ClearPreExportBrightnessCheck() => _preExportBrightnessCheckGate.Reset();
 
         private Task WaitIfPausedAsync(CancellationToken cancellationToken) =>
             _pauseGate.WaitIfPausedAsync(cancellationToken);

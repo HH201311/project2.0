@@ -54,6 +54,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         private bool _isFlowPaused;
         private bool _isInputBlockEnabled = true;
         private bool _isManualInterventionVisible;
+        private bool _isPreExportBrightnessCheckVisible;
         private string _manualInterventionFileName = string.Empty;
         private string _manualInterventionReason = string.Empty;
         private string _manualInterventionCountdownText = string.Empty;
@@ -831,6 +832,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             private set => SetProperty(ref _isManualInterventionVisible, value);
         }
 
+        /// <summary>
+        /// 切片导出前：亮度/视图人工校验遮罩。
+        /// 与 <see cref="IsFlowPaused"/>（Alt+P）相互独立。
+        /// </summary>
+        public bool IsPreExportBrightnessCheckVisible
+        {
+            get => _isPreExportBrightnessCheckVisible;
+            private set => SetProperty(ref _isPreExportBrightnessCheckVisible, value);
+        }
+
         public string ManualInterventionFileName
         {
             get => _manualInterventionFileName;
@@ -864,6 +875,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     {
                         IsFlowPaused = false;
                         HideManualInterventionPanel();
+                        HidePreExportBrightnessCheckOverlay();
                     }
                 }
             }
@@ -3116,6 +3128,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         public ICommand RunSimulationCommand { get; }
         public ICommand ClearImportLogCommand { get; }
         public ICommand ConfirmManualInterventionCommand { get; }
+        public ICommand ConfirmPreExportBrightnessCheckCommand { get; }
         public ICommand SwitchToProductionModeCommand { get; }
         public ICommand SwitchToDebugModeCommand { get; }
         public ICommand SwitchToSlicePipelineModeCommand { get; }
@@ -3216,6 +3229,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             RunSimulationCommand = new RelayCommandAsync(ExecuteRunSimulationAsync);
             ClearImportLogCommand = new RelayCommand(ClearImportLog);
             ConfirmManualInterventionCommand = new RelayCommand(ExecuteConfirmManualIntervention);
+            ConfirmPreExportBrightnessCheckCommand = new RelayCommand(ExecuteConfirmPreExportBrightnessCheck);
             SwitchToProductionModeCommand = new RelayCommand(_ => IsProductionMode = true);
             SwitchToDebugModeCommand = new RelayCommand(_ => IsDebugMode = true);
             SwitchToSlicePipelineModeCommand = new RelayCommand(_ => IsSlicePipelineMode = true);

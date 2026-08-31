@@ -19,6 +19,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
         public bool IsAwaitingManualIntervention => _vgAutomationService.IsAwaitingManualIntervention;
 
+        public bool IsAwaitingPreExportBrightnessCheck =>
+            _vgAutomationService.IsAwaitingPreExportBrightnessCheck;
+
         public bool IsInputBlockEnabled => _vgAutomationService.IsInputBlockEnabled;
 
         public event EventHandler? PauseStateChanged
@@ -31,6 +34,12 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             add => _vgAutomationService.ManualInterventionStateChanged += value;
             remove => _vgAutomationService.ManualInterventionStateChanged -= value;
+        }
+
+        public event EventHandler? PreExportBrightnessCheckStateChanged
+        {
+            add => _vgAutomationService.PreExportBrightnessCheckStateChanged += value;
+            remove => _vgAutomationService.PreExportBrightnessCheckStateChanged -= value;
         }
 
         public event EventHandler? InputBlockStateChanged
@@ -52,6 +61,9 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         public bool ToggleInputBlock() => _vgAutomationService.ToggleInputBlock();
 
         public void ConfirmManualIntervention() => _vgAutomationService.ConfirmManualIntervention();
+
+        public void ConfirmPreExportBrightnessCheck() =>
+            _vgAutomationService.ConfirmPreExportBrightnessCheck();
 
         public Task RunSimulationAsync(
             CTAutoSlicerSettings settings,
@@ -231,6 +243,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 _vgAutomationService.ClearPause();
                 _vgAutomationService.ClearManualIntervention();
+                _vgAutomationService.ClearPreExportBrightnessCheck();
                 await action(_runCts.Token, progress).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -250,6 +263,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             {
                 _vgAutomationService.ClearPause();
                 _vgAutomationService.ClearManualIntervention();
+                _vgAutomationService.ClearPreExportBrightnessCheck();
                 _vgAutomationService.ReleaseInputBlock();
                 _runCts.Dispose();
                 _runCts = null;
@@ -260,6 +274,7 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
         {
             _vgAutomationService.ClearPause();
             _vgAutomationService.ClearManualIntervention();
+            _vgAutomationService.ClearPreExportBrightnessCheck();
             _vgAutomationService.ReleaseInputBlock();
             _runCts?.Cancel();
         }

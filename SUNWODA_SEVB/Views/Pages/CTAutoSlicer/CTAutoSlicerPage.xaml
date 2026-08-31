@@ -4214,6 +4214,64 @@
                     </Border>
                 </Border>
 
+                <!-- 切片导出前：亮度/视图人工校验遮罩（与 Alt+P 暂停相互独立） -->
+                <Border Grid.Row="0" Grid.RowSpan="4"
+                        Panel.ZIndex="190"
+                        Background="#E61A1A1A"
+                        Visibility="{Binding IsPreExportBrightnessCheckVisible, Converter={StaticResource BoolToVis}}">
+                    <Border Margin="24"
+                            Padding="32"
+                            Background="#FF212121"
+                            BorderBrush="#FFF9A825"
+                            BorderThickness="3"
+                            CornerRadius="10"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            MinWidth="520"
+                            MaxWidth="720">
+                        <StackPanel HorizontalAlignment="Center">
+                            <iconPacks:PackIconMaterial Kind="Alert"
+                                                        Width="72"
+                                                        Height="72"
+                                                        Foreground="#FFF9A825"
+                                                        HorizontalAlignment="Center"
+                                                        Margin="0,0,0,16"/>
+                            <TextBlock Text="导出前人工校验"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="#FFF9A825"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,12"/>
+                            <TextBlock Text="请人工检查当前亮度状态是否合适。"
+                                       FontSize="18"
+                                       Foreground="#FFFFF8E1"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="确认视图满足导出要求后，点击下方按钮缩小本软件并继续切片导出。&#x0a;（本等待与 Alt+P 暂停为不同功能，请勿用 Alt+P 关闭本遮罩）"
+                                       FontSize="14"
+                                       Foreground="#FFFFE082"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,24"/>
+                            <Button Content="校验完毕"
+                                    FontSize="20"
+                                    FontWeight="Bold"
+                                    Height="52"
+                                    MinWidth="220"
+                                    HorizontalAlignment="Center"
+                                    Background="#FFF9A825"
+                                    Foreground="#FF212121"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    Command="{Binding ConfirmPreExportBrightnessCheckCommand}"
+                                    ToolTip="确认亮度合适后缩小窗口并继续导出"/>
+                        </StackPanel>
+                    </Border>
+                </Border>
+
                 <Border Grid.Row="3" Style="{StaticResource CasBottomBarStyle}">
                     <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Right"

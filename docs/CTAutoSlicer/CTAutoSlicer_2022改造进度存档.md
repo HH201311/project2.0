@@ -1,12 +1,25 @@
 # CTAutoSlicer 2022 改造进度存档
 
-> **文档版本**：2026-08-28（NJCT 双类名 + 远端 DLL 更新）  
-> **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；**NJCT 远端更新 ✅**；进程池并行导入 ✅。  
-> **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参；**AI 机 NJCT 远端下载与白名单联调**。  
+> **文档版本**：2026-08-31（直方图目标线靠右约 1/4）  
+> **状态**：阶段一～五全部 ✅；阶段七 ✅ 独立 AI 标注模式；**NJCT 远端更新 ✅**；进程池并行导入 ✅；**导出前亮度校验 ✅**。  
+> **待确认**：两机真机联调；视觉 DLL 找点路径；Pre321 + 斜俯视找点真机核对；**LUT 中点拖拽 + 按 Y 扩展真机核对**；内容上移像素真机调参；**AI 机 NJCT 远端下载与白名单联调**；**导出前亮度校验真机操作节奏**。  
 > **用途**：供下一上下文快速接手，无需重读全部会话历史  
 > **关联文档**：`docs/CTAutoSlicer迁移说明.md`、`docs/CT离线AI视觉接口文档.md`、**`docs/离线CT_DLL接入说明.md`**、**`docs/CTAutoCutImg接口文档V1.0.txt`**
 
 **进度图例**：✅ 已完成　🟡 可选增强　⏸ 阻塞　❌ 未开始
+
+> **2026-08-31 增量（直方图目标线：靠右约 1/4）**：  
+> 1. **背景**：红线目标原为谷→右峰的 2/3（距峰约 1/3）；希望更贴近右侧波峰以压噪。  
+> 2. **做法**：`TargetX = ValleyX + (RightPeakX − ValleyX) × 3/4`（距峰约四分之一）。  
+> 3. **连带**：`Y = TargetX − ValleyX` 略增大，2d LUT 左右扩展像素会略增；真机若偏多可调 `LutExpand*YFactor`。  
+> 4. **落点**：`HistogramGrayScaleAnalyzer.FindBimodalHalfSlope`；峰谷调试图文案同步。
+
+> **2026-08-28 增量（导出前亮度人工校验遮罩）**：  
+> 1. **背景**：避免异常亮度/视图状态下直接导出导致切片不合格；导出前需人工目视确认。  
+> 2. **流程**：`ExportImageStackSlicesAsync` 入口先 `AwaitPreExportBrightnessCheckAsync` → 主界面遮罩（黄感叹号 +「请人工检查当前亮度状态是否合适。」+「校验完毕」）→ 点击后缩小本软件窗口 → 继续三视图导出。  
+> 3. **与 Alt+P 区分**：使用独立门闩 `PreExportBrightnessCheckGate`，**不**调用 `AutomationPauseGate`；校验期间 Alt+P 被忽略并提示点「校验完毕」；`IsFlowPaused` 不因本步骤置位。  
+> 4. **键鼠**：校验等待期间 `Unlock`，确认后按锁定期望 `Lock`；进度协议 `@@PRE_EXPORT_BRIGHTNESS_CHECK@@` / `_END@@`。  
+> 5. **落点**：`PreExportBrightnessCheckGate` / `VGAutomationService.SliceExport` / `ICTAutoSlicerService` / `VM_CTAutoSlicerPage.FlowControl` / `CTAutoSlicerPage.xaml`。
 
 > **2026-08-28 增量（NJCT 双类名 + 远端 DLL 更新）**：  
 > 1. **背景**：南昌 / 惠州原各有一份同名 `NJCT.dll`；视觉合并为单文件，类名区分 `NJSwdCT` / `HZSwdCT`。CTNCLX 保持 develop 逻辑不动。  
@@ -190,11 +203,11 @@ flowchart TD
 
 ---
 
-## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐；2026-08-12 增按 Y 扩展）
+## 0. 直方图灰度阈值（2026-07-17 起；2026-07-22 修订目标线；2026-07-31 增 LUT 中点对齐；2026-08-12 增按 Y 扩展；2026-08-31 目标线改靠右约 1/4）
 
 > 背景：LUT 预设不保存直方图中间红色阈值竖线位置，需截图分析后拖拽。  
 > 半坡目标约定：取**高度最高的两个尖峰**；左线=两峰间波谷，右线=右侧尖峰；  
-> **目标线（红线）** = 左线 + (右线−左线)×**2/3**（靠右约三分之一，利于压掉左侧噪点灰阶；**2026-07-22 起不再用左右中点**）。  
+> **目标线（红线）** = 左线 + (右线−左线)×**3/4**（靠右约四分之一，更贴近波峰以压噪；**2026-08-31 由 2/3 调整**；此前 2026-07-22 起不再用左右中点）。  
 > **2c LUT 中点对齐（2026-07-31）**：预设关键斜段两端一次性标定 → 中点水平拖到红线目标列，使折线随峰值左右偏自适应。  
 > **2d 按 Y 扩展（2026-08-12）**：`Y = TargetX − ValleyX`；中点对齐后左端再左移 `左因子×Y`、右端再右移 `右因子×Y`，适配同电极下灰度跨度差异（非对称扩展后中点可略偏红线）。
 
@@ -204,7 +217,7 @@ flowchart TD
 | 掩膜取色 | 🟡 UI 已实现 | 「取色」→ 9×9 放大格 + HEX/RGB → 左键填入 `HistogramMaskColor`（默认 `#6E6E6E`） |
 | 按坐标截图 + 颜色替换 | 🟡 单步可测 | 目标色→纯绿 → **去全宽绿带 + 下填接回** → 峰谷 → `histogram_compare_*.png` |
 | 红线初始位置 | 🟡 单步可测 | `HistogramRedLineDetector`；拖拽起点 |
-| 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰 → 左线=谷、右线=右尖、**目标=靠右 2/3**；调试图 `histogram_peaks_*.png` |
+| 峰谷 / 半坡 | ✅ 单步 + 主流程 | 两最高尖峰 → 左线=谷、右线=右尖、**目标=靠右 3/4**；调试图 `histogram_peaks_*.png` |
 | 拖拽红线 | ✅ 单步 + 主流程 | `MouseDragPressMoveRelease` 水平拖到 T*（目标线） |
 | **LUT 关键段两端标定** | ✅ UI | 「标定正极/负极 LUT 两点」→ 全屏依次点选；`LutSegmentPoint*Positive/Negative` |
 | **LUT 中点对齐红线** | ✅ 单步 + 主流程 | 按 `-Z`/`-F` 取对应套中点 → 水平拖到 `TargetScreenX`；未标定则主流程跳过 |
@@ -218,7 +231,7 @@ flowchart TD
 | `ScreenColorPickerOverlayWindow` | 全屏取色（先截虚拟屏再采样，避免取到预览窗） |
 | `HistogramRoiCalibrationOverlayWindow` | 全屏 ROI 标定 |
 | `ScreenTwoPointPickerOverlayWindow` | 全屏两点标定（LUT 关键段 P1→P2） |
-| `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图；**TargetX = 左+(右−左)×2/3** |
+| `HistogramGrayScaleAnalyzer` | 目标色→纯绿 + 峰谷半坡 + 对比/峰谷调试图；**TargetX = 左+(右−左)×3/4** |
 | `VGAutomationService.CaptureHistogramRoiAsync` / `TestHistogramGrayScaleAdjustAsync` | 截图→分析→拖红线→LUT 中点对齐→按 Y 扩展 |
 | `VGAutomationService.DragLutSegmentMidpointToRedLineAsync` | 2c：标定中点 → 红线目标列 |
 | `VGAutomationService.ExpandLutSegmentByPeakValleyDistanceAsync` | 2d：按 Y 非对称扩展两端 |
@@ -661,7 +674,7 @@ await ExportImageStackSlicesAsync(...);
 ### 阶段五：切片导出（✅ 已完成）
 
 - **`OpenSaveImageStackDialogAsync`** — **Alt+F+T**，等待「保存影片/图像堆栈」对话框。
-- **`ExportImageStackSlicesAsync`** — 循环 **上 / 前 / 右** 三视图（**先上**）：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → **（可选）覆盖警告「全部是」** → 等待写入进度 → 重开对话框。
+- **`ExportImageStackSlicesAsync`** — **导出前亮度人工校验**（独立门闩，与 Alt+P 分离）→ 循环 **上 / 前 / 右** 三视图（**先上**）：选 2D 视图 → 填宽度/数量/**切片范围（UI `SliceRangeStartMm`～`SliceRangeEndMm`）** → 保存 → JPEG → **（可选）覆盖警告「全部是」** → 等待写入进度 → 重开对话框。
 - 命名规则见 `SliceExportNamingHelper`：导出名取导入文件名主干**前 6 字符**（例 `1161-F 2026-7-25….vgi - 快捷方式` → `1161-F`）；路径 `{导出根}/{1161-F}/{1161-F} 前|右|上/…`；阶段七结果图 `{1161-F}/{1161-F}.jpg`；二次标注叠加图亦以该名为主干。
 - 页面「切片导出参数」Expander（含切片范围起止 mm）+「测试切片导出(三视图)」按钮。
 
@@ -1283,7 +1296,7 @@ screenY = Ry + Py
 ### 18.3 与 Pre321 / 直方图的关系
 
 - **Pre321** 保证截图视角含清晰上平面；未准备时算法可能抛「未能在斜俯视中稳定检出顶面四角」。  
-- 直方图目标线靠右 1/3 利于压噪，剪影/FloodFill 更稳。
+- 直方图目标线靠右约 1/4 利于压噪，剪影/FloodFill 更稳。
 
 ---
 

@@ -34,6 +34,10 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
 
             Directory.CreateDirectory(settings.SliceExportFolder);
 
+            // 导出前人工校验亮度/视图（独立门闩，不走 Alt+P 暂停）
+            await AwaitPreExportBrightnessCheckAsync(cancellationToken, progress)
+                .ConfigureAwait(false);
+
             // 命名优先用排队条目名（快捷方式显示名）；QJ 判定同时看条目名与实际导入路径
             var namingPath = string.IsNullOrWhiteSpace(namingSourcePath) ? vglPath : namingSourcePath;
             var namingFileName = Path.GetFileName(namingPath);
@@ -111,6 +115,56 @@ namespace SUNWODA_SEVB.Services.Project.CTAutoSlicer
             progress?.Report("三视图切片导出完成");
             _logger.Info("三视图切片导出完成");
             return (exportBaseName, quantity);
+        }
+
+        /// <summary>
+        /// 切片导出前：解除键鼠封锁 → 主界面遮罩提示人工检查亮度 → 等「校验完毕」→
+        /// 缩小本软件窗口后继续导出。
+        /// <para>
+        /// 使用独立的 <see cref="PreExportBrightnessCheckGate"/>，
+        /// <b>不</b>调用 <see cref="AutomationPauseGate"/>（Alt+P），二者功能分离。
+        /// </para>
+        /// </summary>
+        private async Task AwaitPreExportBrightnessCheckAsync(
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+        {
+            try
+            {
+                // 解除键鼠封锁，便于操作员切到 VG 检查/微调亮度；不置 PauseGate
+                Unlock();
+
+                // 先开门闩，再通知 UI，避免操作员快速点击时 Signal 落空
+                _preExportBrightnessCheckGate.Begin();
+
+                progress?.Report(PreExportBrightnessCheckProgressPrefix);
+                progress?.Report(
+                    "导出前亮度校验：请人工检查当前亮度状态是否合适，确认后点击「校验完毕」继续导出"
+                    + "（此等待与 Alt+P 暂停相互独立）");
+                _logger.Info("等待导出前亮度校验（独立于 Alt+P）");
+
+                // 给 UI 线程一点时间处理 Progress（置前本软件 + 显示遮罩）
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+
+                await _preExportBrightnessCheckGate
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                progress?.Report("导出前亮度校验已确认，缩小本软件窗口并继续切片导出");
+                _logger.Info("导出前亮度校验已确认，继续切片导出");
+            }
+            finally
+            {
+                progress?.Report(PreExportBrightnessCheckEndProgressPrefix);
+                try
+                {
+                    Lock();
+                }
+                catch (Exception lockEx)
+                {
+                    _logger.Warn($"导出前亮度校验结束后重新 Lock 失败（忽略）：{lockEx.Message}");
+                }
+            }
         }
 
         private async Task ExportSingleViewSliceAsync(

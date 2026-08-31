@@ -68,6 +68,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                     return;
                 }
 
+                if (string.Equals(message, "@@PRE_EXPORT_BRIGHTNESS_CHECK_END@@", StringComparison.Ordinal))
+                {
+                    Dispatcher.Invoke(HidePreExportBrightnessCheckOverlay);
+                    return;
+                }
+
+                if (string.Equals(message, "@@PRE_EXPORT_BRIGHTNESS_CHECK@@", StringComparison.Ordinal))
+                {
+                    Dispatcher.Invoke(ShowPreExportBrightnessCheckOverlay);
+                    return;
+                }
+
                 if (message.StartsWith("@@IMPORT_FAIL@@", StringComparison.Ordinal))
                 {
                     var payload = message["@@IMPORT_FAIL@@".Length..];
@@ -192,6 +204,60 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             ManualInterventionCountdownText = string.Empty;
         }
 
+        /// <summary>
+        /// 导出前亮度校验遮罩：置前本软件，提示人工检查 VG 亮度；
+        /// 与 Alt+P 暂停面板无关（不改 <see cref="IsFlowPaused"/>）。
+        /// </summary>
+        private void ShowPreExportBrightnessCheckOverlay()
+        {
+            MessageShower = "导出前亮度校验：请人工检查当前亮度状态是否合适";
+            AppendFlowLog("导出前亮度校验：等待操作员确认（与 Alt+P 暂停相互独立）");
+            IsPreExportBrightnessCheckVisible = true;
+            BringAutomationAppToForeground();
+        }
+
+        private void HidePreExportBrightnessCheckOverlay()
+        {
+            IsPreExportBrightnessCheckVisible = false;
+        }
+
+        /// <summary>「校验完毕」：关闭遮罩 → 缩小本软件 → 放行导出门闩。</summary>
+        private void ExecuteConfirmPreExportBrightnessCheck(object? _)
+        {
+            try
+            {
+                AppendFlowLog("操作员点击「校验完毕」，缩小窗口并继续切片导出");
+                MessageShower = "亮度校验完毕，缩小窗口并继续导出…";
+                HidePreExportBrightnessCheckOverlay();
+                MinimizeAutomationAppForExport();
+                _ctAutoSlicerService.ConfirmPreExportBrightnessCheck();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("确认导出前亮度校验失败", ex);
+                MessageShower = $"确认失败：{ex.Message}";
+            }
+        }
+
+        /// <summary>校验通过后缩小本软件，避免遮挡 VG 导出自动化。</summary>
+        private void MinimizeAutomationAppForExport()
+        {
+            try
+            {
+                var mainWindow = Application.Current?.MainWindow;
+                if (mainWindow == null)
+                {
+                    return;
+                }
+
+                mainWindow.WindowState = WindowState.Minimized;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"导出前缩小本软件失败（忽略）：{ex.Message}");
+            }
+        }
+
         private void UpdateManualInterventionCountdownText()
         {
             var remain = _manualInterventionDeadlineUtc - DateTime.UtcNow;
@@ -276,6 +342,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
         {
             await Dispatcher.InvokeAsync(() =>
             {
+                HidePreExportBrightnessCheckOverlay();
                 MessageShower = "流程已取消";
                 AppendFlowLog("流程已取消");
             });
@@ -292,6 +359,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
                 IsFlowPaused = false;
                 RefreshInputBlockStatus();
                 HideManualInterventionPanel();
+                HidePreExportBrightnessCheckOverlay();
                 IsEnableSimulationBtn = true;
                 MessageShower = $"流程已通过 {trigger} 中断";
                 AppendFlowLog($"流程已通过 {trigger} 中断");
@@ -308,6 +376,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CTAutoSlicer
             if (!_ctAutoSlicerService.IsRunning)
             {
                 Dispatcher.Invoke(() => MessageShower = "当前没有运行中的流程，Alt+P 无效");
+                return;
+            }
+
+            // 导出前亮度校验与 Alt+P 暂停是两套功能：校验遮罩期间不切换协作式暂停，
+            // 避免操作员误以为 Alt+P 能关掉遮罩，或留下暂停态导致校验后仍卡住。
+            if (_ctAutoSlicerService.IsAwaitingPreExportBrightnessCheck)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    MessageShower =
+                        "当前为导出前亮度校验（非 Alt+P 暂停），请检查 VG 亮度后点击「校验完毕」";
+                    AppendFlowLog("Alt+P 已忽略：当前处于导出前亮度校验，请点击「校验完毕」");
+                });
                 return;
             }
 

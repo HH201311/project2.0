@@ -1,0 +1,152 @@
+using SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer;
+using SUNWODA_SEVB.Core.Models.Project.CTAutoSlicer;
+
+namespace SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer
+{
+    public interface ICTAutoSlicerService
+    {
+        bool IsRunning { get; }
+
+        bool IsPaused { get; }
+
+        /// <summary>是否正在等待人工干预（醒目面板可见期间为 true）。</summary>
+        bool IsAwaitingManualIntervention { get; }
+
+        /// <summary>是否正在等待导出前亮度校验（遮罩可见期间为 true）。</summary>
+        bool IsAwaitingPreExportBrightnessCheck { get; }
+
+        event EventHandler? PauseStateChanged;
+
+        event EventHandler? ManualInterventionStateChanged;
+
+        event EventHandler? PreExportBrightnessCheckStateChanged;
+
+        /// <summary>切换暂停/继续；返回切换后是否处于暂停。仅流程运行中有效。</summary>
+        bool TogglePause();
+
+        /// <summary>当前是否期望锁定键鼠（Alt+O 切换；开始流程默认锁定）。</summary>
+        bool IsInputBlockEnabled { get; }
+
+        /// <summary>Alt+O：切换键鼠锁定；返回切换后是否锁定。</summary>
+        bool ToggleInputBlock();
+
+        /// <summary>键鼠锁定期望变化（供 UI 刷新状态）。</summary>
+        event EventHandler? InputBlockStateChanged;
+
+        /// <summary>操作员点击「放入异常文件夹并跳过」后调用。</summary>
+        void ConfirmManualIntervention();
+
+        /// <summary>操作员点击「人工处理完成」后调用：跳过视觉校验，继续后续步骤。</summary>
+        void ConfirmManualInterventionRetry();
+
+        /// <summary>操作员点击「校验完毕」后调用，放行导出前亮度校验。</summary>
+        void ConfirmPreExportBrightnessCheck();
+
+        Task RunSimulationAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// AI 标注模式：扫描交接目录批量推理（不启 VG）。
+        /// </summary>
+        Task RunAiAnnotationBatchAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：在 VG 已导入体积的前提下，仅应用渲染预设（不执行导入）。
+        /// </summary>
+        Task TestRenderingPresetAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：在 VG 已导入体积且已应用预设的前提下，对三象限依次执行厚板设置。
+        /// </summary>
+        Task TestThickPlateAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：在 VG 已导入体积且已应用预设并完成厚板的前提下，执行三视图切片导出。
+        /// </summary>
+        Task TestSliceExportAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：按已标定直方图 ROI 截图 → 掩膜优化 → 峰谷半坡 → 拖拽红线 → LUT 关键段中点对齐红线。
+        /// </summary>
+        Task TestHistogramGrayScaleAdjustAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：阶段四 · 简单 3-2-1 对齐（需已标定 3D ROI）。
+        /// 截 3D → DLL 四点 → 打开对齐 → Ctrl+点击四点 → 完成。
+        /// </summary>
+        Task TestSimple321AlignmentAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：3-2-1 之后步骤 — 点击视口底部无名捕捉按钮并按箭头标定拖拽。
+        /// </summary>
+        Task TestPostAlignCaptureDragAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 临时单测：3D 找点前视角准备 — 绝对坐标点击切换视图 → 按箭头拖拽看清上平面。
+        /// </summary>
+        Task TestPre321ViewPrepAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        /// <summary>
+        /// 单步测试：对「上」视图配置序号图或指定图片执行 AI 图像标注。
+        /// </summary>
+        /// <param name="explicitOutputFolder">
+        /// 指定输出目录；仅在指定输入图时生效。空则输出到输入图所在目录。
+        /// </param>
+        Task TestOfflineCtVisionAnnotationAsync(
+            CTAutoSlicerSettings settings,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null,
+            string? explicitImagePath = null,
+            string? explicitOutputFolder = null
+        );
+
+        /// <summary>
+        /// NJCT DLL 直调批量测试：不走主流程预处理/上位机叠加；dllBlackHeight 传给 ModelAction.BlackHeight。
+        /// </summary>
+        Task RunOfflineCtDllBatchTestAsync(
+            CTAutoSlicerSettings settings,
+            string inputFolder,
+            string outputFolder,
+            int dllBlackHeight,
+            CancellationToken cancellationToken,
+            IProgress<string>? progress = null
+        );
+
+        void Cancel();
+    }
+}

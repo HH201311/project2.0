@@ -171,7 +171,9 @@ namespace SUNWODA_SEVB.Services.Project.CTOL
         }
 
         /// <summary>
-        /// 读取共享阈值字典
+        /// 读取共享阈值字典。
+        /// 注意：只加载 Name 以 "Gap" 开头的项（含 Gap45/46 掉片、Gap48 翻折面积、Gap49–51 压伤）。
+        /// 新阈值键必须用 Gap 前缀，否则保存后重启读不回来。
         /// </summary>
         public Dictionary<string, double>? LoadSharedThresholds()
         {

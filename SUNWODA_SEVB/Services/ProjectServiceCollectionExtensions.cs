@@ -5,6 +5,7 @@ using SUNWODA_SEVB.Core.Interfaces.Mqtt;
 using SUNWODA_SEVB.Core.Interfaces.Project;
 using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Interfaces.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Core.Interfaces.Socket;
 using SUNWODA_SEVB.Core.Models.Mqtt;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
@@ -12,6 +13,7 @@ using SUNWODA_SEVB.Core.Models.Socket;
 using SUNWODA_SEVB.Services.Project;
 using SUNWODA_SEVB.Services.Project.CCTB;
 using SUNWODA_SEVB.Services.Project.CCTB.Business;
+using SUNWODA_SEVB.Services.Project.CTAutoSlicer;
 using SUNWODA_SEVB.Services.Project.JRCW.Business;
 using SUNWODA_SEVB.Services.Project.JROH.Business;
 using SUNWODA_SEVB.Tool.Services.Mqtt;
@@ -56,6 +58,9 @@ namespace SUNWODA_SEVB.Services
 
             // 添加JROH项目服务
             services.AddJROHServices();
+
+            // 添加 CT 自动化切片服务
+            services.AddCTAutoSlicerServices();
 
             return services;
         }
@@ -227,6 +232,24 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<JROHBusinessServiceFactory>();
             services.AddSingleton<JROHBusinessServiceManager>();
 
+            return services;
+        }
+
+        /// <summary>
+        /// 添加 CT 自动化切片项目服务
+        /// </summary>
+        public static IServiceCollection AddCTAutoSlicerServices(this IServiceCollection services)
+        {
+            services.AddSingleton<VGAutomationService>();
+            services.AddSingleton<IAngleAlgorithmService, AngleAlgorithmService>();
+            services.AddSingleton<ICutImgAlgorithmService, CutImgAlgorithmService>();
+            services.AddSingleton<ICTOfflineVisionService, OfflineCtVisionService>();
+            services.AddSingleton<IOfflineCtDllUpdateService, OfflineCtDllUpdateService>();
+            services.AddSingleton<ICTAutoSlicerService, CTAutoSlicerService>();
+            services.AddSingleton<CTFolderMonitorService>();
+            services.AddSingleton<CTAutoSlicerInputHookService>();
+            services.AddSingleton<ProcessMonitorService>();
+            services.AddSingleton<CTAutoSlicerLocalConfigService>();
             return services;
         }
     }

@@ -367,3 +367,7 @@ FodyWeavers.xsd
 /SUNWODA_SEVB.Logging/Datebase
 /SUNWODA_SEVB.Logging/Targets
 /global.json
+
+# 大体积压缩包，勿提交进仓库
+*.7z
+sunwoda2.0.0.1.7z

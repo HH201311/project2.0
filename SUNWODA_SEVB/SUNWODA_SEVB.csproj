@@ -165,6 +165,25 @@
     <None Update="remote_file_monitor_config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- 切图算法：复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\CTAutoCutImg.dll">
+      <Link>Dlls\CTAutoCutImg.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- 惠州离线 CT AI：业务 DLL + 推理依赖，反射从 Dlls\ 加载 -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\NJCT.dll">
+      <Link>Dlls\NJCT.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\CF.dll">
+      <Link>Dlls\CF.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- 惠州离线 CT 正极 AI 标注：ONNX 模型随输出部署 -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\Models\CTOffline\model_500000_900.onnx">
+      <Link>Dlls\Models\CTOffline\model_500000_900.onnx</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -218,6 +237,9 @@
 
   <ItemGroup>
     <Content Include="Assets\images\plus.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\images\pre321_view_ref.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

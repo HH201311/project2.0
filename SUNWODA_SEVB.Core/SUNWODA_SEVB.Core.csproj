@@ -24,6 +24,7 @@
     <Compile Include="Interfaces\Project\CCTB\IAlgorithmService.cs" />
     <Compile Include="Interfaces\Project\CCTB\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\CCTB\ICommunicationService.cs" />
+    <Compile Include="Interfaces\Project\JROH\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\JRCW\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\STC\IScrewControllerService.cs" />
     <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
@@ -110,7 +111,6 @@
 
   <ItemGroup>
     <Folder Include="Behavior\Project\CCTB\" />
-    <Folder Include="Interfaces\Project\PTO\" />
   </ItemGroup>
 
 </Project>

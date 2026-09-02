@@ -196,6 +196,46 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!--  查询图标按钮样式  -->
+    <Style x:Key="IconInquireButtonStyle" TargetType="Button">
+        <Setter Property="Margin" Value="2" />
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#CCFFFFFF" />
+        <Setter Property="Opacity" Value="0.8" />
+        <Setter Property="FontFamily" Value="{StaticResource CCTB.IconFont}" />
+        <Setter Property="Content" Value="&#xe610;" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="hc:BorderElement.CornerRadius" Value="5" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{Binding (hc:BorderElement.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                        <ContentPresenter
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Opacity="{TemplateBinding Opacity}"
+                            TextElement.FontFamily="{TemplateBinding FontFamily}"
+                            TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="1" />
+                            <Setter Property="FontWeight" Value="Bold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <!--#endregion-->
     <!--#endregion-->
 
@@ -562,13 +602,13 @@
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
                     <StackPanel
-                        Margin="4"
+                        Margin="4,2,2,5"
                         VerticalAlignment="Center"
                         Orientation="Horizontal">
                         <Border
-                            Width="14"
-                            Height="14"
-                            Margin="0,0,10,0"
+                            Width="15"
+                            Height="15"
+                            Margin="4,2,10,5"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"

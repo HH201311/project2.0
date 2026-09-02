@@ -11,6 +11,10 @@ using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Business1Models;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Core;
+using SUNWODA_SEVB.Core.Models.Project.JROH.Core;
+using SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels;
+using SUNWODA_SEVB.Core.Models.Project.JROH.OHBusinessModels;
+using SUNWODA_SEVB.Core.Models.Project.JROH.PWBusinessModels;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper;
 using System;
@@ -928,6 +932,79 @@ namespace SUNWODA_SEVB.Tool.Extension
             return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, CCTBCore.BelongToVM);
         }
         #endregion
+
+        #region PLCGatherConfig参数
+        public static List<int> LoadPLCGatherConfig(this IProjectSettingRepository projectSettingRepository)
+        {
+            return projectSettingRepository.LoadPLCGatherConfigProjectParameters("PLC");
+        }
+
+        public static List<int> LoadAPLCGatherConfig(this IProjectSettingRepository projectSettingRepository)
+        {
+            return projectSettingRepository.LoadPLCGatherConfigProjectParameters("A");
+        }
+
+        public static List<int> LoadBPLCGatherConfig(this IProjectSettingRepository projectSettingRepository)
+        {
+            return projectSettingRepository.LoadPLCGatherConfigProjectParameters("B");
+        }
+
+        public static bool SavePLCGatherConfig(this IProjectSettingRepository projectSettingRepository, List<int> values)
+        {
+            return projectSettingRepository.SavePLCGatherConfigProjectParameters(values, "PLC");
+        }
+
+        public static bool SaveAPLCGatherConfig(this IProjectSettingRepository projectSettingRepository, List<int> values)
+        {
+            return projectSettingRepository.SavePLCGatherConfigProjectParameters(values, "A");
+        }
+
+        public static bool SaveBPLCGatherConfig(this IProjectSettingRepository projectSettingRepository, List<int> values)
+        {
+            return projectSettingRepository.SavePLCGatherConfigProjectParameters(values, "B");
+        }
+
+        private static List<int> LoadPLCGatherConfigProjectParameters(this IProjectSettingRepository projectSettingRepository, string flag)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"PLCGatherConfig_{flag}";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null)
+            {
+                var paramValues = JsonSerializer.Deserialize<List<int>>(paramModel.Value, JsonOptions);
+                if (paramValues != null) return paramValues;
+            }
+
+            var model = new List<int>();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = $"涂布闭环PLC地址采集配置[{flag}]"
+                    }
+                );
+            }
+            return model;
+        }
+
+        private static bool SavePLCGatherConfigProjectParameters(this IProjectSettingRepository projectSettingRepository, List<int> values, string flag)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"PLCGatherConfig_{flag}";
+            var model = new List<int>();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = $"涂布闭环PLC地址采集配置[{flag}]"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, values, CCTBCore.BelongToVM);
+        }
+        #endregion
         #endregion
 
         #region JRCW项目(卷绕极耳错位闭环)参数配置相关扩展方法
@@ -1181,6 +1258,230 @@ namespace SUNWODA_SEVB.Tool.Extension
             return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, JRCWCore.BelongToVM);
         }
         #endregion
+        #endregion
+        #endregion
+
+        #region JROH项目(卷绕oh闭环)参数配置相关扩展方法
+        #region FileSaveRootPath参数
+        /// <summary>
+        /// 加载卷绕OH闭环文件根目录配置信息，参数名称为"FileSaveRootPath"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static string LoadJROHFileSaveRootPathProjectParameter(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"FileSaveRootPath";
+            var paramValue = projectSettingRepository.GetSettingValue(paramName, JROHCore.BelongToVM);
+            if (paramValue != null) return paramValue.ToString();
+
+            var defauleValue = "D:\\通用上位机\\JROHDatas";
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, "D:\\通用上位机\\JROHDatas", "string", 2)
+                    {
+                        Remark = "卷绕OH闭环文件根目录配置"
+                    }
+                );
+            }
+            return defauleValue;
+        }
+
+        /// <summary>
+        /// 保存卷绕OH闭环文件根目录配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveJROHFileSaveRootPathProjectParameter(this IProjectSettingRepository projectSettingRepository, string value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"FileSaveRootPath";
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, value, "string", 2)
+                    {
+                        Remark = "卷绕OH闭环文件根目录配置"
+                    }
+                );
+            }
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JROHCore.BelongToVM);
+            if (paramModel == null) return false;
+            paramModel.Value = value;
+            return projectSettingRepository.Update(paramModel);
+        }
+        #endregion
+
+        #region 业务类型PoleWidth-Business1Param
+        /// <summary>
+        /// 加载卷绕OH闭环参数配置，参数名称为"PWBusinessTypeParam"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static PWBusinessParamModel LoadPWBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"PWBusinessParam";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JROHCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<PWBusinessParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
+            var model = new PWBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务PoelWidth"
+                    }
+                );
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// 保存卷绕OH闭环参数配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SavePWBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository, PWBusinessParamModel? value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"PWBusinessParam";
+            var model = new PWBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务PoelWidth"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, JROHCore.BelongToVM);
+        }
+        #endregion
+
+        #region 业务类型OH-Business2Param
+        /// <summary>
+        /// 加载卷绕OH闭环参数配置，参数名称为"OHBusinessTypeParam"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static OHBusinessParamModel LoadOHBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"OHBusinessParam";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JROHCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<OHBusinessParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
+            var model = new OHBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务OH"
+                    }
+                );
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// 保存卷绕OH闭环参数配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveOHBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository, OHBusinessParamModel? value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"OHBusinessParam";
+            var model = new OHBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务OH"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, JROHCore.BelongToVM);
+        }
+        #endregion
+
+        #region 业务类型MC-Business3Param
+        /// <summary>
+        /// 加载卷绕OH闭环参数配置，参数名称为"OHBusinessTypeParam"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static MCBusinessParamModel LoadMCBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"MCBusinessParam";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JROHCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<MCBusinessParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
+            var model = new MCBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务MC"
+                    }
+                );
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// 保存卷绕OH闭环参数配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveMCBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository, MCBusinessParamModel? value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"MCBusinessParam";
+            var model = new MCBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务MC"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, JROHCore.BelongToVM);
+        }
         #endregion
         #endregion
     }

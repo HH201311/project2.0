@@ -126,6 +126,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         public static List<RoleManagementModel> RoleManagementConfigs { get; set; } = [];
         public static List<AlarmConfigModel> AlarmConfigs { get; set; } = [];
         public static AlarmConfigParamModel? AlarmParamConfig { get; set; }
+
+        /// <summary>
+        /// PLC采集参数配置
+        /// </summary>
+        public static List<int> PLCGatherConfigOfA = [], PLCGatherConfigOfB = [], PLCGatherConfigOfPLC = [];
         #endregion
 
         #region 业务相关

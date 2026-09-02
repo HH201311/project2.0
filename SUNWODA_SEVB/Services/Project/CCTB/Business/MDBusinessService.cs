@@ -1118,6 +1118,9 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
 
                 for (int k = 0; k < cd.Weights.Count(); k++)
                     result.Add("重量" + (k + 1).ToString(), cd.Weights[k].ToString());
+
+                var ids = cd.SideType switch { ESideType.A => CCTBCore.PLCGatherConfigOfA.ToArray(), ESideType.B => CCTBCore.PLCGatherConfigOfB.ToArray(), _ => [] };
+                ReadPLCValuesByIDs(ids, ref result);
             }
             catch (Exception ex)
             {

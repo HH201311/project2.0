@@ -106,6 +106,7 @@
                                             <fsc:CMFunctionControl
                                                 CancleCommand="{Binding ParamCancleCommand}"
                                                 ItemSource="{Binding FunctionModel, Mode=TwoWay}"
+                                                PLCGatherConfigCommand="{Binding PLCGatherConfigCommand}"
                                                 SaveCommand="{Binding ParamSaveCommand}" />
                                         </DataTemplate>
                                     </Setter.Value>
@@ -144,6 +145,7 @@
                                                 FTPUploadCommand="{Binding FTPUpLoadCommand}"
                                                 FTPUploadDate="{Binding FTPUpLoadData, Mode=TwoWay}"
                                                 ItemSource="{Binding FunctionModel, Mode=TwoWay}"
+                                                PLCGatherConfigCommand="{Binding PLCGatherConfigCommand}"
                                                 SaveCommand="{Binding ParamSaveCommand}" />
                                         </DataTemplate>
                                     </Setter.Value>

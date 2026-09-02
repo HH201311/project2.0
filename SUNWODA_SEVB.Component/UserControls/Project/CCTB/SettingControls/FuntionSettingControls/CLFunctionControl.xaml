@@ -59,7 +59,16 @@
                 </UniformGrid>
                 <Rectangle Style="{StaticResource ParamLineRectangleStyle}" />
 
-                <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据保存" />
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource ParamHeaderTextBlockStyle}" Text="数据保存" />
+                    <Button
+                        Margin="10,0,0,10"
+                        Command="{Binding PLCGatherConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="PLC"
+                        Content="PLC采集配置"
+                        Style="{StaticResource TextButtonStyle}" />
+                </StackPanel>
+
                 <uccc:PairContentControl PairKeyText="保存路径" Style="{StaticResource PPairContentControlStyle}">
                     <uccc:FloderPicker
                         Width="400"

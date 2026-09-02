@@ -698,6 +698,10 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             CCTBCore.BasicFunctionSetting = _projectSettingRepository.LoadBasicFunctionSettingProjectParameters();
             CCTBCore.SpecialFunctionSetting = _projectSettingRepository.LoadSpecialFunctionSettingProjectParameters();
 
+            CCTBCore.PLCGatherConfigOfA = _projectSettingRepository.LoadAPLCGatherConfig();
+            CCTBCore.PLCGatherConfigOfB = _projectSettingRepository.LoadBPLCGatherConfig();
+            CCTBCore.PLCGatherConfigOfPLC = _projectSettingRepository.LoadPLCGatherConfig();
+
             CCTBCore.SettingMessageNotificationEvent -= OnSettingMessageChanged;
             CCTBCore.SettingMessageNotificationEvent += OnSettingMessageChanged;
         }
@@ -757,6 +761,18 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             if (e.Message is SpecialFunctionSettingModel sf)
             {
                 CCTBCore.SpecialFunctionSetting = sf;
+                return;
+            }
+
+            if (e.Message is List<int> configs)
+            {
+                switch (e.Tag)
+                {
+                    case "A": CCTBCore.PLCGatherConfigOfA = configs; break;
+                    case "B": CCTBCore.PLCGatherConfigOfB = configs; break;
+                    case "PLC": CCTBCore.PLCGatherConfigOfPLC = configs; break;
+                    default: return;
+                }
                 return;
             }
         }

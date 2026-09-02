@@ -58,7 +58,7 @@ namespace SUNWODA_SEVB
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-            //RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+            RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             try
             {
                 MonitorAppIsRunning();

@@ -2,10 +2,10 @@
     x:Class="SUNWODA_SEVB.Views.Pages.MeltingDepthDetection.MeltingDepthDetectionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:common="clr-namespace:SUNWODA_SEVB.Tool.BindingProxy;assembly=SUNWODA_SEVB.Tool"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Pages.MeltingDepthDetection"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:common="clr-namespace:SUNWODA_SEVB.Tool.BindingProxy;assembly=SUNWODA_SEVB.Tool"
     Title="焊接过程预警系统"
     d:DesignHeight="600"
     d:DesignWidth="1000"
@@ -87,6 +87,7 @@
             </Border.Effect>
 
             <DataGrid
+                d:ItemsSource="{d:SampleData ItemCount=5}"
                 AlternationCount="2"
                 AutoGenerateColumns="False"
                 Background="Transparent"
@@ -95,10 +96,9 @@
                 GridLinesVisibility="None"
                 HorizontalScrollBarVisibility="Auto"
                 IsReadOnly="True"
-                d:ItemsSource="{d:SampleData ItemCount=5}"
                 ItemsSource="{Binding Records}"
                 RowHeight="35">
-                
+
                 <DataGrid.Resources>
                     <common:BindingProxy x:Key="Proxy" Data="{Binding}" />
                 </DataGrid.Resources>
@@ -483,12 +483,12 @@
                     Background="Transparent"
                     BorderThickness="0"
                     CanUserAddRows="False"
+                    CanUserResizeRows="False"
                     GridLinesVisibility="None"
                     IsReadOnly="True"
                     ItemsSource="{Binding AppLogs}"
                     RowHeight="NaN"
-                    SelectionUnit="FullRow"
-                    CanUserResizeRows="False">
+                    SelectionUnit="FullRow">
 
                     <DataGrid.ColumnHeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
@@ -539,13 +539,13 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock
+                                        MaxHeight="120"
                                         Margin="10,0"
                                         VerticalAlignment="Center"
                                         Foreground="#2C3E50"
                                         Text="{Binding Message}"
                                         TextTrimming="None"
                                         TextWrapping="Wrap"
-                                        MaxHeight="120"
                                         ToolTip="{Binding Message}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>

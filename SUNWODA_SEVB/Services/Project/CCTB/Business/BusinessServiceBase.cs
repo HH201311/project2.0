@@ -256,6 +256,22 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
             _logger.Debug($"PLC执行写入:地址[{address}]类型[{type}]值[{value}]，写入结果[{result.Message}]");
             return result;
         }
+
+        /// <summary>
+        /// 读取PLC地址ByIDs
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <returns></returns>
+        protected void ReadPLCValuesByIDs(int[] ids, ref Dictionary<string, string> pairs)
+        {
+            foreach (var id in ids)
+            {
+                var address = _plcService.RWAddresses.Values.FirstOrDefault(o => o.ID == id);
+                if (address == null) continue;
+                var key = address.ParameterName ?? address.ID.ToString();
+                pairs[key] = address.MonitorValue?.ToString() ?? string.Empty;
+            }
+        }
         #endregion
 
         #region 辅助方法
@@ -1232,23 +1248,21 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
         /// <summary>
         /// 保存CSV文件
         /// </summary>
-        /// <param name="rootPath"></param>
-        /// <param name="deviceName"></param>
+        /// <param name="filePath"></param>
         /// <param name="row"></param>
         protected async void WriteToCsvAsync(string filePath, Dictionary<string, string> row)
         {
             // 数据保存
             var t = Task.Run(() =>
             {
-                var fullPath = Path.Combine(filePath, DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
                 try
                 {
                     var dt = CCTBCsvHelper.DicToTable(row);
-                    lock (CCTBCsvHelper.WriteLocker) CCTBCsvHelper.WriteCSV(fullPath, dt);
+                    lock (CCTBCsvHelper.WriteLocker) CCTBCsvHelper.WriteCSV(filePath, dt);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error($"数据保存CSV文件异常 [{fullPath}]", ex);
+                    _logger.Error($"数据保存CSV文件异常 [{filePath}]", ex);
                 }
             });
 

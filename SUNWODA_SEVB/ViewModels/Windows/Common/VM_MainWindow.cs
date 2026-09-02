@@ -122,7 +122,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Common
             // 加载模块
             _moduleManager.AutoRegisterModules();
 
-            //PreLoadModule();
+            PreLoadModule();
 
             // 构建菜单 - 只显示普通模块
             MenuItems = new ObservableCollection<ModuleInfo>(

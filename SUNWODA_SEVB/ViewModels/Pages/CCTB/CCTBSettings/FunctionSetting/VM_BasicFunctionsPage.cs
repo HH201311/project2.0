@@ -1,4 +1,6 @@
 ﻿using HandyControl.Controls;
+using HandyControl.Tools.Extension;
+using Mapster;
 using Newtonsoft.Json;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -6,21 +8,26 @@ using SUNWODA_SEVB.Core.Common.Commands;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.PLC;
+using SUNWODA_SEVB.Core.Interfaces.Project.CCTB;
 using SUNWODA_SEVB.Core.Interfaces.Web;
 using SUNWODA_SEVB.Core.Models.Data;
 using SUNWODA_SEVB.Core.Models.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
+using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
+using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
-using SUNWODA_SEVB.Tool.Extension;
+using SUNWODA_SEVB.ViewModels.Dialogs.CCTB.CommunicationOptions;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 
 namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
 {
@@ -29,6 +36,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
     {
         private readonly ILoggerService<VM_BasicFunctionsPage> _logger;
         private readonly IGlobalSettingRepository _globalSettingRepository;
+        private readonly IPLCService _plcService;
         private readonly IPLCConfigRepository _plcConfigRepository;
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
@@ -63,11 +71,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         public ICommand? RollNumPathVerifyCommand => new RelayCommand(OnRollNumPathVerifyAsync);
 
         /// <summary>
+        /// PLC采集配置修改
+        /// </summary>
+        public ICommand? PLCGatherConfigCommand => new RelayCommand(OnPLCGatherConfigAsync);
+
+        /// <summary>
         /// 构造函数
         /// </summary>
         public VM_BasicFunctionsPage(
             ILoggerService<VM_BasicFunctionsPage> logger,
             IGlobalSettingRepository globalSettingRepository,
+            IPLCService plcService,
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
@@ -76,6 +90,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         {
             _logger = logger;
             _globalSettingRepository = globalSettingRepository;
+            _plcService = plcService;
             _plcConfigRepository = plcConfigRepository;
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
@@ -196,6 +211,129 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
             {
                 await VM_CCTBMessageBoxDialog.ErrorAsync(ex.Message, "获取膜卷号异常");
             }
+        }
+
+        /// <summary>
+        /// 修改PLC采集信息时触发
+        /// </summary>
+        /// <param name="arg"></param>
+        private async void OnPLCGatherConfigAsync(object? arg)
+        {
+            try
+            {
+                if (!(arg is string configName)) return;
+
+                var items = LoadPLCGatherConfig(configName);
+                _logger.UserInfo($"用户打开了[{configName}]PLC采集地址配置窗口！");
+                var result = await Dialog.Show(new VM_CheckListDialog().UIElement)
+                            .Initialize<VM_CheckListDialog>(o =>
+                            {
+                                o.DialogTitle = $"PLC采集参数配置-{configName}";
+                                o.ItemSource = items;
+                            })
+                            .GetResultAsync<bool>();
+
+                if (!result)
+                {
+                    _logger.UserInfo($"用户取消[{configName}]PLC采集地址配置修改");
+                    return;
+                }
+                var old = LoadPLCGatherConfig(configName);
+                var isChanged = !items.EqualsByJson(old);
+
+                if (!isChanged)
+                {
+                    await VM_CCTBMessageBoxDialog.InfoAsync($"[{configName}]PLC采集地址配置未修改，无需保存！", "提示");
+                    return;
+                }
+
+                var confirmResult = await VM_CCTBMessageBoxDialog.AskAsync($"确认保存[{configName}]PLC采集地址配置修改？", "确认保存");
+                if (confirmResult != System.Windows.MessageBoxResult.OK)
+                {
+                    _logger.UserInfo($"用户取消保存[{configName}]PLC采集地址配置");
+                    return;
+                }
+
+                var isUpdateSuccess = SavePLCGatherConfig(configName, items);
+                if (isUpdateSuccess)
+                {
+                    _logger.UserInfo($"[{configName}]PLC采集地址配置保存成功");
+                    await VM_CCTBMessageBoxDialog.SuccessAsync($"[{configName}]PLC采集地址配置更新完成！", "提示");
+                }
+                else
+                {
+                    _logger.UserWarn($"[{configName}]PLC采集地址配置部分保存失败");
+                    await VM_CCTBMessageBoxDialog.WarningAsync($"[{configName}]PLC采集地址配置更新成功！", "提示");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"PLC采集地址配置保存异常: {ex.Message}", ex);
+                await VM_CCTBMessageBoxDialog.ErrorAsync($"保存PLC采集地址配置时发生异常：{ex.Message}", "错误");
+            }
+        }
+
+        /// <summary>
+        /// 获取PLC采集配置参数
+        /// </summary>
+        /// <param name="configName"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        private ObservableCollection<CheckedItemModel<AddressItemModel>> LoadPLCGatherConfig(string configName)
+        {
+            var result = new ObservableCollection<CheckedItemModel<AddressItemModel>>();
+            var plcs = _plcConfigRepository.GetAll();
+            if (!plcs.Exists(o => o.Name == CCTBCore.PLCName)) return result;
+            var plcId = plcs.First(o => o.Name == CCTBCore.PLCName).ID;
+            var plcAddresses = _plcService.RWAddresses.Values.Where(o => o.PlcId == plcId).ToList();
+            var plcGatherConfig = configName switch
+            {
+                "A" => _projectSettingRepository.LoadAPLCGatherConfig(),
+                "B" => _projectSettingRepository.LoadBPLCGatherConfig(),
+                "PLC" => _projectSettingRepository.LoadPLCGatherConfig(),
+                _ => throw new NotImplementedException()
+            };
+            foreach (var plcAddress in plcAddresses)
+            {
+                var addressItem = new AddressItemModel();
+                addressItem.ID = plcAddress.ID;
+                addressItem.Name = plcAddress.ParameterName ?? string.Empty;
+                addressItem.Address = plcAddress.Address ?? string.Empty;
+                var checkedItem = new CheckedItemModel<AddressItemModel>();
+                checkedItem.Item = addressItem;
+                checkedItem.DisplayName = plcAddress.ParameterName;
+                checkedItem.IsChecked = plcGatherConfig.Contains(plcAddress.ID);
+                result.Add(checkedItem);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 保存PLC采集配置参数
+        /// </summary>
+        /// <param name="configName"></param>
+        /// <param name="items"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        private bool SavePLCGatherConfig(string configName, ObservableCollection<CheckedItemModel<AddressItemModel>> items)
+        {
+            var values = items.Where(o => o.IsChecked && o.Item != null).Select(o => o.Item!.ID).ToList();
+            var result = configName switch
+            {
+                "A" => _projectSettingRepository.SaveAPLCGatherConfig(values),
+                "B" => _projectSettingRepository.SaveBPLCGatherConfig(values),
+                "PLC" => _projectSettingRepository.SavePLCGatherConfig(values),
+                _ => throw new NotImplementedException()
+            };
+
+            // 参数更新通知
+            CCTBCore.SettingMessageNotificationEvent?.Invoke(this, new MessageEventArgs<object>()
+            {
+                Tag = configName,
+                Message = values
+            });
+            return result;
         }
         #endregion
     }

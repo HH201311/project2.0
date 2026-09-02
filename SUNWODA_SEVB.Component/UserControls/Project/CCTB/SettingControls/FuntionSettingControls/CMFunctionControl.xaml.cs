@@ -46,6 +46,26 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Funct
         }
         #endregion
 
+        #region PLCGatherConfigCommand
+        public ICommand PLCGatherConfigCommand
+        {
+            get { return (ICommand)GetValue(PLCGatherConfigCommandProperty); }
+            set { SetValue(PLCGatherConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty PLCGatherConfigCommandProperty = DependencyProperty.Register(
+            "PLCGatherConfigCommand",
+            typeof(ICommand),
+            typeof(CMFunctionControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnPLCGatherConfigCommandChanged))
+        );
+
+        private static void OnPLCGatherConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as CMFunctionControl;
+        }
+        #endregion
+
         #region SaveCommand
         public ICommand SaveCommand
         {

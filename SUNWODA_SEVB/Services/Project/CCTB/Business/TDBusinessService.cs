@@ -550,7 +550,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
                 result.Add("膜区处理", gm.MembraneZoneType.ToString());
                 result.Add("滞后时间(s)", cm.Lag_DelayTime.ToString());
 
-                //result.Add("算法输出T块调机量", JsonConvert.SerializeObject(cm.NewB));
+                result.Add("算法输出T块调机量", JsonConvert.SerializeObject(cm.NewT));
                 if (cm.TBlockData != null)
                 {
                     result.Add("T块信息-设备编号", cm.TBlockData?.DeviceName ?? string.Empty);
@@ -583,6 +583,9 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
 
                 for (int k = 0; k < cd.Weights.Count(); k++)
                     result.Add("重量" + (k + 1).ToString(), cd.Weights[k].ToString());
+
+                var ids = cd.SideType switch { ESideType.A => CCTBCore.PLCGatherConfigOfA.ToArray(), ESideType.B => CCTBCore.PLCGatherConfigOfB.ToArray(), _ => [] };
+                ReadPLCValuesByIDs(ids, ref result);
             }
             catch (Exception ex)
             {

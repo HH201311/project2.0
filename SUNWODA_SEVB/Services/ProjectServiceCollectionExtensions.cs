@@ -13,15 +13,19 @@ using SUNWODA_SEVB.Services.Project;
 using SUNWODA_SEVB.Services.Project.CCTB;
 using SUNWODA_SEVB.Services.Project.CCTB.Business;
 using SUNWODA_SEVB.Services.Project.JRCW.Business;
+using SUNWODA_SEVB.Services.Project.JROH.Business;
 using SUNWODA_SEVB.Tool.Services.Mqtt;
 using SUNWODA_SEVB.Tool.Services.Socket;
 using SUNWODA_SEVB.WEB.Services.STC;
+using ICCTBBusinessService = SUNWODA_SEVB.Core.Interfaces.Project.CCTB.IBusinessService;
 using CCTBBusinessServiceFactory = SUNWODA_SEVB.Services.Project.CCTB.Business.BusinessServiceFactory;
 using CCTBBusinessServiceManager = SUNWODA_SEVB.Services.Project.CCTB.Business.BusinessServiceManager;
-using ICCTBBusinessService = SUNWODA_SEVB.Core.Interfaces.Project.CCTB.IBusinessService;
 using IJRCWBusinessService = SUNWODA_SEVB.Core.Interfaces.Project.JRCW.IBusinessService;
 using JRCWBusinessServiceFactory = SUNWODA_SEVB.Services.Project.JRCW.Business.BusinessServiceFactory;
 using JRCWBusinessServiceManager = SUNWODA_SEVB.Services.Project.JRCW.Business.BusinessServiceManager;
+using IJROHBusinessService = SUNWODA_SEVB.Core.Interfaces.Project.JROH.IBusinessService;
+using JROHBusinessServiceFactory = SUNWODA_SEVB.Services.Project.JROH.Business.BusinessServiceFactory;
+using JROHBusinessServiceManager = SUNWODA_SEVB.Services.Project.JROH.Business.BusinessServiceManager;
 
 namespace SUNWODA_SEVB.Services
 {
@@ -49,6 +53,9 @@ namespace SUNWODA_SEVB.Services
 
             // 添加JRCW项目服务
             services.AddJRCWServices();
+
+            // 添加JROH项目服务
+            services.AddJROHServices();
 
             return services;
         }
@@ -195,6 +202,30 @@ namespace SUNWODA_SEVB.Services
             // 注册工厂和管理器
             services.AddSingleton<JRCWBusinessServiceFactory>();
             services.AddSingleton<JRCWBusinessServiceManager>();
+
+            return services;
+        }
+
+        /// <summary>
+        /// 添加JROH项目服务
+        /// </summary>
+        /// <param name="services"></param>
+        /// <returns></returns>
+        public static IServiceCollection AddJROHServices(this IServiceCollection services)
+        {
+            // 注册具体业务类型
+            services.AddSingleton<PWBusinessService>();
+            services.AddSingleton<OHBusinessService>();
+            services.AddSingleton<MCBusinessService>();
+
+            // 注册接口映射
+            services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<PWBusinessService>());
+            services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<OHBusinessService>());
+            services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<MCBusinessService>());
+
+            // 注册工厂和管理器
+            services.AddSingleton<JROHBusinessServiceFactory>();
+            services.AddSingleton<JROHBusinessServiceManager>();
 
             return services;
         }

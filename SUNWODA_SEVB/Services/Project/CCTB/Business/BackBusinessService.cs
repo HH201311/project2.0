@@ -138,6 +138,9 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
             // 全局监控任务
             var globalMonitorTask = GlobalValueMonitorLoopAsync(ct);
 
+            // PLC数据采集任务
+            var plcGatherTask = PLCGatherActionLoopAsync(ct);
+
             // 信号监听
             var signal1Task = KnifeSwitchListenerMonitorLoopAsync(knifeSwitchListener_A, ct);
             var signal2Task = KnifeSwitchListenerMonitorLoopAsync(knifeSwitchListener_B, ct);
@@ -152,7 +155,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
             var tBlockDataGatherTaskA = DHSocketClient_TBloockDataMonitorLoopAsync(ESideType.A, ct);
             var tBlockDataGatherTaskB = DHSocketClient_TBloockDataMonitorLoopAsync(ESideType.B, ct);
 
-            await Task.WhenAny(plcHeartLoopATask, plcHeartLoopBTask, globalMonitorTask, signal1Task, signal2Task, opmmGatherPLCTask, passCountMonitorTask, tBlockDataGatherTaskA, tBlockDataGatherTaskB);
+            await Task.WhenAny(plcHeartLoopATask, plcHeartLoopBTask, globalMonitorTask, plcGatherTask, signal1Task, signal2Task, opmmGatherPLCTask, passCountMonitorTask, tBlockDataGatherTaskA, tBlockDataGatherTaskB);
         }
 
         /// <summary>
@@ -218,6 +221,54 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
         }
         #endregion
 
+        #region PLC数据采集
+        /// <summary>
+        /// PLC数据异步采集
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        private async Task PLCGatherActionLoopAsync(CancellationToken ct)
+        {
+            var task = Task.Run(async () =>
+            {
+                var sw = new Stopwatch();
+                using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000));
+                while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+                {
+                    try
+                    {
+                        sw.Restart();
+                        var setting = CCTBCore.BasicFunctionSetting;
+                        if (setting == null || !setting.IsUseCollectFunctionOfPLCData) continue;
+
+                        var ids = new List<int>(CCTBCore.PLCGatherConfigOfPLC);
+                        var dic = new Dictionary<string, string>();
+                        ReadPLCValuesByIDs(ids.ToArray(), ref dic);
+
+                        // 数据保存
+                        var fullPath = Path.Combine(setting.SavePathOfCM, $"PLC采集数据", DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                        var filePath = Path.Combine(fullPath, $"{DateTime.Now.ToString("HH", CultureInfo.InvariantCulture)}.csv");
+                        WriteToCsvAsync(filePath, dic);
+                        sw.Stop();
+
+                        var sleepTime = setting.CollectFrequencyOfPLCData * 1000 - sw.ElapsedMilliseconds;
+                        if (!(setting.CollectFrequencyOfPLCData > 1 && sleepTime > 0)) continue;
+                        await Task.Delay((int)sleepTime, ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.Warn($"PLC采集任务已取消");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"PLC采集任务线程异常", ex);
+                    }
+                }
+            });
+            await task.WaitAsync(ct);
+        }
+        #endregion
+
         #region 进退刀监控
         private ValueListener? knifeSwitchListener_A, knifeSwitchListener_B;
 
@@ -248,8 +299,8 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
                 {
                     try
                     {
-                        var setting = _projectSettingRepository.LoadBasicFunctionSettingProjectParameters();
-                        if (!setting.IsUseJudgeOfKnife) continue;
+                        var setting = CCTBCore.BasicFunctionSetting;
+                        if (setting == null || !setting.IsUseJudgeOfKnife) continue;
 
                         listener.Value = ReadPLCValueString(listener.Name);
                     }
@@ -1147,6 +1198,7 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
                         // 发送TINFOREUQEST命令：获取T块数据等信息
                         var sendBuffer = BuildDHRequestPacket(1, "TINFOREUQEST");
                         await client.SendAsync(sendBuffer, ct);
+                        sw.Stop();
 
                         var sleepTime = bfSettings.CollectFrequencyOfDHTBlockData * 1000 - sw.ElapsedMilliseconds;
                         if (!(bfSettings.CollectFrequencyOfDHTBlockData > 1 && sleepTime > 0)) continue;

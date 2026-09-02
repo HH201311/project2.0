@@ -1223,7 +1223,6 @@
                                 CornerRadius="8">
 
                                 <DataGrid
-                                    IsEnabled="{Binding CanEdit}"
                                     x:Name="DgParameters"
                                     d:ItemsSource="{d:SampleData ItemCount=7}"
                                     hc:DataGridAttach.ShowRowNumber="False"
@@ -1241,6 +1240,7 @@
                                     FontSize="13"
                                     GridLinesVisibility="None"
                                     HeadersVisibility="Column"
+                                    IsEnabled="{Binding CanEdit}"
                                     ItemsSource="{Binding ParametersThresholdRows}"
                                     RowHeaderWidth="0"
                                     RowStyle="{StaticResource ResultGridRowStyle}"

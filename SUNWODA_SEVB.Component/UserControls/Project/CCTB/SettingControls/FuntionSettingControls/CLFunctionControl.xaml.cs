@@ -1,4 +1,5 @@
-﻿using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
+﻿using SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.CommunicationSettingControls;
+using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Component.Project.CCTB;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using System;
@@ -81,6 +82,26 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Funct
         );
 
         private static void OnFTPUploadDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as CLFunctionControl;
+        }
+        #endregion
+
+        #region PLCGatherConfigCommand
+        public ICommand PLCGatherConfigCommand
+        {
+            get { return (ICommand)GetValue(PLCGatherConfigCommandProperty); }
+            set { SetValue(PLCGatherConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty PLCGatherConfigCommandProperty = DependencyProperty.Register(
+            "PLCGatherConfigCommand",
+            typeof(ICommand),
+            typeof(CLFunctionControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnPLCGatherConfigCommandChanged))
+        );
+
+        private static void OnPLCGatherConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var uc = d as CLFunctionControl;
         }

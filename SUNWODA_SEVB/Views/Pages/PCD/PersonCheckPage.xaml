@@ -46,9 +46,7 @@
                 Content="停止监控"
                 Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" />
 
-            <Separator
-                Margin="10,0"
-                Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
+            <Separator Margin="10,0" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
 
             <!--  顶部相机状态  -->
             <Ellipse

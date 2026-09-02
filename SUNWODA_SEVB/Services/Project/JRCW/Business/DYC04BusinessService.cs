@@ -576,7 +576,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
 
                 // 保存为CSV
                 var savePath1 = Path.Combine(fileSaveRootPath, $"过程数据\\{DateTime.Now:yyyyMMdd}");
-                var dic1 = ConvertToDictionary(plcData, ccdData);
+                var dic1 = ConvertToDictionary(plcData, ccdData, calculateData);
                 var dt1 = JRCWCsvHelper.DicToTable(dic1);
                 lock (JRCWCsvHelper.WriteLocker) JRCWCsvHelper.WriteCSV(savePath1, dt1);
 
@@ -827,10 +827,13 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             var mAbsOfN = Math.Abs(mvOfN);
             if (!(mAbsOfP > pm.T4 || mAbsOfN > pm.T4)) return (true, 0, msg);
 
+            // 正极错位量绝对值>200 且 负极错位量绝对值<t4
+            if (mAbsOfP > 200 && mAbsOfN < pm.T4) return (true, 0, msg);
+
             // 正/负极错位量绝对值>=200
-            if (!(mAbsOfP < 200 || mAbsOfN < 200))
+            if (mAbsOfP > 200 && mAbsOfN > 200)
             {
-                msg = $"正/负极错位量[{mvOfP},{mvOfN}]绝对值大于等于[200]且大于[{pm.T4}]!";
+                msg = $"正/负极错位量[{mvOfP},{mvOfN}]绝对值大于[200]!";
                 return (false, 0, msg);
             }
 
@@ -863,15 +866,15 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <param name="plcData"></param>
         /// <param name="ccdData"></param>
         /// <returns></returns>
-        private Dictionary<string, string> ConvertToDictionary(Business2PLCDataModel plcData, Business2CCDDataModel ccdData)
+        private Dictionary<string, string> ConvertToDictionary(Business2PLCDataModel plcData, Business2CCDDataModel ccdData, Business2CalculateModel calculateData)
         {
             var dic = new Dictionary<string, string>();
             dic.Add("Barcode ", ccdData.CCD_Barcode ?? string.Empty);
             dic.Add("PLC采集时间", plcData.GatherTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             dic.Add("数采触发极耳层数", plcData.TabCount.ToString());
             dic.Add("卷针号", plcData.ZJData_JZH.ToString());
-            dic.Add("正极错位量", plcData.MVOfP.ToString());
-            dic.Add("负极错位量", plcData.MVOfN.ToString());
+            dic.Add("正极错位量", calculateData.ΔDb.ToString());
+            dic.Add("负极错位量", calculateData.ΔDa.ToString());
             for (int i = 0; i < plcData.AngleOfPBTab.Count; i++)
             {
                 dic.Add($"正极第{i + 1}个极耳角度", plcData.AngleOfPBTab[i].ToString());

@@ -127,6 +127,7 @@
     <PackageReference Include="NumSharp" Version="0.30.0" />
     <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
+    <PackageReference Include="ScottPlot.WPF" Version="5.0.55" />
   </ItemGroup>
 
   <ItemGroup>

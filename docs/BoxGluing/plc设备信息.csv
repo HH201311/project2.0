@@ -1,0 +1,15 @@
+﻿配置项,配置值,备注
+设备编号,SD260429003,
+PLC IP地址,192.168.3.220,
+PLC型号,欧姆龙 NX102-1100,
+端口号,9600,
+通讯协议,Fins/TCP,
+平台协议枚举,Omron_Fins_TCP,plc_config.BrandSpecificationProtocal
+平台支持情况,已支持,PLCService.ConfigureOmron → OmronFinsNet
+内网IP,10.178.202.37,
+账号,,
+密码,,
+算法部署状态,未开发,
+现行工位数,3,出胶1/2/3 对应工位1/2/3
+工位4,预留,过程量地址保留默认不采集
+中转液位,仅A1/B1现行,A2/B2为备用预留

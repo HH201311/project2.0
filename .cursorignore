@@ -1,0 +1,53 @@
+# .cursorignore — 减少 Cursor / Agent 误读大文件与构建产物
+# 生成：2026-09-04（Agent协作开发规程 §1.1）
+# 刻意保留（不在忽略范围）：docs/、业务源码 ViewModels/ Views/ Services/Project/、
+#   Core 下 Interfaces/Project 与 Models/Project、*.cs / *.xaml / *.csproj、.sln、
+#   .cursor/rules/ 与本规程相关 md（Agent 仍需读它们做日常业务开发）。
+
+# ---- 构建产物与 IDE 文件 ----
+bin/
+obj/
+.vs/
+packages/
+artifacts/
+[Dd]ebug/
+[Rr]elease/
+out/
+*.user
+*.suo
+*.userosscache
+*.nupkg
+*.binlog
+project.lock.json
+*_wpftmp.csproj
+
+# ---- 二进制 / 原生库 / 模型（体积大且不可读，勿让 Agent 扫描或通读）----
+**/Dlls/
+*.dll
+*.pdb
+*.exe
+*.onnx
+*.dat
+*.7z
+*.zip
+*.rar
+*.tar
+*.gz
+*.npy
+license*.dat
+
+# ---- 日志 / 备份 / 临时 ----
+logs/
+Log/
+*.log
+*.tmp
+*.bak
+*.bak*
+Backup*/
+~$*
+*.svclog
+
+# ---- 体积大的静态资产（非源码，按需检索）----
+**/Assets/Fonts/
+**/Assets/model/
+**/Assets/Video/

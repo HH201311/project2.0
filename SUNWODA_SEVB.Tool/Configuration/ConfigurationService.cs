@@ -57,11 +57,8 @@ namespace SUNWODA_SEVB.Tool.Configuration
                     }
                 }
 
-                // 创建默认配置对象用于比较
-                var defaultSettings = CreateDefaultAppSettings();
-
-                // 比较现有配置与默认配置是否一致
-                return !AreSettingsEqual(existingSettings, defaultSettings);
+                // 现场连接串常与代码默认值不同：只要能读出有效连接串就保留，勿强制覆盖
+                return false;
             }
             catch
             {
@@ -180,22 +177,12 @@ namespace SUNWODA_SEVB.Tool.Configuration
                         GenerateDefaultEncryptedConfig();
                         return;
                     }
-                    var defaultSettings = CreateDefaultAppSettings();
-
-                    if (!AreSettingsEqual(existingSettings, defaultSettings))
+                    // 检查配置文件是否已加密，如果未加密则进行加密（保留现场连接串）
+                    var content = File.ReadAllText(DefaultConfigPath);
+                    if (!JsonHelper.IsEncrypted(content))
                     {
-                        Console.WriteLine("检测到默认配置已更新，重新生成配置文件...");
-                        GenerateDefaultEncryptedConfig();
-                    }
-                    else
-                    {
-                        // 检查配置文件是否已加密，如果未加密则进行加密
-                        var content = File.ReadAllText(DefaultConfigPath);
-                        if (!JsonHelper.IsEncrypted(content))
-                        {
-                            Console.WriteLine("检测到未加密的配置文件，正在进行加密...");
-                            ConvertToEncrypted(DefaultConfigPath, DefaultConfigPath);
-                        }
+                        Console.WriteLine("检测到未加密的配置文件，正在进行加密...");
+                        ConvertToEncrypted(DefaultConfigPath, DefaultConfigPath);
                     }
                 }
                 catch (Exception ex)

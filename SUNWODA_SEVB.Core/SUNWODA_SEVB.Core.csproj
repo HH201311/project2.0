@@ -33,6 +33,10 @@
     <Compile Include="Interfaces\Project\JRCW\IBusinessService.cs" />
     <Compile Include="Interfaces\Project\STC\IScrewControllerService.cs" />
     <Compile Include="Interfaces\Project\PCD\IRtspCaptureService.cs" />
+    <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingAcquisitionService.cs" />
+    <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingChartDataService.cs" />
+    <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingConfigService.cs" />
+    <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingCsvStorage.cs" />
   </ItemGroup>
 
   <ItemGroup>

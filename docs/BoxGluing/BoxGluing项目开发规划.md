@@ -126,12 +126,14 @@ BoxGluing 联机时在 `plc_config` 填入 `192.168.3.220` / `9600` / `Omron_Fin
 
 | 分组 | 参数名 | 地址 | 曲线归属 | 启用 |
 |------|--------|------|----------|------|
-| 伺服扭矩 | 伺服扭矩A1～B3 | D1600～D1605 | 扭矩图（工位 1～3 × A/B） | **现行** |
-| 伺服扭矩 | 伺服扭矩A4/B4 | D1606～D1607 | — | **预留**（暂不采/不画，配置可开） |
-| 入口压力 | 入口压力A1～B3 | D1608～D1613 | 压力图（工位 1～3 × A/B） | **现行** |
-| 入口压力 | 入口压力A4/B4 | D1614～D1615 | — | **预留** |
+| 入口压力 | 入口压力A1～B3 | D1600～D1605 | 压力图（工位 1～3 × A/B） | **现行** |
+| 入口压力 | 入口压力A4/B4 | D1606～D1607 | — | **预留** |
+| 伺服扭矩 | 伺服扭矩A1～B3 | D1608～D1613 | 扭矩图（工位 1～3 × A/B） | **现行** |
+| 伺服扭矩 | 伺服扭矩A4/B4 | D1614～D1615 | — | **预留**（暂不采/不画，配置可开） |
 | 中转液位 | 中转液位A1/B1 | D1616～D1617 | 液位图（仅工位1） | **现行** |
 | 中转液位 | 中转液位A2/B2 | D1618～D1619 | — | **备用预留** |
+
+> **2026-09-08 现场更正**：PLC 实际上传点位为「压力在前、扭矩在后」；此前文档/代码曾对调，已按现场表纠正（见版本变更记录）。
 
 与旧项目标签对照：
 
@@ -162,10 +164,10 @@ BoxGluing 联机时在 `plc_config` 填入 `192.168.3.220` / `9600` / `Omron_Fin
 
 | 出胶信号 | 扭矩 | 压力 | 液位 |
 |----------|------|------|------|
-| 出胶1 → 工位1 | A1/B1（D1600/D1601） | A1/B1（D1608/D1609） | A1/B1（D1616/D1617）现行，三路公用 |
-| 出胶2 → 工位2 | A2/B2（D1602/D1603） | A2/B2（D1610/D1611） | 同上，曲线/CSV 复用 A1/B1 |
-| 出胶3 → 工位3 | A3/B3（D1604/D1605） | A3/B3（D1612/D1613） | 同上，曲线/CSV 复用 A1/B1 |
-| 工位4（预留） | A4/B4（D1606/D1607） | A4/B4（D1614/D1615） | — |
+| 出胶1 → 工位1 | A1/B1（D1608/D1609） | A1/B1（D1600/D1601） | A1/B1（D1616/D1617）现行，三路公用 |
+| 出胶2 → 工位2 | A2/B2（D1610/D1611） | A2/B2（D1602/D1603） | 同上，曲线/CSV 复用 A1/B1 |
+| 出胶3 → 工位3 | A3/B3（D1612/D1613） | A3/B3（D1604/D1605） | 同上，曲线/CSV 复用 A1/B1 |
+| 工位4（预留） | A4/B4（D1614/D1615） | A4/B4（D1606/D1607） | — |
 
 #### 2.3.4 反馈 / 结果点（算法阶段写入，P0 仅登记）
 
@@ -328,22 +330,22 @@ Idle ──(该路信号==1)──► Acquiring ──(该路信号!=1)──►
 
 | 标签 | 地址 | Group | Meter | Side | Enabled |
 |------|------|-------|-------|------|---------|
-| 伺服扭矩A1 | D1600 | Torque | 1 | A | true |
-| 伺服扭矩B1 | D1601 | Torque | 1 | B | true |
-| 伺服扭矩A2 | D1602 | Torque | 2 | A | true |
-| 伺服扭矩B2 | D1603 | Torque | 2 | B | true |
-| 伺服扭矩A3 | D1604 | Torque | 3 | A | true |
-| 伺服扭矩B3 | D1605 | Torque | 3 | B | true |
-| 伺服扭矩A4 | D1606 | Torque | 4 | A | **false（预留）** |
-| 伺服扭矩B4 | D1607 | Torque | 4 | B | **false（预留）** |
-| 入口压力A1 | D1608 | Pressure | 1 | A | true |
-| 入口压力B1 | D1609 | Pressure | 1 | B | true |
-| 入口压力A2 | D1610 | Pressure | 2 | A | true |
-| 入口压力B2 | D1611 | Pressure | 2 | B | true |
-| 入口压力A3 | D1612 | Pressure | 3 | A | true |
-| 入口压力B3 | D1613 | Pressure | 3 | B | true |
-| 入口压力A4 | D1614 | Pressure | 4 | A | **false（预留）** |
-| 入口压力B4 | D1615 | Pressure | 4 | B | **false（预留）** |
+| 入口压力A1 | D1600 | Pressure | 1 | A | true |
+| 入口压力B1 | D1601 | Pressure | 1 | B | true |
+| 入口压力A2 | D1602 | Pressure | 2 | A | true |
+| 入口压力B2 | D1603 | Pressure | 2 | B | true |
+| 入口压力A3 | D1604 | Pressure | 3 | A | true |
+| 入口压力B3 | D1605 | Pressure | 3 | B | true |
+| 入口压力A4 | D1606 | Pressure | 4 | A | **false（预留）** |
+| 入口压力B4 | D1607 | Pressure | 4 | B | **false（预留）** |
+| 伺服扭矩A1 | D1608 | Torque | 1 | A | true |
+| 伺服扭矩B1 | D1609 | Torque | 1 | B | true |
+| 伺服扭矩A2 | D1610 | Torque | 2 | A | true |
+| 伺服扭矩B2 | D1611 | Torque | 2 | B | true |
+| 伺服扭矩A3 | D1612 | Torque | 3 | A | true |
+| 伺服扭矩B3 | D1613 | Torque | 3 | B | true |
+| 伺服扭矩A4 | D1614 | Torque | 4 | A | **false（预留）** |
+| 伺服扭矩B4 | D1615 | Torque | 4 | B | **false（预留）** |
 | 中转液位A1 | D1616 | Level | 1 | A | true |
 | 中转液位B1 | D1617 | Level | 1 | B | true |
 | 中转液位A2 | D1618 | Level | 2 | A | **false（备用）** |
@@ -381,8 +383,9 @@ Idle ──(该路信号==1)──► Acquiring ──(该路信号!=1)──►
   ],
   "CsvRootPath": "D:\\BoxGluingData",
   "Channels": [
-    { "Label": "伺服扭矩A1", "Address": "D1600", "Group": "Torque", "Meter": 1, "Side": "A", "Enabled": true },
-    { "Label": "伺服扭矩A4", "Address": "D1606", "Group": "Torque", "Meter": 4, "Side": "A", "Enabled": false }
+    { "Label": "伺服扭矩A1", "Address": "D1608", "Group": "Torque", "Meter": 1, "Side": "A", "Enabled": true },
+    { "Label": "入口压力A1", "Address": "D1600", "Group": "Pressure", "Meter": 1, "Side": "A", "Enabled": true },
+    { "Label": "伺服扭矩A4", "Address": "D1614", "Group": "Torque", "Meter": 4, "Side": "A", "Enabled": false }
   ],
   "Thresholds": [
     { "Group": "Pressure", "MeterFrom": 1, "MeterTo": 2, "Max": 70 },

@@ -1,0 +1,9 @@
+队列名,需求张数,对应窗
+UpperQueue,1,上盖
+Bottom1Queue,3,底部1
+Bottom2Queue,3,底部2
+Bottom3Queue,3,底部3
+FrontQueue,3,前面
+RearQueue,2,后面
+LeftQueue,1,左面
+RightQueue,1,右面

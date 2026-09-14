@@ -1,0 +1,12 @@
+键名,含义,默认/说明,来源
+LocalPathPre,结果与日志根目录,D:\ZZSIX_Pack6,旧 UDV
+TopCamPath,上盖相机落盘目录,D:\Pack6Images\Top,旧 UDV
+BottomCamPath,底部相机落盘目录,D:\Pack6Images\Bottom,旧 UDV
+SideCamPath,侧面相机落盘目录,D:\Pack6Images\Side,旧 UDV
+UseSimulation,是否使用模拟视觉引擎,true（P0 未接 ZZPack）,新框架
+PackTimeoutMinutes,Pack 未齐套超时分钟,10,对齐旧逻辑
+CellType,电芯型号,X04C,旧 UDV
+ProductionLine,产线,P01,旧 UDV
+workship,车间,ZZ,旧 UDV（拼写与旧键一致）
+PLC_HeartBeat,PLC 心跳变量键名,仅键名占位地址未迁,旧 UDV/PlcAddress
+AlarmSignal,报警信号变量键名,仅键名占位地址未迁,旧 UDV/PlcAddress

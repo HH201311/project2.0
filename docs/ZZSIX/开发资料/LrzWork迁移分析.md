@@ -99,7 +99,7 @@
 
 请指定 **ZZSIX 第一优先工序**（只选一个）：
 
-1. PACK 六面检（枣庄 `Pack6Surface` / 南京 `Pack6SurfaceNJ`）  
+1. PACK 六面检（枣庄 `Pack6Surface` / 南京 `Pack6SurfaceNJ`）← **已选定枣庄主流程，P0 已落地**  
 2. 机损配对 JSPD  
 3. 堆叠工序检验 SPI  
 4. 打胶机族中的某一页（Bottom / Lengban / BoxPress / Jianbu / ModulePackaging / …）  

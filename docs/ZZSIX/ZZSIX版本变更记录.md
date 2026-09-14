@@ -6,6 +6,11 @@
 
 ---
 
+> **2026-09-14 变更（P0：PACK 六面检迁移骨架）**  
+> 1. **背景**：用户确认 ZZSIX 只迁 PACK 六面检（旧 `VM_PagePack6Surface`）；旧单体约 8k+ 行，需按新 SEVB 分层重写。  
+> 2. **做法**：落地 Config/Ingress/Pipeline/Vision(Sim)/Aggregator/CsvStore；主页改为「PACK六面检」；支持目录监视与「模拟一整包」冒烟；配置键与队列需求落 CSV；**未**接 ZZPack.AI / 八窗预览 / PLC 写。  
+> 3. **落点**：`ViewModels/Pages/ZZSIX/VM_ZZSIXPage.cs`；`Views/Pages/ZZSIX/ZZSIXPage.xaml`；`Services/Project/ZZSIX/*`；`Core/Interfaces|Models/Project/ZZSIX/*`；`App.xaml.cs`；[pack6配置键.csv](./pack6配置键.csv)、[pack6队列需求.csv](./pack6队列需求.csv)；进度存档 / 规划。
+
 > **2026-09-14 变更（分析：旧仓 LrzWork 迁移盘点）**  
 > 1. **背景**：需将 `sunwoda1.0.0.2` 分支 `LrzWork`（.NET 4.8）迁入新 SEVB 的 ZZSIX。  
 > 2. **做法**：相对 `master` 梳理工序与依赖；明确禁止整文件拷贝；BoxGluing 已在新仓独立存在故交叉引用；待确认首迁工序。  

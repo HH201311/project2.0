@@ -175,11 +175,15 @@ namespace SUNWODA_SEVB
                             reloadOnChange: true
                         );
 
-                        // 添加远程监控文件配置
-                        config.AddJsonFile(
-                            "remote_file_monitor_config.json",
+                        // 远程监控配置：与 appsettings 同一套加密/明文加载器。
+                        // 勿用 AddJsonFile——现场 Configuration.Json 版本混用时，文件存在但解析失败会直接启动崩溃；
+                        // 且 optional:true 只忽略“文件不存在”，不忽略“文件损坏/解析失败”。
+                        config.AddEncryptedJsonFile(
+                            path: "remote_file_monitor_config.json",
                             optional: true,
-                            reloadOnChange: false
+                            reloadOnChange: false,
+                            encryptionKey: null,
+                            encryptionIV: null
                         );
 
                         config.AddEnvironmentVariables();

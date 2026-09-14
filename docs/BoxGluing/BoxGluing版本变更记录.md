@@ -6,6 +6,16 @@
 
 ---
 
+> **2026-09-09 变更（现场配置：Monitor 并入 appsettings，禁用坏掉的分文件）**  
+> 1. **背景**：`optional:true` 的 `remote_file_monitor_config.json` 存在但解析失败仍会致命；现场连环报 Failed to load configuration。  
+> 2. **做法**：加固 `EncryptedJsonConfiguration`；`App` 改为对该文件走同一加载器；现场急救包把 Monitor 写入明文 `appsettings`，并要求删除损坏的 `remote_file_monitor_config.json`。  
+> 3. **落点**：`EncryptedJsonConfiguration.cs`；`App.xaml.cs`；`BoxGluing_StartFix.zip`。
+
+> **2026-09-09 变更（现场配置加载：明文 appsettings + Monitor 分文件）**  
+> 1. **背景**：现场替换依赖后连环缺 DLL；随后 `appsettings` 加载失败 / `Monitor:Targets` 为空。  
+> 2. **做法**：早期曾分文件；后因现场分文件损坏改为并入 appsettings（见上条）。  
+> 3. **落点**：现场包迭代。
+
 > **2026-09-08 变更（现场纠正：入口压力/伺服扭矩地址对调）**  
 > 1. **背景**：联调发现压力读数为异常小负数；对照 PLC「上传MES」点位表，原文档把入口压力与伺服扭矩地址写反。  
 > 2. **做法**：入口压力改为 D1600～D1607，伺服扭矩改为 D1608～D1615；液位/出胶/反馈不变。见规划 §2.3.2、§4.3。编译时补齐 Core 对 BoxGluing 接口的显式 Include，并将主工程 ScottPlot.WPF 对齐至 5.0.56。配置加载保留现场有效连接串，避免被代码默认值覆盖。  

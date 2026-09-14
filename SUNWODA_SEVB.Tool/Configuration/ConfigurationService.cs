@@ -143,57 +143,49 @@ namespace SUNWODA_SEVB.Tool.Configuration
         }
 
         /// <summary>
-        /// 生成默认的加密配置文件
-        /// </summary>
-        public static void GenerateDefaultEncryptedConfig()
-        {
-            // 使用CreateDefaultAppSettings方法确保一致性
-            var appSettings = CreateDefaultAppSettings();
-
-            // 生成加密文件
-            JsonHelper.WriteJsonFile(DefaultConfigPath, appSettings, encrypt: true);
-            Console.WriteLine($"加密配置文件已生成: {DefaultConfigPath}");
-        }
-
-        /// <summary>
-        /// 确保配置文件存在且有效，如果不一致则采用默认配置
+        /// 确保配置文件存在且有效。现场以明文 JSON 稳定加载；不再启动时强制加密（加密后旧加载器会失败）。
         /// </summary>
         public static void EnsureValidConfig()
         {
             if (ShouldGenerateDefaultConfig())
             {
-                Console.WriteLine("检测到配置不完整或与默认配置不一致，重新生成配置文件...");
-                GenerateDefaultEncryptedConfig();
+                Console.WriteLine("检测到配置缺失或无效，生成默认明文配置文件...");
+                GenerateDefaultPlainConfig();
+                return;
             }
-            else
+
+            try
             {
-                // 即使配置存在且有效，也检查是否需要更新（如果默认配置已更改）
-                try
+                var existingSettings = JsonHelper.ReadJsonFile<AppSettings>(DefaultConfigPath);
+                if (existingSettings == null ||
+                    string.IsNullOrWhiteSpace(existingSettings.ConnectionStrings?.DefaultConnection))
                 {
-                    var existingSettings = JsonHelper.ReadJsonFile<AppSettings>(DefaultConfigPath);
-                    if (existingSettings == null)
-                    {
-                        Console.WriteLine("配置文件内容为空，重新生成配置文件...");
-                        GenerateDefaultEncryptedConfig();
-                        return;
-                    }
-                    // 检查配置文件是否已加密，如果未加密则进行加密（保留现场连接串）
-                    var content = File.ReadAllText(DefaultConfigPath);
-                    if (!JsonHelper.IsEncrypted(content))
-                    {
-                        Console.WriteLine("检测到未加密的配置文件，正在进行加密...");
-                        ConvertToEncrypted(DefaultConfigPath, DefaultConfigPath);
-                    }
+                    Console.WriteLine("配置文件内容无效，生成默认明文配置文件...");
+                    GenerateDefaultPlainConfig();
                 }
-                catch (Exception ex)
-                {
-                    // 如果读取失败，重新生成配置文件
-                    Console.WriteLine($"读取配置文件时出错: {ex.Message}");
-                    Console.WriteLine("重新生成配置文件...");
-                    GenerateDefaultEncryptedConfig();
-                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"读取配置文件时出错: {ex.Message}");
+                Console.WriteLine("生成默认明文配置文件...");
+                GenerateDefaultPlainConfig();
             }
         }
+
+        /// <summary>
+        /// 生成默认明文配置（避免加密后 Host 加载失败）。
+        /// </summary>
+        public static void GenerateDefaultPlainConfig()
+        {
+            var appSettings = CreateDefaultAppSettings();
+            JsonHelper.WriteJsonFile(DefaultConfigPath, appSettings, encrypt: false);
+            Console.WriteLine($"明文配置文件已生成: {DefaultConfigPath}");
+        }
+
+        /// <summary>
+        /// 生成默认的加密配置文件（兼容旧调用；现场启动路径改用明文）。
+        /// </summary>
+        public static void GenerateDefaultEncryptedConfig() => GenerateDefaultPlainConfig();
 
         /// <summary>
         /// 将现有的未加密配置文件转换为加密格式

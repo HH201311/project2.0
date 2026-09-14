@@ -1,8 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Json;
-using SUNWODA_SEVB.Core.Models;
+using Microsoft.Extensions.FileProviders;
 using SUNWODA_SEVB.Tool.Helper;
-using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -11,9 +9,9 @@ using System.Text.Json;
 namespace SUNWODA_SEVB.Tool.Configuration
 {
     /// <summary>
-    /// 支持加密的JSON配置源
+    /// 支持加密的 JSON 配置源（不依赖 JsonConfigurationSource，避免 Configuration 版本混用时基类 Load 异常）。
     /// </summary>
-    public class EncryptedJsonConfigurationSource : JsonConfigurationSource
+    public class EncryptedJsonConfigurationSource : FileConfigurationSource
     {
         public byte[]? EncryptionKey { get; set; }
         public byte[]? EncryptionIV { get; set; }
@@ -26,9 +24,10 @@ namespace SUNWODA_SEVB.Tool.Configuration
     }
 
     /// <summary>
-    /// 支持加密的JSON配置提供程序
+    /// 支持加密/明文的 JSON 配置提供程序。
+    /// 自行展平 JSON，不调用 Microsoft.Extensions.Configuration.Json 的解析器。
     /// </summary>
-    public class EncryptedJsonConfigurationProvider : JsonConfigurationProvider
+    public class EncryptedJsonConfigurationProvider : FileConfigurationProvider
     {
         private readonly byte[]? _encryptionKey;
         private readonly byte[]? _encryptionIV;
@@ -43,37 +42,31 @@ namespace SUNWODA_SEVB.Tool.Configuration
         {
             try
             {
-                // 读取流内容
-                using var reader = new StreamReader(stream);
-                var content = reader.ReadToEnd();
-
-                // 检查是否加密
-                if (JsonHelper.IsEncrypted(content))
+                // leaveOpen: true，避免释放 FileConfigurationProvider 打开的文件流
+                string content;
+                using (var reader = new StreamReader(
+                    stream,
+                    Encoding.UTF8,
+                    detectEncodingFromByteOrderMarks: true,
+                    bufferSize: 1024,
+                    leaveOpen: true))
                 {
-                    // 解密内容
+                    content = reader.ReadToEnd();
+                }
+
+                // 去掉 UTF-8 BOM / 零宽字符，防止现场编辑器另存后解析失败
+                content = content.TrimStart('\uFEFF', '\u200B', '\u0000').Trim();
+
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    Data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+                    return;
+                }
+
+                if (JsonHelper.IsEncrypted(content))
                     content = JsonHelper.DecryptJson(content, _encryptionKey, _encryptionIV);
 
-                    // 将解密后的内容转换为流并调用基类的Load方法
-                    var decryptedBytes = Encoding.UTF8.GetBytes(content);
-                    using var decryptedStream = new MemoryStream(decryptedBytes);
-                    base.Load(decryptedStream);
-                }
-                else
-                {
-                    // 如果未加密，重置流位置并调用基类方法
-                    if (stream.CanSeek)
-                    {
-                        stream.Position = 0;
-                        base.Load(stream);
-                    }
-                    else
-                    {
-                        // 如果流不支持定位，创建新流
-                        var bytes = Encoding.UTF8.GetBytes(content);
-                        using var newStream = new MemoryStream(bytes);
-                        base.Load(newStream);
-                    }
-                }
+                Data = FlattenJson(content);
             }
             catch (CryptographicException ex)
             {
@@ -84,16 +77,51 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 throw new InvalidOperationException($"加载配置文件失败: {ex.Message}", ex);
             }
         }
+
+        private static Dictionary<string, string?> FlattenJson(string json)
+        {
+            using var doc = JsonDocument.Parse(json);
+            var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            FlattenElement(doc.RootElement, parentPath: null, data);
+            return data;
+        }
+
+        private static void FlattenElement(JsonElement element, string? parentPath, IDictionary<string, string?> data)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var prop in element.EnumerateObject())
+                    {
+                        var path = parentPath == null ? prop.Name : $"{parentPath}:{prop.Name}";
+                        FlattenElement(prop.Value, path, data);
+                    }
+                    break;
+                case JsonValueKind.Array:
+                    var index = 0;
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        FlattenElement(item, $"{parentPath}:{index}", data);
+                        index++;
+                    }
+                    break;
+                case JsonValueKind.String:
+                    data[parentPath!] = element.GetString();
+                    break;
+                case JsonValueKind.Number:
+                case JsonValueKind.True:
+                case JsonValueKind.False:
+                    data[parentPath!] = element.ToString();
+                    break;
+                case JsonValueKind.Null:
+                    data[parentPath!] = null;
+                    break;
+            }
+        }
     }
 
-    /// <summary>
-    /// IConfigurationBuilder的扩展方法
-    /// </summary>
     public static class EncryptedJsonConfigurationExtensions
     {
-        /// <summary>
-        /// 添加支持加密的JSON配置文件
-        /// </summary>
         public static IConfigurationBuilder AddEncryptedJsonFile(
             this IConfigurationBuilder builder,
             string path,
@@ -102,15 +130,9 @@ namespace SUNWODA_SEVB.Tool.Configuration
             byte[]? encryptionKey = null,
             byte[]? encryptionIV = null)
         {
-            if (builder == null)
-            {
-                throw new ArgumentNullException(nameof(builder));
-            }
-
+            ArgumentNullException.ThrowIfNull(builder);
             if (string.IsNullOrEmpty(path))
-            {
                 throw new ArgumentException("路径不能为空", nameof(path));
-            }
 
             return builder.Add(new EncryptedJsonConfigurationSource
             {
@@ -118,32 +140,21 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 Optional = optional,
                 ReloadOnChange = reloadOnChange,
                 EncryptionKey = encryptionKey,
-                EncryptionIV = encryptionIV
+                EncryptionIV = encryptionIV,
+                FileProvider = null
             });
         }
 
-        /// <summary>
-        /// 添加支持加密的JSON配置文件（使用Action配置）
-        /// </summary>
         public static IConfigurationBuilder AddEncryptedJsonFile(
             this IConfigurationBuilder builder,
             Action<EncryptedJsonConfigurationSource> configureSource)
         {
-            if (builder == null)
-            {
-                throw new ArgumentNullException(nameof(builder));
-            }
-
-            if (configureSource == null)
-            {
-                throw new ArgumentNullException(nameof(configureSource));
-            }
+            ArgumentNullException.ThrowIfNull(builder);
+            ArgumentNullException.ThrowIfNull(configureSource);
 
             var source = new EncryptedJsonConfigurationSource();
             configureSource(source);
             return builder.Add(source);
         }
     }
-
-   
 }

@@ -114,8 +114,12 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.7" />
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260627" />
     <PackageReference Include="OpenCvSharp4.Extensions" Version="4.10.0.20241108" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260627" />
     <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.10.0.20241108" />
+    <PackageReference Include="PaddleOCRSharp" Version="6.2.0" />
+    <PackageReference Include="Paddle.Runtime.win_x64" Version="3.3.0.1" />
     <PackageReference Include="QuestPDF" Version="2025.12.3" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="TouchSocket" Version="3.1.16" />
@@ -128,6 +132,7 @@
     <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
     <PackageReference Include="ScottPlot.WPF" Version="5.0.56" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.9" />
   </ItemGroup>
 
   <ItemGroup>
@@ -166,6 +171,11 @@
     <None Update="remote_file_monitor_config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- ZZSIX 枣庄 TW Pack OCR 算法库 -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\ZZTWPack.dll">
+      <Link>Dlls\ZZTWPack.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <!-- 切图算法：复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
     <None Include="..\SUNWODA_SEVB.Core\Dlls\CTAutoCutImg.dll">
       <Link>Dlls\CTAutoCutImg.dll</Link>
@@ -202,6 +212,9 @@
     </Reference>
     <Reference Include="halcondotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\halcondotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="ZZTWPack">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZTWPack.dll</HintPath>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>

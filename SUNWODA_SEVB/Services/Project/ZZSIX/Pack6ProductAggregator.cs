@@ -8,32 +8,35 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
     {
         private readonly ConcurrentDictionary<string, Pack6ProductStatus> _products =
             new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, byte> _closed =
+            new(StringComparer.OrdinalIgnoreCase);
 
         public event Action<Pack6ProductResult>? ProductCompleted;
 
         public Pack6ProductResult? ApplyFrame(Pack6FrameResult frame, TimeSpan packTimeout)
         {
-            var code = string.IsNullOrWhiteSpace(frame.ProductCode) ? "UNKNOWN" : frame.ProductCode;
+            _ = packTimeout; // 缺张超时改由管线按 FirstSeen 驱动，避免与保序提交竞态
+            var code = Normalize(frame.ProductCode);
+            if (_closed.ContainsKey(code))
+                return null;
+
             var status = _products.GetOrAdd(
                 code,
                 c => new Pack6ProductStatus(c, Pack6DefaultConfig.QueueRequirements));
 
-            status.IncrementProcessed(frame.QueueName);
-            foreach (var d in frame.Defects)
-                status.AddDefect(d);
-
-            // 顺带扫描超时产品
-            foreach (var kv in _products.ToArray())
-            {
-                if (kv.Value.IsCompleted)
-                    continue;
-                if (!kv.Value.CheckTimeout(packTimeout))
-                    continue;
-                Complete(kv.Key, kv.Value, timedOut: true);
-            }
-
             if (status.IsCompleted)
                 return null;
+
+            status.IncrementProcessed(frame.QueueName);
+            var camName = frame.CameraName;
+            if (string.IsNullOrWhiteSpace(camName) &&
+                Pack6CameraCatalog.ByQueueName.TryGetValue(frame.QueueName, out var def))
+                camName = def.CameraName;
+            status.RememberShot(camName, frame.ShotIndex);
+            if (frame.OcrMode != Pack6OcrMode.None)
+                status.RememberOcr(frame.OcrMode, frame.ProductSN, frame.QrData);
+            foreach (var d in frame.Defects)
+                status.AddDefect(d);
 
             if (status.CheckAllQueuesCompleted())
                 return Complete(code, status, timedOut: false);
@@ -41,7 +44,35 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             return null;
         }
 
-        public void Reset() => _products.Clear();
+        public Pack6ProductResult? ForceComplete(string productCode, bool timedOut, string? defectReason)
+        {
+            var code = Normalize(productCode);
+            if (_closed.ContainsKey(code))
+                return null;
+
+            var status = _products.GetOrAdd(
+                code,
+                c => new Pack6ProductStatus(c, Pack6DefaultConfig.QueueRequirements));
+            if (status.IsCompleted)
+                return null;
+
+            var missing = status.DescribeMissingShots();
+            var detail = string.IsNullOrWhiteSpace(defectReason)
+                ? $"缺张超时；{missing}"
+                : $"{defectReason}；{missing}";
+            status.AddDefect(detail);
+
+            return Complete(code, status, timedOut);
+        }
+
+        public bool IsClosed(string productCode) =>
+            _closed.ContainsKey(Normalize(productCode));
+
+        public void Reset()
+        {
+            _products.Clear();
+            _closed.Clear();
+        }
 
         public IReadOnlyCollection<Pack6ProductStatus> GetInFlight() =>
             _products.Values.Where(p => !p.IsCompleted).ToList();
@@ -49,6 +80,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         private Pack6ProductResult Complete(string code, Pack6ProductStatus status, bool timedOut)
         {
             status.IsCompleted = true;
+            _closed[code] = 0;
             _products.TryRemove(code, out _);
             var result = new Pack6ProductResult
             {
@@ -61,5 +93,8 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             ProductCompleted?.Invoke(result);
             return result;
         }
+
+        private static string Normalize(string? code) =>
+            string.IsNullOrWhiteSpace(code) ? "UNKNOWN" : code.Trim().ToUpperInvariant();
     }
 }

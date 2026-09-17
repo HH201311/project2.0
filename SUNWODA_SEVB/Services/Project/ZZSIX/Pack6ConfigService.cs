@@ -10,14 +10,30 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
     public sealed class Pack6ConfigService : IZZSIXPack6ConfigService
     {
         public const string SettingLocalPath = "LocalPathPre";
-        public const string SettingTopPath = "TopCamPath";
-        public const string SettingBottomPath = "BottomCamPath";
+        public const string SettingYOk = "YOkRootPath";
+        public const string SettingZOk = "ZOkRootPath";
+        public const string SettingTopPath = "TopCamPath"; // 兼容旧键 → Y
+        public const string SettingBottomPath = "BottomCamPath"; // 兼容旧键 → Z
         public const string SettingSidePath = "SideCamPath";
         public const string SettingSimulation = "UseSimulation";
         public const string SettingTimeout = "PackTimeoutMinutes";
+        public const string SettingMissingTimeoutSeconds = "PackMissingTimeoutSeconds";
         public const string SettingCellType = "CellType";
         public const string SettingLine = "ProductionLine";
         public const string SettingWorkshop = "workship";
+        public const string SettingProductSNRule = "ProductSNRule";
+        public const string SettingPartSNMinLen = "PartSNMinLength";
+        public const string SettingProductSNExactLen = "ProductSNExactLength";
+        public const string SettingProductSNMinLen = "ProductSNMinLength";
+        public const string SettingWhiteKeywords = "WhiteLabelKeywords";
+        public const string SettingNameplateKeywords = "NameplateKeywords";
+        public const string SettingProductCodeProfile = "ProductCodeProfile";
+        public const string SettingIngressLookbackDays = "IngressLookbackDays";
+        public const string SettingIngressPollSeconds = "IngressPollSeconds";
+        public const string SettingStoreResultImageOK = "StoreResultImageOK";
+        public const string SettingStoreResultImageNG = "StoreResultImageNG";
+        public const string SettingImageArchiveRetainYears = "ImageArchiveRetainYears";
+        public const string SettingImageArchiveDiskUsagePercent = "ImageArchiveDiskUsagePercent";
 
         private readonly IProjectSettingRepository _repo;
         private readonly ILoggerService<Pack6ConfigService> _logger;
@@ -47,28 +63,78 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
                 config.LocalPathPre = ReadString(map, SettingLocalPath, config.LocalPathPre);
-                config.TopCamPath = ReadString(map, SettingTopPath, config.TopCamPath);
-                config.BottomCamPath = ReadString(map, SettingBottomPath, config.BottomCamPath);
+                // 旧默认路径迁移到现场目录，并写回库
+                if (string.Equals(config.LocalPathPre, @"D:\ZZSIX_Pack6", StringComparison.OrdinalIgnoreCase))
+                {
+                    config.LocalPathPre = @"D:\六面检上位机软件";
+                    await UpsertAsync(SettingLocalPath, vm, config.LocalPathPre, "string", "结果根目录");
+                }
+                config.YOkRootPath = ReadString(map, SettingYOk,
+                    ReadString(map, SettingTopPath, config.YOkRootPath));
+                config.ZOkRootPath = ReadString(map, SettingZOk,
+                    ReadString(map, SettingBottomPath, config.ZOkRootPath));
                 config.SideCamPath = ReadString(map, SettingSidePath, config.SideCamPath);
                 config.UseSimulation = ReadBool(map, SettingSimulation, config.UseSimulation);
                 config.PackTimeoutMinutes = Clamp(ReadInt(map, SettingTimeout, config.PackTimeoutMinutes), 1, 120);
+                config.PackMissingTimeoutSeconds = Clamp(
+                    ReadInt(map, SettingMissingTimeoutSeconds, config.PackMissingTimeoutSeconds), 5, 3600);
+                // 旧默认 30 秒 / 5 分钟(300)：升为 10 分钟
+                if (config.PackMissingTimeoutSeconds is 30 or 300)
+                {
+                    config.PackMissingTimeoutSeconds = 600;
+                    await UpsertAsync(SettingMissingTimeoutSeconds, vm, "600", "int", "缺张最长等待秒(默认600=10分钟)");
+                }
                 config.CellType = ReadString(map, SettingCellType, config.CellType);
                 config.ProductionLine = ReadString(map, SettingLine, config.ProductionLine);
                 config.Workshop = ReadString(map, SettingWorkshop, config.Workshop);
+                config.ProductSNRule = ReadString(map, SettingProductSNRule, config.ProductSNRule);
+                config.PartSNMinLength = Clamp(ReadInt(map, SettingPartSNMinLen, config.PartSNMinLength), 0, 64);
+                if (map.ContainsKey(SettingProductSNExactLen))
+                    config.ProductSNExactLength = Clamp(ReadInt(map, SettingProductSNExactLen, config.ProductSNExactLength), 0, 64);
+                else if (map.ContainsKey(SettingProductSNMinLen))
+                    config.ProductSNExactLength = Clamp(ReadInt(map, SettingProductSNMinLen, config.ProductSNExactLength), 0, 64);
+                config.WhiteLabelKeywords = SanitizeOcrKeywords(
+                    ReadString(map, SettingWhiteKeywords, config.WhiteLabelKeywords),
+                    isNameplate: false);
+                config.NameplateKeywords = SanitizeOcrKeywords(
+                    ReadString(map, SettingNameplateKeywords, config.NameplateKeywords),
+                    isNameplate: true);
+                config.ProductCodeProfile = Pack6ProductCodeCatalog.Resolve(
+                    ReadString(map, SettingProductCodeProfile, config.ProductCodeProfile)).Name;
+                config.IngressLookbackDays = Clamp(ReadInt(map, SettingIngressLookbackDays, config.IngressLookbackDays), 1, 30);
+                config.IngressPollSeconds = Clamp(ReadInt(map, SettingIngressPollSeconds, config.IngressPollSeconds), 0, 3600);
+                config.StoreResultImageOK = ReadBool(map, SettingStoreResultImageOK, config.StoreResultImageOK);
+                config.StoreResultImageNG = ReadBool(map, SettingStoreResultImageNG, config.StoreResultImageNG);
+                config.ImageArchiveRetainYears = Clamp(
+                    ReadInt(map, SettingImageArchiveRetainYears, config.ImageArchiveRetainYears), 1, 10);
+                config.ImageArchiveDiskUsagePercent = Clamp(
+                    ReadInt(map, SettingImageArchiveDiskUsagePercent, config.ImageArchiveDiskUsagePercent), 50, 99);
 
                 await EnsureAsync(map, SettingLocalPath, vm, config.LocalPathPre, "string", "结果根目录");
-                await EnsureAsync(map, SettingTopPath, vm, config.TopCamPath, "string", "上盖相机路径");
-                await EnsureAsync(map, SettingBottomPath, vm, config.BottomCamPath, "string", "底部相机路径");
-                await EnsureAsync(map, SettingSidePath, vm, config.SideCamPath, "string", "侧面相机路径");
+                await EnsureAsync(map, SettingYOk, vm, config.YOkRootPath, "string", "Y盘OK原图根");
+                await EnsureAsync(map, SettingZOk, vm, config.ZOkRootPath, "string", "Z盘OK原图根");
                 await EnsureAsync(map, SettingSimulation, vm, config.UseSimulation ? "true" : "false", "bool", "模拟检测");
                 await EnsureAsync(map, SettingTimeout, vm, config.PackTimeoutMinutes.ToString(), "int", "Pack超时分钟");
+                await EnsureAsync(map, SettingMissingTimeoutSeconds, vm, config.PackMissingTimeoutSeconds.ToString(), "int", "缺张最长等待秒(默认600=10分钟)");
                 await EnsureAsync(map, SettingCellType, vm, config.CellType, "string", "电芯型号");
                 await EnsureAsync(map, SettingLine, vm, config.ProductionLine, "string", "产线");
                 await EnsureAsync(map, SettingWorkshop, vm, config.Workshop, "string", "车间");
+                await EnsureAsync(map, SettingProductSNRule, vm, config.ProductSNRule, "string", "产品编码规则");
+                await EnsureAsync(map, SettingPartSNMinLen, vm, config.PartSNMinLength.ToString(), "int", "序列码最短长度");
+                await EnsureAsync(map, SettingProductSNExactLen, vm, config.ProductSNExactLength.ToString(), "int", "产品编码必须位数");
+                await EnsureAsync(map, SettingWhiteKeywords, vm, config.WhiteLabelKeywords, "string", "白标签文件名关键词");
+                await EnsureAsync(map, SettingNameplateKeywords, vm, config.NameplateKeywords, "string", "铭牌文件名关键词");
+                await EnsureAsync(map, SettingProductCodeProfile, vm, config.ProductCodeProfile, "string", "产品编码档位");
+                await EnsureAsync(map, SettingIngressLookbackDays, vm, config.IngressLookbackDays.ToString(), "int", "掉线补扫回看天数");
+                await EnsureAsync(map, SettingIngressPollSeconds, vm, config.IngressPollSeconds.ToString(), "int", "定时补扫间隔秒");
+                await EnsureAsync(map, SettingStoreResultImageOK, vm, config.StoreResultImageOK ? "true" : "false", "bool", "保存OK结果图");
+                await EnsureAsync(map, SettingStoreResultImageNG, vm, config.StoreResultImageNG ? "true" : "false", "bool", "保存NG结果图");
+                await EnsureAsync(map, SettingImageArchiveRetainYears, vm, config.ImageArchiveRetainYears.ToString(), "int", "图像保留年数");
+                await EnsureAsync(map, SettingImageArchiveDiskUsagePercent, vm, config.ImageArchiveDiskUsagePercent.ToString(), "int", "磁盘占用清理阈值百分比");
 
                 Current = config;
                 _logger.Info(
-                    $"Pack6配置已加载：模拟={config.UseSimulation}，根目录={config.LocalPathPre}，型号={config.CellType}",
+                    $"Pack6配置已加载：模拟={config.UseSimulation}，产品档位={config.ProductCodeProfile}，前缀={config.ExpectedPrefix10}",
                     false);
                 return config;
             }
@@ -86,14 +152,26 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             {
                 var vm = Pack6Config.VmClassName;
                 await UpsertAsync(SettingLocalPath, vm, config.LocalPathPre, "string", "结果根目录");
-                await UpsertAsync(SettingTopPath, vm, config.TopCamPath, "string", "上盖相机路径");
-                await UpsertAsync(SettingBottomPath, vm, config.BottomCamPath, "string", "底部相机路径");
-                await UpsertAsync(SettingSidePath, vm, config.SideCamPath, "string", "侧面相机路径");
+                await UpsertAsync(SettingYOk, vm, config.YOkRootPath, "string", "Y盘OK原图根");
+                await UpsertAsync(SettingZOk, vm, config.ZOkRootPath, "string", "Z盘OK原图根");
                 await UpsertAsync(SettingSimulation, vm, config.UseSimulation ? "true" : "false", "bool", "模拟检测");
                 await UpsertAsync(SettingTimeout, vm, config.PackTimeoutMinutes.ToString(), "int", "Pack超时分钟");
+                await UpsertAsync(SettingMissingTimeoutSeconds, vm, config.PackMissingTimeoutSeconds.ToString(), "int", "缺张最长等待秒(默认600=10分钟)");
                 await UpsertAsync(SettingCellType, vm, config.CellType, "string", "电芯型号");
                 await UpsertAsync(SettingLine, vm, config.ProductionLine, "string", "产线");
                 await UpsertAsync(SettingWorkshop, vm, config.Workshop, "string", "车间");
+                await UpsertAsync(SettingProductSNRule, vm, config.ProductSNRule, "string", "产品编码规则");
+                await UpsertAsync(SettingPartSNMinLen, vm, config.PartSNMinLength.ToString(), "int", "序列码最短长度");
+                await UpsertAsync(SettingProductSNExactLen, vm, config.ProductSNExactLength.ToString(), "int", "产品编码必须位数");
+                await UpsertAsync(SettingWhiteKeywords, vm, config.WhiteLabelKeywords, "string", "白标签文件名关键词");
+                await UpsertAsync(SettingNameplateKeywords, vm, config.NameplateKeywords, "string", "铭牌文件名关键词");
+                await UpsertAsync(SettingProductCodeProfile, vm, config.ProductCodeProfile, "string", "产品编码档位");
+                await UpsertAsync(SettingIngressLookbackDays, vm, config.IngressLookbackDays.ToString(), "int", "掉线补扫回看天数");
+                await UpsertAsync(SettingIngressPollSeconds, vm, config.IngressPollSeconds.ToString(), "int", "定时补扫间隔秒");
+                await UpsertAsync(SettingStoreResultImageOK, vm, config.StoreResultImageOK ? "true" : "false", "bool", "保存OK结果图");
+                await UpsertAsync(SettingStoreResultImageNG, vm, config.StoreResultImageNG ? "true" : "false", "bool", "保存NG结果图");
+                await UpsertAsync(SettingImageArchiveRetainYears, vm, config.ImageArchiveRetainYears.ToString(), "int", "图像保留年数");
+                await UpsertAsync(SettingImageArchiveDiskUsagePercent, vm, config.ImageArchiveDiskUsagePercent.ToString(), "int", "磁盘占用清理阈值百分比");
                 _logger.Info("Pack6运行参数已保存", false);
             }
             finally
@@ -164,5 +242,35 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         }
 
         private static int Clamp(int v, int min, int max) => Math.Min(Math.Max(v, min), max);
+
+        /// <summary>
+        /// 去掉易撞 SN 的短关键词（F1/F3/white 等）。标准命名已按相机张序路由，不再依赖这些短码。
+        /// </summary>
+        private static string SanitizeOcrKeywords(string keywordsCsv, bool isNameplate)
+        {
+            if (string.IsNullOrWhiteSpace(keywordsCsv))
+                return isNameplate
+                    ? "铭牌;nameplate;前-3;前3;Front3"
+                    : "白标签;whiteLabel;前-1;前1;Front1";
+
+            var banned = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "F1", "F3", "white", "F2", "F4"
+            };
+            var kept = keywordsCsv
+                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(k => k.Length >= 2 && !banned.Contains(k))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (kept.Count == 0)
+            {
+                return isNameplate
+                    ? "铭牌;nameplate;前-3;前3;Front3"
+                    : "白标签;whiteLabel;前-1;前1;Front1";
+            }
+
+            return string.Join(';', kept);
+        }
     }
 }

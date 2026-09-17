@@ -19,6 +19,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         public Task EnsureFoldersAsync(Pack6Config config)
         {
             Directory.CreateDirectory(GetResultCsvDirectory(config));
+            Pack6ResultOverlayHelper.EnsureAndPrune(config);
             return Task.CompletedTask;
         }
 
@@ -53,7 +54,48 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             }
         }
 
-        private static string Escape(string s) =>
-            s.Contains(',') || s.Contains('"') ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
+        public async Task AppendFrameResultAsync(Pack6Config config, Pack6FrameResult frame)
+        {
+            if (frame.OcrMode == Pack6OcrMode.None)
+                return;
+
+            await _ioLock.WaitAsync();
+            try
+            {
+                var dir = GetResultCsvDirectory(config);
+                Directory.CreateDirectory(dir);
+                var path = Path.Combine(dir, $"{DateTime.Now:yyyy_MM_dd}_Pack6_OCR.csv");
+                var needHeader = !File.Exists(path);
+                await using var fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
+                await using var writer = new StreamWriter(fs, Encoding.UTF8);
+                if (needHeader)
+                {
+                    await writer.WriteLineAsync(
+                        "DateTime,SN,Queue,Station,OcrMode,Result,QrData,PartSN,ProductSN,EngineMessage,NGDetails,ImagePath");
+                }
+
+                var ng = frame.Defects.Count == 0 ? string.Empty : string.Join('|', frame.Defects);
+                await writer.WriteLineAsync(
+                    $"{frame.DetectedAt:yyyy-MM-dd HH:mm:ss}," +
+                    $"{Escape(frame.ProductCode)},{Escape(frame.QueueName)},{Escape(frame.StationName)},{frame.OcrMode}," +
+                    $"{(frame.IsOk ? "OK" : "NG")},{Escape(frame.QrData)},{Escape(frame.PartSN)},{Escape(frame.ProductSN)}," +
+                    $"{Escape(frame.EngineMessage)},{Escape(ng)},{Escape(frame.FilePath)}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"写入 Pack6 OCR CSV 失败: {ex.Message}", false);
+            }
+            finally
+            {
+                _ioLock.Release();
+            }
+        }
+
+        private static string Escape(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+                return string.Empty;
+            return s.Contains(',') || s.Contains('"') ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
+        }
     }
 }

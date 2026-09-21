@@ -144,6 +144,7 @@
                                                 CancleCommand="{Binding ParamCancleCommand}"
                                                 FTPUploadCommand="{Binding FTPUpLoadCommand}"
                                                 FTPUploadDate="{Binding FTPUpLoadData, Mode=TwoWay}"
+                                                FtpConfigCommand="{Binding FtpConfigCommand}"
                                                 ItemSource="{Binding FunctionModel, Mode=TwoWay}"
                                                 PLCGatherConfigCommand="{Binding PLCGatherConfigCommand}"
                                                 SaveCommand="{Binding ParamSaveCommand}" />

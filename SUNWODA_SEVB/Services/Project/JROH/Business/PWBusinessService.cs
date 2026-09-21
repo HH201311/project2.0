@@ -279,19 +279,38 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         }
 
         /// <summary>
-        /// 
+        /// 数据接收事件处理
         /// </summary>
-        /// <param name="vOfPos"></param>
-        /// <param name="vOfNeg"></param>
-        /// <param name="upperOfPos"></param>
-        /// <param name="lowerOfPos"></param>
-        /// <param name="upperOfNeg"></param>
-        /// <param name="lowerOfNeg"></param>
+        /// <param name="gatherData"></param>
         private void OnDataReceived(PWBusinessGatherModel gatherData)
         {
             var param = paramModel.CopyByJson();
             var message = (gatherData, param);
             RaiseMessageNotifation(this, message);
+        }
+
+        /// <summary>
+        /// 闭环计算结果接收事件处理
+        /// </summary>
+        /// <param name="gatherData"></param>
+        /// <param name="cm"></param>
+        private void OnAdjustmentRecordReceived(PWBusinessGatherModel gatherData, PWBusinessCalculateModel cm)
+        {
+            var record = new Dictionary<string, string>();
+            record.Add("正极A面CCD图层宽度", gatherData.ModuleWidthOfPosA.ToString());
+            record.Add("正极B面CCD图层宽度", gatherData.ModuleWidthOfPosB.ToString());
+            record.Add("正极总宽目标值W总宽", cm.TargetTotalWidthOfPos.ToString());
+            record.Add("正极CCD总宽度", gatherData.ModuleWidthOfPos.ToString());
+            record.Add("正极宽度偏差值△W", cm.DeltaW.ToString());
+            record.Add("正极-飞行原点Y发送值", cm.IssuedValueOfPos.ToString());
+            record.Add("正极-飞行原点Y当前值", gatherData.OriginYOfPos.ToString());
+
+            record.Add("负极总宽目标值L总宽", cm.TargetTotalWidthOfNeg.ToString());
+            record.Add("负极CCD总宽度", gatherData.ModuleWidthOfNeg.ToString());
+            record.Add("负极宽度偏差值△L", cm.DeltaL.ToString());
+            record.Add("负极-飞行原点Y发送值", cm.IssuedValueOfNeg.ToString());
+            record.Add("负极-飞行原点Y当前值", gatherData.OriginYOfNeg.ToString());
+            RaiseMessageNotifation(this, record);
         }
         #endregion
 
@@ -476,9 +495,11 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                         }
                         finally
                         {
-                            // 计算过程模型异步保存CSV
                             _ = Task.Run(() =>
                             {
+                                // 界面传参
+                                OnAdjustmentRecordReceived(gatherData, cm);
+                                // 计算过程模型异步保存CSV
                                 var savePath = Path.Combine(fileSaveRootPath, $"缓存数据_{BusinessName}\\{DateTime.Now:yyyyMMdd}");
                                 var dic = ConvertToDictionary(gatherData, cm, pm);
                                 var dt = JROHCsvHelper.DicToTable(dic);

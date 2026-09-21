@@ -77,5 +77,8 @@
     <Compile Update="UserControls\Project\CCTB\SettingControls\FuntionSettingControls\ICFunctionControl.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="UserControls\Project\JROH\FloderPicker.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 </Project>

@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Documents;
 
@@ -246,9 +247,45 @@ namespace SUNWODA_SEVB.Tool.Helper.JRCWHelper
         }
 
         /// <summary>
-        /// 安全读取CSV并按条件查找数据
+        /// 获取指定条件的行数据
         /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="searchColumn"></param>
+        /// <param name="searchValue"></param>
+        /// <param name="columnsToSelect"></param>
+        /// <returns></returns>
         public static List<Dictionary<string, string>> SearchCsv(string filePath, string searchColumn, string searchValue, params string[] columnsToSelect)
+        {
+            var fullRows = SearchCsv(filePath, searchColumn, searchValue);
+            // 如果未指定任何列，则返回完整行（保持向后兼容）
+            if (columnsToSelect == null || columnsToSelect.Length == 0) return fullRows;
+
+            var results = new List<Dictionary<string, string>>();
+            foreach (var fullRow in fullRows)
+            {
+                var selectedData = new Dictionary<string, string>();
+                // 仅保留指定的列
+                foreach (var col in columnsToSelect)
+                {
+                    // 使用忽略大小写的方式查找列，提升健壮性
+                    var key = fullRow.Keys.FirstOrDefault(k => string.Equals(k, col, StringComparison.OrdinalIgnoreCase));
+                    selectedData[col] = key != null ? fullRow[key] : string.Empty;
+                }
+                results.Add(selectedData);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// 获取指定条件的行数据
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="searchColumn"></param>
+        /// <param name="searchValue"></param>
+        /// <returns></returns>
+        /// <exception cref="FileNotFoundException"></exception>
+        public static List<Dictionary<string, string>> SearchCsv(string filePath, string searchColumn, string searchValue)
         {
             var results = new List<Dictionary<string, string>>();
 
@@ -275,34 +312,20 @@ namespace SUNWODA_SEVB.Tool.Helper.JRCWHelper
             using var csv = new CsvReader(reader, config);
 
             // 读取所有记录
-            var records = csv.GetRecords<dynamic>();
+            var records = csv.GetRecords<dynamic>().ToList().ConvertAll(o => (IDictionary<string, object>)o);
+            var rows = records.FindAll(o => o.ContainsKey(searchColumn) && o[searchColumn].ToString() == searchValue);
 
-            foreach (var record in records)
+            foreach (var row in rows)
             {
-                var row = (IDictionary<string, object>)record;
-
                 // 安全获取搜索列的值
-                if (row.TryGetValue(searchColumn, out var value))
-                {
-                    // 按条件匹配（支持模糊搜索）
-                    if (value?.ToString() != searchValue) continue;
+                if (!row.TryGetValue(searchColumn, out var value)) continue;
+                // 按条件匹配（支持模糊搜索）
+                if (value?.ToString() != searchValue) continue;
 
-                    var selectedData = new Dictionary<string, string>();
-                    // 提取指定的列
-                    foreach (var col in columnsToSelect)
-                    {
-                        if (row.TryGetValue(col, out var colValue))
-                        {
-                            selectedData[col] = colValue?.ToString() ?? string.Empty;
-                        }
-                        else
-                        {
-                            selectedData[col] = string.Empty;
-                        }
-                    }
-
-                    results.Add(selectedData);
-                }
+                var selectedData = new Dictionary<string, string>();
+                // 获取所有列数据
+                foreach (var col in row) selectedData[col.Key] = col.Value?.ToString() ?? string.Empty;
+                results.Add(selectedData);
             }
 
             return results;

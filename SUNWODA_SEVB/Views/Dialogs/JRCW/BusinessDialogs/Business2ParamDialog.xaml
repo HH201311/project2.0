@@ -12,6 +12,7 @@
     Height="Auto"
     MinWidth="600"
     MinHeight="400"
+    MaxHeight="850"
     Background="#FF2B2B2B"
     BorderBrush="#1AFFFFFF"
     BorderThickness="1"
@@ -309,39 +310,6 @@
                         Text="{Binding ItemSource.S_Nan, Mode=TwoWay}" />
                 </StackPanel>
             </Border>
-            <Border
-                Grid.Row="0"
-                Grid.Column="2"
-                Visibility="{Binding UserRole, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Admin,SuperAdmin'}">
-                <StackPanel VerticalAlignment="Top" Orientation="Vertical">
-                    <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="数据处理设置" />
-                    <Rectangle />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="闭环阈值t1"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.T1, Mode=TwoWay}" />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="闭环阈值t2"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.T2, Mode=TwoWay}" />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="闭环阈值t3"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.T3, Mode=TwoWay}" />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="变径调节精度"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.J_d, Mode=TwoWay}" />
-                </StackPanel>
-            </Border>
 
             <Grid Grid.Row="1" Grid.ColumnSpan="2">
                 <Grid.RowDefinitions>
@@ -396,39 +364,124 @@
                 </Border>
             </Grid>
 
-            <Border
-                Grid.Row="1"
+            <ScrollViewer
+                Grid.Row="0"
+                Grid.RowSpan="2"
                 Grid.Column="2"
-                Visibility="{Binding UserRole, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Admin,SuperAdmin'}">
-                <StackPanel Orientation="Vertical">
-                    <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="极耳圈周长" />
-                    <Rectangle />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="稳定首极耳圈周长-正极"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.Cb1, Mode=TwoWay}" />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="稳定尾极耳圈周长-正极"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.Cbn, Mode=TwoWay}" />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="稳定首极耳圈周长-负极"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.Ca1, Mode=TwoWay}" />
-                    <hc:TextBox
-                        Width="360"
-                        hc:InfoElement.Placeholder="请输入"
-                        hc:InfoElement.Title="稳定尾极耳圈周长-负极"
-                        IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
-                        Text="{Binding ItemSource.Can, Mode=TwoWay}" />
+                Margin="0,20,0,0"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0,-20,0,0" Orientation="Vertical">
+                    <Border Visibility="{Binding UserRole, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Admin,SuperAdmin'}">
+                        <StackPanel VerticalAlignment="Top" Orientation="Vertical">
+                            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="变径参数设置" />
+                            <Rectangle />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="闭环阈值t1"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.T1, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="闭环阈值t2"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.T2, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="闭环阈值t3"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.T3, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="变径调节精度"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.J_d, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="完美电芯失效预警阈值"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.CCDErrT, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Visibility="{Binding UserRole, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Admin,SuperAdmin'}">
+                        <StackPanel VerticalAlignment="Top" Orientation="Vertical">
+                            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="压花参数设置" />
+                            <Rectangle />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="错位稳定阈值"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.PressT, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="压花上限"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.PressUp, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="压花下限"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.PressDown, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="压花调节步长"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.PressStep, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="压花步长对应错位变化量"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.PressK, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="压花连续调节次数"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.PressJT, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Visibility="{Binding UserRole, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Admin,SuperAdmin'}">
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="极耳圈周长" />
+                            <Rectangle />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="稳定首极耳圈周长-正极"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.Cb1, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="稳定尾极耳圈周长-正极"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.Cbn, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="稳定首极耳圈周长-负极"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.Ca1, Mode=TwoWay}" />
+                            <hc:TextBox
+                                Width="360"
+                                hc:InfoElement.Placeholder="请输入"
+                                hc:InfoElement.Title="稳定尾极耳圈周长-负极"
+                                IsReadOnly="{Binding UserRole, Converter={StaticResource EnumToBoolConverter}, ConverterParameter='!Admin,SuperAdmin'}"
+                                Text="{Binding ItemSource.Can, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
-            </Border>
+            </ScrollViewer>
         </Grid>
 
         <!--  功能按钮  -->

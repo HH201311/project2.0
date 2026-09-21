@@ -156,7 +156,6 @@ foreach (var bh in blackHeights)
     var regions = new List<HObject>();
     var rows = new List<HTuple>();
     var cols = new List<HTuple>();
-    var gaps = new List<HTuple>();
     var prints = new List<HTuple>();
     string runInfo = "";
     var pars = new object[]
@@ -168,7 +167,6 @@ foreach (var bh in blackHeights)
         regions,
         rows,
         cols,
-        gaps,
         prints,
         runInfo,
     };
@@ -178,7 +176,7 @@ foreach (var bh in blackHeights)
     {
         action.Invoke(inst, pars);
         sw.Stop();
-        runInfo = pars[9] as string ?? "";
+        runInfo = pars[8] as string ?? "";
         resultImg = (HObject)pars[3];
         regions = (List<HObject>)pars[4];
         rows = (List<HTuple>)pars[5];
@@ -188,17 +186,12 @@ foreach (var bh in blackHeights)
         Console.WriteLine($"elapsed={sw.Elapsed.TotalSeconds:F2}s");
         Console.WriteLine($"RunInfo='{runInfo}'");
         Console.WriteLine($"ResultImgInitialized={resultOk}");
-        regions = (List<HObject>)pars[4];
-        rows = (List<HTuple>)pars[5];
-        cols = (List<HTuple>)pars[6];
-        gaps = (List<HTuple>)pars[7];
-        prints = (List<HTuple>)pars[8];
+        prints = (List<HTuple>)pars[7];
         Console.WriteLine(
             $"regions={regions?.Count ?? -1} rows={rows?.Count ?? -1} cols={cols?.Count ?? -1}"
         );
         DumpTupleList("AllRegionRow", rows);
         DumpTupleList("AllRegionCol", cols);
-        DumpTupleList("AllJianXiValue", gaps);
         DumpTupleList("AllPrintfValue", prints);
         if (rows is { Count: > 0 } && cols is { Count: > 0 })
         {

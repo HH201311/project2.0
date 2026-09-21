@@ -44,6 +44,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         private const string DefaultHuaweiModelRelativePath = @"model\NCLCCT\model_hw.onnx";
         private const string DefaultCudaRuntimeRelativePath = @"Dlls\CUDA12";
 
+        /// <summary>SysCenter 下载地址（与 CTNCLX / CTAutoSlicer 同网关）。</summary>
+        private const string DefaultDllDownloadUrl =
+            "http://10.117.243.32:7097/sysCenter/interfaceApi/downloadFile";
+
+        private const string DefaultDllDownloadBackupUrl =
+            "http://10.201.88.151:10100/sysCenter/interfaceApi/downloadFile";
+
+        /// <summary>南昌华为 CT 云端公钥（视觉下发）。</summary>
+        private const string DefaultHuaweiPublicKey =
+            "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQClpDmgPZXQ5wDz6WLSgJaViddxzwRM5PQmS7UD1limrc7YlfUQQkW2XPZ7Lxs1sumPPGxIA+Yq6TS6MyH+qYpYqhRmcqtDgDKexvfuE8+Tl3ORs7G6ckJJIWSfz7peWs27ihr+5bk8p9PIOm02i9Q1ON3uEFmqaPQl4bcmH25khwIDAQAB";
+
+        /// <summary>与云端目录 nc_LiXianCT_HW 对应的 AppKey。</summary>
+        private const string DefaultHuaweiAppKey = "nc_lixian_ct_hw";
+
+        /// <summary>云端 DLL 编码（对应 NJCT.dll）。</summary>
+        private const string DefaultHuaweiDllPythonCode = "NC_LiXianCT_HW_Dll";
+
+        /// <summary>云端模型编码（对应 390000[hw].onnx）。</summary>
+        private const string DefaultHuaweiModelPythonCode = "NC_LiXianCT_HW_Model";
+
         private string? _visionDllDirectory;
         private bool _visionResolveHooked;
         private bool _cudaRuntimePathReady;
@@ -640,11 +660,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         public bool IsRunCuda { get; set; } = true;
 
-        /// <summary>可选：远端下载地址（本机优先加载 Dlls\NCLCCT）。</summary>
-        public string? NCLCCTDLLDownloadUrl { get; set; }
+        /// <summary>远端下载地址；本机有 Dlls\NCLCCT\NJCT.dll 时优先本地，否则走云端。</summary>
+        public string? NCLCCTDLLDownloadUrl { get; set; } = DefaultDllDownloadUrl;
 
-        /// <summary>可选：远端备用下载地址。</summary>
-        public string? NCLCCTDLLDownloadBackupUrl { get; set; }
+        /// <summary>远端备用下载地址。</summary>
+        public string? NCLCCTDLLDownloadBackupUrl { get; set; } = DefaultDllDownloadBackupUrl;
 
         /// <summary>算法 DLL 相对输出目录路径。</summary>
         public string? AlgorithmDllName { get; set; } = DefaultHuaweiDllRelativePath;
@@ -652,13 +672,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         /// <summary>反射类型全名。</summary>
         public string? AlgorithmTypeName { get; set; } = HuaweiAlgorithmTypeName;
 
-        public string? PublicKey { get; set; }
+        public string? PublicKey { get; set; } = DefaultHuaweiPublicKey;
 
-        public string? AppKey { get; set; }
+        public string? AppKey { get; set; } = DefaultHuaweiAppKey;
 
-        public string? DllPythonCode { get; set; }
+        public string? DllPythonCode { get; set; } = DefaultHuaweiDllPythonCode;
 
-        public string? ModelPythonCode { get; set; }
+        public string? ModelPythonCode { get; set; } = DefaultHuaweiModelPythonCode;
 
         /// <summary>华为推理输出的抓点区域。</summary>
         public List<HObject>? HuaweiObjRegions { get; set; }
@@ -1399,6 +1419,53 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 );
                 NCLCCTDLLDownloadUrl = _ctNCLXDLLDownloadUrl;
             }
+            if (string.IsNullOrWhiteSpace(NCLCCTDLLDownloadUrl))
+            {
+                NCLCCTDLLDownloadUrl = DefaultDllDownloadUrl;
+                _projectSettingRepository.UpdateSettingValue(
+                    "NCLCCTDLLDownloadUrl",
+                    "VM_NCLCCTPage",
+                    NCLCCTDLLDownloadUrl
+                );
+            }
+
+            if (
+                !_projectSettingRepository.Exists(model =>
+                    model.Name == $"NCLCCTDLLDownloadBackupUrl"
+                    && model.BelongToVM == "VM_NCLCCTPage"
+                )
+            )
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(
+                        $"NCLCCTDLLDownloadBackupUrl",
+                        "VM_NCLCCTPage",
+                        $"{NCLCCTDLLDownloadBackupUrl}",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = $"dll下载备用url",
+                    }
+                );
+            }
+            else
+            {
+                var backupUrl = _projectSettingRepository.GetSettingValue(
+                    $"NCLCCTDLLDownloadBackupUrl",
+                    "VM_NCLCCTPage"
+                );
+                NCLCCTDLLDownloadBackupUrl = backupUrl;
+            }
+            if (string.IsNullOrWhiteSpace(NCLCCTDLLDownloadBackupUrl))
+            {
+                NCLCCTDLLDownloadBackupUrl = DefaultDllDownloadBackupUrl;
+                _projectSettingRepository.UpdateSettingValue(
+                    "NCLCCTDLLDownloadBackupUrl",
+                    "VM_NCLCCTPage",
+                    NCLCCTDLLDownloadBackupUrl
+                );
+            }
 
             if (
                 !_projectSettingRepository.Exists(model =>
@@ -1477,6 +1544,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 );
                 PublicKey = _publicKey;
             }
+            if (string.IsNullOrWhiteSpace(PublicKey) || PublicKey != DefaultHuaweiPublicKey)
+            {
+                PublicKey = DefaultHuaweiPublicKey;
+                _projectSettingRepository.UpdateSettingValue(
+                    "PublicKey",
+                    "VM_NCLCCTPage",
+                    PublicKey
+                );
+            }
 
             if (
                 !_projectSettingRepository.Exists(model =>
@@ -1504,6 +1580,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     "VM_NCLCCTPage"
                 );
                 AppKey = _appKey;
+            }
+            if (string.IsNullOrWhiteSpace(AppKey) || AppKey != DefaultHuaweiAppKey)
+            {
+                AppKey = DefaultHuaweiAppKey;
+                _projectSettingRepository.UpdateSettingValue(
+                    "AppKey",
+                    "VM_NCLCCTPage",
+                    AppKey
+                );
             }
 
             if (
@@ -1534,6 +1619,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 );
                 DllPythonCode = _dllPythonCode;
             }
+            if (
+                string.IsNullOrWhiteSpace(DllPythonCode)
+                || DllPythonCode != DefaultHuaweiDllPythonCode
+            )
+            {
+                DllPythonCode = DefaultHuaweiDllPythonCode;
+                _projectSettingRepository.UpdateSettingValue(
+                    "DllPythonCode",
+                    "VM_NCLCCTPage",
+                    DllPythonCode
+                );
+            }
 
             if (
                 !_projectSettingRepository.Exists(model =>
@@ -1562,6 +1659,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     "VM_NCLCCTPage"
                 );
                 ModelPythonCode = _modelPythonCode;
+            }
+            if (
+                string.IsNullOrWhiteSpace(ModelPythonCode)
+                || ModelPythonCode != DefaultHuaweiModelPythonCode
+            )
+            {
+                ModelPythonCode = DefaultHuaweiModelPythonCode;
+                _projectSettingRepository.UpdateSettingValue(
+                    "ModelPythonCode",
+                    "VM_NCLCCTPage",
+                    ModelPythonCode
+                );
             }
 
             DetectionItems = new ObservableCollection<DetectionItemModel>()
@@ -1613,8 +1722,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             EnsureNjctTempPngWritable();
 
             // 南昌华为视觉：NJCT.NChwSwdCT
+            // 加载策略：本地 Dlls\NCLCCT\NJCT.dll 优先；不存在则 RSA 签名请求 SysCenter 云端
             // ModelInit(string, ref IPredictor, ref string, bool)
-            // ModelAction 10 参（无小米的 LingDuNei5BiZhi）
+            // ModelAction 9 参（新 DLL 已去掉 AllJianXiValue）
             _logger.Info("开始加载南昌华为视觉 DLL / 模型");
             var assembly = TryLoadVisionAssembly(
                 AlgorithmDllName,
@@ -1622,6 +1732,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 AppKey,
                 DllPythonCode
             );
+            if (assembly == null)
+            {
+                _logger.Info("算法 dll 加载失败，启用备用 url 重试");
+                NCLCCTDLLDownloadUrl = NCLCCTDLLDownloadBackupUrl;
+                assembly = TryLoadVisionAssembly(
+                    AlgorithmDllName,
+                    PublicKey,
+                    AppKey,
+                    DllPythonCode
+                );
+            }
             if (assembly != null)
             {
                 TryInitVisionModel(assembly);
@@ -3677,8 +3798,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 BottomBlackHeight = 0;
 
                 _logger.Info("开始调用华为算法 NChwSwdCT");
-                // ModelAction 10 参：0图 1句柄 2黑边 3结果图 4点区域 5行 6列 7间隙 8打印 9运行信息
-                AlgorithmParameters = new object[10];
+                // 新 DLL ModelAction 9 参：0图 1句柄 2黑边 3结果图 4点区域 5行 6列 7打印 8运行信息
+                // 已无旧版第 7 参 AllJianXiValue
+                AlgorithmParameters = new object[9];
                 AlgorithmParameters[0] = imageFilePath;
                 AlgorithmParameters[1] = ModelHandle!;
                 AlgorithmParameters[2] = BottomBlackHeight;
@@ -3687,8 +3809,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 AlgorithmParameters[5] = new List<HTuple>();
                 AlgorithmParameters[6] = new List<HTuple>();
                 AlgorithmParameters[7] = new List<HTuple>();
-                AlgorithmParameters[8] = new List<HTuple>();
-                AlgorithmParameters[9] = "";
+                AlgorithmParameters[8] = "";
 
                 var startTime = DateTime.Now;
                 var visionInvoked = TryInvokeVisionAlgorithm(imageFilePath);
@@ -3698,9 +3819,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 AllPointRegion = AlgorithmParameters[4] as List<HObject>;
                 AllRegionRow = AlgorithmParameters[5] as List<HTuple>;
                 AllRegionCol = AlgorithmParameters[6] as List<HTuple>;
-                    AllJianXiValue = AlgorithmParameters[7] as List<HTuple>;
-                    AllPrintfValue = AlgorithmParameters[8] as List<HTuple>;
-                    RunInfo = AlgorithmParameters[9] as string;
+                AllJianXiValue = null;
+                AllPrintfValue = AlgorithmParameters[7] as List<HTuple>;
+                RunInfo = AlgorithmParameters[8] as string;
                     LingDuNei5BiZhi = null;
                     HuaweiObjRegions = AllPointRegion;
                     HuaweiAlignRows = AllRegionRow;
@@ -4537,7 +4658,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         /// <summary>
         /// 绘制华为抓点短横线，并对「同列异行」点对绘制黄横线；中点标 Gap 实际值（mm）。
-        /// Gap7 按工艺定义为中轴「从上到下」长尺寸：覆盖 Gap4~6 外端跨度并略加长。
+        /// Gap7：端点取视觉点对，竖线左偏并用虚线从锚点引出（其余 Gap 直接按点对连线）。
         /// </summary>
         private void DrawHuaweiPointsAndLimitLines(
             HWindow tempWindow,
@@ -4554,8 +4675,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             const double tickHalf = 14.0; // 点位短横线半宽
             // 黄横线全长固定 30 px
             const double limitHalf = 15.0;
-            // Gap7 长竖线相对 Gap4~6 跨度再向外延伸
-            const double gap7ExtendPx = 50.0;
+            // Gap7 尺寸线相对视觉点列左偏像素
+            const double gap7LineOffset = 80.0;
 
             const string measureFont = "Times New Roman-Bold-48";
 
@@ -4577,22 +4698,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             var mms = BuildHuaweiGapMmList(printTuple, pairCount);
             tempWindow.SetFont(measureFont);
 
-            // Gap4~6（点对索引 3~5）外轮廓，供 Gap7 长竖线定位
-            double gap456RowMin = double.MaxValue;
-            double gap456RowMax = double.MinValue;
-            double gap456ColSum = 0;
-            var gap456Count = 0;
-            for (int p = 3; p <= 5 && p < pairCount; p++)
-            {
-                var (r0, c0) = points[p * 2];
-                var (r1, c1) = points[p * 2 + 1];
-                gap456RowMin = Math.Min(gap456RowMin, Math.Min(r0, r1));
-                gap456RowMax = Math.Max(gap456RowMax, Math.Max(r0, r1));
-                gap456ColSum += (c0 + c1) / 2.0;
-                gap456Count++;
-            }
-            var hasGap456 = gap456Count > 0 && gap456RowMax > gap456RowMin;
-
             for (int p = 0; p < pairCount; p++)
             {
                 var gapIndex = p + 1;
@@ -4601,30 +4706,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 var sameCol = Math.Abs(c0 - c1) <= colSameEps;
                 var midRow = (r0 + r1) / 2.0;
                 var midCol = (c0 + c1) / 2.0;
-
-                // Gap7：竖线左移 80px；两端从中轴顶头水平引出
                 double? gap7TextCol = null;
-                if (gapIndex == 7 && hasGap456)
+
+                if (gapIndex == 7)
                 {
-                    var cx = gap456ColSum / gap456Count;
-                    var lineRow0 = Math.Max(5, gap456RowMin - gap7ExtendPx);
-                    var lineRow1 = gap456RowMax + gap7ExtendPx;
-                    const double gap7LineOffset = 80.0;
+                    // 端点行/列取自视觉点对；竖线左偏，两端用虚线接到锚点
+                    var cx = (c0 + c1) / 2.0;
+                    var lineRow0 = Math.Min(r0, r1);
+                    var lineRow1 = Math.Max(r0, r1);
                     var gap7Col = Math.Max(limitHalf + 5, cx - gap7LineOffset);
 
-                    // 中轴两端顶头短横（锚点）
                     tempWindow.SetColor("yellow");
                     tempWindow.SetLineWidth(5);
                     DispRegionLine(tempWindow, lineRow0, cx - limitHalf, lineRow0, cx + limitHalf);
                     DispRegionLine(tempWindow, lineRow1, cx - limitHalf, lineRow1, cx + limitHalf);
 
-                    // 顶头向左引出两条水平虚线，接到 Gap7 竖线
                     tempWindow.SetColor("orange");
                     tempWindow.SetLineWidth(5);
                     DispDashedRegionLine(tempWindow, lineRow0, gap7Col, lineRow0, cx);
                     DispDashedRegionLine(tempWindow, lineRow1, gap7Col, lineRow1, cx);
 
-                    // Gap7 竖线（左偏 80px）
                     DispRegionLine(tempWindow, lineRow0, gap7Col, lineRow1, gap7Col);
                     DispRegionLine(
                         tempWindow,
@@ -4646,16 +4747,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 }
                 else if (sameCol)
                 {
-                    // Gap4/5/6 线加粗，其余保持原线宽
-                    var thick456 = gapIndex is >= 4 and <= 6;
+                    // Gap4/5/6 同列竖向量测线加粗，其余保持原线宽
+                    var thickVertical = gapIndex is >= 4 and <= 6;
                     tempWindow.SetColor("yellow");
-                    tempWindow.SetLineWidth(thick456 ? 5 : 3);
+                    tempWindow.SetLineWidth(thickVertical ? 5 : 3);
                     var cx = (c0 + c1) / 2.0;
                     DispRegionLine(tempWindow, r0, cx - limitHalf, r0, cx + limitHalf);
                     DispRegionLine(tempWindow, r1, cx - limitHalf, r1, cx + limitHalf);
 
                     tempWindow.SetColor("orange");
-                    tempWindow.SetLineWidth(thick456 ? 5 : 1);
+                    tempWindow.SetLineWidth(thickVertical ? 5 : 1);
                     DispRegionLine(tempWindow, r0, cx, r1, cx);
                 }
                 else
@@ -4939,7 +5040,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 加载南昌华为视觉 DLL（Dlls\NCLCCT\NJCT.dll），类名 <c>NJCT.NChwSwdCT</c>。
+        /// 加载南昌华为视觉 DLL（类名 <c>NJCT.NChwSwdCT</c>）。
+        /// 策略：本机 <c>Dlls\NCLCCT\NJCT.dll</c> 存在则优先加载；否则用公钥签名请求 SysCenter。
+        /// CF.dll 始终依赖本机 <c>Dlls\NCLCCT\</c>（不随云端下载）。
         /// </summary>
         private Assembly? TryLoadVisionAssembly(
             string? dllName,
@@ -4948,9 +5051,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             string? pythonCode
         )
         {
-            _ = publicKey;
-            _ = appKey;
-            _ = pythonCode;
             try
             {
                 EnsureCudaRuntimePath();
@@ -4961,67 +5061,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 var dllPath = Path.IsPathRooted(relative)
                     ? relative
                     : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, relative));
-                if (!File.Exists(dllPath))
-                {
-                    _logger.Error($"视觉DLL不存在: {dllPath}");
-                    Growl.ErrorGlobal($"视觉DLL不存在: {dllPath}");
-                        return null;
-                    }
 
+                // 解析目录始终指向 NCLCCT 算法目录，供 CF / 原生依赖解析
                 _visionDllDirectory = Path.GetDirectoryName(dllPath);
+                if (string.IsNullOrEmpty(_visionDllDirectory))
+                {
+                    _visionDllDirectory = Path.GetFullPath(
+                        Path.Combine(AppContext.BaseDirectory, "Dlls", "NCLCCT")
+                    );
+                }
                 EnsureVisionAssemblyResolveHook();
+                PrepareVisionNativeSearchPath(_visionDllDirectory);
 
-                // 优先同目录 CF，避免绑到宿主旧版 CF
-                var cfPath = Path.Combine(_visionDllDirectory!, "CF.dll");
-                if (File.Exists(cfPath))
+                Assembly? assembly = null;
+                if (File.Exists(dllPath))
                 {
-                    try
-                    {
-                        Assembly.LoadFrom(cfPath);
-                        _logger.Info($"已预加载华为 CF: {cfPath}");
-                    }
-                    catch (Exception cfEx)
-                    {
-                        _logger.Warn($"预加载华为 CF 失败，将回退宿主 CF: {cfEx.Message}");
-                    }
+                    _logger.Info($"[NCLCCT云端] 本机已有算法 DLL，优先本地加载: {dllPath}");
+                    PreloadHuaweiCf(_visionDllDirectory);
+                    assembly = Assembly.LoadFrom(dllPath);
+                }
+                else
+                {
+                    _logger.Info(
+                        $"[NCLCCT云端] 本机无算法 DLL，请求 SysCenter：pythonCode={pythonCode}，url={NCLCCTDLLDownloadUrl}"
+                    );
+                    assembly = DownloadAndLoadVisionAssembly(
+                        publicKey,
+                        appKey,
+                        pythonCode,
+                        NCLCCTDLLDownloadUrl
+                    );
+                    if (assembly != null)
+                        PreloadHuaweiCf(_visionDllDirectory);
                 }
 
-                if (!string.IsNullOrEmpty(_visionDllDirectory))
-                {
-                    try
-                    {
-                        NativeDllSearch.AddDllDirectory(_visionDllDirectory);
-                    }
-                    catch
-                    {
-                        // ignore
-                    }
-                }
-
-                var assembly = Assembly.LoadFrom(dllPath);
-                var typeName = string.IsNullOrWhiteSpace(AlgorithmTypeName)
-                    ? HuaweiAlgorithmTypeName
-                    : AlgorithmTypeName!;
-                var ctAlgorithmType = assembly.GetType(typeName);
-                if (ctAlgorithmType == null)
-                {
-                    _logger.Error($"未找到算法类型: {typeName}");
-                    Growl.ErrorGlobal($"未找到算法类型: {typeName}");
+                if (assembly == null)
                     return null;
-                }
 
-                CTDetectionAlgorithmIstance = Activator.CreateInstance(ctAlgorithmType);
-                ModelInitMethod = ctAlgorithmType.GetMethod("ModelInit");
-                ModelActionMethod = ctAlgorithmType.GetMethod("ModelAction");
-                if (ModelInitMethod == null || ModelActionMethod == null)
-                {
-                    _logger.Error("ModelInit / ModelAction 方法未找到");
-                    Growl.ErrorGlobal("ModelInit / ModelAction 方法未找到");
-                    return null;
-                }
-
-                _logger.Info($"视觉DLL加载成功: {dllPath}, 类型={typeName}");
-                return assembly;
+                return BindVisionAlgorithmType(assembly, dllPath);
             }
             catch (Exception ex)
             {
@@ -5029,6 +5106,130 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 Growl.ErrorGlobal($"视觉DLL加载失败: {ex.Message}");
                 return null;
             }
+        }
+
+        private void PrepareVisionNativeSearchPath(string? visionDir)
+        {
+            if (string.IsNullOrEmpty(visionDir))
+                return;
+            try
+            {
+                NativeDllSearch.AddDllDirectory(visionDir);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private void PreloadHuaweiCf(string? visionDir)
+        {
+            if (string.IsNullOrEmpty(visionDir))
+                return;
+            var cfPath = Path.Combine(visionDir, "CF.dll");
+            if (!File.Exists(cfPath))
+            {
+                _logger.Warn($"华为 CF.dll 不存在（云端只下 NJCT）：{cfPath}");
+                return;
+            }
+            try
+            {
+                Assembly.LoadFrom(cfPath);
+                _logger.Info($"已预加载华为 CF: {cfPath}");
+            }
+            catch (Exception cfEx)
+            {
+                _logger.Warn($"预加载华为 CF 失败，将回退宿主 CF: {cfEx.Message}");
+            }
+        }
+
+        private Assembly? DownloadAndLoadVisionAssembly(
+            string? publicKey,
+            string? appKey,
+            string? pythonCode,
+            string? downloadUrl
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(publicKey)
+                || string.IsNullOrWhiteSpace(appKey)
+                || string.IsNullOrWhiteSpace(pythonCode)
+                || string.IsNullOrWhiteSpace(downloadUrl)
+            )
+            {
+                _logger.Error(
+                    "[NCLCCT云端] 下载参数不完整（PublicKey/AppKey/DllPythonCode/Url）"
+                );
+                Growl.ErrorGlobal("云端下载参数不完整，无法拉取算法 DLL");
+                return null;
+            }
+
+            string signature;
+            try
+            {
+                signature = RasHelper.RSAPublicKey(publicKey, appKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("[NCLCCT云端] RSA 签名失败", ex);
+                Growl.ErrorGlobal($"云端签名失败: {ex.Message}");
+                return null;
+            }
+
+            var json = new JObject
+            {
+                { "appKey", appKey },
+                { "executeType", "PRED" },
+                { "pythonCode", pythonCode },
+                { "signature", signature },
+            };
+
+            var dllBytes = HttpPost(json, downloadUrl);
+            if (dllBytes == null || dllBytes.Length == 0)
+            {
+                _logger.Error($"[NCLCCT云端] 下载 dll 失败：pythonCode={pythonCode}");
+                Growl.ErrorGlobal("下载算法 DLL 失败");
+                return null;
+            }
+
+            if (dllBytes.Length < 2 || dllBytes[0] != 0x4D || dllBytes[1] != 0x5A)
+            {
+                _logger.Error(
+                    $"[NCLCCT云端] 下载内容不是有效 PE DLL（字节数={dllBytes.Length}）"
+                );
+                Growl.ErrorGlobal("云端返回内容不是有效 DLL");
+                return null;
+            }
+
+            _logger.Info($"[NCLCCT云端] 算法 DLL 下载成功，字节数={dllBytes.Length}（内存加载，不落盘）");
+            return Assembly.Load(dllBytes);
+        }
+
+        private Assembly? BindVisionAlgorithmType(Assembly assembly, string dllPathForLog)
+        {
+            var typeName = string.IsNullOrWhiteSpace(AlgorithmTypeName)
+                ? HuaweiAlgorithmTypeName
+                : AlgorithmTypeName!;
+            var ctAlgorithmType = assembly.GetType(typeName);
+            if (ctAlgorithmType == null)
+            {
+                _logger.Error($"未找到算法类型: {typeName}");
+                Growl.ErrorGlobal($"未找到算法类型: {typeName}");
+                return null;
+            }
+
+            CTDetectionAlgorithmIstance = Activator.CreateInstance(ctAlgorithmType);
+            ModelInitMethod = ctAlgorithmType.GetMethod("ModelInit");
+            ModelActionMethod = ctAlgorithmType.GetMethod("ModelAction");
+            if (ModelInitMethod == null || ModelActionMethod == null)
+            {
+                _logger.Error("ModelInit / ModelAction 方法未找到");
+                Growl.ErrorGlobal("ModelInit / ModelAction 方法未找到");
+                return null;
+            }
+
+            _logger.Info($"视觉DLL加载成功: {dllPathForLog}, 类型={typeName}");
+            return assembly;
         }
 
         private void EnsureVisionAssemblyResolveHook()
@@ -5058,7 +5259,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 调用 <c>NChwSwdCT.ModelInit</c>。
+        /// 调用 <c>NChwSwdCT.ModelInit</c>；模型文件缺失时按 ModelPythonCode 从云端下载。
         /// </summary>
         private void TryInitVisionModel(Assembly assembly)
         {
@@ -5077,6 +5278,14 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     modelPath = DefaultHuaweiModelRelativePath;
                 if (!Path.IsPathRooted(modelPath))
                     modelPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, modelPath));
+
+                if (!File.Exists(modelPath))
+                {
+                    _logger.Info(
+                        $"[NCLCCT云端] 本机无模型，请求下载：pythonCode={ModelPythonCode}，目标={modelPath}"
+                    );
+                    DownloadModel(modelPath, PublicKey, AppKey, ModelPythonCode);
+                }
 
                 if (!File.Exists(modelPath))
                 {
@@ -5120,8 +5329,62 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             }
         }
 
+        /// <summary>从 SysCenter 下载 ONNX 模型并写入本地路径。</summary>
+        private void DownloadModel(
+            string modelPath,
+            string? publicKey,
+            string? appKey,
+            string? pythonCode
+        )
+        {
+            try
+            {
+                if (
+                    string.IsNullOrWhiteSpace(publicKey)
+                    || string.IsNullOrWhiteSpace(appKey)
+                    || string.IsNullOrWhiteSpace(pythonCode)
+                    || string.IsNullOrWhiteSpace(NCLCCTDLLDownloadUrl)
+                )
+                {
+                    _logger.Error("[NCLCCT云端] 模型下载参数不完整");
+                    Growl.ErrorGlobal("云端下载参数不完整，无法拉取模型");
+                    return;
+                }
+
+                var signature = RasHelper.RSAPublicKey(publicKey, appKey);
+                var json = new JObject
+                {
+                    { "appKey", appKey },
+                    { "executeType", "PRED" },
+                    { "pythonCode", pythonCode },
+                    { "signature", signature },
+                };
+
+                var modelStream = HttpPost(json, NCLCCTDLLDownloadUrl!);
+                if (modelStream == null || modelStream.Length == 0)
+                {
+                    _logger.Error("下载模型失败");
+                    Growl.ErrorGlobal("下载模型失败");
+                    return;
+                }
+
+                var dir = Path.GetDirectoryName(modelPath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+
+                File.WriteAllBytes(modelPath, modelStream);
+                _logger.Info(
+                    $"[NCLCCT云端] 模型已落盘: {modelPath}，字节数={modelStream.Length}"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("下载模型失败", ex);
+                Growl.ErrorGlobal($"下载模型失败: {ex.Message}");
+            }
+        }
         /// <summary>
-        /// 调用 <c>NChwSwdCT.ModelAction</c>，结果写回 <see cref="AlgorithmParameters"/>。
+        /// 调用 <c>NChwSwdCT.ModelAction</c>（9 参，无 AllJianXiValue），结果写回 <see cref="AlgorithmParameters"/>。
         /// </summary>
         private bool TryInvokeVisionAlgorithm(string? imageFilePath)
         {
@@ -5140,9 +5403,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     _logger.Warn("模型句柄为空，跳过推理");
                     return false;
                 }
-                if (AlgorithmParameters == null || AlgorithmParameters.Length < 10)
+                if (AlgorithmParameters == null || AlgorithmParameters.Length < 9)
                 {
-                    _logger.Warn("AlgorithmParameters 未按 10 参准备");
+                    _logger.Warn("AlgorithmParameters 未按 9 参准备");
                     return false;
                 }
 

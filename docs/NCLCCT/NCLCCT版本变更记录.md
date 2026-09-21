@@ -6,6 +6,12 @@
 
 ---
 
+> **2026-09-21 变更（云端 DLL + Gap7 画线 + 间隙偏移）**  
+> 1. **云端**：本机无 `Dlls\NCLCCT\NJCT.dll` 时走 SysCenter（本地优先）；DLL 内存加载不落盘，模型缺则落盘。`appKey=nc_lixian_ct_hw`，`Dll/Model` 码分别为 `NC_LiXianCT_HW_Dll` / `NC_LiXianCT_HW_Model`；`CF.dll` 仍本机。架构说明见 [项目架构说明.md](../项目架构说明.md) §11.4。  
+> 2. **ModelAction**：适配新 DLL 9 参（去掉 `AllJianXiValue`）。  
+> 3. **Gap**：全部 `mm = px×scale − 0.12`；Gap7 按视觉点对画线，竖线左偏 80px + 虚线引出。  
+> 4. **落点**：`VM_NCLCCTPage.cs`。  
+
 > **2026-09-20 变更（华为 Gap 换算、管控判定与结果图底栏）**  
 > 1. **背景**：算法返回像素间隙；现场公式为「像素数×像素精度 − 分组常量」。原先把 0.12 做成可配「像素精度」减量，与现场用语不符；结果图底栏大号字曾重叠/留白过大。  
 > 2. **做法**：  
@@ -46,5 +52,5 @@
 > 1. **背景**：NCLCCT 为新立项项目，需先落「可编译 + 菜单可进空页」的基础结构，后续业务范围等现场资料投放后再定。  
 > 2. **做法**：按 [新增业务模块上手指南](../新增业务模块上手指南.md) 建 VM/View 三件套并以 `[Module]` 注册，菜单显示名暂用代号 `NCLCCT`；建 `docs/NCLCCT/` 三文档与 `开发资料/`；写 `enable_nclcct_module.sql` 并对 `sunwoda_demo` 直接执行（`is_enabled = 1`），同时核对 `AppStartMainWindow = MainWindow`。本机 NuGet 源不可达，改用 .NET 8 SDK 的 MSBuild + 本地包缓存离线还原后编译通过（0 error）。  
 > 3. **落点**：`SUNWODA_SEVB/ViewModels/Pages/NCLCCT/VM_NCLCCTPage.cs`；`SUNWODA_SEVB/Views/Pages/NCLCCT/NCLCCTPage.xaml(.cs)`；[NCLCCT进度存档.md](./NCLCCT进度存档.md)；[NCLCCT版本变更记录.md](./NCLCCT版本变更记录.md)；[NCLCCT项目开发规划.md](./NCLCCT项目开发规划.md)；[enable_nclcct_module.sql](./enable_nclcct_module.sql)；[开发资料/](./开发资料/)。  
-> 4. **未做 / 待确认**：业务范围、点位、阈值、存储与算法全部 ⏸（见规划 §1、§5、§10）；菜单需用户完整重启后人工验收。  
+> 4. **未做 / 待确认**：业务范围、点位、相机、存储与算法全部 ⏸（见规划 §1、§5、§10）；菜单需用户完整重启后人工验收。  
 > 5. **验证**：编译 0 error；SQL 执行结果 `VM_NCLCCTPage = 1`、`AppStartMainWindow = MainWindow`。

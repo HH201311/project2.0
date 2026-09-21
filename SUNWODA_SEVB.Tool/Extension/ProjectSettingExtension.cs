@@ -539,6 +539,38 @@ namespace SUNWODA_SEVB.Tool.Extension
         }
         #endregion
 
+        #region FtpConfig参数
+        /// <summary>
+        /// 加载涂布闭环FTP设置，参数名称为"FtpConfig"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static FtpConfigModel LoadFtpConfigProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"FtpConfig";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<FtpConfigModel>(paramModel?.Value ?? "", JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
+            var model = new FtpConfigModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 2)
+                    {
+                        Remark = "涂布闭环FTP设置"
+                    }
+                );
+            }
+            return model;
+        }
+        #endregion
+
         #region SpecialFunctionSetting参数
         /// <summary>
         /// 加载涂布闭环特殊功能设置，参数名称为"SpecialFunctionSetting"
@@ -1005,6 +1037,62 @@ namespace SUNWODA_SEVB.Tool.Extension
             return projectSettingRepository.SaveProjectParametersAsJson(paramName, values, CCTBCore.BelongToVM);
         }
         #endregion
+
+        #region FtpConfig参数
+        /// <summary>
+        /// 加载涂布闭环FTP配置，参数名称为"FtpConfig"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static FtpConfigModel LoadFtpConfigProjectParameter(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = "FtpConfig";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, CCTBCore.BelongToVM);
+            if (paramModel != null)
+            {
+                var paramValues = JsonSerializer.Deserialize<FtpConfigModel>(paramModel.Value, JsonOptions);
+                if (paramValues != null) return paramValues;
+            }
+
+            var model = new FtpConfigModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "FTP配置参数"
+                    }
+                );
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// 保存涂布闭环FTP配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveFtpConfigProjectParameter(this IProjectSettingRepository projectSettingRepository, FtpConfigModel value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = "FtpConfig";
+            var model = new FtpConfigModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == CCTBCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, CCTBCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "FTP配置参数"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, CCTBCore.BelongToVM);
+        }
+        #endregion
         #endregion
 
         #region JRCW项目(卷绕极耳错位闭环)参数配置相关扩展方法
@@ -1136,7 +1224,7 @@ namespace SUNWODA_SEVB.Tool.Extension
             if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JRCWCore.BelongToVM))
             {
                 projectSettingRepository.Add(
-                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, "MIS_JUDGE_C04_325", "string", 2)
+                    new ProjectSettingModel(paramName, JRCWCore.BelongToVM, "MIS_JUDGE_C04_325,PRESS_C04_325", "string", 2)
                     {
                         Remark = "极耳错位闭环算法pyCode配置(英文逗号分隔)"
                     }
@@ -1203,7 +1291,7 @@ namespace SUNWODA_SEVB.Tool.Extension
         }
         #endregion
 
-        #region 业务类型2-Business1Param
+        #region 业务类型2-Business2Param
         /// <summary>
         /// 加载极耳错位闭环参数配置，参数名称为"BusinessType2Param"
         /// </summary>

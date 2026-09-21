@@ -37,6 +37,14 @@
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingChartDataService.cs" />
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingConfigService.cs" />
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingCsvStorage.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ConfigService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6IngressService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ProcessedStore.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6VisionEngine.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ProductAggregator.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ResultStore.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ImageArchiveService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6PipelineService.cs" />
   </ItemGroup>
 
   <ItemGroup>

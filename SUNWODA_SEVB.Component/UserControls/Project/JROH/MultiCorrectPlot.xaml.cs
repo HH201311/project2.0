@@ -36,28 +36,31 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.JROH
         #region 依赖属性
 
         // Y轴数据集合（单条曲线）
-        public static readonly DependencyProperty LineSeriesCollectionProperty =
+        public static readonly DependencyProperty LineSeries1CollectionProperty =
             DependencyProperty.Register(
-                nameof(LineSeriesCollection),
+                nameof(LineSeries1Collection),
                 typeof(ObservableCollection<(DateTime, double)>),
                 typeof(MultiCorrectPlot),
                 new PropertyMetadata(null, OnLineSeriesCollectionChanged));
 
-        public ObservableCollection<(DateTime x, double y)> LineSeriesCollection
+        public ObservableCollection<(DateTime x, double y)> LineSeries1Collection
         {
-            get => (ObservableCollection<(DateTime, double)>)GetValue(LineSeriesCollectionProperty);
-            set => SetValue(LineSeriesCollectionProperty, value);
+            get => (ObservableCollection<(DateTime, double)>)GetValue(LineSeries1CollectionProperty);
+            set => SetValue(LineSeries1CollectionProperty, value);
         }
 
-        // 设定值水平线（NaN表示不显示）
-        public static readonly DependencyProperty TargetLineProperty =
-            DependencyProperty.Register(nameof(TargetLine), typeof(double),
-                typeof(MultiCorrectPlot), new PropertyMetadata(double.NaN, OnLinePropertiesChanged));
+        // Y轴数据集合（单条曲线）
+        public static readonly DependencyProperty LineSeries2CollectionProperty =
+            DependencyProperty.Register(
+                nameof(LineSeries2Collection),
+                typeof(ObservableCollection<(DateTime, double)>),
+                typeof(MultiCorrectPlot),
+                new PropertyMetadata(null, OnLineSeriesCollectionChanged));
 
-        public double TargetLine
+        public ObservableCollection<(DateTime x, double y)> LineSeries2Collection
         {
-            get => (double)GetValue(TargetLineProperty);
-            set => SetValue(TargetLineProperty, value);
+            get => (ObservableCollection<(DateTime, double)>)GetValue(LineSeries2CollectionProperty);
+            set => SetValue(LineSeries2CollectionProperty, value);
         }
 
         // 图表标题
@@ -182,11 +185,10 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.JROH
 
             PlotControl.Plot.Clear();
 
-            // 添加设定值水平线
-            AddHorizontalLine(TargetLine, System.Drawing.Color.Red, "设定值");
 
             // 绘制数据曲线
-            DrawDataCurve(LineSeriesCollection, "检测值");
+            DrawDataCurve(LineSeries1Collection, "检测值", System.Drawing.Color.DarkGreen);
+            DrawDataCurve(LineSeries2Collection, "设定值", System.Drawing.Color.DarkRed);
 
             // 应用外观配置
             ApplyPlotConfiguration();
@@ -194,18 +196,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.JROH
             PlotControl.Refresh();
         }
 
-        private void AddHorizontalLine(double value, System.Drawing.Color color, string legendText)
-        {
-            if (double.IsNaN(value)) return;
-
-            var line = PlotControl.Plot.Add.HorizontalLine(value);
-            line.Color = ScottPlot.Color.FromSDColor(color);
-            line.LineWidth = 2.5f;
-            line.LinePattern = LinePattern.Dashed;
-            line.LegendText = legendText;
-        }
-
-        private void DrawDataCurve(ObservableCollection<(DateTime x, double y)> line, string legendText)
+        private void DrawDataCurve(ObservableCollection<(DateTime x, double y)> line, string legendText, System.Drawing.Color color)
         {
             if (line == null || line.Count == 0) return;
 
@@ -220,7 +211,7 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.JROH
             }
 
             var scatter = PlotControl.Plot.Add.Scatter(xDates, yDatas);
-            scatter.Color = ScottPlot.Color.FromSDColor(System.Drawing.Color.DarkGreen);
+            scatter.Color = ScottPlot.Color.FromSDColor(color);
             scatter.LineWidth = 2.0f;
             scatter.MarkerSize = 4;
             scatter.LegendText = legendText;

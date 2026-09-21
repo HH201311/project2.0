@@ -1,0 +1,27 @@
+键名,含义,默认/说明,来源
+LocalPathPre,结果与日志根目录,D:\六面检上位机软件,现场约定
+YOkRootPath,Y盘OK原图根,Y:\OK原图,现场存图（前/后/底）
+ZOkRootPath,Z盘OK原图根,Z:\OK原图,现场存图（上左右/长侧）
+TopCamPath,（兼容旧键）可读入映射到 YOkRootPath,—,兼容
+BottomCamPath,（兼容旧键）可读入映射到 ZOkRootPath,—,兼容
+SideCamPath,（兼容）侧面已并入 Y/Z,空,兼容
+UseSimulation,是否跳过 ZZTWPack 走模拟,false,新框架
+PackTimeoutMinutes,Pack 未齐套超时分钟（兼容旧键）,10,兼容；调度以 PackMissingTimeoutSeconds 为准
+PackMissingTimeoutSeconds,缺张空闲秒（默认600=10分钟；设置界面按分钟改）,600（5~3600）,产品序调度
+CellType,电芯/产品型号,TW,视觉资料
+ProductionLine,工位产线名（非编码生产线别）,P05,视觉资料
+workship,车间,ZZ,旧 UDV
+ProductSNRule,产品编码按位规则,空,算法文档 §4.3
+PartSNMinLength,零部件序列码最短长度,0=不校验,算法文档
+ProductSNExactLength,产品编码必须位数,24,规则表
+WhiteLabelKeywords,白标签(前1)关键词,白标签;whiteLabel;前-1;前1;Front1（勿用 F1/white 等短词，易撞 SN）,现场
+NameplateKeywords,铭牌(前3)关键词,铭牌;nameplate;前-3;前3;Front3（勿用 F3，SN 含 F3 会误伤整包）,现场
+ProductCodeProfile,产品编码档位显示名,TW国内两驱（五选一）,现场简化规则
+IngressLookbackDays,（废弃回看）现仅作标注预览保留天数基数,2（1~30）；实际保留≈基数×2,标注清理
+IngressPollSeconds,（废弃）定时补扫间隔秒,已不使用；收图仅 Watcher,废弃
+StoreResultImageOK,是否保存OK结果图,true,对齐枣庄 UDV
+StoreResultImageNG,是否保存NG结果图,true,对齐枣庄 UDV
+ImageArchiveRetainYears,图像至少保留年数,2,磁盘清理
+ImageArchiveDiskUsagePercent,磁盘占用超过该百分比删最早日期图,90,磁盘清理
+PLC_HeartBeat,PLC 心跳变量键名,占位,旧 UDV
+AlarmSignal,报警信号变量键名,占位,旧 UDV

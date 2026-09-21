@@ -679,7 +679,11 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// </summary>
         private Business1ParamModel LoadJRCWParamSettingModel()
         {
-            return _projectSettingRepository.LoadBusiness1ParamProjectParameters();
+            lock (this)
+            {
+                var pm = LoadBusinessParamConfig<Business1ParamModel>();
+                return pm ?? new Business1ParamModel(); ;
+            }
         }
 
         #region Python算法相关

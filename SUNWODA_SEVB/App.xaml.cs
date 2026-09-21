@@ -24,6 +24,7 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using SUNWODA_SEVB.Services.Project.BoxGluing;
+using SUNWODA_SEVB.Services.Project.ZZSIX;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -245,6 +246,9 @@ namespace SUNWODA_SEVB
 
             // 口琴管涂胶业务服务
             services.AddBoxGluingServices();
+
+            // ZZSIX PACK 六面检
+            services.AddZZSIXPack6Services();
 
             // 注册主窗口的ViewModel和View
             services.AddSingleton<VM_MainWindow>();

@@ -233,7 +233,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <typeparam name="TConfig"></typeparam>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        private TConfig? LoadBusinessParamConfig<TConfig>() where TConfig : class
+        protected TConfig? LoadBusinessParamConfig<TConfig>() where TConfig : class
         {
             return BusinessType switch
             {
@@ -482,6 +482,17 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             var endIndex = Math.Min(numbers.Count() - 1, index + 1);
             var filteredNumbers = numbers.Skip(startIndex).Take(endIndex - startIndex + 1);
             return filteredNumbers.OrderBy(n => Math.Abs(n - target)).First();
+        }
+
+        /// <summary>
+        /// 将数据集合格式化为 [item1,item2,...] 的字符串。
+        /// </summary>
+        /// <param name="data">数据集合，可以为 null。</param>
+        /// <returns>格式化的字符串，例如 "[123,123,234]"；若输入为 null 或空集合则返回 "[]"。</returns>
+        public static string FormatArray<TData>(IEnumerable<TData> datas)
+        {
+            if (datas == null || !datas.Any()) return "[]";
+            return $"[{string.Join(",", datas)}]";
         }
         #endregion
         #endregion

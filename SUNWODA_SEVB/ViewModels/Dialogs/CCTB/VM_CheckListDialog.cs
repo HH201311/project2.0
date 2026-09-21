@@ -46,12 +46,23 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB
         public ICommand CancleCommand => new RelayCommand(() => { Result = false; CloseAction?.Invoke(); });
 
         /// <summary>
+        /// 选择项
+        /// </summary>
+        public ICommand ItemCheckedCommand => new RelayCommand(OnItemChecked);
+
+        /// <summary>
         /// 移除项
         /// </summary>
         public ICommand RemoveItemCommand => new RelayCommand(OnRemoveItem);
+
+        /// <summary>
+        /// 查询
+        /// </summary>
         public ICommand InquireCommand => new RelayCommand(OnInquire);
 
         private string inquireText = string.Empty;
+        private int selectedCount;
+
         private ObservableCollection<CheckedItemModel<AddressItemModel>> filteredItemSource = [];
         private ObservableCollection<CheckedItemModel<AddressItemModel>> itemSource = [];
 
@@ -64,6 +75,11 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB
         /// 查询文本
         /// </summary>
         public string InquireText { get => inquireText; set => SetProperty(ref inquireText, value); }
+
+        /// <summary>
+        /// 已选中的项数量（用于界面显示）
+        /// </summary>
+        public int SelectedCount { get => selectedCount; set => SetProperty(ref selectedCount, value); }
 
         /// <summary>
         /// 数据源-左侧
@@ -82,8 +98,19 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB
                 {
                     // 当完整数据源变化时，过滤集合默认显示全部
                     FilteredItemSource = new ObservableCollection<CheckedItemModel<AddressItemModel>>(value ?? []);
+                    SelectedCount = value?.Count(o => o.IsChecked) ?? 0;
                 }
             }
+        }
+
+        /// <summary>
+        /// 当移除项时触发
+        /// </summary>
+        /// <param name="arg"></param>
+        private void OnItemChecked(object? arg)
+        {
+            if (arg is not CheckedItemModel<AddressItemModel> item) return;
+            SelectedCount = ItemSource?.Count(o => o.IsChecked) ?? 0;
         }
 
         /// <summary>
@@ -94,6 +121,7 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.CCTB
         {
             if (arg is not CheckedItemModel<AddressItemModel> item) return;
             item.IsChecked = false;
+            SelectedCount = ItemSource?.Count(o => o.IsChecked) ?? 0;
         }
 
         /// <summary>

@@ -95,31 +95,36 @@
                             Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
                     </uccc:PairContentControl>
                     <uccc:PairContentControl PairKeyText="&quot;是否开启FTP上传&quot;功能" Style="{StaticResource PPairContentControlStyle}">
-                        <DockPanel MinWidth="400" LastChildFill="True">
+                        <DockPanel MinWidth="400" LastChildFill="False">
                             <uccc:SimpleToggleButton
                                 d:IsChecked="True"
                                 IsChecked="{Binding ItemSource.IsUseFTPUpload, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 Style="{StaticResource ParamValueSimpleToggleButtonStyle}" />
-                            <uccc:ClickContentControl
+                            <Button
+                                Margin="10,0,0,0"
+                                Command="{Binding FtpConfigCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Content="FTP配置"
+                                Style="{StaticResource TextButtonStyle}" />
+                            <!--<uccc:ClickContentControl
                                 Margin="20,0,0,0"
                                 ClickCommand="{Binding FTPUploadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 ClickCommandParameter="{Binding FTPUploadDate, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 ClickContent="手动上传"
                                 Style="{StaticResource ParamClickContentControlStyle}">
                                 <DatePicker
-                                    HorizontalContentAlignment="Right"
+                                    HorizontalContentAlignment="Left"
                                     VerticalContentAlignment="Center"
                                     d:SelectedDate="2025/12/28"
                                     d:Text="2025/12/28"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    FlowDirection="RightToLeft"
+                                    FlowDirection="LeftToRight"
                                     FontFamily="Arial"
                                     FontSize="14"
                                     FontWeight="Regular"
                                     Foreground="#CCFFFFFF"
                                     SelectedDate="{Binding FTPUploadDate, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            </uccc:ClickContentControl>
+                            </uccc:ClickContentControl>-->
                         </DockPanel>
                     </uccc:PairContentControl>
                     <uccc:PairContentControl PairKeyText="泵速下发模式" Style="{StaticResource PPairContentControlStyle}">

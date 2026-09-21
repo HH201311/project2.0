@@ -7,6 +7,7 @@
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.JROH.BusinessDialogs"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:uc="clr-namespace:SUNWODA_SEVB.Component.UserControls.Project.JROH;assembly=SUNWODA_SEVB.Component"
     Width="Auto"
     Height="Auto"
     MinWidth="600"
@@ -63,14 +64,6 @@
                         <Setter Property="FontWeight" Value="Bold" />
                     </Trigger>
                 </Style.Triggers>
-            </Style>
-
-            <!--  参数组容器样式  -->
-            <Style TargetType="Border">
-                <Setter Property="CornerRadius" Value="10" />
-                <Setter Property="Background" Value="#0DFFFFFF" />
-                <Setter Property="Margin" Value="0,20,20,0" />
-                <Setter Property="Padding" Value="20" />
             </Style>
 
             <Style BasedOn="{StaticResource HCTabControlStyle}" TargetType="{x:Type hc:TabControl}">
@@ -245,6 +238,8 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" MinWidth="150" />
@@ -266,37 +261,58 @@
                         Grid.Row="1"
                         Grid.Column="0"
                         Style="{StaticResource RowHeaderTextBlockStyle}"
+                        Text="数据源监控根目录" />
+                    <UniformGrid Grid.Row="1" Grid.Column="1">
+                        <uc:FloderPicker
+                            Margin="10,0"
+                            d:FloderText="D:\MESDATA\12_张力数据-TensionData-ข้อมูลแรงตึง"
+                            FloderText="{Binding ItemSource.WatcherRootPath, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            FontSize="14"
+                            PickerContent="更改" />
+                    </UniformGrid>
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Style="{StaticResource RowHeaderTextBlockStyle}"
                         Text="方向修正系数" />
                     <UniformGrid
-                        Grid.Row="1"
+                        Grid.Row="2"
                         Grid.Column="1"
                         Columns="2">
                         <TextBox d:Text="1" Text="{Binding ItemSource.AdjustCorrectionOfPos, Mode=TwoWay}" />
                         <TextBox d:Text="-1" Text="{Binding ItemSource.AdjustCorrectionOfNeg, Mode=TwoWay}" />
                     </UniformGrid>
                     <TextBlock
-                        Grid.Row="2"
-                        Grid.Column="0"
-                        Style="{StaticResource RowHeaderTextBlockStyle}"
-                        Text="触发调节阈值" />
-                    <UniformGrid Grid.Row="2" Grid.Column="1">
-                        <TextBox d:Text="0.5" Text="{Binding ItemSource.K, Mode=TwoWay}" />
-                    </UniformGrid>
-                    <TextBlock
                         Grid.Row="3"
                         Grid.Column="0"
                         Style="{StaticResource RowHeaderTextBlockStyle}"
-                        Text="调整反馈值" />
+                        Text="数据采集周期" />
                     <UniformGrid Grid.Row="3" Grid.Column="1">
-                        <TextBox d:Text="0.05" Text="{Binding ItemSource.D, Mode=TwoWay}" />
+                        <TextBox d:Text="3" Text="{Binding ItemSource.T, Mode=TwoWay}" />
                     </UniformGrid>
                     <TextBlock
                         Grid.Row="4"
+                        Grid.Column="0"
+                        Style="{StaticResource RowHeaderTextBlockStyle}"
+                        Text="触发调节阈值" />
+                    <UniformGrid Grid.Row="4" Grid.Column="1">
+                        <TextBox d:Text="0.5" Text="{Binding ItemSource.K, Mode=TwoWay}" />
+                    </UniformGrid>
+                    <TextBlock
+                        Grid.Row="5"
+                        Grid.Column="0"
+                        Style="{StaticResource RowHeaderTextBlockStyle}"
+                        Text="调整反馈值" />
+                    <UniformGrid Grid.Row="5" Grid.Column="1">
+                        <TextBox d:Text="0.05" Text="{Binding ItemSource.D, Mode=TwoWay}" />
+                    </UniformGrid>
+                    <TextBlock
+                        Grid.Row="6"
                         Grid.Column="0"
                         Style="{StaticResource RowHeaderTextBlockStyle}"
                         Text="闭环功能开启按钮" />
                     <UniformGrid
-                        Grid.Row="4"
+                        Grid.Row="6"
                         Grid.Column="1"
                         Columns="2">
                         <ToggleButton

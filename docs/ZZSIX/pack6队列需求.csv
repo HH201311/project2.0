@@ -1,0 +1,13 @@
+队列名,相机名,盘,需求张数,对应窗
+FrontQueue,前,Y,4,前
+RearQueue,后,Y,4,后
+Bottom1Queue,底1,Y,6,底1
+Bottom2Queue,底2,Y,6,底2
+Bottom3Queue,底3,Y,6,底3
+Bottom4Queue,底4,Y,6,底4
+UpperLeftQueue,上左,Z,2,上左
+UpperRightQueue,上右,Z,2,上右
+LongLeft1Queue,长左1,Z,4,长左1
+LongLeft2Queue,长左2,Z,4,长左2
+LongRight1Queue,长右1,Z,4,长右1
+LongRight2Queue,长右2,Z,4,长右2

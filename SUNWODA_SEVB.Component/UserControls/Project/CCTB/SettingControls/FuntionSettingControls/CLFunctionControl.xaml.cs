@@ -127,6 +127,26 @@ namespace SUNWODA_SEVB.Component.UserControls.Project.CCTB.SettingControls.Funct
         }
         #endregion
 
+        #region 
+        public ICommand FtpConfigCommand
+        {
+            get { return (ICommand)GetValue(FtpConfigCommandProperty); }
+            set { SetValue(FtpConfigCommandProperty, value); }
+        }
+
+        public static readonly DependencyProperty FtpConfigCommandProperty = DependencyProperty.Register(
+            "FtpConfigCommand",
+            typeof(ICommand),
+            typeof(CLFunctionControl),
+            new PropertyMetadata(null, new PropertyChangedCallback(OnFtpConfigCommandChanged))
+        );
+
+        private static void OnFtpConfigCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var uc = d as CLFunctionControl;
+        }
+        #endregion
+
         #region RollNumPathVerifyCommand
         public ICommand RollNumPathVerifyCommand
         {

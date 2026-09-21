@@ -14,15 +14,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels
     {
         private DateTime calculateTime;
 
-        private bool isAdjustOfPos;
-        private int targetTotalWidthOfPos;
-        private int deltaW;
-        private int adjustValueOfPos;
+        private MCCalculateModel posInfeedModel = new();
+        private MCCalculateModel posProcess4Model = new();
+        private MCCalculateModel posProcess3Model = new();
+        private MCCalculateModel posProcess2Model = new();
+        private MCCalculateModel posProcess1Model = new();
+        private MCCalculateModel negInfeedModel = new();
+        private MCCalculateModel negProcess3Model = new();
+        private MCCalculateModel negProcess2Model = new();
+        private MCCalculateModel negProcess1Model = new();
+        private MCCalculateModel upperDiaphragmModel = new();
+        private MCCalculateModel lowerDiaphragmModel = new();
 
-        private bool isAdjustOfNeg;
-        private int targetTotalWidthOfNeg;
-        private int deltaL;
-        private int adjustValueOfNeg;
         private string endMessage = string.Empty;
 
         /// <summary>
@@ -30,48 +33,65 @@ namespace SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels
         /// </summary>
         public DateTime CalculateTime { get => calculateTime; set => SetProperty(ref calculateTime, value); }
 
-        #region 正极
+        #region 正极多级纠偏联动
         /// <summary>
-        /// 是否调机正极
+        /// 正极入料纠偏计算数据
         /// </summary>
-        public bool IsAdjustOfPos { get => isAdjustOfPos; set => SetProperty(ref isAdjustOfPos, value); }
+        public MCCalculateModel PosInfeedModel { get => posInfeedModel; set => SetProperty(ref posInfeedModel, value); }
 
         /// <summary>
-        /// 正极总宽目标值
+        /// 正极过程纠偏4计算数据
         /// </summary>
-        public int TargetTotalWidthOfPos { get => targetTotalWidthOfPos; set => SetProperty(ref targetTotalWidthOfPos, value); }
+        public MCCalculateModel PosProcess4Model { get => posProcess4Model; set => SetProperty(ref posProcess4Model, value); }
 
         /// <summary>
-        /// 正极宽度偏差值△W
+        /// 正极过程纠偏3计算数据
         /// </summary>
-        public int DeltaW { get => deltaW; set => SetProperty(ref deltaW, value); }
+        public MCCalculateModel PosProcess3Model { get => posProcess3Model; set => SetProperty(ref posProcess3Model, value); }
 
         /// <summary>
-        /// 调机量正极
+        /// 正极过程纠偏2计算数据
         /// </summary>
-        public int AdjustValueOfPos { get => adjustValueOfPos; set => SetProperty(ref adjustValueOfPos, value); }
+        public MCCalculateModel PosProcess2Model { get => posProcess2Model; set => SetProperty(ref posProcess2Model, value); }
+
+        /// <summary>
+        /// 正极过程纠偏1计算数据
+        /// </summary>
+        public MCCalculateModel PosProcess1Model { get => posProcess1Model; set => SetProperty(ref posProcess1Model, value); }
         #endregion
 
-        #region 负极
+        #region 负极多级纠偏联动
         /// <summary>
-        /// 是否调机负极
+        /// 负极入料纠偏计算数据
         /// </summary>
-        public bool IsAdjustOfNeg { get => isAdjustOfNeg; set => SetProperty(ref isAdjustOfNeg, value); }
+        public MCCalculateModel NegInfeedModel { get => negInfeedModel; set => SetProperty(ref negInfeedModel, value); }
 
         /// <summary>
-        /// 负极总宽目标值
+        /// 负极过程纠偏3计算数据
         /// </summary>
-        public int TargetTotalWidthOfNeg { get => targetTotalWidthOfNeg; set => SetProperty(ref targetTotalWidthOfNeg, value); }
+        public MCCalculateModel NegProcess3Model { get => negProcess3Model; set => SetProperty(ref negProcess3Model, value); }
 
         /// <summary>
-        /// 负极宽度偏差值△L
+        /// 负极过程纠偏2计算数据
         /// </summary>
-        public int DeltaL { get => deltaL; set => SetProperty(ref deltaL, value); }
+        public MCCalculateModel NegProcess2Model { get => negProcess2Model; set => SetProperty(ref negProcess2Model, value); }
 
         /// <summary>
-        /// 调机量负极
+        /// 负极过程纠偏1计算数据
         /// </summary>
-        public int AdjustValueOfNeg { get => adjustValueOfNeg; set => SetProperty(ref adjustValueOfNeg, value); }
+        public MCCalculateModel NegProcess1Model { get => negProcess1Model; set => SetProperty(ref negProcess1Model, value); }
+        #endregion
+
+        #region 隔膜多级纠偏联动
+        /// <summary>
+        /// 上隔膜过程纠偏计算数据
+        /// </summary>
+        public MCCalculateModel UpperDiaphragmModel { get => upperDiaphragmModel; set => SetProperty(ref upperDiaphragmModel, value); }
+
+        /// <summary>
+        /// 下隔膜过程纠偏计算数据
+        /// </summary>
+        public MCCalculateModel LowerDiaphragmModel { get => lowerDiaphragmModel; set => SetProperty(ref lowerDiaphragmModel, value); }
         #endregion
 
         /// <summary>

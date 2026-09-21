@@ -46,26 +46,26 @@
         <jrohuc:MultiCorrectPlot
             Title="周期内入料纠偏数据图"
             Grid.Column="0"
-            LineSeriesCollection="{Binding InputSeriesOfTop}"
+            LineSeries1Collection="{Binding InfeedOfPosSeries1}"
+            LineSeries2Collection="{Binding InfeedOfPosSeries2}"
             ShowGrid="True"
             ShowLegend="True"
-            TargetLine="{Binding TargetOfInput}"
             YAxisLabel="OH值 (mm)" />
         <jrohuc:MultiCorrectPlot
             Title="周期内过程纠偏数据图"
             Grid.Column="1"
-            LineSeriesCollection="{Binding CourseSeriesOfTop}"
+            LineSeries1Collection="{Binding InfeedOfPosSeries1}"
+            LineSeries2Collection="{Binding InfeedOfPosSeries2}"
             ShowGrid="True"
             ShowLegend="True"
-            TargetLine="{Binding TargetOfCourse}"
             YAxisLabel="OH值 (mm)" />
         <jrohuc:MultiCorrectPlot
             Title="周期内翻卷纠偏数据图"
             Grid.Column="2"
-            LineSeriesCollection="{Binding UnreelSeriesOfBottom}"
+            LineSeries1Collection="{Binding InfeedOfPosSeries1}"
+            LineSeries2Collection="{Binding InfeedOfPosSeries2}"
             ShowGrid="True"
             ShowLegend="True"
-            TargetLine="{Binding TargetOfUnreel}"
             YAxisLabel="OH值 (mm)" />
         <Grid
             Grid.Row="1"
@@ -90,13 +90,13 @@
             <!--  调机记录  -->
             <TabControl Grid.Row="1">
                 <TabItem Header="正极纠偏控制">
-                    <DataGrid ItemsSource="{Binding AdjustmentRecordsView}" />
+                    <DataGrid ItemsSource="{Binding PosRecordsView}" />
                 </TabItem>
                 <TabItem Header="负极纠偏控制">
-                    <DataGrid ItemsSource="{Binding AdjustmentRecordsView}" />
+                    <DataGrid ItemsSource="{Binding NegRecordsView}" />
                 </TabItem>
                 <TabItem Header="隔膜纠偏控制">
-                    <DataGrid ItemsSource="{Binding AdjustmentRecordsView}" />
+                    <DataGrid ItemsSource="{Binding DiaphragmRecordsView}" />
                 </TabItem>
             </TabControl>
         </Grid>

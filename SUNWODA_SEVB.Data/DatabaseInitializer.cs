@@ -263,6 +263,22 @@ namespace SUNWODA_SEVB.Data
                     IsEnable = true
                 }).ExecuteCommand();
             }
+
+            if (!_db.Queryable<PLCConfig>().Any(it => it.Name == "口琴管涂胶PLC"))
+            {
+                _db.Insertable(new PLCConfig
+                {
+                    Name = "口琴管涂胶PLC",
+                    DeviceID = 1,
+                    IP = "192.168.3.220",
+                    Port = 9600,
+                    BrandSpecificationProtocal = "Omron_Fins_TCP",
+                    CycleReadTime = 80,
+                    CycleWriteTime = 500,
+                    Remark = "BoxGluing NX102 Fins/TCP",
+                    IsEnable = true
+                }).ExecuteCommand();
+            }
             _logger.Info("PLC配置初始化完成");
         }
 

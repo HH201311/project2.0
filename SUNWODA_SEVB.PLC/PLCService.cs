@@ -58,6 +58,8 @@ namespace SUNWODA_SEVB.PLC
         public IReadOnlyDictionary<string, ConnectInfo> ConnectionStatus => _connectionStatus;
         public IReadOnlyDictionary<int, PLCRWAddress> RWAddresses => _rwAddresses;
 
+        public bool HasConnectedDevice => _plcs.Values.Any(p => p.IsConnect && p.Device is not null);
+
         private bool IsCycleReadPLC { get; set; }
 
         private bool IsCycleWritePLC { get; set; }
@@ -256,6 +258,72 @@ namespace SUNWODA_SEVB.PLC
                 return PLCs.Values.FirstOrDefault(o => o.Name == name);
             }
             return null;
+        }
+
+        /// <summary>
+        /// 解析涂胶业务优先使用的目标 PLC。
+        /// </summary>
+        private PLCDevice? ResolveTargetPlc()
+        {
+            var connected = _plcs.Values.Where(p => p.Device is not null).ToList();
+            if (connected.Count == 0)
+                return null;
+
+            var preferred = connected.FirstOrDefault(p =>
+                p.IsConnect
+                && (p.Name.Contains("涂胶", StringComparison.OrdinalIgnoreCase)
+                    || p.Name.Contains("BoxGluing", StringComparison.OrdinalIgnoreCase)));
+            if (preferred is not null)
+                return preferred;
+
+            return connected.FirstOrDefault(p => p.IsConnect) ?? connected[0];
+        }
+
+        public async Task<short[]?> ReadInt16BlockAsync(
+            string startAddress,
+            ushort length,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(startAddress) || length == 0)
+                return null;
+
+            var plc = ResolveTargetPlc();
+            if (plc?.Device is null)
+                return null;
+
+            try
+            {
+                if (!plc.IsConnect)
+                {
+                    var connect = await plc.Device.ConnectServerAsync();
+                    plc.IsConnect = connect.IsSuccess;
+                    if (!plc.IsConnect)
+                    {
+                        _logger.Warn($"PLC未连接，无法读取 {startAddress}: {connect.Message}", true);
+                        return null;
+                    }
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                var result = await plc.Device.ReadInt16Async(startAddress, length);
+                plc.IsConnect = result.IsSuccess;
+                if (!result.IsSuccess)
+                {
+                    _logger.Warn($"读取INT16失败 {startAddress}*{length}: {result.Message}", true);
+                    return null;
+                }
+
+                return result.Content;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"读取INT16异常 {startAddress}", ex, true);
+                return null;
+            }
         }
 
         /// <summary>

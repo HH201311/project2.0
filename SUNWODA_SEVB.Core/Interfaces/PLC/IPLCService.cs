@@ -37,5 +37,15 @@ namespace SUNWODA_SEVB.Core.Interfaces.PLC
         /// 根据地址 ID 获取关联的 PLC ID
         /// </summary>
         int? GetPLCIdForAddress(int addressId);
+
+        /// <summary>
+        /// 是否存在已建立连接的 PLC 设备。
+        /// </summary>
+        bool HasConnectedDevice { get; }
+
+        /// <summary>
+        /// 从指定地址起连续读取 INT16 字。未连接或失败时返回 null。
+        /// </summary>
+        Task<short[]?> ReadInt16BlockAsync(string startAddress, ushort length, CancellationToken cancellationToken = default);
     }
 }

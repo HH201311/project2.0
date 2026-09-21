@@ -1,0 +1,68 @@
+<Window
+    x:Class="SUNWODA_SEVB.Views.Pages.ZZSIX.Pack6OfflineTestWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="离线测试（单独调视觉 DLL）"
+    Width="520"
+    Height="360"
+    MinWidth="440"
+    MinHeight="300"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResizeWithGrip"
+    Background="#FFF5F8FC">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            FontSize="15"
+            FontWeight="SemiBold"
+            TextWrapping="Wrap"
+            Text="自动检测未启动时可选用本地图片，单独调用 ZZTWPack DLL 做白标签/铭牌识别。不会入队产线调度。" />
+
+        <TextBlock
+            Grid.Row="1"
+            Margin="0,10,0,8"
+            Foreground="#FF666666"
+            TextWrapping="Wrap"
+            Text="说明：强制真实 DLL（忽略「模拟检测」勾选）。结果刷新主界面对应预览窗。" />
+
+        <StackPanel Grid.Row="2" VerticalAlignment="Center">
+            <Button
+                Height="48"
+                Margin="0,0,0,12"
+                Background="#FF2F80ED"
+                Command="{Binding OfflineTestWhiteLabelCommand}"
+                Content="选图 · 前1 白标签（三码 OCR）"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Foreground="White" />
+            <Button
+                Height="48"
+                Margin="0,0,0,12"
+                Background="#FF27AE60"
+                Command="{Binding OfflineTestNameplateCommand}"
+                Content="选图 · 前3 铭牌（产品码 OCR）"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Foreground="White" />
+            <TextBlock
+                Foreground="#FF888888"
+                Text="{Binding OfflineTestStatus, Mode=OneWay}"
+                TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Button
+            Grid.Row="3"
+            Width="100"
+            Height="32"
+            HorizontalAlignment="Right"
+            Click="OnCloseClick"
+            Content="关闭" />
+    </Grid>
+</Window>

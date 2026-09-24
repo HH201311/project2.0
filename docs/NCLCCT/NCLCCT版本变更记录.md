@@ -6,6 +6,102 @@
 
 ---
 
+> **2026-09-24 变更（清空 tools 下独立探针工程）**  
+> 1. **背景**：`tools/` 内均为离线探针（切图/找点/NJCT 失败复现等），未进 `SUNWODA_SEVB.sln`，不影响主程序编译与现场运行。  
+> 2. **做法**：删除 `CutImgProbe`、`Vision3dPointsProbe`、`VisionNjctFailProbe`、`VisionTopViewVectorProbe`（此前已删 NCLCCT 探针与下载脚本）；保留空 `tools/` 目录。  
+> 3. **落点**：`tools/`。  
+
+> **2026-09-24 变更（清理 tools 下 NCLCCT 临时探针与下载脚本）**  
+> 1. **背景**：接入/排查期留下的探针与一键下载脚本已无保留必要。  
+> 2. **做法**：删除 `tools/CloudNjctCheck`、`CudaModelInitProbe`、`VisionNclcctActionProbe`、`VisionNclcctDump`、`DownloadNclcctNjctDll.ps1`、`一键下载NCLCCT_NJCT.bat`（及共享目录副本）。  
+> 3. **落点**：`tools/`。  
+
+> **2026-09-24 变更（去掉 D:\\TEST.png 启动自检写盘）**  
+> 1. **背景**：旧华为 DLL 曾硬编码写 `D:\TEST.png`；上位机用 `EnsureNjctTempPngWritable` 探针写 1 字节自检。云端新 `NChwSwdCT` 已改为内存转换，自检反而持续制造该文件。CTNCLX 无此逻辑，非小米迁移，是 2026-09-21 接华为时参照 CTAutoSlicer/探针加的。  
+> 2. **做法**：删除自检方法及调用。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包 `E:\共享文档\NCLCCT_去掉TEST自检_替换文件_20260924_1514.zip`。  
+
+> **2026-09-24 变更（结果图内容 75% + 底栏 25%，避免黑带压图）**  
+> 1. **背景**：内容曾缩 80%、底栏占 1/4，中间约 5% 重叠，黑带挡住标注。  
+> 2. **做法**：`contentScale` 改为 `0.75`，与 `bandH = H/4` 对齐。  
+> 3. **落点**：`VM_NCLCCTPage.GenerateHuaweiResultImage`；替换包 `E:\共享文档\NCLCCT_结果图75底栏_替换文件_20260924_1423.zip`（同内容英名 `NCLCCT_jieguotu75_tidailan_tihuan_20260924_1423.zip`）。  
+
+> **2026-09-24 变更（Gap 参数改参：侧边栏管理员权限）**  
+> 1. **背景**：Gap 标准/导出路径改参需管理员；用侧边栏用户中心，不另做密码框。  
+> 2. **做法**：读 `CurrentUserAccount` + `Users.RoleId`；`roleId≥Admin(2)`（含 admin/sadmin）且非连续检测才可改；订阅 `UserStateChangedEvent`。guest/工程师只读。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包 `E:\共享文档\NCLCCT_Gap改参管理员权限_替换文件_20260924_1147.zip`。  
+
+> **2026-09-24 变更（云端 DLL/ONNX：内存或临时加载，不留正式文件）**  
+> 1. **背景**：要求本地有则用本地（断网可跑）；无本地才下云端；云端资源加载后不落盘正式路径，防 DLL/模型暴露，重启再下。ORT 为路径 Session，Init 后删临时可能失败。  
+> 2. **做法**：DLL 云端 → `%TEMP%\nclcct_*.dll` → `Assembly.Load(bytes)` → 删临时；ONNX 云端 → `%TEMP%\nclcct_*.onnx` → `ModelInit` → 尽量删临时；删失败 Warn 日志。本地正式文件仍优先 `LoadFrom`/`ModelInit`。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包 `E:\共享文档\NCLCCT_云端不落盘_替换文件_20260924_1136.zip`。  
+
+> **2026-09-23 变更（恢复本地优先：缺失才下载 + 清临时文件）**  
+> 1. **背景**：曾改为每次强制重下；现场要求改回「有本地则加载本地，无本地才下云端」，且下载后不留 `.downloading`。  
+> 2. **做法**：DLL/ONNX 均 `File.Exists` 优先本地；缺失才 `.downloading`→正式文件；启动与 finally 清理临时文件。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包见 `E:\共享文档\NCLCCT_本地优先下载_替换文件_*.zip`。  
+
+> **2026-09-23 变更（加载遮罩隐晦文案）**  
+> 1. **背景**：操作员界面暴露「强制重新下载视觉模型 / model_hw.onnx / 已接收 MB」。  
+> 2. **做法**：遮罩改为「正在加载算法组件/文件/初始化算法环境」+ 百分比；详细文件名与云端信息仅写日志。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包见 `E:\共享文档\NCLCCT_加载文案隐晦_替换文件_*.zip`。  
+
+> **2026-09-23 变更（每次启动强制重下 DLL/模型）**  
+> 1. **背景**：现场要求重启即重新拉取云端算法/模型，不能长期沿用本机缓存。  
+> 2. **做法**：初始化始终 SysCenter 重下 `NJCT.dll` 与 `model_hw.onnx`；先写 `.downloading`，成功后再覆盖正式文件；失败且旧文件仍在则回退告警。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包见 `E:\共享文档\NCLCCT_每次启动强制重下_替换文件_*.zip`。  
+
+> **2026-09-23 变更（下载遮罩文案标明缺失资源）**  
+> 1. **背景**：进度文案被刷成笼统「正在下载…」，现场看不出缺 DLL 还是模型。  
+> 2. **做法**：遮罩固定写「本机缺失算法 DLL（NJCT.dll）/视觉模型（xxx.onnx），正在下载…」并带字节与百分比。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；替换包见 `E:\共享文档\NCLCCT_模型下载进度条_替换文件_*.zip`。  
+
+> **2026-09-23 变更（模型/DLL 下载进度条 + 取消 100s 超时）**  
+> 1. **背景**：本机缺 `model_hw.onnx` 时 SysCenter 分块下载易超默认 HttpClient 100s → `TaskCanceledException`；界面仅有「运行资源请求中」无进度。  
+> 2. **做法**：`Timeout=Infinite`；流式下载并上报已收字节/百分比；初始化遮罩改为文案+ProgressBar；模型先写 `.downloading` 再 Move；DLL/模型下载与 ModelInit 异步化，避免卡死 UI。  
+> 3. **落点**：`VM_NCLCCTPage.cs`、`NCLCCTPage.xaml`；替换包见 `E:\共享文档\NCLCCT_模型下载进度条_替换文件_*.zip`。  
+
+> **2026-09-23 变更（CSV 规格列 + 临时合并写 + NG 分仓）**  
+> 1. **背景**：CSV 需在 Gap 值后带规格上下限；Excel 打开时不丢行；NG 拆「超规检测NG / 图像异常NG」且目录为 `NG\子类`。  
+> 2. **做法**：表头追加 `Gap1~3_上限,Gap4~9_上限/下限,Gap10上限`（无 Gap1~3_下限）；去「点数」；先写 `.cache` 再经临时文件合并正式 CSV；归档 `...\NG\超规检测NG` / `...\NG\图像异常NG`。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；`E:\共享文档\NCLCCT_CSV规格与NG分仓_替换文件_20260923_0931.zip`。  
+
+> **2026-09-22 变更（导出目录对齐：原图/结果图按日+OK·NG·异常）**  
+> 1. **背景**：现场要求 `E:\IME检测结果\原图|结果图\{yyyyMMdd}\{OK|NG|检测异常}`，CSV 为 `结果图\{日期}\Gap检测结果.csv`；原先仍写 `汇总\` 且 E 盘未建（配置优先旧路径）。  
+> 2. **做法**：检测异常=推理失败或 RunInfo 非空；原图分仓、结果图 OK/NG；启动纠正空/盘符根/旧「检测结果」为 `E:\IME检测结果` 并建骨架。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；`E:\共享文档\NCLCCT_IME导出目录结构_替换文件_20260922_1054.zip`。  
+
+> **2026-09-22 变更（修复：缺 OpenCvSharp 导致 GetTypes 失败、模块数 0）**  
+> 1. **背景**：现场日志 `Could not load … OpenCvSharp` → `ModuleManager`/`DatabaseInitializer` 的 `GetTypes` 抛 `ReflectionTypeLoadException` →「总业务模块数: 0」侧边栏空。非 NCLCCT 业务逻辑删除依赖，而是扫描类型时遇缺 DLL 整段放弃。  
+> 2. **做法**：`GetLoadableTypes` 容错保留已加载类型；替换包补 `OpenCvSharp*.dll` + `opencv_world470.dll`。  
+> 3. **落点**：`ModuleManager.cs`、`DatabaseInitializer.cs`；`E:\共享文档\NCLCCT_侧边栏OpenCv容错_替换文件_20260922_0957.zip`。  
+
+> **2026-09-22 变更（修复：模块注册并发连库导致侧边栏空白）**  
+> 1. **背景**：替换后启动报 `SqlSugar … Cannot Open when State is Connecting`，侧边栏无模块。根因是 `ModuleManager` 对程序集 `Parallel.ForEach` + 同步 `GetIsEnabled` 共用连接；单次失败还拖垮整程序集注册。  
+> 2. **做法**：模块注册改为串行；单模块 try/catch；`MappingRepository` 同步查询统一 `CopyNew()`，无数据返回 null。  
+> 3. **落点**：`ModuleManager.cs`、`MappingRepository.cs`；规范 §5 SqlSugar 条；替换包 `E:\共享文档\NCLCCT_侧边栏连库修复_替换文件_20260922_0949.zip`（仅 SEVB+Data+Core）。  
+
+> **2026-09-22 变更（发包修正：最小包仅主程序+Core）**  
+> 1. **背景**：0937 整批覆盖 `SUNWODA_SEVB.*`（含 Data/Component 等）后侧边栏无界面；NCLCCT 本轮代码仅改 `VM_NCLCCTPage.cs`。  
+> 2. **做法**：说明多余程序集风险；重打最小包仅 `SUNWODA_SEVB` + `Core`；现场须先还原 0937 再只盖最小包。  
+> 3. **落点**：`E:\共享文档\NCLCCT_监控CSV导出补丁_最小替换_*.zip`。  
+
+> **2026-09-22 变更（发包修复：主 DLL 须与 Core 等同批）**  
+> 1. **背景**：第一版只替换 `SUNWODA_SEVB.dll`，现场旧 `Core` 无 `IZZSIXPack6ConfigService`，启动报 `Could not load type ... from assembly SUNWODA_SEVB.Core`。  
+> 2. **做法**：重打替换包，纳入主程序 + 全部 `SUNWODA_SEVB.*` dll/pdb（含 Core）同源覆盖；替换说明写明勿只换主 DLL。  
+> 3. **落点**：`E:\共享文档\NCLCCT_监控CSV导出补丁_替换文件_20260922_0937.zip`。  
+
+> **2026-09-22 变更（监控不丢图 + CSV Gap 明细 + 默认导出 E:\IME检测结果）**  
+> 1. **背景**：整夹（含子目录）复制进监控目录时仅检到少量图，并弹出 `InternalBufferOverflowException`；汇总 CSV 只有 OK/NG；结果默认落到源图旁「检测结果」。  
+> 2. **做法**：  
+>    - Watcher：`InternalBufferSize=64KB`；回调仅路径入队；`WaitFileReady` 移到检测线程；溢出后重启 Watcher + 监控根 `AllDirectories` 补扫入队。  
+>    - 导入文件夹改为递归子目录、轻量入队。  
+>    - 汇总 CSV 增加 Gap1~11(mm)、超限明细；同日旧表头自动改写 `*_gaps.csv`。  
+>    - 默认导出根 `E:\IME检测结果`（无则创建）；历史 `C:\`/盘符根启动时纠正。  
+>    - 审查沉淀：规范 §6.2 + 一键审查 §D + [案例-FileSystemWatcher缓冲溢出丢检.md](../仓库代码审查/案例-FileSystemWatcher缓冲溢出丢检.md)。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；现场替换包以 **0937** 版为准（含 Core；0932 仅主 DLL 会导致启动失败）。  
+> 4. **验证**：Debug 编译 0 error。  
+
 > **2026-09-21 变更（云端 DLL + Gap7 画线 + 间隙偏移）**  
 > 1. **云端**：本机无 `Dlls\NCLCCT\NJCT.dll` 时走 SysCenter（本地优先）；DLL 内存加载不落盘，模型缺则落盘。`appKey=nc_lixian_ct_hw`，`Dll/Model` 码分别为 `NC_LiXianCT_HW_Dll` / `NC_LiXianCT_HW_Model`；`CF.dll` 仍本机。架构说明见 [项目架构说明.md](../项目架构说明.md) §11.4。  
 > 2. **ModelAction**：适配新 DLL 9 参（去掉 `AllJianXiValue`）。  

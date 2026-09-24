@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -22,6 +23,8 @@ using SharpCompress.Common;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
+using SUNWODA_SEVB.Core.Enumerations;
+using SUNWODA_SEVB.Core.Events;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Core.Models.Data;
@@ -64,19 +67,47 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         /// <summary>云端模型编码（对应 390000[hw].onnx）。</summary>
         private const string DefaultHuaweiModelPythonCode = "NC_LiXianCT_HW_Model";
 
+        /// <summary>结果导出默认根目录（不存在则自动创建）。</summary>
+        private const string DefaultImeExportRoot = @"E:\IME检测结果";
+
+        private const string ExportFolderOrigin = "原图";
+        private const string ExportFolderResult = "结果图";
+        private const string ExportFolderOk = "OK";
+        private const string ExportFolderNg = "NG";
+        private const string ExportFolderNgSpec = "超规检测NG";
+        private const string ExportFolderNgImage = "图像异常NG";
+        private const string ExportCsvFileName = "Gap检测结果.csv";
+
+        /// <summary>汇总 CSV 固定写出 Gap1~Gap11 列。</summary>
+        private const int HuaweiCsvGapColumnCount = 11;
+
+        /// <summary>FileSystemWatcher 内部缓冲上限（字节）。</summary>
+        private const int WatcherInternalBufferBytes = 64 * 1024;
+
         private string? _visionDllDirectory;
         private bool _visionResolveHooked;
         private bool _cudaRuntimePathReady;
         private bool _halconNativePathReady;
         private readonly ILoggerService<VM_NCLCCTPage> _logger;
         private readonly IProjectSettingRepository _projectSettingRepository;
+        private readonly IGlobalSettingRepository _globalSettingRepository;
+        private readonly IUsersRepository _usersRepository;
         private readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
         private readonly HashSet<string> exts = new() { ".tif", ".png", ".jpg" };
         /// <summary>
         /// 监控文件夹仅处理文件名（不含扩展名）以该后缀结尾的图片，例如 manualA..._2-R_origin.png
         /// </summary>
         private const string MonitorImageNameSuffix = "R_origin";
-        private readonly HttpClient _httpClient = new HttpClient();
+        /// <summary>云端资源下载专用；超时关闭，由界面进度条反馈耗时下载。</summary>
+        private readonly HttpClient _httpClient = CreateCloudDownloadHttpClient();
+
+        private static HttpClient CreateCloudDownloadHttpClient()
+        {
+            var client = new HttpClient();
+            // 模型/DLL 可能数百 MB，禁用默认 100s 超时，避免中途 TaskCanceledException
+            client.Timeout = Timeout.InfiniteTimeSpan;
+            return client;
+        }
 
         //private readonly HttpHelper _httpHelper;
 
@@ -89,8 +120,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         private double okRate;
         private string? fileSelectInitDir = "C:\\";
         private string? imageMonitorPath = "C:\\";
-        private string? exportPath = "C:\\";
+        private string? exportPath = DefaultImeExportRoot;
         private bool isSaveAIEnhanceResult;
+        /// <summary>Watcher 溢出恢复中，避免 Error 风暴重复补扫。</summary>
+        private int _watcherRecovering;
         private double innerGapUpperLimit;
         private double innerGapLowerLimit;
         private double innerFiveMeanMeanUpperLimit;
@@ -128,7 +161,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         private readonly ConcurrentDictionary<string, byte> _processingFiles = new();
 
+        private readonly object _csvWriteLock = new();
+
         private bool isInitCompleted = false;
+        private bool isDownloadingResource;
+        private double downloadProgress;
+        private bool isDownloadProgressIndeterminate = true;
+        private string downloadStatusText = "正在准备运行资源，请稍候…";
+        /// <summary>遮罩用隐晦文案前缀（不暴露文件名/云端/强制下载）。</summary>
+        private string _downloadStatusHead = "正在准备运行资源";
+
+        private const string UiLoadDllText = "正在加载算法组件";
+        private const string UiLoadModelText = "正在加载算法文件";
+        private const string UiInitModelText = "正在初始化算法环境";
+        private const string UiIdlePrepareText = "正在准备运行资源，请稍候…";
 
         /// <summary>
         /// 是否连续检测
@@ -148,7 +194,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     SetProperty(ref isContinuousDetection, value);
                 }
                 IsEnableFileSelect = !value;
-                IsEnableSetGapLimit = !value;
+                RefreshGapParamEditPermission();
             }
         }
 
@@ -161,6 +207,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             set => SetProperty(ref isEnableFileSelect, value);
         }
 
+        /// <summary>
+        /// Gap 标准 / 导出路径等参数是否可改：须管理员或超管，且非连续检测中。
+        /// </summary>
         public bool IsEnableSetGapLimit
         {
             get => isEnableSetGapLimit;
@@ -612,6 +661,34 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             set => SetProperty(ref isInitCompleted, value);
         }
 
+        /// <summary>初始化阶段是否正在从 SysCenter 下载 DLL/模型。</summary>
+        public bool IsDownloadingResource
+        {
+            get => isDownloadingResource;
+            set => SetProperty(ref isDownloadingResource, value);
+        }
+
+        /// <summary>下载进度 0~100；未知总长时配合不定进度条。</summary>
+        public double DownloadProgress
+        {
+            get => downloadProgress;
+            set => SetProperty(ref downloadProgress, value);
+        }
+
+        /// <summary>无 Content-Length 时为 true（滚动条不定进度）。</summary>
+        public bool IsDownloadProgressIndeterminate
+        {
+            get => isDownloadProgressIndeterminate;
+            set => SetProperty(ref isDownloadProgressIndeterminate, value);
+        }
+
+        /// <summary>初始化遮罩文案（含下载进度说明）。</summary>
+        public string DownloadStatusText
+        {
+            get => downloadStatusText;
+            set => SetProperty(ref downloadStatusText, value);
+        }
+
         /// <summary>
         /// CT检测算法实例
         /// </summary>
@@ -753,12 +830,62 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         public VM_NCLCCTPage(
             ILoggerService<VM_NCLCCTPage> logger,
-            IProjectSettingRepository projectSettingRepository
+            IProjectSettingRepository projectSettingRepository,
+            IGlobalSettingRepository globalSettingRepository,
+            IUsersRepository usersRepository
         )
         {
             _logger = logger;
             _projectSettingRepository = projectSettingRepository;
+            _globalSettingRepository = globalSettingRepository;
+            _usersRepository = usersRepository;
             //_httpHelper = new HttpHelper();
+
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+            UserStateChangedEvent.OnUserStateChanged += OnUserStateChanged;
+            RefreshGapParamEditPermission();
+        }
+
+        /// <summary>侧边栏用户中心登录/退出时刷新 Gap 参数可编辑性。</summary>
+        private void OnUserStateChanged(string userAccount)
+        {
+            _logger.Info($"[NCLCCT权限] 用户状态变更: {userAccount}");
+            RefreshGapParamEditPermission();
+        }
+
+        /// <summary>
+        /// Gap 标准等：管理员(role≥Admin)或超管可改；guest/工程师只读。
+        /// 连续检测开启时一律不可改（与原先一致）。
+        /// </summary>
+        private void RefreshGapParamEditPermission()
+        {
+            try
+            {
+                var account =
+                    _globalSettingRepository.GetByName("CurrentUserAccount")?.Value?.ToString()
+                    ?? "guest";
+                if (string.IsNullOrWhiteSpace(account))
+                    account = "guest";
+                var roleId = _usersRepository.GetByUserAccount(account)?.RoleId ?? 0;
+                // DB：guest=0 engineer=1 admin=2 sadmin=3；枚举 Admin=2 SuperAdmin=4。用 ≥Admin 覆盖 2/3。
+                var isAdminOrAbove = roleId >= (int)UserRole.Admin;
+                var canEdit = isAdminOrAbove && !IsContinuousDetection;
+                IsEnableSetGapLimit = canEdit;
+                _logger.Info(
+                    $"[NCLCCT权限] 账号={account}, roleId={roleId}, 连续检测={IsContinuousDetection}, Gap可改={canEdit}"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"[NCLCCT权限] 刷新失败，降级为不可改: {ex.Message}");
+                IsEnableSetGapLimit = false;
+            }
+        }
+
+        protected override async Task OnCleanupAsync()
+        {
+            UserStateChangedEvent.OnUserStateChanged -= OnUserStateChanged;
+            await base.OnCleanupAsync();
         }
 
         /// <summary>
@@ -973,6 +1100,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 );
                 ExportPath = _exportPath;
             }
+
+            // 历史默认 C:\ / 盘符根不可写：纠正为 E:\IME检测结果
+            NormalizeExportPathIfNeeded();
 
             if (
                 !_projectSettingRepository.Exists(model =>
@@ -1718,15 +1848,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             // 南昌华为视觉依赖 Halcon 原生库：halcon.dll 在输出目录 Dlls\，须先加入 DLL 搜索路径
             // （否则 P/Invoke LoadLibrary("halcon") 只搜 exe 目录会报 0x8007007E）
             EnsureHalconNativeRuntimePath();
-            // NJCT 内部硬编码 OpenCV imwrite("D:\\TEST.png")；不可写时会被吞成「当前图像暂不支持检测」
-            EnsureNjctTempPngWritable();
 
             // 南昌华为视觉：NJCT.NChwSwdCT
-            // 加载策略：本地 Dlls\NCLCCT\NJCT.dll 优先；不存在则 RSA 签名请求 SysCenter 云端
+            // 加载策略：本地 Dlls\NCLCCT\NJCT.dll / model 优先；缺失则云端下载后内存/临时加载且不落盘正式文件
             // ModelInit(string, ref IPredictor, ref string, bool)
             // ModelAction 9 参（新 DLL 已去掉 AllJianXiValue）
             _logger.Info("开始加载南昌华为视觉 DLL / 模型");
-            var assembly = TryLoadVisionAssembly(
+            var assembly = await TryLoadVisionAssemblyAsync(
                 AlgorithmDllName,
                 PublicKey,
                 AppKey,
@@ -1736,7 +1864,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             {
                 _logger.Info("算法 dll 加载失败，启用备用 url 重试");
                 NCLCCTDLLDownloadUrl = NCLCCTDLLDownloadBackupUrl;
-                assembly = TryLoadVisionAssembly(
+                assembly = await TryLoadVisionAssemblyAsync(
                     AlgorithmDllName,
                     PublicKey,
                     AppKey,
@@ -1745,7 +1873,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             }
             if (assembly != null)
             {
-                TryInitVisionModel(assembly);
+                await TryInitVisionModelAsync(assembly);
             }
             else
             {
@@ -1769,6 +1897,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
                             try
                             {
+                                if (string.IsNullOrEmpty(imagePath))
+                                    continue;
+
+                                // 文件就绪检查放在消费线程，避免阻塞 FileSystemWatcher 回调
+                                if (!WaitFileReady(imagePath))
+                                {
+                                    _logger.Info($"图片未写入完成，跳过：{imagePath}");
+                                    continue;
+                                }
+
                                 GapDetection(imagePath);
                             }
                             catch (Exception ex)
@@ -1799,6 +1937,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             GapDetectionThread.Start();
 
             IsInitCompleted = true;
+            RefreshGapParamEditPermission();
             //base.OnInitialize();
             await base.OnInitializeAsync();
         }
@@ -1889,48 +2028,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
             if (result == true)
             {
+                var folder = folderDialog.FolderName;
                 Task.Run(() =>
                 {
                     try
                     {
-                        _semaphore.Wait();
-                        var files = Directory
-                            .EnumerateFiles(
-                                folderDialog.FolderName,
-                                "*.*",
-                                SearchOption.TopDirectoryOnly
-                            )
-                            .Where(file =>
-                                exts.Contains(Path.GetExtension(file).ToLower())
-                                && IsMonitorTargetImageName(file)
-                            );
-
-                        foreach (var filePath in files)
-                        {
-                            if (!_processingFiles.TryAdd(filePath, 0))
-                                continue;
-
-                            using Mat im = Cv2.ImRead(filePath);
-
-                            if (im.Empty())
-                            {
-                                _processingFiles.TryRemove(filePath, out _);
-                                _logger.Info($"图片读取为空：{filePath}");
-                                continue;
-                            }
-
-                            // 不做尺寸限制，仅按文件名 R_origin 过滤
-                                ImagePathQueue!.Enqueue(filePath);
-                            _logger.Info($"图片入队：{filePath}（{im.Width}*{im.Height}）");
-                        }
+                        // 递归含子目录；仅入队，不做读图（与监控回调一致，避免长时间占锁）
+                        var count = ScanAndEnqueueImages(folder, SearchOption.AllDirectories);
+                        _logger.Info($"文件夹导入完成，入队 {count} 张：{folder}");
                     }
                     catch (Exception ex)
                     {
                         _logger.Error("检测错误", ex);
-                    }
-                    finally
-                    {
-                        _semaphore.Release();
                     }
                 });
             }
@@ -1991,10 +2100,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 ImageMonitorPath = "C:\\";
             }
             ImageFileSystemWatcher.Path = ImageMonitorPath!;
+            ImageFileSystemWatcher.NotifyFilter =
+                NotifyFilters.FileName
+                | NotifyFilters.DirectoryName
+                | NotifyFilters.LastWrite
+                | NotifyFilters.CreationTime;
+            // 默认约 8KB，整夹复制易 InternalBufferOverflow；拉到上限 64KB
+            ImageFileSystemWatcher.InternalBufferSize = WatcherInternalBufferBytes;
             ImageFileSystemWatcher.Created += OnCreated;
             ImageFileSystemWatcher.Renamed += OnRenamed;
             ImageFileSystemWatcher.Error += OnError;
-            // 仅通知 *R_origin.* 文件名；HandleFile 内再校验扩展名与精确后缀
+            // 仅通知 *R_origin.* 文件名；入队前再校验扩展名与精确后缀
             ImageFileSystemWatcher.Filter = $"*{MonitorImageNameSuffix}.*";
             // 监控子目录的变化
             ImageFileSystemWatcher.IncludeSubdirectories = true;
@@ -2014,9 +2130,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         private void OnError(object sender, ErrorEventArgs e)
         {
-            _logger.Error("监控文件夹出现错误", e.GetException());
-            Growl.ErrorGlobal($"监控文件夹出现错误：{e.GetException()}");
-            ;
+            var ex = e.GetException();
+            _logger.Error("监控文件夹出现错误", ex);
+            Growl.ErrorGlobal($"监控文件夹出现错误：{ex}");
+
+            // 缓冲溢出后事件已丢：重启 Watcher 并对监控根做一次全量补扫入队
+            if (ex is InternalBufferOverflowException)
+            {
+                _ = Task.Run(RecoverWatcherAfterBufferOverflow);
+            }
         }
 
         /// <summary>
@@ -2032,102 +2154,126 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             }
         }
 
-        //private void OnCreated(object source, FileSystemEventArgs e)
-        //{
-        //    try
-        //    {
-        //        if (File.Exists(e.FullPath))
-        //        {
-        //            if (exts.Contains(Path.GetExtension(e.FullPath).ToLower()))
-        //            {
-        //                Thread.Sleep(100);
-        //                //HOperatorSet.ReadImage(out HObject aaimg, e.FullPath);
-        //                //HOperatorSet.GetImageSize(aaimg, out HTuple width, out HTuple height);
-        //                //if (width.D == 1950 && height.D <= 1000)
-        //                Mat im = Cv2.ImRead(e.FullPath);
-        //                if (im.Width == 1950 && im.Height <= 1000)
-        //                {
-        //                    ImagePathQueue!.Enqueue(e.FullPath);
-        //                    _logger.Info($"图片入队：{e.FullPath}");
-        //                }
-        //                //aaimg.Dispose();
-        //                //width.Dispose();
-        //                //height.Dispose();
-        //                im.Dispose();
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.Error($"图片 {e.FullPath} 入队异常", ex);
-        //    }
-        //}
-
         private void OnCreated(object sender, FileSystemEventArgs e)
         {
-            HandleFile(e.FullPath);
+            // 回调必须极轻：只入队，禁止 Sleep / 等文件 / 读图
+            TryEnqueueMonitorImage(e.FullPath);
         }
 
         private void OnRenamed(object sender, RenamedEventArgs e)
         {
-            HandleFile(e.FullPath);
+            TryEnqueueMonitorImage(e.FullPath);
         }
 
-        private void HandleFile(string filePath)
+        /// <summary>
+        /// Watcher 回调入队：仅路径校验 + 去重入队，立即返回。
+        /// </summary>
+        private void TryEnqueueMonitorImage(string? filePath)
         {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return;
+
             try
             {
-                if (!File.Exists(filePath))
-                {
-                    _logger.Info($"图片不存在：{filePath}");
-                    return;
-                }
-
-                // 监控仅处理 *R_origin.*（如 manualA20260911101229_2-R_origin.png）
                 if (!IsMonitorTargetImageName(filePath))
-                {
-                    _logger.Info($"非 R_origin 图片，跳过监控：{filePath}");
                     return;
-                }
 
-                string ext = Path.GetExtension(filePath).ToLower();
-
+                string ext = Path.GetExtension(filePath).ToLowerInvariant();
                 if (!exts.Contains(ext))
-                {
-                    _logger.Info($"图片格式不支持：{filePath}");
                     return;
-                }
 
                 if (!_processingFiles.TryAdd(filePath, 0))
                     return;
 
-                Thread.Sleep(100);
-
-                if (!WaitFileReady(filePath))
-                {
-                    _processingFiles.TryRemove(filePath, out _);
-                    _logger.Info($"图片未写入完成：{filePath}");
-                    return;
-                }
-
-                using Mat im = Cv2.ImRead(filePath);
-
-                if (im.Empty())
-                {
-                    _processingFiles.TryRemove(filePath, out _);
-                    _logger.Info($"图片读取为空：{filePath}");
-                    return;
-                }
-
-                // 不做尺寸限制，仅按文件名 R_origin 过滤（上方已校验）
-                    ImagePathQueue!.Enqueue(filePath);
-                _logger.Info($"图片入队：{filePath}（{im.Width}*{im.Height}）");
+                ImagePathQueue!.Enqueue(filePath);
+                _logger.Info($"图片入队：{filePath}");
             }
             catch (Exception ex)
             {
-                _processingFiles.TryRemove(filePath, out _);
-
+                _processingFiles.TryRemove(filePath!, out _);
                 _logger.Error($"图片 {filePath} 入队异常", ex);
+            }
+        }
+
+        /// <summary>
+        /// 递归扫描目录，将符合规则的图片入队（去重）。返回新入队数量。
+        /// </summary>
+        private int ScanAndEnqueueImages(string? root, SearchOption searchOption)
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+                return 0;
+
+            var count = 0;
+            foreach (
+                var filePath in Directory.EnumerateFiles(root, "*.*", searchOption)
+            )
+            {
+                if (!IsMonitorTargetImageName(filePath))
+                    continue;
+                string ext = Path.GetExtension(filePath).ToLowerInvariant();
+                if (!exts.Contains(ext))
+                    continue;
+                if (!_processingFiles.TryAdd(filePath, 0))
+                    continue;
+
+                ImagePathQueue!.Enqueue(filePath);
+                count++;
+                _logger.Info($"图片入队：{filePath}");
+            }
+
+            return count;
+        }
+
+        private void RecoverWatcherAfterBufferOverflow()
+        {
+            if (Interlocked.CompareExchange(ref _watcherRecovering, 1, 0) != 0)
+                return;
+
+            try
+            {
+                // 稍等复制高峰过去再重启 + 补扫
+                Thread.Sleep(300);
+                var wasEnabled =
+                    IsContinuousDetection
+                    || (ImageFileSystemWatcher?.EnableRaisingEvents ?? false);
+
+                try
+                {
+                    if (ImageFileSystemWatcher != null)
+                    {
+                        ImageFileSystemWatcher.EnableRaisingEvents = false;
+                        ImageFileSystemWatcher.Created -= OnCreated;
+                        ImageFileSystemWatcher.Renamed -= OnRenamed;
+                        ImageFileSystemWatcher.Error -= OnError;
+                        ImageFileSystemWatcher.Dispose();
+                        ImageFileSystemWatcher = null;
+                    }
+                }
+                catch (Exception disposeEx)
+                {
+                    _logger.Warn($"重启 Watcher 释放异常: {disposeEx.Message}");
+                }
+
+                WatchImageFileFolder();
+                if (wasEnabled)
+                    SwitchWatchImageFileFolder(true);
+
+                var scanned = ScanAndEnqueueImages(
+                    ImageMonitorPath,
+                    SearchOption.AllDirectories
+                );
+                _logger.Info(
+                    $"Watcher 缓冲溢出已恢复，补扫入队 {scanned} 张：{ImageMonitorPath}"
+                );
+                Growl.InfoGlobal($"监控缓冲溢出已恢复，补扫入队 {scanned} 张");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Watcher 溢出恢复失败", ex);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _watcherRecovering, 0);
             }
         }
 
@@ -3696,87 +3842,337 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         /// <returns></returns>
         /// <summary>
         /// 解析可写的结果导出根目录。
-        /// 优先用界面配置的 ExportPath（且非盘符根目录）；否则落到源图旁「检测结果」。
+        /// 空/盘符根 → 强制 E:\IME检测结果；否则用界面 ExportPath。
         /// </summary>
         private string ResolveWritableExportRoot(string? sourceImageDirectory)
         {
-            static bool IsDriveRoot(string path)
+            string root;
+            if (
+                !string.IsNullOrWhiteSpace(ExportPath)
+                && !IsDriveRootPath(ExportPath)
+            )
+            {
+                root = Path.GetFullPath(ExportPath);
+            }
+            else
+            {
+                root = Path.GetFullPath(DefaultImeExportRoot);
+                ExportPath = DefaultImeExportRoot;
+                _logger.Info($"导出路径未配置或为盘符根目录，已改用: {DefaultImeExportRoot}");
+            }
+
+            EnsureImeExportSkeleton(root);
+            return root;
+        }
+
+        /// <summary>历史 C:\ / 盘符根 / 旧「检测结果」纠正为 E:\IME检测结果，并确保目录骨架存在。</summary>
+        private void NormalizeExportPathIfNeeded()
+        {
+            var needDefault =
+                string.IsNullOrWhiteSpace(exportPath)
+                || IsDriveRootPath(exportPath)
+                || IsLegacySideDetectionResultPath(exportPath);
+
+            if (needDefault)
+            {
+                ExportPath = DefaultImeExportRoot;
+                EnsureImeExportSkeleton(DefaultImeExportRoot);
+                return;
+            }
+
+            EnsureImeExportSkeleton(exportPath);
+        }
+
+        /// <summary>旧版「源图旁\检测结果」或未带 IME 前缀的路径，视为需纠正的默认。</summary>
+        private static bool IsLegacySideDetectionResultPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return true;
+            try
+            {
+                var name = Path.GetFileName(
+                    Path.GetFullPath(path)
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                );
+                // 仅当文件夹名恰好是「检测结果」且不是「IME检测结果」时纠正
+                return string.Equals(name, "检测结果", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>确保 IME 导出根及原图/结果图骨架存在。</summary>
+        private void EnsureImeExportSkeleton(string? exportRoot)
+        {
+            if (string.IsNullOrWhiteSpace(exportRoot))
+                return;
+
+            try
+            {
+                EnsureDirectoryExists(exportRoot);
+                EnsureDirectoryExists(Path.Combine(exportRoot, ExportFolderOrigin));
+                EnsureDirectoryExists(Path.Combine(exportRoot, ExportFolderResult));
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"创建导出目录失败 [{exportRoot}]: {ex.Message}");
+            }
+        }
+
+        /// <summary>按日期确保 原图/结果图 下 OK 与 NG\超规|图像异常 子目录。</summary>
+        private void EnsureImeDateFolders(string exportRoot, string dateYmd)
+        {
+            var originDate = Path.Combine(exportRoot, ExportFolderOrigin, dateYmd);
+            var resultDate = Path.Combine(exportRoot, ExportFolderResult, dateYmd);
+            foreach (
+                var sub in new[]
+                {
+                    Path.Combine(originDate, ExportFolderOk),
+                    Path.Combine(originDate, ExportFolderNg, ExportFolderNgSpec),
+                    Path.Combine(originDate, ExportFolderNg, ExportFolderNgImage),
+                    Path.Combine(resultDate, ExportFolderOk),
+                    Path.Combine(resultDate, ExportFolderNg, ExportFolderNgSpec),
+                    Path.Combine(resultDate, ExportFolderNg, ExportFolderNgImage),
+                }
+            )
+            {
+                EnsureDirectoryExists(sub);
+            }
+        }
+
+        private static bool IsDriveRootPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return true;
+            try
+            {
+                var full = Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var root = Path.GetPathRoot(full)
+                    ?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return !string.IsNullOrEmpty(root)
+                    && string.Equals(full, root, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private static void EnsureDirectoryExists(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+        }
+
+        /// <summary>
+        /// 归档相对目录：OK / NG\超规检测NG / NG\图像异常NG
+        /// </summary>
+        private static string ResolveArchiveRelativeDir(bool isImageExceptionNg, bool isOk)
+        {
+            if (isOk)
+                return ExportFolderOk;
+            if (isImageExceptionNg)
+                return Path.Combine(ExportFolderNg, ExportFolderNgImage);
+            return Path.Combine(ExportFolderNg, ExportFolderNgSpec);
+        }
+
+        /// <summary>
+        /// 结果图：{根}\结果图\{yyyyMMdd}\{OK|NG\超规|NG\图像}\{名}_result.png
+        /// </summary>
+        private string BuildResultImageOutputPath(
+            string exportRoot,
+            string dateYmd,
+            string archiveRelativeDir,
+            string? sourceImageFilePath
+        )
+        {
+            var nameWithoutExt = Path.GetFileNameWithoutExtension(sourceImageFilePath);
+            var dir = Path.Combine(exportRoot, ExportFolderResult, dateYmd, archiveRelativeDir);
+            EnsureDirectoryExists(dir);
+            return Path.Combine(dir, $"{nameWithoutExt}_result.png");
+        }
+
+        /// <summary>原图：{根}\原图\{yyyyMMdd}\{OK|NG\超规|NG\图像}\{原文件名}</summary>
+        private string BuildOriginImageArchivePath(
+            string exportRoot,
+            string dateYmd,
+            string archiveRelativeDir,
+            string? sourceImageFilePath
+        )
+        {
+            var dir = Path.Combine(exportRoot, ExportFolderOrigin, dateYmd, archiveRelativeDir);
+            EnsureDirectoryExists(dir);
+            return Path.Combine(dir, Path.GetFileName(sourceImageFilePath)!);
+        }
+
+        private string BuildGapCsvHeader()
+        {
+            var header = new StringBuilder("时间,文件名,结果");
+            for (int g = 1; g <= HuaweiCsvGapColumnCount; g++)
+                header.Append($",Gap{g}");
+            // Gap1~3 无下限，不写该列；Gap4~9 规格取代码 Gap4~6 管控
+            header.Append(",Gap1~3_上限,Gap4~9_上限,Gap4~9_下限,Gap10上限");
+            header.Append(",超限明细,RunInfo,结果图,原图归档");
+            return header.ToString();
+        }
+
+        private string BuildGapCsvDataLine(
+            string fileName,
+            string resultCode,
+            double[] gapMms,
+            string gapFailDetail,
+            string? runInfo,
+            string outputPath,
+            string originArchivePath
+        )
+        {
+            var safeInfo = (runInfo ?? string.Empty).Replace("\"", "''");
+            var safeFail = (gapFailDetail ?? string.Empty).Replace("\"", "''");
+            var line = new StringBuilder();
+            line.Append($"{DateTime.Now:yyyy-MM-dd HH:mm:ss},{fileName},{resultCode}");
+            for (int g = 0; g < HuaweiCsvGapColumnCount; g++)
+            {
+                line.Append(',');
+                if (g < gapMms.Length)
+                    line.Append(gapMms[g].ToString("F3"));
+            }
+            line.Append(
+                $",{HuaweiNorm3UpperMm:F3},{HuaweiNorm2MeanUpperMm:F3},{HuaweiNorm2LowerMm:F3},{HuaweiNorm1UpperMm:F3}"
+            );
+            line.Append(
+                $",\"{safeFail}\",\"{safeInfo}\",{outputPath},{originArchivePath}"
+            );
+            return line.ToString();
+        }
+
+        /// <summary>
+        /// 先写入 .cache，再经临时文件合并进正式 CSV；Excel 占用时不丢行。
+        /// </summary>
+        private void AppendGapCsvWithTempMerge(string csvPath, string dataLine)
+        {
+            var cachePath = csvPath + ".cache";
+            lock (_csvWriteLock)
             {
                 try
                 {
-                    var full = Path.GetFullPath(path)
-                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    var root = Path.GetPathRoot(full)
-                        ?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    return !string.IsNullOrEmpty(root)
-                        && string.Equals(full, root, StringComparison.OrdinalIgnoreCase);
+                    File.AppendAllText(cachePath, dataLine + Environment.NewLine, Utf8Bom);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"写 CSV 缓存失败: {ex.Message}");
+                    return;
+                }
+
+                if (!TryFlushGapCsvCache(csvPath, cachePath))
+                {
+                    _logger.Warn(
+                        $"正式 CSV 暂不可写（可能被 Excel 打开），行已保留在缓存: {cachePath}"
+                    );
+                }
+            }
+        }
+
+        private bool TryFlushGapCsvCache(string csvPath, string cachePath)
+        {
+            if (!File.Exists(cachePath))
+                return true;
+
+            try
+            {
+                var cacheBytes = File.ReadAllBytes(cachePath);
+                if (cacheBytes.Length == 0)
+                {
+                    File.Delete(cachePath);
+                    return true;
+                }
+
+                var needHeader = !File.Exists(csvPath);
+                var tempPath = csvPath + $".tmp.{Guid.NewGuid():N}";
+                using (
+                    var fs = new FileStream(
+                        tempPath,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None
+                    )
+                )
+                using (var sw = new StreamWriter(fs, Utf8Bom))
+                {
+                    if (needHeader)
+                        sw.WriteLine(BuildGapCsvHeader());
+                    sw.Flush();
+                    fs.Write(cacheBytes, 0, cacheBytes.Length);
+                }
+
+                if (needHeader)
+                {
+                    File.Move(tempPath, csvPath, overwrite: true);
+                }
+                else
+                {
+                    using (
+                        var dst = new FileStream(
+                            csvPath,
+                            FileMode.Append,
+                            FileAccess.Write,
+                            FileShare.Read
+                        )
+                    )
+                    using (
+                        var src = new FileStream(
+                            tempPath,
+                            FileMode.Open,
+                            FileAccess.Read,
+                            FileShare.Read
+                        )
+                    )
+                    {
+                        src.CopyTo(dst);
+                    }
+                    try
+                    {
+                        File.Delete(tempPath);
+                    }
+                    catch
+                    {
+                        /* ignore */
+                    }
+                }
+
+                File.Delete(cachePath);
+                return true;
+            }
+            catch (IOException)
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(csvPath);
+                    if (!string.IsNullOrEmpty(dir))
+                    {
+                        foreach (
+                            var f in Directory.GetFiles(
+                                dir,
+                                Path.GetFileName(csvPath) + ".tmp.*"
+                            )
+                        )
+                            File.Delete(f);
+                    }
                 }
                 catch
                 {
-                    return false;
+                    /* ignore */
                 }
+                return false;
             }
-
-            if (
-                !string.IsNullOrWhiteSpace(ExportPath)
-                && !IsDriveRoot(ExportPath)
-            )
+            catch (UnauthorizedAccessException)
             {
-                return Path.GetFullPath(ExportPath);
+                return false;
             }
-
-            var fallbackParent = !string.IsNullOrWhiteSpace(sourceImageDirectory)
-                ? sourceImageDirectory!
-                : Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                    "NCLCCT"
-                );
-            var fallback = Path.Combine(fallbackParent, "检测结果");
-            if (string.IsNullOrWhiteSpace(ExportPath) || IsDriveRoot(ExportPath))
-            {
-                ExportPath = fallback;
-                _logger.Info($"导出路径未配置或为盘符根目录，已改用: {fallback}");
-            }
-            return Path.GetFullPath(fallback);
-        }
-
-        private string BuildOutputPath(string? baseOutputDir, string? sourceImageFilePath)
-        {
-            var nameWithoutExt = Path.GetFileNameWithoutExtension(sourceImageFilePath);
-            //var ext = Path.GetExtension(sourceImageFilePath); // tif格式太大
-            var ext = ".png";
-            //var ext = ".jpg"; // jpg太模糊
-
-            string relativeDir = string.Empty;
-            if (IsContinuousDetection)
-            {
-                var sourceFullPath = Path.GetFullPath(sourceImageFilePath!);
-                var relativePath = Path.GetRelativePath(ImageMonitorPath!, sourceFullPath);
-                var parts = relativePath
-                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .ToList();
-                var relativeDirParts = parts.Take(parts.Count - 1).ToArray();
-
-                relativeDir = Path.Combine(relativeDirParts);
-            }
-            baseOutputDir = string.IsNullOrWhiteSpace(relativeDir)
-                ? baseOutputDir
-                : Path.Combine(baseOutputDir!, relativeDir);
-
-            var outputFileName = $"{nameWithoutExt}_result{ext}";
-
-            if (string.IsNullOrEmpty(baseOutputDir))
-            {
-                var sourceDir = Path.GetDirectoryName(sourceImageFilePath) ?? ".";
-                return Path.Combine(sourceDir, outputFileName);
-            }
-
-            if (!Directory.Exists(baseOutputDir))
-            {
-                Directory.CreateDirectory(baseOutputDir);
-            }
-
-            return Path.Combine(baseOutputDir, outputFileName);
         }
 
         /// <summary>
@@ -3854,12 +4250,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     _logger.Info($"检测图片 [{imageFilePath}] 算法调用信息：{RunInfo}");
                 }
 
-                // 导出目录：禁止默认落到 C:\ 根目录（无管理员权限会 WriteImage #3142 / Access Denied）
+                // 导出：原图|结果图\{yyyyMMdd}\OK 或 NG\超规检测NG|图像异常NG
                 var exportRoot = ResolveWritableExportRoot(fileInfo.DirectoryName);
-                if (!Directory.Exists(exportRoot))
-                    Directory.CreateDirectory(exportRoot);
+                var dateYmd = DateTime.Now.ToString("yyyyMMdd");
+                EnsureImeDateFolders(exportRoot, dateYmd);
+                var csvPath = Path.Combine(
+                    exportRoot,
+                    ExportFolderResult,
+                    dateYmd,
+                    ExportCsvFileName
+                );
+                // 顺带刷入被 Excel 占用留下的 CSV 缓存
+                lock (_csvWriteLock)
+                {
+                    TryFlushGapCsvCache(csvPath, csvPath + ".cache");
+                }
 
-                var outputPath = BuildOutputPath(exportRoot, imageFilePath);
                 var alignPoints = ExtractPointsFromRegions(AllPointRegion);
                 var gapsOk = EvaluateHuaweiGapsOk(
                     AllPrintfValue,
@@ -3867,15 +4273,29 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     AllRegionCol,
                     out var gapFailDetail
                 );
-                // OK：DLL 无报错 且 Gap1~10 均在规格内
-                LastImageIsOK = string.IsNullOrEmpty(RunInfo) && gapsOk;
-                var resultCode = LastImageIsOK ? "OK" : "NG";
-                if (!gapsOk)
-                    _logger.Info($"[Gap规格判定] NG：{gapFailDetail}");
-                // 注意：Gap 超限不写入 RunInfo，否则结果图会走错误顶栏而跳过底栏测量显示
+                // 图像异常NG：推理失败或算法 RunInfo 非空；超规检测NG：Gap 不在管控范围
+                var isImageExceptionNg = !visionInvoked || !string.IsNullOrEmpty(RunInfo);
+                LastImageIsOK = !isImageExceptionNg && gapsOk;
+                var resultCode = LastImageIsOK
+                    ? ExportFolderOk
+                    : (isImageExceptionNg ? ExportFolderNgImage : ExportFolderNgSpec);
+                var archiveRel = ResolveArchiveRelativeDir(isImageExceptionNg, LastImageIsOK);
+
+                if (isImageExceptionNg)
+                    _logger.Info($"[图像异常NG]: {imageFilePath}, RunInfo={RunInfo}");
+                else if (!gapsOk)
+                    _logger.Info($"[超规检测NG]: {gapFailDetail}");
+
                 _logger.Info(
-                    $"[检测结果判定]: 图片 {imageFilePath} => {resultCode}, 点数={alignPoints.Count}, gapsOk={gapsOk}"
-                    + (gapsOk ? string.Empty : $", {gapFailDetail}")
+                    $"[检测结果判定]: 图片 {imageFilePath} => {resultCode}, gapsOk={gapsOk}"
+                    + (gapsOk || isImageExceptionNg ? string.Empty : $", {gapFailDetail}")
+                );
+
+                var outputPath = BuildResultImageOutputPath(
+                    exportRoot,
+                    dateYmd,
+                    archiveRel,
+                    imageFilePath
                 );
 
                 var rendered = GenerateHuaweiResultImage(
@@ -3886,7 +4306,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     AllRegionCol,
                     AllJianXiValue,
                     AllPrintfValue,
-                    resultCode,
+                    LastImageIsOK ? "OK" : "NG",
                     RunInfo,
                     fileName,
                     outputPath
@@ -3906,54 +4326,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     LastProcessedImage = bmp;
                 });
 
-                var date = DateTime.Now.ToString("yyyyMMdd");
-                var directory = Path.GetFullPath(Path.Combine(exportRoot, $"汇总\\{date}"));
-                if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
+                var resultDateDir = Path.Combine(exportRoot, ExportFolderResult, dateYmd);
+                EnsureDirectoryExists(resultDateDir);
+                var originArchivePath = BuildOriginImageArchivePath(
+                    exportRoot,
+                    dateYmd,
+                    archiveRel,
+                    imageFilePath
+                );
+
+                HTuple? printTuple =
+                    AllPrintfValue != null && AllPrintfValue.Count > 0
+                        ? AllPrintfValue[0]
+                        : null;
+                var gapMms = BuildHuaweiGapMmList(printTuple, printTuple?.Length ?? 0);
+                var csvLine = BuildGapCsvDataLine(
+                    fileName,
+                    resultCode,
+                    gapMms,
+                    gapFailDetail,
+                    RunInfo,
+                    outputPath,
+                    originArchivePath
+                );
+                AppendGapCsvWithTempMerge(csvPath, csvLine);
 
                 try
                 {
-                    var csvPath = Path.Combine(directory, $"NCLCCT_{date}.csv");
-                    var needHeader = !File.Exists(csvPath);
-                    using var sw = new StreamWriter(csvPath, append: true, Utf8Bom);
-                    if (needHeader)
-                        sw.WriteLine("时间,文件名,结果,点数,RunInfo,结果图");
-                    var safeInfo = (RunInfo ?? string.Empty).Replace("\"", "''");
-                    sw.WriteLine(
-                        $"{DateTime.Now:yyyy-MM-dd HH:mm:ss},{fileName},{resultCode},{alignPoints.Count},\"{safeInfo}\",{outputPath}"
-                    );
+                    File.Copy(imageFilePath, originArchivePath, overwrite: true);
+                    _logger.Info($"原图归档：{imageFilePath} --> {originArchivePath}");
                 }
-                catch (Exception csvEx)
+                catch (Exception copyEx)
                 {
-                    _logger.Warn($"写汇总CSV失败: {csvEx.Message}");
-                }
-
-                var monitorRoot = string.IsNullOrEmpty(ImageMonitorPath)
-                    ? fileInfo.DirectoryName!
-                    : ImageMonitorPath!;
-                var relativePath = Path.GetRelativePath(monitorRoot, Path.GetFullPath(imageFilePath));
-                var parts = relativePath
-                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .ToList();
-                var relativeDirParts = parts.Take(Math.Max(0, parts.Count - 1)).ToArray();
-
-                if (IsContinuousDetection)
-                {
-                    var outputSourceImageFilePath = Path.Combine(
-                        directory,
-                        $"{string.Join("-", relativeDirParts)}-{Path.GetFileName(imageFilePath)}"
-                    );
-                        File.Copy(imageFilePath, outputSourceImageFilePath, overwrite: true);
-                        _logger.Info($"原图移动：{imageFilePath} --> {outputSourceImageFilePath}");
-                }
-                else
-                {
-                    var outputSourceImageFilePath = Path.Combine(
-                        Path.GetDirectoryName(outputPath)!,
-                        Path.GetFileName(imageFilePath)
-                    );
-                        File.Copy(imageFilePath, outputSourceImageFilePath, overwrite: true);
-                        _logger.Info($"原图移动：{imageFilePath} --> {outputSourceImageFilePath}");
+                    _logger.Warn($"原图归档失败: {copyEx.Message}");
                 }
             }
             catch (Exception ex)
@@ -4236,7 +4641,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 华为结果图：检测内容缩放上中放置，下方 1/4 黑色遮罩写尺寸数值（人工查看）。
+        /// 华为结果图：检测内容缩放上中放置（75%），下方 1/4 黑色遮罩写尺寸数值（人工查看）。
         /// <para>
         /// 探针实测：<c>AllRegionRow/Col</c> 成对出现（0-1,2-3…）；
         /// 同列异行之对画黄横线；<c>AllPrintfValue</c> 写入底部遮罩。
@@ -4323,8 +4728,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
                 HOperatorSet.DumpWindowImage(out contentImg, contentWindow);
 
-                // —— ② 内容缩至 80%（下方留约 1/5），水平居中、贴顶 ——
-                const double contentScale = 0.8;
+                // —— ② 内容缩至 75%（下方留 25% 底栏，与 bandH=H/4 对齐，避免黑带压图）——
+                const double contentScale = 0.75;
                 HOperatorSet.HomMat2dIdentity(out HTuple hom);
                 HOperatorSet.HomMat2dScale(hom, contentScale, contentScale, 0, 0, out hom);
                 var offsetCol = (imgWidth - imgWidth * contentScale) / 2.0;
@@ -4849,38 +5254,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// NJCT.NChwSwdCT 内部会 <c>cv::imwrite("D:\\TEST.png")</c>。
-        /// 若 D: 根目录对当前用户不可写，异常被吞成「当前图像暂不支持检测」（与分辨率无关）。
-        /// </summary>
-        private void EnsureNjctTempPngWritable()
-        {
-            const string tempPng = @"D:\TEST.png";
-            try
-            {
-                if (!Directory.Exists(@"D:\"))
-                {
-                    _logger.Error("未找到 D: 盘。华为 NJCT 硬编码写 D:\\TEST.png，无 D: 将无法检测。");
-                    Growl.ErrorGlobal("缺少 D: 盘：华为算法需要写入 D:\\TEST.png");
-                    return;
-                }
-
-                var probe = new byte[] { 0x00 };
-                File.WriteAllBytes(tempPng, probe);
-                _logger.Info($"D:\\TEST.png 可写检查通过（{tempPng}）");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(
-                    $"D:\\TEST.png 不可写：{ex.Message}。将导致算法返回「当前图像暂不支持检测」。请以管理员运行 环境安装包 内 fix_d_test_png.ps1",
-                    ex
-                );
-                Growl.ErrorGlobal(
-                    "D:\\TEST.png 不可写（华为 DLL 硬编码）。请管理员运行 fix_d_test_png.ps1 后重试"
-                );
-            }
-        }
-
-        /// <summary>
         /// 将输出目录 <c>Dlls\</c> 加入原生 DLL 搜索路径，并设置 Halcon 许可环境变量。
         /// <c>halcondotnet</c> 的 P/Invoke 加载名为 <c>halcon</c>，默认不搜子目录 Dlls。
         /// </summary>
@@ -5041,10 +5414,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         /// <summary>
         /// 加载南昌华为视觉 DLL（类名 <c>NJCT.NChwSwdCT</c>）。
-        /// 策略：本机 <c>Dlls\NCLCCT\NJCT.dll</c> 存在则优先加载；否则用公钥签名请求 SysCenter。
+        /// 策略：本机 <c>Dlls\NCLCCT\NJCT.dll</c> 存在则优先本地；缺失才云端下载，
+        /// <c>Assembly.Load(bytes)</c> 内存加载后删除临时文件，不落盘正式路径（下次重启再下）。
         /// CF.dll 始终依赖本机 <c>Dlls\NCLCCT\</c>（不随云端下载）。
         /// </summary>
-        private Assembly? TryLoadVisionAssembly(
+        private async Task<Assembly?> TryLoadVisionAssemblyAsync(
             string? dllName,
             string? publicKey,
             string? appKey,
@@ -5054,6 +5428,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             try
             {
                 EnsureCudaRuntimePath();
+                CleanupStaleNclcctTempFiles();
 
                 var relative = string.IsNullOrWhiteSpace(dllName)
                     ? DefaultHuaweiDllRelativePath
@@ -5073,32 +5448,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 EnsureVisionAssemblyResolveHook();
                 PrepareVisionNativeSearchPath(_visionDllDirectory);
 
-                Assembly? assembly = null;
+                // 清掉上次异常中断留下的正式目录旁 .downloading
+                TryDeleteFileSilent(dllPath + ".downloading");
+
+                Assembly? assembly;
+                string bindLogPath;
                 if (File.Exists(dllPath))
                 {
                     _logger.Info($"[NCLCCT云端] 本机已有算法 DLL，优先本地加载: {dllPath}");
                     PreloadHuaweiCf(_visionDllDirectory);
                     assembly = Assembly.LoadFrom(dllPath);
+                    bindLogPath = dllPath;
                 }
                 else
                 {
                     _logger.Info(
                         $"[NCLCCT云端] 本机无算法 DLL，请求 SysCenter：pythonCode={pythonCode}，url={NCLCCTDLLDownloadUrl}"
                     );
-                    assembly = DownloadAndLoadVisionAssembly(
+                    // CF 须先于内存加载的 NJCT 解析依赖
+                    PreloadHuaweiCf(_visionDllDirectory);
+                    assembly = await DownloadAndLoadVisionAssemblyAsync(
                         publicKey,
                         appKey,
                         pythonCode,
                         NCLCCTDLLDownloadUrl
                     );
-                    if (assembly != null)
-                        PreloadHuaweiCf(_visionDllDirectory);
+                    bindLogPath = "(云端内存加载，未落盘)";
                 }
 
                 if (assembly == null)
                     return null;
 
-                return BindVisionAlgorithmType(assembly, dllPath);
+                return BindVisionAlgorithmType(assembly, bindLogPath);
             }
             catch (Exception ex)
             {
@@ -5143,7 +5524,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             }
         }
 
-        private Assembly? DownloadAndLoadVisionAssembly(
+        /// <summary>
+        /// 本机缺失时从 SysCenter 下载算法 DLL 到临时文件，校验 PE 后 <c>Assembly.Load(bytes)</c> 内存加载，
+        /// 不写入正式 <c>Dlls\NCLCCT\NJCT.dll</c>；结束后删除临时文件（失败打 Warn）。
+        /// </summary>
+        private async Task<Assembly?> DownloadAndLoadVisionAssemblyAsync(
             string? publicKey,
             string? appKey,
             string? pythonCode,
@@ -5160,7 +5545,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 _logger.Error(
                     "[NCLCCT云端] 下载参数不完整（PublicKey/AppKey/DllPythonCode/Url）"
                 );
-                Growl.ErrorGlobal("云端下载参数不完整，无法拉取算法 DLL");
+                Growl.ErrorGlobal("算法组件参数不完整，无法加载");
                 return null;
             }
 
@@ -5172,7 +5557,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             catch (Exception ex)
             {
                 _logger.Error("[NCLCCT云端] RSA 签名失败", ex);
-                Growl.ErrorGlobal($"云端签名失败: {ex.Message}");
+                Growl.ErrorGlobal("算法组件校验失败");
                 return null;
             }
 
@@ -5184,25 +5569,42 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 { "signature", signature },
             };
 
-            var dllBytes = HttpPost(json, downloadUrl);
-            if (dllBytes == null || dllBytes.Length == 0)
+            var tempPath = Path.Combine(
+                Path.GetTempPath(),
+                $"nclcct_{Guid.NewGuid():N}.dll"
+            );
+            BeginDownloadUi(UiLoadDllText);
+            try
             {
-                _logger.Error($"[NCLCCT云端] 下载 dll 失败：pythonCode={pythonCode}");
-                Growl.ErrorGlobal("下载算法 DLL 失败");
-                return null;
-            }
+                var ok = await HttpPostDownloadToFileAsync(json, downloadUrl, tempPath);
+                if (!ok)
+                {
+                    _logger.Error($"[NCLCCT云端] 下载 dll 失败：pythonCode={pythonCode}");
+                    Growl.ErrorGlobal("算法组件加载失败");
+                    return null;
+                }
 
-            if (dllBytes.Length < 2 || dllBytes[0] != 0x4D || dllBytes[1] != 0x5A)
-            {
-                _logger.Error(
-                    $"[NCLCCT云端] 下载内容不是有效 PE DLL（字节数={dllBytes.Length}）"
+                var bytes = await File.ReadAllBytesAsync(tempPath).ConfigureAwait(false);
+                if (bytes.Length < 2 || bytes[0] != 0x4D || bytes[1] != 0x5A)
+                {
+                    _logger.Error(
+                        $"[NCLCCT云端] 下载内容不是有效 PE DLL（字节数={bytes.Length}）"
+                    );
+                    Growl.ErrorGlobal("算法组件校验失败");
+                    return null;
+                }
+
+                var assembly = Assembly.Load(bytes);
+                _logger.Info(
+                    $"[NCLCCT云端] 算法 DLL 已内存加载（不落盘正式路径），字节数={bytes.Length}"
                 );
-                Growl.ErrorGlobal("云端返回内容不是有效 DLL");
-                return null;
+                return assembly;
             }
-
-            _logger.Info($"[NCLCCT云端] 算法 DLL 下载成功，字节数={dllBytes.Length}（内存加载，不落盘）");
-            return Assembly.Load(dllBytes);
+            finally
+            {
+                TryDeleteCloudTemp(tempPath, "云端临时算法DLL");
+                EndDownloadUi();
+            }
         }
 
         private Assembly? BindVisionAlgorithmType(Assembly assembly, string dllPathForLog)
@@ -5259,54 +5661,82 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 调用 <c>NChwSwdCT.ModelInit</c>；模型文件缺失时按 ModelPythonCode 从云端下载。
+        /// 调用 <c>NChwSwdCT.ModelInit</c>；本机有模型则直接初始化；
+        /// 缺失则云端下载到临时文件 → Init → 尽量删除临时文件（不落盘正式路径，失败打 Warn）。
         /// </summary>
-        private void TryInitVisionModel(Assembly assembly)
+        private async Task TryInitVisionModelAsync(Assembly assembly)
         {
             _ = assembly;
+            string? ephemeralModelPath = null;
             try
             {
                 EnsureCudaRuntimePath();
                 if (!_cudaRuntimePathReady && IsRunCuda)
                 {
-                    Growl.ErrorGlobal("CUDA 运行库未就绪，无法以 GPU 初始化模型");
+                    Growl.ErrorGlobal("算法运行库未就绪，无法初始化");
                     return;
                 }
 
-                var modelPath = ModelPath;
-                if (string.IsNullOrWhiteSpace(modelPath))
-                    modelPath = DefaultHuaweiModelRelativePath;
-                if (!Path.IsPathRooted(modelPath))
-                    modelPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, modelPath));
+                var configuredPath = ModelPath;
+                if (string.IsNullOrWhiteSpace(configuredPath))
+                    configuredPath = DefaultHuaweiModelRelativePath;
+                if (!Path.IsPathRooted(configuredPath))
+                    configuredPath = Path.GetFullPath(
+                        Path.Combine(AppContext.BaseDirectory, configuredPath)
+                    );
 
-                if (!File.Exists(modelPath))
+                // 清掉上次异常中断留下的正式目录旁 .downloading
+                TryDeleteFileSilent(configuredPath + ".downloading");
+
+                string initPath;
+                if (File.Exists(configuredPath))
+                {
+                    _logger.Info($"[NCLCCT云端] 本机已有模型，优先本地: {configuredPath}");
+                    initPath = configuredPath;
+                }
+                else
                 {
                     _logger.Info(
-                        $"[NCLCCT云端] 本机无模型，请求下载：pythonCode={ModelPythonCode}，目标={modelPath}"
+                        $"[NCLCCT云端] 本机无模型，请求下载到临时文件：pythonCode={ModelPythonCode}"
                     );
-                    DownloadModel(modelPath, PublicKey, AppKey, ModelPythonCode);
+                    ephemeralModelPath = await DownloadModelToEphemeralAsync(
+                        PublicKey,
+                        AppKey,
+                        ModelPythonCode
+                    );
+                    if (string.IsNullOrEmpty(ephemeralModelPath) || !File.Exists(ephemeralModelPath))
+                    {
+                        _logger.Error("模型文件未就绪（云端临时下载失败）");
+                        Growl.ErrorGlobal("算法文件未就绪");
+                        return;
+                    }
+                    initPath = ephemeralModelPath;
                 }
 
-                if (!File.Exists(modelPath))
-                {
-                    _logger.Error($"模型文件不存在: {modelPath}");
-                    Growl.ErrorGlobal($"模型文件不存在: {modelPath}");
-                    return;
-                }
-
-                ModelPath = modelPath;
+                // 配置路径仍指向正式位置，供下次启动「本地优先」判断；云端临时不写正式文件
+                ModelPath = configuredPath;
                 ModelInitErrorInfo = string.Empty;
                 ModelInitParameters = new object[4]
                 {
-                    modelPath,
+                    initPath,
                     null!,
                     ModelInitErrorInfo,
                     IsRunCuda,
                 };
 
+                RunOnUIThread(() =>
+                {
+                    DownloadStatusText = UiInitModelText + "…";
+                    IsDownloadProgressIndeterminate = true;
+                });
+
                 var start = DateTime.Now;
-                _logger.Info($"开始 ModelInit: {modelPath}, CUDA={IsRunCuda}");
-                ModelInitMethod?.Invoke(CTDetectionAlgorithmIstance, ModelInitParameters);
+                _logger.Info(
+                    $"开始 ModelInit: {initPath}, CUDA={IsRunCuda}, 来源={(ephemeralModelPath != null ? "云端临时" : "本地")}"
+                );
+                await Task.Run(() =>
+                    ModelInitMethod?.Invoke(CTDetectionAlgorithmIstance, ModelInitParameters)
+                );
                 ModelHandle = ModelInitParameters[1];
                 ModelInitErrorInfo = ModelInitParameters[2] as string ?? string.Empty;
                 _logger.Info($"ModelInit 耗时 {(DateTime.Now - start).TotalSeconds:F2}s");
@@ -5314,29 +5744,65 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 if (ModelHandle is null)
                 {
                     _logger.Error("模型句柄为空");
-                    Growl.ErrorGlobal("模型句柄为空");
+                    Growl.ErrorGlobal("算法环境初始化失败");
                 }
                 if (!string.IsNullOrEmpty(ModelInitErrorInfo))
                 {
                     _logger.Error($"模型初始化错误: {ModelInitErrorInfo}");
-                    Growl.ErrorGlobal($"模型初始化错误: {ModelInitErrorInfo}");
+                    Growl.ErrorGlobal("算法环境初始化异常");
+                }
+
+                // Init 成功后尝试清云端临时 onnx（ORT 按路径建 Session，可能占用 → 失败打 Warn）
+                if (!string.IsNullOrEmpty(ephemeralModelPath))
+                {
+                    if (ModelHandle is not null && string.IsNullOrEmpty(ModelInitErrorInfo))
+                    {
+                        TryDeleteCloudTemp(
+                            ephemeralModelPath,
+                            "云端临时模型(Init成功后)"
+                        );
+                        if (File.Exists(ephemeralModelPath))
+                        {
+                            _logger.Warn(
+                                "[NCLCCT云端] Init 成功但临时模型仍存在（疑似 InferenceSession 占用路径）。"
+                                    + "推理阶段请观察是否异常；进程退出后应可清。路径="
+                                    + ephemeralModelPath
+                            );
+                        }
+                    }
+                    else
+                    {
+                        TryDeleteCloudTemp(
+                            ephemeralModelPath,
+                            "云端临时模型(Init失败清理)"
+                        );
+                    }
+                    ephemeralModelPath = null;
                 }
             }
             catch (Exception ex)
             {
                 _logger.Error("模型初始化异常", ex);
-                Growl.ErrorGlobal($"模型初始化异常: {ex.Message}");
+                Growl.ErrorGlobal("算法环境初始化异常");
+            }
+            finally
+            {
+                if (!string.IsNullOrEmpty(ephemeralModelPath))
+                    TryDeleteCloudTemp(ephemeralModelPath, "云端临时模型(异常finally)");
             }
         }
 
-        /// <summary>从 SysCenter 下载 ONNX 模型并写入本地路径。</summary>
-        private void DownloadModel(
-            string modelPath,
+        /// <summary>
+        /// 从 SysCenter 下载 ONNX 到 %TEMP% 临时文件（不写正式 model 路径）。
+        /// 调用方须在 ModelInit 后删除；删除失败会打 Warn。
+        /// </summary>
+        private async Task<string?> DownloadModelToEphemeralAsync(
             string? publicKey,
             string? appKey,
             string? pythonCode
         )
         {
+            string? tempPath = null;
             try
             {
                 if (
@@ -5347,8 +5813,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 )
                 {
                     _logger.Error("[NCLCCT云端] 模型下载参数不完整");
-                    Growl.ErrorGlobal("云端下载参数不完整，无法拉取模型");
-                    return;
+                    Growl.ErrorGlobal("算法文件参数不完整，无法加载");
+                    return null;
                 }
 
                 var signature = RasHelper.RSAPublicKey(publicKey, appKey);
@@ -5360,29 +5826,146 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     { "signature", signature },
                 };
 
-                var modelStream = HttpPost(json, NCLCCTDLLDownloadUrl!);
-                if (modelStream == null || modelStream.Length == 0)
-                {
-                    _logger.Error("下载模型失败");
-                    Growl.ErrorGlobal("下载模型失败");
-                    return;
-                }
-
-                var dir = Path.GetDirectoryName(modelPath);
-                if (!string.IsNullOrEmpty(dir))
-                    Directory.CreateDirectory(dir);
-
-                File.WriteAllBytes(modelPath, modelStream);
-                _logger.Info(
-                    $"[NCLCCT云端] 模型已落盘: {modelPath}，字节数={modelStream.Length}"
+                tempPath = Path.Combine(
+                    Path.GetTempPath(),
+                    $"nclcct_{Guid.NewGuid():N}.onnx"
                 );
+                BeginDownloadUi(UiLoadModelText);
+                try
+                {
+                    var ok = await HttpPostDownloadToFileAsync(
+                        json,
+                        NCLCCTDLLDownloadUrl!,
+                        tempPath
+                    );
+                    if (!ok)
+                    {
+                        _logger.Error("下载模型失败");
+                        Growl.ErrorGlobal("算法文件加载失败");
+                        TryDeleteCloudTemp(tempPath, "云端临时模型(下载失败)");
+                        return null;
+                    }
+
+                    var len = new FileInfo(tempPath).Length;
+                    _logger.Info(
+                        $"[NCLCCT云端] 模型已下载到临时文件（不落盘正式路径）: {tempPath}，字节数={len}"
+                    );
+                    return tempPath;
+                }
+                finally
+                {
+                    EndDownloadUi();
+                }
             }
             catch (Exception ex)
             {
                 _logger.Error("下载模型失败", ex);
-                Growl.ErrorGlobal($"下载模型失败: {ex.Message}");
+                Growl.ErrorGlobal($"算法文件加载失败: {ex.Message}");
+                if (!string.IsNullOrEmpty(tempPath))
+                    TryDeleteCloudTemp(tempPath, "云端临时模型(下载异常)");
+                return null;
             }
         }
+
+        /// <param name="uiPhrase">面向操作员的隐晦文案，如「正在加载算法文件」。</param>
+        private void BeginDownloadUi(string uiPhrase)
+        {
+            _downloadStatusHead = string.IsNullOrWhiteSpace(uiPhrase)
+                ? UiLoadModelText
+                : uiPhrase.Trim().TrimEnd('…', '.', '。');
+            RunOnUIThread(() =>
+            {
+                IsDownloadingResource = true;
+                IsDownloadProgressIndeterminate = true;
+                DownloadProgress = 0;
+                DownloadStatusText = $"{_downloadStatusHead}…";
+            });
+        }
+
+        private void EndDownloadUi()
+        {
+            _downloadStatusHead = "正在准备运行资源";
+            RunOnUIThread(() =>
+            {
+                IsDownloadingResource = false;
+                IsDownloadProgressIndeterminate = true;
+                DownloadProgress = 0;
+                DownloadStatusText = UiIdlePrepareText;
+            });
+        }
+
+        private void ReportDownloadProgress(long received, long? total)
+        {
+            var head = string.IsNullOrEmpty(_downloadStatusHead)
+                ? UiLoadModelText
+                : _downloadStatusHead;
+            RunOnUIThread(() =>
+            {
+                if (total is > 0)
+                {
+                    IsDownloadProgressIndeterminate = false;
+                    var pct = Math.Min(100.0, received * 100.0 / total.Value);
+                    DownloadProgress = pct;
+                    // 只显示百分比，不暴露文件名与字节细节
+                    DownloadStatusText = $"{head}… {pct:F0}%";
+                }
+                else
+                {
+                    IsDownloadProgressIndeterminate = true;
+                    DownloadStatusText = $"{head}…";
+                }
+            });
+        }
+
+        private static void TryDeleteFileSilent(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        /// <summary>删除云端临时文件；成功 Info，失败 Warn（便于现场确认 ORT/加载器是否占用）。</summary>
+        private void TryDeleteCloudTemp(string path, string purpose)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return;
+                File.Delete(path);
+                _logger.Info($"[NCLCCT云端] 已删除{purpose}: {path}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(
+                    $"[NCLCCT云端] 删除{purpose}失败（可能被占用，进程退出后再清）: {path} | {ex.Message}"
+                );
+            }
+        }
+
+        /// <summary>清理上次异常留下的 %TEMP%\nclcct_*.dll / *.onnx。</summary>
+        private void CleanupStaleNclcctTempFiles()
+        {
+            try
+            {
+                var tempDir = Path.GetTempPath();
+                foreach (var pattern in new[] { "nclcct_*.dll", "nclcct_*.onnx" })
+                {
+                    foreach (var f in Directory.EnumerateFiles(tempDir, pattern))
+                        TryDeleteCloudTemp(f, "残留临时文件");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"[NCLCCT云端] 清理残留临时文件时异常: {ex.Message}");
+            }
+        }
+
         /// <summary>
         /// 调用 <c>NChwSwdCT.ModelAction</c>（9 参，无 AllJianXiValue），结果写回 <see cref="AlgorithmParameters"/>。
         /// </summary>
@@ -5423,25 +6006,62 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             }
         }
 
-        private byte[]? HttpPost(JObject json, string url)
+        /// <summary>POST 流式落盘；边下边写，避免大文件整包进内存。</summary>
+        private async Task<bool> HttpPostDownloadToFileAsync(JObject json, string url, string filePath)
         {
             try
             {
                 var jsonData = JsonConvert.SerializeObject(json);
                 using var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
-
-                // 同步发送 POST 请求
-                using var response = _httpClient.PostAsync(url, content).GetAwaiter().GetResult();
+                using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+                using var response = await _httpClient
+                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
+                    .ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
 
-                // 同步获取字节数组
-                var buffer = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
-                return buffer;
+                var total = response.Content.Headers.ContentLength;
+                await using var stream = await response.Content
+                    .ReadAsStreamAsync()
+                    .ConfigureAwait(false);
+                await using var fs = new FileStream(
+                    filePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    81920,
+                    useAsync: true
+                );
+                var buffer = new byte[81920];
+                long received = 0;
+                int read;
+                var lastReport = DateTime.MinValue;
+                while (
+                    (
+                        read = await stream
+                            .ReadAsync(buffer.AsMemory(0, buffer.Length))
+                            .ConfigureAwait(false)
+                    ) > 0
+                )
+                {
+                    await fs.WriteAsync(buffer.AsMemory(0, read)).ConfigureAwait(false);
+                    received += read;
+                    var now = DateTime.UtcNow;
+                    if ((now - lastReport).TotalMilliseconds >= 200 || (total is > 0 && received >= total))
+                    {
+                        lastReport = now;
+                        ReportDownloadProgress(received, total);
+                    }
+                }
+
+                await fs.FlushAsync().ConfigureAwait(false);
+                ReportDownloadProgress(received, total ?? received);
+                return received > 0;
             }
             catch (Exception ex)
             {
-                _logger.Error($"HttpPostSync异常：{ex}");
-                return null;
+                _logger.Error($"HttpPostDownloadToFileAsync异常：{ex}");
+                TryDeleteFileSilent(filePath);
+                return false;
             }
         }
     }

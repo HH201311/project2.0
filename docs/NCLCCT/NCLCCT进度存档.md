@@ -1,7 +1,7 @@
 # NCLCCT 进度存档
 
-> **文档版本**：2026-09-20  
-> **状态**：南昌华为离线 CT。已接 `NJCT.NChwSwdCT`；结果图绘点 + 底栏 Gap(mm)/管控；OK/NG 按 Gap1~6、Gap10 判定  
+> **文档版本**：2026-09-24  
+> **状态**：南昌华为离线 CT。本地有 DLL/ONNX 用本地；无则云端临时/内存且不落盘；Gap 改参需侧边栏管理员；隐晦加载文案 + 进度  
 > **用途**：新会话 **只拖本文**；规格细节不写在本文，用下方索引跳转  
 > **详规**：[NCLCCT项目开发规划.md](./NCLCCT项目开发规划.md)　**版本历史**：[NCLCCT版本变更记录.md](./NCLCCT版本变更记录.md)
 
@@ -45,6 +45,19 @@
 | 2 | 华为 Gap 规格判定（现场公式） | ✅ | Gap1~6、10 按管控判 OK/NG；mm=px×精度−分组常量 | 变更记录 2026-09-20 |
 | 3 | 与视觉确认截图文档是否为下一版 DLL | ⏸ | 若升级为 long 句柄接口再改反射签名 | — |
 | 4 | 底栏排版微调（若现场仍嫌疏/挤） | 🔄 | 按截图反馈微调列距 | — |
+| 5 | 整夹监控不丢图 + CSV Gap + 默认 E 盘导出 | ✅ | 含子目录 `R_origin` 逐张入队；CSV 有 Gap1~11；结果在 `E:\IME检测结果` | 变更记录 2026-09-22 |
+| 6 | 导出目录结构：原图/结果图按日+OK·NG·异常 | ✅ | 已演进为 `NG\超规|图像异常` + CSV 规格列 | 变更记录 2026-09-23 |
+| 7 | CSV 规格列 / 临时合并写 / NG 分仓 | ✅ | Gap 后规格列；cache 合并；`NG\超规检测NG`·`图像异常NG` | 变更记录 2026-09-23 |
+| 8 | 缺模型/DLL 下载进度条 + 无 100s 超时 | ✅ | 初始化遮罩 ProgressBar；流式下载；Timeout=Infinite | 变更记录 2026-09-23 |
+| 9 | 每次启动强制重下 DLL/模型 | ❌ 已撤回 | 改回本地优先，见 #11 | 变更记录 2026-09-23 |
+| 10 | 加载遮罩隐晦文案 | ✅ | 「正在加载算法文件…」+ 百分比，不暴露文件名/云端 | 变更记录 2026-09-23 |
+| 11 | 本地优先：缺失才下载 + 清临时文件 | ✅ | 演进见 #12 | 变更记录 2026-09-23 |
+| 12 | 云端不落盘：DLL 内存 / ONNX 临时后删 | ✅ | 无本地则 `%TEMP%` + Load(bytes)/Init 后删；失败 Warn | 变更记录 2026-09-24 |
+| 13 | Gap 改参：侧边栏管理员权限 | ✅ | admin/sadmin 可改 Gap/导出路径；guest/工程师只读 | 变更记录 2026-09-24 |
+| 14 | 结果图内容 75% + 底栏 25% | ✅ | contentScale=0.75，黑带不压检测标注 | 变更记录 2026-09-24 |
+| 15 | 去掉 D:\TEST.png 启动自检 | ✅ | 不再探针写盘；云端华为 DLL 已不依赖该路径 | 变更记录 2026-09-24 |
+| 16 | 清理 tools NCLCCT 探针/下载脚本 | ✅ | 已删；随后 #17 清空其余探针 | 变更记录 2026-09-24 |
+| 17 | 清空 tools 独立探针工程 | ✅ | 未进 sln，删不影响 SEVB/其它业务运行 | 变更记录 2026-09-24 |
 
 ### 已完成
 
@@ -54,6 +67,7 @@
 - ✅ `GenerateHuaweiResultImage` 绘点 + 底栏管控/测量；Gap 红绿与整图 NG
 - ✅ Gap标准菜单：像素精度 + 管控上下限可配
 - ✅ 菜单 `VM_NCLCCTPage` / 显示名 `NCLCCT`
+- ✅ Watcher 轻量入队 + 64KB 缓冲 + 溢出补扫；导入递归；CSV Gap 明细；默认 `E:\IME检测结果`
 
 ---
 
@@ -62,7 +76,7 @@
 | 职责 | 路径 |
 |------|------|
 | 页面 VM（`[Module]` 注册处） | `SUNWODA_SEVB/ViewModels/Pages/NCLCCT/VM_NCLCCTPage.cs` |
-| 视觉 DLL TODO | 同文件：`TryLoadVisionAssembly`、`TryInitVisionModel`、`TryInvokeVisionAlgorithm` |
+| 视觉 DLL / 模型 | 同文件：`TryLoadVisionAssemblyAsync`、`TryInitVisionModelAsync`、`HttpPostDownload*` |
 | 页面 View | `SUNWODA_SEVB/Views/Pages/NCLCCT/NCLCCTPage.xaml`、`NCLCCTPage.xaml.cs` |
 | 监控路径对话框 | `SUNWODA_SEVB/ViewModels/Dialogs/NCLCCT/VM_NCLCCTMonitorPathSelectDialog.cs`；`Views/Dialogs/NCLCCT/NCLCCTMonitorPathSelectDialog.xaml` |
 | 模型 | `SUNWODA_SEVB.Core/Models/Project/NCLCCT/DetectionInfoModel.cs`、`DetectionItemModel.cs` |

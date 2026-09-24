@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Windows.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,14 +50,12 @@ namespace SUNWODA_SEVB.Services
                 .Where(a => a.FullName?.StartsWith(this.GetType().Namespace?.Split('.')[0] ?? "SUNWODA_SEVB") ?? false)
                 .ToList();
 
-            // 并行处理程序集以提高性能
-            Parallel.ForEach(
-                assemblies,
-                assembly =>
-                {
-                    RegisterModulesFromAssembly(assembly);
-                }
-            );
+            // 禁止 Parallel：SqlSugar 同步查询共用连接时并发 Open 会报
+            // 「Cannot Open when State is Connecting」，导致整程序集模块注册失败、侧边栏空白。
+            foreach (var assembly in assemblies)
+            {
+                RegisterModulesFromAssembly(assembly);
+            }
 
             // 按Order排序
             lock (_modules)
@@ -76,8 +74,7 @@ namespace SUNWODA_SEVB.Services
             {
                 _logger?.Debug($"扫描程序集: {assembly.FullName}");
 
-                var viewModelTypes = assembly
-                    .GetTypes()
+                var viewModelTypes = GetLoadableTypes(assembly)
                     .Where(t =>
                         t.IsClass
                         && !t.IsAbstract
@@ -88,46 +85,74 @@ namespace SUNWODA_SEVB.Services
 
                 foreach (var vmType in viewModelTypes)
                 {
-                    var moduleAttr = vmType.GetCustomAttribute<ModuleAttribute>();
-                    var viewType = FindViewForViewModel(vmType, assembly);
-                    var isEnabled = _workSpaceProjectRepository.GetIsEnabled(vmType.Name);
-
-                    if (isEnabled)
+                    try
                     {
-                        if (viewType != null && moduleAttr != null)
-                        {
-                            var moduleInfo = new ModuleInfo
-                            {
-                                Name = moduleAttr.Name,
-                                DisplayName = moduleAttr.DisplayName,
-                                Icon = moduleAttr.Icon,
-                                Order = moduleAttr.Order,
-                                Category = moduleAttr.Category,
-                                Type = moduleAttr.Type,
-                                RequiredPermissions = moduleAttr.RequiredPermissions,
-                                ViewType = viewType,
-                                ViewModelType = vmType,
-                            };
+                        var moduleAttr = vmType.GetCustomAttribute<ModuleAttribute>();
+                        var viewType = FindViewForViewModel(vmType, assembly);
+                        var isEnabled = _workSpaceProjectRepository.GetIsEnabled(vmType.Name);
 
-                            lock (_modules)
+                        if (isEnabled)
+                        {
+                            if (viewType != null && moduleAttr != null)
                             {
-                                RegisterModule(moduleInfo);
+                                var moduleInfo = new ModuleInfo
+                                {
+                                    Name = moduleAttr.Name,
+                                    DisplayName = moduleAttr.DisplayName,
+                                    Icon = moduleAttr.Icon,
+                                    Order = moduleAttr.Order,
+                                    Category = moduleAttr.Category,
+                                    Type = moduleAttr.Type,
+                                    RequiredPermissions = moduleAttr.RequiredPermissions,
+                                    ViewType = viewType,
+                                    ViewModelType = vmType,
+                                };
+
+                                lock (_modules)
+                                {
+                                    RegisterModule(moduleInfo);
+                                }
+
+                                _logger?.Info(
+                                    $"注册业务模块: {moduleInfo.Name} ({moduleInfo.DisplayName})"
+                                );
                             }
-
-                            _logger?.Info(
-                                $"注册业务模块: {moduleInfo.Name} ({moduleInfo.DisplayName})"
-                            );
+                            else
+                            {
+                                _logger?.Warn($"没有找到 ViewModel 对应的 View: {vmType.Name}", true);
+                            }
                         }
-                        else
-                        {
-                            _logger?.Warn($"没有找到 ViewModel 对应的 View: {vmType.Name}", true);
-                        }
+                    }
+                    catch (Exception moduleEx)
+                    {
+                        // 单模块失败不得拖垮整程序集（否则侧边栏大量缺失）
+                        _logger?.Error(
+                            $"注册业务模块失败，已跳过: {vmType.Name}",
+                            moduleEx,
+                            true
+                        );
                     }
                 }
             }
             catch (Exception ex)
             {
                 _logger?.Error($"无法从 {assembly.FullName} 中注册业务模块", ex, true);
+            }
+        }
+
+        /// <summary>
+        /// 安全枚举类型：缺依赖（如 OpenCvSharp）时 GetTypes 会抛 ReflectionTypeLoadException，
+        /// 若直接放弃则侧边栏模块数为 0；此处保留已成功加载的类型。
+        /// </summary>
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                return ex.Types.Where(t => t != null)!;
             }
         }
 
@@ -140,14 +165,11 @@ namespace SUNWODA_SEVB.Services
                 .Where(a => a.FullName?.StartsWith(this.GetType().Namespace?.Split('.')[0] ?? "SUNWODA_SEVB") ?? false)
                 .ToList();
 
-            // 并行处理程序集以提高性能
-            Parallel.ForEach(
-                assemblies,
-                assembly =>
-                {
-                    RegisterModulesFromAssemblyWithNames(assembly, moduleNames);
-                }
-            );
+            // 同 AutoRegisterModules：禁止并行扫库注册
+            foreach (var assembly in assemblies)
+            {
+                RegisterModulesFromAssemblyWithNames(assembly, moduleNames);
+            }
 
             // 按Order排序
             lock (_modules)
@@ -166,8 +188,7 @@ namespace SUNWODA_SEVB.Services
             {
                 _logger?.Debug($"扫描程序集: {assembly.FullName}");
 
-                var viewModelTypes = assembly
-                    .GetTypes()
+                var viewModelTypes = GetLoadableTypes(assembly)
                     .Where(t =>
                         t.IsClass
                         && !t.IsAbstract
@@ -236,7 +257,7 @@ namespace SUNWODA_SEVB.Services
 
             viewType =
                 assembly.GetType(fullViewName)
-                ?? assembly.GetTypes().FirstOrDefault(t => t.Name == viewName);
+                ?? GetLoadableTypes(assembly).FirstOrDefault(t => t.Name == viewName);
 
             if (viewType != null)
             {

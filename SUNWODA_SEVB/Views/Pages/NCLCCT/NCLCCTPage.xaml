@@ -367,18 +367,30 @@
                 Text="Copyright ©欣旺达动力科技 — 仿真及AI部 — 工程AI部" />
         </Border>
 
-        <Border
+        <Grid
             Grid.RowSpan="3"
-            Background="#80B2B0"
-            Opacity="0.2"
             Visibility="{Binding IsInitCompleted, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-            <TextBlock
+            <Border Background="#CC2B2B2B" />
+            <StackPanel
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                FontSize="100"
-                Foreground="White"
-                Opacity="1.0"
-                Text="运行资源请求中，请耐心等待！" />
-        </Border>
+                MaxWidth="640">
+                <TextBlock
+                    Margin="20,0,20,16"
+                    HorizontalAlignment="Center"
+                    FontSize="28"
+                    Foreground="White"
+                    Text="{Binding DownloadStatusText}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <ProgressBar
+                    Width="480"
+                    Height="22"
+                    Maximum="100"
+                    Minimum="0"
+                    IsIndeterminate="{Binding IsDownloadProgressIndeterminate}"
+                    Value="{Binding DownloadProgress}" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Page>

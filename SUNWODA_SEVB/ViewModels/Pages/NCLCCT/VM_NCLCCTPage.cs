@@ -98,6 +98,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         /// 监控文件夹仅处理文件名（不含扩展名）以该后缀结尾的图片，例如 manualA..._2-R_origin.png
         /// </summary>
         private const string MonitorImageNameSuffix = "R_origin";
+        /// <summary>路径任一段目录名为该值时，自动监控/补扫/文件夹导入均跳过。</summary>
+        private const string SkipMonitorFolderName = "扫码NG";
         /// <summary>云端资源下载专用；超时关闭，由界面进度条反馈耗时下载。</summary>
         private readonly HttpClient _httpClient = CreateCloudDownloadHttpClient();
 
@@ -120,10 +122,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         private double okRate;
         private string? fileSelectInitDir = "C:\\";
         private string? imageMonitorPath = "C:\\";
+        private string? imageMonitorPath2 = "C:\\";
         private string? exportPath = DefaultImeExportRoot;
         private bool isSaveAIEnhanceResult;
         /// <summary>Watcher 溢出恢复中，避免 Error 风暴重复补扫。</summary>
         private int _watcherRecovering;
+        /// <summary>文件夹导入批次进行中（1/0）；仅统计本批入队路径。</summary>
+        private int _folderImportActive;
+        private int _folderImportTotal;
+        private int _folderImportDone;
+        private readonly ConcurrentDictionary<string, byte> _folderImportPaths = new();
+        private string _folderImportProgressText = string.Empty;
+        private bool _isFolderImportProgressVisible;
+        /// <summary>离线文件夹检测进行中时禁用「开始/连续检测」。</summary>
+        private bool _isEnableContinuousDetection = true;
         private double innerGapUpperLimit;
         private double innerGapLowerLimit;
         private double innerFiveMeanMeanUpperLimit;
@@ -291,7 +303,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 图片监控路径
+        /// 图片监控路径1
         /// </summary>
         public string? ImageMonitorPath
         {
@@ -306,8 +318,59 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                         value
                     );
                     SetProperty(ref imageMonitorPath, value);
+                    OnPropertyChanged(nameof(MonitorPathsDisplay));
                 }
             }
+        }
+
+        /// <summary>
+        /// 图片监控路径2
+        /// </summary>
+        public string? ImageMonitorPath2
+        {
+            get => imageMonitorPath2;
+            set
+            {
+                if (value != null)
+                {
+                    _projectSettingRepository.UpdateSettingValue(
+                        "ImageMonitorPath2",
+                        "VM_NCLCCTPage",
+                        value
+                    );
+                    SetProperty(ref imageMonitorPath2, value);
+                    OnPropertyChanged(nameof(MonitorPathsDisplay));
+                }
+            }
+        }
+
+        /// <summary>连续检测 Tooltip：左环 / 右环监听路径。</summary>
+        public string MonitorPathsDisplay =>
+            $"左环：{ImageMonitorPath ?? ""}  |  右环：{ImageMonitorPath2 ?? ""}";
+
+        /// <summary>
+        /// 顶部：离线文件夹检测进度，如「当前处于离线检测模式，当前进度：3 / 100」。
+        /// </summary>
+        public string FolderImportProgressText
+        {
+            get => _folderImportProgressText;
+            set => SetProperty(ref _folderImportProgressText, value);
+        }
+
+        /// <summary>是否显示离线文件夹检测进度（顶部右侧）。</summary>
+        public bool IsFolderImportProgressVisible
+        {
+            get => _isFolderImportProgressVisible;
+            set => SetProperty(ref _isFolderImportProgressVisible, value);
+        }
+
+        /// <summary>
+        /// 是否允许开启连续检测（在线）；离线文件夹检测进行中为 false。
+        /// </summary>
+        public bool IsEnableContinuousDetection
+        {
+            get => _isEnableContinuousDetection;
+            set => SetProperty(ref _isEnableContinuousDetection, value);
         }
 
         /// <summary>
@@ -774,6 +837,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         public FileSystemWatcher? ImageFileSystemWatcher { get; set; }
 
+        public FileSystemWatcher? ImageFileSystemWatcher2 { get; set; }
+
         public static ConcurrentQueue<string>? ImagePathQueue { get; set; }
 
         public Thread? GapDetectionThread { get; set; }
@@ -1060,7 +1125,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                         1
                     )
                     {
-                        Remark = $"图片监控路径",
+                        Remark = $"图片监控路径1",
                     }
                 );
             }
@@ -1071,6 +1136,35 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     "VM_NCLCCTPage"
                 );
                 ImageMonitorPath = _imageMonitorPath;
+            }
+
+            if (
+                !_projectSettingRepository.Exists(model =>
+                    model.Name == $"ImageMonitorPath2"
+                    && model.BelongToVM == "VM_NCLCCTPage"
+                )
+            )
+            {
+                _projectSettingRepository.Add(
+                    new ProjectSettingModel(
+                        $"ImageMonitorPath2",
+                        "VM_NCLCCTPage",
+                        $"{ImageMonitorPath2}",
+                        "string",
+                        1
+                    )
+                    {
+                        Remark = $"图片监控路径2",
+                    }
+                );
+            }
+            else
+            {
+                var _imageMonitorPath2 = _projectSettingRepository.GetSettingValue(
+                    $"ImageMonitorPath2",
+                    "VM_NCLCCTPage"
+                );
+                ImageMonitorPath2 = _imageMonitorPath2;
             }
 
             if (
@@ -1918,6 +2012,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                                 if (!string.IsNullOrEmpty(imagePath))
                                 {
                                     _processingFiles.TryRemove(imagePath, out _);
+                                    NotifyFolderImportOneProcessed(imagePath);
                                 }
 
                                 _semaphore.Release();
@@ -1944,19 +2039,39 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         private async void MonitorPathSelect()
         {
+            // 离线文件夹检测进行中禁止开启/切换连续检测
+            if (!IsEnableContinuousDetection)
+            {
+                Growl.WarningGlobal("当前处于离线检测模式，请等待完成后再开启连续检测");
+                return;
+            }
+
             if (IsContinuousDetection)
             {
-                await Dialog
+                var paths = await Dialog
                     .Show(new VM_NCLCCTMonitorPathSelectDialog().UIElement)
-                    .Initialize<VM_NCLCCTMonitorPathSelectDialog>(vm => vm.Result = ImageMonitorPath)
-                    .GetResultAsync<string?>()
-                    .ContinueWith(m => ImageMonitorPath = m.Result);
+                    .Initialize<VM_NCLCCTMonitorPathSelectDialog>(vm =>
+                    {
+                        vm.MonitorPath1 = ImageMonitorPath;
+                        vm.MonitorPath2 = ImageMonitorPath2;
+                    })
+                    .GetResultAsync<NclcctMonitorPathsResult?>();
 
-                if (string.IsNullOrEmpty(ImageMonitorPath))
+                if (
+                    paths == null
+                    || string.IsNullOrWhiteSpace(paths.Path1)
+                    || string.IsNullOrWhiteSpace(paths.Path2)
+                )
                 {
                     IsContinuousDetection = false;
                     return;
                 }
+
+                ImageMonitorPath = paths.Path1;
+                ImageMonitorPath2 = paths.Path2;
+                // 路径变更后重建双 Watcher，再开启事件
+                DisposeImageWatchers();
+                WatchImageFileFolder();
             }
             SwitchWatchImageFileFolder(IsContinuousDetection);
         }
@@ -2033,8 +2148,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 {
                     try
                     {
-                        // 递归含子目录；仅入队，不做读图（与监控回调一致，避免长时间占锁）
-                        var count = ScanAndEnqueueImages(folder, SearchOption.AllDirectories);
+                        // 先收集再开进度再入队，避免消费线程抢在总数赋值前推进进度
+                        var files = CollectMonitorTargetImages(
+                            folder,
+                            SearchOption.AllDirectories
+                        );
+                        BeginOrExtendFolderImportProgress(files.Count);
+                        var count = EnqueueMonitorImages(files, trackAsFolderImport: true);
+                        if (count < files.Count)
+                        {
+                            // 部分已在队列/处理中未能再次入队，校正总数
+                            var skip = files.Count - count;
+                            if (skip > 0)
+                                Interlocked.Add(ref _folderImportTotal, -skip);
+                            RefreshFolderImportProgressUi();
+                        }
+
                         _logger.Info($"文件夹导入完成，入队 {count} 张：{folder}");
                     }
                     catch (Exception ex)
@@ -2043,6 +2172,78 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     }
                 });
             }
+        }
+
+        /// <summary>
+        /// 文件夹导入：先定总数并显示 0/N，再入队。
+        /// </summary>
+        private void BeginOrExtendFolderImportProgress(int enqueuedCount)
+        {
+            if (enqueuedCount <= 0)
+            {
+                _logger.Info("文件夹导入：无符合规则的图片，不显示进度");
+                return;
+            }
+
+            // 首次开启：从 0 起；若上一批未完又导入：总数累加，已完成数保留
+            if (Interlocked.CompareExchange(ref _folderImportActive, 1, 0) == 0)
+            {
+                Interlocked.Exchange(ref _folderImportDone, 0);
+                Interlocked.Exchange(ref _folderImportTotal, enqueuedCount);
+            }
+            else
+            {
+                Interlocked.Add(ref _folderImportTotal, enqueuedCount);
+            }
+
+            RefreshFolderImportProgressUi();
+        }
+
+        /// <summary>仅当路径属于文件夹导入批次时推进进度（含未就绪跳过）。</summary>
+        private void NotifyFolderImportOneProcessed(string imagePath)
+        {
+            if (!_folderImportPaths.TryRemove(imagePath, out _))
+                return;
+
+            var done = Interlocked.Increment(ref _folderImportDone);
+            var total = Volatile.Read(ref _folderImportTotal);
+            if (done >= total && total > 0)
+                Interlocked.Exchange(ref _folderImportActive, 0);
+
+            RefreshFolderImportProgressUi();
+        }
+
+        private void RefreshFolderImportProgressUi()
+        {
+            var done = Volatile.Read(ref _folderImportDone);
+            var total = Volatile.Read(ref _folderImportTotal);
+            var offlineRunning = total > 0 && done < total;
+            // 进行中显示进度；跑完清掉提示并复位计数，避免残留 N/N
+            string text;
+            bool visible;
+            if (offlineRunning)
+            {
+                text = $"当前处于离线检测模式，当前进度：{done} / {total}";
+                visible = true;
+            }
+            else
+            {
+                text = string.Empty;
+                visible = false;
+                if (total > 0 && done >= total)
+                {
+                    Interlocked.Exchange(ref _folderImportDone, 0);
+                    Interlocked.Exchange(ref _folderImportTotal, 0);
+                }
+            }
+
+            RunOnUIThread(() =>
+            {
+                FolderImportProgressText = text;
+                IsFolderImportProgressVisible = visible;
+                // 离线批次未跑完时禁用「开始/连续检测」，避免与在线监控并行
+                IsEnableContinuousDetection = !offlineRunning;
+            });
         }
 
         private void ExportPathSelect()
@@ -2089,31 +2290,65 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 监控功能初始化
+        /// 监控功能初始化（双根目录各一个 Watcher）
         /// </summary>
         public void WatchImageFileFolder()
         {
-            ImageFileSystemWatcher = new FileSystemWatcher();
-            // 设置要监测的文件夹路径
-            if (string.IsNullOrEmpty(ImageMonitorPath) || !Path.Exists(ImageMonitorPath))
-            {
+            if (string.IsNullOrEmpty(ImageMonitorPath) || !Directory.Exists(ImageMonitorPath))
                 ImageMonitorPath = "C:\\";
+            if (string.IsNullOrEmpty(ImageMonitorPath2) || !Directory.Exists(ImageMonitorPath2))
+                ImageMonitorPath2 = "C:\\";
+
+            ImageFileSystemWatcher = CreateImageWatcher(ImageMonitorPath!);
+            ImageFileSystemWatcher2 = CreateImageWatcher(ImageMonitorPath2!);
+        }
+
+        private FileSystemWatcher CreateImageWatcher(string rootPath)
+        {
+            var watcher = new FileSystemWatcher
+            {
+                Path = rootPath,
+                NotifyFilter =
+                    NotifyFilters.FileName
+                    | NotifyFilters.DirectoryName
+                    | NotifyFilters.LastWrite
+                    | NotifyFilters.CreationTime,
+                // 默认约 8KB，整夹复制易 InternalBufferOverflow；拉到上限 64KB
+                InternalBufferSize = WatcherInternalBufferBytes,
+                // 仅通知 *R_origin.* 文件名；入队前再校验扩展名与精确后缀
+                Filter = $"*{MonitorImageNameSuffix}.*",
+                IncludeSubdirectories = true,
+            };
+            watcher.Created += OnCreated;
+            watcher.Renamed += OnRenamed;
+            watcher.Error += OnError;
+            return watcher;
+        }
+
+        private void DisposeImageWatchers()
+        {
+            DisposeOneWatcher(ImageFileSystemWatcher);
+            ImageFileSystemWatcher = null;
+            DisposeOneWatcher(ImageFileSystemWatcher2);
+            ImageFileSystemWatcher2 = null;
+        }
+
+        private void DisposeOneWatcher(FileSystemWatcher? watcher)
+        {
+            if (watcher == null)
+                return;
+            try
+            {
+                watcher.EnableRaisingEvents = false;
+                watcher.Created -= OnCreated;
+                watcher.Renamed -= OnRenamed;
+                watcher.Error -= OnError;
+                watcher.Dispose();
             }
-            ImageFileSystemWatcher.Path = ImageMonitorPath!;
-            ImageFileSystemWatcher.NotifyFilter =
-                NotifyFilters.FileName
-                | NotifyFilters.DirectoryName
-                | NotifyFilters.LastWrite
-                | NotifyFilters.CreationTime;
-            // 默认约 8KB，整夹复制易 InternalBufferOverflow；拉到上限 64KB
-            ImageFileSystemWatcher.InternalBufferSize = WatcherInternalBufferBytes;
-            ImageFileSystemWatcher.Created += OnCreated;
-            ImageFileSystemWatcher.Renamed += OnRenamed;
-            ImageFileSystemWatcher.Error += OnError;
-            // 仅通知 *R_origin.* 文件名；入队前再校验扩展名与精确后缀
-            ImageFileSystemWatcher.Filter = $"*{MonitorImageNameSuffix}.*";
-            // 监控子目录的变化
-            ImageFileSystemWatcher.IncludeSubdirectories = true;
+            catch (Exception disposeEx)
+            {
+                _logger.Warn($"释放 Watcher 异常: {disposeEx.Message}");
+            }
         }
 
         /// <summary>
@@ -2126,6 +2361,33 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 MonitorImageNameSuffix,
                 StringComparison.OrdinalIgnoreCase
             );
+        }
+
+        /// <summary>
+        /// 路径任一段目录名为「扫码NG」则跳过（含子目录下全部文件）。
+        /// </summary>
+        private static bool IsUnderSkippedMonitorFolder(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return false;
+
+            var parts = filePath.Split(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries
+            );
+            foreach (var part in parts)
+            {
+                if (
+                    string.Equals(
+                        part,
+                        SkipMonitorFolderName,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
+                    return true;
+            }
+
+            return false;
         }
 
         private void OnError(object sender, ErrorEventArgs e)
@@ -2147,10 +2409,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         /// <param name="signal">开启/关闭信号</param>
         public void SwitchWatchImageFileFolder(bool signal)
         {
-            if (ImageFileSystemWatcher != null)
+            if (ImageFileSystemWatcher != null && !string.IsNullOrEmpty(ImageMonitorPath))
             {
-                ImageFileSystemWatcher.Path = ImageMonitorPath!;
+                ImageFileSystemWatcher.Path = ImageMonitorPath;
                 ImageFileSystemWatcher.EnableRaisingEvents = signal;
+            }
+            if (ImageFileSystemWatcher2 != null && !string.IsNullOrEmpty(ImageMonitorPath2))
+            {
+                ImageFileSystemWatcher2.Path = ImageMonitorPath2;
+                ImageFileSystemWatcher2.EnableRaisingEvents = signal;
             }
         }
 
@@ -2175,6 +2442,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
             try
             {
+                if (IsUnderSkippedMonitorFolder(filePath))
+                    return;
+
                 if (!IsMonitorTargetImageName(filePath))
                     return;
 
@@ -2195,33 +2465,59 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             }
         }
 
-        /// <summary>
-        /// 递归扫描目录，将符合规则的图片入队（去重）。返回新入队数量。
-        /// </summary>
-        private int ScanAndEnqueueImages(string? root, SearchOption searchOption)
+        /// <summary>收集符合监控规则的图片路径（不含入队）。</summary>
+        private List<string> CollectMonitorTargetImages(string? root, SearchOption searchOption)
         {
+            var list = new List<string>();
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return 0;
+                return list;
 
-            var count = 0;
-            foreach (
-                var filePath in Directory.EnumerateFiles(root, "*.*", searchOption)
-            )
+            foreach (var filePath in Directory.EnumerateFiles(root, "*.*", searchOption))
             {
+                if (IsUnderSkippedMonitorFolder(filePath))
+                    continue;
                 if (!IsMonitorTargetImageName(filePath))
                     continue;
                 string ext = Path.GetExtension(filePath).ToLowerInvariant();
                 if (!exts.Contains(ext))
                     continue;
+                list.Add(filePath);
+            }
+
+            return list;
+        }
+
+        /// <summary>将已收集路径入队（去重）。</summary>
+        private int EnqueueMonitorImages(
+            IEnumerable<string> filePaths,
+            bool trackAsFolderImport = false
+        )
+        {
+            var count = 0;
+            foreach (var filePath in filePaths)
+            {
                 if (!_processingFiles.TryAdd(filePath, 0))
                     continue;
 
                 ImagePathQueue!.Enqueue(filePath);
+                if (trackAsFolderImport)
+                    _folderImportPaths.TryAdd(filePath, 0);
                 count++;
                 _logger.Info($"图片入队：{filePath}");
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// 递归扫描目录，将符合规则的图片入队（去重）。返回新入队数量。
+        /// </summary>
+        private int ScanAndEnqueueImages(string? root, SearchOption searchOption)
+        {
+            return EnqueueMonitorImages(
+                CollectMonitorTargetImages(root, searchOption),
+                trackAsFolderImport: false
+            );
         }
 
         private void RecoverWatcherAfterBufferOverflow()
@@ -2235,35 +2531,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 Thread.Sleep(300);
                 var wasEnabled =
                     IsContinuousDetection
-                    || (ImageFileSystemWatcher?.EnableRaisingEvents ?? false);
+                    || (ImageFileSystemWatcher?.EnableRaisingEvents ?? false)
+                    || (ImageFileSystemWatcher2?.EnableRaisingEvents ?? false);
 
-                try
-                {
-                    if (ImageFileSystemWatcher != null)
-                    {
-                        ImageFileSystemWatcher.EnableRaisingEvents = false;
-                        ImageFileSystemWatcher.Created -= OnCreated;
-                        ImageFileSystemWatcher.Renamed -= OnRenamed;
-                        ImageFileSystemWatcher.Error -= OnError;
-                        ImageFileSystemWatcher.Dispose();
-                        ImageFileSystemWatcher = null;
-                    }
-                }
-                catch (Exception disposeEx)
-                {
-                    _logger.Warn($"重启 Watcher 释放异常: {disposeEx.Message}");
-                }
+                DisposeImageWatchers();
 
                 WatchImageFileFolder();
                 if (wasEnabled)
                     SwitchWatchImageFileFolder(true);
 
-                var scanned = ScanAndEnqueueImages(
+                var scanned1 = ScanAndEnqueueImages(
                     ImageMonitorPath,
                     SearchOption.AllDirectories
                 );
+                var scanned2 = ScanAndEnqueueImages(
+                    ImageMonitorPath2,
+                    SearchOption.AllDirectories
+                );
+                var scanned = scanned1 + scanned2;
                 _logger.Info(
-                    $"Watcher 缓冲溢出已恢复，补扫入队 {scanned} 张：{ImageMonitorPath}"
+                    $"Watcher 缓冲溢出已恢复，补扫入队 {scanned} 张：[{ImageMonitorPath}] + [{ImageMonitorPath2}]"
                 );
                 Growl.InfoGlobal($"监控缓冲溢出已恢复，补扫入队 {scanned} 张");
             }

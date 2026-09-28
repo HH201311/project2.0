@@ -6,6 +6,26 @@
 
 ---
 
+> **2026-09-28 变更（离线跑完清掉顶部进度提示）**  
+> 1. **背景**：离线批次结束后不应残留「当前进度：N / N」。  
+> 2. **做法**：`done >= total` 时隐藏进度文案并复位计数；进行中仍显示并禁用连续检测。  
+> 3. **落点**：`VM_NCLCCTPage.RefreshFolderImportProgressUi`；替换包 `E:\共享文档\NCLCCT_离线进度清提示与左右环互斥_替换文件_20260928_1339.zip`。  
+
+> **2026-09-28 变更（左/右环路径文案 + 离线进度提示 + 互斥连续检测）**  
+> 1. **背景**：监听路径需称「左环/右环」；离线文件夹导入时要明示模式与进度，并禁止同时开连续检测。  
+> 2. **做法**：弹窗与 Tooltip 改为左环/右环监听路径；顶部文案改为「当前处于离线检测模式，当前进度：已检 / 总数」；离线未完成时禁用「开始/连续检测」。  
+> 3. **落点**：`NCLCCTMonitorPathSelectDialog.xaml`；`VM_NCLCCTMonitorPathSelectDialog.cs`；`NCLCCTPage.xaml`；`VM_NCLCCTPage.cs`。  
+
+> **2026-09-28 变更（文件夹导入顶部进度 已检/总数）**  
+> 1. **背景**：手动按文件夹导入时不知还剩多少张，顶部菜单右侧空隙需进度提示。  
+> 2. **做法**：菜单栏右侧显示「文件夹检测：已完成 / 总数」；仅统计文件夹导入入队路径；先收集再定总数再入队，避免与消费线程竞态。  
+> 3. **落点**：`NCLCCTPage.xaml`；`VM_NCLCCTPage.cs`（`FolderImportProgressText` / `_folderImportPaths`）；替换包 `E:\共享文档\NCLCCT_双监控扫码NG与文件夹进度_替换文件_20260928_1120.zip`。  
+
+> **2026-09-28 变更（双监控目录 + 「扫码NG」跳过）**  
+> 1. **背景**：现场连续检测需同时盯两个落盘根目录；「扫码NG」子目录下图片为前工序 NG，不应再检。  
+> 2. **做法**：开启连续检测弹窗改为必选路径1/路径2，配置 `ImageMonitorPath`/`ImageMonitorPath2`，双 `FileSystemWatcher`；入队前若路径任一段目录名为「扫码NG」则跳过（Watcher/溢出补扫/按文件夹导入同规则）。  
+> 3. **落点**：`VM_NCLCCTPage.cs`；`VM_NCLCCTMonitorPathSelectDialog.cs`；`NCLCCTMonitorPathSelectDialog.xaml`；`NCLCCTPage.xaml` Tooltip；同上替换包。  
+
 > **2026-09-24 变更（清空 tools 下独立探针工程）**  
 > 1. **背景**：`tools/` 内均为离线探针（切图/找点/NJCT 失败复现等），未进 `SUNWODA_SEVB.sln`，不影响主程序编译与现场运行。  
 > 2. **做法**：删除 `CutImgProbe`、`Vision3dPointsProbe`、`VisionNjctFailProbe`、`VisionTopViewVectorProbe`（此前已删 NCLCCT 探针与下载脚本）；保留空 `tools/` 目录。  

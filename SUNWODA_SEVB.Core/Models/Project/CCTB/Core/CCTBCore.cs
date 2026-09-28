@@ -1,5 +1,6 @@
 ﻿using HandyControl.Controls;
 using HandyControl.Data;
+using HslCommunication.Algorithms.Fourier;
 using SUNWODA_SEVB.Core.Enumerations;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
 using SUNWODA_SEVB.Core.Interfaces.PLC;
@@ -12,6 +13,7 @@ using SUNWODA_SEVB.Core.Models.Project.CCTB.RoleModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -122,6 +124,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         public static GeneralSettingsModel? GeneralSettings { get; set; } = null;
         public static BasicFunctionSettingModel? BasicFunctionSetting { get; set; } = null;
         public static SpecialFunctionSettingModel? SpecialFunctionSetting { get; set; } = null;
+        public static FtpConfigModel? FtpConfig { get; set; } = null;
 
         public static List<RoleManagementModel> RoleManagementConfigs { get; set; } = [];
         public static List<AlarmConfigModel> AlarmConfigs { get; set; } = [];
@@ -165,6 +168,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.CCTB.Core
         #endregion
 
         #region 辅助方法
+
         #region 膜卷号
         /// <summary>
         /// 获取膜卷号

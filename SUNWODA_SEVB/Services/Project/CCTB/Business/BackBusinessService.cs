@@ -140,6 +140,8 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
 
             // PLC数据采集任务
             var plcGatherTask = PLCGatherActionLoopAsync(ct);
+            // 采集数据上传FTP任务
+            var ftpUploadTask = FTPUploadActionLoopAsync(ct);
 
             // 信号监听
             var signal1Task = KnifeSwitchListenerMonitorLoopAsync(knifeSwitchListener_A, ct);
@@ -155,7 +157,8 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
             var tBlockDataGatherTaskA = DHSocketClient_TBloockDataMonitorLoopAsync(ESideType.A, ct);
             var tBlockDataGatherTaskB = DHSocketClient_TBloockDataMonitorLoopAsync(ESideType.B, ct);
 
-            await Task.WhenAny(plcHeartLoopATask, plcHeartLoopBTask, globalMonitorTask, plcGatherTask, signal1Task, signal2Task, opmmGatherPLCTask, passCountMonitorTask, tBlockDataGatherTaskA, tBlockDataGatherTaskB);
+            await Task.WhenAny(plcHeartLoopATask, plcHeartLoopBTask, globalMonitorTask, plcGatherTask, ftpUploadTask, 
+                signal1Task, signal2Task, opmmGatherPLCTask, passCountMonitorTask, tBlockDataGatherTaskA, tBlockDataGatherTaskB);
         }
 
         /// <summary>
@@ -266,6 +269,272 @@ namespace SUNWODA_SEVB.Services.Project.CCTB.Business
                 }
             });
             await task.WaitAsync(ct);
+        }
+        #endregion
+
+        #region FTP上传任务
+        /// <summary>
+        /// 采集数据上传FTP任务
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        private async Task FTPUploadActionLoopAsync(CancellationToken ct)
+        {
+            var task = Task.Run(async () =>
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var isUseFTPUpload = CCTBCore.BasicFunctionSetting?.IsUseFTPUpload ?? false;
+                        if (!isUseFTPUpload) continue;
+                        // 上传前一天的数据
+                        SaveToFtp(DateTime.Now.AddDays(-1));
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.Warn($"FTP上传任务已取消");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"FTP上传任务线程异常", ex);
+                    }
+                    finally
+                    {
+                        // 每天中午12点上传
+                        var tomorrowNoon = DateTime.Today.AddDays(1).AddHours(12);
+                        var delay = tomorrowNoon - DateTime.Now;
+                        await Task.Delay(delay);
+                    }
+                }
+            });
+            await task.WaitAsync(ct);
+        }
+
+        /// <summary>
+        /// 保存数据到FTP服务器
+        /// </summary>
+        /// <param name="dateTime"></param>
+        /// <exception cref="Exception"></exception>
+        public void SaveToFtp(DateTime dateTime)
+        {
+            var bf = CCTBCore.BasicFunctionSetting.CopyByJson();
+            if (bf == null) return;
+            var localRootPaths = new List<string>()
+            {
+                bf.SavePathOfCM, bf.SavePathOfWM, bf.SavePathOfDH, bf.SavePathOfCL, bf.SavePathOfCCD,
+            };
+
+            var filePaths = new List<string>();
+            foreach (var localRootPath in localRootPaths)
+            {
+                if (string.IsNullOrEmpty(localRootPath) || !Directory.Exists(localRootPath)) continue;
+                var paths = GetFilesFromDateFolders(localRootPath, new string[] { dateTime.ToString("yyyy-MM-dd") });
+                filePaths.AddRange(paths);
+            }
+            var filePathGroups = GroupFilesBy(filePaths);
+
+            var ftpConfig = CCTBCore.FtpConfig;
+            if (ftpConfig == null) throw new Exception("FTP配置为空，请检查配置文件！");
+            var ftpHelper = new FTPHelper(ftpConfig.UserName, ftpConfig.Password, ftpConfig.FtpPath, ftpConfig.IsUseSSL);
+            ftpHelper.Speed = "16Mbps";
+
+            var workship = _globalSettingRepository.GetByName("workship")?.Value ?? "Unknow_Workship";
+            var deviceName = _globalSettingRepository.GetByName("DeviceName")?.Value ?? "Unknow_DeviceName";
+            var deviceSn = _globalSettingRepository.GetByName("DeviceSn")?.Value ?? "Unknow_DeviceSn";
+            var ftpFilePathHead = Path.Combine("涂布", workship.Replace(':', '_'), $"{deviceName}({deviceSn})");
+
+            var sw = new Stopwatch();
+            var startTime = DateTime.Now;
+            sw.Start();
+            int okCount = 0, ngCount = 0, skipCount = 0;
+            var totalCount = filePathGroups.SelectMany(o => o.Value).Count();
+            foreach (var filePathGroup in filePathGroups)
+            {
+                // 生成并创建ftp路径
+                var root = Path.GetPathRoot(filePathGroup.Key);
+                var pathWithoutDrive = string.IsNullOrEmpty(root) ? filePathGroup.Key : filePathGroup.Key.Substring(root.Length);
+                if (string.IsNullOrEmpty(pathWithoutDrive)) continue;
+                var ftpFilePath = GetOkPath(Path.Combine(ftpFilePathHead, pathWithoutDrive), ' ', '#');
+                if (!ftpHelper.MakeDir(ftpFilePath, ftpConfig.IsUseSSL)) continue;
+
+                // 获取FTP指定路径内所有文件名称
+                var ftpFilelis = ftpHelper.GetAllList(ftpFilePath, ftpConfig.IsUseSSL).ToList();
+                foreach (var file in filePathGroup.Value)
+                {
+                    try
+                    {
+                        // 存在则跳过
+                        if (ftpFilelis?.Exists(o => o.EndsWith(Path.GetFileName(file))) ?? false)
+                        {
+                            skipCount++;
+                            continue;
+                        }
+                        ftpHelper.FtpFileUpload(file, ftpFilePath, ftpConfig.IsUseSSL);
+                        okCount++;
+                    }
+                    catch (Exception)
+                    {
+                        ngCount++;
+                    }
+                    finally
+                    {
+                        var finishCount = okCount + ngCount + skipCount;
+                        var progress = (double)(finishCount / totalCount * 100);
+                        //wpaw.UpdateProgress(progress, $"{finishCount}/{totalCount}个文件正在上传FTP...", $"成功:{okCount} 跳过:{skipCount} 失败:{ngCount}");
+                    }
+                }
+            }
+            sw.Stop();
+            _logger.Info($"上传ftp成功[OK:{okCount} NG:{ngCount} Skip:{skipCount}]-开始时间[{startTime.ToString("HH:mm:ss fff")}] 耗时[{sw.ElapsedMilliseconds}]ms");
+        }
+
+        /// <summary>
+        /// 深度搜索目录树，找到所有名称符合指定查询的文件夹（取最浅层），
+        /// 并返回这些文件夹下的所有文件（包含深层子文件夹中的文件）。
+        /// </summary>
+        /// <param name="rootFolderPath">根文件夹路径</param>
+        /// <param name="folders">一个或多个文件夹名称）</param>
+        /// <returns>符合条件的文件夹内所有文件的完整路径列表</returns>
+        /// <exception cref="ArgumentException">根路径为空</exception>
+        /// <exception cref="ArgumentNullException">格式集合为 null</exception>
+        public static IEnumerable<string> GetFilesFromDateFolders(string rootFolderPath, IEnumerable<string> folders)
+        {
+            if (string.IsNullOrWhiteSpace(rootFolderPath)) throw new ArgumentException("根文件夹路径不能为空。", nameof(rootFolderPath));
+            if (folders == null) throw new ArgumentNullException(nameof(folders));
+
+            if (!Directory.Exists(rootFolderPath)) yield break;
+
+            var _folders = folders as IList<string> ?? folders.ToList();
+            if (_folders.Count == 0) yield break;
+
+            // 从根目录的子文件夹开始递归检查（根目录本身不作为日期文件夹处理）
+            foreach (var subDir in SafeEnumerateDirectories(rootFolderPath))
+            {
+                foreach (var file in GetFilesRecursive(subDir, _folders))
+                {
+                    yield return file;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 递归处理单个目录：若目录名匹配呀查询的文件夹名称，则返回其下所有文件；否则继续深入子目录。
+        /// </summary>
+        private static IEnumerable<string> GetFilesRecursive(string currentDir, IList<string> folders)
+        {
+            var dirName = Path.GetFileName(currentDir);
+            // 检查当前目录名是否是要查询的文件夹名称
+            var isExistFolder = folders.ToList().Exists(o => dirName.Equals(o));
+            if (isExistFolder)
+            {
+                // 符合条件：返回该文件夹下所有文件（递归所有子文件夹）
+                foreach (var file in SafeEnumerateFiles(currentDir))
+                {
+                    yield return file;
+                }
+                // 不再继续递归该目录的子目录，避免重复处理内部的日期文件夹
+                yield break;
+            }
+            else
+            {
+                // 不符合：继续递归子目录
+                foreach (var subDir in SafeEnumerateDirectories(currentDir))
+                {
+                    foreach (var file in GetFilesRecursive(subDir, folders))
+                    {
+                        yield return file;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 安全枚举目录下的子目录，跳过无权访问或 I/O 异常的目录。
+        /// </summary>
+        private static IEnumerable<string> SafeEnumerateDirectories(string path)
+        {
+            IEnumerable<string> dirs;
+            try
+            {
+                dirs = Directory.EnumerateDirectories(path);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException)
+            {
+                yield break;
+            }
+
+            foreach (var dir in dirs)
+            {
+                yield return dir;
+            }
+        }
+
+        /// <summary>
+        /// 安全枚举目录下的所有文件（递归包含子目录），跳过无权访问的子目录。
+        /// </summary>
+        private static IEnumerable<string> SafeEnumerateFiles(string rootDir)
+        {
+            // 先枚举当前目录下的文件
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(rootDir);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException)
+            {
+                yield break;
+            }
+
+            foreach (var file in files)
+            {
+                yield return file;
+            }
+
+            // 递归子目录
+            foreach (var subDir in SafeEnumerateDirectories(rootDir))
+            {
+                foreach (var file in SafeEnumerateFiles(subDir))
+                {
+                    yield return file;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 将文件路径按其所在目录分组，返回一个字典，键为目录路径，值为该目录下的文件列表。
+        /// </summary>
+        /// <param name="filePaths"></param>
+        /// <returns></returns>
+        private static Dictionary<string, List<string>> GroupFilesBy(IEnumerable<string> filePaths)
+        {
+            var groupedFiles = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var filePath in filePaths)
+            {
+                var directory = Path.GetDirectoryName(filePath);
+                if (directory == null) continue;
+                if (!groupedFiles.ContainsKey(directory))
+                {
+                    groupedFiles[directory] = new List<string>();
+                }
+                groupedFiles[directory].Add(filePath);
+            }
+            return groupedFiles;
+        }
+
+        /// <summary>//From:www.13le.com
+        /// C#快速剔除路径字符串中不合法的字符
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        private static string GetOkPath(string filePath, char replaceChar, params char[] chars)
+        {
+            var rBuilder = new StringBuilder(filePath);
+            var rInvalidChars = Path.GetInvalidPathChars().ToList();
+            rInvalidChars.AddRange(chars);
+            foreach (var rInvalidChar in rInvalidChars)
+                rBuilder.Replace(rInvalidChar.ToString(), replaceChar.ToString());
+            return rBuilder.ToString().Trim();
         }
         #endregion
 

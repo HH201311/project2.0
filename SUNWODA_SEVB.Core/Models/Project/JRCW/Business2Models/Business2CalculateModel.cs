@@ -44,6 +44,24 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         public int ChangeOfArithmetic { get; set; }
 
         /// <summary>
+        /// P辊压花功能
+        /// </summary>
+        [DataColumn("P辊压花功能")]
+        public float PressEnableSignal1 { get; set; }
+
+        /// <summary>
+        /// P辊闭环（软件模式）
+        /// </summary>
+        [DataColumn("P辊闭环(软件模式)")]
+        public float PressEnableSignal2 { get; set; }
+
+        /// <summary>
+        /// 压花气压Change信号
+        /// </summary>
+        [DataColumn("压花气压Change信号")]
+        public int ChangeSignal { get; set; }
+
+        /// <summary>
         /// 推荐变径调整量
         /// </summary>
         [DataColumn("推荐变径调整量")]
@@ -51,6 +69,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         #endregion
 
         #region 错位量计算数据
+        /// <summary>
+        /// 完美电芯极耳角度序列-正极
+        /// </summary>
+        [DataColumn("完美电芯极耳角度序列-正极")]
+        public string PerfectPosAngles { get; set; } = "[]";
+
+        /// <summary>
+        /// 完美电芯极耳角度序列-负极
+        /// </summary>
+        [DataColumn("完美电芯极耳角度序列-负极")]
+        public string PerfectNegAngles { get; set; } = "[]";
+
         /// <summary>
         /// 实时电芯的首极耳角度-正极
         /// </summary>
@@ -142,6 +172,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models
         /// </summary>
         [DataColumn("J3")]
         public float J3 { get; set; }
+
+        /// <summary>
+        /// Press_J
+        /// </summary>
+        [DataColumn("Press_J")]
+        public float Press_J { get; set; }
 
         /// <summary>
         /// Notes

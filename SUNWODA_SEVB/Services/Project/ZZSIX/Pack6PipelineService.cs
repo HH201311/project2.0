@@ -55,8 +55,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             _logger = logger;
             _stats =
             [
-                new Pack6StationStat("前1白标签"),
-                new Pack6StationStat("前3铭牌"),
+                new Pack6StationStat("三码校验"),
                 new Pack6StationStat("一次优率")
             ];
             _aggregator.ProductCompleted += OnAggregatorProductCompleted;
@@ -120,6 +119,9 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             }
 
             var channel = Pack6WorkClassifier.ResolveChannel(item, _configService.Current);
+            var triggerSnBackfill = false;
+            string? dateHint = null;
+
             lock (_gate)
             {
                 // 二次确认：持锁期间可能刚结案
@@ -135,6 +137,15 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     bucket = new ProductBucket(key);
                     _buckets[key] = bucket;
                     _order.Add(key);
+                    dateHint = Pack6FileNameParser.ResolveDateFolderName(item.FilePath);
+                    bucket.DateFolderHint = dateHint;
+                    triggerSnBackfill = true;
+                }
+                else if (string.IsNullOrWhiteSpace(bucket.DateFolderHint))
+                {
+                    dateHint = Pack6FileNameParser.ResolveDateFolderName(item.FilePath);
+                    if (!string.IsNullOrWhiteSpace(dateHint))
+                        bucket.DateFolderHint = dateHint;
                 }
 
                 if (bucket.Abandoned)
@@ -148,6 +159,35 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 bucket.TouchProgress();
                 EnsureHeadTimeoutArmed_NoLock();
             }
+
+            if (triggerSnBackfill)
+                FireSnBackfill(key, dateHint, firstEnqueue: true);
+        }
+
+        /// <summary>产品首次建桶：后台补扫 Y/Z 当日 SN 夹已有图（不阻塞收图线程）。</summary>
+        private void FireSnBackfill(string productSn, string? dateHint, bool firstEnqueue)
+        {
+            var ct = _cts?.Token ?? CancellationToken.None;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var n = await _ingress.BackfillProductFolderAsync(productSn, dateHint, ct)
+                        .ConfigureAwait(false);
+                    if (n > 0)
+                        Emit(firstEnqueue
+                            ? $"产品 {productSn} 首次入队补扫：新入队 {n} 张"
+                            : $"产品 {productSn} 补扫：新入队 {n} 张");
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    /* stop */
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"SN补扫异常 {productSn}: {ex.Message}", false);
+                }
+            }, ct);
         }
 
         public void ResetStatistics()
@@ -156,7 +196,48 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 s.Clear();
             _aggregator.Reset();
             ClearBuckets();
+            try
+            {
+                Pack6UiStatsStore.Save(
+                    _configService.Current,
+                    _stats,
+                    Array.Empty<Pack6UiResultLogDto>());
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"清零后写统计文件失败: {ex.Message}", false);
+            }
+
             Emit("统计已清零");
+        }
+
+        /// <summary>从磁盘恢复三码/一次优率计数（结果日志由 VM 恢复）。</summary>
+        public void LoadPersistedStatistics()
+        {
+            try
+            {
+                if (!Pack6UiStatsStore.TryLoad(_configService.Current, out var snap))
+                    return;
+                RunOnUi(() => Pack6UiStatsStore.ApplyStations(_stats, snap.Stations));
+                Emit($"已恢复界面统计（存于 {Pack6UiStatsStore.GetStorePath(_configService.Current)}）");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"加载界面统计失败: {ex.Message}", false);
+            }
+        }
+
+        /// <summary>把当前工位计数写入磁盘（日志行由 VM 一并写入）。</summary>
+        public void PersistStationStatistics(IEnumerable<Pack6UiResultLogDto> logs)
+        {
+            try
+            {
+                Pack6UiStatsStore.Save(_configService.Current, _stats, logs);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"保存界面统计失败: {ex.Message}", false);
+            }
         }
 
         public void Dispose()
@@ -204,7 +285,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 try
                 {
                     await Task.Delay(500, ct);
-                    ScanMissingTimeouts();
+                    await ScanMissingTimeoutsAsync(ct);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
@@ -288,7 +369,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     return;
                 }
 
-                UpdateStation(frame);
+                // 三码 OK/NG 在整包结案 UpdateThreeCodeStat 计一次，不按帧累加
                 try
                 {
                     _imageArchive.ArchiveFrame(_configService.Current, frame);
@@ -339,12 +420,13 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             }
         }
 
-        /// <summary>仅对提交头产品计缺张：已武装计时 + 各通道队列空 + 无在检 + 未齐套 + 空闲超时。</summary>
-        private void ScanMissingTimeouts()
+        /// <summary>仅对提交头产品计缺张：已武装计时 + 各通道队列空 + 无在检 + 未齐套 + 空闲超时；结案前先按 SN 补扫一次。</summary>
+        private async Task ScanMissingTimeoutsAsync(CancellationToken ct)
         {
             var limit = MissingTimeout();
             List<Pack6IngressItem> droppedLate = [];
             string? timeoutKey = null;
+            string? dateHint = null;
 
             lock (_gate)
             {
@@ -355,16 +437,15 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 }
 
                 EnsureHeadTimeoutArmed_NoLock();
-                if (_order.Count == 0)
-                {
-                    /* only late drops below */
-                }
-                else
+                if (_order.Count > 0)
                 {
                     var headKey = _order[0];
                     if (_buckets.TryGetValue(headKey, out var head) &&
                         ShouldMissingTimeout_NoLock(head, headKey, DateTime.UtcNow, limit))
+                    {
                         timeoutKey = headKey;
+                        dateHint = head.DateFolderHint;
+                    }
                 }
             }
 
@@ -374,8 +455,35 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 catch { /* ignore */ }
             }
 
-            if (timeoutKey is not null)
-                ForceTimeoutProduct(timeoutKey, limit);
+            if (timeoutKey is null)
+                return;
+
+            // 缺张结案前再补扫一次：中途开检漏图 / Watcher 丢事件
+            try
+            {
+                var n = await _ingress.BackfillProductFolderAsync(timeoutKey, dateHint, ct)
+                    .ConfigureAwait(false);
+                if (n > 0)
+                {
+                    Emit($"缺张前补扫 {timeoutKey}: 新入队 {n} 张，暂缓缺张结案");
+                    lock (_gate)
+                    {
+                        if (_buckets.TryGetValue(timeoutKey, out var bucket) && !bucket.Abandoned)
+                            bucket.TouchProgress();
+                    }
+                    return;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"缺张前补扫异常 {timeoutKey}: {ex.Message}", false);
+            }
+
+            ForceTimeoutProduct(timeoutKey, limit);
         }
 
         /// <summary>
@@ -575,6 +683,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             try
             {
                 await _store.AppendProductResultAsync(_configService.Current, result);
+                UpdateThreeCodeStat(result);
                 UpdateYield(result);
                 ProductCompleted?.Invoke(result);
                 // 无 PLC 前：整包齐套/超时提交视为临时放行信号，下一包才可出队检测
@@ -625,16 +734,15 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 : item.ProductCode ?? Pack6FileNameParser.ResolveFolderSn(item.FilePath) ?? string.Empty;
             folder = folder.Trim().ToUpperInvariant();
 
-            var sibling = ResolveSiblingProductSn(folder, frame.ProductCode, frame.OcrMode);
-            var siblingQr = ResolveSiblingQrData(folder, frame.ProductCode, frame.OcrMode);
+            // 以文件夹码为基准：本帧产品码/二维码只与文件夹比，不做跨图互比
             var rule = Pack6BarcodeRuleValidator.Validate(
                 frame.ProductSN,
                 folder,
-                sibling,
                 frame.QrData,
-                siblingQr,
                 frame.OcrMode,
-                config);
+                config,
+                frame.PartSN,
+                frame.Version);
 
             var packCode = !string.IsNullOrWhiteSpace(folder) ? folder : frame.ProductCode;
 
@@ -668,38 +776,6 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             return CloneFrame(frame, packCode, folder, isOk: false, defects, preview, rule.NgBanner);
         }
 
-        private string? ResolveSiblingProductSn(string folder, string productCode, Pack6OcrMode mode)
-        {
-            foreach (var status in _aggregator.GetInFlight())
-            {
-                if (!string.Equals(status.ProductCode, folder, StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(status.ProductCode, productCode, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                return mode == Pack6OcrMode.WhiteLabelThreeCode
-                    ? status.NameplateProductSn
-                    : status.WhiteLabelProductSn;
-            }
-
-            return null;
-        }
-
-        private string? ResolveSiblingQrData(string folder, string productCode, Pack6OcrMode mode)
-        {
-            if (mode != Pack6OcrMode.NameplateProductSN)
-                return null;
-
-            foreach (var status in _aggregator.GetInFlight())
-            {
-                if (!string.Equals(status.ProductCode, folder, StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(status.ProductCode, productCode, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                return status.WhiteLabelQrData;
-            }
-
-            return null;
-        }
-
         private static Pack6FrameResult CloneFrame(
             Pack6FrameResult frame,
             string productCode,
@@ -725,6 +801,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 QrData = frame.QrData,
                 PartSN = frame.PartSN,
                 ProductSN = frame.ProductSN,
+                Version = frame.Version,
                 EngineMessage = frame.EngineMessage,
                 PreviewImagePath = previewPath,
                 IsVisionAlgorithmError = frame.IsVisionAlgorithmError,
@@ -732,18 +809,19 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 OverlayBoxes = frame.OverlayBoxes
             };
 
-        private void UpdateStation(Pack6FrameResult frame)
+        /// <summary>前1+长左2-2+前3 整套算 1 次 OK/NG；未做码检的包不计。</summary>
+        private void UpdateThreeCodeStat(Pack6ProductResult result)
         {
-            if (string.IsNullOrWhiteSpace(frame.StationName))
+            if (!result.ThreeCodeChecked)
                 return;
 
             RunOnUi(() =>
             {
-                var row = _stats.FirstOrDefault(s => s.Station == frame.StationName);
-                if (row is null || row.Station == "一次优率")
+                var row = _stats.FirstOrDefault(s => s.Station == "三码校验");
+                if (row is null)
                     return;
                 row.Total++;
-                if (frame.IsOk) row.OK++;
+                if (result.ThreeCodeOk) row.OK++;
                 else row.NG++;
             });
         }
@@ -786,6 +864,8 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             public bool Abandoned { get; set; }
             /// <summary>已成为提交头（上一坑已清）后才武装缺张计时。</summary>
             public bool TimeoutArmed { get; set; }
+            /// <summary>首帧路径解析出的日期夹（yyyyMMdd / yyyy-MM-dd），供 SN 补扫。</summary>
+            public string? DateFolderHint { get; set; }
             public DateTime LastProgressUtc { get; private set; } = DateTime.UtcNow;
 
             public ProductBucket(string key)

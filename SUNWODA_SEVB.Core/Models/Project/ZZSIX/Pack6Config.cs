@@ -74,6 +74,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         /// <summary>产品编码按位校正规则（算法 §4.3）。</summary>
         public string ProductSNRule { get; set; } = string.Empty;
 
+        /// <summary>
+        /// 白标签数模版本号期望值（字段⑤，如 M00）；与 DLL 输出 version 比对。
+        /// 空串 = 不做版本校验。
+        /// </summary>
+        public string ExpectedWhiteLabelVersion { get; set; } = "M00";
+
         public int PartSNMinLength { get; set; } = 0;
 
         /// <summary>产品编码必须位数；默认 24。</summary>
@@ -85,7 +91,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
             set => ProductSNExactLength = value;
         }
 
-        public string WhiteLabelKeywords { get; set; } = "白标签;whiteLabel;前-1;前1;Front1";
+        public string WhiteLabelKeywords { get; set; } = "白标签;whiteLabel;前-1;前1;Front1;长左2-2;长左2白标签";
         public string NameplateKeywords { get; set; } = "铭牌;nameplate;前-3;前3;Front3";
 
         public bool WarmupOnInit { get; set; } = false;
@@ -100,7 +106,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
             Pack6ProductCodeCatalog.Resolve(ProductCodeProfile).Prefix10;
 
         /// <summary>
-        /// （已废弃回看补扫）现仅作标注预览目录保留天数基数（实际约基数×2）。
+        /// （已废弃回看补扫）保留配置键兼容；叠图已改临时目录，不再用本字段裁剪「标注预览」。
         /// </summary>
         public int IngressLookbackDays { get; set; } = 2;
 
@@ -120,6 +126,26 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
 
         /// <summary>磁盘占用超过该百分比则删除最早日期图像（1–99）。</summary>
         public int ImageArchiveDiskUsagePercent { get; set; } = 90;
+
+        // —— PLC 报警（欧姆龙 Fins TCP，平台 plc_config）——
+
+        /// <summary>平台 plc_config.name，默认「六面检PLC」。</summary>
+        public string PlcDeviceName { get; set; } = "六面检PLC";
+
+        /// <summary>NG/缺张报警位；欧姆龙 Fins 如 D1996.0。</summary>
+        public string PlcNgAlarmBitAddress { get; set; } = "D1996.0";
+
+        /// <summary>本机心跳输出位（每秒翻转）；如 D1996.1。</summary>
+        public string PlcHeartbeatOutBitAddress { get; set; } = "D1996.1";
+
+        /// <summary>对方心跳输入位（读跳变）；如 D1996.2。</summary>
+        public string PlcHeartbeatInBitAddress { get; set; } = "D1996.2";
+
+        /// <summary>本机心跳翻转间隔（毫秒），默认 1000。</summary>
+        public int PlcHeartbeatIntervalMs { get; set; } = 1000;
+
+        /// <summary>对方心跳无跳变超时（毫秒），默认 5000 判断连。</summary>
+        public int PlcHeartbeatTimeoutMs { get; set; } = 5000;
     }
 
     public enum Pack6OcrMode
@@ -139,6 +165,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         /// <summary>前1 白标签 OCR。</summary>
         WhiteLabel = 1,
         /// <summary>前3 铭牌 OCR。</summary>
-        Nameplate = 2
+        Nameplate = 2,
+        /// <summary>长左2-2 白标签 OCR（与前1同算法、不同机位）。</summary>
+        WhiteLabelLongLeft2 = 3
     }
 }

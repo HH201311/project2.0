@@ -18,7 +18,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- 顶栏：标题 + 运行状态 + 当前产品 -->
+        <!-- 顶栏：标题 + PLC + 运行状态 + 当前产品 -->
         <DockPanel Grid.Row="0" LastChildFill="False" Margin="4,0,4,6">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock
@@ -28,6 +28,51 @@
                     Text="PACK六面拍照工位检测" />
                 <Border
                     Margin="16,0,0,0"
+                    Padding="10,4"
+                    Background="#FFE8F0FE"
+                    CornerRadius="4">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse
+                            Width="12"
+                            Height="12"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Fill="{Binding PlcStatusBrush}">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Opacity" Value="1" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding PlcIsConnected}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard Name="PlcBreathSb">
+                                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                        <DoubleAnimation
+                                                            Storyboard.TargetProperty="Opacity"
+                                                            From="0.35"
+                                                            To="1"
+                                                            Duration="0:0:1" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="PlcBreathSb" />
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding PlcIsConnected}" Value="False">
+                                            <Setter Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock VerticalAlignment="Center">
+                            <Run Text="PLC通讯状态：" />
+                            <Run FontWeight="Bold" Foreground="{Binding PlcStatusBrush}" Text="{Binding PlcStatusText, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+                <Border
+                    Margin="8,0,0,0"
                     Padding="10,4"
                     Background="#FFE8F0FE"
                     CornerRadius="4">
@@ -374,14 +419,6 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Grid>
-
-                    <TextBlock
-                        Grid.Row="4"
-                        Margin="2,6,2,0"
-                        FontSize="11"
-                        Foreground="#FF888888"
-                        TextWrapping="Wrap"
-                        Text="{Binding LastRuleInfo, StringFormat=规则: {0}}" />
 
                     <UniformGrid Grid.Row="5" Columns="2" Margin="0,8,0,0">
                         <Button

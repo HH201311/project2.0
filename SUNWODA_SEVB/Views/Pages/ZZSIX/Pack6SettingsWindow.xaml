@@ -39,6 +39,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="电芯" />
@@ -101,6 +102,19 @@
                         Margin="0,4,0,4"
                         ToolTip="缺张最长等待分钟数，默认 10 分钟"
                         Text="{Binding PackMissingTimeoutMinutes, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="6"
+                        Grid.Column="0"
+                        Margin="0,6"
+                        VerticalAlignment="Center"
+                        Text="白标签版本号" />
+                    <TextBox
+                        Grid.Row="6"
+                        Grid.Column="1"
+                        Margin="0,4,12,4"
+                        ToolTip="数模版本号期望值（如 M00）；空=不校验；与 DLL 输出 version 比对"
+                        Text="{Binding ExpectedWhiteLabelVersion, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
             </StackPanel>
         </ScrollViewer>

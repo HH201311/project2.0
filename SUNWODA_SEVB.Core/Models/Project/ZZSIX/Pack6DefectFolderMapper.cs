@@ -10,8 +10,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
     /// <summary>把 Defects 文案映射为归档子目录（仅大类，无下级细分）。</summary>
     public static class Pack6DefectFolderMapper
     {
+        /// <summary>DLL/Halcon 等视觉算法异常专用归档目录（优先于三码等业务 NG）。</summary>
+        public const string VisionAlgorithmCategory = "视觉算法异常";
+        /// <summary>历史别名（叠字横幅等仍可能出现）。</summary>
         public const string VisionDetectCategory = "视觉检测异常";
-        public const string ThreeCodeCategory = "三码校验异常";
+        /// <summary>码检（前1/长左2白标签/前3铭牌）业务 NG 归档目录。</summary>
+        public const string ThreeCodeCategory = "三码校验";
 
         public static IReadOnlyList<Pack6DefectFolder> Map(IReadOnlyList<string>? defects)
         {
@@ -27,10 +31,16 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
 
                 var (cat, sub) = Classify(text);
                 cat = CleanSegment(cat);
-                // 视觉检测异常 / 三码校验异常：不再建下级细分目录
-                if (string.Equals(cat, VisionDetectCategory, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(cat, ThreeCodeCategory, StringComparison.OrdinalIgnoreCase))
+                // 视觉算法异常 / 三码校验：不再建下级细分目录
+                if (string.Equals(cat, VisionAlgorithmCategory, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(cat, VisionDetectCategory, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(cat, ThreeCodeCategory, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(cat, "三码校验异常", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.Equals(cat, VisionDetectCategory, StringComparison.OrdinalIgnoreCase))
+                        cat = VisionAlgorithmCategory;
                     sub = null;
+                }
                 else
                     sub = string.IsNullOrWhiteSpace(sub) ? null : CleanSegment(sub);
 
@@ -48,13 +58,13 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
             return list;
         }
 
-        /// <summary>视觉 DLL 返回的异常文案（含横幅或历史 Halcon 特征），优先于扫码业务分类。</summary>
+        /// <summary>视觉 DLL 返回的异常文案（含横幅或历史 Halcon 特征）。</summary>
         public static bool IsVisionDllReportedError(string? text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return false;
-            return text.Contains(VisionDetectCategory, StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("视觉算法异常", StringComparison.OrdinalIgnoreCase)
+            return text.Contains(VisionAlgorithmCategory, StringComparison.OrdinalIgnoreCase)
+                   || text.Contains(VisionDetectCategory, StringComparison.OrdinalIgnoreCase)
                    || text.Contains("DLL脚本", StringComparison.OrdinalIgnoreCase)
                    || text.Contains("AlgorithmError", StringComparison.OrdinalIgnoreCase)
                    || text.Contains("HALCON", StringComparison.OrdinalIgnoreCase)
@@ -67,11 +77,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
 
         private static (string Category, string? Sub) Classify(string text)
         {
-            // 视觉 DLL 返回异常 → 视觉检测异常（无下级目录）
+            // 视觉算法异常优先，不进三码目录
             if (IsVisionDllReportedError(text))
-                return (VisionDetectCategory, null);
+                return (VisionAlgorithmCategory, null);
 
-            // 三码一致 / 长度 / 前缀 / 白标签铭牌业务 NG → 三码校验异常（无下级目录）
+            // 码检业务 NG →「三码校验」
             if (text.Contains("三码", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("二维码", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("前十位", StringComparison.OrdinalIgnoreCase) ||

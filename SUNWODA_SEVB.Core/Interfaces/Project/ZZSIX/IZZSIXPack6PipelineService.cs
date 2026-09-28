@@ -13,6 +13,10 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.ZZSIX
         Task StopAsync();
         void Enqueue(Pack6IngressItem item);
         void ResetStatistics();
+        /// <summary>启动/进页时从磁盘恢复工位计数。</summary>
+        void LoadPersistedStatistics();
+        /// <summary>落盘工位计数 + 结果日志快照。</summary>
+        void PersistStationStatistics(IEnumerable<Pack6UiResultLogDto> logs);
         IReadOnlyList<Pack6StationStat> StationStats { get; }
     }
 }

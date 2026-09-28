@@ -6,6 +6,131 @@
 
 ---
 
+> **2026-09-24 变更（视觉：新 ZZTWPack + 白标签版本号校验/设置）**  
+> 1. **背景**：DLL 增 `version`/`versionRegion`；版本号默认 M00，需界面可改；与其它三码规则同路径 NG。  
+> 2. **做法**：接新签名；配置键 `ExpectedWhiteLabelVersion`；功能设置录入；规则引擎白标签比对；橙框叠版本；全量替换 `ZZTWPack.dll`。  
+> 3. **落点**：`Pack6ZztwVisionEngine`、`Pack6BarcodeRuleValidator`、`Pack6Config*`、`Pack6SettingsWindow`、`VM_ZZSIXPage`、Core/Dlls 与输出目录 DLL；补丁 `E:\共享文档\ZZSIX_PACK六面检_版本号校验与新DLL_20260924_0941.zip`。
+
+> **2026-09-22 变更（规则：白标签序列码第3位==产品码第16位）**  
+> 1. **背景**：现场要求黄框序列码第 3 位与青框产品码第 16 位须相同（代码下标 2 与 15）。  
+> 2. **做法**：白标签模式在文件夹/24/前十位通过后做交叉位校验；不足位或不等 → NG；铭牌跳过。管线/离线传入 `PartSN`。  
+> 3. **落点**：`Pack6BarcodeRuleValidator`、`Pack6PipelineService`、`VM_ZZSIXPage`；规划 §1.1.3、校验规则 README；补丁 `E:\共享文档\ZZSIX_PACK六面检_交叉位校验_20260922_1513.zip`。
+
+> **2026-09-18 变更（PLC：D1996.1/.2 互跳心跳 + 顶栏呼吸灯）**  
+> 1. **背景**：`.0` 专管报警；双方心跳改为各自每秒翻转，只看对方位是否还在跳；5 秒无跳变断连。  
+> 2. **做法**：写 `D1996.1` 每秒翻转；读 `D1996.2` 跳变刷新；超时 5s；顶栏绿点呼吸 / 红点常亮；配置键 Out/In/Interval/Timeout。  
+> 3. **落点**：`Pack6PlcAlarmService`、`Pack6Config*`、`VM_ZZSIXPage`、`ZZSIXPage.xaml`、`PLC配置说明.md`、`seed_zzsix_plc.sql`、pack6配置键；补丁 `E:\共享文档\ZZSIX_PACK六面检_PLC心跳与呼吸灯_20260918_1602.zip`。
+
+> **2026-09-18 变更（发包：叠字+统计持久化重打，含日志 100）**  
+> 1. **背景**：相对 1407 包补入检测日志限 100；计数/饼图仍全量。  
+> 2. **做法**：Debug 重编后打 zip：`SUNWODA_SEVB*` + `Core*` + 替换说明。  
+> 3. **落点**：`E:\共享文档\ZZSIX_PACK六面检_叠字与统计持久化_20260918_1417.zip`（约 65MB）。
+
+> **2026-09-18 变更（待办：新检项统计持久化同口径）**  
+> 1. **背景**：当前仅三码校验 / 一次优率有界面计数；未来卡扣等检项接入后须同样跨重启、仅清零清空。  
+> 2. **做法**：进度存档新增待办 **#16**，挂靠 #15；§1 检项表与代码入口注明 `Pack6UiStatsStore`。  
+> 3. **落点**：`ZZSIX进度存档.md` §1 / §2 / §3。
+
+> **2026-09-18 变更（统计：底部检测日志限 100 条，计数仍全量）**  
+> 1. **背景**：「最多 N 条」仅指底部「检测日志」表；三码/一次优率与饼图须全量持久，不清零则开关机原样。  
+> 2. **做法**：`Pack6UiStatsStore.MaxLogs=100`；UI/落盘/恢复均截断检测日志；Stations 计数不加限。  
+> 3. **落点**：`Pack6UiStatsStore`、`VM_ZZSIXPage`。
+
+> **2026-09-18 变更（发包：叠字位置+统计持久化替换包）**  
+> 1. **背景**：现场需覆盖叠字分色位置、仅码值、界面统计跨重启；相对 EOI/标准文件名包再发一包。  
+> 2. **做法**：Debug 编译后打 zip：`SUNWODA_SEVB*` + `SUNWODA_SEVB.Core*` + 替换说明。  
+> 3. **落点**：`E:\共享文档\ZZSIX_PACK六面检_叠字位置与统计持久化_20260918_1407.zip`（约 65MB）。
+
+> **2026-09-18 变更（复测：叠字仅码值、无中文/QR 前缀）**  
+> 1. **背景**：标注图只要码本身，不要 `QR:`/`序列码:`/`产品码:`；SEVB 早已仅码值，独立复测工具仍带前缀。  
+> 2. **做法**：`ZztwDllRetest` 三框 `TryAddBox` 只传 `Trim(...)`；样张复测确认绿上/黄右/青下且无前缀。  
+> 3. **落点**：`E:\WorkSpace\SWD\ZZSIX\复测\ZztwDllRetest\Program.cs`；标注样张 `_smoke_overlay\复测结果_*\标注图\`。
+
+> **2026-09-18 变更（UI：叠字位置恢复分色规则）**  
+> 1. **背景**：「统一框下」冲掉了约定；绿二维码应在上方、黄序列码右侧、青/铭牌下方。  
+> 2. **做法**：`Pack6OverlayBox.LabelPlacement`；白标签绿 Above / 黄 Right / 青 Below；铭牌 Below。  
+> 3. **落点**：`Pack6DetectionModels`、`Pack6ZztwVisionEngine`、`Pack6ResultOverlayHelper`。
+
+> **2026-09-18 变更（统计：界面计数跨重启持久化）**  
+> 1. **背景**：重启后三码/一次优率与结果日志被清零；现场要求仅「统计清零」才清空。  
+> 2. **做法**：落盘 `{LocalPathPre}\检测结果\Pack6_界面统计.json`；进页恢复；整包结案后保存；清零写空快照。  
+> 3. **落点**：`Pack6UiStatsStore`、`Pack6PipelineService`、`VM_ZZSIXPage`。
+
+> **2026-09-18 变更（收图：仅标准十二相机文件名才入队存图）**   
+> 1. **背景**：OK原图夹偶有杂图；原逻辑解析失败仍 fallback 入队并归档，产生垃圾存图。  
+> 2. **做法**：须匹配 `{SN}-{相机}-{张序}-{OK|NG}_{时间戳}`，且相机∈十二清单、张序∈设计张数；否则 Warn 跳过（不入队、不存图）。  
+> 3. **落点**：`Pack6IngressService.EnqueueReadyFile`；补丁 `E:\共享文档\ZZSIX_PACK六面检_EOI写稳与标准文件名_20260918_0951.zip`。
+
+> **2026-09-18 变更（收图：JPEG EOI 写稳，超时仍入队）**  
+> 1. **背景**：仅体积稳定仍可能半截拷贝（归档黑/灰、源路径事后完整）；需 EOI 校验且不能因等不到 EOI 卡死丢检。  
+> 2. **做法**：写稳改为连续 5×200ms；JPEG 另等尾部 `FF D9`；超时仍无 EOI 则 Warn 日志后照常入队检测。  
+> 3. **落点**：`Pack6IngressService`（Watcher + SN 补扫）；补丁同上。
+
+> **2026-09-17 变更（规则+发包：三码以文件夹码为基准）**  
+> 1. **背景**：互比多方时不易判断哪一张图错；现场要求以文件夹码为唯一基准，谁不等谁 NG。  
+> 2. **做法**：帧级只比「本帧产品码(/白标签二维码) vs 文件夹」；去掉两白标签互比与跨路 sibling 比对；长度/档位对文件夹码校验。  
+> 3. **落点**：`Pack6BarcodeRuleValidator`、`Pack6ProductStatus`、`Pack6PipelineService`；规划 §1.1.3、校验规则 README、进度存档；补丁 `E:\共享文档\ZZSIX_PACK六面检_文件夹基准校验_20260917_1932.zip`。
+
+> **2026-09-17 变更（UI：缺陷报警窗文案换行+限高滚动）**  
+> 1. **背景**：三码不一致等多条缺陷空格拼接后换行撑破固定高度窗，扫码输入被挤出可视区。  
+> 2. **做法**：缺陷区 `ScrollViewer`（MaxHeight≈148）+ 扫码区固底；标题与码值/≠ 分行展示；整包缺陷按 `\n` 拼接。  
+> 3. **落点**：`Pack6NgAlarmWindow.xaml(.cs)`、`VM_ZZSIXPage`。
+
+> **2026-09-17 变更（存图：视觉算法异常独立目录+CSV）**  
+> 1. **背景**：DLL/Halcon 等算法异常不应进「三码校验」；结果图不要叠异常横幅，且需可追溯报错原文。  
+> 2. **做法**：`IsVisionAlgorithmError` 时只归档到 `NGImage/视觉算法异常`（原图+结果均源文件）；在结果侧该目录维护 `视觉算法异常.csv`。  
+> 3. **落点**：`Pack6DefectFolderMapper`、`Pack6ImageArchiveService`。
+
+> **2026-09-17 变更（存图：NG 结果图改为叠图）**  
+> 1. **背景**：结果图应对齐预览，NG 也需带框与 NG 原因；原图目录仍只存源文件。  
+> 2. **做法**：归档时 OK/NG 的「结果图片」均优先拷 `PreviewImagePath`；无叠图则退回原图。  
+> 3. **落点**：`Pack6ImageArchiveService`。
+
+> **2026-09-17 变更（功能+发包：缺陷报警窗 + 欧姆龙 D1996.0）**  
+> 1. **背景**：现场接欧姆龙 Fins TCP；NG/缺张需专用扫码复位窗，且多窗全部关闭才复位 PLC。  
+> 2. **做法**：整包结案后弹「Pack六面检测缺陷报警」（缺陷空格拼接）；扫码=SN 才关；每开窗写 `D1996.0=true`，窗数归零写 `false`；顶栏 5s 探活；走平台 `plc_config`。  
+> 3. **落点**：`Pack6PlcAlarmService`、`Pack6NgAlarmWindow`、`VM_ZZSIXPage`、`ZZSIXPage`；SQL `seed_zzsix_plc.sql`、`PLC配置说明.md`；`E:\共享文档\ZZSIX_PACK六面检_综合补丁_替换文件_20260917_1705.zip`。
+
+> **2026-09-17 变更（UI：去掉「规则: 规则OK」行）**  
+> 1. **背景**：右侧统计区 `规则: 规则OK` 冗余，现场不需要。  
+> 2. **做法**：删除 `ZZSIXPage` 该 TextBlock，并移除 `LastRuleInfo`。  
+> 3. **落点**：`ZZSIXPage.xaml`、`VM_ZZSIXPage.cs`。
+
+> **2026-09-17 变更（UI/存图：取消标注预览夹 + 码文改框下）**  
+> 1. **背景**：结果根下另有「标注预览」夹多余；白标签/铭牌码文画在框左/右侧不便对照。  
+> 2. **做法**：叠图改写系统临时目录，正式只保留「原始图片/结果图片」；识别码文统一画在检测框下方。  
+> 3. **落点**：`Pack6ResultOverlayHelper`、`Pack6ImageArchiveService`、配置键说明；本轮不打包。
+
+> **2026-09-17 变更（修复+发包：三码校验 OK 按套计 1 次）**  
+> 1. **背景**：合并「三码校验」后仍按帧累加，一套三图最多记 3 次 OK。  
+> 2. **做法**：帧级不再加统计；整包结案时若做过码检则计 1 次——前1+长左2-2+前3 齐全且全过才 OK，否则 NG。  
+> 3. **落点**：`Pack6ProductStatus`、`Pack6ProductResult`、`Pack6ProductAggregator`、`Pack6PipelineService`；`E:\共享文档\ZZSIX_PACK六面检_综合补丁_替换文件_20260917_1057.zip`。
+
+> **2026-09-17 变更（功能+发包：中途开检按 SN 补扫）**  
+> 1. **背景**：生产中点启动时，该 SN 日期夹里已有图 Watcher 收不到，易缺张；仅靠超时结案会漏检。  
+> 2. **做法**：产品首次建桶时补扫 `Y/Z:\OK原图\{日期}\{SN}\`；缺张结案前再补扫一次，有新图则 TouchProgress 暂缓超时；写稳 + `_seen` 去重；日期兼容 `yyyyMMdd`/`yyyy-MM-dd`。  
+> 3. **落点**：`IZZSIXPack6IngressService`、`Pack6IngressService`、`Pack6FileNameParser`、`Pack6PipelineService`；`E:\共享文档\ZZSIX_PACK六面检_综合补丁_替换文件_20260917_1054.zip`。
+
+> **2026-09-17 变更（文档：按检测项对齐「三码校验」）**  
+> 1. **背景**：对外已是一个检测项，文档仍写「两个码位/前1+前3 分项」，进度存档未按检项分类。  
+> 2. **做法**：进度存档 §1 按检测项表重构；规划 §1.1.2 改为「三码校验」一项三图；校验规则 README 写清一句话规则与 NG 目录。  
+> 3. **落点**：`ZZSIX进度存档.md`、`ZZSIX项目开发规划.md`、`开发资料/校验规则/README.md`。
+
+> **2026-09-17 变更（口径+发包：三项码检合并为「三码校验」）**  
+> 1. **背景**：前1/长左2白标签/前3铭牌在界面与归档上拆成多项，现场要求合并为一个校验项。  
+> 2. **做法**：统计仅「三码校验」；帧 StationName/OCR CSV 的 CheckItem 统一为三码校验；码检 NG 一律归档到 `NGImage/三码校验`（含原视觉 DLL 失败）。  
+> 3. **落点**：`Pack6PipelineService`、`Pack6ZztwVisionEngine`、`Pack6DefectFolderMapper`、`Pack6ImageArchiveService`、`Pack6CsvResultStore`；`E:\共享文档\ZZSIX_PACK六面检_综合补丁_替换文件_20260917_1019.zip`。
+
+> **2026-09-17 变更（功能+发包：接入长左2-2 白标签）**  
+> 1. **背景**：码检应为三项——前1白标签、长左2白标签、前3铭牌；长左2-2 此前未走 OCR。  
+> 2. **做法**：`长左2`+张序2 → 白标签三码；独立通道/统计「长左2白标签」；两白标签产品码/二维码不一致记缺陷；离线测试增选图入口。  
+> 3. **落点**：`Pack6ZztwVisionEngine`、`Pack6WorkClassifier`、`Pack6Config`、`Pack6ProductStatus`、`Pack6PipelineService`、`VM_ZZSIXPage`、离线窗、配置键 CSV；`E:\共享文档\ZZSIX_PACK六面检_综合补丁_替换文件_20260917_1015.zip`。
+
+> **2026-09-17 变更（修复+发包：收图写稳后再入队）**  
+> 1. **背景**：Y/Z 原图正常，归档/预览下半灰且灰高不一——Created 即读导致半截图。  
+> 2. **做法**：入队前体积连续 3 次不变且可读（最长 30s）；叠图改为 `FileShare.Read`。  
+> 3. **落点**：`Pack6IngressService`、`Pack6ResultOverlayHelper`；`E:\共享文档\ZZSIX_PACK六面检_综合补丁_替换文件_20260917_0956.zip`。
+
 > **2026-09-17 变更（修复+发包：已结案同码再入队堵死全线）**  
 > 1. **背景**：现场日志 20:33 缺张结案后，20:42 同 SN 再次「进入提交坑位」；因 `IsClosed` 永不超时，提交头永久占用，之后无检测。  
 > 2. **做法**：已结案/Abandoned 迟到图直接丢弃不入队；队头已结案则踢出并武装下一头（`TryEvictDeadHead`）。  

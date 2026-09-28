@@ -4,9 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="离线测试（单独调视觉 DLL）"
     Width="520"
-    Height="360"
+    Height="420"
     MinWidth="440"
-    MinHeight="300"
+    MinHeight="360"
     WindowStartupLocation="CenterOwner"
     ResizeMode="CanResizeWithGrip"
     Background="#FFF5F8FC">
@@ -39,6 +39,15 @@
                 Background="#FF2F80ED"
                 Command="{Binding OfflineTestWhiteLabelCommand}"
                 Content="选图 · 前1 白标签（三码 OCR）"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Foreground="White" />
+            <Button
+                Height="48"
+                Margin="0,0,0,12"
+                Background="#FF1ABC9C"
+                Command="{Binding OfflineTestWhiteLabelLongLeft2Command}"
+                Content="选图 · 长左2-2 白标签（三码 OCR）"
                 FontSize="16"
                 FontWeight="SemiBold"
                 Foreground="White" />

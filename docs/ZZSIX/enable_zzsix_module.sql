@@ -30,3 +30,6 @@ WHERE vm_class_name = 'VM_ZZSIXPage';
 SELECT name, value
 FROM global_setting
 WHERE name = 'AppStartMainWindow';
+
+-- PLC 设备种子见同目录：seed_zzsix_plc.sql / PLC配置说明.md
+-- （欧姆龙 Fins TCP 192.168.7.40:9600，报警位 D1996.0）

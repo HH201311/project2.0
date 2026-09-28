@@ -14,6 +14,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             services.AddSingleton<IZZSIXPack6ProductAggregator, Pack6ProductAggregator>();
             services.AddSingleton<IZZSIXPack6ResultStore, Pack6CsvResultStore>();
             services.AddSingleton<IZZSIXPack6ImageArchiveService, Pack6ImageArchiveService>();
+            services.AddSingleton<IZZSIXPack6PlcAlarmService, Pack6PlcAlarmService>();
             services.AddSingleton<IZZSIXPack6PipelineService, Pack6PipelineService>();
             return services;
         }

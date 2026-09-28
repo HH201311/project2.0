@@ -8,25 +8,34 @@ using SUNWODA_SEVB.Core.Models.Project.ZZSIX;
 namespace SUNWODA_SEVB.Services.Project.ZZSIX
 {
     /// <summary>
-    /// 在原图上绘制 OCR 区域框与码文，落盘到 LocalPathPre/标注预览。
+    /// 在原图上绘制 OCR 区域框与码文。
+    /// 叠图仅写系统临时目录供界面预览与拷贝到「结果图片」；不再维护 LocalPathPre/标注预览。
     /// </summary>
     public static class Pack6ResultOverlayHelper
     {
+        /// <summary>历史目录名（已废弃，不再创建）。</summary>
         public const string FolderName = "标注预览";
         public const string AlgorithmErrorBanner = "视觉检测异常";
 
-        public static string GetOverlayRoot(Pack6Config config) =>
-            Path.Combine(config.LocalPathPre.Trim(), FolderName);
+        private static readonly string StagingRoot =
+            Path.Combine(Path.GetTempPath(), "ZZSIX_Pack6Overlay");
+
+        /// <summary>叠图暂存根（临时目录，非结果根下的预览夹）。</summary>
+        public static string GetOverlayRoot(Pack6Config config)
+        {
+            _ = config;
+            return StagingRoot;
+        }
 
         public static void EnsureAndPrune(Pack6Config config)
         {
-            var root = GetOverlayRoot(config);
-            Directory.CreateDirectory(root);
-            var keepDays = Math.Clamp(config.IngressLookbackDays, 1, 30) * 2;
-            var cutoff = DateTime.Now.Date.AddDays(-keepDays);
+            _ = config;
             try
             {
-                foreach (var dir in Directory.EnumerateDirectories(root))
+                Directory.CreateDirectory(StagingRoot);
+                // 临时叠图只保留当天，避免占盘；正式存档在「结果图片」
+                var cutoff = DateTime.Now.Date;
+                foreach (var dir in Directory.EnumerateDirectories(StagingRoot))
                 {
                     var name = Path.GetFileName(dir);
                     if (name.Length == 8 &&
@@ -69,7 +78,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     baseName = $"{item.CameraName}_{item.ShotIndex}_{DateTime.Now:HHmmssfff}";
                 var dest = Path.Combine(dayDir, baseName + "_ann.jpg");
 
-                using var fs = new FileStream(sourceImagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var fs = new FileStream(sourceImagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using var src = Image.FromStream(fs);
                 using var bmp = new Bitmap(src.Width, src.Height, PixelFormat.Format24bppRgb);
                 using (var g = Graphics.FromImage(bmp))
@@ -92,8 +101,8 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                         g.DrawRectangle(pen, box.X, box.Y, box.Width, box.Height);
                     }
 
-                    // 识别码文画在各检测框右侧（框外），不遮盖检测区域
-                    DrawLabelsBesideRoi(g, src.Width, src.Height, font, boxes);
+                    // 绿二维码上方 / 黄序列码右侧 / 青产品码与铭牌下方
+                    DrawLabelsByPlacement(g, src.Width, src.Height, font, boxes);
 
                     // 左上角仅 OK / NG 及 NG 详情
                     if (!algorithmError)
@@ -150,9 +159,9 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         }
 
         /// <summary>
-        /// 码文无灰底：绿框二维码在上方；黄框序列码、青框产品码在右侧。仅显示码值。
+        /// 绿框二维码：上方；黄框序列码：右侧（放不下改左侧）；青框/铭牌产品码：下方。
         /// </summary>
-        private static void DrawLabelsBesideRoi(
+        private static void DrawLabelsByPlacement(
             Graphics g,
             int imgW,
             int imgH,
@@ -173,27 +182,30 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 var sz = g.MeasureString(text, font, (int)maxTextW);
                 var panelW = sz.Width;
                 var panelH = sz.Height;
-                var placement = ResolveLabelPlacement(box, imgH);
 
                 float px;
                 float py;
-                switch (placement)
+                switch (box.LabelPlacement)
                 {
-                    case LabelPlacement.Above:
+                    case Pack6OverlayLabelPlacement.Above:
                         px = Math.Clamp(box.X, margin, Math.Max(margin, imgW - margin - panelW));
-                        py = Math.Max(margin, box.Y - gap - panelH);
+                        py = box.Y - gap - panelH;
+                        if (py < margin)
+                            py = margin;
                         break;
-                    case LabelPlacement.Below:
+
+                    case Pack6OverlayLabelPlacement.Right:
+                        px = box.X + box.Width + gap;
+                        py = Math.Clamp(box.Y, margin, Math.Max(margin, imgH - margin - panelH));
+                        if (px + panelW > imgW - margin)
+                            px = Math.Max(margin, box.X - gap - panelW);
+                        break;
+
+                    default: // Below
                         px = Math.Clamp(box.X, margin, Math.Max(margin, imgW - margin - panelW));
                         py = Math.Min(imgH - margin - panelH, box.Y + box.Height + gap);
                         if (py < margin)
                             py = margin;
-                        break;
-                    default: // Right
-                        px = box.X + box.Width + gap;
-                        if (px + panelW > imgW - margin)
-                            px = Math.Max(margin, box.X - gap - panelW);
-                        py = Math.Clamp(box.Y, margin, Math.Max(margin, imgH - margin - panelH));
                         break;
                 }
 
@@ -210,25 +222,6 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 }
                 g.DrawString(text, font, brush, px, py);
             }
-        }
-
-        private enum LabelPlacement { Above, Below, Right }
-
-        /// <summary>按框颜色约定：绿=二维码上方；黄/青=右侧。</summary>
-        private static LabelPlacement ResolveLabelPlacement(Pack6OverlayBox box, int imgH)
-        {
-            var argb = unchecked((uint)box.Argb);
-            if (argb == 0xFF00FF66u) // 绿：二维码
-                return LabelPlacement.Above;
-            if (argb is 0xFFFFFF00u or 0xFF00E5FFu) // 黄序列码 / 青产品码
-                return LabelPlacement.Right;
-
-            var cy = box.Y + box.Height / 2f;
-            if (cy < imgH / 3f)
-                return LabelPlacement.Above;
-            if (cy > imgH * 2f / 3f)
-                return LabelPlacement.Below;
-            return LabelPlacement.Right;
         }
 
         /// <summary>左上角仅画 OK / NG（及 NG 详情），不含识别码文。</summary>

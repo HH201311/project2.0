@@ -45,6 +45,7 @@
     <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ResultStore.cs" />
     <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ImageArchiveService.cs" />
     <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6PipelineService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6PlcAlarmService.cs" />
   </ItemGroup>
 
   <ItemGroup>

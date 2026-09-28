@@ -16,6 +16,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         public string? NameplateProductSn { get; private set; }
         /// <summary>白标签图内二维码，供与产品码/文件夹/铭牌一致校验。</summary>
         public string? WhiteLabelQrData { get; private set; }
+        /// <summary>已处理的白标签 OCR 次数（前1 + 长左2-2，最多计 2）。</summary>
+        public int WhiteLabelOcrCount { get; private set; }
+        /// <summary>是否已处理前3 铭牌 OCR。</summary>
+        public bool HasNameplateOcr { get; private set; }
+        /// <summary>三码任一路帧 NG（与文件夹比对失败等）。</summary>
+        public bool ThreeCodeFailed { get; private set; }
 
         public Pack6ProductStatus(string code, IReadOnlyDictionary<string, int> queueRequirements)
         {
@@ -95,6 +101,46 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
             }
         }
 
+        /// <summary>记录一帧码检结果；三码统计按「整套一次」在结案时汇总。</summary>
+        public void NoteThreeCodeFrame(Pack6OcrMode mode, bool frameOk)
+        {
+            if (mode == Pack6OcrMode.None)
+                return;
+            lock (_lock)
+            {
+                if (mode == Pack6OcrMode.WhiteLabelThreeCode)
+                {
+                    if (WhiteLabelOcrCount < 2)
+                        WhiteLabelOcrCount++;
+                }
+                else if (mode == Pack6OcrMode.NameplateProductSN)
+                    HasNameplateOcr = true;
+
+                if (!frameOk)
+                    ThreeCodeFailed = true;
+            }
+        }
+
+        /// <summary>是否做过三码相关 OCR（任一路）。</summary>
+        public bool HasAnyThreeCodeOcr
+        {
+            get
+            {
+                lock (_lock)
+                    return WhiteLabelOcrCount > 0 || HasNameplateOcr;
+            }
+        }
+
+        /// <summary>三码一套齐全且全部通过。</summary>
+        public bool IsThreeCodeSetOk
+        {
+            get
+            {
+                lock (_lock)
+                    return WhiteLabelOcrCount >= 2 && HasNameplateOcr && !ThreeCodeFailed;
+            }
+        }
+
         public void AddDefect(string defect)
         {
             if (string.IsNullOrWhiteSpace(defect))
@@ -113,7 +159,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
             {
                 if (mode == Pack6OcrMode.WhiteLabelThreeCode)
                 {
-                    WhiteLabelProductSn = productSn.Trim().ToUpperInvariant();
+                    // 仅记录最近一次白标签 OCR，供界面/追溯；一致性已在帧级与文件夹比对，不再互比两白标签
+                    var sn = productSn.Trim().ToUpperInvariant();
+                    WhiteLabelProductSn = sn;
                     if (!string.IsNullOrWhiteSpace(qrData))
                         WhiteLabelQrData = qrData.Trim().ToUpperInvariant();
                 }

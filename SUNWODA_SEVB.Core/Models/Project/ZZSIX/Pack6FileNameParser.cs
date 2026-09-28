@@ -53,5 +53,71 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
 
             return TryParseFileName(fullPath, out var parsed) ? parsed.ProductSn : null;
         }
+
+        /// <summary>从完整路径向上找日期夹名（yyyyMMdd 或 yyyy-MM-dd）。</summary>
+        public static string? ResolveDateFolderName(string? fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+                return null;
+            try
+            {
+                var dir = Path.GetDirectoryName(fullPath);
+                for (var i = 0; i < 6 && !string.IsNullOrWhiteSpace(dir); i++)
+                {
+                    var name = Path.GetFileName(dir);
+                    if (IsDateFolderName(name))
+                        return name;
+                    dir = Path.GetDirectoryName(dir);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+
+            return null;
+        }
+
+        public static bool IsDateFolderName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+            if (name.Length == 8 && name.All(char.IsDigit))
+                return true;
+            return name.Length == 10 &&
+                   name[4] == '-' && name[7] == '-' &&
+                   char.IsDigit(name[0]) && char.IsDigit(name[1]) && char.IsDigit(name[2]) &&
+                   char.IsDigit(name[3]) && char.IsDigit(name[5]) && char.IsDigit(name[6]) &&
+                   char.IsDigit(name[8]) && char.IsDigit(name[9]);
+        }
+
+        /// <summary>同一天的两种日期夹写法（现场可能是 20260917 或 2026-09-17）。</summary>
+        public static IReadOnlyList<string> ExpandDateFolderAliases(string? dateFolder)
+        {
+            var list = new List<string>();
+            void Add(string? s)
+            {
+                if (string.IsNullOrWhiteSpace(s))
+                    return;
+                if (!list.Contains(s, StringComparer.OrdinalIgnoreCase))
+                    list.Add(s);
+            }
+
+            Add(dateFolder);
+            if (!string.IsNullOrWhiteSpace(dateFolder) &&
+                dateFolder.Length == 8 && dateFolder.All(char.IsDigit) &&
+                DateTime.TryParseExact(dateFolder, "yyyyMMdd", null,
+                    System.Globalization.DateTimeStyles.None, out var d1))
+                Add(d1.ToString("yyyy-MM-dd"));
+            if (!string.IsNullOrWhiteSpace(dateFolder) &&
+                DateTime.TryParseExact(dateFolder, "yyyy-MM-dd", null,
+                    System.Globalization.DateTimeStyles.None, out var d2))
+                Add(d2.ToString("yyyyMMdd"));
+
+            var today = DateTime.Now;
+            Add(today.ToString("yyyyMMdd"));
+            Add(today.ToString("yyyy-MM-dd"));
+            return list;
+        }
     }
 }

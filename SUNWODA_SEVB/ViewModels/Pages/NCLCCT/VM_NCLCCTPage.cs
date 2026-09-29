@@ -2262,31 +2262,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
         private void ClearDetectionInfo()
         {
-            if (DetectionInfoList != null)
-            {
-                if (DetectionInfoList.Count > 9)
-                {
-                    DetectionInfoList.RemoveAt(DetectionInfoList.Count - 1);
-                }
-                DetectionInfoList.Insert(
-                    0,
-                    new DetectionInfoModel(
-                        DateTime.Now,
-                        TotalDetectionNum,
-                        OKDetectionNum,
-                        NGDetectionNum,
-                        OKRate
-                    )
-                );
-                _logger.Info(
-                    $"[统计清零]: 总检测数 {TotalDetectionNum} | OK数 {OKDetectionNum} | NG数 {NGDetectionNum} | 一次优率 {OKRate:F1}%"
-                );
-            }
+            var confirm = System.Windows.MessageBox.Show(
+                Application.Current.MainWindow,
+                $"确认清零当前统计？\n\n总检测数 {TotalDetectionNum} | OK {OKDetectionNum} | NG {NGDetectionNum} | 一次优率 {OKRate:F1}%\n\n清零前快照将记入下方清零日志。",
+                "统计清零确认",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question
+            );
+            if (confirm != MessageBoxResult.OK)
+                return;
+
+            DetectionInfoList ??= new ObservableCollection<DetectionInfoModel>();
+            if (DetectionInfoList.Count > 9)
+                DetectionInfoList.RemoveAt(DetectionInfoList.Count - 1);
+            DetectionInfoList.Insert(
+                0,
+                new DetectionInfoModel(
+                    DateTime.Now,
+                    TotalDetectionNum,
+                    OKDetectionNum,
+                    NGDetectionNum,
+                    OKRate
+                )
+            );
+            _logger.Info(
+                $"[统计清零]: 总检测数 {TotalDetectionNum} | OK数 {OKDetectionNum} | NG数 {NGDetectionNum} | 一次优率 {OKRate:F1}%"
+            );
 
             TotalDetectionNum = 0;
             OKDetectionNum = 0;
             NGDetectionNum = 0;
             OKRate = 0;
+            DetectionSattisticalData = new List<double> { 0, 0 };
         }
 
         /// <summary>
@@ -4664,22 +4671,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                         ? 0
                         : Math.Round(OKDetectionNum * 100.0 / TotalDetectionNum, 2);
                 DetectionSattisticalData = new List<double> { OKDetectionNum, NGDetectionNum };
-                RunOnUIThread(() =>
-                {
-                    DetectionInfoList ??= new ObservableCollection<DetectionInfoModel>();
-                    if (DetectionInfoList.Count > 9)
-                        DetectionInfoList.RemoveAt(DetectionInfoList.Count - 1);
-                    DetectionInfoList.Insert(
-                        0,
-                        new DetectionInfoModel(
-                            DateTime.Now,
-                            TotalDetectionNum,
-                            OKDetectionNum,
-                            NGDetectionNum,
-                            OKRate
-                        )
-                    );
-                });
+                // DetectionInfoList 仅记录「统计清零」快照，不在每张产品检测后写入
 
                 ResultImage?.Dispose();
                 ResultImage = null;

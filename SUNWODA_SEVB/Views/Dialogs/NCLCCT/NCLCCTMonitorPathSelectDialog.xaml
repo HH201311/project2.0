@@ -6,19 +6,18 @@
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.NCLCCT"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Width="400"
-    Height="150"
+    Width="560"
+    Height="230"
     Background="White"
     CornerRadius="10"
     mc:Ignorable="d">
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Button
-            Margin="0,0,0,10"
             HorizontalAlignment="Right"
             hc:IconElement.Geometry="{StaticResource CloseGeometry}"
             BorderThickness="0"
@@ -41,37 +40,60 @@
 
         <Grid Grid.Row="1" Margin="10">
             <Grid.RowDefinitions>
-                <RowDefinition />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="40" />
             </Grid.RowDefinitions>
 
-            <DockPanel VerticalAlignment="Center">
+            <DockPanel Margin="0,0,0,10" VerticalAlignment="Center">
                 <TextBlock
+                    Width="110"
                     VerticalAlignment="Center"
                     DockPanel.Dock="Left"
-                    Text="监控路径：" />
+                    Text="左环监听路径：" />
+                <Button
+                    Width="60"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Command="{Binding ChangeMonitorPath1Command}"
+                    Content="更改"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource ButtonWarning}" />
                 <TextBox
                     VerticalAlignment="Center"
                     IsReadOnly="True"
-                    Text="{Binding Result}" />
+                    Text="{Binding MonitorPath1}" />
             </DockPanel>
 
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition />
-                    <ColumnDefinition />
-                </Grid.ColumnDefinitions>
-
+            <DockPanel
+                Grid.Row="1"
+                Margin="0,0,0,10"
+                VerticalAlignment="Center">
+                <TextBlock
+                    Width="110"
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Left"
+                    Text="右环监听路径：" />
                 <Button
-                    Command="{Binding AffirmMonitorPathCommand}"
-                    Content="确认"
-                    Style="{StaticResource ButtonSuccess}" />
-                <Button
-                    Grid.Column="1"
-                    Command="{Binding ChangeMonitorPathCommand}"
+                    Width="60"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Command="{Binding ChangeMonitorPath2Command}"
                     Content="更改"
+                    DockPanel.Dock="Right"
                     Style="{StaticResource ButtonWarning}" />
-            </Grid>
+                <TextBox
+                    VerticalAlignment="Center"
+                    IsReadOnly="True"
+                    Text="{Binding MonitorPath2}" />
+            </DockPanel>
+
+            <Button
+                Grid.Row="2"
+                HorizontalAlignment="Stretch"
+                Command="{Binding AffirmMonitorPathCommand}"
+                Content="确认"
+                Style="{StaticResource ButtonSuccess}" />
         </Grid>
     </Grid>
 </Border>

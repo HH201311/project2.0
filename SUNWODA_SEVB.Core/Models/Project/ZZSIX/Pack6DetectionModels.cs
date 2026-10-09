@@ -11,6 +11,17 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         public DateTime EnqueuedAt { get; init; } = DateTime.Now;
     }
 
+    /// <summary>识别码文相对检测框的放置位置。</summary>
+    public enum Pack6OverlayLabelPlacement
+    {
+        /// <summary>框下方（产品码 / 铭牌）。</summary>
+        Below = 0,
+        /// <summary>框上方（二维码绿框）。</summary>
+        Above = 1,
+        /// <summary>框右侧（序列码黄框）；右侧放不下改左侧。</summary>
+        Right = 2
+    }
+
     /// <summary>预览图上的识别框（像素坐标，相对原图）。</summary>
     public sealed class Pack6OverlayBox
     {
@@ -21,6 +32,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         public string Label { get; init; } = string.Empty;
         /// <summary>ARGB，默认亮绿。</summary>
         public int Argb { get; init; } = unchecked((int)0xFF00FF66);
+        /// <summary>码文放置：绿上方 / 黄右侧 / 青与铭牌下方。</summary>
+        public Pack6OverlayLabelPlacement LabelPlacement { get; init; } = Pack6OverlayLabelPlacement.Below;
     }
 
     /// <summary>单帧检测结果。</summary>
@@ -40,6 +53,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         public string QrData { get; init; } = string.Empty;
         public string PartSN { get; init; } = string.Empty;
         public string ProductSN { get; init; } = string.Empty;
+        /// <summary>白标签数模版本号（DLL version，如 M00）。</summary>
+        public string Version { get; init; } = string.Empty;
         public string FolderSn { get; init; } = string.Empty;
         public string EngineMessage { get; init; } = string.Empty;
         /// <summary>叠框标注图路径；空则预览用 <see cref="FilePath"/>。</summary>
@@ -59,5 +74,9 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
         public bool TimedOut { get; init; }
         public IReadOnlyList<string> Defects { get; init; } = Array.Empty<string>();
         public DateTime CompletedAt { get; init; } = DateTime.Now;
+        /// <summary>本包是否做过三码 OCR（任一路）。统计「三码校验」时用。</summary>
+        public bool ThreeCodeChecked { get; init; }
+        /// <summary>三码一套齐全且通过（前1+长左2-2+前3 均为 OK）。整包只计一次。</summary>
+        public bool ThreeCodeOk { get; init; }
     }
 }

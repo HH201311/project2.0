@@ -176,6 +176,11 @@
       <Link>Dlls\ZZTWPack.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- NJSIX 南京 X13 Pack OCR 算法库 -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\NJX13Pack.dll">
+      <Link>Dlls\NJX13Pack.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <!-- 切图算法：复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
     <None Include="..\SUNWODA_SEVB.Core\Dlls\CTAutoCutImg.dll">
       <Link>Dlls\CTAutoCutImg.dll</Link>
@@ -189,6 +194,23 @@
     <None Include="..\SUNWODA_SEVB.Core\Dlls\CF.dll">
       <Link>Dlls\CF.dll</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- 南昌华为离线 CT（NCLCCT）：独立目录，避免覆盖 CTNCLX/惠州共用的 Dlls\NJCT.dll -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\NCLCCT\NJCT.dll">
+      <Link>Dlls\NCLCCT\NJCT.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\NCLCCT\CF.dll">
+      <Link>Dlls\NCLCCT\CF.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- ORT GPU 1.20.1 依赖：CUDA 12 + cuDNN 9 运行库（本机无 Toolkit 时必需） -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\CUDA12\*.dll">
+      <Link>Dlls\CUDA12\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="model\NCLCCT\model_hw.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- 惠州离线 CT 正极 AI 标注：ONNX 模型随输出部署 -->
     <None Include="..\SUNWODA_SEVB.Core\Dlls\Models\CTOffline\model_500000_900.onnx">
@@ -215,6 +237,9 @@
     </Reference>
     <Reference Include="ZZTWPack">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZTWPack.dll</HintPath>
+    </Reference>
+    <Reference Include="NJX13Pack">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\NJX13Pack.dll</HintPath>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>

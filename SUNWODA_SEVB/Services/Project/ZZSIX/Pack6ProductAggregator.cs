@@ -34,7 +34,10 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 camName = def.CameraName;
             status.RememberShot(camName, frame.ShotIndex);
             if (frame.OcrMode != Pack6OcrMode.None)
+            {
+                status.NoteThreeCodeFrame(frame.OcrMode, frame.IsOk);
                 status.RememberOcr(frame.OcrMode, frame.ProductSN, frame.QrData);
+            }
             foreach (var d in frame.Defects)
                 status.AddDefect(d);
 
@@ -88,7 +91,9 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 IsOk = !timedOut && status.Defects.Count == 0,
                 TimedOut = timedOut,
                 Defects = status.Defects.ToList(),
-                CompletedAt = DateTime.Now
+                CompletedAt = DateTime.Now,
+                ThreeCodeChecked = status.HasAnyThreeCodeOcr,
+                ThreeCodeOk = status.IsThreeCodeSetOk
             };
             ProductCompleted?.Invoke(result);
             return result;

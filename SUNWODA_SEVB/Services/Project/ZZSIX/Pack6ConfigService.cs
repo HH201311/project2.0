@@ -22,6 +22,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         public const string SettingLine = "ProductionLine";
         public const string SettingWorkshop = "workship";
         public const string SettingProductSNRule = "ProductSNRule";
+        public const string SettingExpectedWhiteLabelVersion = "ExpectedWhiteLabelVersion";
         public const string SettingPartSNMinLen = "PartSNMinLength";
         public const string SettingProductSNExactLen = "ProductSNExactLength";
         public const string SettingProductSNMinLen = "ProductSNMinLength";
@@ -34,6 +35,12 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         public const string SettingStoreResultImageNG = "StoreResultImageNG";
         public const string SettingImageArchiveRetainYears = "ImageArchiveRetainYears";
         public const string SettingImageArchiveDiskUsagePercent = "ImageArchiveDiskUsagePercent";
+        public const string SettingPlcDeviceName = "PlcDeviceName";
+        public const string SettingPlcNgAlarmBitAddress = "PlcNgAlarmBitAddress";
+        public const string SettingPlcHeartbeatOutBitAddress = "PlcHeartbeatOutBitAddress";
+        public const string SettingPlcHeartbeatInBitAddress = "PlcHeartbeatInBitAddress";
+        public const string SettingPlcHeartbeatIntervalMs = "PlcHeartbeatIntervalMs";
+        public const string SettingPlcHeartbeatTimeoutMs = "PlcHeartbeatTimeoutMs";
 
         private readonly IProjectSettingRepository _repo;
         private readonly ILoggerService<Pack6ConfigService> _logger;
@@ -88,6 +95,8 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 config.ProductionLine = ReadString(map, SettingLine, config.ProductionLine);
                 config.Workshop = ReadString(map, SettingWorkshop, config.Workshop);
                 config.ProductSNRule = ReadString(map, SettingProductSNRule, config.ProductSNRule);
+                config.ExpectedWhiteLabelVersion = ReadString(
+                    map, SettingExpectedWhiteLabelVersion, config.ExpectedWhiteLabelVersion);
                 config.PartSNMinLength = Clamp(ReadInt(map, SettingPartSNMinLen, config.PartSNMinLength), 0, 64);
                 if (map.ContainsKey(SettingProductSNExactLen))
                     config.ProductSNExactLength = Clamp(ReadInt(map, SettingProductSNExactLen, config.ProductSNExactLength), 0, 64);
@@ -109,6 +118,14 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     ReadInt(map, SettingImageArchiveRetainYears, config.ImageArchiveRetainYears), 1, 10);
                 config.ImageArchiveDiskUsagePercent = Clamp(
                     ReadInt(map, SettingImageArchiveDiskUsagePercent, config.ImageArchiveDiskUsagePercent), 50, 99);
+                config.PlcDeviceName = ReadString(map, SettingPlcDeviceName, config.PlcDeviceName);
+                config.PlcNgAlarmBitAddress = ReadString(map, SettingPlcNgAlarmBitAddress, config.PlcNgAlarmBitAddress);
+                config.PlcHeartbeatOutBitAddress = ReadString(map, SettingPlcHeartbeatOutBitAddress, config.PlcHeartbeatOutBitAddress);
+                config.PlcHeartbeatInBitAddress = ReadString(map, SettingPlcHeartbeatInBitAddress, config.PlcHeartbeatInBitAddress);
+                config.PlcHeartbeatIntervalMs = Clamp(
+                    ReadInt(map, SettingPlcHeartbeatIntervalMs, config.PlcHeartbeatIntervalMs), 200, 10000);
+                config.PlcHeartbeatTimeoutMs = Clamp(
+                    ReadInt(map, SettingPlcHeartbeatTimeoutMs, config.PlcHeartbeatTimeoutMs), 1000, 60000);
 
                 await EnsureAsync(map, SettingLocalPath, vm, config.LocalPathPre, "string", "结果根目录");
                 await EnsureAsync(map, SettingYOk, vm, config.YOkRootPath, "string", "Y盘OK原图根");
@@ -120,6 +137,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 await EnsureAsync(map, SettingLine, vm, config.ProductionLine, "string", "产线");
                 await EnsureAsync(map, SettingWorkshop, vm, config.Workshop, "string", "车间");
                 await EnsureAsync(map, SettingProductSNRule, vm, config.ProductSNRule, "string", "产品编码规则");
+                await EnsureAsync(map, SettingExpectedWhiteLabelVersion, vm, config.ExpectedWhiteLabelVersion, "string", "白标签数模版本号期望(M00)");
                 await EnsureAsync(map, SettingPartSNMinLen, vm, config.PartSNMinLength.ToString(), "int", "序列码最短长度");
                 await EnsureAsync(map, SettingProductSNExactLen, vm, config.ProductSNExactLength.ToString(), "int", "产品编码必须位数");
                 await EnsureAsync(map, SettingWhiteKeywords, vm, config.WhiteLabelKeywords, "string", "白标签文件名关键词");
@@ -131,6 +149,12 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 await EnsureAsync(map, SettingStoreResultImageNG, vm, config.StoreResultImageNG ? "true" : "false", "bool", "保存NG结果图");
                 await EnsureAsync(map, SettingImageArchiveRetainYears, vm, config.ImageArchiveRetainYears.ToString(), "int", "图像保留年数");
                 await EnsureAsync(map, SettingImageArchiveDiskUsagePercent, vm, config.ImageArchiveDiskUsagePercent.ToString(), "int", "磁盘占用清理阈值百分比");
+                await EnsureAsync(map, SettingPlcDeviceName, vm, config.PlcDeviceName, "string", "平台plc_config设备名");
+                await EnsureAsync(map, SettingPlcNgAlarmBitAddress, vm, config.PlcNgAlarmBitAddress, "string", "NG报警位D1996.0");
+                await EnsureAsync(map, SettingPlcHeartbeatOutBitAddress, vm, config.PlcHeartbeatOutBitAddress, "string", "本机心跳位D1996.1");
+                await EnsureAsync(map, SettingPlcHeartbeatInBitAddress, vm, config.PlcHeartbeatInBitAddress, "string", "对方心跳位D1996.2");
+                await EnsureAsync(map, SettingPlcHeartbeatIntervalMs, vm, config.PlcHeartbeatIntervalMs.ToString(), "int", "本机心跳翻转间隔毫秒");
+                await EnsureAsync(map, SettingPlcHeartbeatTimeoutMs, vm, config.PlcHeartbeatTimeoutMs.ToString(), "int", "对方心跳超时毫秒");
 
                 Current = config;
                 _logger.Info(
@@ -161,6 +185,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 await UpsertAsync(SettingLine, vm, config.ProductionLine, "string", "产线");
                 await UpsertAsync(SettingWorkshop, vm, config.Workshop, "string", "车间");
                 await UpsertAsync(SettingProductSNRule, vm, config.ProductSNRule, "string", "产品编码规则");
+                await UpsertAsync(SettingExpectedWhiteLabelVersion, vm, config.ExpectedWhiteLabelVersion, "string", "白标签数模版本号期望(M00)");
                 await UpsertAsync(SettingPartSNMinLen, vm, config.PartSNMinLength.ToString(), "int", "序列码最短长度");
                 await UpsertAsync(SettingProductSNExactLen, vm, config.ProductSNExactLength.ToString(), "int", "产品编码必须位数");
                 await UpsertAsync(SettingWhiteKeywords, vm, config.WhiteLabelKeywords, "string", "白标签文件名关键词");
@@ -172,6 +197,12 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 await UpsertAsync(SettingStoreResultImageNG, vm, config.StoreResultImageNG ? "true" : "false", "bool", "保存NG结果图");
                 await UpsertAsync(SettingImageArchiveRetainYears, vm, config.ImageArchiveRetainYears.ToString(), "int", "图像保留年数");
                 await UpsertAsync(SettingImageArchiveDiskUsagePercent, vm, config.ImageArchiveDiskUsagePercent.ToString(), "int", "磁盘占用清理阈值百分比");
+                await UpsertAsync(SettingPlcDeviceName, vm, config.PlcDeviceName, "string", "平台plc_config设备名");
+                await UpsertAsync(SettingPlcNgAlarmBitAddress, vm, config.PlcNgAlarmBitAddress, "string", "NG报警位D1996.0");
+                await UpsertAsync(SettingPlcHeartbeatOutBitAddress, vm, config.PlcHeartbeatOutBitAddress, "string", "本机心跳位D1996.1");
+                await UpsertAsync(SettingPlcHeartbeatInBitAddress, vm, config.PlcHeartbeatInBitAddress, "string", "对方心跳位D1996.2");
+                await UpsertAsync(SettingPlcHeartbeatIntervalMs, vm, config.PlcHeartbeatIntervalMs.ToString(), "int", "本机心跳翻转间隔毫秒");
+                await UpsertAsync(SettingPlcHeartbeatTimeoutMs, vm, config.PlcHeartbeatTimeoutMs.ToString(), "int", "对方心跳超时毫秒");
                 _logger.Info("Pack6运行参数已保存", false);
             }
             finally

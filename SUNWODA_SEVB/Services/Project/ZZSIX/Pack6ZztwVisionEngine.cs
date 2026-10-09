@@ -121,6 +121,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             HObject? qrRegion = null;
             HObject? partRegion = null;
             HObject? productRegion = null;
+            HObject? versionRegion = null;
             try
             {
                 HOperatorSet.ReadImage(out image, item.FilePath);
@@ -129,6 +130,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 string qrData;
                 string partSN;
                 string productSN;
+                string version;
                 lock (_aiLock)
                 {
                     err = _ai!.DecodeThreeCodesByOCR(
@@ -137,9 +139,11 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                         out qrRegion,
                         out partRegion,
                         out productRegion,
+                        out versionRegion,
                         out qrData,
                         out partSN,
-                        out productSN);
+                        out productSN,
+                        out version);
                 }
 
                 var defects = new List<string>();
@@ -153,9 +157,10 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     defects.Add($"零部件序列码长度不符(实际={partSN?.Length ?? 0},最小={config.PartSNMinLength})");
 
                 var boxes = BuildBoxes(
-                    (qrRegion, TrimLabel(qrData), unchecked((int)0xFF00FF66)),
-                    (partRegion, TrimLabel(partSN), unchecked((int)0xFFFFFF00)),
-                    (productRegion, TrimLabel(productSN), unchecked((int)0xFF00E5FF)));
+                    (qrRegion, TrimLabel(qrData), unchecked((int)0xFF00FF66), Pack6OverlayLabelPlacement.Above),
+                    (partRegion, TrimLabel(partSN), unchecked((int)0xFFFFFF00), Pack6OverlayLabelPlacement.Right),
+                    (productRegion, TrimLabel(productSN), unchecked((int)0xFF00E5FF), Pack6OverlayLabelPlacement.Below),
+                    (versionRegion, TrimLabel(version), unchecked((int)0xFFFF8C00), Pack6OverlayLabelPlacement.Above));
 
                 var frameOk = defects.Count == 0;
                 var preview = Pack6ResultOverlayHelper.TryWrite(
@@ -176,11 +181,12 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     FolderSn = Pack6FileNameParser.ResolveFolderSn(item.FilePath) ?? item.ProductCode ?? string.Empty,
                     IsOk = frameOk,
                     Defects = defects,
-                    StationName = "前1白标签",
+                    StationName = "三码校验",
                     OcrMode = Pack6OcrMode.WhiteLabelThreeCode,
                     QrData = qrData ?? string.Empty,
                     PartSN = partSN ?? string.Empty,
                     ProductSN = productSN ?? string.Empty,
+                    Version = version ?? string.Empty,
                     EngineMessage = string.IsNullOrEmpty(err) ? "OK" : err,
                     PreviewImagePath = preview ?? string.Empty,
                     NgBanner = dllError
@@ -195,6 +201,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 qrRegion?.Dispose();
                 partRegion?.Dispose();
                 productRegion?.Dispose();
+                versionRegion?.Dispose();
                 image?.Dispose();
             }
         }
@@ -225,7 +232,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     defects.Add(Pack6ResultOverlayHelper.AlgorithmErrorBanner);
 
                 var boxes = BuildBoxes(
-                    (productRegion, TrimLabel(productSN), unchecked((int)0xFF00E5FF)));
+                    (productRegion, TrimLabel(productSN), unchecked((int)0xFF00E5FF), Pack6OverlayLabelPlacement.Below));
 
                 var frameOk = defects.Count == 0;
                 var preview = Pack6ResultOverlayHelper.TryWrite(
@@ -246,7 +253,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     FolderSn = Pack6FileNameParser.ResolveFolderSn(item.FilePath) ?? item.ProductCode ?? string.Empty,
                     IsOk = frameOk,
                     Defects = defects,
-                    StationName = "前3铭牌",
+                    StationName = "三码校验",
                     OcrMode = Pack6OcrMode.NameplateProductSN,
                     ProductSN = productSN ?? string.Empty,
                     EngineMessage = string.IsNullOrEmpty(err) ? "OK" : err,
@@ -317,16 +324,19 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 FolderSn = sn,
                 IsOk = defects.Count == 0,
                 Defects = defects,
-                StationName = mode == Pack6OcrMode.WhiteLabelThreeCode
-                    ? "前1白标签"
-                    : mode == Pack6OcrMode.NameplateProductSN
-                        ? "前3铭牌"
-                        : MapStation(item.QueueName, item.CameraName),
+                StationName = mode == Pack6OcrMode.None
+                    ? MapStation(item.QueueName, item.CameraName)
+                    : "三码校验",
                 FromSimulation = true,
                 OcrMode = mode,
                 ProductSN = mode == Pack6OcrMode.None ? string.Empty : sn,
                 QrData = mode == Pack6OcrMode.WhiteLabelThreeCode ? sn : string.Empty,
                 PartSN = mode == Pack6OcrMode.WhiteLabelThreeCode ? "1234567890" : string.Empty,
+                Version = mode == Pack6OcrMode.WhiteLabelThreeCode
+                    ? (string.IsNullOrWhiteSpace(config.ExpectedWhiteLabelVersion)
+                        ? "M00"
+                        : config.ExpectedWhiteLabelVersion.Trim().ToUpperInvariant())
+                    : string.Empty,
                 EngineMessage = "模拟"
             };
         }
@@ -360,7 +370,9 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 FolderSn = Pack6FileNameParser.ResolveFolderSn(item.FilePath) ?? item.ProductCode ?? string.Empty,
                 IsOk = false,
                 Defects = [algorithmError ? Pack6ResultOverlayHelper.AlgorithmErrorBanner : message],
-                StationName = mode == Pack6OcrMode.WhiteLabelThreeCode ? "前1白标签" : "前3铭牌",
+                StationName = mode == Pack6OcrMode.None
+                    ? MapStation(item.QueueName, item.CameraName)
+                    : "三码校验",
                 OcrMode = mode,
                 EngineMessage = message,
                 PreviewImagePath = preview,
@@ -369,10 +381,10 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         }
 
         private static IReadOnlyList<Pack6OverlayBox> BuildBoxes(
-            params (HObject? Region, string Label, int Argb)[] items)
+            params (HObject? Region, string Label, int Argb, Pack6OverlayLabelPlacement Placement)[] items)
         {
             var list = new List<Pack6OverlayBox>(items.Length);
-            foreach (var (region, label, argb) in items)
+            foreach (var (region, label, argb, placement) in items)
             {
                 if (!TryGetRect(region, out var x, out var y, out var w, out var h))
                     continue;
@@ -383,7 +395,8 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     Width = w,
                     Height = h,
                     Label = label,
-                    Argb = argb
+                    Argb = argb,
+                    LabelPlacement = placement
                 });
             }
             return list;
@@ -449,6 +462,14 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 if (parsed)
                     return Pack6OcrMode.None;
             }
+            else if (string.Equals(cam, "长左2", StringComparison.Ordinal))
+            {
+                // 长左2-2：第二张白标签（与前1同算法）
+                if (shot == 2)
+                    return Pack6OcrMode.WhiteLabelThreeCode;
+                if (parsed)
+                    return Pack6OcrMode.None;
+            }
             else if (parsed)
             {
                 // 其它标准相机名：跳过 OCR，禁止再用全文件名关键词（SN 易误伤）
@@ -463,6 +484,25 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 return Pack6OcrMode.NameplateProductSN;
 
             return Pack6OcrMode.None;
+        }
+
+        /// <summary>是否长左2-2 白标签机位（与前1同 OCR，统计统一为三码校验）。</summary>
+        internal static bool IsLongLeft2WhiteLabel(Pack6IngressItem item)
+        {
+            ResolveCameraShot(item, out var cam, out var shot);
+            return string.Equals(cam, "长左2", StringComparison.Ordinal) && shot == 2;
+        }
+
+        private static void ResolveCameraShot(Pack6IngressItem item, out string cam, out int shot)
+        {
+            cam = item.CameraName ?? string.Empty;
+            shot = item.ShotIndex;
+            var name = Path.GetFileName(item.FilePath) ?? string.Empty;
+            if (Pack6FileNameParser.TryParseFileName(name, out var p))
+            {
+                cam = p.CameraName;
+                shot = p.ShotIndex;
+            }
         }
 
         /// <summary>关键词匹配用片段：优先 "-相机-张序-OK|NG_"，避免扫到 SN。</summary>

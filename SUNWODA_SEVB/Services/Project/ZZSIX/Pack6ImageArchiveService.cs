@@ -20,6 +20,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
 
         private readonly ILoggerService<Pack6ImageArchiveService> _logger;
         private readonly object _purgeLock = new();
+        private readonly object _visionAlgoCsvLock = new();
         private DateTime _lastPurgeUtc = DateTime.MinValue;
 
         public Pack6ImageArchiveService(ILoggerService<Pack6ImageArchiveService> logger)
@@ -36,6 +37,10 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 Directory.CreateDirectory(Path.Combine(root, OriginalFolder, NgFolder));
                 Directory.CreateDirectory(Path.Combine(root, ResultFolder, OkFolder));
                 Directory.CreateDirectory(Path.Combine(root, ResultFolder, NgFolder));
+                Directory.CreateDirectory(Path.Combine(
+                    root, OriginalFolder, NgFolder, Pack6DefectFolderMapper.VisionAlgorithmCategory));
+                Directory.CreateDirectory(Path.Combine(
+                    root, ResultFolder, NgFolder, Pack6DefectFolderMapper.VisionAlgorithmCategory));
             }
             catch (Exception ex)
             {
@@ -62,12 +67,35 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
 
                 var isOk = frame.IsOk;
                 var statusFolder = isOk ? OkFolder : NgFolder;
-                var defectFolders = isOk
-                    ? Array.Empty<Pack6DefectFolder>()
-                    : Pack6DefectFolderMapper.Map(frame.Defects);
+                // 视觉算法异常优先：只进「视觉算法异常」，不进三码等其它 NG 目录
+                var isVisionAlgoError = !isOk && frame.IsVisionAlgorithmError;
+                IReadOnlyList<Pack6DefectFolder> defectFolders;
+                if (isOk)
+                    defectFolders = Array.Empty<Pack6DefectFolder>();
+                else if (isVisionAlgoError)
+                    defectFolders =
+                    [
+                        new Pack6DefectFolder
+                        {
+                            Category = Pack6DefectFolderMapper.VisionAlgorithmCategory,
+                            SubDefect = null
+                        }
+                    ];
+                else if (frame.OcrMode != Pack6OcrMode.None)
+                    defectFolders =
+                    [
+                        new Pack6DefectFolder
+                        {
+                            Category = Pack6DefectFolderMapper.ThreeCodeCategory,
+                            SubDefect = null
+                        }
+                    ];
+                else
+                    defectFolders = Pack6DefectFolderMapper.Map(frame.Defects);
 
-                // OK：无缺陷子目录；NG：无映射时仍落 NGImage 根，有映射则各大类/细分各存一份
+                // OK：无缺陷子目录；NG：有映射则各大类各存一份
                 var bases = BuildStatusBases(config, statusFolder, defectFolders);
+                string? firstResultDest = null;
                 foreach (var statusBase in bases)
                 {
                     var originalDest = BuildFinalPath(statusBase, relative, isResultImage: false);
@@ -78,21 +106,90 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                     if (!storeResult)
                         continue;
 
-                    // NG：结果目录也存源文件（无叠字）；OK：优先存标注预览
+                    // 视觉算法异常：结果也存原图（不叠异常横幅）；其它 NG/OK：优先叠图
                     var resultSrc = source;
-                    if (isOk &&
+                    if (!isVisionAlgoError &&
                         !string.IsNullOrWhiteSpace(frame.PreviewImagePath) &&
                         File.Exists(frame.PreviewImagePath))
                         resultSrc = frame.PreviewImagePath;
                     var resultDest = BuildFinalPath(statusBase, relative, isResultImage: true);
                     if (resultDest is not null)
+                    {
                         TryCopy(resultSrc, resultDest);
+                        firstResultDest ??= resultDest;
+                    }
                 }
+
+                if (isVisionAlgoError)
+                    AppendVisionAlgorithmCsv(config, frame, relative, firstResultDest ?? source);
             }
             catch (Exception ex)
             {
                 _logger.Warn($"归档帧图像失败: {ex.Message}", false);
             }
+        }
+
+        /// <summary>
+        /// 在「结果图片/NGImage/视觉算法异常/」下维护 CSV，记录每张图的具体报错。
+        /// </summary>
+        private void AppendVisionAlgorithmCsv(
+            Pack6Config config,
+            Pack6FrameResult frame,
+            string relativePath,
+            string savedImagePath)
+        {
+            try
+            {
+                var dir = Path.Combine(
+                    GetImageDataRoot(config),
+                    ResultFolder,
+                    NgFolder,
+                    Pack6DefectFolderMapper.VisionAlgorithmCategory);
+                Directory.CreateDirectory(dir);
+                var csvPath = Path.Combine(dir, "视觉算法异常.csv");
+
+                var errorDetail = string.IsNullOrWhiteSpace(frame.EngineMessage)
+                    ? string.Join(' ', frame.Defects.Where(d => !string.IsNullOrWhiteSpace(d)))
+                    : frame.EngineMessage.Trim();
+                if (string.IsNullOrWhiteSpace(errorDetail))
+                    errorDetail = Pack6DefectFolderMapper.VisionAlgorithmCategory;
+
+                var line =
+                    $"{EscapeCsv(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))}," +
+                    $"{EscapeCsv(frame.ProductCode)}," +
+                    $"{EscapeCsv(frame.CameraName)}," +
+                    $"{frame.ShotIndex}," +
+                    $"{EscapeCsv(Path.GetFileName(frame.FilePath))}," +
+                    $"{EscapeCsv(relativePath)}," +
+                    $"{EscapeCsv(errorDetail)}," +
+                    $"{EscapeCsv(savedImagePath)}";
+
+                lock (_visionAlgoCsvLock)
+                {
+                    if (!File.Exists(csvPath))
+                    {
+                        File.WriteAllText(
+                            csvPath,
+                            "DateTime,ProductCode,Camera,Shot,FileName,RelativePath,ErrorDetail,SavedImagePath" +
+                            Environment.NewLine,
+                            System.Text.Encoding.UTF8);
+                    }
+
+                    File.AppendAllText(csvPath, line + Environment.NewLine, System.Text.Encoding.UTF8);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"写入视觉算法异常CSV失败: {ex.Message}", false);
+            }
+        }
+
+        private static string EscapeCsv(string? value)
+        {
+            var s = value ?? string.Empty;
+            if (s.Contains('"') || s.Contains(',') || s.Contains('\n') || s.Contains('\r'))
+                return "\"" + s.Replace("\"", "\"\"") + "\"";
+            return s;
         }
 
         public void PurgeIfNeeded(Pack6Config config)

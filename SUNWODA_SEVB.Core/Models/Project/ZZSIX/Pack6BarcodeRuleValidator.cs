@@ -10,34 +10,39 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
     }
 
     /// <summary>
-    /// PACK 编码校验：先一致（文件夹 / 白标签产品码 / 铭牌 / 二维码），再长度 24 + 前 10 位档位前缀。
+    /// PACK 编码校验：以<strong>文件夹码</strong>为基准；
+    /// 本帧产品码 / 白标签二维码各自只与文件夹比对（谁错谁 NG），再校验长度 24 + 前 10 位档位；
+    /// 白标签另比：序列码第 3 位 == 产品码第 16 位（下标 2 与 15）；
+    /// 白标签版本号 == 配置期望值（默认 M00）。
     /// </summary>
     public static class Pack6BarcodeRuleValidator
     {
+        /// <summary>序列码取位（从 1 数第 3 位 → 下标 2）。</summary>
+        public const int PartSnCrossCheckOrdinal = 3;
+
+        /// <summary>产品码取位（从 1 数第 16 位 → 下标 15）。</summary>
+        public const int ProductSnCrossCheckOrdinal = 16;
+
         /// <summary>
-        /// 对当前 OCR 帧校验。
-        /// siblingProductSn / siblingQr：同 Pack 另一路已检结果；未齐套时传空。
+        /// 对当前 OCR 帧校验（仅与文件夹比对，不做跨图互比）。
         /// </summary>
         public static Pack6BarcodeRuleResult Validate(
             string? productSn,
             string? folderSn,
-            string? siblingProductSn,
             string? qrData,
-            string? siblingQrData,
             Pack6OcrMode currentMode,
-            Pack6Config config)
+            Pack6Config config,
+            string? partSn = null,
+            string? version = null)
         {
             var result = new Pack6BarcodeRuleResult();
             var sn = Norm(productSn);
             var folder = Norm(folderSn);
-            var sibling = Norm(siblingProductSn);
             var qr = Norm(qrData);
-            var siblingQr = Norm(siblingQrData);
+            var part = Norm(partSn);
+            var ver = Norm(version);
 
-            // 白标签帧：本帧二维码；铭牌帧：用已存的白标签二维码
-            var effectiveQr = currentMode == Pack6OcrMode.WhiteLabelThreeCode ? qr : siblingQr;
-
-            var three = ValidateThreeCode(folder, sn, sibling, effectiveQr, currentMode);
+            var three = ValidateAgainstFolder(folder, sn, qr, currentMode);
             if (!three.IsOk)
             {
                 foreach (var f in three.Failures)
@@ -46,21 +51,71 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
                 return result;
             }
 
-            var rule = ValidatePrefixRule(sn, config);
-            foreach (var f in rule.Failures)
-                result.Failures.Add(f);
-            result.NgBanner = rule.NgBanner;
+            // 已与文件夹一致：长度/档位对文件夹（=本帧码）校验即可
+            var rule = ValidatePrefixRule(folder, config);
+            if (!rule.IsOk)
+            {
+                foreach (var f in rule.Failures)
+                    result.Failures.Add(f);
+                result.NgBanner = rule.NgBanner;
+                return result;
+            }
+
+            // 白标签：序列码第3位 == 产品码第16位；版本号 == 期望
+            if (currentMode == Pack6OcrMode.WhiteLabelThreeCode)
+            {
+                var cross = ValidatePartProductCrossDigit(part, sn);
+                if (!cross.IsOk)
+                {
+                    foreach (var f in cross.Failures)
+                        result.Failures.Add(f);
+                    result.NgBanner = cross.NgBanner;
+                    return result;
+                }
+
+                var verRule = ValidateWhiteLabelVersion(ver, config.ExpectedWhiteLabelVersion);
+                if (!verRule.IsOk)
+                {
+                    foreach (var f in verRule.Failures)
+                        result.Failures.Add(f);
+                    result.NgBanner = verRule.NgBanner;
+                    return result;
+                }
+            }
+
             return result;
         }
 
-        public static Pack6BarcodeRuleResult ValidateThreeCode(
+        /// <summary>
+        /// 兼容旧签名：sibling 参数忽略（统一改以文件夹为准）。
+        /// </summary>
+        [Obsolete("请改用无 sibling 的 Validate 重载；sibling 已不再参与比对。")]
+        public static Pack6BarcodeRuleResult Validate(
+            string? productSn,
+            string? folderSn,
+            string? siblingProductSn,
+            string? qrData,
+            string? siblingQrData,
+            Pack6OcrMode currentMode,
+            Pack6Config config) =>
+            Validate(productSn, folderSn, qrData, currentMode, config);
+
+        /// <summary>本帧产品码、白标签二维码分别只与文件夹比对。</summary>
+        public static Pack6BarcodeRuleResult ValidateAgainstFolder(
             string folder,
             string currentSn,
-            string siblingSn,
             string qrData,
             Pack6OcrMode currentMode)
         {
             var result = new Pack6BarcodeRuleResult();
+
+            if (string.IsNullOrEmpty(folder))
+            {
+                result.Failures.Add("三码校验失败:文件夹码为空");
+                result.NgBanner = "NG 三码校验\n文件夹码为空";
+                return result;
+            }
+
             if (string.IsNullOrEmpty(currentSn))
             {
                 result.Failures.Add("三码校验失败:当前OCR产品码为空");
@@ -68,41 +123,43 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
                 return result;
             }
 
-            if (currentMode == Pack6OcrMode.WhiteLabelThreeCode && string.IsNullOrEmpty(qrData))
+            if (!string.Equals(currentSn, folder, StringComparison.Ordinal))
             {
-                result.Failures.Add("三码校验失败:二维码为空");
-                result.NgBanner = "NG 三码校验\n二维码为空";
+                result.Failures.Add($"产品码与文件夹不一致:文件夹={folder},产品码={currentSn}");
+                result.NgBanner = $"NG 产品码≠文件夹\n文件夹={folder}\n产品码={currentSn}";
                 return result;
             }
 
-            var white = currentMode == Pack6OcrMode.WhiteLabelThreeCode ? currentSn : siblingSn;
-            var nameplate = currentMode == Pack6OcrMode.NameplateProductSN ? currentSn : siblingSn;
+            // 白标签：二维码也必须与文件夹一致
+            if (currentMode == Pack6OcrMode.WhiteLabelThreeCode)
+            {
+                if (string.IsNullOrEmpty(qrData))
+                {
+                    result.Failures.Add("三码校验失败:二维码为空");
+                    result.NgBanner = "NG 三码校验\n二维码为空";
+                    return result;
+                }
 
-            // 所有非空方必须相等（文件夹 / 白标签产品码 / 铭牌 / 二维码）
-            var parties = new List<(string Name, string Value)>();
-            if (!string.IsNullOrEmpty(folder))
-                parties.Add(("文件夹", folder));
-            parties.Add(("产品码", currentSn));
-            if (!string.IsNullOrEmpty(siblingSn))
-                parties.Add(("对照路", siblingSn));
-            if (!string.IsNullOrEmpty(qrData))
-                parties.Add(("二维码", qrData));
+                if (!string.Equals(qrData, folder, StringComparison.Ordinal))
+                {
+                    result.Failures.Add($"二维码与文件夹不一致:文件夹={folder},二维码={qrData}");
+                    result.NgBanner = $"NG 二维码≠文件夹\n文件夹={folder}\n二维码={qrData}";
+                    return result;
+                }
+            }
 
-            var mismatch = parties.Any(p => !string.Equals(p.Value, currentSn, StringComparison.Ordinal));
-            if (!mismatch)
-                return result;
-
-            var folderText = string.IsNullOrEmpty(folder) ? "(无)" : folder;
-            var whiteText = string.IsNullOrEmpty(white) ? "(未检)" : white;
-            var nameText = string.IsNullOrEmpty(nameplate) ? "(未检)" : nameplate;
-            var qrText = string.IsNullOrEmpty(qrData) ? "(无/未检)" : qrData;
-
-            result.Failures.Add(
-                $"三码不一致:文件夹={folderText},白标签={whiteText},铭牌={nameText},二维码={qrText}");
-            result.NgBanner =
-                $"NG 三码不一致\n文件夹={folderText}\n白标签={whiteText}\n铭牌={nameText}\n二维码={qrText}";
             return result;
         }
+
+        /// <summary>兼容旧名：内部改为仅与文件夹比对。</summary>
+        [Obsolete("请改用 ValidateAgainstFolder。")]
+        public static Pack6BarcodeRuleResult ValidateThreeCode(
+            string folder,
+            string currentSn,
+            string siblingSn,
+            string qrData,
+            Pack6OcrMode currentMode) =>
+            ValidateAgainstFolder(folder, currentSn, qrData, currentMode);
 
         public static Pack6BarcodeRuleResult ValidatePrefixRule(string sn, Pack6Config config)
         {
@@ -128,6 +185,73 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
                     $"前十位不符:实际={actualPrefix},要求={expectPrefix}({profile.Name})");
                 result.NgBanner =
                     $"NG 前十位不符\n要求={expectPrefix}\n扫出={sn}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 白标签交叉位：序列码第 <see cref="PartSnCrossCheckOrdinal"/> 位
+        /// 须等于产品码第 <see cref="ProductSnCrossCheckOrdinal"/> 位（下标分别为 -1）。
+        /// </summary>
+        public static Pack6BarcodeRuleResult ValidatePartProductCrossDigit(string partSn, string productSn)
+        {
+            var result = new Pack6BarcodeRuleResult();
+            var partIdx = PartSnCrossCheckOrdinal - 1;
+            var prodIdx = ProductSnCrossCheckOrdinal - 1;
+
+            if (string.IsNullOrEmpty(partSn) || partSn.Length <= partIdx)
+            {
+                result.Failures.Add(
+                    $"三码校验失败:序列码不足{PartSnCrossCheckOrdinal}位(实际={partSn?.Length ?? 0})");
+                result.NgBanner =
+                    $"NG 序列码位数不足\n要求≥{PartSnCrossCheckOrdinal}\n序列码={partSn}";
+                return result;
+            }
+
+            if (string.IsNullOrEmpty(productSn) || productSn.Length <= prodIdx)
+            {
+                result.Failures.Add(
+                    $"三码校验失败:产品码不足{ProductSnCrossCheckOrdinal}位(实际={productSn?.Length ?? 0})");
+                result.NgBanner =
+                    $"NG 产品码位数不足\n要求≥{ProductSnCrossCheckOrdinal}\n产品码={productSn}";
+                return result;
+            }
+
+            var a = partSn[partIdx];
+            var b = productSn[prodIdx];
+            if (a != b)
+            {
+                result.Failures.Add(
+                    $"序列码第{PartSnCrossCheckOrdinal}位≠产品码第{ProductSnCrossCheckOrdinal}位:序列={a},产品={b}");
+                result.NgBanner =
+                    $"NG 交叉位不符\n序列码第{PartSnCrossCheckOrdinal}位={a}\n产品码第{ProductSnCrossCheckOrdinal}位={b}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 白标签数模版本号：扫出 == 配置期望（如 M00）。期望为空则跳过。
+        /// </summary>
+        public static Pack6BarcodeRuleResult ValidateWhiteLabelVersion(string actual, string? expected)
+        {
+            var result = new Pack6BarcodeRuleResult();
+            var expect = Norm(expected);
+            if (string.IsNullOrEmpty(expect))
+                return result;
+
+            if (string.IsNullOrEmpty(actual))
+            {
+                result.Failures.Add("三码校验失败:版本号为空");
+                result.NgBanner = $"NG 版本号为空\n要求={expect}";
+                return result;
+            }
+
+            if (!string.Equals(actual, expect, StringComparison.Ordinal))
+            {
+                result.Failures.Add($"版本号不符:实际={actual},要求={expect}");
+                result.NgBanner = $"NG 版本号不符\n要求={expect}\n扫出={actual}";
             }
 
             return result;

@@ -3,7 +3,7 @@ using SUNWODA_SEVB.Core.Models.Project.ZZSIX;
 namespace SUNWODA_SEVB.Services.Project.ZZSIX
 {
     /// <summary>
-    /// 一检项一通道：按文件名/张序路由到 FrameReceive / WhiteLabel / Nameplate（可扩展）。
+    /// 一检项一通道：按文件名/张序路由到 FrameReceive / 前1白标签 / 长左2白标签 / 铭牌。
     /// </summary>
     internal static class Pack6WorkClassifier
     {
@@ -11,6 +11,7 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         [
             Pack6DetectChannelKind.FrameReceive,
             Pack6DetectChannelKind.WhiteLabel,
+            Pack6DetectChannelKind.WhiteLabelLongLeft2,
             Pack6DetectChannelKind.Nameplate
         ];
 
@@ -19,7 +20,10 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
             var mode = Pack6ZztwVisionEngine.ResolveOcrMode(item, config);
             return mode switch
             {
-                Pack6OcrMode.WhiteLabelThreeCode => Pack6DetectChannelKind.WhiteLabel,
+                Pack6OcrMode.WhiteLabelThreeCode =>
+                    Pack6ZztwVisionEngine.IsLongLeft2WhiteLabel(item)
+                        ? Pack6DetectChannelKind.WhiteLabelLongLeft2
+                        : Pack6DetectChannelKind.WhiteLabel,
                 Pack6OcrMode.NameplateProductSN => Pack6DetectChannelKind.Nameplate,
                 _ => Pack6DetectChannelKind.FrameReceive
             };
@@ -28,8 +32,9 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
         public static string ChannelDisplayName(Pack6DetectChannelKind kind) => kind switch
         {
             Pack6DetectChannelKind.FrameReceive => "收图齐套",
-            Pack6DetectChannelKind.WhiteLabel => "前1白标签",
-            Pack6DetectChannelKind.Nameplate => "前3铭牌",
+            Pack6DetectChannelKind.WhiteLabel => "三码校验(前1)",
+            Pack6DetectChannelKind.WhiteLabelLongLeft2 => "三码校验(长左2)",
+            Pack6DetectChannelKind.Nameplate => "三码校验(前3)",
             _ => kind.ToString()
         };
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using OxyPlot;
 using OxyPlot.Series;
 using SUNWODA_SEVB.Core.Attributes;
@@ -14,7 +15,7 @@ using SUNWODA_SEVB.Core.Models.Project.ZZSIX;
 namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
 {
     /// <summary>
-    /// ZZSIX · PACK 六面检（12 相机 + 前1/前3 码检 + 条码规则）。
+    /// ZZSIX · PACK 六面检（12 相机 + 前1/长左2-2 白标签 + 前3 铭牌 + 条码规则）。
     /// 布局对齐旧「检测界面」：左预览+日志，右功能设置/统计。
     /// </summary>
     [Module("VM_ZZSIXPage", "PACK六面检")]
@@ -25,6 +26,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         private readonly IZZSIXPack6IngressService _ingress;
         private readonly IZZSIXPack6PipelineService _pipeline;
         private readonly IZZSIXPack6VisionEngine _vision;
+        private readonly IZZSIXPack6PlcAlarmService _plcAlarm;
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private readonly SemaphoreSlim _offlineLock = new(1, 1);
         private readonly Dictionary<string, Pack6CameraSlotVm> _slotsByCamera;
@@ -39,12 +41,12 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         private string _cellType = "TW";
         private string _productionLine = "P05";
         private string _productSnRule = string.Empty;
+        private string _expectedWhiteLabelVersion = "M00";
         private string _localPathPre = @"D:\六面检上位机软件";
         private string _yOkRootPath = @"Y:\OK原图";
         private string _zOkRootPath = @"Z:\OK原图";
         private string _lastFrameInfo = "-";
         private string _lastOcrInfo = "-";
-        private string _lastRuleInfo = "-";
         private string _yieldRateText = "—";
         private string _totalCountText = "0";
         private string _okCountText = "0";
@@ -55,16 +57,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         private int _ingressPollSeconds = 60;
         private int _packMissingTimeoutMinutes = 10;
         private Pack6ProductCodeProfile _selectedProductCodeProfile = Pack6ProductCodeCatalog.Default;
+        private string _plcStatusText = "检测中…";
+        private Brush _plcStatusBrush = Brushes.Gray;
+        private bool _plcIsConnected;
+        private CancellationTokenSource? _plcProbeCts;
 
         public event Action? ConfigSummaryChanged;
         /// <summary>由 View 订阅并弹出设置窗，避免 VM 依赖 Views。</summary>
         public event Action? RequestOpenSettings;
         /// <summary>打开离线测试窗（选图调 DLL）。</summary>
         public event Action? RequestOpenOfflineTest;
-        /// <summary>扫码/整包 NG（非缺张）时通知 View。</summary>
-        public event Action<string>? RequestNgAlarm;
-        /// <summary>缺张超时：黄色报警窗，参数为产品码与缺张明细。</summary>
-        public event Action<string, string>? RequestMissingShotAlarm;
+        /// <summary>整包 NG/缺张报警：产品码 + 缺陷明细（空格拼接）。</summary>
+        public event Action<string, string>? RequestDefectAlarm;
 
         public ObservableCollection<string> LogMessages { get; } = [];
         public ObservableCollection<Pack6CameraSlotVm> CameraSlots { get; } = [];
@@ -115,6 +119,26 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         /// <summary>主界面摘要用：仅显示档位名称。</summary>
         public string ProductCodeProfileName => SelectedProductCodeProfile.Name;
 
+        /// <summary>顶栏 PLC 连接文案。</summary>
+        public string PlcStatusText
+        {
+            get => _plcStatusText;
+            set => SetProperty(ref _plcStatusText, value);
+        }
+
+        public Brush PlcStatusBrush
+        {
+            get => _plcStatusBrush;
+            set => SetProperty(ref _plcStatusBrush, value);
+        }
+
+        /// <summary>顶栏呼吸灯：true=对方心跳在跳；false=断连。</summary>
+        public bool PlcIsConnected
+        {
+            get => _plcIsConnected;
+            set => SetProperty(ref _plcIsConnected, value);
+        }
+
         /// <summary>当前档位前十位（校验用；主界面不展示）。</summary>
         public string ExpectedPrefix10 => SelectedProductCodeProfile.Prefix10;
 
@@ -140,12 +164,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         {
             get => _lastOcrInfo;
             set => SetProperty(ref _lastOcrInfo, value);
-        }
-
-        public string LastRuleInfo
-        {
-            get => _lastRuleInfo;
-            set => SetProperty(ref _lastRuleInfo, value);
         }
 
         public string YieldRateText
@@ -210,6 +228,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             set => SetProperty(ref _productSnRule, value);
         }
 
+        /// <summary>白标签数模版本号期望值（功能设置可改，默认 M00）。</summary>
+        public string ExpectedWhiteLabelVersion
+        {
+            get => _expectedWhiteLabelVersion;
+            set => SetProperty(ref _expectedWhiteLabelVersion, value);
+        }
+
         public string LocalPathPre
         {
             get => _localPathPre;
@@ -267,7 +292,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             }
         }
 
-        /// <summary>标注预览保留天数基数（原回看天数；已不做补扫）。</summary>
+        /// <summary>已废弃回看天数（配置兼容；叠图不落「标注预览」目录）。</summary>
         public int IngressLookbackDays
         {
             get => _ingressLookbackDays;
@@ -296,6 +321,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         public ICommand OpenResultFolderCommand { get; }
         public ICommand OpenOfflineTestCommand { get; }
         public ICommand OfflineTestWhiteLabelCommand { get; }
+        public ICommand OfflineTestWhiteLabelLongLeft2Command { get; }
         public ICommand OfflineTestNameplateCommand { get; }
         public ICommand SimulateOnePackCommand { get; }
 
@@ -304,13 +330,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             IZZSIXPack6ConfigService configService,
             IZZSIXPack6IngressService ingress,
             IZZSIXPack6PipelineService pipeline,
-            IZZSIXPack6VisionEngine vision)
+            IZZSIXPack6VisionEngine vision,
+            IZZSIXPack6PlcAlarmService plcAlarm)
         {
             _logger = logger;
             _configService = configService;
             _ingress = ingress;
             _pipeline = pipeline;
             _vision = vision;
+            _plcAlarm = plcAlarm;
             PieModel = CreatePieModel();
             RefreshPieChart(0, 0);
 
@@ -328,6 +356,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             {
                 _pipeline.ResetStatistics();
                 ResultLogs.Clear();
+                PersistUiStats();
                 RefreshYieldSummary();
             });
             SaveConfigCommand = new RelayCommand(async () => await SaveConfigAsync());
@@ -339,10 +368,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 () => RequestOpenOfflineTest?.Invoke(),
                 _ => CanEditRuntimeConfig && !_offlineBusy);
             OfflineTestWhiteLabelCommand = new RelayCommand(
-                async () => await RunOfflineOcrAsync(Pack6OcrMode.WhiteLabelThreeCode),
+                async () => await RunOfflineOcrAsync(Pack6OcrMode.WhiteLabelThreeCode, "前", 1, "FrontQueue"),
+                _ => CanEditRuntimeConfig && !_offlineBusy);
+            OfflineTestWhiteLabelLongLeft2Command = new RelayCommand(
+                async () => await RunOfflineOcrAsync(Pack6OcrMode.WhiteLabelThreeCode, "长左2", 2, "LongLeft2Queue"),
                 _ => CanEditRuntimeConfig && !_offlineBusy);
             OfflineTestNameplateCommand = new RelayCommand(
-                async () => await RunOfflineOcrAsync(Pack6OcrMode.NameplateProductSN),
+                async () => await RunOfflineOcrAsync(Pack6OcrMode.NameplateProductSN, "前", 3, "FrontQueue"),
                 _ => CanEditRuntimeConfig && !_offlineBusy);
             SimulateOnePackCommand = new RelayCommand(
                 SimulateOnePack,
@@ -353,22 +385,30 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             _pipeline.ProductCompleted += OnProduct;
             _ingress.ItemEnqueued += OnIngress;
             _ingress.StatusEmitted += OnIngressStatus;
+            _plcAlarm.PlcReachabilityChanged += OnPlcReachabilityChanged;
         }
 
         public override async void OnInitialize()
         {
             await EnsureLoadedAsync();
+            StartPlcProbeLoop();
+            // 进页默认开检，避免重启后忘记点「启动」
+            await TryAutoStartAsync();
             base.OnInitialize();
         }
 
         public override async void OnNavigatedTo(object? parameter)
         {
             await EnsureLoadedAsync();
+            StartPlcProbeLoop();
+            await TryAutoStartAsync();
             base.OnNavigatedTo(parameter);
         }
 
         public override async void OnCleanup()
         {
+            StopPlcProbeLoop();
+            _plcAlarm.PlcReachabilityChanged -= OnPlcReachabilityChanged;
             await StopAsync();
             _pipeline.LogEmitted -= OnLog;
             _pipeline.FrameCompleted -= OnFrame;
@@ -376,6 +416,70 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             _ingress.ItemEnqueued -= OnIngress;
             _ingress.StatusEmitted -= OnIngressStatus;
             base.OnCleanup();
+        }
+
+        public Task NotifyDefectAlarmWindowOpenedAsync() =>
+            _plcAlarm.NotifyWindowOpenedAsync();
+
+        public Task NotifyDefectAlarmWindowClosedAsync() =>
+            _plcAlarm.NotifyWindowClosedAsync();
+
+        private void OnPlcReachabilityChanged(bool ok) =>
+            RunOnUi(() => ApplyPlcStatus(ok));
+
+        private void StartPlcProbeLoop()
+        {
+            if (_plcProbeCts is not null)
+                return;
+            _plcProbeCts = new CancellationTokenSource();
+            var ct = _plcProbeCts.Token;
+            _ = Task.Run(async () =>
+            {
+                // 约 500ms 一轮：便于捕到对方每秒翻转；本机写间隔/超时由服务内配置
+                while (!ct.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var ok = await _plcAlarm.ProbeAsync(ct).ConfigureAwait(false);
+                        RunOnUi(() => ApplyPlcStatus(ok));
+                        await Task.Delay(TimeSpan.FromMilliseconds(500), ct).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn($"PLC心跳循环异常: {ex.Message}", false);
+                        RunOnUi(() => ApplyPlcStatus(false));
+                        try { await Task.Delay(TimeSpan.FromMilliseconds(500), ct).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { break; }
+                    }
+                }
+            }, ct);
+        }
+
+        private void StopPlcProbeLoop()
+        {
+            try
+            {
+                _plcProbeCts?.Cancel();
+                _plcProbeCts?.Dispose();
+            }
+            catch
+            {
+                // ignore
+            }
+            _plcProbeCts = null;
+        }
+
+        private void ApplyPlcStatus(bool ok)
+        {
+            PlcIsConnected = ok;
+            PlcStatusText = ok ? "已连接" : "未连接";
+            PlcStatusBrush = ok
+                ? new SolidColorBrush(Color.FromRgb(0x27, 0xAE, 0x60))
+                : new SolidColorBrush(Color.FromRgb(0xE7, 0x4C, 0x3C));
         }
 
         public async Task SaveConfigFromSettingsAsync()
@@ -410,6 +514,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 var cfg = await _configService.LoadAsync();
                 ApplyConfigToUi(cfg);
                 _allowProductProfilePersist = true;
+                RestorePersistedUiStats();
                 RaiseConfigSummaryChanged();
                 RefreshYieldSummary();
                 AppendLog("配置已加载（12相机 / Y·Z OK原图 / 条码规则 / 仅监视新文件）");
@@ -421,8 +526,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             }
         }
 
+        /// <summary>进页/初始化时自动启动；已在运行则跳过。</summary>
+        private async Task TryAutoStartAsync()
+        {
+            if (IsRunning)
+                return;
+            await StartAsync();
+        }
+
         private async Task StartAsync()
         {
+            if (IsRunning)
+                return;
             try
             {
                 await PushUiToConfigAndSaveAsync(persist: false);
@@ -469,6 +584,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             cfg.CellType = CellType.Trim();
             cfg.ProductionLine = ProductionLine.Trim();
             cfg.ProductSNRule = ProductSNRule.Trim();
+            cfg.ExpectedWhiteLabelVersion = ExpectedWhiteLabelVersion.Trim().ToUpperInvariant();
             cfg.IngressLookbackDays = IngressLookbackDays;
             cfg.IngressPollSeconds = IngressPollSeconds;
             cfg.PackMissingTimeoutSeconds = Math.Clamp(PackMissingTimeoutMinutes * 60, 5, 3600);
@@ -487,6 +603,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             CellType = cfg.CellType;
             ProductionLine = cfg.ProductionLine;
             ProductSNRule = cfg.ProductSNRule;
+            ExpectedWhiteLabelVersion = string.IsNullOrWhiteSpace(cfg.ExpectedWhiteLabelVersion)
+                ? "M00"
+                : cfg.ExpectedWhiteLabelVersion;
             IngressLookbackDays = cfg.IngressLookbackDays;
             IngressPollSeconds = cfg.IngressPollSeconds;
             PackMissingTimeoutMinutes = Math.Clamp(
@@ -522,7 +641,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         /// <summary>
         /// 离线：选本地图 → 强制真实 DLL → 码规则校验 → 刷新预览。不入队产线。
         /// </summary>
-        private async Task RunOfflineOcrAsync(Pack6OcrMode mode)
+        private async Task RunOfflineOcrAsync(
+            Pack6OcrMode mode,
+            string cameraName,
+            int shotIndex,
+            string queueName)
         {
             if (IsRunning)
             {
@@ -538,9 +661,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             CommandManager.InvalidateRequerySuggested();
             try
             {
-                var title = mode == Pack6OcrMode.WhiteLabelThreeCode
-                    ? "选择白标签（前1）图片"
-                    : "选择铭牌（前3）图片";
+                var title = mode == Pack6OcrMode.NameplateProductSN
+                    ? "选择铭牌（前3）图片"
+                    : string.Equals(cameraName, "长左2", StringComparison.Ordinal) && shotIndex == 2
+                        ? "选择白标签（长左2-2）图片"
+                        : "选择白标签（前1）图片";
                 var dlg = new Microsoft.Win32.OpenFileDialog
                 {
                     Title = title,
@@ -564,14 +689,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 try
                 {
                     await _vision.InitializeAsync(cfg);
-                    var shot = mode == Pack6OcrMode.WhiteLabelThreeCode ? 1 : 3;
                     var item = new Pack6IngressItem
                     {
                         FilePath = path,
-                        QueueName = "FrontQueue",
+                        QueueName = queueName,
                         ProductCode = Pack6FileNameParser.ResolveFolderSn(path),
-                        CameraName = "前",
-                        ShotIndex = shot
+                        CameraName = cameraName,
+                        ShotIndex = shotIndex
                     };
 
                     var frame = await _vision.DetectAsync(item);
@@ -622,11 +746,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             var rule = Pack6BarcodeRuleValidator.Validate(
                 frame.ProductSN,
                 folder,
-                siblingProductSn: null,
                 frame.QrData,
-                siblingQrData: null,
                 frame.OcrMode,
-                config);
+                config,
+                frame.PartSN,
+                frame.Version);
 
             if (rule.IsOk)
                 return frame;
@@ -665,6 +789,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 QrData = frame.QrData,
                 PartSN = frame.PartSN,
                 ProductSN = frame.ProductSN,
+                Version = frame.Version,
                 EngineMessage = frame.EngineMessage,
                 PreviewImagePath = preview,
                 IsVisionAlgorithmError = frame.IsVisionAlgorithmError,
@@ -683,11 +808,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 if (frame.OcrMode != Pack6OcrMode.None)
                 {
                     LastOcrInfo = frame.OcrMode == Pack6OcrMode.WhiteLabelThreeCode
-                        ? $"QR={frame.QrData}  Part={frame.PartSN}  Product={frame.ProductSN}"
+                        ? $"QR={frame.QrData}  Part={frame.PartSN}  Product={frame.ProductSN}  Ver={frame.Version}"
                         : $"Product={frame.ProductSN}";
-                    LastRuleInfo = frame.Defects.Count == 0
-                        ? "规则OK"
-                        : string.Join("；", frame.Defects);
                 }
 
                 if (!string.IsNullOrWhiteSpace(frame.CameraName) &&
@@ -696,9 +818,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 else if (Pack6CameraCatalog.ByQueueName.TryGetValue(frame.QueueName, out var def) &&
                          _slotsByCamera.TryGetValue(def.CameraName, out var byQ))
                     byQ.ApplyFrame(frame);
-
-                if (raiseNgAlarm && !frame.IsOk && frame.OcrMode != Pack6OcrMode.None)
-                    NotifyNgAlarm(frame.ProductCode);
             });
         }
 
@@ -740,11 +859,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                 if (frame.OcrMode != Pack6OcrMode.None)
                 {
                     LastOcrInfo = frame.OcrMode == Pack6OcrMode.WhiteLabelThreeCode
-                        ? $"QR={frame.QrData}  Part={frame.PartSN}  Product={frame.ProductSN}"
+                        ? $"QR={frame.QrData}  Part={frame.PartSN}  Product={frame.ProductSN}  Ver={frame.Version}"
                         : $"Product={frame.ProductSN}";
-                    LastRuleInfo = frame.Defects.Count == 0
-                        ? "规则OK"
-                        : string.Join("；", frame.Defects);
                 }
 
                 if (!string.IsNullOrWhiteSpace(frame.CameraName) &&
@@ -760,19 +876,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                     _uiFrameCounter = 0;
                     RefreshYieldSummary();
                 }
-
-                // 码检工位任一检查项 NG → 非模态警示（不阻断管线）
-                if (!frame.IsOk && frame.OcrMode != Pack6OcrMode.None)
-                    NotifyNgAlarm(frame.ProductCode);
             });
 
         private void OnProduct(Pack6ProductResult result) =>
             RunOnUi(() =>
             {
                 ProductId = result.ProductCode;
+                // 多条缺陷换行拼接，报警窗再按标题/码值细分行
                 var ngDetail = result.Defects.Count == 0
                     ? (result.TimedOut ? "缺张超时" : string.Empty)
-                    : string.Join('；', result.Defects);
+                    : string.Join('\n', result.Defects.Where(d => !string.IsNullOrWhiteSpace(d)));
                 ResultLogs.Insert(0, new Pack6ResultLogItem
                 {
                     TimeText = result.CompletedAt.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -780,34 +893,80 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
                     Result = result.IsOk ? "OK" : (result.TimedOut ? "NG(缺张)" : "NG"),
                     NgDetail = ngDetail
                 });
-                while (ResultLogs.Count > 200)
+                while (ResultLogs.Count > Pack6UiStatsStore.MaxLogs)
                     ResultLogs.RemoveAt(ResultLogs.Count - 1);
 
                 AppendLog($"产品汇总 {result.ProductCode}: {(result.IsOk ? "OK" : "NG")}" +
                           (string.IsNullOrEmpty(ngDetail) ? string.Empty : $" | {ngDetail}"));
                 RefreshYieldSummary();
 
-                if (result.TimedOut)
-                {
-                    RequestMissingShotAlarm?.Invoke(
-                        result.ProductCode,
-                        string.IsNullOrWhiteSpace(ngDetail) ? "缺张超时" : ngDetail);
-                }
-                else if (!result.IsOk)
-                {
-                    NotifyNgAlarm(result.ProductCode);
-                }
+                if (!result.IsOk)
+                    RaiseDefectAlarm(result.ProductCode, ngDetail, result.TimedOut);
+
+                PersistUiStats();
             });
 
-        /// <summary>通知 View 弹出/追加 NG；列表归属与关窗清空由 View 负责。</summary>
-        private void NotifyNgAlarm(string? productCode)
+        /// <summary>恢复工位计数与结果日志；仅手动「统计清零」才清空磁盘。</summary>
+        private void RestorePersistedUiStats()
+        {
+            try
+            {
+                _pipeline.LoadPersistedStatistics();
+                if (!Pack6UiStatsStore.TryLoad(_configService.Current, out var snap))
+                    return;
+
+                ResultLogs.Clear();
+                foreach (var row in snap.ResultLogs)
+                {
+                    ResultLogs.Add(new Pack6ResultLogItem
+                    {
+                        TimeText = row.TimeText,
+                        Sn = row.Sn,
+                        Result = row.Result,
+                        NgDetail = row.NgDetail
+                    });
+                }
+
+                if (snap.ResultLogs.Count > 0 || snap.Stations.Any(s => s.Total > 0))
+                    AppendLog($"已恢复上次统计/日志（{Pack6UiStatsStore.GetStorePath(_configService.Current)}）");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"恢复界面统计失败: {ex.Message}", false);
+            }
+        }
+
+        private void PersistUiStats()
+        {
+            try
+            {
+                var logs = ResultLogs.Select(r => new Pack6UiResultLogDto
+                {
+                    TimeText = r.TimeText,
+                    Sn = r.Sn,
+                    Result = r.Result,
+                    NgDetail = r.NgDetail
+                });
+                _pipeline.PersistStationStatistics(logs);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"保存界面统计失败: {ex.Message}", false);
+            }
+        }
+
+        /// <summary>整包结案后弹缺陷窗（含缺张）；帧级不弹。</summary>
+        private void RaiseDefectAlarm(string? productCode, string defectText, bool timedOut)
         {
             var sn = (productCode ?? string.Empty).Trim();
             if (sn.Length == 0 ||
                 sn.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase))
                 return;
 
-            RequestNgAlarm?.Invoke(sn);
+            var text = string.IsNullOrWhiteSpace(defectText)
+                ? (timedOut ? "缺张超时" : "检测NG")
+                : defectText.Trim();
+            RequestDefectAlarm?.Invoke(sn, text);
         }
 
         private void RefreshYieldSummary()

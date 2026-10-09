@@ -1,0 +1,149 @@
+<Window
+    x:Class="SUNWODA_SEVB.Views.Pages.NJSIX.Pack6SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="功能设置"
+    Width="640"
+    Height="420"
+    MinWidth="560"
+    MinHeight="360"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResizeWithGrip"
+    Background="#FFF5F8FC">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,8"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="路径 / 其它" />
+
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="电芯" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="0,4,12,4"
+                        Text="{Binding CellType, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Margin="0,6" VerticalAlignment="Center" Text="工位产线" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="3"
+                        Margin="0,4,0,4"
+                        ToolTip="业务产线名（如 P05）"
+                        Text="{Binding ProductionLine, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <CheckBox
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Grid.ColumnSpan="2"
+                        Margin="0,8,0,8"
+                        Content="模拟检测（不调 NJX13Pack）"
+                        IsChecked="{Binding UseSimulation}" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="结果根目录" />
+                    <TextBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="3"
+                        Margin="0,4,0,4"
+                        Text="{Binding LocalPathPre, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="上盖(Z:)" />
+                    <TextBox
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="3"
+                        Margin="0,4,0,4"
+                        Text="{Binding YOkRootPath, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="底部(T:)" />
+                    <TextBox
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="3"
+                        Margin="0,4,0,4"
+                        Text="{Binding ZOkRootPath, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="四周(S:)" />
+                    <TextBox
+                        Grid.Row="5"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="3"
+                        Margin="0,4,0,4"
+                        Text="{Binding SideCamPath, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,6" VerticalAlignment="Center" Text="标注保留天基数" />
+                    <TextBox
+                        Grid.Row="6"
+                        Grid.Column="1"
+                        Margin="0,4,12,4"
+                        ToolTip="影响标注预览目录保留天数（基数×2）"
+                        Text="{Binding IngressLookbackDays, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="6" Grid.Column="2" Margin="0,6" VerticalAlignment="Center" Text="缺张超时(分)" />
+                    <TextBox
+                        Grid.Row="6"
+                        Grid.Column="3"
+                        Margin="0,4,0,4"
+                        ToolTip="缺张最长等待分钟数，默认 10 分钟"
+                        Text="{Binding PackMissingTimeoutMinutes, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="7"
+                        Grid.Column="0"
+                        Margin="0,6"
+                        VerticalAlignment="Center"
+                        Text="白标签版本号" />
+                    <TextBox
+                        Grid.Row="7"
+                        Grid.Column="1"
+                        Margin="0,4,12,4"
+                        ToolTip="数模版本号期望值（如 M06）；空=不校验；与 DLL 输出 version 比对"
+                        Text="{Binding ExpectedWhiteLabelVersion, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel
+            Grid.Row="1"
+            Margin="0,12,0,0"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Width="100"
+                Margin="0,0,8,0"
+                Click="OnSaveClick"
+                Content="保存"
+                FontWeight="SemiBold" />
+            <Button
+                Width="100"
+                Click="OnCloseClick"
+                Content="关闭"
+                IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

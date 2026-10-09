@@ -1,0 +1,11 @@
+队列名,相机名,盘,需求张数,对应窗,OCR
+TopCoverQueue,上盖相机,Z,2,上盖相机,
+Bottom1Queue,底部相机1,T,3,底部相机1,
+Bottom2Queue,底部相机2,T,3,底部相机2,
+Side1Queue,四周相机1,S,1,四周相机1,
+Side2Queue,四周相机2,S,1,四周相机2,Step1 同图双检（白标签+铭牌）
+Side3Queue,四周相机3,S,2,四周相机3,
+Side4Queue,四周相机4,S,1,四周相机4,
+Side5Queue,四周相机5,S,4,四周相机5,
+Side6Queue,四周相机6,S,4,四周相机6,Step4 单独白标签三码
+Side7Queue,四周相机7,S,1,四周相机7,

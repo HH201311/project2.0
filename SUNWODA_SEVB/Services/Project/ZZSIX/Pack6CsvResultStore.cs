@@ -71,14 +71,16 @@ namespace SUNWODA_SEVB.Services.Project.ZZSIX
                 if (needHeader)
                 {
                     await writer.WriteLineAsync(
-                        "DateTime,SN,Queue,Station,OcrMode,Result,QrData,PartSN,ProductSN,EngineMessage,NGDetails,ImagePath");
+                        "DateTime,SN,Queue,Camera,Shot,CheckItem,OcrMode,Result,QrData,PartSN,ProductSN,Version,EngineMessage,NGDetails,ImagePath");
                 }
 
                 var ng = frame.Defects.Count == 0 ? string.Empty : string.Join('|', frame.Defects);
+                var checkItem = frame.OcrMode == Pack6OcrMode.None ? frame.StationName : "三码校验";
                 await writer.WriteLineAsync(
                     $"{frame.DetectedAt:yyyy-MM-dd HH:mm:ss}," +
-                    $"{Escape(frame.ProductCode)},{Escape(frame.QueueName)},{Escape(frame.StationName)},{frame.OcrMode}," +
-                    $"{(frame.IsOk ? "OK" : "NG")},{Escape(frame.QrData)},{Escape(frame.PartSN)},{Escape(frame.ProductSN)}," +
+                    $"{Escape(frame.ProductCode)},{Escape(frame.QueueName)},{Escape(frame.CameraName)},{frame.ShotIndex}," +
+                    $"{Escape(checkItem)},{frame.OcrMode}," +
+                    $"{(frame.IsOk ? "OK" : "NG")},{Escape(frame.QrData)},{Escape(frame.PartSN)},{Escape(frame.ProductSN)},{Escape(frame.Version)}," +
                     $"{Escape(frame.EngineMessage)},{Escape(ng)},{Escape(frame.FilePath)}");
             }
             catch (Exception ex)

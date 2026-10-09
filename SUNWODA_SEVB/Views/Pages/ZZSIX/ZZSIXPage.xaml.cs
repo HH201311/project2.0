@@ -4,19 +4,14 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using SUNWODA_SEVB.Core.Interfaces.Project.ZZSIX;
 using SUNWODA_SEVB.ViewModels.Pages.ZZSIX;
 
 namespace SUNWODA_SEVB.Views.Pages.ZZSIX
 {
     public partial class ZZSIXPage : Page
     {
-        private Pack6NgAlarmWindow? _ngAlarmWindow;
-        private Pack6MissingShotAlarmWindow? _missingShotWindow;
-        /// <summary>当前未关闭警示窗内展示的产品码；关窗后清空，下次从新 NG 起算。</summary>
-        private readonly List<string> _ngAlarmCodes = [];
-        /// <summary>关窗过程中到达的 NG，Closed 后再弹新窗，避免与旧列表混在一起。</summary>
-        private readonly List<string> _ngAlarmPendingWhileClosing = [];
-        private bool _ngAlarmClosing;
+        private readonly HashSet<Pack6NgAlarmWindow> _defectAlarmWindows = [];
 
         public ZZSIXPage()
         {
@@ -44,16 +39,14 @@ namespace SUNWODA_SEVB.Views.Pages.ZZSIX
                 oldVm.ConfigSummaryChanged -= RefreshConfigSummary;
                 oldVm.RequestOpenSettings -= OpenSettingsWindow;
                 oldVm.RequestOpenOfflineTest -= OpenOfflineTestWindow;
-                oldVm.RequestNgAlarm -= ShowOrUpdateNgAlarm;
-                oldVm.RequestMissingShotAlarm -= ShowMissingShotAlarm;
+                oldVm.RequestDefectAlarm -= ShowDefectAlarm;
             }
             if (e.NewValue is VM_ZZSIXPage vm)
             {
                 vm.ConfigSummaryChanged += RefreshConfigSummary;
                 vm.RequestOpenSettings += OpenSettingsWindow;
                 vm.RequestOpenOfflineTest += OpenOfflineTestWindow;
-                vm.RequestNgAlarm += ShowOrUpdateNgAlarm;
-                vm.RequestMissingShotAlarm += ShowMissingShotAlarm;
+                vm.RequestDefectAlarm += ShowDefectAlarm;
                 RefreshConfigSummary();
             }
         }
@@ -65,25 +58,21 @@ namespace SUNWODA_SEVB.Views.Pages.ZZSIX
                 vm.ConfigSummaryChanged -= RefreshConfigSummary;
                 vm.RequestOpenSettings -= OpenSettingsWindow;
                 vm.RequestOpenOfflineTest -= OpenOfflineTestWindow;
-                vm.RequestNgAlarm -= ShowOrUpdateNgAlarm;
-                vm.RequestMissingShotAlarm -= ShowMissingShotAlarm;
+                vm.RequestDefectAlarm -= ShowDefectAlarm;
             }
 
-            _ngAlarmCodes.Clear();
-            _ngAlarmPendingWhileClosing.Clear();
-            _ngAlarmClosing = false;
-            try
+            foreach (var win in _defectAlarmWindows.ToList())
             {
-                _ngAlarmWindow?.Close();
-                _missingShotWindow?.Close();
+                try
+                {
+                    win.ForceCloseForPageUnload();
+                }
+                catch
+                {
+                    // ignore
+                }
             }
-            catch
-            {
-                // ignore
-            }
-
-            _ngAlarmWindow = null;
-            _missingShotWindow = null;
+            _defectAlarmWindows.Clear();
         }
 
         private void OpenSettingsWindow()
@@ -120,10 +109,8 @@ namespace SUNWODA_SEVB.Views.Pages.ZZSIX
             win.ShowDialog();
         }
 
-        /// <summary>
-        /// 非模态 NG 警示：窗开着则追加产品码；已关闭则新窗只显示本次及之后未确认的 NG。
-        /// </summary>
-        private void ShowOrUpdateNgAlarm(string productCode)
+        /// <summary>整包 NG/缺张：每产品一扇窗；扫码匹配 SN 后关闭；开窗写 PLC true，全关写 false。</summary>
+        private void ShowDefectAlarm(string productCode, string defectText)
         {
             var sn = (productCode ?? string.Empty).Trim();
             if (sn.Length == 0)
@@ -131,101 +118,24 @@ namespace SUNWODA_SEVB.Views.Pages.ZZSIX
 
             void Apply()
             {
-                // 正在关闭：先记下，等 Closed 后再开新窗（不带旧列表）
-                if (_ngAlarmClosing)
+                var alarmTime = DateTime.Now;
+                var win = new Pack6NgAlarmWindow
                 {
-                    if (!_ngAlarmPendingWhileClosing.Contains(sn, StringComparer.OrdinalIgnoreCase))
-                        _ngAlarmPendingWhileClosing.Add(sn);
-                    return;
-                }
-
-                if (_ngAlarmWindow is null || !_ngAlarmWindow.IsLoaded)
-                {
-                    _ngAlarmCodes.Clear();
-                    _ngAlarmCodes.Add(sn);
-                    _ngAlarmWindow = new Pack6NgAlarmWindow
-                    {
-                        Owner = Window.GetWindow(this)
-                    };
-                    _ngAlarmWindow.Closing += OnNgAlarmClosing;
-                    _ngAlarmWindow.Closed += OnNgAlarmClosed;
-                    _ngAlarmWindow.UpdateNgList(_ngAlarmCodes);
-                    _ngAlarmWindow.Show();
-                    return;
-                }
-
-                if (!_ngAlarmCodes.Contains(sn, StringComparer.OrdinalIgnoreCase))
-                    _ngAlarmCodes.Add(sn);
-                _ngAlarmWindow.UpdateNgList(_ngAlarmCodes);
-                if (!_ngAlarmWindow.IsActive)
-                    _ngAlarmWindow.Activate();
-            }
-
-            if (Dispatcher.CheckAccess())
-                Apply();
-            else
-                Dispatcher.Invoke(Apply);
-        }
-
-        private void OnNgAlarmClosing(object? sender, CancelEventArgs e)
-        {
-            _ngAlarmClosing = true;
-            // 关窗即丢弃已确认列表；之后新 NG 进 pending，Closed 时另开新窗
-            _ngAlarmCodes.Clear();
-        }
-
-        private void OnNgAlarmClosed(object? sender, EventArgs e)
-        {
-            if (sender is Pack6NgAlarmWindow win)
-            {
-                win.Closing -= OnNgAlarmClosing;
-                win.Closed -= OnNgAlarmClosed;
-            }
-
-            if (ReferenceEquals(_ngAlarmWindow, sender))
-                _ngAlarmWindow = null;
-
-            _ngAlarmCodes.Clear();
-            _ngAlarmClosing = false;
-
-            if (_ngAlarmPendingWhileClosing.Count == 0)
-                return;
-
-            var pending = _ngAlarmPendingWhileClosing.ToList();
-            _ngAlarmPendingWhileClosing.Clear();
-            foreach (var code in pending)
-                ShowOrUpdateNgAlarm(code);
-        }
-
-        /// <summary>缺张超时：非模态黄色报警，列出缺哪张；可同时开多个。</summary>
-        private void ShowMissingShotAlarm(string productCode, string detail)
-        {
-            void Apply()
-            {
-                // 若上一扇仍开着且同产品，刷新明细；否则新开一扇
-                if (_missingShotWindow is not null &&
-                    _missingShotWindow.IsLoaded &&
-                    string.Equals(_missingShotWindow.Tag as string, productCode, StringComparison.OrdinalIgnoreCase))
-                {
-                    _missingShotWindow.ShowAlarm(productCode, detail);
-                    if (!_missingShotWindow.IsActive)
-                        _missingShotWindow.Activate();
-                    return;
-                }
-
-                var win = new Pack6MissingShotAlarmWindow
-                {
-                    Owner = Window.GetWindow(this),
-                    Tag = productCode
+                    Owner = Window.GetWindow(this)
                 };
-                win.Closed += (_, _) =>
+                win.Bind(sn, defectText, alarmTime);
+                _defectAlarmWindows.Add(win);
+
+                win.Closed += async (_, _) =>
                 {
-                    if (ReferenceEquals(_missingShotWindow, win))
-                        _missingShotWindow = null;
+                    _defectAlarmWindows.Remove(win);
+                    if (DataContext is VM_ZZSIXPage vm)
+                        await vm.NotifyDefectAlarmWindowClosedAsync();
                 };
-                _missingShotWindow = win;
-                win.ShowAlarm(productCode, detail);
+
                 win.Show();
+                if (DataContext is VM_ZZSIXPage pageVm)
+                    _ = pageVm.NotifyDefectAlarmWindowOpenedAsync();
             }
 
             if (Dispatcher.CheckAccess())

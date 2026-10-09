@@ -15,6 +15,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <coreConverter:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
     </Page.Resources>
 
@@ -24,18 +25,20 @@
             <RowDefinition />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Menu
-            x:Name="menuBar"
-            Background="Transparent"
-            BorderBrush="LightGray"
-            BorderThickness="1">
-            <MenuItem Header="开始">
+        <Grid Grid.Row="0">
+            <Menu
+                x:Name="menuBar"
+                Background="Transparent"
+                BorderBrush="LightGray"
+                BorderThickness="1">
+            <MenuItem Header="开始" IsEnabled="{Binding IsEnableContinuousDetection}">
                 <CheckBox
                     Command="{Binding MonitorPathSelectCommand}"
                     Content="连续检测"
                     IsChecked="{Binding IsContinuousDetection}"
+                    IsEnabled="{Binding IsEnableContinuousDetection}"
                     Style="{StaticResource ToggleButtonSwitch.Small}"
-                    ToolTip="{Binding ImageMonitorPath, UpdateSourceTrigger=PropertyChanged}" />
+                    ToolTip="{Binding MonitorPathsDisplay, UpdateSourceTrigger=PropertyChanged}" />
             </MenuItem>
             <MenuItem Header="参数设置">
                 <MenuItem Header="导入">
@@ -129,7 +132,18 @@
                     </DataTemplate>
                 </MenuItem.ItemTemplate>
             </MenuItem>
-        </Menu>
+            </Menu>
+            <TextBlock
+                Margin="0,0,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FontSize="15"
+                FontWeight="SemiBold"
+                Foreground="#1565C0"
+                IsHitTestVisible="False"
+                Text="{Binding FolderImportProgressText}"
+                Visibility="{Binding IsFolderImportProgressVisible, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        </Grid>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>

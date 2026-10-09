@@ -16,8 +16,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.ZZSIX
 
         public static IReadOnlyList<Pack6ProductCodeProfile> All { get; } =
         [
-            new() { Name = "TW国内两驱", Prefix10 = "12TPB09LAB" },
-            new() { Name = "TW国内四驱", Prefix10 = "12TPB0ALAB" },
+            new() { Name = "TW国内两驱", Prefix10 = "12TPB0ALAB" },
+            new() { Name = "TW国内四驱", Prefix10 = "12TPB09LAB" },
             new() { Name = "TW海外四驱", Prefix10 = "12TPB0BLAB" },
             new() { Name = "TW海外两驱", Prefix10 = "12TPB0CLAB" },
             new() { Name = "X01四驱", Prefix10 = "12TPB1ALAB" },

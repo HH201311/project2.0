@@ -1,27 +1,48 @@
-﻿using DocumentFormat.OpenXml.Office2010.Excel;
-using HandyControl.Controls;
+﻿using HandyControl.Controls;
 using HandyControl.Tools.Extension;
 using Microsoft.Win32;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Common.Commands;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
 namespace SUNWODA_SEVB.ViewModels.Dialogs.NCLCCT
 {
-    public class VM_NCLCCTMonitorPathSelectDialog : DialogViewModelBase, IDialogResultable<string?>
+    /// <summary>连续检测双监控目录选择结果。</summary>
+    public sealed class NclcctMonitorPathsResult
     {
-        private string? _result;
-        public string? Result
+        public string? Path1 { get; set; }
+        public string? Path2 { get; set; }
+    }
+
+    public class VM_NCLCCTMonitorPathSelectDialog
+        : DialogViewModelBase,
+            IDialogResultable<NclcctMonitorPathsResult?>
+    {
+        private NclcctMonitorPathsResult? _result;
+        private string? _monitorPath1;
+        private string? _monitorPath2;
+
+        public NclcctMonitorPathsResult? Result
         {
             get => _result;
             set => SetProperty(ref _result, value);
         }
+
+        public string? MonitorPath1
+        {
+            get => _monitorPath1;
+            set => SetProperty(ref _monitorPath1, value);
+        }
+
+        public string? MonitorPath2
+        {
+            get => _monitorPath2;
+            set => SetProperty(ref _monitorPath2, value);
+        }
+
         public Action? CloseAction { get; set; }
 
         public ICommand CloseCommand =>
@@ -33,31 +54,50 @@ namespace SUNWODA_SEVB.ViewModels.Dialogs.NCLCCT
 
         public ICommand AffirmMonitorPathCommand => new RelayCommand(AffirmMonitorPath);
 
-        public ICommand ChangeMonitorPathCommand => new RelayCommand(ChangeMonitorPath);
+        public ICommand ChangeMonitorPath1Command =>
+            new RelayCommand(() => ChangeMonitorPath(isPath1: true));
+
+        public ICommand ChangeMonitorPath2Command =>
+            new RelayCommand(() => ChangeMonitorPath(isPath1: false));
 
         private void AffirmMonitorPath()
         {
-            if (!string.IsNullOrEmpty(Result))
+            if (
+                string.IsNullOrWhiteSpace(MonitorPath1)
+                || string.IsNullOrWhiteSpace(MonitorPath2)
+                || !Directory.Exists(MonitorPath1)
+                || !Directory.Exists(MonitorPath2)
+            )
             {
-                CloseAction?.Invoke();
+                Growl.WarningGlobal("请分别选择左环、右环两个有效的监听文件夹！");
+                return;
             }
-            else
+
+            Result = new NclcctMonitorPathsResult
             {
-                Growl.WarningGlobal("请选择正确的路径！");
-            }
+                Path1 = MonitorPath1,
+                Path2 = MonitorPath2,
+            };
+            CloseAction?.Invoke();
         }
 
-        private void ChangeMonitorPath()
+        private void ChangeMonitorPath(bool isPath1)
         {
-            var folderDialog = new OpenFolderDialog();
-            folderDialog.Title = $"监控路径选择";
-            folderDialog.InitialDirectory = Result ?? "C:\\";
-            folderDialog.ValidateNames = true;
-            folderDialog.Multiselect = false;
+            var current = isPath1 ? MonitorPath1 : MonitorPath2;
+            var folderDialog = new OpenFolderDialog
+            {
+                Title = isPath1 ? "左环监听路径选择" : "右环监听路径选择",
+                InitialDirectory = string.IsNullOrWhiteSpace(current) ? "C:\\" : current,
+                ValidateNames = true,
+                Multiselect = false,
+            };
             bool? result = folderDialog.ShowDialog(Application.Current.MainWindow);
             if (result == true)
             {
-                Result = folderDialog.FolderName;
+                if (isPath1)
+                    MonitorPath1 = folderDialog.FolderName;
+                else
+                    MonitorPath2 = folderDialog.FolderName;
             }
         }
     }

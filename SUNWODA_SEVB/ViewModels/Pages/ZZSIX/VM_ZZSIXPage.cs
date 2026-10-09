@@ -392,6 +392,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         {
             await EnsureLoadedAsync();
             StartPlcProbeLoop();
+            // 进页默认开检，避免重启后忘记点「启动」
+            await TryAutoStartAsync();
             base.OnInitialize();
         }
 
@@ -399,6 +401,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
         {
             await EnsureLoadedAsync();
             StartPlcProbeLoop();
+            await TryAutoStartAsync();
             base.OnNavigatedTo(parameter);
         }
 
@@ -523,8 +526,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.ZZSIX
             }
         }
 
+        /// <summary>进页/初始化时自动启动；已在运行则跳过。</summary>
+        private async Task TryAutoStartAsync()
+        {
+            if (IsRunning)
+                return;
+            await StartAsync();
+        }
+
         private async Task StartAsync()
         {
+            if (IsRunning)
+                return;
             try
             {
                 await PushUiToConfigAndSaveAsync(persist: false);

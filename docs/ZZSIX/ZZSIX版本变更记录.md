@@ -6,6 +6,16 @@
 
 ---
 
+> **2026-09-29 变更（UI：进页默认自动启动检测）**  
+> 1. **背景**：重启后易忘点「启动」，现场要求打开六面检页即开检。  
+> 2. **做法**：`OnInitialize` / `OnNavigatedTo` 加载配置后 `TryAutoStartAsync`；已运行则跳过。  
+> 3. **落点**：`VM_ZZSIXPage`；补丁 `E:\共享文档\ZZSIX_PACK六面检_进页自动启动_20260929_0957.zip`。
+
+> **2026-09-29 变更（规则：国内两驱/四驱前缀对调）**  
+> 1. **背景**：`0A` 与 `09` 档位写反；现场要求 `0A`=国内两驱、`09`=国内四驱。  
+> 2. **做法**：`Pack6ProductCodeCatalog` 与规划表对调两行前缀。  
+> 3. **落点**：`Pack6BarcodeFieldCatalog.cs`、`ZZSIX项目开发规划.md`；补丁 `E:\共享文档\ZZSIX_PACK六面检_国内档位前缀对调_20260929_0843.zip`。
+
 > **2026-09-24 变更（视觉：新 ZZTWPack + 白标签版本号校验/设置）**  
 > 1. **背景**：DLL 增 `version`/`versionRegion`；版本号默认 M00，需界面可改；与其它三码规则同路径 NG。  
 > 2. **做法**：接新签名；配置键 `ExpectedWhiteLabelVersion`；功能设置录入；规则引擎白标签比对；橙框叠版本；全量替换 `ZZTWPack.dll`。  

@@ -23,10 +23,13 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -117,12 +120,24 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         {
             _logger.Info($"清理业务 {BusinessType} 资源");
 
-            // 清理资源
-            gatherDataModels?.Dispose();
+            // 停止文件监听并解绑事件
+            StopCSVFileWatcher();
+
+            pendingFiles.Clear();
+            processedFileFingerprints.Clear();
+
+            // 收敛消费队列并重建（业务重启后仍可继续入队）
+            var oldQueue = gatherDataModels;
+            gatherDataModels = new BlockingCollection<MCBusinessGatherModel>();
+            try { oldQueue.CompleteAdding(); } catch { }
+            try { oldQueue.Dispose(); } catch { }
+
             calculateDatasCache?.Clear();
+
+            // 释放取消令牌（先置空再释放，避免 Stop/清理重复释放）
             _cts?.Cancel();
             _cts?.Dispose();
-
+            _cts = null;
             await Task.CompletedTask;
         }
 
@@ -170,7 +185,7 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         private string fileSaveRootPath = string.Empty;
 
         /// <summary>
-        /// PLC采集数据缓存
+        /// PLC采集数据缓存（一个卷芯一条）
         /// </summary>
         private BlockingCollection<MCBusinessGatherModel> gatherDataModels = new();
 
@@ -181,7 +196,106 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         #endregion
 
         #region csv数据文件监听
+        /// <summary>
+        /// 文件落盘防抖时长（毫秒）：更名完成后等待文件句柄释放
+        /// </summary>
+        private const int FileDebounceMilliseconds = 800;
+
+        /// <summary>
+        /// 已处理文件指纹上限（超出后清空，避免长时间运行内存无限增长）
+        /// </summary>
+        private const int ProcessedFingerprintLimit = 10000;
+
         private FileSystemWatcher? csvFileWatcher;
+
+        /// <summary>
+        /// 待处理文件（同一文件在防抖窗口内只排一次）
+        /// </summary>
+        private readonly ConcurrentDictionary<string, byte> pendingFiles = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 已处理文件指纹（文件长度 + 最后写入时间），避免 Created/Renamed 重复投递
+        /// </summary>
+        private readonly ConcurrentDictionary<string, string> processedFileFingerprints = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 缺失目标值列的警告只记录一次
+        /// </summary>
+        private bool missingTargetColumnWarned;
+
+        /// <summary>
+        /// 膜卷号文件名校验
+        /// </summary>
+        /// <remarks>
+        /// <para>实测规则（2026-08-30 现场样例 2713 个文件，2709 个已完成文件全部命中）：</para>
+        /// <para><c>9 位数字 + 1 位字母 + 5 位数字</c>（共 15 位），例如 <c>529126128L03465.csv</c>。</para>
+        /// <para>⏸ 需求方口述规则为「日期 + 膜卷号固定长度」，样例中未见日期前缀；现场资料补齐后如需扩展请只改此处。</para>
+        /// <para>供应商写入过程中的临时文件为纯数字名（例如 <c>3770.csv</c>），在此被过滤，不参与解析与闭环。</para>
+        /// </remarks>
+        private static readonly Regex FilmRollFileNameRegex = new(@"^[0-9]{9}[A-Za-z][0-9]{5}$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 判断文件是否为「膜卷号」命名（临时数字名文件返回 false）
+        /// </summary>
+        private static bool IsFilmRollFileName(string fullPath)
+        {
+            var name = Path.GetFileNameWithoutExtension(fullPath);
+            return !string.IsNullOrEmpty(name) && FilmRollFileNameRegex.IsMatch(name);
+        }
+
+        /// <summary>
+        /// 日期目录名校验（日目录，例如 2026年08月30日 / 2026年8月13号）
+        /// </summary>
+        private static readonly Regex DayFolderNameRegex = new(@"^(?<y>\d{4})年(?<m>\d{1,2})月(?<d>\d{1,2})[日号]$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 日期目录名校验（月目录，例如 2026年08月 / 2026年8月）
+        /// </summary>
+        private static readonly Regex MonthFolderNameRegex = new(@"^(?<y>\d{4})年(?<m>\d{1,2})月$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 校验文件是否位于规范日期目录下：{WatcherRootPath}\{yyyy年M月}\{yyyy年M月d日}\{膜卷号}.csv
+        /// </summary>
+        /// <param name="fullPath">文件完整路径</param>
+        /// <param name="filmRollNumber">膜卷号（仅用于日志）</param>
+        /// <returns>目录合法返回 true；否则记录 Warn 并返回 false</returns>
+        private bool ValidateDateFolder(string fullPath, string filmRollNumber)
+        {
+            var dayFolder = new DirectoryInfo(fullPath).Parent;
+            var monthFolder = dayFolder?.Parent;
+
+            var dayMatch = DayFolderNameRegex.Match(dayFolder?.Name ?? string.Empty);
+            if (!dayMatch.Success)
+            {
+                _logger.Warn($"[{BusinessName}]膜卷号[{filmRollNumber}]所在日目录[{dayFolder?.Name}]不符合「yyyy年M月d日/号」命名，跳过处理。");
+                return false;
+            }
+
+            var monthMatch = MonthFolderNameRegex.Match(monthFolder?.Name ?? string.Empty);
+            if (!monthMatch.Success)
+            {
+                _logger.Warn($"[{BusinessName}]膜卷号[{filmRollNumber}]所在月目录[{monthFolder?.Name}]不符合「yyyy年M月」命名，跳过处理。");
+                return false;
+            }
+
+            // 必须为真实存在的日历日期（例如 2026年02月30日 非法）
+            var dayKey = $"{dayMatch.Groups["y"].Value}{int.Parse(dayMatch.Groups["m"].Value):D2}{int.Parse(dayMatch.Groups["d"].Value):D2}";
+            if (!DateTime.TryParseExact(dayKey, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            {
+                _logger.Warn($"[{BusinessName}]膜卷号[{filmRollNumber}]所在日目录[{dayFolder!.Name}]不是有效日期，跳过处理。");
+                return false;
+            }
+
+            // 月目录与日目录的年月必须一致
+            if (monthMatch.Groups["y"].Value != dayMatch.Groups["y"].Value ||
+                int.Parse(monthMatch.Groups["m"].Value) != int.Parse(dayMatch.Groups["m"].Value))
+            {
+                _logger.Warn($"[{BusinessName}]膜卷号[{filmRollNumber}]的月目录[{monthFolder!.Name}]与日目录[{dayFolder!.Name}]年月不一致，跳过处理。");
+                return false;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// 初始化CSV文件监听器
@@ -193,32 +307,262 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
             if (!Directory.Exists(path)) Directory.CreateDirectory(path);
 
             csvFileWatcher?.Dispose();
-            csvFileWatcher = new FileSystemWatcher(path, "*.csv");
-            csvFileWatcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite;
-            csvFileWatcher.Renamed += OnCSVFileRenamed;
+            csvFileWatcher = new FileSystemWatcher(path, "*.csv")
+            {
+                NotifyFilter = NotifyFilters.FileName,
+                IncludeSubdirectories = true,
+                InternalBufferSize = 64 * 1024,
+            };
+            csvFileWatcher.Created += OnCsvFileCreated;
+            csvFileWatcher.Renamed += OnCsvFileRenamed;
+            csvFileWatcher.Error += OnCsvFileWatcherError;
             csvFileWatcher.EnableRaisingEvents = true;
-            csvFileWatcher.IncludeSubdirectories = true;
+
+            _logger.Info($"[{BusinessName}]已开始监听膜卷号 CSV 目录：{path}");
         }
 
         /// <summary>
-        /// CSV文件重命名事件处理
+        /// 停止文件监听并解绑事件
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnCSVFileRenamed(object sender, RenamedEventArgs e)
+        private void StopCSVFileWatcher()
         {
-            var gatherData = new MCBusinessGatherModel();
+            try
+            {
+                if (csvFileWatcher == null) return;
 
+                csvFileWatcher.EnableRaisingEvents = false;
+                csvFileWatcher.Created -= OnCsvFileCreated;
+                csvFileWatcher.Renamed -= OnCsvFileRenamed;
+                csvFileWatcher.Error -= OnCsvFileWatcherError;
+                csvFileWatcher.Dispose();
+                csvFileWatcher = null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"[{BusinessName}]释放 CSV 文件监听器失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 新文件事件（供应商直接以膜卷号命名落盘的情况）
+        /// </summary>
+        private void OnCsvFileCreated(object sender, FileSystemEventArgs e) => EnqueueCsvFile(e.FullPath);
+
+        /// <summary>
+        /// 文件更名事件（供应商写完后由数字名改为膜卷号，主要入口）
+        /// </summary>
+        private void OnCsvFileRenamed(object sender, RenamedEventArgs e) => EnqueueCsvFile(e.FullPath);
+
+        /// <summary>
+        /// 监听异常（缓冲区溢出等）：重建监听器
+        /// </summary>
+        private void OnCsvFileWatcherError(object sender, ErrorEventArgs e)
+        {
+            _logger.Error($"[{BusinessName}]CSV 文件监听异常，尝试重建监听器。", e.GetException());
+            try
+            {
+                InitializeCSVFileWatcher(paramModel?.WatcherRootPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[{BusinessName}]重建 CSV 文件监听器失败。", ex);
+            }
+        }
+
+        /// <summary>
+        /// 把文件排入待处理队列（仅膜卷号文件；防抖 + 指纹去重）
+        /// </summary>
+        private void EnqueueCsvFile(string? fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath)) return;
+
+            // 仅监听膜卷号文档；数字名临时文件（实时更新中）直接跳过
+            if (!IsFilmRollFileName(fullPath)) return;
+
+            // 防抖窗口内同一文件只排一次
+            if (!pendingFiles.TryAdd(fullPath, 0)) return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(FileDebounceMilliseconds, GetCurrentToken());
+                    ProcessCsvFile(fullPath);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 业务停止，正常退出
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error($"[{BusinessName}]处理膜卷号 CSV 失败：{fullPath}", ex);
+                }
+                finally
+                {
+                    pendingFiles.TryRemove(fullPath, out _);
+                }
+            });
+        }
+
+        /// <summary>
+        /// 获取当前取消令牌（令牌源已释放时返回 None）
+        /// </summary>
+        private CancellationToken GetCurrentToken()
+        {
+            try { return _cts?.Token ?? CancellationToken.None; }
+            catch (ObjectDisposedException) { return CancellationToken.None; }
+        }
+
+        /// <summary>
+        /// 解析膜卷号 CSV 并入队闭环计算（一个卷芯文件 = 一条采集数据）
+        /// </summary>
+        /// <param name="fullPath">膜卷号 CSV 完整路径</param>
+        private void ProcessCsvFile(string fullPath)
+        {
+            // 1) 文件存在性（更名/删除竞态下可能已不存在）
+            FileInfo fileInfo;
+            try
+            {
+                fileInfo = new FileInfo(fullPath);
+                if (!fileInfo.Exists)
+                {
+                    _logger.Warn($"[{BusinessName}]文件已不存在，跳过处理：{fullPath}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"[{BusinessName}]读取文件信息失败：{fullPath}（{ex.Message}）");
+                return;
+            }
+
+            var filmRollNumber = Path.GetFileNameWithoutExtension(fullPath);
+
+            // 2) 指纹去重（Created / Renamed 可能对同一文件先后到达）
+            var fingerprint = $"{fileInfo.Length}|{fileInfo.LastWriteTimeUtc.Ticks}";
+            if (processedFileFingerprints.TryGetValue(fullPath, out var cached) && cached == fingerprint) return;
+
+            // 3) 目录日期校验（TODO：2026年8月/2026年8月13号）
+            if (!ValidateDateFolder(fullPath, filmRollNumber)) return;
+
+            // 4) 读取 CSV（JROHCsvHelper 内部以 FileShare.ReadWrite 打开，允许供应商占用）
+            List<Dictionary<string, string>> rows;
+            try
+            {
+                rows = JROHCsvHelper.SearchCsv(fullPath) ?? new List<Dictionary<string, string>>();
+            }
+            catch (Exception ex)
+            {
+                // 读取失败不写指纹，后续文件事件仍可重试
+                _logger.Warn($"[{BusinessName}]膜卷号[{filmRollNumber}]CSV 读取失败：{ex.Message}");
+                return;
+            }
+
+            if (rows.Count == 0)
+            {
+                _logger.Warn($"[{BusinessName}]膜卷号[{filmRollNumber}]CSV 无数据行，跳过处理。");
+                return;
+            }
+
+            // 5) 转换为采集模型（内部会跳过重复表头行、清洗行首反引号）
+            var gatherData = ConvertToGatherModel(filmRollNumber, rows);
+
+            // 6) 处理成功后才记录指纹（失败可在下一轮文件事件重试）
+            if (processedFileFingerprints.Count >= ProcessedFingerprintLimit) processedFileFingerprints.Clear();
+            processedFileFingerprints[fullPath] = fingerprint;
+
+            _logger.Info($"[{BusinessName}]已解析膜卷号[{filmRollNumber}]：原始数据 {rows.Count} 行。");
+
+            // 7) 入队闭环计算（一个卷芯一条）
+            if (!gatherDataModels.IsAddingCompleted)
+            {
+                try { gatherDataModels.Add(gatherData); }
+                catch (InvalidOperationException) { }
+            }
+
+            // 8) 通知界面刷新曲线
             OnDataReceived(gatherData);
         }
 
         /// <summary>
-        /// 数据接收事件处理
+        /// 把 CSV 行数据转换为 MC 采集模型（一个卷芯一条）
+        /// </summary>
+        /// <param name="rollName">膜卷号</param>
+        /// <param name="datas">CSV 行数据（键为表头列名）</param>
+        /// <returns>采集模型；无有效数据行时各通道 Values 为空</returns>
+        private MCBusinessGatherModel ConvertToGatherModel(string rollName, List<Dictionary<string, string>> datas)
+        {
+            var gatherData = new MCBusinessGatherModel();
+            gatherData.GatherTime = DateTime.Now;
+            gatherData.VirtualCode = rollName;
+
+            // 11 路通道：列名依据 2026-08-30 现场样例表头（按列名匹配，不依赖列序号）
+            gatherData.InfeedDataOfPos = ConvertToMCGatherData(datas, "时间", "正极入卷纠偏实时值", "正极入卷纠偏中值", "");
+            gatherData.Snake4DataOfPos = ConvertToMCGatherData(datas, "时间", "正极蛇形4纠偏", "正极蛇形4纠偏中值", "");
+            gatherData.Snake3DataOfPos = ConvertToMCGatherData(datas, "时间", "正极蛇形3纠偏", "正极蛇形3纠偏中值", "");
+            gatherData.Snake2DataOfPos = ConvertToMCGatherData(datas, "时间", "正极蛇形2纠偏", "正极蛇形2纠偏中值", "");
+            gatherData.Snake1DataOfPos = ConvertToMCGatherData(datas, "时间", "正极蛇形纠偏", "正极蛇形1纠偏中值", "");
+
+            gatherData.InfeedDataOfNeg = ConvertToMCGatherData(datas, "时间", "负极入卷纠偏实时值", "负极入卷纠偏中值", "");
+            gatherData.Snake3DataOfNeg = ConvertToMCGatherData(datas, "时间", "负极蛇形3纠偏", "负极蛇形3纠偏中值", "");
+            gatherData.Snake2DataOfNeg = ConvertToMCGatherData(datas, "时间", "负极蛇形2纠偏", "负极蛇形2纠偏中值", "");
+            gatherData.Snake1DataOfNeg = ConvertToMCGatherData(datas, "时间", "负极蛇形1纠偏", "负极蛇形1纠偏中值", "");
+
+            gatherData.UpperDiaphragmData = ConvertToMCGatherData(datas, "时间", "上隔膜外侧破损实时", "", "");
+            gatherData.LowerDiaphragmData = ConvertToMCGatherData(datas, "时间", "下隔膜外侧破损实时", "", "");
+
+            _logger.Debug($"[{BusinessName}]膜卷号[{rollName}]转换完成。");
+
+            return gatherData;
+        }
+
+        /// <summary>
+        /// 把 CSV 行数据转换为单路通道的采集数据
+        /// </summary>
+        /// <param name="datas">CSV 行数据（键为表头列名）</param>
+        /// <param name="timeKey">时间列名</param>
+        /// <param name="detKey">检测值列名；为空或列不存在时该通道无数据</param>
+        /// <param name="tarKey">目标值（纠偏中值）列名；为空或列不存在时 </param>
+        /// <param name="setKey">设定值列名；为空时回退取目标值最后一个采样值</param>
+        /// <returns>通道采集数据；无有效数据行时 Values 为空</returns>
+        private MCGatherData ConvertToMCGatherData(List<Dictionary<string, string>> datas, string timeKey, string detKey, string tarKey, string setKey)
+        {
+            var result = new MCGatherData();
+            if (datas == null || datas.Count == 0) return result;
+            if (string.IsNullOrWhiteSpace(detKey)) return result;
+            for (var i = 0; i < datas.Count; i++)
+            {
+                if (i == 1) continue;
+                var row = datas[i];
+                var timeText = (ReadColumnValue(row, timeKey) ?? string.Empty).Trim().TrimStart('\u0060');
+                var gatherTime = DateTime.ParseExact(timeText, "yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None);
+                var detValue = float.Parse(ReadColumnValue(row, detKey), NumberStyles.Float, CultureInfo.InvariantCulture);
+                var tarValue = float.Parse(ReadColumnValue(row, tarKey), NumberStyles.Float, CultureInfo.InvariantCulture);
+                var setValue = float.Parse(ReadColumnValue(row, setKey), NumberStyles.Float, CultureInfo.InvariantCulture);
+
+                result.Values.Add((gatherTime, detValue, tarValue));
+                result.SetValue = setValue;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 读取指定列的值（列不存在返回 null）
+        /// </summary>
+        private static string ReadColumnValue(Dictionary<string, string> row, string? key)
+        {
+            if (string.IsNullOrEmpty(key)) return string.Empty;
+            return row.TryGetValue(key, out var value) ? value : string.Empty;
+        }
+
+        /// <summary>
+        /// 数据接收事件处理（通知界面）
         /// </summary>
         /// <param name="gatherData"></param>
         private void OnDataReceived(MCBusinessGatherModel gatherData)
         {
-            var param = paramModel.CopyByJson();
+            var param = paramModel?.CopyByJson();
             var message = (gatherData, param);
             RaiseMessageNotifation(this, message);
         }
@@ -290,15 +634,16 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                 try
                 {
                     var dataCache = new List<MCBusinessGatherModel>();
-                    foreach (var gatherData in gatherDataModels.GetConsumingEnumerable())
+                    foreach (var gatherData in gatherDataModels.GetConsumingEnumerable(ct))
                     {
-                        var pm = paramModel.CopyByJson();
+                        var pm = paramModel?.CopyByJson();
                         if (pm == null) throw new ArgumentException($"[{BusinessName}]参数为空！");
 
                         var cm = new MCBusinessCalculateModel();
                         cm.CalculateTime = DateTime.Now;
                         try
                         {
+                            // 一个卷芯一条采集数据：累积到 T 条后统一计算（默认 T = 1）
                             dataCache.Add(gatherData);
                             if (dataCache.Count < pm.T) continue;
 
@@ -339,6 +684,9 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                         }
                         finally
                         {
+                            // 本卷芯结算完成：清空缓存，避免跨卷累积
+                            dataCache.Clear();
+
                             _ = Task.Run(() =>
                             {
                                 // 界面数据更新
@@ -352,6 +700,10 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                         }
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    // 业务停止，正常退出
+                }
                 catch (Exception ex)
                 {
                     _logger.Error($"[{BusinessName}]异常！", ex);
@@ -362,27 +714,34 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         }
 
         /// <summary>
-        /// 闭环计算逻辑
+        /// 单路通道闭环计算与下发
         /// </summary>
-        /// <param name="paramName"></param>
-        /// <param name="datas"></param>
-        /// <param name="pm"></param>
-        /// <param name="cm"></param>
+        /// <param name="paramName">下发点位名</param>
+        /// <param name="datas">参与计算的采集数据</param>
+        /// <param name="pm">业务参数</param>
+        /// <param name="cm">计算过程模型</param>
         /// <returns></returns>
         private async Task ExcuteMCCalcualteAsync(string paramName, List<MCGatherData> datas, MCBusinessParamModel pm, MCCalculateModel cm)
         {
             if (datas == null || datas.Count == 0) return;
-            var setValue = datas.Last().SetValue;
             var ds = datas.SelectMany(o => o.Values).Where(d => Math.Abs(d.detValue - d.tarValue) < 2).ToList();
             cm.TotalCount = ds.Count;
             cm.PosCount = ds.Count(d => d.detValue > d.tarValue);
             cm.NegCount = cm.TotalCount - cm.PosCount;
-            if (cm.PosCount / cm.TotalCount > pm.K) cm.OffsetValue = -pm.K * pm.D;
-            if (cm.NegCount / cm.TotalCount > pm.K) cm.OffsetValue = pm.K * pm.D;
+
+            // 采集总数为 0 时直接返回（原实现会 0/0 整除）
+            if (cm.TotalCount == 0)
+            {
+                cm.EndMessage = $"[{paramName}]无有效采样点，跳过下发。";
+                return;
+            }
+
+            if ((float)cm.PosCount / cm.TotalCount > pm.K) cm.OffsetValue = -pm.K * pm.D;
+            if ((float)cm.NegCount / cm.TotalCount > pm.K) cm.OffsetValue = pm.K * pm.D;
 
             if (cm.OffsetValue == 0)
             {
-                cm.EndMessage = "无需调机！";
+                cm.EndMessage = $"[{paramName}]无需调机！";
                 return;
             }
             var re = await WritePLCAsync(paramName, cm.OffsetValue);

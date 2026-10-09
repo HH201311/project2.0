@@ -18,7 +18,9 @@
 2. 存档用链接索引，**不要双写**  
 3. 改完代码：更新存档待办 + 在版本变更记录顶部追加；规格变了再改规划对应节  
 
-参照实例：`docs/BoxGluing/`。
+参照实例：`docs/BoxGluing/`（三文档 + CSV + 代码入口齐全的样板）。
+
+现有项目：`docs/BoxGluing/`、`docs/CTAutoSlicer/`、`docs/CTOL/`、`docs/ZZSIX/`、`docs/JROH/`。
 
 ## 新建项目 / Agent 协作
 

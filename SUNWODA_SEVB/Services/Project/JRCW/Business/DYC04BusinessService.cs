@@ -727,7 +727,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                             // 压花闭环PLC地址信号
                             var isPressSignalEnable = cm.PressEnableSignal1 == 1 && cm.PressEnableSignal2 == 1;
                             // 正负极错位均值的绝对值 < press_t
-                            var isExcutePress = Math.Abs(cm.ΔDb + cm.ΔDa) < pm.PressT;
+                            var isExcutePress = Math.Abs(cm.ΔDb + cm.ΔDa) < 2 * pm.PressT;
                             if (isPressSignalEnable && isExcutePress && changeSignal > 0)
                             {
                                 #region 5.1 算法参数预处理及压花算法执行

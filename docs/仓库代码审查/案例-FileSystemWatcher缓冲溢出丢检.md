@@ -2,7 +2,7 @@
 
 > **级别**：P1（产线批量漏检可升 P0）  
 > **发现项目**：NCLCCT（2026-09-22）  
-> **规范条文**：`docs/代码开发规范.md` **§6.2**  
+> **规范条文**：`docs/代码开发规范.md` 条款 **D-06** / 专项细则 **R2**  
 > **审查入口**：`docs/仓库代码审查/一键代码审查.md` §D「FileSystemWatcher / 目录监控」
 
 ## 现象
@@ -32,11 +32,11 @@
 ## 反例位置（已修）
 
 - `SUNWODA_SEVB/ViewModels/Pages/NCLCCT/VM_NCLCCTPage.cs`（2026-09-22）
-- 同源迁移的 CTNCLX 等页面若仍「回调内读图」，审查时应同样按 §6.2 标出。
+- 同源迁移的 CTNCLX 等页面若仍「回调内读图」，审查时应同样按 D-06 / R2 标出。
 
 ## Agent / 人工审查时
 
 变更 diff 出现 `FileSystemWatcher`、`OnCreated`、`IncludeSubdirectories`、`InternalBuffer`、监控路径切换时：
 
-1. 对照规范 §6.2 五项逐条勾选。  
+1. 对照规范 R2 检查表逐条勾选。  
 2. 不合规 → 至少 P1，要求修复后再合入/上线。  

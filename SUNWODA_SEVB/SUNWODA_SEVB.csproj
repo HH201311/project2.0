@@ -176,6 +176,11 @@
       <Link>Dlls\ZZTWPack.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- NJSIX 南京 X13 Pack OCR 算法库 -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\NJX13Pack.dll">
+      <Link>Dlls\NJX13Pack.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <!-- 切图算法：复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
     <None Include="..\SUNWODA_SEVB.Core\Dlls\CTAutoCutImg.dll">
       <Link>Dlls\CTAutoCutImg.dll</Link>
@@ -232,6 +237,9 @@
     </Reference>
     <Reference Include="ZZTWPack">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\ZZTWPack.dll</HintPath>
+    </Reference>
+    <Reference Include="NJX13Pack">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\NJX13Pack.dll</HintPath>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>

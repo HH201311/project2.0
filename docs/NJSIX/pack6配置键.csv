@@ -1,0 +1,33 @@
+键名,含义,默认/说明,来源
+LocalPathPre,结果与日志根目录,E:\六面检上位机软件,现场约定
+YOkRootPath,上盖 OK 根（键名兼容旧库；盘符 Z:）,Z:\,南京收图
+ZOkRootPath,底部 OK 根（键名兼容旧库；盘符 T:）,T:\,南京收图
+SideCamPath,四周 OK 根,S:\,南京收图
+TopCamPath,（兼容旧键）映射到 YOkRootPath,—,兼容
+BottomCamPath,（兼容旧键）映射到 ZOkRootPath,—,兼容
+UseSimulation,是否跳过 NJX13Pack 走模拟,false,新框架
+PackTimeoutMinutes,Pack 未齐套超时分钟（兼容旧键）,10,兼容；调度以 PackMissingTimeoutSeconds 为准
+PackMissingTimeoutSeconds,缺张空闲秒（默认600=10分钟；设置界面按分钟改）,600（5~3600）,产品序调度
+CellType,电芯/产品型号,TW,视觉资料
+ProductionLine,工位产线名,P05,视觉资料
+workship,车间,NJ,南京
+ProductSNRule,产品编码按位规则,空,算法文档
+ExpectedWhiteLabelVersion,白标签数模版本号期望,M06（空=不校验）,视觉 DLL version 输出
+PartSNMinLength,零部件序列码最短长度,0=不校验,算法文档
+ProductSNExactLength,产品编码必须位数,24,规则表
+WhiteLabelKeywords,白标签关键词（非标准文件名兜底）,白标签;whiteLabel,现场
+NameplateKeywords,铭牌关键词（非标准文件名兜底）,铭牌;nameplate,现场
+ProductCodeProfile,产品编码档位显示名（南京界面隐藏）,TW国内两驱（五选一；暂不校验前缀）,现场
+EnforceProductCodeProfile,是否按档位校验 SN 前10位,false（南京默认关）,南京暂无
+IngressLookbackDays,（废弃）原回看天数,2,兼容
+IngressPollSeconds,（废弃）定时补扫；收图仅 Watcher,已不使用,废弃
+StoreResultImageOK,是否保存OK结果图,true,对齐存图
+StoreResultImageNG,是否保存NG结果图,true,对齐存图
+ImageArchiveRetainYears,图像至少保留年数,2,磁盘清理
+ImageArchiveDiskUsagePercent,磁盘占用超过该百分比删最早日期图,90,磁盘清理
+PlcDeviceName,（南京暂不用）平台 plc_config 设备名,六面检PLC,保留键
+PlcNgAlarmBitAddress,（南京暂不用）NG/缺张报警位,D1996.0,保留键
+PlcHeartbeatOutBitAddress,（南京暂不用）本机心跳输出位,D1996.1,保留键
+PlcHeartbeatInBitAddress,（南京暂不用）对方心跳输入位,D1996.2,保留键
+PlcHeartbeatIntervalMs,（南京暂不用）本机心跳翻转间隔毫秒,1000,保留键
+PlcHeartbeatTimeoutMs,（南京暂不用）对方心跳超时毫秒,5000,保留键

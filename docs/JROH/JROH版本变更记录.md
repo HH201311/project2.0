@@ -5,6 +5,17 @@
 > 新会话默认 **不必** 拖本文；需要追溯历史时再按进度存档索引打开。
 
 ---
+> **2026-10-09 变更（提交前正式审查：修复 4 项 P1 + 3 项 P2，4 项待人工确认）**
+> 1. **背景**：对本次开发提交 `184ad87`（卷绕OH代码开发）执行提交前正式审查（基线 develop，审查时工作区 clean 且与 `origin/develop` 同步，故审其相对父提交的全部改动）。提交中夹带了跨产线（JRCW）与环境配置改动。
+> 2. **做法（已修复）**：
+>    - **曲线功能**：`VM_MCOfJROHPage.AppendSeries` 补回 `targetSeries.Add(...)`（回退后只剩检测值，XAML 已绑定的 11 路「设定值」曲线恒为空）；
+>    - **目录监控**：`MCBusinessService.OnCsvFileWatcherError` 溢出时除重建监听器外新增后台补扫 `RescanMissedFiles`（膜卷号校验 + 文件指纹去重），避免丢卷芯（规范 D-06 / R2）；
+>    - **健壮性**：两份服务清理路径的空 catch 改为 `_logger.Warn`（A-01）；取消令牌改为先摘引用再 `Cancel/Dispose` 并捕获 `ObjectDisposedException`，避免二次清理抛异常；
+>    - **清理**：删除回退残留死字段 `missingTargetColumnWarned`（CS0169）、`MisBusinessService .cs` 重命名为 `MisBusinessService.cs`、基类 `GetBusinessName` 补 `Mismatch => "极耳错位闭环"`。
+> 3. **落点**：`SUNWODA_SEVB/Services/Project/JROH/Business/{MCBusinessService.cs,MisBusinessService.cs,BusinessServiceBase.cs}`、`SUNWODA_SEVB/ViewModels/Pages/JROH/VM_MCOfJROHPage.cs`；报告 [审查报告-20261009-1506.md](./审查报告-20261009-1506.md)。
+> 4. **验证**：`dotnet build SUNWODA_SEVB/SUNWODA_SEVB.csproj` **0 error**（需 SDK 9；SDK 10 假报 CS2015）。
+> 5. **待人工确认（未改）**：① `MisBusinessService` 未完成接入（`Mismatch` 走基类 switch 会抛「未实现的业务类型」、未注册进管理器、无独立参数模型/页面）；② `ConfigurationService` 启用了本地测试库 `sunwoda2_jrcw`；③ `DYC04BusinessService` 压花判据改为 `< 2 * pm.PressT`（跨产线工艺）；④ `docs/JROH/开发资料` 下 2713 个样例 CSV 入库。
+
 > **2026-09-21 变更（MC 单路通道解析 ConvertToMCGatherData 实现与优化）**
 > 1. **背景**：`ConvertToGatherModel` 已改为一列一调 `ConvertToMCGatherData(datas, timeKey, detKey, tarKey, setKey)`，但该方法是半成品（循环体为空、11 路调用参数全传空串、存在重复赋值且缺 `Snake1DataOfNeg`），`MCGatherData.HasTargetValue` 被回退而服务与 VM 仍在引用 —— 编译不过。
 > 2. **做法**：

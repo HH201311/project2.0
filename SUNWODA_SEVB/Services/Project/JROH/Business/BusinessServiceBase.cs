@@ -303,6 +303,7 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                 EBusinessType.PoleWidth => "极片宽度闭环",
                 EBusinessType.CoatedOH => "包覆OH闭环",
                 EBusinessType.MultiCorrect => "多级联动闭环",
+                EBusinessType.Mismatch => "极耳错位闭环",
                 _ => "Unknow"
             };
         }

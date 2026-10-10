@@ -129,15 +129,20 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
             // 收敛消费队列并重建（业务重启后仍可继续入队）
             var oldQueue = gatherDataModels;
             gatherDataModels = new BlockingCollection<MCBusinessGatherModel>();
-            try { oldQueue.CompleteAdding(); } catch { }
-            try { oldQueue.Dispose(); } catch { }
+            try { oldQueue.CompleteAdding(); }
+            catch (Exception ex) { _logger.Warn($"[{BusinessName}]停止采集队列失败：{ex.Message}"); }
+            try { oldQueue.Dispose(); }
+            catch (Exception ex) { _logger.Warn($"[{BusinessName}]释放采集队列失败：{ex.Message}"); }
 
             calculateDatasCache?.Clear();
 
-            // 释放取消令牌（先置空再释放，避免 Stop/清理重复释放）
-            _cts?.Cancel();
-            _cts?.Dispose();
+            // 释放取消令牌（先摘引用再释放，避免 Stop/清理重复释放时抛 ObjectDisposedException）
+            var cts = _cts;
             _cts = null;
+            try { cts?.Cancel(); }
+            catch (ObjectDisposedException) { /* 已释放，忽略 */ }
+            try { cts?.Dispose(); }
+            catch (ObjectDisposedException) { /* 已释放，忽略 */ }
             await Task.CompletedTask;
         }
 
@@ -218,10 +223,6 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         /// </summary>
         private readonly ConcurrentDictionary<string, string> processedFileFingerprints = new(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>
-        /// 缺失目标值列的警告只记录一次
-        /// </summary>
-        private bool missingTargetColumnWarned;
 
         /// <summary>
         /// 膜卷号文件名校验
@@ -354,18 +355,53 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         private void OnCsvFileRenamed(object sender, RenamedEventArgs e) => EnqueueCsvFile(e.FullPath);
 
         /// <summary>
-        /// 监听异常（缓冲区溢出等）：重建监听器
+        /// 监听异常（缓冲区溢出等）：重建监听器并补扫，避免丢卷芯
         /// </summary>
         private void OnCsvFileWatcherError(object sender, ErrorEventArgs e)
         {
-            _logger.Error($"[{BusinessName}]CSV 文件监听异常，尝试重建监听器。", e.GetException());
+            var rootPath = paramModel?.WatcherRootPath;
+            _logger.Error($"[{BusinessName}]CSV 文件监听异常，尝试重建监听器并补扫：{rootPath}", e.GetException());
             try
             {
-                InitializeCSVFileWatcher(paramModel?.WatcherRootPath);
+                InitializeCSVFileWatcher(rootPath);
+
+                // 缓冲区溢出会丢事件，重建后必须补扫；已处理文件由指纹去重跳过
+                _ = Task.Run(() => RescanMissedFiles(rootPath));
             }
             catch (Exception ex)
             {
                 _logger.Error($"[{BusinessName}]重建 CSV 文件监听器失败。", ex);
+            }
+        }
+
+        /// <summary>
+        /// 补扫监听根目录：把符合膜卷号命名且尚未处理的文件重新入队
+        /// </summary>
+        /// <param name="rootPath">监听根目录</param>
+        private void RescanMissedFiles(string? rootPath)
+        {
+            if (string.IsNullOrEmpty(rootPath) || !Directory.Exists(rootPath)) return;
+
+            try
+            {
+                var enqueued = 0;
+                foreach (var file in Directory.EnumerateFiles(rootPath, "*.csv", SearchOption.AllDirectories))
+                {
+                    if (!IsFilmRollFileName(file)) continue;
+
+                    // 指纹一致的（已处理过）直接跳过，避免对存量文件重复入队
+                    var fileInfo = new FileInfo(file);
+                    var fingerprint = $"{fileInfo.Length}|{fileInfo.LastWriteTimeUtc.Ticks}";
+                    if (processedFileFingerprints.TryGetValue(file, out var cached) && cached == fingerprint) continue;
+
+                    EnqueueCsvFile(file);
+                    enqueued++;
+                }
+                _logger.Info($"[{BusinessName}]补扫完成：提交 {enqueued} 个待处理膜卷号文件。");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[{BusinessName}]补扫 CSV 目录失败：{rootPath}", ex);
             }
         }
 
@@ -477,7 +513,10 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
             if (!gatherDataModels.IsAddingCompleted)
             {
                 try { gatherDataModels.Add(gatherData); }
-                catch (InvalidOperationException) { }
+                catch (InvalidOperationException)
+                {
+                    // 队列已 CompleteAdding（业务正在停止），本卷不再入队属正常收尾
+                }
             }
 
             // 8) 通知界面刷新曲线

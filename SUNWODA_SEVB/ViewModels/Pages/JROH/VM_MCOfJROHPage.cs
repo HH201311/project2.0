@@ -308,6 +308,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
             foreach (var value in data.Values)
             {
                 detectSeries.Add((value.time, value.detValue));
+                targetSeries.Add((value.time, value.tarValue));
             }
 
             TrimSeries(detectSeries);

@@ -1,4 +1,4 @@
-﻿using Mapster;
+using Mapster;
 using SqlSugar;
 using SUNWODA_SEVB.Core.Interfaces.Data;
 using SUNWODA_SEVB.Tool.Converter;
@@ -39,8 +39,11 @@ namespace SUNWODA_SEVB.Data.Repositories
 
         public TEntity? GetById(object id)
         {
-            var model = _db.Queryable<TModel>().InSingle(id);
-            return model?.Adapt<TEntity>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var model = dbCopy.Queryable<TModel>().InSingle(id);
+                return model?.Adapt<TEntity>();
+            }
         }
 
         public async Task<TEntity?> GetAsync(Expression<Func<TEntity, bool>> predicate)
@@ -49,16 +52,27 @@ namespace SUNWODA_SEVB.Data.Repositories
             using (var dbCopy = _db.CopyNew())
             {
                 var model = await dbCopy.Queryable<TModel>()
-                    .FirstAsync(modelPredicate);
-                return model?.Adapt<TEntity>();
+                    .Where(modelPredicate)
+                    .Take(1)
+                    .ToListAsync();
+                return model.FirstOrDefault()?.Adapt<TEntity>();
             }
         }
 
         public TEntity? Get(Expression<Func<TEntity, bool>> predicate)
         {
             var modelPredicate = ConvertPredicate(predicate);
-            var model = _db.Queryable<TModel>().First(modelPredicate);
-            return model?.Adapt<TEntity>();
+            // 同步路径必须 CopyNew，且无数据返回 null（勿用 First 抛错拖垮模块注册）
+            using (var dbCopy = _db.CopyNew())
+            {
+                var model = dbCopy
+                    .Queryable<TModel>()
+                    .Where(modelPredicate)
+                    .Take(1)
+                    .ToList()
+                    .FirstOrDefault();
+                return model?.Adapt<TEntity>();
+            }
         }
 
         public async Task<List<TEntity>> GetAllAsync()
@@ -72,8 +86,11 @@ namespace SUNWODA_SEVB.Data.Repositories
 
         public List<TEntity> GetAll()
         {
-            var models = _db.Queryable<TModel>().ToList();
-            return models.Adapt<List<TEntity>>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var models = dbCopy.Queryable<TModel>().ToList();
+                return models.Adapt<List<TEntity>>();
+            }
         }
 
         public async Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate)
@@ -91,8 +108,11 @@ namespace SUNWODA_SEVB.Data.Repositories
         public List<TEntity> GetList(Expression<Func<TEntity, bool>> predicate)
         {
             var modelPredicate = ConvertPredicate(predicate);
-            var models = _db.Queryable<TModel>().Where(modelPredicate).ToList();
-            return models.Adapt<List<TEntity>>();
+            using (var dbCopy = _db.CopyNew())
+            {
+                var models = dbCopy.Queryable<TModel>().Where(modelPredicate).ToList();
+                return models.Adapt<List<TEntity>>();
+            }
         }
 
         public async Task<(List<TEntity> Items, int Total)> GetPagedAsync(

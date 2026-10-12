@@ -24,6 +24,11 @@ namespace SUNWODA_SEVB.Core.Enumerations.Project.JROH
         /// <summary>
         /// 多级联动闭环
         /// </summary>
-        MultiCorrect
+        MultiCorrect,
+
+        /// <summary>
+        /// 极耳错位闭环
+        /// </summary>
+        Mismatch,
     }
 }

@@ -1,0 +1,59 @@
+分类,参数键名,BelongToVM,Value类型,RoleRank,源码默认值,说明
+项目设置,FileSaveRootPath,VM_JROHClosedLoopPage,string,2,D:\通用上位机\JROHDatas,闭环结果 CSV 落盘根目录（LoadJROHFileSaveRootPathProjectParameter）
+业务参数,PWBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,见下,PWBusinessParamModel 整体序列化
+业务参数,OHBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,见下,OHBusinessParamModel 整体序列化
+业务参数,MCBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,见下,MCBusinessParamModel 整体序列化
+业务参数,MisBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,见下,MisBusinessParamModel 整体序列化（2026-10-10 新增：极耳错位闭环，当前仅模板占位字段）
+PW字段,IsUse,(同上),bool,4,false,是否启用
+PW字段,AdjustCorrectionOfPos,(同上),float,4,1,正极方向修正系数
+PW字段,AdjustCorrectionOfNeg,(同上),float,4,-1,负极方向修正系数
+PW字段,MaxAdjustmentLimitPos,(同上),int,4,400,正极限幅调整最大值
+PW字段,MaxAdjustmentLimitNeg,(同上),int,4,400,负极限幅调整最大值
+PW字段,MinAdjustmentLimitPos,(同上),int,4,100,正极限幅调整最小值（死区）
+PW字段,MinAdjustmentLimitNeg,(同上),int,4,100,负极限幅调整最小值（死区）
+PW字段,CpControlEnablePos,(同上),bool,4,true,正极极片总宽 CP 管控
+PW字段,CpControlEnableNeg,(同上),bool,4,true,负极极片总宽 CP 管控
+PW字段,OhWidthCheckValuePos,(同上),int,4,1000,正极 OH 总宽防呆尺寸
+PW字段,OhWidthCheckValueNeg,(同上),int,4,1000,负极 OH 总宽防呆尺寸
+PW字段,ClosedLoopEnablePos,(同上),bool,4,true,正极闭环功能开启
+PW字段,ClosedLoopEnableNeg,(同上),bool,4,true,负极闭环功能开启
+PW字段,AdjustFrequency,(同上),byte,4,2,正负极调节频次（电芯数）
+PW字段,AdjustInterval,(同上),byte,4,1,⚠️ 声明但代码未使用（规划 §10 #3）
+OH字段,IsUse,(同上),bool,4,false,是否启用
+OH字段,IsSigleClosedLoop,(同上),bool,4,false,是否单边闭环（true=单边链路，未验证）
+OH字段,AdjustCorrectionOfPos,(同上),float,4,1,正极方向修正系数
+OH字段,AdjustCorrectionOfNeg,(同上),float,4,-1,负极方向修正系数
+OH字段,CountOfFront,(同上),byte,4,5,OH 数据前分段个数
+OH字段,CountOfBack,(同上),byte,4,5,OH 数据后分段个数（中段 = 90 − 前 − 后 = 80）
+OH字段,IsFrontOfPosDetextion,(同上),bool,4,true,正极卷绕 CCD 检测面
+OH字段,DoubleSideEnableOfPos,(同上),bool,4,true,正极双面 OH 控制开启
+OH字段,K,(同上),int,4,1000,料线向大板移动 0.15 所需纠偏值
+OH字段,MaxLimitOfPos,(同上),int,4,300,限幅调整最大值-正极
+OH字段,MaxLimitOfNeg,(同上),int,4,300,限幅调整最大值-负极
+OH字段,MinLimitOfPos,(同上),int,4,50,限幅调整最小值-正极（死区）
+OH字段,MinLimitOfNeg,(同上),int,4,50,限幅调整最小值-负极（死区）
+OH字段,ClosedLoopEnablePos,(同上),bool,4,true,正极闭环功能开启
+OH字段,ClosedLoopEnableNeg,(同上),bool,4,true,负极闭环功能开启
+OH字段,AdjustFrequency,(同上),byte,4,2,调节频次（S 电芯数）
+MC字段,WatcherRootPath,(同上),string,4,D:\MESDATA\12_张力数据-TensionData-ข้อมูลแรงตึง,张力 CSV 监听根目录（MC 数据来源）
+MC字段,AdjustCorrectionOfPos,(同上),float,4,1,正极方向修正系数
+MC字段,AdjustCorrectionOfNeg,(同上),float,4,-1,负极方向修正系数
+MC字段,T,(同上),byte,4,1,采集 T 个调整一次；间隔 T 后再采集
+MC字段,K,(同上),float,4,0.5,触发调节阈值（注释：50%~80%，范围防呆）
+MC字段,D,(同上),float,4,0.05,调整反馈偏差值（注释：0.05~0.3，范围防呆）
+MC字段,ClosedLoopEnablePos,(同上),bool,4,true,正极闭环功能开启
+MC字段,ClosedLoopEnableNeg,(同上),bool,4,true,负极闭环功能开启
+Mis字段,IsUse,(同上),bool,4,false,是否启用（模板占位）
+Mis字段,AdjustCorrectionOfPos,(同上),float,4,1,正极方向修正系数（模板占位，与 PW/OH/MC 同名字段一致）
+Mis字段,AdjustCorrectionOfNeg,(同上),float,4,-1,负极方向修正系数（模板占位）
+Mis字段,ClosedLoopEnablePos,(同上),bool,4,true,正极闭环功能开启（模板占位）
+Mis字段,ClosedLoopEnableNeg,(同上),bool,4,true,负极闭环功能开启（模板占位）
+Mis字段,⏸ 专属参数,(同上),—,4,—,极耳层数 / 极耳角度阈值 / 限幅与死区 / 调节频次等**尚无现场资料，未添加**（禁止臆造，规范 B-09）
+CSV输出列,PW 输出列,缓存数据_极片宽度闭环,CSV,,,采集时间|虚拟码 |正极A面CCD模宽数据|正极B面CCD模宽数据|正极CCD模宽数据|负极CCD模宽数据|正极飞行原点Y|负极飞行原点Y|闭环计算时间|正极是否调机|正极总宽目标值|正极宽度偏差值|正极调机下发值|负极是否调机|负极总宽目标值|负极宽度偏差值|负极调机下发值|闭环结果信息
+CSV输出列,OH 输出列,缓存数据_包覆OH闭环,CSV,,,采集时间|虚拟码 |负极入料基准纠偏设定值|负极前段补偿采集值|负极后段补偿采集值|负极入料纠偏发送值|负极前段补偿发送值|负极后段补偿发送值|正极入料基准纠偏设定值|正极前段补偿采集值|正极后段补偿采集值|正极正反面模宽补偿值A/2|正极入料纠偏发送值|正极前段补偿发送值|正极后段补偿发送值|闭环结果信息
+CSV输出列,MC 输出列,缓存数据_多级联动闭环,CSV,,,采集时间|虚拟码 |正极入料纠偏实时值-中值|正极蛇形纠偏4实时值-中值|正极蛇形纠偏3实时值-中值|正极蛇形纠偏2实时值-中值|正极蛇形纠偏1实时值-中值|负极入料纠偏实时值-中值|负极蛇形纠偏3实时值-中值|负极蛇形纠偏2实时值-中值|负极蛇形纠偏1实时值-中值|上隔膜外侧破损实时值-标定值|下隔膜外侧破损实时值-标定值|（11 路 × 采集总数/正值个数/负值个数/纠偏值/纠偏信息）|闭环结果信息
+CSV输出列,Mis 输出列,缓存数据_极耳错位闭环,CSV,,,采集时间|虚拟码 |正极极耳错位实时值-目标值|负极极耳错位实时值-目标值|正极是否调机|正极调机下发值|负极是否调机|负极调机下发值|闭环结果信息（⚠️ 模板占位列，随现场通道与算法资料变化）
+落盘路径,目录模板,—,路径,,,{FileSaveRootPath}/{EBusinessType}/缓存数据_{BusinessName}/{yyyyMMdd}/
+落盘路径,EBusinessType 取值,—,枚举,,,PoleWidth / CoatedOH / MultiCorrect / Mismatch
+落盘路径,BusinessName 取值,—,中文,,,极片宽度闭环 / 包覆 OH 闭环 / 多级联动闭环 / 极耳错位闭环
+落盘路径,CSV 分卷阈值,—,字节,,,104857600（100MB，超出转 {name}.csv.cache{n}）

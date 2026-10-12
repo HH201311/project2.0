@@ -31,6 +31,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using TouchSocket.Core;
@@ -211,10 +212,12 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                             };
                             vm.SelectedTabIndex = jzh - 1;
                             perfectBattery.BatteryCode = batteryCode;
-                            perfectBattery.P_θb1 = validResult.angleOfPF;
-                            perfectBattery.P_θbn = validResult.angleOfPL;
-                            perfectBattery.P_θa1 = validResult.angleOfNF;
-                            perfectBattery.P_θan = validResult.angleOfNL;
+                            perfectBattery.P_θb_List = validResult.batteryInfo.P_θb_List;
+                            perfectBattery.P_θa_List = validResult.batteryInfo.P_θa_List;
+                            perfectBattery.P_θb1 = validResult.batteryInfo.P_θb1;
+                            perfectBattery.P_θbn = validResult.batteryInfo.P_θbn;
+                            perfectBattery.P_θa1 = validResult.batteryInfo.P_θa1;
+                            perfectBattery.P_θan = validResult.batteryInfo.P_θan;
                             perfectBattery.B120 = 0;
                             perfectBattery.B121 = 0;
                             MessageBox.Success($"电芯条码[{batteryCode}]获取完美电芯角度成功！", "提示");
@@ -232,8 +235,10 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <param name="indexOfNF"></param>
         /// <param name="indexOfNL"></param>
         /// <returns></returns>
-        private (bool isSuccess, string jzh, float angleOfPF, float angleOfPL, float angleOfNF, float angleOfNL) GetPerfectAngleValues(string batteryCode, int indexOfPF, int indexOfPL, int indexOfNF, int indexOfNL)
+        private (bool isSuccess, string jzh, PerfectBatteryInfo batteryInfo) GetPerfectAngleValues(string batteryCode, int indexOfPF, int indexOfPL, int indexOfNF, int indexOfNL)
         {
+            var batteryInfo = new PerfectBatteryInfo();
+            batteryInfo.BatteryCode = batteryCode;
             try
             {
                 var savePath = Path.Combine(fileSaveRootPath, "过程数据", DateTime.Now.ToString("yyyyMMdd"));
@@ -246,24 +251,67 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                 List<Dictionary<string, string>> dics;
                 lock (JRCWCsvHelper.WriteLocker)
                 {
-                    dics = JRCWCsvHelper.SearchCsv(savePath, "Barcode", batteryCode, key1, key2, key3, key4, key5);
+                    dics = JRCWCsvHelper.SearchCsv(savePath, "Barcode", batteryCode);
                 }
 
                 // 安全解析，转换失败时使用默认值
-                var dic = dics.LastOrDefault();
-                var jzh = dic?.ContainsKey(key1) ?? false ? dic[key1] : string.Empty;
-                var anglePF = TryParseAngle(dic, key2);
-                var anglePL = TryParseAngle(dic, key3);
-                var angleNF = TryParseAngle(dic, key4);
-                var angleNL = TryParseAngle(dic, key5);
+                var dic = dics.LastOrDefault() ?? new Dictionary<string, string>();
+                var jzh = dic.ContainsKey(key1) ? dic[key1] : string.Empty;
+                var maxIndex = GetMaxPolarAngleIndex(dic.Keys);
+                for (int i = 1; i <= maxIndex.maxIndexOfPos; i++)
+                {
+                    var pKey = $"正极第{i}个极耳角度";
+                    batteryInfo.P_θb_List.Add(TryParseAngle(dic, pKey));
+                }
+                for (int i = 1; i <= maxIndex.maxIndexOfNeg; i++)
+                {
+                    var nKey = $"负极第{i}个极耳角度";
+                    batteryInfo.P_θa_List.Add(TryParseAngle(dic, nKey));
+                }
+                batteryInfo.P_θb1 = TryParseAngle(dic, key2);
+                batteryInfo.P_θbn = TryParseAngle(dic, key3);
+                batteryInfo.P_θa1 = TryParseAngle(dic, key4);
+                batteryInfo.P_θan = TryParseAngle(dic, key5);
 
-                return (true, jzh, anglePF, anglePL, angleNF, angleNL);
+                return (true, jzh, batteryInfo);
             }
             catch (Exception ex)
             {
                 _logger.Error($"获取完美电芯角度值失败！电芯条码[{batteryCode}]，异常信息：{ex.Message}");
-                return (false, string.Empty, 0, 0, 0, 0);
+                return (false, string.Empty, batteryInfo);
             }
+        }
+
+        /// <summary>
+        /// 从极耳角度列名列表中获取最大的索引值。
+        /// </summary>
+        /// <param name="columnNames">例如 "正极第1个极耳角度", "负极第3个极耳角度" 等</param>
+        /// <returns>最大索引值；如果没有匹配项则返回 -1</returns>
+        private (int maxIndexOfPos, int maxIndexOfNeg) GetMaxPolarAngleIndex(IEnumerable<string> columnNames)
+        {
+            var regexOfPos = new Regex(@"^正极第(\d+)个极耳角度$", RegexOptions.Compiled);
+            var regexOfNeg = new Regex(@"^负极第(\d+)个极耳角度$", RegexOptions.Compiled);
+
+            int maxIndexOfPos = -1, maxIndexOfNeg = -1;
+
+            foreach (var name in columnNames)
+            {
+                if (string.IsNullOrEmpty(name)) continue;
+
+                var matchOfPos = regexOfPos.Match(name);
+                if (matchOfPos.Success && int.TryParse(matchOfPos.Groups[1].Value, out int indexOfPos))
+                {
+                    if (indexOfPos > maxIndexOfPos) maxIndexOfPos = indexOfPos;
+                }
+
+                var matchOfNeg = regexOfNeg.Match(name);
+                if (matchOfNeg.Success && int.TryParse(matchOfNeg.Groups[1].Value, out int indexOfNeg))
+                {
+                    if (indexOfNeg > maxIndexOfNeg) maxIndexOfNeg = indexOfNeg;
+                }
+            }
+
+            return (maxIndexOfPos, maxIndexOfNeg);
         }
 
         /// <summary>
@@ -600,11 +648,11 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         {
             var task = Task.Run(async () =>
             {
+                // 缓存
+                int jSingleCache = 0, overJNumCache = 0, changeSignal = 0;
+                Queue<float> queue_p = new(), queue_n = new(), queue1_p = new(), queue1_n = new(), queue2_p = new(), queue2_n = new(), queue3_p = new(), queue3_n = new();
                 try
                 {
-                    // 缓存
-                    int jSingleCache = 0, overJNumCache = 0;
-                    Queue<float> queue_p = new(), queue_n = new(), queue1_p = new(), queue1_n = new(), queue2_p = new(), queue2_n = new(), queue3_p = new(), queue3_n = new();
                     foreach (var plcData in gatherPLCDataModels.GetConsumingEnumerable())
                     {
                         var pm = LoadParamSettingModel();
@@ -616,12 +664,15 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                         {
                             #region 1.接帯/换卷信号处理
                             cm.CLEnableSigle = float.TryParse(GetPLCAddressValue("PLC闭环开启信号"), out float valueFloat) ? valueFloat : 0f;
+                            cm.PressEnableSignal1 = float.TryParse(GetPLCAddressValue("P辊压花功能"), out valueFloat) ? valueFloat : 0f;
+                            cm.PressEnableSignal2 = float.TryParse(GetPLCAddressValue("P辊闭环(软件模式)"), out valueFloat) ? valueFloat : 0f;
                             cm.Host_TapeSplicing = await CheckOfChangeOrRewindSignalAsync("接带信号");
                             cm.Host_ReelAlternatioan = await CheckOfChangeOrRewindSignalAsync("换卷信号");
-                            if (cm.Host_TapeSplicing == 1) cm.ChangeOfArithmetic = 1;
-                            if (cm.Host_ReelAlternatioan == 1) cm.ChangeOfArithmetic = 2;
-                            if (cm.ChangeOfArithmetic != 0)
+                            if (cm.Host_TapeSplicing == 1 || cm.Host_ReelAlternatioan == 1)
                             {
+                                changeSignal = pm.PressJT;
+
+                                cm.ChangeOfArithmetic = (int)(cm.Host_TapeSplicing + cm.Host_ReelAlternatioan);
                                 queue_p.Clear();
                                 queue_n.Clear();
                                 queue1_p.Clear();
@@ -655,6 +706,8 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                                 3 => pm.PerfectBattery3,
                                 _ => throw new Exception($"卷针号为异常值 [{plcData.ZJData_JZH}]！")
                             };
+                            cm.PerfectPosAngles = FormatArray(pb.P_θb_List);
+                            cm.PerfectNegAngles = FormatArray(pb.P_θa_List);
                             cm.Θb1 = FindClosest(plcData.AngleOfPBTab, pb.P_θb1, pm.S_Nb1);
                             cm.Θbn = FindClosest(plcData.AngleOfPBTab, pb.P_θbn, pm.S_Nbn);
                             cm.Θa1 = FindClosest(plcData.AngleOfNBTab, pb.P_θa1, pm.S_Na1);
@@ -670,75 +723,104 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                             cm.ΔDa = cm.S_ΔDa + cm.Ba + pb.B121;
                             #endregion
 
-                            #region 5.正/负极错位量处理
-                            var reOfMV = await CheckOfMalpositionValueAsync(cm.ΔDb, cm.ΔDa, pm);
-                            if (!reOfMV.result)
+                            #region 5 参数处理&算法执行
+                            // 压花闭环PLC地址信号
+                            var isPressSignalEnable = cm.PressEnableSignal1 == 1 && cm.PressEnableSignal2 == 1;
+                            // 正负极错位均值的绝对值 < press_t
+                            var isExcutePress = Math.Abs(cm.ΔDb + cm.ΔDa) < 2 * pm.PressT;
+                            if (isPressSignalEnable && isExcutePress && changeSignal > 0)
                             {
-                                cm.M = reOfMV.m;
-                                cm.EndMessage = reOfMV.message;
-                                continue;
+                                #region 5.1 算法参数预处理及压花算法执行
+                                changeSignal--;
+                                var currentPosAngles = FormatArray(plcData.AngleOfPBTab);
+                                var currentNegAngles = FormatArray(plcData.AngleOfNBTab);
+                                var result = ExcutePress(currentPosAngles, currentNegAngles, cm.PerfectPosAngles, cm.PerfectNegAngles, plcData.StampingAirPressure, pm, pb);
+                                cm.J1 = result.J1;
+                                cm.J2 = result.J2;
+                                cm.J3 = result.J3;
+                                cm.Press_J = result.Press_J;
+                                cm.Notes = result.Notes;
+                                cm.Dialog = result.Dialog;
+                                cm.JSingle = result.J_Signal;
+                                cm.OverJNum = result.Over_J_Num;
+                                jSingleCache = result.J_Signal;
+                                overJNumCache = result.Over_J_Num;
+                                #endregion
+                            }
+                            else
+                            {
+                                #region 5.1 正/负极错位量处理
+                                var reOfMV = await CheckOfMalpositionValueAsync(cm.ΔDb, cm.ΔDa, pm);
+                                if (!reOfMV.result)
+                                {
+                                    cm.M = reOfMV.m;
+                                    cm.EndMessage = reOfMV.message;
+                                    continue;
+                                }
+                                #endregion
+
+                                #region 5.2 错位量缓存(最大长度为3及6，先进先出)
+                                queue_p.Enqueue(cm.ΔDb);
+                                while (queue_p.Count > 3) queue_p.Dequeue();
+                                queue_n.Enqueue(cm.ΔDa);
+                                while (queue_n.Count > 3) queue_n.Dequeue();
+                                switch (plcData.ZJData_JZH)
+                                {
+                                    case 1:
+                                        queue1_p.Enqueue(cm.ΔDb);
+                                        while (queue1_p.Count > 6) queue1_p.Dequeue();
+                                        queue1_n.Enqueue(cm.ΔDa);
+                                        while (queue1_n.Count > 6) queue1_n.Dequeue();
+                                        break;
+                                    case 2:
+                                        queue2_p.Enqueue(cm.ΔDb);
+                                        while (queue2_p.Count > 6) queue2_p.Dequeue();
+                                        queue2_n.Enqueue(cm.ΔDa);
+                                        while (queue2_n.Count > 6) queue2_n.Dequeue();
+                                        break;
+                                    case 3:
+                                        queue3_p.Enqueue(cm.ΔDb);
+                                        while (queue3_p.Count > 6) queue3_p.Dequeue();
+                                        queue3_n.Enqueue(cm.ΔDa);
+                                        while (queue3_n.Count > 6) queue3_n.Dequeue();
+                                        break;
+                                    default: throw new Exception($"未实现卷针号[{plcData.ZJData_JZH}]逻辑！");
+                                }
+                                #endregion
+
+                                #region 5.3 其他算法参数预处理&闭环算法
+                                var t = pm.K * (pm.Na + pm.Nb) / 2;
+                                var result = ExcuteJudge(queue_p.ToArray(), queue_n.ToArray(), queue1_p.ToArray(), queue1_n.ToArray(),
+                                    queue2_p.ToArray(), queue2_n.ToArray(), queue3_p.ToArray(), queue3_n.ToArray(),
+                                    pm, plcData.ZJData_JZH.ToString(), cm.ChangeOfArithmetic, t, jSingleCache, overJNumCache);
+                                cm.J1 = result.J1;
+                                cm.J2 = result.J2;
+                                cm.J3 = result.J3;
+                                cm.Notes = result.Notes;
+                                cm.Dialog = result.Dialog;
+                                cm.JSingle = result.J_Signal;
+                                cm.OverJNum = result.Over_J_Num;
+                                jSingleCache = result.J_Signal;
+                                overJNumCache = result.Over_J_Num;
+                                // 清空错位量缓存
+                                if (result.J1 != 0 || result.J2 != 0 || result.J3 != 0)
+                                {
+                                    queue_p.Clear();
+                                    queue_n.Clear();
+                                    queue1_p.Clear();
+                                    queue1_n.Clear();
+                                    queue2_p.Clear();
+                                    queue2_n.Clear();
+                                    queue3_p.Clear();
+                                    queue3_n.Clear();
+                                }
+                                #endregion
                             }
                             #endregion
 
-                            #region 6.错位量缓存(最大长度为3及6，先进先出)
-                            queue_p.Enqueue(cm.ΔDb);
-                            while (queue_p.Count > 3) queue_p.Dequeue();
-                            queue_n.Enqueue(cm.ΔDa);
-                            while (queue_n.Count > 3) queue_n.Dequeue();
-                            switch (plcData.ZJData_JZH)
-                            {
-                                case 1:
-                                    queue1_p.Enqueue(cm.ΔDb);
-                                    while (queue1_p.Count > 6) queue1_p.Dequeue();
-                                    queue1_n.Enqueue(cm.ΔDa);
-                                    while (queue1_n.Count > 6) queue1_n.Dequeue();
-                                    break;
-                                case 2:
-                                    queue2_p.Enqueue(cm.ΔDb);
-                                    while (queue2_p.Count > 6) queue2_p.Dequeue();
-                                    queue2_n.Enqueue(cm.ΔDa);
-                                    while (queue2_n.Count > 6) queue2_n.Dequeue();
-                                    break;
-                                case 3:
-                                    queue3_p.Enqueue(cm.ΔDb);
-                                    while (queue3_p.Count > 6) queue3_p.Dequeue();
-                                    queue3_n.Enqueue(cm.ΔDa);
-                                    while (queue3_n.Count > 6) queue3_n.Dequeue();
-                                    break;
-                                default: throw new Exception($"未实现卷针号[{plcData.ZJData_JZH}]逻辑！");
-                            }
-                            #endregion
-
-                            #region 7.其他算法参数预处理&闭环算法
-                            var t = pm.K * (pm.Na + pm.Nb) / 2;
-                            var result = ExcuteJudge(queue_p.ToArray(), queue_n.ToArray(), queue1_p.ToArray(), queue1_n.ToArray(),
-                                queue2_p.ToArray(), queue2_n.ToArray(), queue3_p.ToArray(), queue3_n.ToArray(),
-                                pm, plcData.ZJData_JZH.ToString(), cm.ChangeOfArithmetic, t, jSingleCache, overJNumCache);
-                            cm.J1 = result.J1;
-                            cm.J2 = result.J2;
-                            cm.J3 = result.J3;
-                            cm.Notes = result.Notes;
-                            cm.Dialog = result.Dialog;
-                            cm.JSingle = result.J_Signal;
-                            cm.OverJNum = result.Over_J_Num;
-                            jSingleCache = result.J_Signal;
-                            overJNumCache = result.Over_J_Num;
-                            // 清空错位量缓存
-                            if (result.J1 != 0 || result.J2 != 0 || result.J3 != 0)
-                            {
-                                queue_p.Clear();
-                                queue_n.Clear();
-                                queue1_p.Clear();
-                                queue1_n.Clear();
-                                queue2_p.Clear();
-                                queue2_n.Clear();
-                                queue3_p.Clear();
-                                queue3_n.Clear();
-                            }
-                            #endregion
-
-                            #region 8.调机下发  闭环执行异常，但有缓存值则依旧下发
-                            var message = await JJJAdjustAsync(cm.J1, cm.J2, cm.J3, cm.Dialog);
+                            #region 6.调机下发  闭环执行异常，但有缓存值则依旧下发
+                            cm.ChangeSignal = changeSignal;
+                            var message = await JJJPAdjustAsync(cm.J1, cm.J2, cm.J3, cm.Press_J, cm.Dialog);
                             cm.EndMessage = message;
                             #endregion
                         }
@@ -798,7 +880,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             }
 
             _logger.Warn($"[{parameterName}]PLC地址数据[{monitorValue}]不为0或1！");
-            return value;
+            return 0;
         }
 
         /// <summary>
@@ -857,7 +939,11 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// </summary>
         private Business2ParamModel LoadParamSettingModel()
         {
-            lock (this) return _projectSettingRepository.LoadBusiness2ParamProjectParameters();
+            lock (this)
+            {
+                var pm = LoadBusinessParamConfig<Business2ParamModel>();
+                return pm ?? new Business2ParamModel(); ;
+            }
         }
 
         /// <summary>
@@ -912,7 +998,10 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             dic.Add("闭环开启信号", calculateData.CLEnableSigle.ToString());
             dic.Add("接带信号", calculateData.Host_TapeSplicing.ToString());
             dic.Add("换卷信号", calculateData.Host_ReelAlternatioan.ToString());
+            dic.Add("P辊压花功能", calculateData.PressEnableSignal1.ToString());
+            dic.Add("P辊闭环(软件模式)", calculateData.PressEnableSignal2.ToString());
             dic.Add("算法参数change", calculateData.ChangeOfArithmetic.ToString());
+            dic.Add("压花闭环change", calculateData.ChangeSignal.ToString());
             dic.Add("推荐变径调整量", calculateData.M.ToString());
 
             var perfectBattery = plcData.ZJData_JZH switch
@@ -930,6 +1019,8 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                 dic.Add("完美电芯正极极耳近边距", perfectBattery.P_θbn.ToString());
                 dic.Add("完美电芯负极极耳远边距", perfectBattery.P_θa1.ToString());
                 dic.Add("完美电芯负极极耳近边距", perfectBattery.P_θan.ToString());
+                dic.Add("完美电芯正极极耳角度序列", string.Join('|', perfectBattery.P_θb_List));
+                dic.Add("完美电芯负极极耳角度序列", string.Join('|', perfectBattery.P_θa_List));
             }
 
             dic.Add("实时电芯的首极耳角度 - 正极", calculateData.Θb1.ToString());
@@ -947,6 +1038,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             dic.Add("J1", calculateData.J1.ToString());
             dic.Add("J2", calculateData.J2.ToString());
             dic.Add("J3", calculateData.J3.ToString());
+            dic.Add("Press_J", calculateData.Press_J.ToString());
             dic.Add("Notes", calculateData.Notes ?? string.Empty);
             dic.Add("Dialog", calculateData.Dialog ?? string.Empty);
             dic.Add("JSingle", calculateData.JSingle.ToString());
@@ -994,6 +1086,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             dic.Add("k", paramModel.K.ToString());
             dic.Add("闭环计算时间", calculateData.CalculateTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             dic.Add("算法参数change", calculateData.ChangeOfArithmetic.ToString());
+            dic.Add("压花闭环change", calculateData.ChangeSignal.ToString());
             dic.Add("推荐变径调整量", calculateData.M.ToString());
 
             var perfectBattery = plcData.ZJData_JZH switch
@@ -1028,6 +1121,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             dic.Add("J1", calculateData.J1.ToString());
             dic.Add("J2", calculateData.J2.ToString());
             dic.Add("J3", calculateData.J3.ToString());
+            dic.Add("Press_J", calculateData.Press_J.ToString());
             dic.Add("Notes", calculateData.Notes ?? string.Empty);
             dic.Add("Dialog", calculateData.Dialog ?? string.Empty);
             dic.Add("JSingle", calculateData.JSingle.ToString());
@@ -1046,23 +1140,34 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         private async Task InitializePythonCodeAsync()
         {
             var pyCodes = _projectSettingRepository.LoadPyCodesProjectParamter();
-            if (pyCodes == null || pyCodes.Count < 1) throw new Exception("未配置算法字段[PyCodes]！");
+            if (pyCodes == null || pyCodes.Count < 2) throw new Exception("算法字段[PyCodes]配置异常！");
 
             var xmlPublicKey = RasHelper.ToXmlPublicKey(PublicKey);
             var signature = RasHelper.RSAEncrypt(xmlPublicKey, AppKey);
-            var fileResp = await _webApiClient.DownloadDllAsync(AppKey, signature, pyCodes[0], "PRED");
 
-            if (!fileResp.IsSuccess) throw new Exception($"算法[{pyCodes[0]}]文件加载失败[{fileResp.Code}:{fileResp.Message}]");
+            #region 下载闭环算法文件
+            var pyCode_Judg = pyCodes[0];
+            var fileResp = await _webApiClient.DownloadDllAsync(AppKey, signature, pyCode_Judg, "PRED");
+            if (!fileResp.IsSuccess) throw new Exception($"算法[{pyCode_Judg}]文件加载失败[{fileResp.Code}:{fileResp.Message}]");
+            if (fileResp.DataStr == null || fileResp.DataStr.Length == 0) throw new Exception($"算法[{pyCode_Judg}]文件加载失败！");
 
-            if (fileResp.DataStr == null || fileResp.DataStr.Length == 0)
-                throw new Exception($"算法[{pyCodes[0]}]文件加载失败！");
+            pyFile_Judg = Encoding.UTF8.GetString(fileResp.DataStr);
+            _logger.Info($"算法[{pyCode_Judg}]加载完成:[{pyFile_Judg}]");
+            #endregion
 
-            pyCode_Judg = Encoding.UTF8.GetString(fileResp.DataStr);
-            _logger.Info($"算法[{pyCodes[0]}]加载完成！");
+            #region 下载压花气压算法文件
+            var pyCode_Press = pyCodes[1];
+            fileResp = await _webApiClient.DownloadDllAsync(AppKey, signature, pyCode_Press, "PRED");
+            if (!fileResp.IsSuccess) throw new Exception($"算法[{pyCode_Press}]文件加载失败[{fileResp.Code}:{fileResp.Message}]");
+            if (fileResp.DataStr == null || fileResp.DataStr.Length == 0) throw new Exception($"算法[{pyCode_Press}]文件加载失败！");
+
+            pyFile_Press = Encoding.UTF8.GetString(fileResp.DataStr);
+            _logger.Info($"算法[{pyCode_Press}]加载完成:[{pyFile_Press}]");
+            #endregion
         }
 
         #region 闭环算法
-        private string pyCode_Judg = string.Empty;
+        private string pyFile_Judg = string.Empty;
         /// <summary>
         /// 执行闭环算法
         /// </summary>
@@ -1109,7 +1214,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             var sw = new Stopwatch();
             sw.Start();
             using var mr = new ManualResetEvent(false);
-            var args = new object[] { mr, pyCode_Judg, pyResoult };
+            var args = new object[] { mr, pyFile_Judg, pyResoult };
             PythonConfigHelper.AddAction((ExcutePython_Judge, args));
             mr.WaitOne();
             sw.Stop();
@@ -1181,6 +1286,115 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             finally { mr.Set(); }
         }
         #endregion
+
+        #region 压花气压算法
+        private string pyFile_Press = string.Empty;
+        /// <summary>
+        /// 执行压花气压算法
+        /// </summary>
+        /// <param name="currentPosAngles"></param>
+        /// <param name="currentNegAngles"></param>
+        /// <param name="perfectPosAngles"></param>
+        /// <param name="perfectNegAngles"></param>
+        /// <param name="pressReal"></param>
+        /// <param name="pm"></param>
+        /// <param name="pb"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        private PressOutputModel ExcutePress(string currentPosAngles, string currentNegAngles, string perfectPosAngles, string perfectNegAngles, float pressReal, Business2ParamModel pm, PerfectBatteryInfo pb)
+        {
+            var pyResoult = new PyResultModel<PressInputModel, PressOutputModel>();
+            pyResoult.PyInPut = new PressInputModel();
+            pyResoult.PyInPut.CurrentPosAngles = currentPosAngles;
+            pyResoult.PyInPut.CurrentNegAngles = currentNegAngles;
+            pyResoult.PyInPut.PerfectPosAngles = perfectPosAngles;
+            pyResoult.PyInPut.PerfectNegAngles = perfectNegAngles;
+            pyResoult.PyInPut.PressReal = pressReal;
+            pyResoult.PyInPut.PressUp = pm.PressUp;
+            pyResoult.PyInPut.PressDown = pm.PressDown;
+            pyResoult.PyInPut.Nb = pm.Nb;
+            pyResoult.PyInPut.Na = pm.Na;
+            pyResoult.PyInPut.PressStep = pm.PressStep;
+            pyResoult.PyInPut.PressK = pm.PressK;
+            pyResoult.PyInPut.K = pm.K;
+            pyResoult.PyInPut.B120 = pb.B120;
+            pyResoult.PyInPut.B121 = pb.B121;
+
+            var sw = new Stopwatch();
+            sw.Start();
+            using var mr = new ManualResetEvent(false);
+            var args = new object[] { mr, pyFile_Press, pyResoult };
+            PythonConfigHelper.AddAction((ExcutePython_Press, args));
+            mr.WaitOne();
+            sw.Stop();
+
+            // 调试使用，后续根据要求删除
+            _logger.Info($"算法执行完毕(测试&调试阶段使用):[耗时:{sw.ElapsedMilliseconds}ms]:[{pyResoult.Message}]\r\n,入参[{JsonConvert.SerializeObject(pyResoult.PyInPut)}]\r\n,出参[{pyResoult.PyOutPut}]");
+
+            if (pyResoult.IsSuccess)
+            {
+                _logger.Info($"'压花气压算法'执行完毕[耗时:{sw.ElapsedMilliseconds}ms]");
+                return pyResoult.Result ?? new PressOutputModel();
+            }
+
+            throw new Exception($"'压花气压算法'执行异常[耗时:{sw.ElapsedMilliseconds}ms]:[{pyResoult.Message}]\r\n,入参[{JsonConvert.SerializeObject(pyResoult.PyInPut)}]\r\n,出参[{pyResoult.PyOutPut}]");
+        }
+
+        /// <summary>
+        /// 压花气压算法
+        /// </summary>
+        /// <param name="args"></param>
+        private void ExcutePython_Press(object[] args)
+        {
+            if (args.Length != 3 ||
+              !(args[0] is ManualResetEvent mr) ||
+              !(args[1] is string pyCode) ||
+              !(args[2] is PyResultModel<PressInputModel, PressOutputModel> pyResoult))
+            {
+                _logger.Error($"'压花气压算法'参数解析异常[{JsonConvert.SerializeObject(args)}]");
+                throw new ArgumentException($"参数异常[{JsonConvert.SerializeObject(args)}]", nameof(args));
+            }
+
+            try
+            {
+                var inputModel = pyResoult.PyInPut;
+                if (inputModel == null) throw new ArgumentException($"参数异常[{JsonConvert.SerializeObject(inputModel)}]", nameof(inputModel));
+
+                // 算法导入&执行
+                using var gs = Py.GIL();
+                //dynamic pm = PyModule.Import("PRESS_DY_C04_325AH_1");
+                dynamic pm = PyModule.FromString("Press", pyCode);
+                dynamic po = pm.Press(inputModel.PerfectPosAngles, inputModel.PerfectNegAngles, inputModel.CurrentPosAngles,
+                    inputModel.CurrentNegAngles, inputModel.PressReal, inputModel.PressUp, inputModel.PressDown, inputModel.Nb,
+                    inputModel.Na, inputModel.PressStep, inputModel.PressK, inputModel.K, inputModel.B120, inputModel.B121);
+                dynamic re = po.analyse();
+
+                // 算法结果解析
+                var reTp = PyTuple.AsTuple(re);
+                var pyRes = new PressOutputModel();
+                pyRes.J1 = (float)reTp[0];
+                pyRes.J2 = (float)reTp[1];
+                pyRes.J3 = (float)reTp[2];
+                pyRes.Press_J = (float)reTp[3];
+                pyRes.Notes = (string)reTp[4];
+                pyRes.Dialog = (string)reTp[5];
+                pyRes.J_Signal = (int)reTp[6];
+                pyRes.Over_J_Num = (int)reTp[7];
+
+                // 返回算法结果
+                pyResoult.IsSuccess = true;
+                pyResoult.PyOutPut = re.ToString();
+                pyResoult.Result = pyRes;
+                pyResoult.Message = "Success";
+            }
+            catch (Exception ex)
+            {
+                pyResoult.IsSuccess = false;
+                pyResoult.Message = ex.Message;
+            }
+            finally { mr.Set(); }
+        }
+        #endregion
         #endregion
 
         /// <summary>
@@ -1192,7 +1406,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
         /// <param name="dialog"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        private async Task<string> JJJAdjustAsync(float j1, float j2, float j3, string? dialog)
+        private async Task<string> JJJPAdjustAsync(float j1, float j2, float j3, float press_J, string? dialog)
         {
             var messageSB = new StringBuilder();
             // 下发J1
@@ -1228,8 +1442,19 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
                 if (!re.IsSuccess) _logger.Error(message);
             }
 
+            // 下发压花调节量
+            if (press_J != 0)
+            {
+                var parameterName = "压花气压调整量";
+                var re = await WritePLCAsync(parameterName, press_J);
+
+                var message = re.IsSuccess ? $"Success(Press_J下发[{press_J}]成功)" : $"[{parameterName}]PLC地址写入[{press_J}]失败:[{re.Message}]";
+                messageSB.AppendLine(message);
+                if (!re.IsSuccess) _logger.Error(message);
+            }
+
             // 下发调节量信号
-            if (j1 != 0 || j2 != 0 || j3 != 0)
+            if (j1 != 0 || j2 != 0 || j3 != 0 || press_J != 0)
             {
                 var parameterName = "下发调节量信号";
                 var re = await WritePLCAsync(parameterName, 1f);
@@ -1244,9 +1469,7 @@ namespace SUNWODA_SEVB.Services.Project.JRCW.Business
             {
                 _logger.Info(dialog ?? string.Empty);
                 var msg = dialog?.replace(";", ";\r\n");
-                //_ = MessageBoxShowDialog(msg, "调节提示");
                 Growl.InfoGlobal(msg);
-                //MessageBox.Show(msg, "调节提示");
             }
 
             return messageSB.ToString();

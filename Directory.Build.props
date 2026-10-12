@@ -1,0 +1,9 @@
+<Project>
+  <!--
+    本机系统代理 127.0.0.1:7897 未启动时，华为云 / nuget.org 服务索引会报 NU1301，编译被还原打断。
+    包已在本地缓存时忽略失败源，让生成继续。需要拉新包时请先打开代理再还原。
+  -->
+  <PropertyGroup>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+  </PropertyGroup>
+</Project>

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,6 +24,9 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using SUNWODA_SEVB.Services.Project.BoxGluing;
+using SUNWODA_SEVB.Services.Project.NJSIX;
+using SUNWODA_SEVB.Services.Project.YWSIX;
+using SUNWODA_SEVB.Services.Project.ZZSIX;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -245,6 +248,15 @@ namespace SUNWODA_SEVB
 
             // 口琴管涂胶业务服务
             services.AddBoxGluingServices();
+
+            // ZZSIX PACK 六面检
+            services.AddZZSIXPack6Services();
+
+            // NJSIX PACK 六面检（由 ZZSIX 全量对照移植，算法 DLL 仍为 ZZTWPack）
+            services.AddNJSIXPack6Services();
+
+            // YWSIX 义乌六面检（YWX01Pack：白标签/铭牌/上盖1-4/PIN；UseSimulation 可关）
+            services.AddYWSIXPack6Services();
 
             // 注册主窗口的ViewModel和View
             services.AddSingleton<VM_MainWindow>();

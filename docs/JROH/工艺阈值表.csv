@@ -1,0 +1,54 @@
+业务,参数键（源码字段）,中文名,基准值Center,下限LowerLimit,上限UpperLimit,来源
+PW,TotalWidthOfMold,隔膜总宽度,196000,195500,196500,代码默认值（PWBusinessParamModel）
+PW,PoleWidthOfNeg,负极极片总宽,191000,190500,191500,代码默认值
+PW,PoleWidthOfPos,正极极片总宽,190800,190300,191300,代码默认值
+PW,CoatedWidthOfPos,正极涂膜宽度,188300,187800,188800,代码默认值
+PW,CilWidthOfPos,正极CIL宽度,2500,2000,3000,代码默认值
+PW,NegToPosACTop,负极到正极AC顶部,1600,600,3500,代码默认值
+PW,NegToPosACBottom,负极到正极AC底部,1100,400,3200,代码默认值
+PW,MoldToNegSABottom,隔膜到负极SA底部,2200,1000,4500,代码默认值
+PW,MoldToNegSATop,隔膜到负极SA顶部,2800,500,4000,代码默认值
+PW,MoldToCILTop,隔膜到CIL顶部,1900,500,5000,代码默认值
+PW,CilOverNegTop,CIL超负极顶部,900,90,33500,代码默认值
+OH,TotalWidthOfMold,隔膜总宽度,78900,78500,79300,代码默认值（OHBusinessParamModel）
+OH,PoleWidthOfNeg,负极极片总宽,72700,72200,73200,代码默认值
+OH,PoleWidthOfPos,正极极片总宽,72900,72400,73400,代码默认值
+OH,CoatedWidthOfPos,正极涂膜宽度,70500,70000,71000,代码默认值
+OH,CilWidthOfPos,正极CIL宽度,3100,2200,3700,代码默认值
+OH,NegToPosACTop,负极到正极AC顶部,1700,300,3700,代码默认值
+OH,NegToPosACBottom,负极到正极AC底部,1000,300,3700,代码默认值
+OH,MoldToNegSABottom,隔膜到负极SA底部,3300,500,5600,代码默认值
+OH,MoldToNegSATop,隔膜到负极SA顶部,2500,100,5600,代码默认值
+OH,MoldToCILTop,隔膜到CIL顶部,1800,500,5600,代码默认值
+OH,CilOverNegTop,CIL超负极顶部,1400,100,3900,代码默认值
+,,,,,,以下为控制逻辑阈值（非 CP 尺寸）
+PW,MinAdjustmentLimitPos,正极限幅最小值（死区）,100,,,代码默认值
+PW,MinAdjustmentLimitNeg,负极限幅最小值（死区）,100,,,代码默认值
+PW,MaxAdjustmentLimitPos,正极限幅最大值,400,,,代码默认值
+PW,MaxAdjustmentLimitNeg,负极限幅最大值,400,,,代码默认值
+PW,OhWidthCheckValuePos,正极OH总宽防呆尺寸,1000,,,代码默认值
+PW,OhWidthCheckValueNeg,负极OH总宽防呆尺寸,1000,,,代码默认值
+PW,AdjustCorrectionOfPos,正极方向修正系数,1,,,代码默认值
+PW,AdjustCorrectionOfNeg,负极方向修正系数,-1,,,代码默认值
+PW,AdjustFrequency,调节频次（电芯数）,2,,,代码默认值
+PW,AdjustInterval,调节间隔（n）,1,,,⚠️ 声明未使用，见规划 §10 #3
+OH,MinLimitOfPos,正极限幅最小值（死区）,50,,,代码默认值
+OH,MinLimitOfNeg,负极限幅最小值（死区）,50,,,代码默认值
+OH,MaxLimitOfPos,正极限幅最大值,300,,,代码默认值
+OH,MaxLimitOfNeg,负极限幅最大值,300,,,代码默认值
+OH,AdjustCorrectionOfPos,正极方向修正系数,1,,,代码默认值
+OH,AdjustCorrectionOfNeg,负极方向修正系数,-1,,,代码默认值
+OH,K,料线向大板移动0.15所需纠偏值,1000,,,代码默认值
+OH,CountOfFront,前分段个数,5,,,代码默认值（中段=90-前-后）
+OH,CountOfBack,后分段个数,5,,,代码默认值
+OH,AdjustFrequency,调节频次（S电芯数）,2,,,代码默认值
+MC,K,触发调节阈值,0.5,,,代码默认值；注释称 50%~80%
+MC,D,调整反馈偏差值,0.05,,,代码默认值；注释称 0.05~0.3
+MC,T,采集T个调整一次,1,,,代码默认值
+MC,AdjustCorrectionOfPos,正极方向修正系数,1,,,代码默认值
+MC,AdjustCorrectionOfNeg,负极方向修正系数,-1,,,代码默认值
+,,,,,,备注
+,,,,,,1. 尺寸类数值疑似以万分之一毫米（0.1µm）存整数：196000 ≈ 19.6 mm；量纲待现场确认（规划 §10 #8）
+,,,,,,2. PW 的 SA 顶部值不是参数，而是运行时算出：TotalWidthOfMold_Center − PoleWidthOfNeg_Center − MoldToNegSABottom_Center
+,,,,,,3. MC 的 K/D 与 OH/PW 的同名字段语义完全不同，勿混用
+,,,,,,4. 本表全部抄自代码字段默认值，⏸ 未经现场工艺确认；确认后请覆盖本表并去掉"代码默认值"来源标注

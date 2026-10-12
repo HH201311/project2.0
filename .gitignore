@@ -371,3 +371,6 @@ FodyWeavers.xsd
 # 大体积压缩包，勿提交进仓库
 *.7z
 sunwoda2.0.0.1.7z
+
+# CUDA12 + cuDNN 运行库体积大，不入库；本机从环境安装包同步
+SUNWODA_SEVB.Core/Dlls/CUDA12/

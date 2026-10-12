@@ -25,10 +25,13 @@
 
             <Style BasedOn="{StaticResource SimpleGroupBoxStyle}" TargetType="GroupBox" />
             <Style BasedOn="{StaticResource SimpleDataGridStyle}" TargetType="DataGrid" />
-            <Style BasedOn="{StaticResource HCTitleValueTextBox}" TargetType="hc:TextBox">
-                <Setter Property="IsReadOnly" Value="True" />
-                <Setter Property="hc:InfoElement.Necessary" Value="False" />
-                <Setter Property="hc:InfoElement.TitleWidth" Value="100" />
+
+            <!--  曲线图统一外观：每组每个通道一个图  -->
+            <Style TargetType="{x:Type jrohuc:MultiCorrectPlot}">
+                <Setter Property="Margin" Value="2" />
+                <Setter Property="ShowGrid" Value="True" />
+                <Setter Property="ShowLegend" Value="True" />
+                <Setter Property="YAxisLabel" Value="纠偏值 (mm)" />
             </Style>
         </ResourceDictionary>
     </Page.Resources>
@@ -38,46 +41,85 @@
             <RowDefinition Height="320" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <jrohuc:MultiCorrectPlot
-            Title="周期内入料纠偏数据图"
-            Grid.Column="0"
-            LineSeriesCollection="{Binding InputSeriesOfTop}"
-            ShowGrid="True"
-            ShowLegend="True"
-            TargetLine="{Binding TargetOfInput}"
-            YAxisLabel="OH值 (mm)" />
-        <jrohuc:MultiCorrectPlot
-            Title="周期内过程纠偏数据图"
-            Grid.Column="1"
-            LineSeriesCollection="{Binding CourseSeriesOfTop}"
-            ShowGrid="True"
-            ShowLegend="True"
-            TargetLine="{Binding TargetOfCourse}"
-            YAxisLabel="OH值 (mm)" />
-        <jrohuc:MultiCorrectPlot
-            Title="周期内翻卷纠偏数据图"
-            Grid.Column="2"
-            LineSeriesCollection="{Binding UnreelSeriesOfBottom}"
-            ShowGrid="True"
-            ShowLegend="True"
-            TargetLine="{Binding TargetOfUnreel}"
-            YAxisLabel="OH值 (mm)" />
-        <Grid
-            Grid.Row="1"
-            Grid.ColumnSpan="3"
-            Margin="0,20,0,0">
+
+        <!--  曲线区：3 组（正极 5 路 / 负极 4 路 / 隔膜 2 路），每组每个通道一个曲线图，数据源为 VM 中的 11 路采集集合  -->
+        <TabControl Grid.Row="0">
+            <TabItem Header="正极纠偏控制">
+                <UniformGrid
+                    Margin="4"
+                    Rows="1">
+                    <jrohuc:MultiCorrectPlot
+                        Title="正极入料纠偏曲线"
+                        LineSeries1Collection="{Binding InfeedOfPosSeries1}"
+                        LineSeries2Collection="{Binding InfeedOfPosSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形4纠偏曲线"
+                        LineSeries1Collection="{Binding Snake4OfPosSeries1}"
+                        LineSeries2Collection="{Binding Snake4OfPosSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形3纠偏曲线"
+                        LineSeries1Collection="{Binding Snake3OfPosSeries1}"
+                        LineSeries2Collection="{Binding Snake3OfPosSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形2纠偏曲线"
+                        LineSeries1Collection="{Binding Snake2OfPosSeries1}"
+                        LineSeries2Collection="{Binding Snake2OfPosSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形1纠偏曲线"
+                        LineSeries1Collection="{Binding Snake1OfPosSeries1}"
+                        LineSeries2Collection="{Binding Snake1OfPosSeries2}" />
+                </UniformGrid>
+            </TabItem>
+
+            <TabItem Header="负极纠偏控制">
+                <UniformGrid
+                    Margin="4"
+                    Rows="1">
+                    <jrohuc:MultiCorrectPlot
+                        Title="负极入料纠偏曲线"
+                        LineSeries1Collection="{Binding InfeedOfNegSeries1}"
+                        LineSeries2Collection="{Binding InfeedOfNegSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="负极蛇形3纠偏曲线"
+                        LineSeries1Collection="{Binding Snake3OfNegSeries1}"
+                        LineSeries2Collection="{Binding Snake3OfNegSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="负极蛇形2纠偏曲线"
+                        LineSeries1Collection="{Binding Snake2OfNegSeries1}"
+                        LineSeries2Collection="{Binding Snake2OfNegSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="负极蛇形1纠偏曲线"
+                        LineSeries1Collection="{Binding Snake1OfNegSeries1}"
+                        LineSeries2Collection="{Binding Snake1OfNegSeries2}" />
+                </UniformGrid>
+            </TabItem>
+
+            <TabItem Header="隔膜纠偏控制">
+                <UniformGrid
+                    Margin="4"
+                    Columns="2"
+                    Rows="1">
+                    <jrohuc:MultiCorrectPlot
+                        Title="上隔膜纠偏曲线"
+                        LineSeries1Collection="{Binding UpperDiaSeries1}"
+                        LineSeries2Collection="{Binding UpperDiaSeries2}" />
+                    <jrohuc:MultiCorrectPlot
+                        Title="下隔膜纠偏曲线"
+                        LineSeries1Collection="{Binding LowerDiaSeries1}"
+                        LineSeries2Collection="{Binding LowerDiaSeries2}" />
+                </UniformGrid>
+            </TabItem>
+        </TabControl>
+
+        <!--  调机日志（与曲线区同为 3 组）  -->
+        <Grid Grid.Row="1" Margin="0,10,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <DockPanel
                 Grid.Row="0"
-                Margin="0,0,0,20"
+                Margin="0,0,0,10"
                 LastChildFill="False">
                 <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Text="调机日志" />
                 <Button
@@ -90,13 +132,13 @@
             <!--  调机记录  -->
             <TabControl Grid.Row="1">
                 <TabItem Header="正极纠偏控制">
-                    <DataGrid ItemsSource="{Binding AdjustmentRecordsView}" />
+                    <DataGrid ItemsSource="{Binding PosRecordsView}" />
                 </TabItem>
                 <TabItem Header="负极纠偏控制">
-                    <DataGrid ItemsSource="{Binding AdjustmentRecordsView}" />
+                    <DataGrid ItemsSource="{Binding NegRecordsView}" />
                 </TabItem>
                 <TabItem Header="隔膜纠偏控制">
-                    <DataGrid ItemsSource="{Binding AdjustmentRecordsView}" />
+                    <DataGrid ItemsSource="{Binding DiaphragmRecordsView}" />
                 </TabItem>
             </TabControl>
         </Grid>

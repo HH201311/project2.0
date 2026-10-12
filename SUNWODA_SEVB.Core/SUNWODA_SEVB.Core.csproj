@@ -37,6 +37,33 @@
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingChartDataService.cs" />
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingConfigService.cs" />
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingCsvStorage.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ConfigService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6IngressService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ProcessedStore.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6VisionEngine.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ProductAggregator.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ResultStore.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6ImageArchiveService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6PipelineService.cs" />
+    <Compile Include="Interfaces\Project\ZZSIX\IZZSIXPack6PlcAlarmService.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6ConfigService.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6IngressService.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6ProcessedStore.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6VisionEngine.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6ProductAggregator.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6ResultStore.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6ImageArchiveService.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6PipelineService.cs" />
+    <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6PlcAlarmService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ConfigService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6IngressService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ProcessedStore.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6VisionEngine.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ProductAggregator.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ResultStore.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ImageArchiveService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6PipelineService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6PlcAlarmService.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -128,6 +155,14 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Dlls\YoloV8Net.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- ZZSIX PACK：ZZTWPack -->
+    <None Update="Dlls\ZZTWPack.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- NJSIX PACK：NJX13Pack（南京算法） -->
+    <None Update="Dlls\NJX13Pack.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

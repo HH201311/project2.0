@@ -17,6 +17,7 @@ using SUNWODA_SEVB.Core.Models.Project.CCTB.Core;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.Core.MessageModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.FormModels;
 using SUNWODA_SEVB.Core.Models.Project.CCTB.SettingModels;
+using SUNWODA_SEVB.Services.Project.CCTB.Business;
 using SUNWODA_SEVB.Tool.Extension;
 using SUNWODA_SEVB.Tool.Helper.CCTBHelper;
 using SUNWODA_SEVB.ViewModels.Dialogs.CCTB;
@@ -41,7 +42,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         private readonly IWebApiClient _webApiClient;
         private readonly IProjectSettingRepository _projectSettingRepository;
         private readonly IModuleManager _moduleManager;
-
+        private readonly BusinessServiceManager _businessServiceManager;
+        private readonly BusinessServiceFactory _businessServiceFactory;
         private string? controlPageName;
         public string? ControlPageName { get => controlPageName; set => SetProperty(ref controlPageName, value); }
 
@@ -63,7 +65,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// <summary>
         /// FTP手动上传
         /// </summary>
-        public ICommand? FTPUpLoadCommand => new RelayCommand(OnFTPUpLoad);
+        public ICommand? FTPUpLoadCommand => new RelayCommand(OnFTPUpLoadAsync);
 
         /// <summary>
         /// 膜卷号读取地址验证
@@ -76,6 +78,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         public ICommand? PLCGatherConfigCommand => new RelayCommand(OnPLCGatherConfigAsync);
 
         /// <summary>
+        /// FTP配置修改
+        /// </summary>
+        public ICommand? FtpConfigCommand => new RelayCommand(OnFtpConfigAsync);
+
+        /// <summary>
         /// 构造函数
         /// </summary>
         public VM_BasicFunctionsPage(
@@ -85,7 +92,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
             IPLCConfigRepository plcConfigRepository,
             IWebApiClient webApiClient,
             IProjectSettingRepository projectSettingRepository,
-            IModuleManager moduleManager
+            IModuleManager moduleManager,
+            BusinessServiceManager businessServiceManager,
+            BusinessServiceFactory businessServiceFactory
         )
         {
             _logger = logger;
@@ -95,6 +104,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
             _webApiClient = webApiClient;
             _projectSettingRepository = projectSettingRepository;
             _moduleManager = moduleManager;
+            _businessServiceManager = businessServiceManager;
+            _businessServiceFactory = businessServiceFactory;
         }
 
         /// <summary>
@@ -188,9 +199,21 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
         /// 手动上传FTP时触发
         /// </summary>
         /// <param name="arg"></param>
-        private void OnFTPUpLoad(object? arg)
+        private async void OnFTPUpLoadAsync(object? arg)
         {
+            if (!(arg is DateTime date)) return;
 
+            try
+            {
+                var business = _businessServiceFactory.GetService(EBusinessType.BackBusiness) as BackBusinessService;
+                if (business == null) return;
+                business.SaveToFtp(date);
+                _logger.UserInfo($"用户手动上传了FTP数据，日期为：{date}");
+            }
+            catch (Exception ex)
+            {
+                await VM_CCTBMessageBoxDialog.ErrorAsync(ex.Message, "用户手动上传了FTP数据异常");
+            }
         }
 
         /// <summary>
@@ -334,6 +357,56 @@ namespace SUNWODA_SEVB.ViewModels.Pages.CCTB.CCTBSettings.FunctionSetting
                 Message = values
             });
             return result;
+        }
+
+        /// <summary>
+        /// 修改FTP配置时触发
+        /// </summary>
+        /// <param name="arg"></param>
+        private async void OnFtpConfigAsync(object? arg)
+        {
+            try
+            {
+                var ftpConfig = _projectSettingRepository.LoadFtpConfigProjectParameter();
+                _logger.UserInfo($"用户打开了FTP配置窗口！");
+                var result = await Dialog.Show(new VM_FtpConfigDialog().UIElement)
+                            .Initialize<VM_FtpConfigDialog>(o => { o.ItemSource = ftpConfig; })
+                            .GetResultAsync<bool>();
+                if (!result)
+                {
+                    _logger.UserInfo($"用户取消FTP配置修改");
+                    return;
+                }
+                var old = _projectSettingRepository.LoadFtpConfigProjectParameter();
+                var isChanged = !ftpConfig.EqualsByJson(old);
+                if (!isChanged)
+                {
+                    await VM_CCTBMessageBoxDialog.InfoAsync($"FTP配置未修改，无需保存！", "提示");
+                    return;
+                }
+                var confirmResult = await VM_CCTBMessageBoxDialog.AskAsync($"确认保存FTP配置修改？", "确认保存");
+                if (confirmResult != System.Windows.MessageBoxResult.OK)
+                {
+                    _logger.UserInfo($"用户取消保存FTP配置");
+                    return;
+                }
+                var isUpdateSuccess = _projectSettingRepository.SaveFtpConfigProjectParameter(ftpConfig);
+                if (isUpdateSuccess)
+                {
+                    _logger.UserInfo($"FTP配置保存成功");
+                    await VM_CCTBMessageBoxDialog.SuccessAsync($"FTP配置更新完成！", "提示");
+                }
+                else
+                {
+                    _logger.UserWarn($"FTP配置部分保存失败");
+                    await VM_CCTBMessageBoxDialog.WarningAsync($"FTP配置更新成功！", "提示");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"FTP配置保存异常: {ex.Message}", ex);
+                await VM_CCTBMessageBoxDialog.ErrorAsync($"保存FTP配置时发生异常：{ex.Message}", "错误");
+            }
         }
         #endregion
     }

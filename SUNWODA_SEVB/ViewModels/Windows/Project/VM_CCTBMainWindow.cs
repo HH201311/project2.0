@@ -697,6 +697,7 @@ namespace SUNWODA_SEVB.ViewModels.Windows.Project
             CCTBCore.GeneralSettings = _projectSettingRepository.LoadGeneralSettingsProjectParameters();
             CCTBCore.BasicFunctionSetting = _projectSettingRepository.LoadBasicFunctionSettingProjectParameters();
             CCTBCore.SpecialFunctionSetting = _projectSettingRepository.LoadSpecialFunctionSettingProjectParameters();
+            CCTBCore.FtpConfig = _projectSettingRepository.LoadFtpConfigProjectParameters();
 
             CCTBCore.PLCGatherConfigOfA = _projectSettingRepository.LoadAPLCGatherConfig();
             CCTBCore.PLCGatherConfigOfB = _projectSettingRepository.LoadBPLCGatherConfig();

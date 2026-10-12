@@ -14,8 +14,10 @@ namespace SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels
     public class MCBusinessParamModel : ModelBase
     {
         #region 配置参数
+        private string _watcherRootPath = "D:\\MESDATA\\12_张力数据-TensionData-ข้อมูลแรงตึง";
         private float _adjustCorrectionOfPos = 1;
         private float _adjustCorrectionOfNeg = -1;
+        private byte _t = 1;
         private float _k = 0.5f;
         private float _d = 0.05f;
         private bool _closedLoopEnablePos = true;
@@ -23,6 +25,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels
         #endregion
 
         #region 闭环控制参数 - 控制逻辑
+        /// <summary>
+        /// 监控数据根目录
+        /// </summary>
+        public string WatcherRootPath { get => _watcherRootPath; set => SetProperty(ref _watcherRootPath, value); }
+
         /// <summary>
         /// 方向修正系数-正极
         /// </summary>
@@ -32,6 +39,11 @@ namespace SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels
         /// 方向修正系数-负极
         /// </summary>
         public float AdjustCorrectionOfNeg { get => _adjustCorrectionOfNeg; set => SetProperty(ref _adjustCorrectionOfNeg, value); }
+
+        /// <summary>
+        /// T（采集T个，调整一次，间隔T后再采集）
+        /// </summary>
+        public byte T { get => _t; set => SetProperty(ref _t, value); }
 
         /// <summary>
         /// 触发调节阈值 K(50%~80%,范围防呆)

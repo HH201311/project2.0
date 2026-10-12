@@ -57,8 +57,11 @@ namespace SUNWODA_SEVB.Tool.Configuration
                     }
                 }
 
-                // 现场连接串常与代码默认值不同：只要能读出有效连接串就保留，勿强制覆盖
-                return false;
+                // 创建默认配置对象用于比较
+                var defaultSettings = CreateDefaultAppSettings();
+
+                // 比较现有配置与默认配置是否一致
+                return !AreSettingsEqual(existingSettings, defaultSettings);
             }
             catch
             {
@@ -162,6 +165,14 @@ namespace SUNWODA_SEVB.Tool.Configuration
                 {
                     Console.WriteLine("配置文件内容无效，生成默认明文配置文件...");
                     GenerateDefaultPlainConfig();
+                    return;
+                }
+
+                var defaultSettings = CreateDefaultAppSettings();
+                if (!AreSettingsEqual(existingSettings, defaultSettings))
+                {
+                    Console.WriteLine("检测到默认配置已更新，重新生成配置文件...");
+                    GenerateDefaultEncryptedConfig();
                 }
             }
             catch (Exception ex)

@@ -6,6 +6,16 @@
 
 ---
 
+> **2026-10-12 变更（还原 ConfigurationService 默认配置比对逻辑）**  
+> 1. **背景**：同事要求将 `9ed680b2` 中两处「取消与默认值比对」改回原行为；此前为保留现场连接串曾弱化覆盖。  
+> 2. **做法**：① `ShouldGenerateDefaultConfig` 恢复 `AreSettingsEqual`；② `EnsureValidConfig` 恢复「与默认不一致则重新生成」。  
+> 3. **落点**：`SUNWODA_SEVB.Tool/Configuration/ConfigurationService.cs`。
+
+> **2026-09-30 变更（新增计量压力过程量 D1639～D1644）**  
+> 1. **背景**：现场补充六路计量压力过程量，需与入口压力并行采集并上图、落 CSV、刷下方实时数；原值直显。  
+> 2. **做法**：`Group=MeteringPressure`；块读扩展为 D1600～D1644（45 字）；PerLane 映射计量N↔工位N；曲线红线、下方「计量压力A/B」；CSV 列插在入口压力与液位之间；同日旧表头冲突时自动开 `_vN` 新文件防混列。见规划 §2.3.2、§4.3、§5.2。  
+> 3. **落点**：[plc点位表.csv](./plc点位表.csv)；`BoxGluingDefaultConfig.cs`；`BoxGluingAcquisitionService.cs`；`BoxGluingCsvStorage.cs`；`BoxGluingPlotHelper.cs`；`BoxGluingStationRealtime.cs`；监测页 XAML/VM；规划与进度存档。
+
 > **2026-09-09 变更（现场配置：Monitor 并入 appsettings，禁用坏掉的分文件）**  
 > 1. **背景**：`optional:true` 的 `remote_file_monitor_config.json` 存在但解析失败仍会致命；现场连环报 Failed to load configuration。  
 > 2. **做法**：加固 `EncryptedJsonConfiguration`；`App` 改为对该文件走同一加载器；现场急救包把 Monitor 写入明文 `appsettings`，并要求删除损坏的 `remote_file_monitor_config.json`。  

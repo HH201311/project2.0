@@ -38,8 +38,8 @@
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="320" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="240" />
         </Grid.RowDefinitions>
 
         <!--  曲线区：3 组（正极 5 路 / 负极 4 路 / 隔膜 2 路），每组每个通道一个曲线图，数据源为 VM 中的 11 路采集集合  -->
@@ -47,52 +47,50 @@
             <TabItem Header="正极纠偏控制">
                 <UniformGrid
                     Margin="4"
-                    Columns="3"
-                    Rows="2">
+                    Rows="1">
                     <jrohuc:MultiCorrectPlot
+                        Title="正极入料纠偏曲线"
                         LineSeries1Collection="{Binding InfeedOfPosSeries1}"
-                        LineSeries2Collection="{Binding InfeedOfPosSeries2}"
-                        Title="正极入料纠偏曲线" />
+                        LineSeries2Collection="{Binding InfeedOfPosSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形4纠偏曲线"
                         LineSeries1Collection="{Binding Snake4OfPosSeries1}"
-                        LineSeries2Collection="{Binding Snake4OfPosSeries2}"
-                        Title="正极蛇形4纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake4OfPosSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形3纠偏曲线"
                         LineSeries1Collection="{Binding Snake3OfPosSeries1}"
-                        LineSeries2Collection="{Binding Snake3OfPosSeries2}"
-                        Title="正极蛇形3纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake3OfPosSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形2纠偏曲线"
                         LineSeries1Collection="{Binding Snake2OfPosSeries1}"
-                        LineSeries2Collection="{Binding Snake2OfPosSeries2}"
-                        Title="正极蛇形2纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake2OfPosSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="正极蛇形1纠偏曲线"
                         LineSeries1Collection="{Binding Snake1OfPosSeries1}"
-                        LineSeries2Collection="{Binding Snake1OfPosSeries2}"
-                        Title="正极蛇形1纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake1OfPosSeries2}" />
                 </UniformGrid>
             </TabItem>
 
             <TabItem Header="负极纠偏控制">
                 <UniformGrid
                     Margin="4"
-                    Columns="2"
-                    Rows="2">
+                    Rows="1">
                     <jrohuc:MultiCorrectPlot
+                        Title="负极入料纠偏曲线"
                         LineSeries1Collection="{Binding InfeedOfNegSeries1}"
-                        LineSeries2Collection="{Binding InfeedOfNegSeries2}"
-                        Title="负极入料纠偏曲线" />
+                        LineSeries2Collection="{Binding InfeedOfNegSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="负极蛇形3纠偏曲线"
                         LineSeries1Collection="{Binding Snake3OfNegSeries1}"
-                        LineSeries2Collection="{Binding Snake3OfNegSeries2}"
-                        Title="负极蛇形3纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake3OfNegSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="负极蛇形2纠偏曲线"
                         LineSeries1Collection="{Binding Snake2OfNegSeries1}"
-                        LineSeries2Collection="{Binding Snake2OfNegSeries2}"
-                        Title="负极蛇形2纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake2OfNegSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="负极蛇形1纠偏曲线"
                         LineSeries1Collection="{Binding Snake1OfNegSeries1}"
-                        LineSeries2Collection="{Binding Snake1OfNegSeries2}"
-                        Title="负极蛇形1纠偏曲线" />
+                        LineSeries2Collection="{Binding Snake1OfNegSeries2}" />
                 </UniformGrid>
             </TabItem>
 
@@ -102,21 +100,19 @@
                     Columns="2"
                     Rows="1">
                     <jrohuc:MultiCorrectPlot
+                        Title="上隔膜纠偏曲线"
                         LineSeries1Collection="{Binding UpperDiaSeries1}"
-                        LineSeries2Collection="{Binding UpperDiaSeries2}"
-                        Title="上隔膜纠偏曲线" />
+                        LineSeries2Collection="{Binding UpperDiaSeries2}" />
                     <jrohuc:MultiCorrectPlot
+                        Title="下隔膜纠偏曲线"
                         LineSeries1Collection="{Binding LowerDiaSeries1}"
-                        LineSeries2Collection="{Binding LowerDiaSeries2}"
-                        Title="下隔膜纠偏曲线" />
+                        LineSeries2Collection="{Binding LowerDiaSeries2}" />
                 </UniformGrid>
             </TabItem>
         </TabControl>
 
         <!--  调机日志（与曲线区同为 3 组）  -->
-        <Grid
-            Grid.Row="1"
-            Margin="0,10,0,0">
+        <Grid Grid.Row="1" Margin="0,10,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />

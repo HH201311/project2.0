@@ -1,4 +1,4 @@
-﻿# JROH 项目开发规划
+# JROH 项目开发规划
 
 > **文档角色**：**冷层详规** —— 范围、架构、算法、对接、资料索引。新会话默认**不必**整份读；请从 [JROH进度存档.md](./JROH进度存档.md) §0 索引按需跳转。
 > **代号**：`JROH`　**项目中文名（拟）**：卷绕 OH 闭环　**维护人**：待指定　**库名**：`sunwoda_demo`
@@ -10,23 +10,27 @@
 
 ### 1.1 项目背景
 
-JROH 是**卷绕工序的 OH（Overhang，极片/隔膜相对超出量）闭环控制系统**，运行于 SUNWODA SEVB 上位机平台。它复用平台既有的「单项目多业务场景」模式（与 `JRCW` 卷绕极耳错位闭环同构），在一个项目下并行承载三条互相独立的闭环业务。
+JROH 是**卷绕工序的 OH（Overhang，极片/隔膜相对超出量）闭环控制系统**，运行于 SUNWODA SEVB 上位机平台。它复用平台既有的「单项目多业务场景」模式（与 `JRCW` 卷绕极耳错位闭环同构），在一个项目下并行承载四条互相独立的闭环业务（第 4 条「极耳错位闭环」2026-10-10 建为**模板骨架**，见 §1.2 与进度存档 §1）。
 
-### 1.2 三条业务范围
+### 1.2 业务范围（四条）
 
 | 业务（`EBusinessType`） | 中文名 | 闭环目标 | 数据来源 |
 |------------------------|--------|----------|----------|
 | `PoleWidth` | 极片宽度闭环 | 按 CCD 模宽推算正/负极总宽目标，输出纠偏值 | PLC（CCD 模宽 + 飞行原点 Y） |
 | `CoatedOH` | 包覆 OH 闭环 | 按 AC（负极到正极）/ SA（隔膜到负极）分段统计，输出前/中/后段正负极纠偏 | PLC（数组量 + 前/中/后纠偏值） |
 | `MultiCorrect` | 多级联动纠偏闭环 | 11 路纠偏通道按"T 次采集调一次"输出纠偏中值 | **文件监听（CSV）**，非 PLC |
+| `Mismatch` | 极耳错位闭环 | ⏸ 待资料（对齐 JRCW 可参照 `Business1/Business2` 与 `YWC05/DYC04` 服务） | ⏸ 待资料（**模板骨架未接采集**） |
+
+> **2026-10-10 建 `Mismatch` 模板骨架**：模型 / 页面（`VM_MisOfJROHPage`）/ 参数对话框 / 曲线控件 / 注册 / 参数持久化齐备，但**采集通道与闭环算法为 TODO 占位**，不读写任何 PLC 点位（禁止臆造，见 §4.3 与 [plc点位表.csv](./plc点位表.csv)）。资料到位后只改 `MisBusinessService` 的两处 TODO + 模型字段 + 对话框。
 
 ### 1.3 本期不做（明确边界）
 
-- **MES / Web 上传**：三条业务均未接 MES、未调 `IWebApiClient` 上传（服务已注入备用）。
+- **MES / Web 上传**：四条业务均未接 MES、未调 `IWebApiClient` 上传（服务已注入备用）。
 - **报警中心接入**：PW 的工艺越界仅 `MessageBox.Show` 弹窗，未进平台报警体系。
-- **单页合并**：不把三页合并为 `VM_JROHClosedLoopPage`（该名字当前只作配置键，见 §3.3）。
-- **历史查询页 / 曲线持久化**：曲线仅内存保留最近 1000 点，退出即失。
+- **单页合并**：不把四页合并为 `VM_JROHClosedLoopPage`（该名字当前只作配置键，见 §3.3）。
+- **历史查询页 / 曲线持久化**：曲线仅内存保留最近 2000 点，退出即失。
 - **PLC 点位自动标定 / 自学习**：无。
+- **极耳错位的现场业务逻辑**：在资料录入前不做（当前只有模板骨架，见待办 #15）。
 
 ### 1.4 验收口径
 
@@ -58,33 +62,35 @@ JROH 是**卷绕工序的 OH（Overhang，极片/隔膜相对超出量）闭环�
 
 ```
 Core    : EBusinessType / IBusinessService / JROHCore（常量）
-          Models/Project/JROH/{PW,OH,MC}BusinessModels/*  ← 参数/采集/计算三类模型
+          Models/Project/JROH/{PW,OH,MC,Mis}BusinessModels/*  ← 参数/采集/计算三类模型
 Tool    : ProjectSettingExtension（参数持久化）/ JROHCsvHelper（CSV 落盘）
 Services: Project/JROH/Business/BusinessServiceBase<T>  ← 抽象基类（DB + PLC + 弹窗 + 限幅工具）
-          ├─ PWBusinessService / OHBusinessService / MCBusinessService
+          ├─ PWBusinessService / OHBusinessService / MCBusinessService / MisBusinessService（模板骨架）
           ├─ BusinessServiceFactory（按 EBusinessType 取服务）
           └─ BusinessServiceManager（启动/停止 + 异常兜底 + 状态查询）
-ViewModels/Pages/JROH : VM_{PW,OH,MC}OfJROHPage（曲线 + 调机记录 + 参数入口）
-Views/Pages/JROH      : {PW,OH,MC}OfJROHPage.xaml
-Component             : UserControls/Project/JROH/*（4 个曲线/选择控件）+ Themes/.../JROH*
+ViewModels/Pages/JROH : VM_{PW,OH,MC,Mis}OfJROHPage（曲线 + 调机记录 + 参数入口）
+Views/Pages/JROH      : {PW,OH,MC,Mis}OfJROHPage.xaml
+Component             : UserControls/Project/JROH/*（5 个曲线/选择控件）+ Themes/.../JROH*
 ```
 
 ### 3.2 生命周期与多态
 
-`BusinessServiceBase<T>` 定义模板方法，三条业务只实现三段：
+`BusinessServiceBase<T>` 定义模板方法，四条业务只实现三段：
 
-| 抽象成员 | 职责 | PW | OH | MC |
-|----------|------|----|----|----|
-| `InitializeAsync` | 载参数、拼落盘路径、起监听 | PLC 信号 | PLC 双信号 | **CSV 文件监听** |
-| `ExecuteAsync` | 阻塞跑循环 | 信号 + 计算 | 信号 + 计算 | 仅计算 |
-| `CleanupAsync` | 释放 | 同构 | 同构 | 关闭 watcher |
+| 抽象成员 | 职责 | PW | OH | MC | Mis（2026-10-10 模板骨架） |
+|----------|------|----|----|----|------|
+| `InitializeAsync` | 载参数、拼落盘路径、起监听 | PLC 信号 | PLC 双信号 | **CSV 文件监听** | ⏸ 载参数 + 拼落盘路径；**采集通道 TODO（不读写 PLC）** |
+| `ExecuteAsync` | 阻塞跑循环 | 信号 + 计算 | 信号 + 计算 | 仅计算 | 仅闭环消费循环；`TryCalculateAsync` 占位返回 false（只落盘不下发） |
+| `CleanupAsync` | 释放 | 同构 | 同构 | 关闭 watcher | 收敛队列 + 释放令牌；⏸ 采集接入后需同步停止监听 |
+
+> Mis 的采集统一入口是基类派生的 `EnqueueGatherData(MisBusinessGatherModel)`：资料到位后由采集通道组装模型并调用它入队，闭环侧无需改动。
 
 基类同时提供：`StartAsync`（加锁防重入 + `CancellationTokenSource` 链接）、`StopAsync`（轮询 `IsRunning` 至退出）、`RestartAsync`、`LoadBusinessParamConfig<T>` / `UpdateConfigAsync`（按 `BusinessType` 分派到对应仓储方法）、`GetPLCAddressValue` / `WritePLCAsync`、`ShowBusinessConfigDialogAsync<T>`（加载 → 弹框 → 重载比对 → 确认 → JSON 保存）、`ApplyDeadzone` 用的 `FindClosest`。
 
 ### 3.3 菜单与配置归属（**关键，待确认**）
 
-- **菜单**：靠 `[Module]` + 数据库 `workspace_project.is_enabled = 1`，**三个页面各自独立**：
-  `VM_PWOfJROHPage`「极片宽度闭环」/ `VM_OHOfJROHPage`「包覆 OH 闭环」/ `VM_MCOfJROHPage`「多级联动纠偏闭环」。
+- **菜单**：靠 `[Module]` + 数据库 `workspace_project.is_enabled = 1`，**四个页面各自独立**：
+  `VM_PWOfJROHPage`「极片宽度闭环」/ `VM_OHOfJROHPage`「包覆 OH 闭环」/ `VM_MCOfJROHPage`「多级联动纠偏闭环」/ `VM_MisOfJROHPage`「极耳错位闭环」。
 - **配置归属**：`JROHCore.BelongToVM = "VM_JROHClosedLoopPage"`，仅作为 `project_setting.BelongToVM` 的**存储键**。
 - ⏸ **`VM_JROHClosedLoopPage` 在仓库中不存在任何同名类**（同名模式见 JRCW 的 `VM_JRCWClosedLoopPage`）。因此存在两种待确认设计意图：
   1. 三页原计划合并为一个 `VM_JROHClosedLoopPage`，后拆成三页但常量未改；
@@ -95,8 +101,8 @@ Component             : UserControls/Project/JROH/*（4 个曲线/选择控件�
 
 | 维度 | JRCW | JROH |
 |------|------|------|
-| 业务数 | 2（`YWC05` / `DYC01`） | 3（`PW` / `OH` / `MC`） |
-| 业务归属 | 一个 `VM_JRCWClosedLoopPage` | **三页各自 `[Module]`** |
+| 业务数 | 2（`YWC05` / `DYC01`） | 4（`PW` / `OH` / `MC` / `Mis`） |
+| 业务归属 | 一个 `VM_JRCWClosedLoopPage` | **四页各自 `[Module]`** |
 | 配置键 | `VM_JRCWClosedLoopPage`（有对应类） | `VM_JROHClosedLoopPage`（**无对应类**） |
 | 业务基类 | `JRCWBusinessServiceBase` | `BusinessServiceBase<T>` |
 | 复用 | `JRCWMessageBoxDialog` 被 JROH 基类直接复用 | 同上 |
@@ -124,6 +130,7 @@ Component             : UserControls/Project/JROH/*（4 个曲线/选择控件�
 | OH | `极片数据触发信号` | `1` → 只更新 `moduleWidthOfPosA/B`，**不入队** |
 | OH | `包覆数据触发信号` | `1` → 组装完整模型 → 入队 |
 | MC | 无 | 由 `FileSystemWatcher` 驱动 |
+| Mis | ⏸ 待资料 | 模板骨架**未接采集**（采集通道在 `MisBusinessService.InitializeAsync` 留 TODO，见待办 #15） |
 
 信号值 `0` 视为复位（仅记日志）；其它值记 Error。
 
@@ -132,6 +139,7 @@ Component             : UserControls/Project/JROH/*（4 个曲线/选择控件�
 **完整点位清单（点位名 / 读写 / 所属业务 / 地址待填）见 [plc点位表.csv](./plc点位表.csv)。**
 
 > ⚠️ 地址、数据类型（`plc_config` 中的 `Type`）**全部未知**；OH 的 `顶部AC` / `底部AC` / `底部SA` / `顶部SA` 按 `int[]` 读取，其长度语义为 **90 个点的分段数据**（`CountOfFront` + 中段 + `CountOfBack = 90`，见 §6.2）。
+> ⏸ **极耳错位（`Mismatch`）点位清单尚未录入**（点位名 / 读写 / 类型 / 地址全未知）；模板骨架**不读写任何 PLC 点位**，禁止臆造（规范 B-09）。
 
 ### 4.4 采集节奏与并发
 
@@ -153,13 +161,14 @@ Component             : UserControls/Project/JROH/*（4 个曲线/选择控件�
 
 **完整键表见 [配置键表.csv](./配置键表.csv)。**
 
-### 5.2 三个业务参数模型（字段语义）
+### 5.2 业务参数模型（字段语义）
 
 | 模型 | 配置区 | 控制区要点 |
 |------|--------|-----------|
 | `PWBusinessParamModel` | `IsUse` + **18 组 CP 尺寸**（每组 基准/下限/上限） | 方向修正系数（正/负）、最大/最小限幅（正/负）、CP 管控开关（正/负）、OH 总宽防呆尺寸（正/负）、闭环开关（正/负）、调节频次 `AdjustFrequency`、**`AdjustInterval`（未使用，见 §10 #3）** |
 | `OHBusinessParamModel` | `IsUse` + **18 组 CP 尺寸**（同结构，数值不同） | `IsSigleClosedLoop`、方向修正系数、前/后分段数 `CountOfFront`/`CountOfBack`（中段 = 90 − 前 − 后）、检测面 `IsFrontOfPosDetextion`、双面 OH `DoubleSideEnableOfPos`、`K`、限幅（正/负）、闭环开关（正/负）、`AdjustFrequency` |
 | `MCBusinessParamModel` | `WatcherRootPath`（**MC 独有**） | 方向修正系数（正/负）、`T`（采集 T 个调一次）、`K`（触发调节阈值 50%~80%）、`D`（调整反馈偏差 0.05~0.3）、闭环开关（正/负） |
+| `MisBusinessParamModel`（2026-10-10 模板） | `IsUse`；⏸ **无专属配置区（待资料）** | 仅通用项：方向修正系数（正/负）、闭环开关（正/负）；⏸ 极耳层数 / 极耳角度阈值 / 限幅与死区 / 调节频次**均未添加**（禁止臆造） |
 
 > `K` / `D` 的取值区间来自 XML 注释原文（"范围防呆"），**实际防呆校验是否在对话框实现需核对 XAML** → §10 #6。
 
@@ -176,9 +185,10 @@ Component             : UserControls/Project/JROH/*（4 个曲线/选择控件�
 
 ---
 
-## 6. 三条闭环算法与数据流
+## 6. 闭环算法与数据流（PW / OH / MC 已实现，Mis 待资料）
 
 > 计算过程模型统一保存 `CalculateTime` + `EndMessage`，并落 CSV（§7）。
+> ⏸ **极耳错位闭环（`Mismatch`）尚无算法**：`MisBusinessService.TryCalculateAsync` 只记 Warn 并返回 false（只落盘、不下发），实现要点与顺序写在该方法注释里，见 §6.4。
 
 ### 6.1 PW 极片宽度闭环
 
@@ -246,6 +256,29 @@ if (!pm.ClosedLoopEnablePos) ...                          // ← 应为 ClosedLo
    - 样例中正负极「放卷纠偏」无中值列，但放卷是闭环**输出目标**（`正极/负极放卷纠偏设定中值`）而非输入通道，不影响本 11 路；
    - 膜卷号命名规则：`9 位数字 + 1 位字母 + 5 位数字`（共 15 位，如 `529126128L03465.csv`）；供应商先写纯数字临时文件（如 `3770.csv`），当前卷芯完成后更名。⏸ 需求方口述「日期 + 膜卷号固定长度」，样例无日期前缀，待资料补齐。
 
+### 6.4 Mis 极耳错位闭环（⏸ 模板骨架，待资料）
+
+**现状（2026-10-10）**：只搭结构，不含业务逻辑。
+
+| 环节 | 落点 | 现状 |
+|------|------|------|
+| 参数加载 | `MisBusinessService.InitializeAsync` → `LoadBusinessParamConfig<MisBusinessParamModel>()` | ✅ 通（键 `MisBusinessParam`，见 §5.2） |
+| 采集通道 | `MisBusinessService.InitializeAsync` 的 ⏸ TODO | ❌ 未接（PLC 触发/CCD/文件监听方式**未定**，由资料决定） |
+| 入队 | `EnqueueGatherData(MisBusinessGatherModel)` | ✅ 已就绪，采集实现只需调用它 |
+| 闭环计算 | `MisBusinessService.TryCalculateAsync` | ❌ 占位：记 Warn 并返回 false（**不下发**） |
+| 落盘 | `SaveCalculateResult` → `缓存数据_极耳错位闭环` | ✅ 通（列为模板占位，见 [配置键表.csv](./配置键表.csv)） |
+| 界面 | `VM_MisOfJROHPage` / `MisOfJROHPage.xaml` / `MisMatchPlot` | ✅ 通（正/负极两路占位曲线 + 调机日志） |
+
+**实现顺序（资料到位后）**：
+
+1. 现场资料 → `docs/JROH/开发资料/`；
+2. 点位名 / 读写 / 类型 / 地址 → [plc点位表.csv](./plc点位表.csv)；参数与阈值 → [配置键表.csv](./配置键表.csv) / [工艺阈值表.csv](./工艺阈值表.csv)；
+3. 补 `MisBusinessParamModel` 专属字段 + `MisGatherData` / `MisBusinessGatherModel` 通道 + 参数对话框输入项；
+4. 实现采集（`InitializeAsync`）与算法（`TryCalculateAsync`）：**判成败（B-01）、闭环开关为假只记推荐值（A-03）、写后确认（B-02）、点位以 CSV 为准（B-09）**；
+5. 现场实跑验收（进页面 → 触发 → 落盘 → 下发）。
+
+> 可参照同厂 JRCW 的极耳错位实现：`Services/Project/JRCW/Business/{YWC05BusinessService,DYC04BusinessService}.cs`、`Core/Models/Project/JRCW/Business{1,2}Models/`（**属跨产线参照，勿直接改其代码**）。
+
 ---
 
 ## 7. 落盘与文件输出
@@ -259,8 +292,8 @@ if (!pm.ClosedLoopEnablePos) ...                          // ← 应为 ClosedLo
 | 项 | 值 |
 |----|----|
 | 默认 `FileSaveRootPath` | `D:\通用上位机\JROHDatas` |
-| `EBusinessType` | `PoleWidth` / `CoatedOH` / `MultiCorrect`（枚举名） |
-| `BusinessName` | 极片宽度闭环 / 包覆 OH 闭环 / 多级联动闭环 |
+| `EBusinessType` | `PoleWidth` / `CoatedOH` / `MultiCorrect` / `Mismatch`（枚举名） |
+| `BusinessName` | 极片宽度闭环 / 包覆 OH 闭环 / 多级联动闭环 / 极耳错位闭环 |
 | 示例 | `D:\通用上位机\JROHDatas\PoleWidth\缓存数据_极片宽度闭环\20260918\xxx.csv` |
 
 > MC 的 `WatcherRootPath`（张力输入）与 `FileSaveRootPath`（闭环输出）是**两个互不相关的目录**，勿混。
@@ -275,7 +308,7 @@ if (!pm.ClosedLoopEnablePos) ...                          // ← 应为 ClosedLo
 
 ### 7.3 输出列
 
-三业务的 CSV 列由各自 `ConvertToDictionary` 决定，**列名清单见 [配置键表.csv](./配置键表.csv) 的"CSV 输出列"分节**（或直接读源码，详见规划 §0 索引）。通用首两列：`采集时间`（`yyyy-MM-dd HH:mm:ss.fff`）、`虚拟码 `（**注意：列名尾部有一处多余空格**，源自源码字面量）；尾列：`闭环结果信息`。
+四条业务的 CSV 列由各自 `ConvertToDictionary` 决定，**列名清单见 [配置键表.csv](./配置键表.csv) 的"CSV 输出列"分节**（或直接读源码，详见规划 §0 索引）。通用首两列：`采集时间`（`yyyy-MM-dd HH:mm:ss.fff`）、`虚拟码 `（**注意：列名尾部有一处多余空格**，源自源码字面量）；尾列：`闭环结果信息`。⏸ `Mismatch` 的列为模板占位（正/负极错位实时值-目标值 + 是否调机 + 下发值），随资料变化。
 
 ---
 
@@ -284,8 +317,8 @@ if (!pm.ClosedLoopEnablePos) ...                          // ← 应为 ClosedLo
 | 项 | JROH 现状 |
 |----|-----------|
 | 文件放置 | 主工程 `ViewModels/Pages/JROH`、`Views/Pages/JROH`（SDK 通配自动包含）；`Component` 侧控件与主题；`Tool` 侧 CSV 助手 |
-| 命名一致 | ✅ 三个 `[Module]` 第 1 参数与 VM 类名一致 |
-| 菜单显示名 | ✅ 第 2 参数：极片宽度闭环 / 包覆 OH 闭环 / 多级联动纠偏闭环 |
+| 命名一致 | ✅ 四个 `[Module]` 第 1 参数与 VM 类名一致 |
+| 菜单显示名 | ✅ 第 2 参数：极片宽度闭环 / 包覆 OH 闭环 / 多级联动纠偏闭环 / 极耳错位闭环 |
 | DI | ✅ `ProjectServiceCollectionExtensions.AddJROHServices()`，在 `AddProjectServices` 中已调用 |
 | `project_setting` | ✅ 读取时自动播种 |
 | **enable SQL** | ❌ **未执行** → [enable_jroh_module.sql](./enable_jroh_module.sql) |
@@ -304,6 +337,7 @@ if (!pm.ClosedLoopEnablePos) ...                          // ← 应为 ClosedLo
 | D | 现场 PLC 点位录入 + 联调（PW/OH 优先） | ❌ |
 | E | MC 张力 CSV 格式对接与解析 | ✅ |
 | F | 真值确认：阈值 / 量纲 / BelongToVM 收口 | ❌ |
+| G | **极耳错位闭环（`Mismatch`）模板骨架** | ✅ 2026-10-10（模型/页面/对话框/曲线/注册/持久化；⏸ 采集与算法待资料，见待办 #15） |
 
 ---
 
@@ -323,3 +357,4 @@ if (!pm.ClosedLoopEnablePos) ...                          // ← 应为 ClosedLo
 | 10 | **OH 的包覆信号轮询循环未启动** | `ExecuteAsync` 只监听了极片信号，采集永不入队 → OH 进页无数据 | 见进度存档 §4 第 2 点；待办 #9 |
 | 11 | PW 工艺防呆不通过时 `continue` 跳过整轮 | 负极也不算、不落盘 | 确认是否为期望 |
 | 12 | `[Module]` 三页 `Order = 0`、`Category` 各自 VM 名 | 菜单排序/层级可能不符合预期 | 进页确认后调整 |
+| 13 | **极耳错位（`Mismatch`）只有模板骨架**：无采集通道、无算法、无点位 | 进页面无数据、无下发（**不会误写 PLC**）；若误以为已实现会延误现场 | 资料到位后按 §6.4 顺序实现（待办 #15）；资料未到前**不要**在代码里臆造点位（B-09） |

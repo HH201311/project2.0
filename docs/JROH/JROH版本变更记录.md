@@ -1,10 +1,22 @@
-﻿# JROH 版本变更记录
+# JROH 版本变更记录
 
 > **用途**：按日期倒序记录「做了什么、为什么、落在哪」；**当前待办与状态以 [JROH进度存档.md](./JROH进度存档.md) 为准**
 > **格式**：`> **YYYY-MM-DD 变更（标题）**` + 背景 / 做法 / 落点；规格变更写清「见规划 §x」
 > 新会话默认 **不必** 拖本文；需要追溯历史时再按进度存档索引打开。
 
 ---
+> **2026-10-10 变更（新增第 4 条业务「极耳错位闭环」模板骨架：模型 / 页面 / 对话框 / 曲线 / 注册 / 持久化）**
+> 1. **背景**：JROH 需新增极耳错位闭环业务。此前仓库只有半成品 `MisBusinessService.cs`（整份拷自 MC 服务，仍引用 `MCBusinessParamModel` / `MCBusinessGatherModel` / `MCBusinessCalculateModel` 与 `VM_MCBusinessParamDialog`），且 `EBusinessType.Mismatch` 走基类 switch 会抛「未实现的业务类型」、未注册进管理器与 DI，无参数模型、无页面、无对话框。现场资料未到，本轮按要求只补**同构模板骨架**。
+> 2. **做法**：
+>    - **模型（新增）**：`MisBusinessParamModel`（仅 JROH 四条业务共有的通用闭环参数：`IsUse` / 方向修正系数 / 正负极闭环开关）、`MisGatherData`、`MisBusinessGatherModel`（`GatherTime` / `VirtualCode` / 正负极两路占位通道）、`MisBusinessCalculateModel`（`CalculateTime` / 正负极是否调机与下发值 / `EndMessage`）；⏸ 专属参数与通道一律未添加（规范 B-09，禁止臆造）。
+>    - **服务（重写）**：`MisBusinessService` 不再引用任何 MC 类型；`InitializeAsync` 载参数 + 拼 `{FileSaveRootPath}/Mismatch` 落盘路径 + 采集 TODO；`ExecuteAsync` 跑 `CalculateLoopAsync` 闭环消费循环；`CleanupAsync` 收敛队列并重建 + 先摘引用再 `Cancel/Dispose`；新增 `EnqueueGatherData`（后续采集通道统一入口）与 `TryCalculateAsync`（算法占位：Warn + 返回 false，**只落盘、不下发**）；**不读写任何 PLC 点位**；闭环结果落盘 `缓存数据_极耳错位闭环`。
+>    - **界面（新增）**：`VM_MisOfJROHPage`（`[Module("VM_MisOfJROHPage","极耳错位闭环")]`，进出页自动启停业务、事件订阅、曲线按上限 2000 点裁剪、调机记录 20 行）+ `MisOfJROHPage.xaml(.cs)`；`VM_MisBusinessParamDialog` + `MisBusinessParamDialog.xaml(.cs)`（含「待资料」占位说明）；曲线控件 `MisMatchPlot.xaml(.cs)`（检测值/设定值双曲线，对齐 `MultiCorrectPlot`）。
+>    - **接入点**：`BusinessServiceBase.LoadBusinessParamConfig` / `UpdateConfigAsync` 增 `Mismatch` 分支；`BusinessServiceManager` 注册 `MisBusinessService`；`AddJROHServices` 注册实现与接口映射；`ProjectSettingExtension` 新增 `Load/SaveMisBusinessParamProjectParameters`（键 `MisBusinessParam`，`BelongToVM = VM_JROHClosedLoopPage`，RoleRank 4）。
+>    - **文档与配置**：`enable_jroh_module.sql` 增 `VM_MisOfJROHPage`（三页 → 四页）；[配置键表.csv](./配置键表.csv) 增业务参数键 / Mis 字段 / CSV 输出列 / 枚举取值；[plc点位表.csv](./plc点位表.csv) 增「极耳错位点位清单 ⏸ 待现场录入」说明；规划 §1 / §3 / §4 / §5 / §6（新增 §6.4）/ §7 / §8 / §9 / §10 同步。
+> 3. **落点**：新增 `SUNWODA_SEVB.Core/Models/Project/JROH/MisBusinessModels/{MisBusinessParamModel,MisGatherData,MisBusinessGatherModel,MisBusinessCalculateModel}.cs`、`SUNWODA_SEVB/ViewModels/Pages/JROH/VM_MisOfJROHPage.cs`、`SUNWODA_SEVB/Views/Pages/JROH/MisOfJROHPage.xaml(.cs)`、`SUNWODA_SEVB/ViewModels/Dialogs/JROH/BusinessDialogs/VM_MisBusinessParamDialog.cs`、`SUNWODA_SEVB/Views/Dialogs/JROH/BusinessDialogs/MisBusinessParamDialog.xaml(.cs)`、`SUNWODA_SEVB.Component/UserControls/Project/JROH/MisMatchPlot.xaml(.cs)`；改 `MisBusinessService.cs`、`BusinessServiceBase.cs`、`BusinessServiceManager.cs`、`ProjectServiceCollectionExtensions.cs`、`ProjectSettingExtension.cs`、`docs/JROH/*`。
+> 4. **验证**：`dotnet build SUNWODA_SEVB/SUNWODA_SEVB.csproj` 用 **SDK 9.0.316**、在 `SUNWODA_SEVB/` 目录下执行（临时 `global.json` 指定 SDK，**验证后已删除**）→ **0 error / 121 warning**（均为既有噪声）。首轮 1 处 `CS0160`（`ObjectDisposedException` 是 `InvalidOperationException` 子类，catch 不可达）**已修复并复编译通过**。另：改码过程中 `.cs`/`.xaml` 丢失的 **UTF-8 BOM 已全部修回**，`BusinessServiceBase` / `BusinessServiceManager` / `ProjectServiceCollectionExtensions` 现为**纯新增行**（`git diff --numstat` = 3/0、1/0、2/0），未改写任何其他业务代码。⏸ **未做**：数据库 SQL 未执行、应用未启动，页面与闭环**未实跑**。
+> 5. **待人工确认 / 下一步**：① 执行 [enable_jroh_module.sql](./enable_jroh_module.sql) 并**完整重启**，确认菜单出现「极耳错位闭环」；② 现场资料（点位 / 阈值 / 采集方式）到位后按规划 §6.4 实现采集与算法（进度存档待办 #15）；③ 当前无采集、无下发，进页面只会有 Warn 日志，属预期（见进度存档 §4 第 13 点）。
+
 > **2026-10-09 变更（提交前正式审查：修复 4 项 P1 + 3 项 P2，4 项待人工确认）**
 > 1. **背景**：对本次开发提交 `184ad87`（卷绕OH代码开发）执行提交前正式审查（基线 develop，审查时工作区 clean 且与 `origin/develop` 同步，故审其相对父提交的全部改动）。提交中夹带了跨产线（JRCW）与环境配置改动。
 > 2. **做法（已修复）**：

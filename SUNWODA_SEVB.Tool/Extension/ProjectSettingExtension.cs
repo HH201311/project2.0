@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB;
 using SUNWODA_SEVB.Core.Enumerations.Project.CCTB.FormEnums;
 using SUNWODA_SEVB.Core.Enumerations.Project.JRCW;
@@ -13,6 +13,7 @@ using SUNWODA_SEVB.Core.Models.Project.JRCW.Business2Models;
 using SUNWODA_SEVB.Core.Models.Project.JRCW.Core;
 using SUNWODA_SEVB.Core.Models.Project.JROH.Core;
 using SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels;
+using SUNWODA_SEVB.Core.Models.Project.JROH.MisBusinessModels;
 using SUNWODA_SEVB.Core.Models.Project.JROH.OHBusinessModels;
 using SUNWODA_SEVB.Core.Models.Project.JROH.PWBusinessModels;
 using SUNWODA_SEVB.Tool.Extension;
@@ -1565,6 +1566,62 @@ namespace SUNWODA_SEVB.Tool.Extension
                     new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
                     {
                         Remark = "卷绕OH闭环参数配置-业务MC"
+                    }
+                );
+            }
+            return projectSettingRepository.SaveProjectParametersAsJson(paramName, value, JROHCore.BelongToVM);
+        }
+        #endregion
+
+        #region 业务类型Mismatch-Business4Param
+        /// <summary>
+        /// 加载极耳错位闭环参数配置，参数名称为"MisBusinessParam"
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static MisBusinessParamModel LoadMisBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"MisBusinessParam";
+            var paramModel = projectSettingRepository.GetByNameAndVM(paramName, JROHCore.BelongToVM);
+            if (paramModel != null && !string.IsNullOrEmpty(paramModel.Value))
+            {
+                var paramValue = JsonSerializer.Deserialize<MisBusinessParamModel>(paramModel.Value, JsonOptions);
+                if (paramValue != null) return paramValue;
+            }
+
+            var model = new MisBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务Mismatch(极耳错位)"
+                    }
+                );
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// 保存极耳错位闭环参数配置
+        /// </summary>
+        /// <param name="projectSettingRepository"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static bool SaveMisBusinessParamProjectParameters(this IProjectSettingRepository projectSettingRepository, MisBusinessParamModel? value)
+        {
+            if (projectSettingRepository == null) throw new ArgumentNullException(nameof(projectSettingRepository));
+            var paramName = $"MisBusinessParam";
+            var model = new MisBusinessParamModel();
+            if (!projectSettingRepository.Exists(model => model.Name == paramName && model.BelongToVM == JROHCore.BelongToVM))
+            {
+                projectSettingRepository.Add(
+                    new ProjectSettingModel(paramName, JROHCore.BelongToVM, JsonSerializer.Serialize(model, JsonOptions), "string", 4)
+                    {
+                        Remark = "卷绕OH闭环参数配置-业务Mismatch(极耳错位)"
                     }
                 );
             }

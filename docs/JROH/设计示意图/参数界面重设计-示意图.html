@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JROH 参数界面重设计 · 示意图（待确认）</title>
+<style>
+  :root{
+    --bg:#2B2B2B;
+    --bg-deep:#171717;
+    --card:rgba(255,255,255,.05);
+    --card-hi:rgba(255,255,255,.08);
+    --line:rgba(255,255,255,.10);
+    --line-strong:rgba(255,255,255,.20);
+    --t1:#FFFFFF;
+    --t2:rgba(255,255,255,.80);
+    --t3:rgba(255,255,255,.60);
+    --t4:rgba(255,255,255,.40);
+    --accent:#29CC7A;
+    --accent-dim:rgba(41,204,122,.15);
+    --blue:#3B82F6;
+    --warn:#FFB020;
+    --danger:#FF6B6B;
+    --input:rgba(255,255,255,.08);
+    --input-hi:rgba(255,255,255,.12);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg-deep);color:#E6E6E6;
+    font:14px/1.65 "Microsoft YaHei","PingFang SC","Source Han Sans CN",sans-serif;
+  }
+  .page{max-width:1280px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:22px;margin:0 0 8px;color:#fff}
+  h2{font-size:16px;margin:34px 0 12px;color:#fff;padding-left:10px;border-left:3px solid var(--accent)}
+  .sub{color:#9a9a9a;font-size:13px}
+  .switcher{display:flex;gap:10px;margin:22px 0 14px;flex-wrap:wrap}
+  .switcher button{
+    padding:9px 20px;border-radius:8px;border:1px solid var(--line-strong);
+    background:rgba(255,255,255,.06);color:#DDD;font-size:14px;cursor:pointer;
+    font-family:inherit;transition:.15s;
+  }
+  .switcher button:hover{background:rgba(255,255,255,.12)}
+  .switcher button.on{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+  .stage{display:none}
+  .stage.on{display:block}
+
+  /* ============ 对话框外框（模拟 WPF 深色窗口） ============ */
+  .dlg{
+    width:1180px;max-width:100%;background:var(--bg);
+    border:1px solid var(--line);border-radius:10px;padding:20px;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);
+  }
+  .dlg-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .dlg-title .txt{font-size:20px;color:var(--t2);font-weight:600;letter-spacing:.5px}
+  .dlg-title .txt em{font-style:normal;color:var(--t4);font-size:13px;margin-left:12px;font-weight:400}
+  .x{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+     color:var(--t3);background:transparent;font-size:15px;cursor:default}
+  .x:hover{background:rgba(255,255,255,.14)}
+
+  /* 主体：左导航 + 右内容 */
+  .dlg-body{display:grid;grid-template-columns:196px 1fr;gap:16px;min-height:520px}
+  .nav{background:var(--card);border-radius:10px;padding:10px 8px;display:flex;flex-direction:column;gap:4px}
+  .nav .item{
+    position:relative;display:flex;align-items:center;gap:8px;
+    padding:10px 12px 10px 14px;border-radius:8px;color:var(--t3);font-size:14px;cursor:default;
+  }
+  .nav .item .ico{width:16px;text-align:center;opacity:.85}
+  .nav .item.on{background:rgba(255,255,255,.10);color:#fff}
+  .nav .item.on::before{
+    content:"";position:absolute;left:4px;top:9px;bottom:9px;width:3px;border-radius:2px;background:var(--accent);
+  }
+  .nav .item.dis{opacity:.35}
+  .nav .sep{height:1px;background:var(--line);margin:8px 6px}
+  .nav .foot{margin-top:auto;padding:10px 12px;font-size:12px;color:var(--t4);line-height:1.7}
+
+  .content{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border-radius:10px;padding:16px 18px}
+  .card-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+  .card-hd .ct{font-size:16px;color:var(--t2);font-weight:600}
+  .card-hd .cd{font-size:12px;color:var(--t4)}
+  .card-sub{font-size:12px;color:var(--t4);margin:-4px 0 12px}
+
+  /* 参数行：标签 + 三列输入 + 换算提示 */
+  .colhd{display:grid;grid-template-columns:158px repeat(3,1fr) 118px;gap:10px;
+         font-size:12px;color:var(--t4);padding:0 4px 6px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .colhd span:nth-child(n+2){text-align:center}
+  .row{display:grid;grid-template-columns:158px repeat(3,1fr) 118px;gap:10px;align-items:center;padding:4px}
+  .row:hover{background:rgba(255,255,255,.03);border-radius:6px}
+  .lbl{font-size:14px;color:var(--t2)}
+  .lbl small{display:block;color:var(--t4);font-size:11px;font-weight:400}
+  input.f{
+    height:32px;width:100%;border-radius:5px;text-align:right;padding:0 10px;
+    background:var(--input);border:1px solid var(--line);
+    color:rgba(255,255,255,.9);font:14px/1 "Consolas",monospace;
+  }
+  input.f.center{background:var(--input-hi);border-color:var(--line-strong);font-weight:600}
+  input.f:focus{outline:none;border-color:var(--accent);background:rgba(41,204,122,.10)}
+  input.f.lower{border-left:2px solid rgba(255,107,107,.75)}
+  input.f.upper{border-left:2px solid rgba(255,176,32,.75)}
+  .hint{font-size:11.5px;color:var(--t4);text-align:right}
+  .hint b{color:var(--t3);font-weight:500}
+  .hint.bad{color:var(--danger)}
+
+  /* 校验提示条 */
+  .alert{
+    display:flex;gap:10px;align-items:flex-start;border-radius:8px;padding:10px 12px;font-size:13px;
+    background:rgba(255,176,32,.10);border:1px solid rgba(255,176,32,.35);color:#FFD79A;
+  }
+  .alert.err{background:rgba(255,107,107,.10);border-color:rgba(255,107,107,.4);color:#FFC2C2}
+  .alert .i{flex:0 0 auto}
+
+  /* 开关行 */
+  .swrow{display:grid;grid-template-columns:158px 1fr;gap:10px;align-items:center;padding:5px 4px}
+  .seg{display:flex;gap:8px}
+  .tgl{
+    min-width:112px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+    gap:8px;font-size:13px;border:1px solid var(--line-strong);background:var(--input);color:var(--t3);
+  }
+  .tgl.on{background:var(--accent-dim);border-color:var(--accent);color:#DFFFEE}
+  .tgl i{width:6px;height:6px;border-radius:50%;background:var(--t4);display:block}
+  .tgl.on i{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+  /* 分段可视化（OH 专用） */
+  .bar{display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+  .bar div{display:flex;align-items:center;justify-content:center;font-size:11px;color:#0d2b1c;font-weight:700}
+  .bar .f{background:#4BD08B}
+  .bar .m{background:rgba(255,255,255,.30)}
+  .bar .b{background:#57A9F5}
+  .scale{display:flex;justify-content:space-between;font-size:11px;color:var(--t4);margin-top:5px}
+
+  /* 数据源行（MC 专用） */
+  .pathrow{display:flex;gap:10px;align-items:center}
+  .pathbox{
+    flex:1;height:34px;display:flex;align-items:center;padding:0 12px;border-radius:5px;
+    background:var(--input);border:1px solid var(--line);color:var(--t2);
+    font:13px/1 "Consolas",monospace;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  }
+  .btn{
+    height:32px;padding:0 16px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-strong);background:rgba(255,255,255,.06);color:var(--t2);font-size:13px;
+  }
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#BFEFD5}
+  .badge i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);display:block}
+
+  /* 底栏 */
+  .footer{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+  }
+  .status{display:flex;gap:18px;align-items:center;font-size:12.5px;color:var(--t3);flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,.06)}
+  .chip.on{color:#CFEFDD}
+  .chip.off{color:#FFC9C9}
+  .chip i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block;opacity:.9}
+  .actions{display:flex;gap:12px}
+  .btn-primary{
+    min-width:88px;height:32px;border-radius:5px;background:var(--accent);color:#08301c;
+    font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-size:14px;
+  }
+  .btn-ghost{
+    min-width:88px;height:32px;border-radius:5px;border:1px solid rgba(255,255,255,.8);
+    color:var(--t2);display:inline-flex;align-items:center;justify-content:center;font-size:14px;opacity:.85;
+  }
+
+  /* 设计要点 */
+  .notes{margin:22px 0 0;padding:0;list-style:none;background:rgba(255,255,255,.04);
+         border:1px solid var(--line);border-radius:10px;padding:16px 20px}
+  .notes li{margin:7px 0;color:#CFCFCF;font-size:13.5px;line-height:1.7}
+  .notes li b{color:#fff}
+  .tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;margin-right:7px;vertical-align:1px}
+  .tag.ui{background:rgba(59,130,246,.22);color:#BBD6FF}
+  .tag.fn{background:rgba(41,204,122,.20);color:#BFF0D6}
+  .tag.opt{background:rgba(255,176,32,.20);color:#FFDCA8}
+  .tag.keep{background:rgba(255,255,255,.14);color:#DDD}
+
+  table.cmp{width:100%;border-collapse:collapse;font-size:13.5px;background:rgba(255,255,255,.04);
+            border-radius:10px;overflow:hidden}
+  table.cmp th,table.cmp td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cmp th{background:rgba(255,255,255,.06);color:#fff;font-weight:600}
+  table.cmp td:first-child{color:var(--t3);width:150px}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--t4);margin:14px 0 0;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>JROH 参数界面重设计 · 示意图</h1>
+  <div class="sub">
+    参照本软件现有视觉规范（底色 <code>#2B2B2B</code>、卡片 <code>#0DFFFFFF</code>、圆角 5/10、思源黑体、主按钮 <code>#29CC7A</code>、现有样式
+    <code>HCTitleValueTextBox / HCTabItemStyle / Growl*ButtonStyle</code>）。<b style="color:#FFD79A">本页仅为示意图，未改任何代码；图中数值只用于展示排版，不代表现场真值。</b>
+    <div class="legend">
+      <span><span class="tag ui">外观</span>纯视觉调整，不动逻辑</span>
+      <span><span class="tag fn">交互</span>需少量 VM 改动</span>
+      <span><span class="tag opt">可选</span>你点头我才做</span>
+      <span><span class="tag keep">保留</span>维持现状不变</span>
+    </div>
+  </div>
+
+  <div class="switcher">
+    <button class="on" data-go="pw">① PWBusinessParamDialog（极片宽度闭环）</button>
+    <button data-go="oh">② OHBusinessParamDialog（包覆 OH 闭环）</button>
+    <button data-go="mc">③ MCBusinessParamDialog（多级联动闭环）</button>
+  </div>
+
+  <!-- ==================== PW ==================== -->
+  <section class="stage on" id="pw">
+    <div class="dlg">
+      <div class="dlg-title">
+        <div class="txt">极片宽度闭环 · 参数配置 <em>VM_PWOfJROHPage / 参数键 PWBusinessParam</em></div>
+        <div class="x">✕</div>
+      </div>
+      <div class="dlg-body">
+        <div class="nav">
+          <div class="item on"><span class="ico">▤</span>尺寸基准（CP 管控）</div>
+          <div class="item"><span class="ico">⚙</span>闭环调机参数</div>
+          <div class="sep"></div>
+          <div class="item dis"><span class="ico">◷</span>调机记录（页面内）</div>
+          <div class="foot">修改后需点「保存」生效<br>回车/失焦即校验</div>
+        </div>
+
+        <div class="content">
+          <div class="card">
+            <div class="card-hd">
+              <div class="ct">隔膜与极片尺寸</div>
+              <div class="cd">单位：0.1 µm（括号内为 mm 换算）</div>
+            </div>
+            <div class="colhd"><span>参数</span><span>基准值</span><span>范围下限</span><span>范围上限</span><span>公差带</span></div>
+            <div id="pw-rows-1"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-hd">
+              <div class="ct">CIL / AC / SA 相对量</div>
+              <div class="cd">顶部 / 底部按工艺面区分</div>
+            </div>
+            <div class="colhd"><span>参数</span><span>基准值</span><span>范围下限</span><span>范围上限</span><span>公差带</span></div>
+            <div id="pw-rows-2"></div>
+          </div>
+
+          <div class="alert">
+            <span class="i">⚠</span>
+            <div>「正极极片总宽」下限 190300 ≥ 基准 190800 − 500，属正常；但若把下限调至基准之上将<b>阻止保存</b>并定位到该输入框（防呆，规范 E-01）。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="status">
+          <span class="chip on"><i></i>闭环：正极 已启用</span>
+          <span class="chip off"><i></i>闭环：负极 已关闭</span>
+          <span>CP 管控：正 / 负 均启用</span>
+          <span style="color:#FFD79A">未保存修改：1 处</span>
+        </div>
+        <div class="actions">
+          <div class="btn-primary">保存</div>
+          <div class="btn-ghost">取消</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="notes">
+      <li><span class="tag ui">外观</span><b>顶部两个 Tab → 左侧竖向导航</b>：参数多、标签长（「隔膜到负极 SA（底部)」），横排 Tab 挤压严重；竖排后每项一行，选中态用 <code>#29CC7A</code> 指示条。</li>
+      <li><span class="tag ui">外观</span><b>参数按工艺语义分卡片</b>：现状 11 行平铺；改为「隔膜与极片尺寸」「CIL/AC/SA 相对量」两张卡片，卡片右上角统一标注单位。</li>
+      <li><span class="tag ui">外观</span><b>输入框统一规格</b>（高 32、圆角 5、数值右对齐等宽字体）：现状每个 TextBox 各自带 <code>Margin="10,10,10,0"</code>，行距与列宽不齐。基准列加亮、下限/上限用红/橙色左边条区分语义。</li>
+      <li><span class="tag fn">交互</span><b>mm 换算提示</b>：输入 <code>196000</code> 右侧实时显示 <code>196.00 mm</code>，解决「界面数字与工艺单位不一致」的读数困惑（规划 §10 #8 的量纲问题，只加显示、不改存储）。</li>
+      <li><span class="tag fn">交互</span><b>上下限防呆校验</b>：下限 ≥ 基准 或 上限 ≤ 基准 时输入框标红并禁止保存；这是把散落在工艺里的约束前移到界面（E-01）。</li>
+      <li><span class="tag opt">可选</span><b>公差带迷你条</b>：在行尾画一条「下限—基准—上限」比例条，一眼看出公差松紧。需要 VM 增加 3 个计算属性（只读），不影响存储。</li>
+      <li><span class="tag ui">外观</span><b>底部固定操作栏</b>：左侧汇总当前闭环开关状态与未保存数量，右侧保存/取消常驻，滚动长表单时不用回到顶部。</li>
+      <li><span class="tag keep">保留</span>字段含义、绑定路径、默认值、保存流程（<code>ShowBusinessConfigDialogAsync</code> 比对 + 二次确认）全部不变。</li>
+    </ul>
+  </section>
+
+  <!-- ==================== OH ==================== -->
+  <section class="stage" id="oh">
+    <div class="dlg">
+      <div class="dlg-title">
+        <div class="txt">包覆 OH 闭环 · 参数配置 <em>VM_OHOfJROHPage / 参数键 OHBusinessParam</em></div>
+        <div class="x">✕</div>
+      </div>
+      <div class="dlg-body">
+        <div class="nav">
+          <div class="item on"><span class="ico">▤</span>尺寸基准（CP 管控）</div>
+          <div class="item"><span class="ico">⚙</span>闭环调机参数</div>
+          <div class="item"><span class="ico">◫</span>分段与检测面</div>
+          <div class="sep"></div>
+          <div class="item dis"><span class="ico">◷</span>调机记录（页面内）</div>
+          <div class="foot">分段个数改动后，<br>中段自动重算并回显</div>
+        </div>
+
+        <div class="content">
+          <div class="card">
+            <div class="card-hd">
+              <div class="ct">隔膜与极片尺寸</div>
+              <div class="cd">单位：0.1 µm（括号内为 mm 换算）</div>
+            </div>
+            <div class="colhd"><span>参数</span><span>基准值</span><span>范围下限</span><span>范围上限</span><span>公差带</span></div>
+            <div id="oh-rows"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-hd">
+              <div class="ct">OH 数据分段</div>
+              <div class="cd">每次采集 90 点，中段 = 90 − 前段 − 后段</div>
+            </div>
+            <div class="row" style="grid-template-columns:158px 1fr">
+              <div class="lbl">前段 / 后段个数</div>
+              <div style="display:flex;gap:10px;max-width:420px">
+                <input class="f" value="5" style="text-align:center">
+                <input class="f" value="5" style="text-align:center">
+              </div>
+            </div>
+            <div style="margin:12px 4px 0">
+              <div class="bar">
+                <div class="f" style="flex:5">前 5</div>
+                <div class="m" style="flex:80">中 80（自动）</div>
+                <div class="b" style="flex:5">后 5</div>
+              </div>
+              <div class="scale"><span>第 1 点</span><span>数据点 0 – 90</span><span>第 90 点</span></div>
+            </div>
+          </div>
+
+          <div class="alert">
+            <span class="i">⚠</span>
+            <div>分段个数之和 ≥ 90 时将<b>阻止保存</b>；中段为 0 时给出告警提示（当前中段 80，正常）。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="status">
+          <span class="chip on"><i></i>闭环：正极 已启用</span>
+          <span class="chip on"><i></i>闭环：负极 已启用</span>
+          <span>单边闭环：关闭</span>
+          <span>检测面：正极 A 面</span>
+        </div>
+        <div class="actions">
+          <div class="btn-primary">保存</div>
+          <div class="btn-ghost">取消</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="notes">
+      <li><span class="tag ui">外观</span>与 PW 共用同一套骨架（左导航 + 分组卡片 + 统一输入框 + 底部操作栏），三张界面视觉一致，切换项目不会有陌生感。</li>
+      <li><span class="tag fn">交互</span><b>分段可视化条</b>：把「前 5 / 中 80 / 后 5」画成一条 90 点的比例条，直接暴露 <code>中段 = 90 − 前 − 后</code> 的约束；现状只有两个孤立输入框，中段数量要自己算（规划 §6.2 的分段规则）。</li>
+      <li><span class="tag fn">交互</span><b>分段合法性校验</b>：前 + 后 ≥ 90 直接拦保存，避免现场配出空中段导致闭环无基准。</li>
+      <li><span class="tag ui">外观</span><b>开关类参数集中</b>：把「正极卷绕 CCD 检测面」「正极双面 OH 控制开启」「单边闭环」「闭环功能正/负」等布尔项收进「分段与检测面」卡片，用统一的「已启用 / 已关闭」胶囊开关（含呼吸点指示），替代现状的裸 ToggleButton。</li>
+      <li><span class="tag ui">外观</span>「料线向大板移动 0.15 所需要的纠偏值」这类长标签改为<b>主标题 + 灰字副标题</b>（副标题放单位与解释），长文本不再挤压输入框。</li>
+      <li><span class="tag opt">可选</span>校验失败时在卡片内联提示，而不是弹 MessageBox（减少打断）。</li>
+      <li><span class="tag keep">保留</span>字段与默认值不变；<b>不修正</b> OH 的「负极下发名 / 中断文案」等既有缺陷（那是待办 #3 / #4，单独做）。</li>
+    </ul>
+  </section>
+
+  <!-- ==================== MC ==================== -->
+  <section class="stage" id="mc">
+    <div class="dlg" style="width:1040px">
+      <div class="dlg-title">
+        <div class="txt">多级联动闭环 · 参数配置 <em>VM_MCOfJROHPage / 参数键 MCBusinessParam</em></div>
+        <div class="x">✕</div>
+      </div>
+      <div class="dlg-body" style="grid-template-columns:180px 1fr">
+        <div class="nav">
+          <div class="item on"><span class="ico">⌸</span>数据源</div>
+          <div class="item"><span class="ico">⚙</span>闭环参数</div>
+          <div class="sep"></div>
+          <div class="item dis"><span class="ico">◷</span>调机记录（页面内）</div>
+          <div class="foot">参数少，两屏足够</div>
+        </div>
+
+        <div class="content">
+          <div class="card">
+            <div class="card-hd">
+              <div class="ct">张力 CSV 数据源</div>
+              <div class="cd"><span class="badge"><i></i>监听中 · <span style="opacity:.7">Created / Renamed</span></span></div>
+            </div>
+            <div class="pathrow">
+              <div class="pathbox">D:\MESDATA\12_张力数据-TensionData-ข้อมูลแรงตึง</div>
+              <div class="btn">更改</div>
+              <div class="btn">打开</div>
+              <div class="btn">校验</div>
+            </div>
+            <div class="card-sub" style="margin:10px 0 0">
+              目录规则：<code>{根目录}\{yyyy年M月}\{yyyy年M月d日}\{膜卷号}.csv</code>；膜卷号 = 9 位数字 + 1 位字母 + 5 位数字，写入中的纯数字临时文件自动忽略。
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-hd">
+              <div class="ct">闭环控制参数</div>
+              <div class="cd">建议范围已内建防呆</div>
+            </div>
+            <div class="colhd" style="grid-template-columns:186px repeat(2,1fr)"><span>参数</span><span>数值</span><span>说明</span></div>
+            <div id="mc-rows"></div>
+          </div>
+
+          <div class="alert err">
+            <span class="i">⚠</span>
+            <div><b>隔膜通道目标值列缺失</b>：样例 CSV 中没有「上/下隔膜外侧破标定值」列，该两路只画检测值、<b>不参与下发</b>（待现场补列）。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="status">
+          <span class="chip on"><i></i>闭环：正极 已启用</span>
+          <span class="chip off"><i></i>闭环：负极 已关闭</span>
+          <span>采集 T = 1 · 阈值 K = 0.5 · 反馈 D = 0.05</span>
+        </div>
+        <div class="actions">
+          <div class="btn-primary">保存</div>
+          <div class="btn-ghost">取消</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="notes">
+      <li><span class="tag ui">外观</span>MC 参数只有 7 项，现状与 PW 用同一套「宽 500 的 Grid 表单」，显得空旷且左重右轻；改为<b>两屏卡片</b>并适当收窄对话框（1040px），视觉密度与信息量匹配。</li>
+      <li><span class="tag fn">交互</span><b>数据源卡片化</b>：目录 + 更改/打开/校验三个动作并排，右侧实时显示监听状态徽标（<code>● 监听中</code>）；现状只有孤零零一个「更改」按钮，路径长时被截断也看不全。</li>
+      <li><span class="tag fn">交互</span><b>参数旁挂说明</b>：把 T（采集 T 个调一次）、K（触发调节阈值 50%~80%）、D（调整反馈偏差 0.05~0.3）的口径写在行内说明列，并做范围防呆（规划 §10 #6「注释承诺 ≠ 行为」）。</li>
+      <li><span class="tag ui">外观</span>隔膜缺目标值列的风险改为<b>常驻提示条</b>（橙色），避免现场误以为该通道也在闭环。</li>
+      <li><span class="tag keep">保留</span>字段、默认值、监听实现、参数键全部不变。</li>
+    </ul>
+  </section>
+
+  <h2>三个界面共用的规范（也是与现状最大的差别）</h2>
+  <table class="cmp">
+    <tr><th>维度</th><th>现状</th><th>重设计后</th></tr>
+    <tr><td>导航</td><td>顶部 <code>hc:TabControl</code>（2 个 Tab），标签横向挤压</td><td>左侧竖向导航（宽度 196，选中态绿色指示条），项数随业务 2–3 项</td></tr>
+    <tr><td>布局</td><td>手写 <code>Grid.RowDefinitions × 12</code>，每行 <code>TextBlock + UniformGrid</code></td><td>卡片（<code>#0DFFFFFF</code>，圆角 10，内边距 16–18）+ 统一行模板（标签 158 / 三列输入 / 换算提示）</td></tr>
+    <tr><td>输入框</td><td>每个 30 高、<code>Margin="10,10,10,0"</code>、左对齐、无单位提示</td><td>32 高、圆角 5、数值右对齐等宽、聚焦绿边、居中列加亮、下/上限带红橙左条</td></tr>
+    <tr><td>开关</td><td>裸 <code>ToggleButton</code>，靠 <code>Tag</code> 切文案，样式与正文混排</td><td>统一胶囊开关：<code>● 已启用 / 已关闭</code>，开态绿边+呼吸点</td></tr>
+    <tr><td>校验</td><td>无（非法值只能等运行期异常）</td><td>失焦即校验：下限≥基准、上限≤基准、前+后≥90、K/D 范围 → 标红 + 阻止保存</td></tr>
+    <tr><td>状态反馈</td><td>只有底部「保存 / 取消」</td><td>底栏左侧汇总闭环开关状态 + 未保存修改数；右侧常驻保存/取消</td></tr>
+    <tr><td>错误提示</td><td><code>MessageBox</code> 弹窗打断</td><td>卡片内联提示条（橙=警告 / 红=错误），严重错误才弹窗</td></tr>
+    <tr><td>逻辑</td><td colspan="2">字段、绑定路径、默认值、保存与二次确认流程<b>完全不变</b>；仅 PW/OH/MC 三个 XAML + 必要的少量只读计算属性</td></tr>
+  </table>
+
+  <h2>请你确认（确认后我再动手）</h2>
+  <ul class="notes">
+    <li><b>① 整体骨架</b>：接受「左侧竖向导航 + 分组卡片 + 统一行模板 + 底部操作栏」吗？还是保持顶部 Tab 只换皮肤？</li>
+    <li><b>② 交互增强范围</b>：<br>
+      A. 只做外观（<span class="tag ui">外观</span> 项）——改动最小、零逻辑风险；<br>
+      B. 外观 + 校验/换算提示（<span class="tag fn">交互</span> 项）——需少量 VM 只读属性与校验，推荐；<br>
+      C. 全做（含 <span class="tag opt">可选</span> 的公差带迷你条、OH 分段条动画等）。</li>
+    <li><b>③ 落地范围</b>：三个界面一起改，还是先做 PW 一个给你看效果，确认后再套用到 OH / MC？</li>
+    <li><b>④ 提示</b>：这套样式建议沉淀到 <code>JROHCustomControlStyles.xaml</code>（新增几个 key），三个对话框共用；这属于 JROH 项目内共享文件，我会只新增、不改现有 key。</li>
+  </ul>
+</div>
+
+<script>
+  // 切换三个界面
+  document.querySelectorAll('.switcher button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.switcher button').forEach(function (x) { x.classList.remove('on'); });
+      document.querySelectorAll('.stage').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      document.getElementById(b.dataset.go).classList.add('on');
+    });
+  });
+
+  // 参数行渲染：名称 / 基准 / 下限 / 上限 / 是否 mm 换算
+  function row(name, sub, center, lower, upper, mmCent, bad) {
+    var ratio = (upper - lower) || 1;
+    var pos = Math.min(100, Math.max(0, ((center - lower) / ratio) * 100));
+    return '<div class="row">'
+      + '<div class="lbl">' + name + (sub ? '<small>' + sub + '</small>' : '') + '</div>'
+      + '<input class="f center" value="' + center + '">'
+      + '<input class="f lower" value="' + lower + '">'
+      + '<input class="f upper" value="' + upper + '">'
+      + '<div class="hint' + (bad ? ' bad' : '') + '">' + (bad ? '下限 ≥ 基准' : '<b>' + mmCent + '</b> mm') + '</div>'
+      + '</div>';
+  }
+
+  var pw1 = [
+    ['隔膜总宽度', '', 196000, 195500, 196500, '19.60'],
+    ['负极极片总宽', '', 191000, 190500, 191500, '19.10'],
+    ['正极极片总宽', '', 190800, 190300, 191300, '19.08'],
+    ['正极极片涂膜宽度', '', 188300, 187800, 188800, '18.83']
+  ];
+  var pw2 = [
+    ['正极 CIL 基准宽度', '', 2500, 2000, 3000, '0.25'],
+    ['负极到正极 AC（顶部）', '', 1600, 600, 3500, '0.16'],
+    ['负极到正极 AC（底部）', '', 1100, 400, 3200, '0.11'],
+    ['隔膜到负极 SA（底部）', '', 2200, 1000, 4500, '0.22'],
+    ['隔膜到负极 SA（顶部）', '', 2800, 500, 4000, '0.28'],
+    ['隔膜到 CIL（顶部）', '', 1900, 500, 5000, '0.19'],
+    ['CIL 超负极（顶部）', '', 900, 90, 33500, '0.09']
+  ];
+  var oh1 = [
+    ['隔膜总宽度', '', 789000, 785000, 793000, '78.90'],
+    ['负极极片总宽', '', 727000, 722000, 732000, '72.70'],
+    ['正极极片总宽', '', 729000, 724000, 734000, '72.90'],
+    ['正极极片涂膜宽度', '', 705000, 700000, 710000, '70.50'],
+    ['正极 CIL 基准宽度', '', 31000, 22000, 37000, '3.10'],
+    ['负极到正极 AC（顶部）', '', 17000, 3000, 37000, '1.70'],
+    ['负极到正极 AC（底部）', '', 10000, 3000, 37000, '1.00'],
+    ['隔膜到负极 SA（底部）', '', 33000, 5000, 56000, '3.30'],
+    ['隔膜到负极 SA（顶部）', '', 25000, 10000, 56000, '2.50'],
+    ['隔膜到 CIL（顶部）', '', 18000, 5000, 56000, '1.80'],
+    ['CIL 超负极（顶部）', '', 14000, 1000, 39000, '1.40']
+  ];
+  var mc = [
+    ['方向修正系数', '正极 / 负极方向', '1 / −1', '正负号决定调机方向'],
+    ['采集节拍 T', '采集 T 个调整一次', '1', '1 ~ 20，默认 1'],
+    ['触发调节阈值 K', '占比超过 K 才调机', '0.5', '50% ~ 80%'],
+    ['调整反馈值 D', '每次调整的幅值', '0.05', '0.05 ~ 0.3']
+  ];
+
+  function fill(id, list) {
+    document.getElementById(id).innerHTML = list.map(function (r) {
+      return row(r[0], r[1], r[2], r[3], r[4], r[5], r[6]);
+    }).join('');
+  }
+  fill('pw-rows-1', pw1);
+  fill('pw-rows-2', pw2);
+  fill('oh-rows', oh1);
+
+  document.getElementById('mc-rows').innerHTML = mc.map(function (r) {
+    return '<div class="row" style="grid-template-columns:186px 1fr 1fr">'
+      + '<div class="lbl">' + r[0] + '<small>' + r[1] + '</small></div>'
+      + '<input class="f center" value="' + r[2] + '">'
+      + '<div class="hint" style="text-align:left">' + r[3] + '</div>'
+      + '</div>';
+  }).join('');
+</script>
+</body>
+</html>

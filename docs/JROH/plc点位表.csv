@@ -42,3 +42,6 @@
 MC 监听根目录,读,MC,,目录,FileSystemWatcher,默认 D:\MESDATA\12_张力数据-TensionData-ข้อมูลแรงตึง；见配置键表.csv
 MC 文件过滤,读,MC,,,*.csv,IncludeSubdirectories = true
 MC 触发事件,读,MC,,,Renamed,⚠️ 仅监听 Renamed；不解析文件内容（规划 §10 #5）
+,,,,,,
+说明,以下为极耳错位闭环（业务 Mismatch，2026-10-10 建模板）,Mis,,,,
+极耳错位点位清单,待现场录入,Mis,,,⏸ 待现场录入,点位名 / 读写 / 数据类型 / 地址全部未知；模板骨架**不读写任何 PLC 点位**（禁止臆造，规范 B-09）

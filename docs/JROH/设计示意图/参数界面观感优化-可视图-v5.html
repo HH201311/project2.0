@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JROH 参数界面可视图 v5 · 配色对齐主界面（浅色）</title>
+<style>
+  :root{
+    --bg:#2B2B2B; --bg-deep:#141414;
+    --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.20);
+    --t3:rgba(255,255,255,.60); --t4:rgba(255,255,255,.40);
+    --accent:#29CC7A; --accent-dim:rgba(41,204,122,.15);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg-deep);color:#E6E6E6;
+       font:14px/1.65 "Microsoft YaHei","PingFang SC",sans-serif}
+  .page{max-width:1440px;margin:0 auto;padding:28px 20px 90px}
+  h1{font-size:22px;margin:0 0 8px;color:#fff}
+  h2{font-size:16px;margin:34px 0 12px;color:#fff;padding-left:10px;border-left:3px solid var(--accent)}
+  .sub{color:#9a9a9a;font-size:13px}
+  .sub b{color:#FFD79A}
+  .switcher{display:flex;gap:9px;margin:20px 0 12px;flex-wrap:wrap}
+  .switcher button{padding:8px 16px;border-radius:8px;border:1px solid var(--line-strong);
+    background:rgba(255,255,255,.06);color:#DDD;font-size:13px;cursor:pointer;font-family:inherit}
+  .switcher button:hover{background:rgba(255,255,255,.12)}
+  .switcher button.on{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+  .stage{display:none} .stage.on{display:block}
+  .toolbar{display:flex;gap:12px;align-items:center;margin:8px 0 20px;padding:9px 13px;
+           background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:9px;font-size:12.5px;flex-wrap:wrap}
+  .toolbar button{padding:6px 13px;border-radius:6px;border:1px solid var(--line-strong);
+    background:rgba(255,255,255,.06);color:#DDD;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .toolbar button.on{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+  .cmp{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+  .cap{font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .cap span{font-size:11px;padding:2px 8px;border-radius:20px}
+  .bad{background:rgba(255,107,107,.18);color:#FFC2C2}
+  .good{background:rgba(41,204,122,.20);color:#BFF0D6}
+
+  /* ================= 现状（复刻现有 XAML） ================= */
+  .old-dlg{width:576px;background:#2B2B2B;border:1px solid rgba(255,255,255,.10);
+           border-radius:10px;padding:20px;box-shadow:0 12px 34px rgba(0,0,0,.5)}
+  .old-title{display:flex;justify-content:space-between;align-items:center}
+  .old-title .t{font-size:20px;color:rgba(255,255,255,.8)}
+  .old-title .x{font-size:15px;color:rgba(255,255,255,.8);opacity:.8}
+  .old-tabs{display:flex;gap:24px;margin-top:20px;border-bottom:1px solid rgba(255,255,255,.12)}
+  .old-tab{padding:7px 2px 9px;font-size:14px;color:rgba(255,255,255,.6)}
+  .old-tab.on{color:#fff;border-bottom:2px solid #4A9EFF;margin-bottom:-1px}
+  .old-body{width:520px;margin:18px 10px 8px 10px}
+  .old-colhd{display:grid;align-items:center}
+  .old-colhd .h{font-size:14px;color:rgba(255,255,255,.8);text-align:center;margin-top:10px}
+  .old-row{display:grid;align-items:start}
+  .old-label{font-size:14px;color:rgba(255,255,255,.8);font-weight:700;margin-top:10px;padding-right:6px}
+  .old-cells{display:grid}
+  .old-cell{margin:10px 10px 0 0}
+  .old-cell:last-child{margin-right:0}
+  input.oldin{width:100%;font:14px Arial;color:rgba(255,255,255,.8);
+    background:rgba(255,255,255,.05);border:1px solid #ABADB3;border-radius:0;height:24px;padding:1px 4px}
+  .oldsw{width:100%;height:26px;background:#DDDDDD;color:#2F4F4F;border:0.5px solid #888;
+    font:13px "Microsoft YaHei";display:flex;align-items:center;justify-content:center}
+  .old-wide{margin:10px 0 0 0}
+  .old-wide input.oldin{width:100%}
+  .old-foot{display:flex;justify-content:flex-end;gap:20px;margin-top:20px}
+  .oldbtn{width:80px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+    font:14px "Microsoft YaHei";color:rgba(255,255,255,.8)}
+  .oldbtn.ok{background:#FF29CC7A;opacity:.87;color:#fff}
+  .oldbtn.no{border:1px solid rgba(255,255,255,.8);opacity:.8}
+  .oldtip{font-size:12px;color:#99FFCC66;margin-top:16px;line-height:1.7}
+  .flag{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:4px;
+        background:rgba(255,107,107,.20);color:#FFC2C2;margin-left:6px;vertical-align:1px}
+
+  /* ================= 新版（浅色，对齐主界面） ================= */
+  .nw-dlg{width:576px;background:#FFFFFF;border:1px solid #E2E8F0;
+          border-radius:10px;padding:24px;box-shadow:0 18px 50px rgba(15,23,42,.16)}
+  .nw-title{display:flex;justify-content:space-between;align-items:center}
+  .nw-title .left{display:flex;align-items:baseline;gap:10px}
+  .nw-title .t{font-size:19px;color:#0F172A;font-weight:600}
+  .nw-title .k{font-size:12px;color:#94A3B8}
+  .nw-title .x{font-size:15px;color:#64748B;width:26px;height:26px;
+    display:flex;align-items:center;justify-content:center;border-radius:6px}
+  .nw-title .x:hover{background:#F1F5F9}
+  .nw-titleline{height:1px;background:#E2E8F0;margin:14px 0 0}
+  .nw-tabs{display:flex;gap:22px;margin-top:14px;border-bottom:1px solid #E2E8F0}
+  .nw-tab{padding:8px 2px 10px;font-size:13.5px;color:#64748B}
+  .nw-tab.on{color:#0F172A;font-weight:600;border-bottom:2px solid #3DCC84;margin-bottom:-1px}
+  .nw-body{width:520px;margin:18px 12px 10px 12px}
+
+  /* 分区：标题 + 浅灰底块 */
+  .sec{margin-bottom:18px}
+  .sec-hd{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+  .sec-hd .bar{width:3px;height:14px;border-radius:2px;background:#3DCC84}
+  .sec-hd .tx{font-size:13px;color:#334155;font-weight:600}
+  .sec-hd .hint{font-size:11.5px;color:#94A3B8}
+  .sec-body{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px 18px}
+
+  /* 表格区（成对 / 三值） */
+  .tbl-hd{display:grid;align-items:center;margin-bottom:8px}
+  .tbl-hd .h{font-size:11.5px;color:#94A3B8;text-align:center;letter-spacing:.3px}
+  .tbl-hd .lo{color:#DC2626}
+  .tbl-hd .up{color:#D97706}
+  .tbl-row{display:grid;align-items:center;min-height:42px;border-radius:8px;padding:0 2px}
+  .tbl-row:hover{background:#EFF6FF}
+  .tbl-row .l{font-size:13.5px;color:#334155;padding-right:12px}
+  .tbl-cells{display:grid;gap:12px}
+
+  /* 单值区：定宽输入，不再挤占某一列 */
+  .one-row{display:grid;grid-template-columns:200px 152px 1fr;align-items:center;gap:14px;
+           min-height:42px;border-radius:8px;padding:0 2px}
+  .one-row:hover{background:#EFF6FF}
+  .one-row.noNote{grid-template-columns:200px 152px}
+  .one-row .l{font-size:13.5px;color:#334155}
+  .one-row .l small{display:block;font-size:11px;color:#94A3B8;margin-top:1px}
+  .one-row .n{font-size:11.5px;color:#94A3B8}
+
+  /* 数据源区：横向单行，不再用「标签列 + 内容列」 */
+  .infra{display:flex;gap:12px;align-items:center}
+  .infra .path{flex:1;height:36px;display:flex;align-items:center;padding:0 14px;border-radius:6px;
+    background:#FFFFFF;border:1px solid #CBD5E1;
+    font:12.5px Consolas;color:#334155;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+  input.nwin{width:100%;height:36px;font:13.5px Consolas;color:#0F172A;
+    background:#FFFFFF;border:1px solid #CBD5E1;
+    border-radius:6px;text-align:right;padding:0 13px}
+  input.nwin.center{background:#F1F5F9;border-color:#94A3B8;font-weight:600}
+  input.nwin:hover{border-color:#94A3B8}
+  input.nwin:focus{outline:none;border-color:#3DCC84;box-shadow:0 0 0 3px rgba(61,204,132,.18)}
+  body.leftalign input.nwin{text-align:left}
+  .nwsw{height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:8px;
+    font:12.5px "Microsoft YaHei";color:#64748B;
+    background:#FFFFFF;border:1px solid #CBD5E1}
+  .nwsw i{width:7px;height:7px;border-radius:50%;background:#94A3B8;display:block}
+  .nwsw.on{background:#ECFDF5;border-color:#3DCC84;color:#047857}
+  .nwsw.on i{background:#3DCC84}
+  .nwbtn{min-width:78px;height:36px;border-radius:6px;padding:0 16px;display:flex;align-items:center;justify-content:center;
+    font:12.5px "Microsoft YaHei";border:1px solid #CBD5E1;color:#334155;background:#FFFFFF}
+  .nwbtn:hover{background:#F1F5F9}
+  .nwfootline{height:1px;background:#E2E8F0;margin:20px 0 0}
+  .nw-foot{display:flex;justify-content:space-between;align-items:center;margin-top:15px;gap:16px}
+  .nw-foot .note{font-size:11.5px;color:#94A3B8}
+  .nw-foot .btns{display:flex;gap:12px}
+  .nwbtn.ok{min-width:92px;height:36px;background:#29CC7A;color:#FFFFFF;font-weight:700;border:0;font-size:13.5px}
+  .nwbtn.ok:hover{background:#22B76D}
+  .nwbtn.no{min-width:92px;height:36px;font-size:13.5px;background:#FFFFFF;border:1px solid #CBD5E1;color:#334155;opacity:1}
+  .nwtip{font-size:12px;color:#92400E;background:#FFFBEB;
+    border:1px solid #FDE68A;border-radius:8px;padding:10px 13px;margin-top:6px;line-height:1.7}
+  .scrollbox{max-height:430px;overflow:auto;padding-right:6px}
+  .scrollbox::-webkit-scrollbar{width:8px}
+  .scrollbox::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px}
+  .scrollbox::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+
+  /* 主界面风格参照面板 */
+  .refpanel{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin-bottom:6px}
+  .refpage{background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:18px;width:520px;
+           box-shadow:0 8px 26px rgba(15,23,42,.10)}
+  .refhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .reftitle{font:600 20px "Microsoft YaHei";color:#0F172A}
+  .refbtn{width:80px;height:30px;background:AliceBlue;border:1px solid #BFDBFE;border-radius:4px;
+          display:flex;align-items:center;justify-content:center;font:14px "Microsoft YaHei";color:#1E293B}
+  table.refgrid{width:100%;border-collapse:collapse;font-size:13px}
+  table.refgrid th{background:#F8FAFC;color:#1E293B;border:1px solid #E2E8F0;padding:8px 10px;text-align:left;font-weight:600}
+  table.refgrid td{border:1px solid #E2E8F0;padding:8px 10px;color:#1E293B}
+  table.refgrid tr:nth-child(even) td{background:#F8FAFC}
+  table.refgrid tr.sel td{background:#3B82F6;color:#FFFFFF}
+  .refcolors{display:grid;gap:9px;font-size:12.5px;color:#CFCFCF}
+  .refcolors div{display:flex;align-items:center;gap:9px}
+  .refcolors i{width:16px;height:16px;border-radius:4px;border:1px solid rgba(255,255,255,.30);display:block;flex:0 0 16px}
+
+  .notes{margin:22px 0 0;list-style:none;background:rgba(255,255,255,.04);
+         border:1px solid var(--line);border-radius:10px;padding:15px 20px;max-width:1280px}
+  .notes li{margin:7px 0;color:#CFCFCF;font-size:13.5px;line-height:1.75}
+  .notes li b{color:#fff}
+  .tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;margin-right:7px;vertical-align:1px}
+  .tag.ui{background:rgba(59,130,246,.22);color:#BBD6FF}
+  .tag.fix{background:rgba(255,107,107,.20);color:#FFC2C2}
+  .tag.keep{background:rgba(255,255,255,.14);color:#DDD}
+  table.cmp2{width:100%;border-collapse:collapse;font-size:13.5px;background:rgba(255,255,255,.04);
+             border-radius:10px;overflow:hidden;margin-top:8px}
+  table.cmp2 th,table.cmp2 td{padding:9px 13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cmp2 th{background:rgba(255,255,255,.06);color:#fff;font-weight:600}
+  table.cmp2 td:first-child{color:var(--t3);width:150px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>参数界面可视图 <span style="color:var(--accent)">v5</span> · 配色对齐主界面（浅色）</h1>
+  <div class="sub">
+    v4 的布局与尺寸你已经认可，本版只解决<b>风格脱节</b>：参数弹窗现状是深色 <code>#2B2B2B</code>，而 JROH 主页面是<b>白底浅色</b>（<code>Views/Pages/JROH</code>）。v5 把弹窗改成<b>与主界面同一套取色</b>——白底、<code>#F8FAFC</code> 分区、<code>#E2E8F0</code> 描边、<code>#1E293B</code> 正文、hover <code>#EFF6FF</code>、Tab 选中绿 <code>#3DCC84</code>、保存按钮绿 <code>#29CC7A</code>。<br>
+    布局结构仍沿用 v4：成对 → 两列、单值 → 单列、数据源 → 横向单行；顶部 Tab、按钮位置、字段与绑定都不变。数值仅示意。
+  </div>
+
+  <h2>主界面风格参照（v5 取色来源）</h2>
+  <div class="refpanel">
+    <div class="refpage">
+      <div class="refhead">
+        <span class="reftitle">调机日志</span>
+        <span class="refbtn">参数配置</span>
+      </div>
+      <table class="refgrid">
+        <tr><th>时间</th><th>正极下发值</th><th>负极下发值</th></tr>
+        <tr><td>2026-10-10 14:02:11</td><td>190800</td><td>191000</td></tr>
+        <tr class="sel"><td>2026-10-10 14:02:36</td><td>190820</td><td>190980</td></tr>
+        <tr><td>2026-10-10 14:03:02</td><td>190810</td><td>190990</td></tr>
+      </table>
+      <div style="font-size:11.5px;color:#94A3B8;margin-top:10px">
+        上图为 PWOfJROHPage 的「调机日志 + 参数配置按钮 + DataGrid」真实样式复刻（浅色）
+      </div>
+    </div>
+    <div class="refcolors">
+      <div><i style="background:#FFFFFF"></i>页面底色 #FFFFFF</div>
+      <div><i style="background:#F8FAFC"></i>表头 / 分区底 #F8FAFC</div>
+      <div><i style="background:#E2E8F0"></i>边框 #E2E8F0</div>
+      <div><i style="background:#1E293B"></i>正文 #1E293B（次级 #334155 / #64748B）</div>
+      <div><i style="background:#EFF6FF"></i>行 hover #EFF6FF</div>
+      <div><i style="background:#3B82F6"></i>DataGrid 选中 #3B82F6</div>
+      <div><i style="background:#3DCC84"></i>Tab 选中 / 强调条 #3DCC84</div>
+      <div><i style="background:#29CC7A"></i>确认 / 保存按钮 #29CC7A</div>
+      <div><i style="background:#CBD5E1"></i>输入框边框 #CBD5E1</div>
+      <div><i style="background:#DC2626"></i>下限列头 #DC2626　<i style="background:#D97706"></i>上限列头 #D97706</div>
+    </div>
+  </div>
+
+  <div class="switcher">
+    <button class="on" data-go="pw1">① PW · CP管控参数</button>
+    <button data-go="pw2">② PW · 调机相关配置</button>
+    <button data-go="oh1">③ OH · CP管控参数</button>
+    <button data-go="oh2">④ OH · 调机相关配置</button>
+    <button data-go="mc">⑤ MC · 单页</button>
+    <button data-go="mis">⑥ 极耳错位 · 单页</button>
+  </div>
+
+  <div class="toolbar">
+    <span>输入框对齐：</span>
+    <button id="btnRight" class="on">右对齐 + 等宽</button>
+    <button id="btnLeft">左对齐</button>
+    <span style="color:var(--t4)">（只影响视觉，不影响取值；可随时切换对比）</span>
+  </div>
+
+  <section class="stage on" id="pw1"></section>
+  <section class="stage" id="pw2"></section>
+  <section class="stage" id="oh1"></section>
+  <section class="stage" id="oh2"></section>
+  <section class="stage" id="mc"></section>
+  <section class="stage" id="mis"></section>
+
+  <h2>三区规则（四个弹窗统一）</h2>
+  <table class="cmp2">
+    <tr><th>参数类型</th><th>例子</th><th>呈现方式</th></tr>
+    <tr>
+      <td>① 成对参数</td>
+      <td>方向修正系数、限幅最大/最小值、闭环开关、CP 管控开关</td>
+      <td>「正极 / 负极」两列表格（保留列头），输入框铺满各自列</td>
+    </tr>
+    <tr>
+      <td>② 单值 / 共用参数</td>
+      <td>T、K、D、调节频次、调节间隔、前/后分段个数、检测面、双面控制、启用业务</td>
+      <td><b>单列行</b>：标签（主 + 灰字副说明）+ 定宽 132px 输入框/开关 + 右侧说明 —— 不再占「正极」列，也不再横跨整行</td>
+    </tr>
+    <tr>
+      <td>③ 基础设施</td>
+      <td>MC 的 CSV 监控根目录</td>
+      <td><b>独立区块 + 横向单行</b>：只有路径框与「更改」并排铺满，<b>不再用标签列</b>（上面已有 Tab，单项参数不必再分列）</td>
+    </tr>
+    <tr>
+      <td>④ 尺寸基准（PW/OH 第一页）</td>
+      <td>隔膜总宽度…CIL 超负极（各含 基准 / 下限 / 上限）</td>
+      <td>保持「基准值 / 范围下限值 / 范围上限值」三列表格（现状本就合理，只统一控件与间距）</td>
+    </tr>
+  </table>
+
+  <h2>控件与配色规格（v5）</h2>
+  <table class="cmp2">
+    <tr><th>对象</th><th>v4（上一版·深色）</th><th>v5（本版·浅色，对齐主界面）</th><th>说明</th></tr>
+    <tr><td>输入框</td><td>高 32 / 圆角 5 / 内边距 10 / 列间距 8</td><td><b>高 36 / 圆角 6 / 内边距 13 / 列间距 12</b></td><td>略高略宽，数字不贴边</td></tr>
+    <tr><td>参数行</td><td>行高 32–34，行间无留白</td><td><b>行高 42</b>（控件 36 + 上下留白）</td><td>行之间有呼吸感</td></tr>
+    <tr><td>标签列</td><td>206px</td><td><b>200px</b>，右侧留白 12px</td><td>标签与输入框不贴</td></tr>
+    <tr><td>单值输入框</td><td>132px</td><td><b>152px</b></td><td>6 位数字也从容</td></tr>
+    <tr><td>区块（分区）</td><td>内边距 10/12、块间距 14</td><td><b>内边距 16/18、块间距 18</b></td><td>分区之间留出边距</td></tr>
+    <tr><td>开关</td><td>高 32 / 圆角 5 / 指示点 6px</td><td><b>高 36 / 圆角 6 / 指示点 7px</b></td><td>与输入框等高</td></tr>
+    <tr><td>按钮</td><td>高 31 / 最小宽 84</td><td><b>高 36 / 最小宽 92</b>，与输入框等高</td><td>底栏更稳</td></tr>
+    <tr><td>弹窗内边距</td><td>20px</td><td><b>24px</b></td><td>四周留白更舒展</td></tr>
+    <tr><td>数据源行</td><td>标签列 + 路径框（左右两列）</td><td><b>横向单行铺满</b>：路径框 + 更改</td><td>本版改动重点</td></tr>
+    <tr><td>交互反馈</td><td>无</td><td>行 hover 淡高亮、输入框聚焦绿边 + 外发光</td><td>精致感来源</td></tr>
+    <tr><td>弹窗配色</td><td>深色底 <code>#2B2B2B</code> + 白色文字</td><td><b>白底 <code>#FFFFFF</code>、正文 <code>#1E293B</code>、描边 <code>#E2E8F0</code></b></td><td>与 JROH 主页面统一</td></tr>
+    <tr><td>分区底色</td><td>半透明白 <code>#0DFFFFFF</code></td><td><b>浅灰 <code>#F8FAFC</code> + 描边 <code>#E2E8F0</code></b></td><td>浅色下的层次靠浅灰，而非透明叠加</td></tr>
+    <tr><td>Tab 选中</td><td>白字 + 绿下划线</td><td><b>深色字 + <code>#3DCC84</code> 下划线</b></td><td>沿用项目 Tab 选中色</td></tr>
+    <tr><td>保存 / 取消</td><td>保存绿底浅字；取消白描边</td><td><b>保存 <code>#29CC7A</code> 底白字；取消白底 + <code>#CBD5E1</code> 边 + <code>#334155</code> 深字</b></td><td>取消按钮原为白字白边，在白底上会看不见，必须改</td></tr>
+  </table>
+
+  <h2>请你确认</h2>
+  <ul class="notes">
+    <li><b>① 配色方向</b>：参数弹窗由深色改为<b>与主界面一致的白底浅色</b> —— 这是你要的统一吗？若你更希望弹窗保持深色（与 JRCW 等其它弹窗一致），说一声我切回深色版。</li>
+    <li><b>② 强调色</b>：Tab 选中与输入框聚焦用项目绿 <code>#3DCC84</code>；DataGrid 那套蓝 <code>#3B82F6</code> 仍只用于表格选中。要统一成蓝也可以。</li>
+    <li><b>③ 布局与尺寸</b>：沿用 v4（成对两列 / 单值单列 152px / 数据源横向单行 / 控件高 36 / 行高 42）—— 确认不变吗？</li>
+    <li><b>④ 取消按钮</b>：浅色下必须改为「白底 + 灰边 + 深字」，否则白字白边不可见。</li>
+    <li><b>⑤ 区块标题</b>：保留「正负极成对参数 / 通用参数 / 数据源」这些标题吗？</li>
+    <li><b>⑥ 数据源位置</b>：MC 根目录块放最上方（图中如此）还是最下方？</li>
+    <li><b>⑦ 范围</b>：四个弹窗一起改，还是先改一个看实际效果？（仍只改 XAML，不碰逻辑）</li>
+  </ul>
+</div>
+
+<script>
+  /* 数据（数值仅示意）。开关写法 'T:标签:1'（1=开/正面，0=关/反面） */
+  var V = {
+    pw1: {
+      name: 'PWBusinessParamDialog · Tab「CP管控参数」',
+      oldTitle: '参数配置窗口', title: '极片宽度闭环 · 参数配置', key: 'PWBusinessParam',
+      tabs: ['CP管控参数', '调机相关配置'], active: 0,
+      oldCols: ['基准值', '范围下限值', '范围上限值'],
+      oldRows: [
+        ['隔膜总宽度', [196000, 195500, 196500]],
+        ['负极极片总宽', [191000, 190500, 191500]],
+        ['正极极片总宽', [190800, 190300, 191300]],
+        ['正极极片涂膜宽度', [188300, 187800, 188800]],
+        ['正极CIL基准宽度', [2500, 2000, 3000]],
+        ['负极到正极AC(顶部)', [1600, 600, 3500]],
+        ['负极到正极AC(底部)', [1100, 400, 3200]],
+        ['隔膜到负极SA（底部)', [2200, 1000, 4500]],
+        ['隔膜到负极SA（顶部)', [2800, 500, 4000]],
+        ['隔膜到 CIL（顶部)', [1900, 500, 5000]],
+        ['CIL超负极（顶部)', [900, 90, 33500]]
+      ],
+      sec: [
+        { t: 'tbl', h: '尺寸基准（每种尺寸含 基准 / 下限 / 上限）', hint: '现状本就如此，只统一控件与间距', c: ['基准值', '范围下限值', '范围上限值'], r: [
+          ['隔膜总宽度', [196000, 195500, 196500]],
+          ['负极极片总宽', [191000, 190500, 191500]],
+          ['正极极片总宽', [190800, 190300, 191300]],
+          ['正极极片涂膜宽度', [188300, 187800, 188800]],
+          ['正极CIL基准宽度', [2500, 2000, 3000]],
+          ['负极到正极AC(顶部)', [1600, 600, 3500]],
+          ['负极到正极AC(底部)', [1100, 400, 3200]],
+          ['隔膜到负极SA（底部)', [2200, 1000, 4500]],
+          ['隔膜到负极SA（顶部)', [2800, 500, 4000]],
+          ['隔膜到 CIL（顶部)', [1900, 500, 5000]],
+          ['CIL超负极（顶部)', [900, 90, 33500]]
+        ]}
+      ],
+      notes: [
+        ['fix', '本页参数属于「一个项目三种值」，不是正负极对，所以保持三列表格 —— 只统一输入框规格与行距。'],
+        ['ui', '内容区加滚动容器：11 行在小屏下不再把弹窗撑出屏幕。']
+      ]
+    },
+    pw2: {
+      name: 'PWBusinessParamDialog · Tab「调机相关配置」',
+      oldTitle: '参数配置窗口', title: '极片宽度闭环 · 参数配置', key: 'PWBusinessParam',
+      tabs: ['CP管控参数', '调机相关配置'], active: 1,
+      oldCols: ['正极', '负极'],
+      oldRows: [
+        ['方向修正系数', [1, -1]],
+        ['限幅调整最大值', [400, 400]],
+        ['限幅调整最小值', [100, 100]],
+        ['极片总宽CP管控', ['T:开关:1', 'T:开关:0']],
+        ['OH总宽防呆尺寸', [0, 100]],
+        ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:0']],
+        ['调节频次（电芯数）', [2], 'wide'],
+        ['正负极调节间隔（n）', [1], 'wide']
+      ],
+      sec: [
+        { t: 'tbl', h: '正负极成对参数', hint: '左列正极 / 右列负极', c: ['正极', '负极'], r: [
+          ['方向修正系数', [1, -1]],
+          ['限幅调整最大值', [400, 400]],
+          ['限幅调整最小值', [100, 100]],
+          ['极片总宽CP管控', ['T:开关:1', 'T:开关:0']],
+          ['OH总宽防呆尺寸', [0, 100]],
+          ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:0']]
+        ]},
+        { t: 'one', h: '通用参数（正负极共用）', hint: '单值，不占正负极列', r: [
+          { l: '调节频次', s: '电芯数', v: 2, n: '调整 N 个电芯后结算一次' },
+          { l: '正负极调节间隔（n）', v: 1, n: '声明未使用（规划 §10 #3）' }
+        ]}
+      ],
+      notes: [
+        ['fix', '「调节频次 / 调节间隔」原来横跨整行、输入框约 350px 宽；v5 收到 152px 并加上说明，与上方两列参数不再打架。'],
+        ['ui', '成对参数保持两列表格与列头，输入框铺满各列。']
+      ]
+    },
+    oh1: {
+      name: 'OHBusinessParamDialog · Tab「CP管控参数」',
+      oldTitle: '参数配置窗口', title: '包覆 OH 闭环 · 参数配置', key: 'OHBusinessParam',
+      tabs: ['CP管控参数', '调机相关配置'], active: 0,
+      oldCols: ['基准值', '范围下限值', '范围上限值'],
+      oldRows: [
+        ['隔膜总宽度', [789000, 785000, 793000]],
+        ['负极极片总宽', [727000, 722000, 732000]],
+        ['正极极片总宽', [729000, 724000, 734000]],
+        ['正极极片涂膜宽度', [705000, 700000, 710000]],
+        ['正极CIL基准宽度', [31000, 22000, 37000]],
+        ['负极到正极AC(顶部)', [17000, 3000, 37000]],
+        ['负极到正极AC(底部)', [10000, 3000, 37000]],
+        ['隔膜到负极SA（底部)', [33000, 5000, 56000]],
+        ['隔膜到负极SA（顶部)', [25000, 10000, 56000]],
+        ['隔膜到 CIL（顶部)', [18000, 5000, 56000]],
+        ['CIL超负极（顶部)', [14000, 1000, 39000]]
+      ],
+      sec: [
+        { t: 'tbl', h: '尺寸基准（每种尺寸含 基准 / 下限 / 上限）', c: ['基准值', '范围下限值', '范围上限值'], r: [
+          ['隔膜总宽度', [789000, 785000, 793000]],
+          ['负极极片总宽', [727000, 722000, 732000]],
+          ['正极极片总宽', [729000, 724000, 734000]],
+          ['正极极片涂膜宽度', [705000, 700000, 710000]],
+          ['正极CIL基准宽度', [31000, 22000, 37000]],
+          ['负极到正极AC(顶部)', [17000, 3000, 37000]],
+          ['负极到正极AC(底部)', [10000, 3000, 37000]],
+          ['隔膜到负极SA（底部)', [33000, 5000, 56000]],
+          ['隔膜到负极SA（顶部)', [25000, 10000, 56000]],
+          ['隔膜到 CIL（顶部)', [18000, 5000, 56000]],
+          ['CIL超负极（顶部)', [14000, 1000, 39000]]
+        ]}
+      ],
+      notes: [
+        ['fix', '与 PW 同一分区规则；OH 数值 6 位数，右对齐 + 等宽后纵向更易比对。'],
+        ['ui', '字段、Tab、绑定全部不变。']
+      ]
+    },
+    oh2: {
+      name: 'OHBusinessParamDialog · Tab「调机相关配置」',
+      oldTitle: '参数配置窗口', title: '包覆 OH 闭环 · 参数配置', key: 'OHBusinessParam',
+      tabs: ['CP管控参数', '调机相关配置'], active: 1,
+      oldCols: ['正极', '负极'],
+      oldRows: [
+        ['方向修正系数', [1, -1]],
+        ['OH数据前分段个数', [5], 'wide'],
+        ['OH数据后分段个数', [100], 'wide'],
+        ['正极卷绕CCD检测面', ['T:正反面:1'], 'wide'],
+        ['正极双面OH控制开启', ['T:启用关闭:1'], 'wide'],
+        ['料线向大板移动0.15所需要的纠偏值', [2], 'wide'],
+        ['限幅调整最大值', [1, -1]],
+        ['限幅调整最小值', [1, -1]],
+        ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:0']],
+        ['调节频次（S电芯数）', [2], 'wide']
+      ],
+      sec: [
+        { t: 'tbl', h: '正负极成对参数', hint: '左列正极 / 右列负极', c: ['正极', '负极'], r: [
+          ['方向修正系数', [1, -1]],
+          ['限幅调整最大值', [1, -1]],
+          ['限幅调整最小值', [1, -1]],
+          ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:0']]
+        ]},
+        { t: 'one', h: '通用参数（正负极共用）', hint: '单值 / 单开关', r: [
+          { l: 'OH数据前分段个数', v: 5, n: '从前端起算' },
+          { l: 'OH数据后分段个数', v: 100, n: '从后端起算（中段 = 90 − 前 − 后）' },
+          { l: '料线向大板移动 0.15', s: '所需要的纠偏值（K）', v: 2, n: '单值' },
+          { l: '正极卷绕CCD检测面', k: 'sw', tag: '正反面', on: 1, n: '正面 / 反面' },
+          { l: '正极双面OH控制开启', k: 'sw', tag: '启用关闭', on: 1, n: '关闭时按单面处理' },
+          { l: '调节频次', s: 'S 电芯数', v: 2, n: '单值' }
+        ]}
+      ],
+      notes: [
+        ['fix', '本页原来有 6 项单值/单开关被塞在「正极」列或横跨整行（图中左侧已标 ⚠）；v5 全部移入「通用参数」单列区，宽度统一 152px。'],
+        ['ui', '成对参数只剩 4 项，两列表格更清爽。']
+      ]
+    },
+    mc: {
+      name: 'MCBusinessParamDialog · 单页',
+      oldTitle: '参数配置窗口', title: '多级联动闭环 · 参数配置', key: 'MCBusinessParam',
+      tabs: ['调机相关配置'], active: 0,
+      oldCols: ['正极', '负极'],
+      oldRows: [
+        ['数据源监控根目录', ['DIR'], 'wide'],
+        ['方向修正系数', [1, -1]],
+        ['数据采集周期', [3], 'wide'],
+        ['触发调节阈值', [0.5], 'wide'],
+        ['调整反馈值', [0.05], 'wide'],
+        ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:0']]
+      ],
+      sec: [
+        { t: 'info', h: '数据源 · CSV 监控根目录', hint: '单值项，横向一行铺满，不再左右分列', r: [
+          { l: 'CSV 监控根目录', d: 'D:\\MESDATA\\12_张力数据-TensionData-ข้อมูลแรงตึง' }
+        ]},
+        { t: 'tbl', h: '正负极成对参数', hint: '左列正极 / 右列负极', c: ['正极', '负极'], r: [
+          ['方向修正系数', [1, -1]],
+          ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:0']]
+        ]},
+        { t: 'one', h: '通用参数（正负极共用）', hint: '单值', r: [
+          { l: '数据采集周期 T', s: '采集 T 个调整一次', v: 3, n: '默认 1' },
+          { l: '触发调节阈值 K', s: '占比超过 K 才调机', v: 0.5, n: '建议 50% ~ 80%' },
+          { l: '调整反馈值 D', s: '每次调整幅值', v: 0.05, n: '建议 0.05 ~ 0.3' }
+        ]}
+      ],
+      notes: [
+        ['fix', '根目录从「正极 / 负极」列头下移出，独立成「数据源」区块 —— 这正是你说的那点。'],
+        ['fix', 'T / K / D 原来也是横跨整行的宽输入框，现统一为单列行（132px + 说明）。'],
+        ['keep', 'FloderPicker 与「更改」按钮、全部绑定与默认值不变。']
+      ]
+    },
+    mis: {
+      name: 'MisBusinessParamDialog · 单页',
+      oldTitle: '极耳错位闭环参数配置', title: '极耳错位闭环 · 参数配置', key: 'MisBusinessParam',
+      tabs: ['闭环控制配置'], active: 0,
+      oldCols: ['正极', '负极'],
+      oldRows: [
+        ['启用业务', ['T:启用关闭:0'], 'wide'],
+        ['方向修正系数', [1, -1]],
+        ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:1']]
+      ],
+      sec: [
+        { t: 'one', h: '通用参数', hint: '单值 / 单开关', r: [
+          { l: '启用业务', s: 'IsUse', k: 'sw', tag: '启用关闭', on: 0, n: '本业务是否启用' }
+        ]},
+        { t: 'tbl', h: '正负极成对参数', hint: '左列正极 / 右列负极', c: ['正极', '负极'], r: [
+          ['方向修正系数', [1, -1]],
+          ['闭环功能开启按钮', ['T:启用关闭:1', 'T:启用关闭:1']]
+        ]},
+        { t: 'tip', h: '待资料', r: [
+          '⏸ 极耳错位专属参数（极耳层数 / 极耳角度阈值 / 限幅与死区 / 调节频次等）尚无现场资料，未提供输入项；资料到位后在此补充。'
+        ]}
+      ],
+      notes: [
+        ['fix', '三个参数按语义落位：启用业务 → 通用区；方向修正系数与闭环开关 → 成对区。'],
+        ['keep', '字段与绑定不变，本轮不新增参数项。']
+      ]
+    }
+  };
+
+  function parseSw(v) { var p = v.split(':'); return { tag: p[1], on: p[2] === '1' }; }
+  function swText(tag, on) {
+    if (tag === '开关') return on ? '开' : '关';
+    if (tag === '启用关闭') return on ? '已启用' : '已关闭';
+    if (tag === '正反面') return on ? '正面' : '反面';
+    return tag;
+  }
+
+  /* ---------- 现状 ---------- */
+  function oldCells(cells, n, wide) {
+    var out = '';
+    if (wide) {
+      var v = cells[0];
+      if (typeof v === 'string' && v.indexOf('T:') === 0) {
+        var s = parseSw(v);
+        return '<div class="old-wide"><div class="oldsw">' + swText(s.tag, s.on) + '</div></div>';
+      }
+      if (v === 'DIR') {
+        return '<div class="old-wide"><input class="oldin" value="D:\\MESDATA\\12_张力数据-TensionData" readonly>'
+             + '<div class="oldsw" style="width:80px;margin-top:8px">更改</div></div>';
+      }
+      return '<div class="old-wide"><input class="oldin" value="' + v + '"></div>';
+    }
+    for (var i = 0; i < n; i++) {
+      var c = cells[i];
+      if (c === null || c === undefined) { out += '<div></div>'; continue; }
+      if (typeof c === 'string' && c.indexOf('T:') === 0) {
+        var t = parseSw(c);
+        out += '<div class="old-cell"><div class="oldsw">' + swText(t.tag, t.on) + '</div></div>';
+      } else if (c === 'DIR') {
+        out += '<div class="old-cell"><input class="oldin" value="D:\\MESDATA\\12_张力数据" readonly>'
+             + '<div class="oldsw" style="width:80px;margin-top:8px">更改</div></div>';
+      } else {
+        out += '<div class="old-cell"><input class="oldin" value="' + c + '"></div>';
+      }
+    }
+    return out;
+  }
+
+  function buildOld(d) {
+    var n = d.oldCols.length, h = '';
+    h += '<div class="old-title"><div class="t">' + d.oldTitle + '</div><div class="x">✕</div></div>';
+    h += '<div class="old-tabs">';
+    d.tabs.forEach(function (t, i) { h += '<div class="old-tab' + (i === d.active ? ' on' : '') + '">' + t + '</div>'; });
+    h += '</div><div class="old-body">';
+    h += '<div class="old-colhd" style="grid-template-columns:150px 1fr"><div></div>'
+       + '<div class="old-cells" style="grid-template-columns:repeat(' + n + ',1fr)">';
+    d.oldCols.forEach(function (c) { h += '<div class="h">' + c + '</div>'; });
+    h += '</div></div>';
+    d.oldRows.forEach(function (r) {
+      var wide = r[2] === 'wide';
+      var mark = wide ? '<span class="flag">⚠ 横跨整行</span>' : '';
+      h += '<div class="old-row" style="grid-template-columns:150px 1fr"><div class="old-label">' + r[0] + mark + '</div>'
+         + '<div class="old-cells" style="grid-template-columns:' + (wide ? '1fr' : 'repeat(' + n + ',1fr)') + '">'
+         + oldCells(r[1], n, wide) + '</div></div>';
+    });
+    h += '</div><div class="old-foot"><div class="oldbtn ok">保存</div><div class="oldbtn no">取消</div></div>';
+    return h;
+  }
+
+  /* ---------- 新版 ---------- */
+  function newTable(sec) {
+    var n = sec.c.length, h = '';
+    h += '<div class="tbl-hd" style="grid-template-columns:206px 1fr"><div>' + (sec.hint ? '<span style="font-size:11px;color:rgba(255,255,255,.35)">' + sec.hint + '</span>' : '') + '</div>'
+       + '<div class="tbl-cells" style="grid-template-columns:repeat(' + n + ',1fr)">';
+    sec.c.forEach(function (c) {
+      var cls = c.indexOf('下限') >= 0 ? ' lo' : (c.indexOf('上限') >= 0 ? ' up' : '');
+      h += '<div class="h' + cls + '">' + c + '</div>';
+    });
+    h += '</div></div>';
+    sec.r.forEach(function (row) {
+      h += '<div class="tbl-row" style="grid-template-columns:206px 1fr"><div class="l">' + row[0] + '</div>'
+         + '<div class="tbl-cells" style="grid-template-columns:repeat(' + n + ',1fr)">';
+      for (var i = 0; i < n; i++) {
+        var c = row[1][i];
+        if (c === null || c === undefined) { h += '<div></div>'; continue; }
+        if (typeof c === 'string' && c.indexOf('T:') === 0) {
+          var s = parseSw(c);
+          h += '<div class="nwsw' + (s.on ? ' on' : '') + '"><i></i>' + swText(s.tag, s.on) + '</div>';
+        } else {
+          h += '<input class="nwin' + (i === 0 ? ' center' : '') + '" value="' + c + '">';
+        }
+      }
+      h += '</div></div>';
+    });
+    return h;
+  }
+
+  function newOne(sec) {
+    var h = '';
+    sec.r.forEach(function (row) {
+      var hasNote = !!row.n;
+      h += '<div class="one-row' + (hasNote ? '' : ' noNote') + '">';
+      h += '<div class="l">' + row.l + (row.s ? '<small>' + row.s + '</small>' : '') + '</div>';
+      if (row.k === 'sw') {
+        var s = parseSw('T:' + row.tag + ':' + row.on);
+        h += '<div class="nwsw' + (s.on ? ' on' : '') + '"><i></i>' + swText(s.tag, s.on) + '</div>';
+      } else {
+        h += '<input class="nwin" value="' + row.v + '">';
+      }
+      h += hasNote ? '<div class="n">' + row.n + '</div>' : '';
+      h += '</div>';
+    });
+    return h;
+  }
+
+  function newInfo(sec) {
+    var h = '';
+    sec.r.forEach(function (row) {
+      /* 横向单行：不再用「标签列 + 内容列」——上面已有 Tab，单项参数不必再分列 */
+      h += '<div class="infra"><div class="path">' + row.d + '</div><div class="nwbtn">更改</div></div>';
+    });
+    return h;
+  }
+
+  function buildNew(d) {
+    var h = '';
+    h += '<div class="nw-title"><div class="left"><div class="t">' + d.title + '</div><div class="k">' + d.key + '</div></div><div class="x">✕</div></div>';
+    h += '<div class="nw-titleline"></div>';
+    h += '<div class="nw-tabs">';
+    d.tabs.forEach(function (t, i) { h += '<div class="nw-tab' + (i === d.active ? ' on' : '') + '">' + t + '</div>'; });
+    h += '</div><div class="nw-body"><div class="scrollbox">';
+    d.sec.forEach(function (sec) {
+      h += '<div class="sec"><div class="sec-hd"><div class="bar"></div><div class="tx">' + sec.h + '</div>'
+         + (sec.hint ? '<div class="hint">' + sec.hint + '</div>' : '') + '</div>';
+      if (sec.t === 'tip') {
+        h += '<div class="nwtip">' + sec.r[0] + '</div></div>';
+        return;
+      }
+      h += '<div class="sec-body">';
+      if (sec.t === 'tbl') h += newTable(sec);
+      else if (sec.t === 'one') h += newOne(sec);
+      else if (sec.t === 'info') h += newInfo(sec);
+      h += '</div></div>';
+    });
+    h += '</div></div>';
+    h += '<div class="nwfootline"></div><div class="nw-foot">'
+       + '<div class="note">点「保存」后仍需二次确认才会写入；点「取消」或直接关闭不会修改。</div>'
+       + '<div class="btns"><div class="nwbtn ok">保存</div><div class="nwbtn no">取消</div></div></div>';
+    return h;
+  }
+
+  function buildNotes(d) {
+    var h = '<ul class="notes"><li style="color:#fff"><b>' + d.name + '</b></li>';
+    d.notes.forEach(function (n) {
+      var cls = n[0] === 'ui' ? 'ui' : (n[0] === 'fix' ? 'fix' : 'keep');
+      var label = n[0] === 'ui' ? '视觉' : (n[0] === 'fix' ? '修正' : '保留');
+      h += '<li><span class="tag ' + cls + '">' + label + '</span>' + n[1] + '</li>';
+    });
+    return h + '</ul>';
+  }
+
+  Object.keys(V).forEach(function (k) {
+    var d = V[k], el = document.getElementById(k);
+    el.innerHTML = '<div class="cmp">'
+      + '<div><div class="cap">现状（现有 XAML · 深色）<span class="bad">问题标注</span></div><div class="old-dlg">' + buildOld(d) + '</div></div>'
+      + '<div><div class="cap">v5 建议（浅色 · 对齐主界面）<span class="good">布局与 v4 相同</span></div><div class="nw-dlg">' + buildNew(d) + '</div></div>'
+      + '</div>' + buildNotes(d);
+  });
+
+  document.querySelectorAll('.switcher button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.switcher button').forEach(function (x) { x.classList.remove('on'); });
+      document.querySelectorAll('.stage').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      document.getElementById(b.dataset.go).classList.add('on');
+    });
+  });
+
+  var bR = document.getElementById('btnRight'), bL = document.getElementById('btnLeft');
+  bR.addEventListener('click', function () {
+    document.body.classList.remove('leftalign');
+    bR.classList.add('on'); bL.classList.remove('on');
+  });
+  bL.addEventListener('click', function () {
+    document.body.classList.add('leftalign');
+    bL.classList.add('on'); bR.classList.remove('on');
+  });
+</script>
+</body>
+</html>

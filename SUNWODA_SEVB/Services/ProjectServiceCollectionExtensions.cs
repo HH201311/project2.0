@@ -224,11 +224,13 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<PWBusinessService>();
             services.AddSingleton<OHBusinessService>();
             services.AddSingleton<MCBusinessService>();
+            services.AddSingleton<MisBusinessService>();
 
             // 注册接口映射
             services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<PWBusinessService>());
             services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<OHBusinessService>());
             services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<MCBusinessService>());
+            services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<MisBusinessService>());
 
             // 注册工厂和管理器
             services.AddSingleton<JROHBusinessServiceFactory>();

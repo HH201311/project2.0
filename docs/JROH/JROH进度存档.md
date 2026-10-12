@@ -76,6 +76,23 @@
 | 14 | 处理提交前审查遗留的 3 项待人工确认 | ⏸ | `ConfigurationService` 本地库 / `DYC04BusinessService` 阈值 / `开发资料` 样例 CSV 入库 | [审查报告-20261009-1506.md](./审查报告-20261009-1506.md) |
 | 15 | **极耳错位闭环资料录入 + 采集/算法实现** | ⏸ | ① 现场资料 → `开发资料/`；② 点位进 [plc点位表.csv](./plc点位表.csv)；③ 补 `MisBusinessParamModel` 专属参数与 [配置键表.csv](./配置键表.csv)；④ 实现 `MisBusinessService.InitializeAsync`（采集）与 `TryCalculateAsync`（闭环+下发）；⑤ 现场实跑验收 | §3.1、§6、§10 |
 
+### ✅ 已完成（2026-10-10：三个参数弹窗按 v5 落地，仅动 XAML）
+
+> 评审路径：v3 语义分区 → v4 精致化间距 + 根目录单行 → **v5 配色对齐主界面**；定稿图 [设计示意图/参数界面观感优化-可视图-v5.html](./设计示意图/参数界面观感优化-可视图-v5.html)。
+> 此前「导航自适应 + 卡片化」那一版（胶囊分段 + 卡片化 + OH 拆三组）**已被使用方回档，未保留**。
+
+- ✅ 配色改为**白底浅色**，取色全部来自 JROH 主页面（`#FFFFFF` 底 / `#F8FAFC` 分区 / `#E2E8F0` 描边 / `#1E293B` 正文 / `#EFF6FF` hover / `#3DCC84` 强调 / `#29CC7A` 保存），解决「页面浅色、弹窗深色」的脱节
+- ✅ 参数**语义分区**：成对参数 → 正极/负极两列；单值·共用参数 → 单列行（标签 200 + 定宽 152 + 说明）；MC 数据源根目录 → **横向单行**（路径框 + 更改，不再左右分列）；尺寸基准 → 三列表格
+- ✅ 控件规格统一：输入框 36 高 / 圆角 6 / Consolas 右对齐、行高 42、分区内边距 16–18、开关与按钮 36 高、弹窗内边距 24、弹窗宽 576
+- ✅ 交互反馈（纯 XAML）：输入框 hover/聚焦绿边、行 hover 浅蓝、Tab 选中绿色下划线、关闭按钮 hover
+- ✅ 保留：Tab 位置与数量（PW/OH 各 2、MC 1）、保存/取消位置、全部绑定与 `Tag` 文案机制（开/关、已启用/已关闭、正面/反面）
+- ✅ 验证：`dotnet build`（SDK 9.0.316）**0 error / 123 warning**（均既有）；三文件先经 XML 校验再替换，BOM 与 CRLF 保持；⚠️ 应用与 VS 占用 `bin`，验证输出到 `obj\verify\`（已清理），**观感需关闭应用重新生成后确认**
+- ✅ **运行反馈修正（同日第二轮）**：① Tab 改回原生 `TabControl/TabItem` + 自定义模板（间距 12、`MinHeight=30`），解决「太紧 + 文字截断」；② 内容区 `ScrollViewer` 加 `Width="538"`，解决右侧溢出；③ 底栏改 `DockPanel` + 文案缩短 + `TextTrimming`，解决提示被截断/贴按钮；④ 全面紧凑化（控件 32 高、行高 36、分区内边距 14/12、弹窗内边距 18/16、`MaxHeight` 360）；⑤ `FloderPicker` 显式 `Foreground="#FF1E293B"`，解决根目录看不见值。**绑定已逐项核对：PW 50 / OH 50 / MC 11 项，与改动前一致，无失效**。复编译 **0 error / 121 warning**
+- ✅ **Tab 文本不可见修复（同日第三轮）**：根因是 `LightTabItemStyle` 的 **`Margin="0,0,22,0"` 占用 Tab 条目宽度、把文本压没**（非行高问题）；已删除该外边距、`ContentPresenter` 改 `Margin="10,4,10,6"`、items host 由 `TabPanel` 换为 **`StackPanel`**（按内容测量不压缩），保留内容行 `Height="Auto"` + `MinHeight=34` + `LineHeight=20`。同时清理无用引用（`xmlns:convert/d/hc/local/mc`、两个未用转换器、`JROHCustomControlStyles` 合并字典、重复注释），现 PW/OH 仅剩 `xmlns` + `xmlns:x`，MC 另留 `xmlns:uc`。复编译 **0 error / 123 warning**
+- ⏸ 未做（按「仅外观」约定）：mm 换算、上下限范围校验、数据源「打开目录」、监听状态徽标、OH 分段可视化条
+- ⏸ 待人工确认：浅色一致性、单值行 152px 与右对齐、小屏下 576 宽弹窗是否要自适应
+- 注：**极耳错位的 `MisBusinessParamDialog.xaml` 本轮未动**（按指定只改 3 个），其风格仍为旧深色，后续可套用同一套规则
+
 ### 已完成（2026-10-10 本轮：极耳错位闭环模板骨架）
 
 - ✅ 模型：`MisBusinessParamModel`（通用闭环参数占位）、`MisGatherData`、`MisBusinessGatherModel`、`MisBusinessCalculateModel`

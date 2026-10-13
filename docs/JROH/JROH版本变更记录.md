@@ -5,6 +5,50 @@
 > 新会话默认 **不必** 拖本文；需要追溯历史时再按进度存档索引打开。
 
 ---
+> **2026-10-13 文档修复（配置键表 Excel 乱码 + 业务模块归并）**
+> 1. **问题**：上一轮覆盖 `配置键表.csv` 时写成了**无 BOM 的 UTF-8**，Excel 按本地 ANSI(GBK) 解析 → 中文全部乱码。
+> 2. **做法**：**删除旧文件后重新生成** —— 编码改为 **UTF-8 with BOM**（首 3 字节 `EF BB BF`）+ 统一 CRLF 行尾，Excel 双击即正常显示中文。
+> 3. **同时归并模块**：把原先挤在「通用」区的单业务内容**归回各业务模块** —— 4 条 `CSV输出列` 与 4 条 `EBusinessType` 分别移入 PW / OH / MC / Mis 区；「通用」区只保留 **3 条纯全局约定**（落盘目录模板、CSV 分卷阈值、尺寸量纲说明），不再混入任何单业务信息。
+> 4. **最终分布（151 行）**：项目级 1 / **PW 51** / **OH 52** / **MC 11** / **Mis 32** / 通用 3。
+> 5. **验证**：读取文件首 3 字节确认 `EF BB BF`；按首列「业务」分组计数与预期一致；通用区仅 3 行。
+> 6. **经验**：给 Excel 看的 CSV 一律用 **UTF-8 with BOM**；写文件时不要顺手去掉 BOM（本仓库 pwsh 写入需显式 `UTF8Encoding($true)`）。
+
+> **2026-10-13 文档变更（配置键表按业务重构 + 尺寸量纲纠正）**
+> 1. **背景**：现场给出 4 个业务的参数配置表（PW / OH / MC / Mis，截图 4 份），要求据此整理 `配置键表.csv`，且**4 个业务的参数不要混在一起**。
+> 2. **做法**：
+>    - **重构 [配置键表.csv](./配置键表.csv)**：新增**首列「业务」**，列结构改为 `业务, 分类, 参数键名, BelongToVM, Value类型, RoleRank, 源码默认值, 说明`；按 **项目级 → PW → OH → MC → Mis → 通用** 顺序**连续成区**，每区以「参数键」行开头、其后是该业务全部字段，区与区之间不再交叉（共 149 行：PW 49 / OH 50 / MC 9 / Mis 30 / 通用 9 / 项目级 1）。
+>    - **分类列**按参数表的分组命名（`CP管控-<项名>` / `闭环控制` / `设备控制-<组名>` / `数据源` / `基础`），便于按业务 + 分组两级筛选。
+>    - **说明列**写入「参数表 mm 值」以便与现场截图逐项对账；符号项（d / L0 / L总 / a / b / △S / D中 / D尾）标 ⏸。
+>    - **量纲纠正（重要）**：依据 4 份参数表（**mm 值 × 1000 = 代码默认值**：PW 隔膜总宽度 196 → 196000、OH 78.9 → 78900、CIL 2.5 → 2500、CIL超负极 0.9 → 900 逐项吻合），确认尺寸类整数单位为 **µm（0.001 mm）**。原规划 §5.3 第 1 条与 §10 待办 #8 的旧结论「0.1 µm、196000 = 19.6 mm、可能差 10000 倍」**已改正**，待办 #8 改为「已确认 µm，仅剩 UI 是否换算 mm 显示」。
+>    - **记录（未改代码）6 处参数表与代码/界面的不一致**，均标 ⚠️ 待现场确认：① PW `CilOverNegTop_UpperLimit` 代码 `33500` vs 参数表 3.5mm（应 3500）差 10 倍；② PW `AdjustFrequency` 代码 `2` vs 参数表 `4`；③ OH `MoldToNegSATop_LowerLimit` 代码 `100` vs 参数表 1mm（应 1000）差 10 倍；④ OH 界面绑定 `CountOfFrontEnd` / `CountOfBackEnd` 与模型字段 `CountOfFront` / `CountOfBack` **名不一致**（既有缺陷，界面该两框取不到值）；⑤ OH `IsSigleClosedLoop` 模型有字段、参数界面无控件；⑥ OH `IsUse` 字段存在但模型内未使用（既有 CS0169 警告来源之一）。
+> 3. **落点**：[配置键表.csv](./配置键表.csv)、[JROH项目开发规划.md](./JROH项目开发规划.md)（§5.3 第 1 条量纲、§10 待办 #8）。**本轮无代码改动，不影响编译。**
+> 4. **验证**：CSV 分区计数核对（见上 149 行分布）；`docs` 内引用路径未变。
+
+> **2026-10-13 变更（极耳错位参数细化：三项改二选一开关、去掉通用项、去掉 MisGatherData、CP 页紧凑化）**
+> 1. **背景**：使用方提出四项调整：① 「电芯结构」「周长一致性数据」「入料调节频次」应二选一（单极耳/双极耳、正极/负极、2n/3n），做法**参照 OH 的「正极卷绕CCD检测面」**；② 去掉 5 项通用项；③ CP 控制参数页观感差、需更紧凑；④ 不再需要 `MisGatherData` 类。
+> 2. **做法**：
+>    - **三项改二选一开关**：字段由 `string` 改为 `bool` —— `CellStructure` → `IsSingleTab`（true=单极耳）、`ConsistencyDataSource` → `IsPosConsistency`（true=正极）、`InfeedAdjustFrequency` → `Is2nInfeedFrequency`（true=2n）；界面改用 `ToggleButton` + 原有 `Tag` 文案机制（新增 Tag：`单双极耳` / `正负极` / `2n3n`），与 OH 的 CCD 检测面**完全同一做法**。
+>    - **去掉 5 项通用项**：删除 `IsUse`、`AdjustCorrectionOfPos/Neg`、`ClosedLoopEnablePos/Neg`；同时把 `MisBusinessService` 里提到这些字段的两行实现说明改为「本业务参数表未含闭环开关项，下发前须与现场确认」。
+>    - **CP 页紧凑化**：由「单列 7 行」改为「**两列并排 4 行**」；控件高 32→30、单值输入框 144→110、行距 →2、分区内边距 14/12→14/10、块间距 12→10；设备页同步沿用同一规格。
+>    - **删除 `MisGatherData`**：`MisBusinessGatherModel` 的两路通道直接改为 `List<(DateTime time, float detValue, float tarValue)>`（`PositiveTabValues` / `NegativeTabValues`）；连带更新 `MisBusinessService.ConvertToDictionary` 与 `VM_MisOfJROHPage.AppendSeries`（含方法签名）；删除 `MisGatherData.cs`。
+>    - **文档**：`配置键表.csv` 的 Mis 字段由 34 行 → **29 行**（三项改 bool 并改名、删除 5 行通用项）。
+> 3. **落点**：`SUNWODA_SEVB.Core/Models/Project/JROH/MisBusinessModels/{MisBusinessParamModel.cs, MisBusinessGatherModel.cs}`（删除 `MisGatherData.cs`）、`SUNWODA_SEVB/Views/Dialogs/JROH/BusinessDialogs/MisBusinessParamDialog.xaml`、`SUNWODA_SEVB/Services/Project/JROH/Business/MisBusinessService.cs`、`SUNWODA_SEVB/ViewModels/Pages/JROH/VM_MisOfJROHPage.cs`、[配置键表.csv](./配置键表.csv)。
+> 4. **验证**：`dotnet build`（SDK 9.0.316）→ **0 error / 123 warning**（均既有）；XAML 通过 XML 校验；模型属性 **29** = 弹窗 `ItemSource` 绑定 **29**。
+> 5. **备注**：删除闭环开关后「是否允许下发」暂无判据 —— 已在 `TryCalculateAsync` 注释标注「下发前须与现场确认」，后续实现算法时**勿默认允许下发**（规范 A-03）。
+> 6. **同日布局再调**（按实机反馈）：① CP 控制参数页**改回单列**（7 行：标签 190 / 控件 110 / 说明列）；② 「缓存与卷针」行距压紧到 2px、两组的**列间距 28**；③ 「换卷收集数」三组**列间距 24**（用独立间隔列实现）、组内标签与输入框间距 8；④ 「调节频次」的二选一开关改为 `Width=110 + HorizontalAlignment=Left` 并去掉原 6px 外边距，与输入框列**严格对齐**；⑤ 限幅 / 前馈错位表格左右列间距 12，分区内边距统一 16/12。复编译 **0 error / 123 warning**。
+
+> **2026-10-13 变更（极耳错位闭环参数落地：按现场 CP / 设备控制参数表重建参数类与参数弹窗）**
+> 1. **背景**：现场给出极耳错位闭环的《CP控制参数 / 设备控制参数》表（CP 7 项 + 设备控制 22 项），需据此把此前的**占位**参数类与参数弹窗做实。
+> 2. **做法**：
+>    - **参数类**（`MisBusinessParamModel`）：新增 **29 项业务参数** —— CP 控制参数 7 项（极耳错位量 d、电芯结构、卷针周长、正极近边距、负极近边距、电芯隔膜长度 L0、每卷隔膜总长 L总）；设备控制参数 22 项（正/负极缓存个数 a·b、设备卷针个数、1mm 周长变径 △S、变径调节频次、周长一致性数据、换隔膜/正极/负极收集数、模切·变径·入料各自的 最大/最小限幅、入料调节频次、隔膜/正极/负极的 前馈中间错位 D中 与 前馈首尾错位 D尾）。**保留** 5 项通用项（`IsUse`、正/负极方向修正系数、正/负极闭环开关，其他三条业务均有同类项）。
+>      ⚠️ 表中以**符号**给出的项（d / L0 / L总 / a / b / △S / D中 / D尾）**默认值一律置 0**；字面量项按表填写（单极耳 / 正极 / 2n/3n），全部标 ⏸ 待现场数值，禁止臆造（规范 B-09）。
+>    - **参数弹窗**（`MisBusinessParamDialog.xaml`）：整体重做为与另外三个业务一致的**浅色风格**，改为 **2 个 Tab**——「CP控制参数」「设备控制参数」；设备页按语义分区：缓存与卷针（两列并排）／换卷收集数（三列）／限幅（3 行 × 最大·最小 表格）／调节频次／前馈错位（3 行 × D中·D尾 表格）；另含「闭环开关」分区与「符号项待给定」提示条。**绑定 34 项，与模型属性数一一对应**。
+>    - **修复编译**：构建时发现 `MisGatherData.cs` **已不在仓库中**（导致 `MisBusinessGatherModel` 报 `CS0246`），按原设计**重建**该文件（`Values` / `SetValue`），恢复编译。
+>    - **文档**：`配置键表.csv` 的 Mis 字段由 5 行占位替换为 **34 行真实字段**（类型 / 默认值 / ⏸ 标注）。
+> 3. **落点**：`SUNWODA_SEVB.Core/Models/Project/JROH/MisBusinessModels/{MisBusinessParamModel.cs, MisGatherData.cs}`、`SUNWODA_SEVB/Views/Dialogs/JROH/BusinessDialogs/MisBusinessParamDialog.xaml`、[配置键表.csv](./配置键表.csv)。**其他三个弹窗与服务逻辑未改动。**
+> 4. **验证**：`dotnet build`（SDK 9.0.316）→ **0 error / 123 warning**（均既有）；XAML 经 XML 解析校验；绑定数 34 = 模型属性数 34。
+> 5. **待确认**：① 符号项（d / L0 / L总 / a / b / △S / D中 / D尾）的具体数值与量纲；② 「电芯结构」「周长一致性数据」「入料调节频次」目前用文本框承载，若要下拉选择需在 VM 增加选项集合；③ 5 项通用项是否保留。
+
 > **2026-10-10 变更（参数弹窗 Tab 文本消失修复 + 清理无用引用）**
 > 1. **背景**：三个参数弹窗运行后 Tab 文本不可见/被裁。定位到 `LightTabItemStyle` 里的 `Margin="0,0,22,0"` —— 该**外边距占用了 Tab 条目的可用宽度，把文本压到看不见**（此前误判为行高问题，行高只是次要因素）。
 > 2. **做法（仅改这 3 个 XAML 的同一段样式）**：

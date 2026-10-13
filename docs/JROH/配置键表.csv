@@ -1,59 +1,151 @@
-åˆ†ç±»,å‚æ•°é”®å,BelongToVM,Valueç±»åž‹,RoleRank,æºç é»˜è®¤å€¼,è¯´æ˜Ž
-é¡¹ç›®è®¾ç½®,FileSaveRootPath,VM_JROHClosedLoopPage,string,2,D:\é€šç”¨ä¸Šä½æœº\JROHDatas,é—­çŽ¯ç»“æžœ CSV è½ç›˜æ ¹ç›®å½•ï¼ˆLoadJROHFileSaveRootPathProjectParameterï¼‰
-ä¸šåŠ¡å‚æ•°,PWBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,è§ä¸‹,PWBusinessParamModel æ•´ä½“åºåˆ—åŒ–
-ä¸šåŠ¡å‚æ•°,OHBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,è§ä¸‹,OHBusinessParamModel æ•´ä½“åºåˆ—åŒ–
-ä¸šåŠ¡å‚æ•°,MCBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,è§ä¸‹,MCBusinessParamModel æ•´ä½“åºåˆ—åŒ–
-ä¸šåŠ¡å‚æ•°,MisBusinessParam,VM_JROHClosedLoopPage,string(JSON),4,è§ä¸‹,MisBusinessParamModel æ•´ä½“åºåˆ—åŒ–ï¼ˆ2026-10-10 æ–°å¢žï¼šæžè€³é”™ä½é—­çŽ¯ï¼Œå½“å‰ä»…æ¨¡æ¿å ä½å­—æ®µï¼‰
-PWå­—æ®µ,IsUse,(åŒä¸Š),bool,4,false,æ˜¯å¦å¯ç”¨
-PWå­—æ®µ,AdjustCorrectionOfPos,(åŒä¸Š),float,4,1,æ­£æžæ–¹å‘ä¿®æ­£ç³»æ•°
-PWå­—æ®µ,AdjustCorrectionOfNeg,(åŒä¸Š),float,4,-1,è´Ÿæžæ–¹å‘ä¿®æ­£ç³»æ•°
-PWå­—æ®µ,MaxAdjustmentLimitPos,(åŒä¸Š),int,4,400,æ­£æžé™å¹…è°ƒæ•´æœ€å¤§å€¼
-PWå­—æ®µ,MaxAdjustmentLimitNeg,(åŒä¸Š),int,4,400,è´Ÿæžé™å¹…è°ƒæ•´æœ€å¤§å€¼
-PWå­—æ®µ,MinAdjustmentLimitPos,(åŒä¸Š),int,4,100,æ­£æžé™å¹…è°ƒæ•´æœ€å°å€¼ï¼ˆæ­»åŒºï¼‰
-PWå­—æ®µ,MinAdjustmentLimitNeg,(åŒä¸Š),int,4,100,è´Ÿæžé™å¹…è°ƒæ•´æœ€å°å€¼ï¼ˆæ­»åŒºï¼‰
-PWå­—æ®µ,CpControlEnablePos,(åŒä¸Š),bool,4,true,æ­£æžæžç‰‡æ€»å®½ CP ç®¡æŽ§
-PWå­—æ®µ,CpControlEnableNeg,(åŒä¸Š),bool,4,true,è´Ÿæžæžç‰‡æ€»å®½ CP ç®¡æŽ§
-PWå­—æ®µ,OhWidthCheckValuePos,(åŒä¸Š),int,4,1000,æ­£æž OH æ€»å®½é˜²å‘†å°ºå¯¸
-PWå­—æ®µ,OhWidthCheckValueNeg,(åŒä¸Š),int,4,1000,è´Ÿæž OH æ€»å®½é˜²å‘†å°ºå¯¸
-PWå­—æ®µ,ClosedLoopEnablePos,(åŒä¸Š),bool,4,true,æ­£æžé—­çŽ¯åŠŸèƒ½å¼€å¯
-PWå­—æ®µ,ClosedLoopEnableNeg,(åŒä¸Š),bool,4,true,è´Ÿæžé—­çŽ¯åŠŸèƒ½å¼€å¯
-PWå­—æ®µ,AdjustFrequency,(åŒä¸Š),byte,4,2,æ­£è´Ÿæžè°ƒèŠ‚é¢‘æ¬¡ï¼ˆç”µèŠ¯æ•°ï¼‰
-PWå­—æ®µ,AdjustInterval,(åŒä¸Š),byte,4,1,âš ï¸ å£°æ˜Žä½†ä»£ç æœªä½¿ç”¨ï¼ˆè§„åˆ’ Â§10 #3ï¼‰
-OHå­—æ®µ,IsUse,(åŒä¸Š),bool,4,false,æ˜¯å¦å¯ç”¨
-OHå­—æ®µ,IsSigleClosedLoop,(åŒä¸Š),bool,4,false,æ˜¯å¦å•è¾¹é—­çŽ¯ï¼ˆtrue=å•è¾¹é“¾è·¯ï¼ŒæœªéªŒè¯ï¼‰
-OHå­—æ®µ,AdjustCorrectionOfPos,(åŒä¸Š),float,4,1,æ­£æžæ–¹å‘ä¿®æ­£ç³»æ•°
-OHå­—æ®µ,AdjustCorrectionOfNeg,(åŒä¸Š),float,4,-1,è´Ÿæžæ–¹å‘ä¿®æ­£ç³»æ•°
-OHå­—æ®µ,CountOfFront,(åŒä¸Š),byte,4,5,OH æ•°æ®å‰åˆ†æ®µä¸ªæ•°
-OHå­—æ®µ,CountOfBack,(åŒä¸Š),byte,4,5,OH æ•°æ®åŽåˆ†æ®µä¸ªæ•°ï¼ˆä¸­æ®µ = 90 âˆ’ å‰ âˆ’ åŽ = 80ï¼‰
-OHå­—æ®µ,IsFrontOfPosDetextion,(åŒä¸Š),bool,4,true,æ­£æžå·ç»• CCD æ£€æµ‹é¢
-OHå­—æ®µ,DoubleSideEnableOfPos,(åŒä¸Š),bool,4,true,æ­£æžåŒé¢ OH æŽ§åˆ¶å¼€å¯
-OHå­—æ®µ,K,(åŒä¸Š),int,4,1000,æ–™çº¿å‘å¤§æ¿ç§»åŠ¨ 0.15 æ‰€éœ€çº åå€¼
-OHå­—æ®µ,MaxLimitOfPos,(åŒä¸Š),int,4,300,é™å¹…è°ƒæ•´æœ€å¤§å€¼-æ­£æž
-OHå­—æ®µ,MaxLimitOfNeg,(åŒä¸Š),int,4,300,é™å¹…è°ƒæ•´æœ€å¤§å€¼-è´Ÿæž
-OHå­—æ®µ,MinLimitOfPos,(åŒä¸Š),int,4,50,é™å¹…è°ƒæ•´æœ€å°å€¼-æ­£æžï¼ˆæ­»åŒºï¼‰
-OHå­—æ®µ,MinLimitOfNeg,(åŒä¸Š),int,4,50,é™å¹…è°ƒæ•´æœ€å°å€¼-è´Ÿæžï¼ˆæ­»åŒºï¼‰
-OHå­—æ®µ,ClosedLoopEnablePos,(åŒä¸Š),bool,4,true,æ­£æžé—­çŽ¯åŠŸèƒ½å¼€å¯
-OHå­—æ®µ,ClosedLoopEnableNeg,(åŒä¸Š),bool,4,true,è´Ÿæžé—­çŽ¯åŠŸèƒ½å¼€å¯
-OHå­—æ®µ,AdjustFrequency,(åŒä¸Š),byte,4,2,è°ƒèŠ‚é¢‘æ¬¡ï¼ˆS ç”µèŠ¯æ•°ï¼‰
-MCå­—æ®µ,WatcherRootPath,(åŒä¸Š),string,4,D:\MESDATA\12_å¼ åŠ›æ•°æ®-TensionData-à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹à¸£à¸‡à¸•à¸¶à¸‡,å¼ åŠ› CSV ç›‘å¬æ ¹ç›®å½•ï¼ˆMC æ•°æ®æ¥æºï¼‰
-MCå­—æ®µ,AdjustCorrectionOfPos,(åŒä¸Š),float,4,1,æ­£æžæ–¹å‘ä¿®æ­£ç³»æ•°
-MCå­—æ®µ,AdjustCorrectionOfNeg,(åŒä¸Š),float,4,-1,è´Ÿæžæ–¹å‘ä¿®æ­£ç³»æ•°
-MCå­—æ®µ,T,(åŒä¸Š),byte,4,1,é‡‡é›† T ä¸ªè°ƒæ•´ä¸€æ¬¡ï¼›é—´éš” T åŽå†é‡‡é›†
-MCå­—æ®µ,K,(åŒä¸Š),float,4,0.5,è§¦å‘è°ƒèŠ‚é˜ˆå€¼ï¼ˆæ³¨é‡Šï¼š50%~80%ï¼ŒèŒƒå›´é˜²å‘†ï¼‰
-MCå­—æ®µ,D,(åŒä¸Š),float,4,0.05,è°ƒæ•´åé¦ˆåå·®å€¼ï¼ˆæ³¨é‡Šï¼š0.05~0.3ï¼ŒèŒƒå›´é˜²å‘†ï¼‰
-MCå­—æ®µ,ClosedLoopEnablePos,(åŒä¸Š),bool,4,true,æ­£æžé—­çŽ¯åŠŸèƒ½å¼€å¯
-MCå­—æ®µ,ClosedLoopEnableNeg,(åŒä¸Š),bool,4,true,è´Ÿæžé—­çŽ¯åŠŸèƒ½å¼€å¯
-Miså­—æ®µ,IsUse,(åŒä¸Š),bool,4,false,æ˜¯å¦å¯ç”¨ï¼ˆæ¨¡æ¿å ä½ï¼‰
-Miså­—æ®µ,AdjustCorrectionOfPos,(åŒä¸Š),float,4,1,æ­£æžæ–¹å‘ä¿®æ­£ç³»æ•°ï¼ˆæ¨¡æ¿å ä½ï¼Œä¸Ž PW/OH/MC åŒåå­—æ®µä¸€è‡´ï¼‰
-Miså­—æ®µ,AdjustCorrectionOfNeg,(åŒä¸Š),float,4,-1,è´Ÿæžæ–¹å‘ä¿®æ­£ç³»æ•°ï¼ˆæ¨¡æ¿å ä½ï¼‰
-Miså­—æ®µ,ClosedLoopEnablePos,(åŒä¸Š),bool,4,true,æ­£æžé—­çŽ¯åŠŸèƒ½å¼€å¯ï¼ˆæ¨¡æ¿å ä½ï¼‰
-Miså­—æ®µ,ClosedLoopEnableNeg,(åŒä¸Š),bool,4,true,è´Ÿæžé—­çŽ¯åŠŸèƒ½å¼€å¯ï¼ˆæ¨¡æ¿å ä½ï¼‰
-Miså­—æ®µ,â¸ ä¸“å±žå‚æ•°,(åŒä¸Š),â€”,4,â€”,æžè€³å±‚æ•° / æžè€³è§’åº¦é˜ˆå€¼ / é™å¹…ä¸Žæ­»åŒº / è°ƒèŠ‚é¢‘æ¬¡ç­‰**å°šæ— çŽ°åœºèµ„æ–™ï¼Œæœªæ·»åŠ **ï¼ˆç¦æ­¢è‡†é€ ï¼Œè§„èŒƒ B-09ï¼‰
-CSVè¾“å‡ºåˆ—,PW è¾“å‡ºåˆ—,ç¼“å­˜æ•°æ®_æžç‰‡å®½åº¦é—­çŽ¯,CSV,,,é‡‡é›†æ—¶é—´|è™šæ‹Ÿç  |æ­£æžAé¢CCDæ¨¡å®½æ•°æ®|æ­£æžBé¢CCDæ¨¡å®½æ•°æ®|æ­£æžCCDæ¨¡å®½æ•°æ®|è´ŸæžCCDæ¨¡å®½æ•°æ®|æ­£æžé£žè¡ŒåŽŸç‚¹Y|è´Ÿæžé£žè¡ŒåŽŸç‚¹Y|é—­çŽ¯è®¡ç®—æ—¶é—´|æ­£æžæ˜¯å¦è°ƒæœº|æ­£æžæ€»å®½ç›®æ ‡å€¼|æ­£æžå®½åº¦åå·®å€¼|æ­£æžè°ƒæœºä¸‹å‘å€¼|è´Ÿæžæ˜¯å¦è°ƒæœº|è´Ÿæžæ€»å®½ç›®æ ‡å€¼|è´Ÿæžå®½åº¦åå·®å€¼|è´Ÿæžè°ƒæœºä¸‹å‘å€¼|é—­çŽ¯ç»“æžœä¿¡æ¯
-CSVè¾“å‡ºåˆ—,OH è¾“å‡ºåˆ—,ç¼“å­˜æ•°æ®_åŒ…è¦†OHé—­çŽ¯,CSV,,,é‡‡é›†æ—¶é—´|è™šæ‹Ÿç  |è´Ÿæžå…¥æ–™åŸºå‡†çº åè®¾å®šå€¼|è´Ÿæžå‰æ®µè¡¥å¿é‡‡é›†å€¼|è´ŸæžåŽæ®µè¡¥å¿é‡‡é›†å€¼|è´Ÿæžå…¥æ–™çº åå‘é€å€¼|è´Ÿæžå‰æ®µè¡¥å¿å‘é€å€¼|è´ŸæžåŽæ®µè¡¥å¿å‘é€å€¼|æ­£æžå…¥æ–™åŸºå‡†çº åè®¾å®šå€¼|æ­£æžå‰æ®µè¡¥å¿é‡‡é›†å€¼|æ­£æžåŽæ®µè¡¥å¿é‡‡é›†å€¼|æ­£æžæ­£åé¢æ¨¡å®½è¡¥å¿å€¼A/2|æ­£æžå…¥æ–™çº åå‘é€å€¼|æ­£æžå‰æ®µè¡¥å¿å‘é€å€¼|æ­£æžåŽæ®µè¡¥å¿å‘é€å€¼|é—­çŽ¯ç»“æžœä¿¡æ¯
-CSVè¾“å‡ºåˆ—,MC è¾“å‡ºåˆ—,ç¼“å­˜æ•°æ®_å¤šçº§è”åŠ¨é—­çŽ¯,CSV,,,é‡‡é›†æ—¶é—´|è™šæ‹Ÿç  |æ­£æžå…¥æ–™çº åå®žæ—¶å€¼-ä¸­å€¼|æ­£æžè›‡å½¢çº å4å®žæ—¶å€¼-ä¸­å€¼|æ­£æžè›‡å½¢çº å3å®žæ—¶å€¼-ä¸­å€¼|æ­£æžè›‡å½¢çº å2å®žæ—¶å€¼-ä¸­å€¼|æ­£æžè›‡å½¢çº å1å®žæ—¶å€¼-ä¸­å€¼|è´Ÿæžå…¥æ–™çº åå®žæ—¶å€¼-ä¸­å€¼|è´Ÿæžè›‡å½¢çº å3å®žæ—¶å€¼-ä¸­å€¼|è´Ÿæžè›‡å½¢çº å2å®žæ—¶å€¼-ä¸­å€¼|è´Ÿæžè›‡å½¢çº å1å®žæ—¶å€¼-ä¸­å€¼|ä¸Šéš”è†œå¤–ä¾§ç ´æŸå®žæ—¶å€¼-æ ‡å®šå€¼|ä¸‹éš”è†œå¤–ä¾§ç ´æŸå®žæ—¶å€¼-æ ‡å®šå€¼|ï¼ˆ11 è·¯ Ã— é‡‡é›†æ€»æ•°/æ­£å€¼ä¸ªæ•°/è´Ÿå€¼ä¸ªæ•°/çº åå€¼/çº åä¿¡æ¯ï¼‰|é—­çŽ¯ç»“æžœä¿¡æ¯
-CSVè¾“å‡ºåˆ—,Mis è¾“å‡ºåˆ—,ç¼“å­˜æ•°æ®_æžè€³é”™ä½é—­çŽ¯,CSV,,,é‡‡é›†æ—¶é—´|è™šæ‹Ÿç  |æ­£æžæžè€³é”™ä½å®žæ—¶å€¼-ç›®æ ‡å€¼|è´Ÿæžæžè€³é”™ä½å®žæ—¶å€¼-ç›®æ ‡å€¼|æ­£æžæ˜¯å¦è°ƒæœº|æ­£æžè°ƒæœºä¸‹å‘å€¼|è´Ÿæžæ˜¯å¦è°ƒæœº|è´Ÿæžè°ƒæœºä¸‹å‘å€¼|é—­çŽ¯ç»“æžœä¿¡æ¯ï¼ˆâš ï¸ æ¨¡æ¿å ä½åˆ—ï¼ŒéšçŽ°åœºé€šé“ä¸Žç®—æ³•èµ„æ–™å˜åŒ–ï¼‰
-è½ç›˜è·¯å¾„,ç›®å½•æ¨¡æ¿,â€”,è·¯å¾„,,,{FileSaveRootPath}/{EBusinessType}/ç¼“å­˜æ•°æ®_{BusinessName}/{yyyyMMdd}/
-è½ç›˜è·¯å¾„,EBusinessType å–å€¼,â€”,æžšä¸¾,,,PoleWidth / CoatedOH / MultiCorrect / Mismatch
-è½ç›˜è·¯å¾„,BusinessName å–å€¼,â€”,ä¸­æ–‡,,,æžç‰‡å®½åº¦é—­çŽ¯ / åŒ…è¦† OH é—­çŽ¯ / å¤šçº§è”åŠ¨é—­çŽ¯ / æžè€³é”™ä½é—­çŽ¯
-è½ç›˜è·¯å¾„,CSV åˆ†å·é˜ˆå€¼,â€”,å­—èŠ‚,,,104857600ï¼ˆ100MBï¼Œè¶…å‡ºè½¬ {name}.csv.cache{n}ï¼‰
+ÒµÎñ	·ÖÀà	²ÎÊý¼üÃû	BelongToVM	ValueÀàÐÍ	RoleRank	Ô´ÂëÄ¬ÈÏÖµ	ËµÃ÷
+ÏîÄ¿¼¶	ÏîÄ¿ÉèÖÃ	FileSaveRootPath	VM_JROHClosedLoopPage	string	2	D:\Í¨ÓÃÉÏÎ»»ú\JROHDatas	±Õ»·½á¹û CSV ÂäÅÌ¸ùÄ¿Â¼£»LoadJROHFileSaveRootPathProjectParameter
+PW	²ÎÊý¼ü	PWBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	¡ª	PWBusinessParamModel Õû±í JSON£»Ò³Ãæ VM_PWOfJROHPage£»¶Ô»°¿ò PWBusinessParamDialog
+PW	»ù´¡	IsUse	(Í¬ÉÏ)	bool	4	FALSE	ÊÇ·ñÆôÓÃ
+PW	CP¹Ü¿Ø-¸ôÄ¤×Ü¿í¶È	TotalWidthOfMold_Center	(Í¬ÉÏ)	int	4	196000	»ù×¼Öµ£»²ÎÊý±í 196£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤×Ü¿í¶È	TotalWidthOfMold_LowerLimit	(Í¬ÉÏ)	int	4	195500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 195.5£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤×Ü¿í¶È	TotalWidthOfMold_UpperLimit	(Í¬ÉÏ)	int	4	196500	·¶Î§ÉÏÏÞ£»²ÎÊý±í 196.5£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«¼«Æ¬×Ü¿í	PoleWidthOfNeg_Center	(Í¬ÉÏ)	int	4	191000	»ù×¼Öµ£»²ÎÊý±í 191£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«¼«Æ¬×Ü¿í	PoleWidthOfNeg_LowerLimit	(Í¬ÉÏ)	int	4	190500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 190.5£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«¼«Æ¬×Ü¿í	PoleWidthOfNeg_UpperLimit	(Í¬ÉÏ)	int	4	191500	·¶Î§ÉÏÏÞ£»²ÎÊý±í 191.5£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«¼«Æ¬×Ü¿í	PoleWidthOfPos_Center	(Í¬ÉÏ)	int	4	190800	»ù×¼Öµ£»²ÎÊý±í 190.8£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«¼«Æ¬×Ü¿í	PoleWidthOfPos_LowerLimit	(Í¬ÉÏ)	int	4	190300	·¶Î§ÏÂÏÞ£»²ÎÊý±í 190.3£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«¼«Æ¬×Ü¿í	PoleWidthOfPos_UpperLimit	(Í¬ÉÏ)	int	4	191300	·¶Î§ÉÏÏÞ£»²ÎÊý±í 191.3£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«¼«Æ¬Í¿Ä¤¿í¶È	CoatedWidthOfPos_Center	(Í¬ÉÏ)	int	4	188300	»ù×¼Öµ£»²ÎÊý±í 188.3£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«¼«Æ¬Í¿Ä¤¿í¶È	CoatedWidthOfPos_LowerLimit	(Í¬ÉÏ)	int	4	187800	·¶Î§ÏÂÏÞ£»²ÎÊý±í 187.8£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«¼«Æ¬Í¿Ä¤¿í¶È	CoatedWidthOfPos_UpperLimit	(Í¬ÉÏ)	int	4	188800	·¶Î§ÉÏÏÞ£»²ÎÊý±í 188.8£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«CIL»ù×¼¿í¶È	CilWidthOfPos_Center	(Í¬ÉÏ)	int	4	2500	»ù×¼Öµ£»²ÎÊý±í 2.5£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«CIL»ù×¼¿í¶È	CilWidthOfPos_LowerLimit	(Í¬ÉÏ)	int	4	2000	·¶Î§ÏÂÏÞ£»²ÎÊý±í 2£¨mm£©
+PW	CP¹Ü¿Ø-Õý¼«CIL»ù×¼¿í¶È	CilWidthOfPos_UpperLimit	(Í¬ÉÏ)	int	4	3000	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(¶¥²¿)	NegToPosACTop_Center	(Í¬ÉÏ)	int	4	1600	»ù×¼Öµ£»²ÎÊý±í 1.6£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(¶¥²¿)	NegToPosACTop_LowerLimit	(Í¬ÉÏ)	int	4	600	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.6£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(¶¥²¿)	NegToPosACTop_UpperLimit	(Í¬ÉÏ)	int	4	3500	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.5£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(µ×²¿)	NegToPosACBottom_Center	(Í¬ÉÏ)	int	4	1100	»ù×¼Öµ£»²ÎÊý±í 1.1£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(µ×²¿)	NegToPosACBottom_LowerLimit	(Í¬ÉÏ)	int	4	400	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.4£¨mm£©
+PW	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(µ×²¿)	NegToPosACBottom_UpperLimit	(Í¬ÉÏ)	int	4	3200	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.2£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(¶¥²¿)	MoldToNegSATop_Center	(Í¬ÉÏ)	int	4	2800	»ù×¼Öµ£»²ÎÊý±í 2.8£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(¶¥²¿)	MoldToNegSATop_LowerLimit	(Í¬ÉÏ)	int	4	500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.5£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(¶¥²¿)	MoldToNegSATop_UpperLimit	(Í¬ÉÏ)	int	4	4000	·¶Î§ÉÏÏÞ£»²ÎÊý±í 4£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(µ×²¿)	MoldToNegSABottom_Center	(Í¬ÉÏ)	int	4	2200	»ù×¼Öµ£»²ÎÊý±í 2.2£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(µ×²¿)	MoldToNegSABottom_LowerLimit	(Í¬ÉÏ)	int	4	1000	·¶Î§ÏÂÏÞ£»²ÎÊý±í 1£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(µ×²¿)	MoldToNegSABottom_UpperLimit	(Í¬ÉÏ)	int	4	4500	·¶Î§ÉÏÏÞ£»²ÎÊý±í 4.5£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½CIL(¶¥²¿)	MoldToCILTop_Center	(Í¬ÉÏ)	int	4	1900	»ù×¼Öµ£»²ÎÊý±í 1.9£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½CIL(¶¥²¿)	MoldToCILTop_LowerLimit	(Í¬ÉÏ)	int	4	500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.5£¨mm£©
+PW	CP¹Ü¿Ø-¸ôÄ¤µ½CIL(¶¥²¿)	MoldToCILTop_UpperLimit	(Í¬ÉÏ)	int	4	5000	·¶Î§ÉÏÏÞ£»²ÎÊý±í 5£¨mm£©
+PW	CP¹Ü¿Ø-CIL³¬¸º¼«(¶¥²¿)	CilOverNegTop_Center	(Í¬ÉÏ)	int	4	900	»ù×¼Öµ£»²ÎÊý±í 0.9£¨mm£©
+PW	CP¹Ü¿Ø-CIL³¬¸º¼«(¶¥²¿)	CilOverNegTop_LowerLimit	(Í¬ÉÏ)	int	4	90	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.09£¨mm£©
+PW	CP¹Ü¿Ø-CIL³¬¸º¼«(¶¥²¿)	CilOverNegTop_UpperLimit	(Í¬ÉÏ)	int	4	33500	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.5£¨mm£©?? Óë´úÂë²î 10 ±¶´ýÈ·ÈÏ
+PW	±Õ»·¿ØÖÆ	AdjustCorrectionOfPos	(Í¬ÉÏ)	float	4	1	·½ÏòÐÞÕýÏµÊý-Õý¼«£»²ÎÊý±í 1
+PW	±Õ»·¿ØÖÆ	AdjustCorrectionOfNeg	(Í¬ÉÏ)	float	4	-1	·½ÏòÐÞÕýÏµÊý-¸º¼«£»²ÎÊý±í -1
+PW	±Õ»·¿ØÖÆ	MaxAdjustmentLimitPos	(Í¬ÉÏ)	int	4	400	ÏÞ·ùµ÷Õû×î´óÖµ-Õý¼«£»²ÎÊý±í 0.4£¨mm£©
+PW	±Õ»·¿ØÖÆ	MaxAdjustmentLimitNeg	(Í¬ÉÏ)	int	4	400	ÏÞ·ùµ÷Õû×î´óÖµ-¸º¼«£»²ÎÊý±í 0.4£¨mm£©
+PW	±Õ»·¿ØÖÆ	MinAdjustmentLimitPos	(Í¬ÉÏ)	int	4	100	ÏÞ·ùµ÷Õû×îÐ¡Öµ-Õý¼«£¨ËÀÇø£©£»²ÎÊý±í 0.1£¨mm£©
+PW	±Õ»·¿ØÖÆ	MinAdjustmentLimitNeg	(Í¬ÉÏ)	int	4	100	ÏÞ·ùµ÷Õû×îÐ¡Öµ-¸º¼«£¨ËÀÇø£©£»²ÎÊý±í 0.1£¨mm£©
+PW	±Õ»·¿ØÖÆ	CpControlEnablePos	(Í¬ÉÏ)	bool	4	TRUE	¼«Æ¬×Ü¿íCP¹Ü¿Ø-Õý¼«£»²ÎÊý±í ¿ª
+PW	±Õ»·¿ØÖÆ	CpControlEnableNeg	(Í¬ÉÏ)	bool	4	TRUE	¼«Æ¬×Ü¿íCP¹Ü¿Ø-¸º¼«£»²ÎÊý±í ¹Ø
+PW	±Õ»·¿ØÖÆ	OhWidthCheckValuePos	(Í¬ÉÏ)	int	4	1000	OH×Ü¿í·À´ô³ß´ç-Õý¼«£»²ÎÊý±í 1£¨mm£©
+PW	±Õ»·¿ØÖÆ	OhWidthCheckValueNeg	(Í¬ÉÏ)	int	4	1000	OH×Ü¿í·À´ô³ß´ç-¸º¼«£»²ÎÊý±í 1£¨mm£©
+PW	±Õ»·¿ØÖÆ	ClosedLoopEnablePos	(Í¬ÉÏ)	bool	4	TRUE	±Õ»·¹¦ÄÜ¿ªÆô°´Å¥-Õý¼«£»²ÎÊý±í ÒÑÆôÓÃ
+PW	±Õ»·¿ØÖÆ	ClosedLoopEnableNeg	(Í¬ÉÏ)	bool	4	TRUE	±Õ»·¹¦ÄÜ¿ªÆô°´Å¥-¸º¼«£»²ÎÊý±í ÒÑ¹Ø±Õ
+PW	±Õ»·¿ØÖÆ	AdjustFrequency	(Í¬ÉÏ)	byte	4	2	µ÷½ÚÆµ´Î£¨µçÐ¾Êý£©£»?? ²ÎÊý±íÎª 4 Óë´úÂë²»Ò»ÖÂ´ýÈ·ÈÏ
+PW	±Õ»·¿ØÖÆ	AdjustInterval	(Í¬ÉÏ)	byte	4	1	Õý¸º¼«µ÷½Ú¼ä¸ô£¨n£©£»?? ÉùÃ÷µ«´úÂëÎ´Ê¹ÓÃ
+PW	ÂäÅÌ	EBusinessType	(Í¬Ä¿Â¼)	Ã¶¾Ù	¡ª	PoleWidth	ÂäÅÌÄ¿Â¼²ã¼¶ÓÃÖµ£»ÒµÎñÖÐÎÄÃû ¼«Æ¬¿í¶È±Õ»·
+PW	CSVÊä³öÁÐ	»º´æÊý¾Ý_¼«Æ¬¿í¶È±Õ»·	VM_PWOfJROHPage	CSVÁÐ	¡ª	¡ª	²É¼¯Ê±¼ä|ÐéÄâÂë |Õý¼«AÃæCCDÄ£¿íÊý¾Ý|Õý¼«BÃæCCDÄ£¿íÊý¾Ý|Õý¼«CCDÄ£¿íÊý¾Ý|¸º¼«CCDÄ£¿íÊý¾Ý|Õý¼«·ÉÐÐÔ­µãY|¸º¼«·ÉÐÐÔ­µãY|±Õ»·¼ÆËãÊ±¼ä|Õý¼«ÊÇ·ñµ÷»ú|Õý¼«×Ü¿íÄ¿±êÖµ|Õý¼«¿í¶ÈÆ«²îÖµ|Õý¼«µ÷»úÏÂ·¢Öµ|¸º¼«ÊÇ·ñµ÷»ú|¸º¼«×Ü¿íÄ¿±êÖµ|¸º¼«¿í¶ÈÆ«²îÖµ|¸º¼«µ÷»úÏÂ·¢Öµ|±Õ»·½á¹ûÐÅÏ¢
+OH	²ÎÊý¼ü	OHBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	¡ª	OHBusinessParamModel Õû±í JSON£»Ò³Ãæ VM_OHOfJROHPage£»¶Ô»°¿ò OHBusinessParamDialog
+OH	»ù´¡	IsUse	(Í¬ÉÏ)	bool	4	FALSE	ÊÇ·ñÆôÓÃ£»?? Ä£ÐÍÓÐ¸Ã×Ö¶Îµ«Î´Ê¹ÓÃ
+OH	CP¹Ü¿Ø-¸ôÄ¤×Ü¿í¶È	TotalWidthOfMold_Center	(Í¬ÉÏ)	int	4	78900	»ù×¼Öµ£»²ÎÊý±í 78.9£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤×Ü¿í¶È	TotalWidthOfMold_LowerLimit	(Í¬ÉÏ)	int	4	78500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 78.5£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤×Ü¿í¶È	TotalWidthOfMold_UpperLimit	(Í¬ÉÏ)	int	4	79300	·¶Î§ÉÏÏÞ£»²ÎÊý±í 79.3£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«¼«Æ¬×Ü¿í	PoleWidthOfNeg_Center	(Í¬ÉÏ)	int	4	72700	»ù×¼Öµ£»²ÎÊý±í 72.7£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«¼«Æ¬×Ü¿í	PoleWidthOfNeg_LowerLimit	(Í¬ÉÏ)	int	4	72200	·¶Î§ÏÂÏÞ£»²ÎÊý±í 72.2£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«¼«Æ¬×Ü¿í	PoleWidthOfNeg_UpperLimit	(Í¬ÉÏ)	int	4	73200	·¶Î§ÉÏÏÞ£»²ÎÊý±í 73.2£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«¼«Æ¬×Ü¿í	PoleWidthOfPos_Center	(Í¬ÉÏ)	int	4	72900	»ù×¼Öµ£»²ÎÊý±í 72.9£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«¼«Æ¬×Ü¿í	PoleWidthOfPos_LowerLimit	(Í¬ÉÏ)	int	4	72400	·¶Î§ÏÂÏÞ£»²ÎÊý±í 72.4£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«¼«Æ¬×Ü¿í	PoleWidthOfPos_UpperLimit	(Í¬ÉÏ)	int	4	73400	·¶Î§ÉÏÏÞ£»²ÎÊý±í 73.4£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«¼«Æ¬Í¿Ä¤¿í¶È	CoatedWidthOfPos_Center	(Í¬ÉÏ)	int	4	70500	»ù×¼Öµ£»²ÎÊý±í 70.5£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«¼«Æ¬Í¿Ä¤¿í¶È	CoatedWidthOfPos_LowerLimit	(Í¬ÉÏ)	int	4	70000	·¶Î§ÏÂÏÞ£»²ÎÊý±í 70£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«¼«Æ¬Í¿Ä¤¿í¶È	CoatedWidthOfPos_UpperLimit	(Í¬ÉÏ)	int	4	71000	·¶Î§ÉÏÏÞ£»²ÎÊý±í 71£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«CIL»ù×¼¿í¶È	CilWidthOfPos_Center	(Í¬ÉÏ)	int	4	3100	»ù×¼Öµ£»²ÎÊý±í 3.1£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«CIL»ù×¼¿í¶È	CilWidthOfPos_LowerLimit	(Í¬ÉÏ)	int	4	2200	·¶Î§ÏÂÏÞ£»²ÎÊý±í 2.2£¨mm£©
+OH	CP¹Ü¿Ø-Õý¼«CIL»ù×¼¿í¶È	CilWidthOfPos_UpperLimit	(Í¬ÉÏ)	int	4	3700	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.7£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(¶¥²¿)	NegToPosACTop_Center	(Í¬ÉÏ)	int	4	1700	»ù×¼Öµ£»²ÎÊý±í 1.7£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(¶¥²¿)	NegToPosACTop_LowerLimit	(Í¬ÉÏ)	int	4	300	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.3£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(¶¥²¿)	NegToPosACTop_UpperLimit	(Í¬ÉÏ)	int	4	3700	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.7£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(µ×²¿)	NegToPosACBottom_Center	(Í¬ÉÏ)	int	4	1000	»ù×¼Öµ£»²ÎÊý±í 1.0£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(µ×²¿)	NegToPosACBottom_LowerLimit	(Í¬ÉÏ)	int	4	300	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.3£¨mm£©
+OH	CP¹Ü¿Ø-¸º¼«µ½Õý¼«AC(µ×²¿)	NegToPosACBottom_UpperLimit	(Í¬ÉÏ)	int	4	3700	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.7£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(¶¥²¿)	MoldToNegSATop_Center	(Í¬ÉÏ)	int	4	2500	»ù×¼Öµ£»²ÎÊý±í 2.5£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(¶¥²¿)	MoldToNegSATop_LowerLimit	(Í¬ÉÏ)	int	4	100	·¶Î§ÏÂÏÞ£»²ÎÊý±í 1£¨mm£©?? Óë´úÂë²î 10 ±¶´ýÈ·ÈÏ
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(¶¥²¿)	MoldToNegSATop_UpperLimit	(Í¬ÉÏ)	int	4	5600	·¶Î§ÉÏÏÞ£»²ÎÊý±í 5.6£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(µ×²¿)	MoldToNegSABottom_Center	(Í¬ÉÏ)	int	4	3300	»ù×¼Öµ£»²ÎÊý±í 3.3£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(µ×²¿)	MoldToNegSABottom_LowerLimit	(Í¬ÉÏ)	int	4	500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.5£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½¸º¼«SA(µ×²¿)	MoldToNegSABottom_UpperLimit	(Í¬ÉÏ)	int	4	5600	·¶Î§ÉÏÏÞ£»²ÎÊý±í 5.6£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½CIL(¶¥²¿)	MoldToCILTop_Center	(Í¬ÉÏ)	int	4	1800	»ù×¼Öµ£»²ÎÊý±í 1.8£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½CIL(¶¥²¿)	MoldToCILTop_LowerLimit	(Í¬ÉÏ)	int	4	500	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.5£¨mm£©
+OH	CP¹Ü¿Ø-¸ôÄ¤µ½CIL(¶¥²¿)	MoldToCILTop_UpperLimit	(Í¬ÉÏ)	int	4	5600	·¶Î§ÉÏÏÞ£»²ÎÊý±í 5.6£¨mm£©
+OH	CP¹Ü¿Ø-CIL³¬¸º¼«(¶¥²¿)	CilOverNegTop_Center	(Í¬ÉÏ)	int	4	1400	»ù×¼Öµ£»²ÎÊý±í 1.4£¨mm£©
+OH	CP¹Ü¿Ø-CIL³¬¸º¼«(¶¥²¿)	CilOverNegTop_LowerLimit	(Í¬ÉÏ)	int	4	100	·¶Î§ÏÂÏÞ£»²ÎÊý±í 0.1£¨mm£©
+OH	CP¹Ü¿Ø-CIL³¬¸º¼«(¶¥²¿)	CilOverNegTop_UpperLimit	(Í¬ÉÏ)	int	4	3900	·¶Î§ÉÏÏÞ£»²ÎÊý±í 3.9£¨mm£©
+OH	±Õ»·¿ØÖÆ	IsSigleClosedLoop	(Í¬ÉÏ)	bool	4	FALSE	ÊÇ·ñµ¥±ß±Õ»·£»?? ²ÎÊý½çÃæÎÞ¶ÔÓ¦¿Ø¼þ
+OH	±Õ»·¿ØÖÆ	AdjustCorrectionOfPos	(Í¬ÉÏ)	float	4	1	·½ÏòÐÞÕýÏµÊý-Õý¼«£»²ÎÊý±í 1
+OH	±Õ»·¿ØÖÆ	AdjustCorrectionOfNeg	(Í¬ÉÏ)	float	4	-1	·½ÏòÐÞÕýÏµÊý-¸º¼«£»²ÎÊý±í -1
+OH	±Õ»·¿ØÖÆ	CountOfFront	(Í¬ÉÏ)	byte	4	5	OHÊý¾ÝÇ°·Ö¶Î¸öÊý n£»?? ½çÃæ°ó¶¨Ð´×÷ CountOfFrontEnd Óë×Ö¶ÎÃû²»Ò»ÖÂ
+OH	±Õ»·¿ØÖÆ	CountOfBack	(Í¬ÉÏ)	byte	4	5	OHÊý¾Ýºó·Ö¶Î¸öÊý m£»?? ½çÃæ°ó¶¨Ð´×÷ CountOfBackEnd Óë×Ö¶ÎÃû²»Ò»ÖÂ
+OH	±Õ»·¿ØÖÆ	IsFrontOfPosDetextion	(Í¬ÉÏ)	bool	4	TRUE	Õý¼«¾íÈÆCCD¼ì²âÃæ£»²ÎÊý±í ÕýÃæ/·´Ãæ
+OH	±Õ»·¿ØÖÆ	DoubleSideEnableOfPos	(Í¬ÉÏ)	bool	4	TRUE	Õý¼«Ë«ÃæOH¿ØÖÆ¿ªÆô£»²ÎÊý±í ÒÑÆôÓÃ/ÒÑ¹Ø±Õ
+OH	±Õ»·¿ØÖÆ	K	(Í¬ÉÏ)	int	4	1000	ÁÏÏßÏò´ó°åÒÆ¶¯0.15ËùÐèÒªµÄ¾ÀÆ«Öµ K£¨¡À0.15£©
+OH	±Õ»·¿ØÖÆ	MaxLimitOfPos	(Í¬ÉÏ)	int	4	300	ÏÞ·ùµ÷Õû×î´óÖµ-Õý¼«£»²ÎÊý±í 0.3£¨mm£©
+OH	±Õ»·¿ØÖÆ	MaxLimitOfNeg	(Í¬ÉÏ)	int	4	300	ÏÞ·ùµ÷Õû×î´óÖµ-¸º¼«£»²ÎÊý±í 0.3£¨mm£©
+OH	±Õ»·¿ØÖÆ	MinLimitOfPos	(Í¬ÉÏ)	int	4	50	ÏÞ·ùµ÷Õû×îÐ¡Öµ-Õý¼«£¨ËÀÇø£©£»²ÎÊý±í 0.05£¨mm£©
+OH	±Õ»·¿ØÖÆ	MinLimitOfNeg	(Í¬ÉÏ)	int	4	50	ÏÞ·ùµ÷Õû×îÐ¡Öµ-¸º¼«£¨ËÀÇø£©£»²ÎÊý±í 0.05£¨mm£©
+OH	±Õ»·¿ØÖÆ	ClosedLoopEnablePos	(Í¬ÉÏ)	bool	4	TRUE	±Õ»·¹¦ÄÜ¿ªÆô°´Å¥-Õý¼«£»²ÎÊý±í ÒÑÆôÓÃ
+OH	±Õ»·¿ØÖÆ	ClosedLoopEnableNeg	(Í¬ÉÏ)	bool	4	TRUE	±Õ»·¹¦ÄÜ¿ªÆô°´Å¥-¸º¼«£»²ÎÊý±í ÒÑ¹Ø±Õ
+OH	±Õ»·¿ØÖÆ	AdjustFrequency	(Í¬ÉÏ)	byte	4	2	µ÷½ÚÆµ´Î£¨SµçÐ¾Êý£©£»²ÎÊý±í 2£¨¼ä¸ô£©
+OH	ÂäÅÌ	EBusinessType	(Í¬Ä¿Â¼)	Ã¶¾Ù	¡ª	CoatedOH	ÂäÅÌÄ¿Â¼²ã¼¶ÓÃÖµ£»ÒµÎñÖÐÎÄÃû °ü¸²OH±Õ»·
+OH	CSVÊä³öÁÐ	»º´æÊý¾Ý_°ü¸²OH±Õ»·	VM_OHOfJROHPage	CSVÁÐ	¡ª	¡ª	²É¼¯Ê±¼ä|ÐéÄâÂë |¸º¼«ÈëÁÏ»ù×¼¾ÀÆ«Éè¶¨Öµ|¸º¼«Ç°¶Î²¹³¥²É¼¯Öµ|¸º¼«ºó¶Î²¹³¥²É¼¯Öµ|¸º¼«ÈëÁÏ¾ÀÆ«·¢ËÍÖµ|¸º¼«Ç°¶Î²¹³¥·¢ËÍÖµ|¸º¼«ºó¶Î²¹³¥·¢ËÍÖµ|Õý¼«ÈëÁÏ»ù×¼¾ÀÆ«Éè¶¨Öµ|Õý¼«Ç°¶Î²¹³¥²É¼¯Öµ|Õý¼«ºó¶Î²¹³¥²É¼¯Öµ|Õý¼«Õý·´ÃæÄ£¿í²¹³¥ÖµA/2|Õý¼«ÈëÁÏ¾ÀÆ«·¢ËÍÖµ|Õý¼«Ç°¶Î²¹³¥·¢ËÍÖµ|Õý¼«ºó¶Î²¹³¥·¢ËÍÖµ|±Õ»·½á¹ûÐÅÏ¢
+MC	²ÎÊý¼ü	MCBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	¡ª	MCBusinessParamModel Õû±í JSON£»Ò³Ãæ VM_MCOfJROHPage£»¶Ô»°¿ò MCBusinessParamDialog
+MC	Êý¾ÝÔ´	WatcherRootPath	(Í¬ÉÏ)	string	4	D:\MESDATA\12_ÕÅÁ¦Êý¾Ý-TensionData-????????????	ÕÅÁ¦ CSV ¼àÌý¸ùÄ¿Â¼£¨MC ¶ÀÓÐ£©
+MC	±Õ»·¿ØÖÆ	AdjustCorrectionOfPos	(Í¬ÉÏ)	float	4	1	·½ÏòÐÞÕýÏµÊýK-¼«Æ¬²à£»²ÎÊý±í 1
+MC	±Õ»·¿ØÖÆ	AdjustCorrectionOfNeg	(Í¬ÉÏ)	float	4	-1	·½ÏòÐÞÕýÏµÊýK-¸ôÄ¤²à£»²ÎÊý±í -1
+MC	±Õ»·¿ØÖÆ	T	(Í¬ÉÏ)	byte	4	1	Êý¾Ý²É¼¯ÖÜÆÚ T£¨²É¼¯ T ¸öµ÷ÕûÒ»´Î¡¢¼ä¸ô T ºóÔÙ²É¼¯£©
+MC	±Õ»·¿ØÖÆ	K	(Í¬ÉÏ)	float	4	0.5	´¥·¢µ÷ÕûãÐÖµ Kn£¨50%~80% ·¶Î§·À´ô£©
+MC	±Õ»·¿ØÖÆ	D	(Í¬ÉÏ)	float	4	0.05	µ÷Õû·´À¡Öµ D Æ«²îÖµ£¨0.05~0.3 ·¶Î§·À´ô£©
+MC	±Õ»·¿ØÖÆ	ClosedLoopEnablePos	(Í¬ÉÏ)	bool	4	TRUE	¹¦ÄÜ¿ªÆô°´Å¥-¼«Æ¬²à£»²ÎÊý±í ÒÑÆôÓÃ
+MC	±Õ»·¿ØÖÆ	ClosedLoopEnableNeg	(Í¬ÉÏ)	bool	4	TRUE	¹¦ÄÜ¿ªÆô°´Å¥-¸ôÄ¤²à£»²ÎÊý±í ÒÑ¹Ø±Õ
+MC	ÂäÅÌ	EBusinessType	(Í¬Ä¿Â¼)	Ã¶¾Ù	¡ª	MultiCorrect	ÂäÅÌÄ¿Â¼²ã¼¶ÓÃÖµ£»ÒµÎñÖÐÎÄÃû ¶à¼¶Áª¶¯±Õ»·
+MC	CSVÊä³öÁÐ	»º´æÊý¾Ý_¶à¼¶Áª¶¯±Õ»·	VM_MCOfJROHPage	CSVÁÐ	¡ª	¡ª	²É¼¯Ê±¼ä|ÐéÄâÂë |11 Â·¾ÀÆ«Í¨µÀÊµÊ±Öµ-ÖÐÖµ|£¨11 Â· ¡Á ²É¼¯×ÜÊý/ÕýÖµ¸öÊý/¸ºÖµ¸öÊý/¾ÀÆ«Öµ/¾ÀÆ«ÐÅÏ¢£©|±Õ»·½á¹ûÐÅÏ¢
+Mis	²ÎÊý¼ü	MisBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	¡ª	MisBusinessParamModel Õû±í JSON£»Ò³Ãæ VM_MisOfJROHPage£»¶Ô»°¿ò MisBusinessParamDialog
+Mis	CP¿ØÖÆ-¼«¶ú´íÎ»Á¿	MisalignmentOfTab	(Í¬ÉÏ)	float	4	0	²ÎÊý±í¼Ç×÷ d ? ´ýÏÖ³¡ÊýÖµ
+Mis	CP¿ØÖÆ-µçÐ¾½á¹¹	IsSingleTab	(Í¬ÉÏ)	bool	4	TRUE	true=µ¥¼«¶ú / false=Ë«¼«¶ú£¨¶þÑ¡Ò»¿ª¹Ø£©
+Mis	CP¿ØÖÆ-¾íÕëÖÜ³¤	NeedleCircumference	(Í¬ÉÏ)	float	4	265	²ÎÊý±í 265
+Mis	CP¿ØÖÆ-Õý¼«½ü±ß¾à	NearEdgeOfPos	(Í¬ÉÏ)	float	4	24	²ÎÊý±í 24
+Mis	CP¿ØÖÆ-¸º¼«½ü±ß¾à	NearEdgeOfNeg	(Í¬ÉÏ)	float	4	24	²ÎÊý±í 24
+Mis	CP¿ØÖÆ-µçÐ¾¸ôÄ¤³¤¶È	DiaphragmLengthOfCell	(Í¬ÉÏ)	float	4	0	²ÎÊý±í¼Ç×÷ L0±ê×¼ ? ´ýÏÖ³¡ÊýÖµ
+Mis	CP¿ØÖÆ-Ã¿¾í¸ôÄ¤×Ü³¤	TotalDiaphragmLengthPerRoll	(Í¬ÉÏ)	float	4	0	²ÎÊý±í¼Ç×÷ L×Ü ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-»º´æÓë¾íÕë	CacheCountOfPos	(Í¬ÉÏ)	int	4	0	Õý¼«»º´æ¸öÊý a ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-»º´æÓë¾íÕë	CacheCountOfNeg	(Í¬ÉÏ)	int	4	0	¸º¼«»º´æ¸öÊý b ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-»º´æÓë¾íÕë	NeedleCount	(Í¬ÉÏ)	int	4	3	Éè±¸¾íÕë¸öÊý£»²ÎÊý±í 3
+Mis	Éè±¸¿ØÖÆ-»º´æÓë¾íÕë	DiameterChangePerMm	(Í¬ÉÏ)	float	4	0	1mmÖÜ³¤±ä¾¶ ¡÷S ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-»º´æÓë¾íÕë	DiameterAdjustFrequency	(Í¬ÉÏ)	int	4	1	±ä¾¶µ÷½ÚÆµ´Î£»²ÎÊý±í 1
+Mis	Éè±¸¿ØÖÆ-»º´æÓë¾íÕë	IsPosConsistency	(Í¬ÉÏ)	bool	4	TRUE	ÖÜ³¤Ò»ÖÂÐÔÊý¾Ý true=Õý¼« / false=¸º¼«
+Mis	Éè±¸¿ØÖÆ-»»¾íÊÕ¼¯Êý	CollectCountOfDiaphragm	(Í¬ÉÏ)	int	4	5	»»¸ôÄ¤ÊÕ¼¯Êý£»²ÎÊý±í 5
+Mis	Éè±¸¿ØÖÆ-»»¾íÊÕ¼¯Êý	CollectCountOfPos	(Í¬ÉÏ)	int	4	5	»»Õý¼«ÊÕ¼¯Êý£»²ÎÊý±í 5
+Mis	Éè±¸¿ØÖÆ-»»¾íÊÕ¼¯Êý	CollectCountOfNeg	(Í¬ÉÏ)	int	4	5	»»¸º¼«ÊÕ¼¯Êý£»²ÎÊý±í 5
+Mis	Éè±¸¿ØÖÆ-ÏÞ·ù	MaxLimitOfDieCut	(Í¬ÉÏ)	float	4	15	Ä£ÇÐ×î´óÏÞ·ù£»²ÎÊý±í 15
+Mis	Éè±¸¿ØÖÆ-ÏÞ·ù	MinLimitOfDieCut	(Í¬ÉÏ)	float	4	2	Ä£ÇÐ×îÐ¡ÏÞ·ù£»²ÎÊý±í 2
+Mis	Éè±¸¿ØÖÆ-ÏÞ·ù	MaxLimitOfDiameterChange	(Í¬ÉÏ)	float	4	30	±ä¾¶×î´óÏÞ·ù£»²ÎÊý±í 30
+Mis	Éè±¸¿ØÖÆ-ÏÞ·ù	MinLimitOfDiameterChange	(Í¬ÉÏ)	float	4	3	±ä¾¶×îÐ¡ÏÞ·ù£»²ÎÊý±í 3
+Mis	Éè±¸¿ØÖÆ-ÏÞ·ù	MaxLimitOfInfeed	(Í¬ÉÏ)	float	4	2	ÈëÁÏ×î´óÏÞ·ù£»²ÎÊý±í 2
+Mis	Éè±¸¿ØÖÆ-ÏÞ·ù	MinLimitOfInfeed	(Í¬ÉÏ)	float	4	0.5	ÈëÁÏ×îÐ¡ÏÞ·ù£»²ÎÊý±í 0.5
+Mis	Éè±¸¿ØÖÆ-µ÷½ÚÆµ´Î	Is2nInfeedFrequency	(Í¬ÉÏ)	bool	4	TRUE	ÈëÁÏµ÷½ÚÆµ´Î true=2n / false=3n
+Mis	Éè±¸¿ØÖÆ-Ç°À¡´íÎ»	FeedforwardMiddleMisalignmentOfDiaphragm	(Í¬ÉÏ)	float	4	0	¸ôÄ¤Ç°À¡ÖÐ¼ä´íÎ» DÖÐ ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-Ç°À¡´íÎ»	FeedforwardEndMisalignmentOfDiaphragm	(Í¬ÉÏ)	float	4	0	¸ôÄ¤Ç°À¡Ê×Î²´íÎ» DÎ² ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-Ç°À¡´íÎ»	FeedforwardMiddleMisalignmentOfPos	(Í¬ÉÏ)	float	4	0	Õý¼«Ç°À¡ÖÐ¼ä´íÎ» DÖÐ ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-Ç°À¡´íÎ»	FeedforwardEndMisalignmentOfPos	(Í¬ÉÏ)	float	4	0	Õý¼«Ç°À¡Ê×Î²´íÎ» DÎ² ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-Ç°À¡´íÎ»	FeedforwardMiddleMisalignmentOfNeg	(Í¬ÉÏ)	float	4	0	¸º¼«Ç°À¡ÖÐ¼ä´íÎ» DÖÐ ? ´ýÏÖ³¡ÊýÖµ
+Mis	Éè±¸¿ØÖÆ-Ç°À¡´íÎ»	FeedforwardEndMisalignmentOfNeg	(Í¬ÉÏ)	float	4	0	¸º¼«Ç°À¡Ê×Î²´íÎ» DÎ² ? ´ýÏÖ³¡ÊýÖµ
+Mis	ÂäÅÌ	EBusinessType	(Í¬Ä¿Â¼)	Ã¶¾Ù	¡ª	Mismatch	ÂäÅÌÄ¿Â¼²ã¼¶ÓÃÖµ£»ÒµÎñÖÐÎÄÃû ¼«¶ú´íÎ»±Õ»·
+Mis	CSVÊä³öÁÐ	»º´æÊý¾Ý_¼«¶ú´íÎ»±Õ»·	VM_MisOfJROHPage	CSVÁÐ	¡ª	¡ª	²É¼¯Ê±¼ä|ÐéÄâÂë |Õý¼«¼«¶ú´íÎ»ÊµÊ±Öµ-Ä¿±êÖµ|¸º¼«¼«¶ú´íÎ»ÊµÊ±Öµ-Ä¿±êÖµ|Õý¼«ÊÇ·ñµ÷»ú|Õý¼«µ÷»úÏÂ·¢Öµ|¸º¼«ÊÇ·ñµ÷»ú|¸º¼«µ÷»úÏÂ·¢Öµ|±Õ»·½á¹ûÐÅÏ¢£¨?? Ä£°åÕ¼Î»ÁÐ ËæºóÐø×ÊÁÏµ÷Õû£©
+Í¨ÓÃ	ÂäÅÌÂ·¾¶	Ä¿Â¼Ä£°å	¡ª	Â·¾¶	¡ª	¡ª	{FileSaveRootPath}/{EBusinessType}/»º´æÊý¾Ý_{BusinessName}/{yyyyMMdd}/
+Í¨ÓÃ	ÂäÅÌÂ·¾¶	CSV·Ö¾íãÐÖµ	¡ª	×Ö½Ú	¡ª	¡ª	104857600£¨100MB ³¬³ö×ª {name}.csv.cache{n}£©
+Í¨ÓÃ	Á¿¸ÙËµÃ÷	³ß´çÀà×Ö¶Îµ¥Î»	¡ª	ËµÃ÷	¡ª	¡ª	´úÂëÕûÊýµ¥Î» = ?m£¨0.001mm£©£º196000=196mm¡¢78900=78.9mm¡¢2500=2.5mm£¨ÒÀ¾Ý ²ÎÊý±í mm Öµ ¡Á 1000 = ´úÂëÄ¬ÈÏÖµ£©

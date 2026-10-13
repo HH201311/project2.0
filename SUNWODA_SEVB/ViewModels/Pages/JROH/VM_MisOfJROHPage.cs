@@ -163,8 +163,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
 
             if (gatherData == null) return;
 
-            AppendSeries(PositiveTabSeries1, PositiveTabSeries2, gatherData.PositiveTabData);
-            AppendSeries(NegativeTabSeries1, NegativeTabSeries2, gatherData.NegativeTabData);
+            AppendSeries(PositiveTabSeries1, PositiveTabSeries2, gatherData.PositiveTabValues);
+            AppendSeries(NegativeTabSeries1, NegativeTabSeries2, gatherData.NegativeTabValues);
         }
 
         /// <summary>
@@ -176,11 +176,11 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
         private static void AppendSeries(
             ObservableCollection<(DateTime, double)> detectSeries,
             ObservableCollection<(DateTime, double)> targetSeries,
-            MisGatherData? data)
+            List<(DateTime time, float detValue, float tarValue)>? data)
         {
-            if (data?.Values == null || data.Values.Count == 0) return;
+            if (data == null || data.Count == 0) return;
 
-            foreach (var value in data.Values)
+            foreach (var value in data)
             {
                 detectSeries.Add((value.time, value.detValue));
                 targetSeries.Add((value.time, value.tarValue));

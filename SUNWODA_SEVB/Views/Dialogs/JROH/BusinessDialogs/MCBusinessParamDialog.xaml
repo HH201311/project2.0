@@ -512,7 +512,7 @@
                                 <Border Height="32" Style="{StaticResource DataPathBorderStyle}">
                                     <uc:FloderPicker
                                         Margin="8,0,4,0"
-                                        FloderText="{Binding ItemSource.WatcherRootPath, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        FloderText="{Binding ItemSource.WatcherRootPath, Mode=TwoWay}"
                                         FontFamily="Consolas"
                                         FontSize="12.5"
                                         Foreground="#FF1E293B"

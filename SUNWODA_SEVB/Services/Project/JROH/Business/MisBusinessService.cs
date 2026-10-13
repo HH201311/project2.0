@@ -255,8 +255,8 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
         /// <remarks>
         /// <para>资料到位后按以下顺序实现（对照 <c>docs/代码开发规范.md</c> 第二篇）：</para>
         /// <para>1) 从 <paramref name="gatherData"/> 取各通道采样，做有效性校验（采样数为 0 直接返回，避免 0/0）；</para>
-        /// <para>2) 按现场工艺判据算出「是否调机 + 下发值」（含方向修正系数、限幅、死区）；</para>
-        /// <para>3) 闭环开关 <c>ClosedLoopEnablePos/Neg</c> 为 false 时只记「推荐下发值」，<b>不写 PLC</b>（规范 A-03）；</para>
+        /// <para>2) 按现场工艺判据算出「是否调机 + 下发值」（含限幅、死区；是否使用方向修正系数待现场确认）；</para>
+        /// <para>3) 本业务参数表未含闭环开关项：是否允许下发需先与现场确认，未确认前一律只记「推荐下发值」、<b>不写 PLC</b>（规范 A-03）；</para>
         /// <para>4) 下发用 <c>WritePLCAsync("&lt;点位名&gt;", 值)</c>，点位名以 <c>docs/JROH/plc点位表.csv</c> 为准，<b>禁止臆造</b>（规范 B-09）；</para>
         /// <para>5) 写值必须判成败并记录/上报（规范 B-01），关键信号建议读回确认（规范 B-02）。</para>
         /// </remarks>
@@ -335,8 +335,8 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                 { "采集时间", gatherData.GatherTime.ToString("yyyy-MM-dd HH:mm:ss.fff") },
                 { "虚拟码 ", gatherData.VirtualCode ?? string.Empty },
 
-                { "正极极耳错位实时值-目标值", FormatPairValues(gatherData.PositiveTabData?.Values) },
-                { "负极极耳错位实时值-目标值", FormatPairValues(gatherData.NegativeTabData?.Values) },
+                { "正极极耳错位实时值-目标值", FormatPairValues(gatherData.PositiveTabValues) },
+                { "负极极耳错位实时值-目标值", FormatPairValues(gatherData.NegativeTabValues) },
 
                 { "正极是否调机", calculateData.IsAdjustOfPos ? "是" : "否" },
                 { "正极调机下发值", calculateData.IssuedValueOfPos.ToString() },

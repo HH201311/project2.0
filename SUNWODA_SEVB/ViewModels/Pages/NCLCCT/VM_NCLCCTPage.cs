@@ -5071,15 +5071,17 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     imgHeight
                 );
 
-                // —— ③ 终稿：画布可加宽；左右栏留小缝即可，避免过大空白 ——
+                // —— ③ 终稿：画布可加宽；「管控 Gap4~6均值」标签更长，测量列加宽防叠字 ——
                 const int bandFontSize = 56;
-                // 左栏最长行约到 1080～1120，测量区紧跟其后
-                const double measureCol0 = 1140;
-                const double measureColWidth = 430;
-                const int measureCols = 4; // Gap 每列 3 行 → 最多约 4 列
+                var visitLayout = NclcctEdition.IsVisit;
+                // 生产/客户均有均值行，左栏数值起点右移后测量区也右移
+                var measureCol0 = visitLayout ? 1320.0 : 1280.0;
+                var measureColWidth = visitLayout ? 500.0 : 480.0;
+                // 客户可见约 8 Gap + 均值 → 3 列；生产最多约 4 列
+                var measureCols = visitLayout ? 3 : 4;
                 var canvasW = Math.Max(
                     imgWidth,
-                    (int)(measureCol0 + measureCols * measureColWidth + 60)
+                    (int)(measureCol0 + measureCols * measureColWidth + 80)
                 );
 
                 finalWindow = new HWindow();
@@ -5188,15 +5190,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             var bandRowCount = visit ? 4 : 5;
             var fittedLine = (bandH - 8.0) / bandRowCount;
             var lineHeight = visit
-                ? Math.Min(bandFontSize + 28.0, Math.Max(48.0, fittedLine))
+                ? Math.Min(bandFontSize + 28.0, Math.Max(52.0, fittedLine))
                 : Math.Min(bandFontSize + 20.0, Math.Max(40.0, fittedLine));
             var fittedFont = visit
-                ? Math.Min(bandFontSize, Math.Max(40, (int)(lineHeight - 10)))
+                ? Math.Min(bandFontSize, Math.Max(42, (int)(lineHeight - 12)))
                 : Math.Min(bandFontSize, Math.Max(36, (int)(lineHeight - 8)));
             window.SetFont($"Times New Roman-Bold-{fittedFont}");
 
             const double titleX = 40;
-            const double leftValueX = 430;
+            // 「管控 Gap4~6均值:」中文更宽，数值起点右移，避免与标签叠字
+            const double leftValueX = 560.0;
             double textCurrentRow = textInitRow;
 
             DrawLabelValue(
@@ -5292,7 +5295,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     var col = measureCol0 + colIndex * measureColWidth;
                     var row = measureHeaderRow + lineHeight * (1 + rowIndex);
                     var valueColor = IsHuaweiGapValueDisplayOk(gapIndex, mms) ? "green" : "red";
-                    var valueOffset = gapIndex >= 10 ? 195.0 : 155.0;
+                    // Bold 大字：「Gap10:」≈195；列加宽后单数字 Gap 也略留缝
+                    var valueOffset = gapIndex >= 10
+                        ? (visit ? 210.0 : 205.0)
+                        : (visit ? 170.0 : 165.0);
                     DrawLabelValue(
                         window,
                         row,
@@ -5324,6 +5330,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     var col = measureCol0 + meanColIndex * measureColWidth;
                     var row = measureHeaderRow + lineHeight * (1 + meanRowIndex);
                     var meanColor = IsHuaweiGap456MeanDisplayOk(gap456Mean) ? "green" : "red";
+                    // 「Gap4~6:」比「Gap9:」宽，175 会叠到 0.xxx
+                    const double meanValueOffset = 230.0;
                     DrawLabelValue(
                         window,
                         row,
@@ -5332,7 +5340,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                         "orange",
                         $"{gap456Mean:F3} mm",
                         meanColor,
-                        col + 175.0
+                        col + meanValueOffset
                     );
                 }
             }

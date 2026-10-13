@@ -8,6 +8,6 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
     internal static class NclcctEdition
     {
         /// <summary>当前是否客户参观版编译。</summary>
-        public const bool IsVisit = false;
+        public const bool IsVisit = true;
     }
 }

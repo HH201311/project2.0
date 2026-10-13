@@ -158,6 +158,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         private double huaweiNorm2LowerMm = 0.020;
         /// <summary>规范2：Gap4~9 上限，默认 0.061。</summary>
         private double huaweiNorm2MeanUpperMm = 0.061;
+        /// <summary>Gap4~6 均值管控下限，默认与单值相同 0.020（独立变量）。</summary>
+        private double huaweiGap456MeanLowerMm = 0.020;
+        /// <summary>Gap4~6 均值管控上限，默认与单值相同 0.061（独立变量）。</summary>
+        private double huaweiGap456MeanUpperMm = 0.061;
         /// <summary>规范1：Gap10 上限，默认 0.200。</summary>
         private double huaweiNorm1UpperMm = 0.200;
         private ObservableCollection<DetectionItemModel>? detectionItems;
@@ -651,6 +655,38 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     roundValue
                 );
                 SetProperty(ref huaweiNorm2MeanUpperMm, roundValue);
+            }
+        }
+
+        /// <summary>Gap4~6 均值管控下限 mm（与单值下限默认相同，独立配置）。</summary>
+        public double HuaweiGap456MeanLowerMm
+        {
+            get => huaweiGap456MeanLowerMm;
+            set
+            {
+                var roundValue = Math.Round(value, 3);
+                _projectSettingRepository.UpdateSettingValue(
+                    "HuaweiGap456MeanLowerMm",
+                    "VM_NCLCCTPage",
+                    roundValue
+                );
+                SetProperty(ref huaweiGap456MeanLowerMm, roundValue);
+            }
+        }
+
+        /// <summary>Gap4~6 均值管控上限 mm（与单值上限默认相同，独立配置）。</summary>
+        public double HuaweiGap456MeanUpperMm
+        {
+            get => huaweiGap456MeanUpperMm;
+            set
+            {
+                var roundValue = Math.Round(value, 3);
+                _projectSettingRepository.UpdateSettingValue(
+                    "HuaweiGap456MeanUpperMm",
+                    "VM_NCLCCTPage",
+                    roundValue
+                );
+                SetProperty(ref huaweiGap456MeanUpperMm, roundValue);
             }
         }
 
@@ -1541,6 +1577,18 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 () => HuaweiNorm2MeanUpperMm,
                 v => HuaweiNorm2MeanUpperMm = v,
                 "规范2 Gap4~9上限"
+            );
+            EnsureHuaweiGapSetting(
+                "HuaweiGap456MeanLowerMm",
+                () => HuaweiGap456MeanLowerMm,
+                v => HuaweiGap456MeanLowerMm = v,
+                "Gap4~6均值下限"
+            );
+            EnsureHuaweiGapSetting(
+                "HuaweiGap456MeanUpperMm",
+                () => HuaweiGap456MeanUpperMm,
+                v => HuaweiGap456MeanUpperMm = v,
+                "Gap4~6均值上限"
             );
             EnsureHuaweiGapSetting(
                 "HuaweiNorm1UpperMm",
@@ -5069,7 +5117,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                         printTuple,
                         bandFontSize,
                         measureCol0,
-                        measureColWidth
+                        measureColWidth,
+                        bandH
                     );
                 }
 
@@ -5119,7 +5168,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 底部遮罩：左栏管控规格；右栏 Gap 实测（每列 3 行）。画布与列起点由调用方按字号加宽。
+        /// 底部遮罩：左栏管控 + 右栏测量。
+        /// 生产：单位/Gap1~3/Gap4~6单值/Gap10/Gap4~6均值；右栏全量 Gap，均值固定第二列第4行（只着色）。
+        /// 客户：去掉 Gap4~6 单值管控行；左列为单位/Gap1~3/Gap10/均值限度；右栏屏蔽 8/9/11，
+        /// 每列 3 个往后排，均值接在最后一个可见 Gap 后；均值参与整图 NG（见 <see cref="EvaluateHuaweiGapsOk"/>）。
         /// </summary>
         private void DrawHuaweiBottomValueBand(
             HWindow window,
@@ -5127,15 +5179,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             HTuple? printTuple,
             int bandFontSize,
             double measureCol0,
-            double measureColWidth
+            double measureColWidth,
+            int bandH
         )
         {
-            window.SetFont($"Times New Roman-Bold-{bandFontSize}");
+            var visit = NclcctEdition.IsVisit;
+            // 生产 5 行（单位+4 管控）；客户去掉单值 Gap4~6 后 4 行
+            var bandRowCount = visit ? 4 : 5;
+            var fittedLine = (bandH - 8.0) / bandRowCount;
+            var lineHeight = visit
+                ? Math.Min(bandFontSize + 28.0, Math.Max(48.0, fittedLine))
+                : Math.Min(bandFontSize + 20.0, Math.Max(40.0, fittedLine));
+            var fittedFont = visit
+                ? Math.Min(bandFontSize, Math.Max(40, (int)(lineHeight - 10)))
+                : Math.Min(bandFontSize, Math.Max(36, (int)(lineHeight - 8)));
+            window.SetFont($"Times New Roman-Bold-{fittedFont}");
 
             const double titleX = 40;
-            // 「管控 Gap4~6:」约 350px，数值紧跟
-            const double leftValueX = 390;
-            var lineHeight = bandFontSize + 28.0; // ≈84
+            const double leftValueX = 430;
             double textCurrentRow = textInitRow;
 
             DrawLabelValue(
@@ -5162,17 +5223,20 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             );
             textCurrentRow += lineHeight;
 
-            DrawLabelValue(
-                window,
-                textCurrentRow,
-                titleX,
-                "管控 Gap4~6:",
-                "orange",
-                $"{HuaweiNorm2LowerMm:F3} ≤ Gap ≤ {HuaweiNorm2MeanUpperMm:F3} mm",
-                "green",
-                leftValueX
-            );
-            textCurrentRow += lineHeight;
+            if (!visit)
+            {
+                DrawLabelValue(
+                    window,
+                    textCurrentRow,
+                    titleX,
+                    "管控 Gap4~6:",
+                    "orange",
+                    $"{HuaweiNorm2LowerMm:F3} ≤ Gap ≤ {HuaweiNorm2MeanUpperMm:F3} mm",
+                    "green",
+                    leftValueX
+                );
+                textCurrentRow += lineHeight;
+            }
 
             DrawLabelValue(
                 window,
@@ -5184,11 +5248,22 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 "green",
                 leftValueX
             );
+            textCurrentRow += lineHeight;
+
+            DrawLabelValue(
+                window,
+                textCurrentRow,
+                titleX,
+                "管控 Gap4~6均值:",
+                "orange",
+                $"{HuaweiGap456MeanLowerMm:F3} ≤ Gap ≤ {HuaweiGap456MeanUpperMm:F3} mm",
+                "green",
+                leftValueX
+            );
 
             var showCount = printTuple?.Length ?? 0;
             var mms = BuildHuaweiGapMmList(printTuple, showCount);
 
-            // Gap 标签与数值紧凑：Gap1~9 / Gap10~11 宽度不同
             const int perColumn = 3;
             var measureHeaderRow = textInitRow;
             window.SetColor("orange");
@@ -5204,15 +5279,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
             if (mms.Length > 0)
             {
+                var slot = 0;
                 for (int i = 0; i < mms.Length; i++)
                 {
                     var gapIndex = i + 1;
-                    var colIndex = i / perColumn;
-                    var rowIndex = i % perColumn;
+                    if (visit && IsVisitHiddenGap(gapIndex))
+                        continue;
+
+                    var colIndex = slot / perColumn;
+                    var rowIndex = slot % perColumn;
+                    slot++;
                     var col = measureCol0 + colIndex * measureColWidth;
                     var row = measureHeaderRow + lineHeight * (1 + rowIndex);
                     var valueColor = IsHuaweiGapValueDisplayOk(gapIndex, mms) ? "green" : "red";
-                    // Bold-56：「Gap9:」≈150，「Gap11:」≈190
                     var valueOffset = gapIndex >= 10 ? 195.0 : 155.0;
                     DrawLabelValue(
                         window,
@@ -5223,6 +5302,37 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                         $"{mms[i]:F3} mm",
                         valueColor,
                         col + valueOffset
+                    );
+                }
+
+                if (TryGetGap456MeanMm(mms, out var gap456Mean))
+                {
+                    int meanColIndex;
+                    int meanRowIndex;
+                    if (visit)
+                    {
+                        // 接在最后一个可见 Gap 后，仍每列 3 行
+                        meanColIndex = slot / perColumn;
+                        meanRowIndex = slot % perColumn;
+                    }
+                    else
+                    {
+                        meanColIndex = 1;
+                        meanRowIndex = 3;
+                    }
+
+                    var col = measureCol0 + meanColIndex * measureColWidth;
+                    var row = measureHeaderRow + lineHeight * (1 + meanRowIndex);
+                    var meanColor = IsHuaweiGap456MeanDisplayOk(gap456Mean) ? "green" : "red";
+                    DrawLabelValue(
+                        window,
+                        row,
+                        col,
+                        "Gap4~6:",
+                        "orange",
+                        $"{gap456Mean:F3} mm",
+                        meanColor,
+                        col + 175.0
                     );
                 }
             }
@@ -5240,6 +5350,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                 );
             }
         }
+
+        /// <summary>客户版底栏/画图屏蔽的 Gap 下标（槽位仍在，主动跳过）。</summary>
+        private static bool IsVisitHiddenGap(int gapIndex1Based) =>
+            gapIndex1Based is 8 or 9 or 11;
 
         /// <summary>
         /// 华为实际 Gap(mm)：
@@ -5267,17 +5381,44 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             return mms;
         }
 
-        /// <summary>当前参与 OK/NG 的 Gap：1~6 与 10。</summary>
-        private static bool IsHuaweiGapControlled(int gapIndex1Based) =>
-            (gapIndex1Based >= 1 && gapIndex1Based <= 6) || gapIndex1Based == 10;
+        /// <summary>Gap4~6 三点算术均值（缺测不足三点则不显示）。</summary>
+        private static bool TryGetGap456MeanMm(double[] mms, out double meanMm)
+        {
+            meanMm = 0;
+            if (mms == null || mms.Length < 6)
+                return false;
+            meanMm = (mms[3] + mms[4] + mms[5]) / 3.0;
+            return true;
+        }
+
+        /// <summary>均值红绿：对照独立均值管控。</summary>
+        private bool IsHuaweiGap456MeanDisplayOk(double meanMm) =>
+            meanMm >= HuaweiGap456MeanLowerMm && meanMm <= HuaweiGap456MeanUpperMm;
 
         /// <summary>
-        /// 显示红绿：仅管控项按规格着色；非管控项一律绿（不因超限标红）。
+        /// 参与单值 OK/NG 的 Gap。
+        /// 生产：1~6 与 10；客户：1~3 与 10（Gap4~6 改判均值，见 <see cref="EvaluateHuaweiGapsOk"/>）。
+        /// </summary>
+        private static bool IsHuaweiGapControlled(int gapIndex1Based)
+        {
+            if (gapIndex1Based >= 1 && gapIndex1Based <= 3)
+                return true;
+            if (gapIndex1Based == 10)
+                return true;
+            if (!NclcctEdition.IsVisit && gapIndex1Based >= 4 && gapIndex1Based <= 6)
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 显示红绿：管控项按规格着色；客户版 Gap4~6 单值一律绿（只对均值着色/判 NG）。
         /// </summary>
         private bool IsHuaweiGapValueDisplayOk(int gapIndex1Based, double[] mms)
         {
             var i = gapIndex1Based - 1;
             if (i < 0 || i >= mms.Length)
+                return true;
+            if (NclcctEdition.IsVisit && gapIndex1Based is >= 4 and <= 6)
                 return true;
             if (!IsHuaweiGapControlled(gapIndex1Based))
                 return true;
@@ -5293,7 +5434,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
         }
 
         /// <summary>
-        /// 整图判定：仅 Gap1~6、Gap10；其余 Printf 不参与 OK/NG。
+        /// 整图判定。生产：Gap1~6、Gap10 单值。客户：Gap1~3、Gap10 单值 + Gap4~6 均值；不对 Gap4~6 单值判 NG。
         /// </summary>
         private bool EvaluateHuaweiGapsOk(
             List<HTuple>? printValues,
@@ -5333,6 +5474,16 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
                     fails.Add($"Gap10={mm:F3}>{HuaweiNorm1UpperMm:F3}");
             }
 
+            if (NclcctEdition.IsVisit)
+            {
+                if (TryGetGap456MeanMm(mms, out var meanMm) && !IsHuaweiGap456MeanDisplayOk(meanMm))
+                {
+                    fails.Add(
+                        $"Gap4~6均值={meanMm:F3}不在[{HuaweiGap456MeanLowerMm:F3},{HuaweiGap456MeanUpperMm:F3}]"
+                    );
+                }
+            }
+
             if (fails.Count == 0)
                 return true;
 
@@ -5364,12 +5515,15 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
 
             const string measureFont = "Times New Roman-Bold-48";
 
-            // ① 每个抓点画短水平刻度
+            // ① 每个抓点画短水平刻度（客户版跳过 Gap8/9/11 对应点对）
             tempWindow.SetColor("green");
             tempWindow.SetLineWidth(2);
             tempWindow.SetDraw("margin");
             for (int i = 0; i < points.Count; i++)
             {
+                var gapIndexForPoint = i / 2 + 1;
+                if (NclcctEdition.IsVisit && IsVisitHiddenGap(gapIndexForPoint))
+                    continue;
                 var (row, col) = points[i];
                 DispRegionLine(tempWindow, row, col - tickHalf, row, col + tickHalf);
                 tempWindow.SetColor(resultCode == "OK" ? "green" : "red");
@@ -5385,6 +5539,9 @@ namespace SUNWODA_SEVB.ViewModels.Pages.NCLCCT
             for (int p = 0; p < pairCount; p++)
             {
                 var gapIndex = p + 1;
+                if (NclcctEdition.IsVisit && IsVisitHiddenGap(gapIndex))
+                    continue;
+
                 var (r0, c0) = points[p * 2];
                 var (r1, c1) = points[p * 2 + 1];
                 var sameCol = Math.Abs(c0 - c1) <= colSameEps;

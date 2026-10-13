@@ -1,7 +1,7 @@
 # NCLCCT 进度存档
 
-> **文档版本**：2026-09-28  
-> **状态**：南昌华为离线 CT。双监控根目录连续检测；路径含「扫码NG」跳过；本地优先 DLL/ONNX；Gap 改参需侧边栏管理员  
+> **文档版本**：2026-10-13  
+> **状态**：南昌华为离线 CT。双监控+扫码NG跳过；本地优先 DLL/ONNX；Gap 改参需管理员。生产底栏含 Gap4~6 均值（只着色）；客户版经 `NclcctEdition.IsVisit` 编译（均值判 NG、屏蔽 8/9/11）。源码默认 `IsVisit=false`  
 > **用途**：新会话 **只拖本文**；规格细节不写在本文，用下方索引跳转  
 > **详规**：[NCLCCT项目开发规划.md](./NCLCCT项目开发规划.md)　**版本历史**：[NCLCCT版本变更记录.md](./NCLCCT版本变更记录.md)
 
@@ -62,6 +62,8 @@
 | 19 | 文件夹导入顶部进度 | ✅ | 演进为离线模式文案 + 禁用连续检测 | 变更记录 2026-09-28 |
 | 20 | 左/右环路径文案 + 离线/在线互斥 | ✅ | 弹窗左环/右环；离线中禁「开始」；跑完清提示 | 变更记录 2026-09-28 |
 | 21 | 统计清零确认 + 仅清零日志 | ✅ | 确认/取消弹窗；列表不再记每张产品 | 变更记录 2026-09-29 |
+| 22 | 底栏 Gap4~6 均值显示 + 独立管控 | ✅ | 左列均值限度、右列第二列下方 `Gap4~6` 均值红绿；整图 NG 仍只看单值 | 变更记录 2026-10-13 |
+| 23 | 客户版：均值判 NG + 屏蔽 8/9/11 | ✅ | `NclcctEdition.IsVisit`；左列无单值 Gap4~6；右栏紧凑排均值；图上跳过 8/9/11 | 变更记录 2026-10-13 |
 
 ### 已完成
 
@@ -74,6 +76,8 @@
 - ✅ Watcher 轻量入队 + 64KB 缓冲 + 溢出补扫；导入递归；CSV Gap 明细；默认 `E:\IME检测结果`
 - ✅ 双监控根目录 + 「扫码NG」子树跳过
 - ✅ 文件夹导入顶部进度「已检 / 总数」
+- ✅ 结果图底栏 Gap4~6 均值展示与独立管控（不参与整图 NG）
+- ✅ 客户版开关 `NclcctEdition`：均值参与 NG、屏蔽 Gap8/9/11 显示与绘制
 
 ---
 
@@ -82,6 +86,7 @@
 | 职责 | 路径 |
 |------|------|
 | 页面 VM（`[Module]` 注册处） | `SUNWODA_SEVB/ViewModels/Pages/NCLCCT/VM_NCLCCTPage.cs` |
+| 生产/客户编译开关 | `SUNWODA_SEVB/ViewModels/Pages/NCLCCT/NclcctEdition.cs`（`IsVisit`，默认 false） |
 | 视觉 DLL / 模型 | 同文件：`TryLoadVisionAssemblyAsync`、`TryInitVisionModelAsync`、`HttpPostDownload*` |
 | 页面 View | `SUNWODA_SEVB/Views/Pages/NCLCCT/NCLCCTPage.xaml`、`NCLCCTPage.xaml.cs` |
 | 监控路径对话框 | `SUNWODA_SEVB/ViewModels/Dialogs/NCLCCT/VM_NCLCCTMonitorPathSelectDialog.cs`；`Views/Dialogs/NCLCCT/NCLCCTMonitorPathSelectDialog.xaml` |

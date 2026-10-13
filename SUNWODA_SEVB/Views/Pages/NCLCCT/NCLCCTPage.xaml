@@ -102,6 +102,20 @@
                             Value="{Binding HuaweiNorm2MeanUpperMm}" />
                     </DockPanel>
                     <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding HuaweiGap456MeanLowerMm}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            DockPanel.Dock="Left"
+                            Text="≤ 管控 Gap4~6均值 ≤ (mm)" />
+                        <hc:NumericUpDown
+                            Margin="10,0"
+                            DecimalPlaces="3"
+                            Value="{Binding HuaweiGap456MeanUpperMm}" />
+                    </DockPanel>
+                    <DockPanel IsEnabled="{Binding IsEnableSetGapLimit}">
                         <TextBlock
                             VerticalAlignment="Center"
                             DockPanel.Dock="Left"

@@ -181,6 +181,19 @@
       <Link>Dlls\NJX13Pack.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- YWSIX 义乌 X01 Pack 算法库 + YOLO26 + 上盖模型 -->
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\YWSIX\YWX01Pack.dll">
+      <Link>Dlls\YWSIX\YWX01Pack.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\YWSIX\YOLO26Det.dll">
+      <Link>Dlls\YWSIX\YOLO26Det.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\SUNWODA_SEVB.Core\Dlls\YWSIX\YW_X01_TOP.onnx">
+      <Link>Dlls\YWSIX\YW_X01_TOP.onnx</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <!-- 切图算法：复制到输出目录 Dlls\（与 halcon 原生库同目录） -->
     <None Include="..\SUNWODA_SEVB.Core\Dlls\CTAutoCutImg.dll">
       <Link>Dlls\CTAutoCutImg.dll</Link>
@@ -240,6 +253,9 @@
     </Reference>
     <Reference Include="NJX13Pack">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\NJX13Pack.dll</HintPath>
+    </Reference>
+    <Reference Include="YWX01Pack">
+      <HintPath>..\SUNWODA_SEVB.Core\Dlls\YWSIX\YWX01Pack.dll</HintPath>
     </Reference>
     <Reference Include="hdevenginedotnet">
       <HintPath>..\SUNWODA_SEVB.Core\Dlls\hdevenginedotnet.dll</HintPath>

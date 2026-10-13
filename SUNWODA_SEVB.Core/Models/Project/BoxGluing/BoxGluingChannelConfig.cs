@@ -9,7 +9,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
 
         public string Address { get; set; } = string.Empty;
 
-        /// <summary>Torque / Pressure / Level</summary>
+        /// <summary>Torque / Pressure / MeteringPressure / Level</summary>
         public string Group { get; set; } = string.Empty;
 
         public int Meter { get; set; }

@@ -128,7 +128,7 @@ namespace SUNWODA_SEVB.Services.Project.BoxGluing
 
             var dayFolder = Path.Combine(root, now.ToString("yyyy年MM月dd日"));
             Directory.CreateDirectory(dayFolder);
-            var filePath = Path.Combine(dayFolder, $"{now:yyyy_MM_dd}_出胶{file.Station}.csv");
+            var filePath = ResolvePathForHeader(dayFolder, file.Station, now, header);
 
             if (file.Date.Date != now.Date
                 || !string.Equals(file.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
@@ -144,6 +144,45 @@ namespace SUNWODA_SEVB.Services.Project.BoxGluing
             }
 
             return filePath;
+        }
+
+        /// <summary>
+        /// 表头与已有文件不一致时另开文件（_v2/_v3…），避免同日新旧列混写。
+        /// </summary>
+        private static string ResolvePathForHeader(string dayFolder, int station, DateTime now, string header)
+        {
+            var baseName = $"{now:yyyy_MM_dd}_出胶{station}";
+            var candidate = Path.Combine(dayFolder, baseName + ".csv");
+            var version = 2;
+            while (File.Exists(candidate))
+            {
+                if (HeaderMatches(candidate, header))
+                    return candidate;
+
+                candidate = Path.Combine(dayFolder, $"{baseName}_v{version}.csv");
+                version++;
+                if (version > 50)
+                    break;
+            }
+
+            return candidate;
+        }
+
+        private static bool HeaderMatches(string filePath, string expectedHeader)
+        {
+            try
+            {
+                using var reader = new StreamReader(filePath, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                var first = reader.ReadLine();
+                return string.Equals(
+                    (first ?? string.Empty).Trim(),
+                    expectedHeader.Trim(),
+                    StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static string BuildLine(BoxGluingSampleRecord record)

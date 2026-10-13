@@ -1,0 +1,14 @@
+配置项,配置值,备注
+设备编号,,⏸ 待现场录入
+PLC IP地址,,⏸ 待现场录入
+PLC型号,,⏸ 待现场录入
+端口号,,⏸ 待现场录入
+通讯协议,,⏸ 待现场录入
+平台协议枚举,,⏸ plc_config.BrandSpecificationProtocal
+设备名（源码常量）,卷绕OH闭环PLC,JROHCore.PLCName；基类按此名取 PLCDevice，取不到即抛异常
+设备记录状态,⏸ 未确认,仓库内无该 PLC 的种子/迁移；需现场 plc_config 已存在且已连接
+数据源类型,PLC（PW/OH）+ 文件监听（MC）,MC 不走 PLC，见 plc点位表.csv 末尾说明
+触发轮询周期,100ms,PeriodicTimer；值变化才进回调
+置位后等待,200ms,Task.Delay(200) 后读值
+复位语义,信号值 = 0,仅记 Info 日志
+异常值,其它任意值,记 Error「读取数据信号为异常值」

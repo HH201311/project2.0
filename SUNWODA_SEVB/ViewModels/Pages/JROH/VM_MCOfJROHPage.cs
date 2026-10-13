@@ -254,9 +254,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
         /// </summary>
         public ObservableCollection<(DateTime, double)> LowerDiaSeries2 { get; set; } = [];
 
-        private int count = 0;
         /// <summary>
-        /// 当接受数据时触发
+        /// 单条曲线最多保留的采样点数
+        /// </summary>
+        private const int MaxPlotPointsPerSeries = 2000;
+
+        /// <summary>
+        /// 当接受数据时触发（一个卷芯解析完成后一次性追加）
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -271,92 +275,55 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
                 return;
             }
 
-            if (gatherData != null)
-            {
-                if (count >= param.T)
-                {
-                    InfeedOfPosSeries1.Clear();
-                    InfeedOfPosSeries2.Clear();
-                    Snake4OfPosSeries1.Clear();
-                    Snake4OfPosSeries2.Clear();
-                    Snake3OfPosSeries1.Clear();
-                    Snake3OfPosSeries2.Clear();
-                    Snake2OfPosSeries1.Clear();
-                    Snake2OfPosSeries2.Clear();
-                    Snake1OfPosSeries1.Clear();
-                    Snake1OfPosSeries2.Clear();
-                    InfeedOfNegSeries1.Clear();
-                    InfeedOfNegSeries2.Clear();
-                    Snake3OfNegSeries1.Clear();
-                    Snake3OfNegSeries2.Clear();
-                    Snake2OfNegSeries1.Clear();
-                    Snake2OfNegSeries2.Clear();
-                    Snake1OfNegSeries1.Clear();
-                    Snake1OfNegSeries2.Clear();
-                    UpperDiaSeries1.Clear();
-                    UpperDiaSeries2.Clear();
-                    LowerDiaSeries1.Clear();
-                    LowerDiaSeries2.Clear();
-                }
-                foreach (var value in gatherData.InfeedDataOfPos.Values)
-                {
-                    InfeedOfPosSeries1.Add((value.time, value.detValue));
-                    InfeedOfPosSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake4DataOfPos.Values)
-                {
-                    Snake4OfPosSeries1.Add((value.time, value.detValue));
-                    Snake4OfPosSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake3DataOfPos.Values)
-                {
-                    Snake3OfPosSeries1.Add((value.time, value.detValue));
-                    Snake3OfPosSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake2DataOfPos.Values)
-                {
-                    Snake2OfPosSeries1.Add((value.time, value.detValue));
-                    Snake2OfPosSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake1DataOfPos.Values)
-                {
-                    Snake1OfPosSeries1.Add((value.time, value.detValue));
-                    Snake1OfPosSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.InfeedDataOfNeg.Values)
-                {
-                    InfeedOfNegSeries1.Add((value.time, value.detValue));
-                    InfeedOfNegSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake3DataOfNeg.Values)
-                {
-                    Snake3OfNegSeries1.Add((value.time, value.detValue));
-                    Snake3OfNegSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake2DataOfNeg.Values)
-                {
-                    Snake2OfNegSeries1.Add((value.time, value.detValue));
-                    Snake2OfNegSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.Snake1DataOfNeg.Values)
-                {
-                    Snake1OfNegSeries1.Add((value.time, value.detValue));
-                    Snake1OfNegSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.UpperDiaphragmData.Values)
-                {
-                    UpperDiaSeries1.Add((value.time, value.detValue));
-                    UpperDiaSeries2.Add((value.time, value.tarValue));
-                }
-                foreach (var value in gatherData.LowerDiaphragmData.Values)
-                {
-                    LowerDiaSeries1.Add((value.time, value.detValue));
-                    LowerDiaSeries2.Add((value.time, value.tarValue));
-                }
+            if (gatherData == null) return;
 
-                count++;
-            }
+            AppendSeries(InfeedOfPosSeries1, InfeedOfPosSeries2, gatherData.InfeedDataOfPos);
+            AppendSeries(Snake4OfPosSeries1, Snake4OfPosSeries2, gatherData.Snake4DataOfPos);
+            AppendSeries(Snake3OfPosSeries1, Snake3OfPosSeries2, gatherData.Snake3DataOfPos);
+            AppendSeries(Snake2OfPosSeries1, Snake2OfPosSeries2, gatherData.Snake2DataOfPos);
+            AppendSeries(Snake1OfPosSeries1, Snake1OfPosSeries2, gatherData.Snake1DataOfPos);
+
+            AppendSeries(InfeedOfNegSeries1, InfeedOfNegSeries2, gatherData.InfeedDataOfNeg);
+            AppendSeries(Snake3OfNegSeries1, Snake3OfNegSeries2, gatherData.Snake3DataOfNeg);
+            AppendSeries(Snake2OfNegSeries1, Snake2OfNegSeries2, gatherData.Snake2DataOfNeg);
+            AppendSeries(Snake1OfNegSeries1, Snake1OfNegSeries2, gatherData.Snake1DataOfNeg);
+
+            AppendSeries(UpperDiaSeries1, UpperDiaSeries2, gatherData.UpperDiaphragmData);
+            AppendSeries(LowerDiaSeries1, LowerDiaSeries2, gatherData.LowerDiaphragmData);
         }
+
+        /// <summary>
+        /// 追加一路通道的检测值/设定值曲线，并按上限裁剪历史点
+        /// </summary>
+        /// <param name="detectSeries">检测值曲线</param>
+        /// <param name="targetSeries">设定值曲线</param>
+        /// <param name="data">通道采集数据</param>
+        private static void AppendSeries(
+            ObservableCollection<(DateTime, double)> detectSeries,
+            ObservableCollection<(DateTime, double)> targetSeries,
+            MCGatherData? data)
+        {
+            if (data?.Values == null || data.Values.Count == 0) return;
+
+            foreach (var value in data.Values)
+            {
+                detectSeries.Add((value.time, value.detValue));
+                targetSeries.Add((value.time, value.tarValue));
+            }
+
+            TrimSeries(detectSeries);
+            TrimSeries(targetSeries);
+        }
+
+        /// <summary>
+        /// 按上限裁剪曲线历史点
+        /// <para>原实现按 param.T 清空曲线，T = 1 时每帧都被清空、曲线只剩最后一个点。</para>
+        /// </summary>
+        private static void TrimSeries(ObservableCollection<(DateTime, double)> series)
+        {
+            while (series.Count > MaxPlotPointsPerSeries) series.RemoveAt(0);
+        }
+
         #endregion
 
         #region 调机记录数据

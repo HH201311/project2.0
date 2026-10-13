@@ -55,6 +55,15 @@
     <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6ImageArchiveService.cs" />
     <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6PipelineService.cs" />
     <Compile Include="Interfaces\Project\NJSIX\INJSIXPack6PlcAlarmService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ConfigService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6IngressService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ProcessedStore.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6VisionEngine.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ProductAggregator.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ResultStore.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6ImageArchiveService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6PipelineService.cs" />
+    <Compile Include="Interfaces\Project\YWSIX\IYWSIXPack6PlcAlarmService.cs" />
   </ItemGroup>
 
   <ItemGroup>

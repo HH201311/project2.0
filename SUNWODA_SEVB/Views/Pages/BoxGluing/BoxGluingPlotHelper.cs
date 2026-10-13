@@ -5,7 +5,7 @@ using SUNWODA_SEVB.Core.Models.Project.BoxGluing;
 namespace SUNWODA_SEVB.Views.Pages.BoxGluing
 {
     /// <summary>
-    /// 按出胶工位单图刷新：一口六条线（扭矩A/B、压力A/B、液位A/B）。
+    /// 按出胶工位单图刷新：一口八条线（扭矩/入口压力/计量压力/液位 × A/B）。
     /// </summary>
     internal static class BoxGluingPlotHelper
     {
@@ -77,7 +77,8 @@ namespace SUNWODA_SEVB.Views.Pages.BoxGluing
         {
             "Torque" => 0,
             "Pressure" => 1,
-            "Level" => 2,
+            "MeteringPressure" => 2,
+            "Level" => 3,
             _ => 9
         };
 
@@ -85,6 +86,7 @@ namespace SUNWODA_SEVB.Views.Pages.BoxGluing
         {
             "Torque" => Colors.RoyalBlue,
             "Pressure" => Colors.Orange,
+            "MeteringPressure" => Colors.Crimson,
             "Level" => Colors.ForestGreen,
             _ => Colors.Gray
         };

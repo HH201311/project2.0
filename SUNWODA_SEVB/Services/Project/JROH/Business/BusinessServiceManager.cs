@@ -30,6 +30,7 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
             _factory.RegisterService<PWBusinessService>();
             _factory.RegisterService<OHBusinessService>();
             _factory.RegisterService<MCBusinessService>();
+            _factory.RegisterService<MisBusinessService>();
         }
 
         /// <summary>

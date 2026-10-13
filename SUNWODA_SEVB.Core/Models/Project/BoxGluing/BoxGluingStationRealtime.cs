@@ -12,6 +12,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
         private string _torqueB = "--";
         private string _pressureA = "--";
         private string _pressureB = "--";
+        private string _meteringPressureA = "--";
+        private string _meteringPressureB = "--";
         private string _levelA = "--";
         private string _levelB = "--";
 
@@ -60,6 +62,18 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
             private set => SetProperty(ref _pressureB, value);
         }
 
+        public string MeteringPressureA
+        {
+            get => _meteringPressureA;
+            private set => SetProperty(ref _meteringPressureA, value);
+        }
+
+        public string MeteringPressureB
+        {
+            get => _meteringPressureB;
+            private set => SetProperty(ref _meteringPressureB, value);
+        }
+
         public string LevelA
         {
             get => _levelA;
@@ -78,6 +92,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
             double? torqueB,
             double? pressureA,
             double? pressureB,
+            double? meteringPressureA,
+            double? meteringPressureB,
             double? levelA,
             double? levelB)
         {
@@ -86,6 +102,8 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
             TorqueB = Format(torqueB);
             PressureA = Format(pressureA);
             PressureB = Format(pressureB);
+            MeteringPressureA = Format(meteringPressureA);
+            MeteringPressureB = Format(meteringPressureB);
             LevelA = Format(levelA);
             LevelB = Format(levelB);
         }

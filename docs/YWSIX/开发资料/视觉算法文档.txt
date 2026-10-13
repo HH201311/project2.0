@@ -1,0 +1,416 @@
+项目
+内容
+算法库名称
+YWX01Pack.dll（命名空间 YWX01Pack，类 AI）
+文档版本
+V1.0
+更新日期
+2026-10-04
+目标框架
+.NET 8.0
+适用工位
+P03 白标签四码识别 / 铭牌产品编码识别 / 上盖检测 / 连接器PIN针歪斜检测
+
+---
+第三方依赖
+依赖包
+版本
+说明
+HalconDotNet
+22.11.0.0
+MVTec HALCON 机器视觉库（halcondotnet.dll）
+OpenCvSharp4
+4.13.0.20260627
+OpenCV .NET 封装
+OpenCvSharp4.Extensions
+4.13.0.20260627
+Mat 与 Bitmap 互转
+OpenCvSharp4.runtime.win
+4.13.0.20260627
+OpenCV Windows 原生运行库
+PaddleOCRSharp
+6.2.0
+PaddleOCR .NET 封装（文字识别）
+Paddle.Runtime.win_x64
+3.4.0
+PaddlePaddle Windows x64 推理运行时
+Microsoft.ML.OnnxRuntime
+1.20.1
+ONNX Runtime 推理引擎（YOLO 模型加载）
+YOLO26Det
+1.0.0.0
+YOLO26 目标检测封装库（用户提供，YOLO26Det.dll）
+System.Drawing.Common
+10.0.9
+系统绘图（通过 OpenCvSharp4.Extensions 传递依赖）
+
+---
+一、数据结构
+AIResults — 检测结果通用结构
+字段
+类型
+说明
+Name
+string
+缺陷类别名称
+Region
+HObject
+缺陷区域（调用方负责 Dispose()）
+Score
+float
+置信度（0~1）
+
+---
+二、图像格式转换
+1. HobjectToMat — HObject 转 OpenCV Mat
+public string HobjectToMat(HObject ho_Img, out Mat dst)
+参数
+类型
+方向
+说明
+ho_Img
+HObject
+输入参数
+Halcon 图像（支持1/3通道）
+dst
+Mat
+输出参数
+OpenCV Mat，调用方负责释放
+返回值：string — 空 "" 表示成功，"异常" 表示转换失败。
+
+---
+2. MatToHObject — OpenCV Mat 转 HObject
+public void MatToHObject(Mat src, out HObject ho_Img)
+参数
+类型
+方向
+说明
+src
+Mat
+输入参数
+OpenCV Mat（支持1/3通道）
+ho_Img
+HObject
+输出参数
+Halcon 图像，调用方负责释放
+
+---
+三、白标签四码解码
+3. DecodeThreeCodesByOCR（带编码规则）
+public string DecodeThreeCodesByOCR(
+    HObject inputImage, string productSNRule,
+    out HObject qrCodeRegion, out HObject partSNRegion,
+    out HObject productSNRegion, out HObject versionRegion,
+    out string qrData, out string partSN, out string productSN, out string version)
+功能：定位二维码并解码，同时 OCR 识别零部件序列码、产品编码、版本号。
+输入参数
+参数
+类型
+说明
+inputImage
+HObject
+白标签图像
+productSNRule
+string
+产品编码规则：'L'=大写字母，'D'=数字，其他字符=指定分隔符。例 "LLDDDDDD"（前2位字母+后6位数字）；传空串 "" 则不做位置校正
+输出参数
+参数
+类型
+说明
+qrCodeRegion
+HObject
+二维码区域（调用方释放）
+partSNRegion
+HObject
+零部件序列码区域
+productSNRegion
+HObject
+产品编码区域
+versionRegion
+HObject
+版本号区域
+qrData
+string
+二维码解码内容
+partSN
+string
+零部件序列码（纯数字）
+productSN
+string
+产品编码（数字+大写字母，按规则校正）
+version
+string
+版本号（如 M00，仅 O→0 校正）
+返回值：string — 空 "" 成功；失败信息如 "未找到二维码"、"零部件序列码OCR失败: ..."、"产品编码OCR失败: ..."、"版本号OCR失败: ..."、"异常"。
+
+---
+4. DecodeThreeCodesByOCR（无编码规则）
+public string DecodeThreeCodesByOCR(
+    HObject inputImage,
+    out HObject qrCodeRegion, out HObject partSNRegion,
+    out HObject productSNRegion, out HObject versionRegion,
+    out string qrData, out string partSN, out string productSN, out string version)
+说明：productSNRule 默认传空串 ""，其余与上一重载相同。内部转调带规则版本。
+
+---
+四、铭牌产品编码解码
+5. DecodeNameplateProductSNByOCR（带编码规则）
+public string DecodeNameplateProductSNByOCR(
+    HObject inputImage, string productSNRule,
+    out HObject productSNRegion, out string productSN)
+功能：提取铭牌产品编码区域并 OCR 识别。
+输入参数
+参数
+类型
+说明
+inputImage
+HObject
+铭牌图像
+productSNRule
+string
+产品编码规则（同上，"" 不做位置校正）
+输出参数
+参数
+类型
+说明
+productSNRegion
+HObject
+产品编码区域（调用方释放）
+productSN
+string
+产品编码（数字+大写字母）
+返回值：string — 空 "" 成功；"铭牌产品编码OCR失败: ..."、"异常"。
+
+---
+6. DecodeNameplateProductSNByOCR（无编码规则）
+public string DecodeNameplateProductSNByOCR(
+    HObject inputImage, out HObject productSNRegion, out string productSN)
+说明：productSNRule 默认空串，其余同上。
+
+---
+五、上盖检测
+7. DetectTopCover
+public string DetectTopCover(
+    HObject inputImage, string modelPath, string[] classNames,
+    out List<AIResults> results, bool useGpu = false)
+功能：使用 YOLO26 检测图像中的上盖区域，返回所有检测到的目标。
+模型文件：YW_X01_TOP.onnx
+类别名称：["sealing_foam", "hanger_bushing"]（须与模型训练时类别顺序一致）
+输入参数
+参数
+类型
+说明
+inputImage
+HObject
+输入图像（支持灰度/彩色）
+modelPath
+string
+YOLO26 模型文件路径（模型文件：YW_X01_TOP.onnx）
+classNames
+string[]
+类别名称数组，须与模型训练时类别顺序一致（["sealing_foam", "hanger_bushing"]）
+useGpu
+bool
+是否 GPU 推理，默认 false
+输出参数
+参数
+类型
+说明
+results
+List<AIResults>
+检测结果列表。Name=类别标签，Region=区域，Score=置信度。调用方负责遍历 Dispose() 每个 Region
+返回值：string — 空 "" 成功；"图像转换失败"、"未检测到上盖"、"异常: ..."。
+线程安全：检测器为单例（按模型路径缓存），推理调用受 lock 保护，多线程调用时串行执行。
+
+---
+六、连接器 PIN 针歪斜检测
+8. DetectConnectorPinSkew
+public void DetectConnectorPinSkew(
+    HObject ho_Image,
+    out HTuple hv_LongPinAngleDiff,
+    out HTuple hv_LongPinColDiff,   out HTuple hv_LongPinRowDiff,
+    out HTuple hv_ShortPinRowDiff,  out HTuple hv_ShortPinColDiff,
+    out HTuple hv_LongPin1CenterRow, out HTuple hv_LongPin1CenterCol,
+    out HTuple hv_LongPin2CenterRow, out HTuple hv_LongPin2CenterCol,
+    out HTuple hv_ShortPin1CenterRow, out HTuple hv_ShortPin1CenterCol,
+    out HTuple hv_ShortPin2CenterRow, out HTuple hv_ShortPin2CenterCol)
+功能：检测连接器 4 根 PIN 针（2 长 2 短）的中心位置，计算歪斜指标。检测失败时输出值为 0。
+输入参数
+参数
+类型
+说明
+ho_Image
+HObject
+连接器图像
+输出参数（全部为 HTuple，取数值用 .D）
+参数
+类型
+说明
+hv_LongPinAngleDiff
+HTuple
+两根长 PIN 角度差（度，已处理角度周期性，0~90°）
+hv_LongPinColDiff
+HTuple
+两根长 PIN 中心列坐标差（像素，绝对值）
+hv_LongPinRowDiff
+HTuple
+两根长 PIN 中心行坐标差（像素，绝对值）
+hv_ShortPinRowDiff
+HTuple
+两根短 PIN 中心行坐标差（像素，绝对值）
+hv_ShortPinColDiff
+HTuple
+两根短 PIN 中心列坐标差（像素，绝对值）
+hv_LongPin1/2CenterRow/Col
+HTuple
+两根长 PIN 中心坐标
+hv_ShortPin1/2CenterRow/Col
+HTuple
+两根短 PIN 中心坐标
+返回值：void。检测失败（未找到 PIN 针）时，对应输出值保留初始值 0.0，无异常抛出。
+NG 判定工艺范围（示例值，实际由工艺工程师调整）
+指标
+判定方式
+OK 范围
+单位
+长 PIN 角度差（hv_LongPinAngleDiff）
+≤ 阈值 OK
+≤ 2.0
+度
+长 PIN 列差（hv_LongPinColDiff）
+≤ 阈值 OK
+≤ 8.0
+像素
+长 PIN 行差（hv_LongPinRowDiff）
+区间 OK
+[240.0, 260.0]
+像素
+短 PIN 行差（hv_ShortPinRowDiff）
+≤ 阈值 OK
+≤ 5.0
+像素
+短 PIN 列差（hv_ShortPinColDiff）
+区间 OK
+[45.0, 65.0]
+像素
+5 项指标全部满足才判 OK，任一不满足即 NG。本方法只负责检测与指标计算，NG 判定由调用方执行。
+
+---
+七、调用示例
+7.1 上盖检测
+using YWX01Pack;
+using HalconDotNet;
+
+AI ai = new AI();
+HOperatorSet.ReadImage(out HObject image, @"D:\images\test.jpg");
+
+string err = ai.DetectTopCover(
+    image,
+    @"D:\models\YW_X01_TOP.onnx",
+    new[] { "上盖" },
+    out List<AI.AIResults> results,
+    useGpu: false);
+
+if (err == "")
+{
+    foreach (var r in results)
+    {
+        Console.WriteLine($"{r.Name} 置信度={r.Score:F2}");
+        HOperatorSet.DispObj(r.Region, windowHandle);
+        r.Region.Dispose();
+    }
+}
+else
+{
+    Console.WriteLine($"检测失败: {err}");
+}
+image.Dispose();
+7.2 PIN 针歪斜检测
+ai.DetectConnectorPinSkew(image,
+    out HTuple angleDiff, out HTuple lColDiff, out HTuple lRowDiff,
+    out HTuple sRowDiff,  out HTuple sColDiff,
+    out HTuple l1Row, out HTuple l1Col, out HTuple l2Row, out HTuple l2Col,
+    out HTuple s1Row, out HTuple s1Col, out HTuple s2Row, out HTuple s2Col);
+
+double angle = angleDiff.D;
+// ... 自行按工艺阈值判定 OK/NG
+
+angleDiff.Dispose(); /* ... 释放所有 HTuple ... */
+7.3 白标签四码解码
+string err = ai.DecodeThreeCodesByOCR(image, "LLDDDDDD",
+    out HObject qrRegion, out HObject partSNRegion,
+    out HObject productSNRegion, out HObject versionRegion,
+    out string qrData, out string partSN, out string productSN, out string version);
+
+if (err == "")
+{
+    Console.WriteLine($"二维码: {qrData}");
+    Console.WriteLine($"零部件序列码: {partSN}");
+    Console.WriteLine($"产品编码: {productSN}");
+    Console.WriteLine($"版本号: {version}");
+}
+qrRegion?.Dispose();
+partSNRegion?.Dispose();
+productSNRegion?.Dispose();
+versionRegion?.Dispose();
+
+---
+八、资源释放约定
+资源类型
+释放责任方
+说明
+HObject（out 区域）
+调用方
+所有 out 的 HObject 由调用方 Dispose()
+HTuple（out 数值）
+调用方
+所有 out 的 HTuple 由调用方 Dispose()
+Mat（HobjectToMat 输出参数）
+调用方
+调用方 Dispose()
+List<AIResults> 中每个 Region
+调用方
+遍历 Dispose()
+方法内部创建的局部 HObject/HTuple
+方法内部
+已在 finally 中释放
+所有返回 string 的方法：空串 "" 表示成功，非空为错误信息。
+
+---
+九、接口清单（快速索引）
+序号
+方法名
+功能
+返回值
+1
+HobjectToMat
+HObject 转 Mat
+string（空=成功）
+2
+MatToHObject
+Mat 转 HObject
+void
+3
+DecodeThreeCodesByOCR（带规则）
+白标签四码解码
+string（空=成功）
+4
+DecodeThreeCodesByOCR（无规则）
+白标签四码解码
+string（空=成功）
+5
+DecodeNameplateProductSNByOCR（带规则）
+铭牌产品编码解码
+string（空=成功）
+6
+DecodeNameplateProductSNByOCR（无规则）
+铭牌产品编码解码
+string（空=成功）
+7
+DetectTopCover
+上盖检测（YOLO26）
+string（空=成功）
+8
+DetectConnectorPinSkew
+连接器 PIN 针歪斜检测
+void

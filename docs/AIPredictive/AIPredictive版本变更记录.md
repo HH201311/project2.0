@@ -6,6 +6,11 @@
 
 ---
 
+> **2026-10-14 变更（采集周期可配 + CSV 标签绑定）**  
+> 1. **背景**：周期原写死 500ms；现场要改周期且 CSV 文件名与实际周期一致；改完尽量直接生效。  
+> 2. **做法**：`plc_endpoint.json` 增加 `IntervalMs`（默认 500，钳制 50~5000）；界面「周期ms」；仅改周期 → `ApplyIntervalMs` 热切换（打断 Delay、重开 CSV 会话，不重连 PLC）；改厂家/IP 仍停再启。CSV 文件名 `AIPredictive_{N}ms_*.csv`；分级预警按当前标签读盘。旧 json 无该字段时回退 500。  
+> 3. **落点**：`AIPredictivePlcEndpoint` / Store；`AcquisitionService`；`CsvStorage`；`GradingAlertService`；`VM_AIPredictivePage` / XAML；替换包 `_upload_8080/AIPredictive_replace_20261014_v1.zip`（SEVB.dll + Core.dll；**不含**现场 `plc_endpoint.json`，避免覆盖产线 IP）。  
+
 > **2026-10-13 变更（分级预警取消确认抑制）**  
 > 1. **背景**：确认后按「轴|等级」抑制，后续轮次同轴同级不再弹；现场要每轮有一级/二级就直接弹。  
 > 2. **做法**：去掉 `acked_alerts` / `Acknowledge`；`AlertsRaised` 对当轮全部一级/二级直接回调；确认按钮仅关遮罩。  

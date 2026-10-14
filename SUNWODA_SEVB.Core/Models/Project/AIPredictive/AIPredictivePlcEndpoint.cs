@@ -3,6 +3,15 @@ namespace SUNWODA_SEVB.Core.Models.Project.AIPredictive
     /// <summary>本机可改的 CIP 终点与厂家（多机台各一份；端口固定 44818）。</summary>
     public sealed class AIPredictivePlcEndpoint
     {
+        /// <summary>默认采集周期（毫秒）；与 CSV 文件名标签一致。</summary>
+        public const int DefaultIntervalMs = 500;
+
+        /// <summary>允许配置的最小周期（毫秒）。</summary>
+        public const int MinIntervalMs = 50;
+
+        /// <summary>允许配置的最大周期（毫秒）。</summary>
+        public const int MaxIntervalMs = 5000;
+
         /// <summary>厂家：先导 / 赢合（决定采集块与状态标签）。</summary>
         public string Vendor { get; set; } = AIPredictiveVendorNames.XianDao;
 
@@ -10,6 +19,28 @@ namespace SUNWODA_SEVB.Core.Models.Project.AIPredictive
 
         /// <summary>固定 CIP 端口；保存时强制为 44818。</summary>
         public int Port { get; set; } = 44818;
+
+        /// <summary>
+        /// CIP 采集周期（毫秒）。与 CSV 文件名标签绑定：
+        /// <c>AIPredictive_{IntervalMs}ms_yyyyMMdd_nnn.csv</c>。
+        /// </summary>
+        public int IntervalMs { get; set; } = DefaultIntervalMs;
+
+        /// <summary>钳制到合法范围；≤0 回退默认。</summary>
+        public static int ClampIntervalMs(int intervalMs)
+        {
+            if (intervalMs <= 0)
+                return DefaultIntervalMs;
+            if (intervalMs < MinIntervalMs)
+                return MinIntervalMs;
+            if (intervalMs > MaxIntervalMs)
+                return MaxIntervalMs;
+            return intervalMs;
+        }
+
+        /// <summary>CSV / 预警共用的粒度标签，如 <c>500ms</c>。</summary>
+        public static string FormatIntervalTag(int intervalMs) =>
+            $"{ClampIntervalMs(intervalMs)}ms";
     }
 
     /// <summary>厂家显示名与点位配置常量。</summary>

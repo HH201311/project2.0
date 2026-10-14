@@ -67,7 +67,7 @@
             </DockPanel>
         </Border>
 
-        <!-- 厂家 + PLC IP（端口固定 44818）：保存后自动停采再按新配置启动；先导/赢合互斥 -->
+        <!-- 厂家 + PLC IP + 周期（端口固定 44818）：改厂家/IP 重连；仅改周期热切换且 CSV 标签同步 -->
         <Border
             Grid.Row="1"
             Margin="0,12,0,0"
@@ -122,15 +122,28 @@
                     IsEnabled="False"
                     Text="{Binding PlcPortText}"
                     ToolTip="CIP 端口固定 44818，不可改" />
+                <TextBlock
+                    Margin="12,0,6,0"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    Text="周期ms" />
+                <TextBox
+                    Width="72"
+                    Height="28"
+                    VerticalContentAlignment="Center"
+                    FontSize="13"
+                    IsEnabled="{Binding CanEditPlcEndpoint}"
+                    Text="{Binding IntervalMsText, UpdateSourceTrigger=PropertyChanged}"
+                    ToolTip="采集周期毫秒；与 CSV 文件名绑定（如 500→AIPredictive_500ms_*.csv）；仅改周期保存后热切换，不重连" />
                 <Button
                     Width="100"
                     Height="32"
                     Margin="12,0,0,0"
                     Command="{Binding SavePlcEndpointCommand}"
-                    Content="保存并重连"
+                    Content="保存并应用"
                     FontSize="13"
                     IsEnabled="{Binding CanSavePlcEndpoint}"
-                    ToolTip="写入本机 AIPredictive/plc_endpoint.json（厂家+IP，端口44818），并自动按新配置重连采集" />
+                    ToolTip="写入本机 AIPredictive/plc_endpoint.json；改厂家/IP 重连；仅改周期热切换并同步 CSV 标签" />
             </StackPanel>
         </Border>
 

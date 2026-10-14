@@ -8,18 +8,16 @@ using SUNWODA_SEVB.Core.Models.Project.AIPredictive;
 namespace SUNWODA_SEVB.Services.Project.AIPredictive
 {
     /// <summary>
-    /// 欧姆龙 CIP 符号采集：旁路平台地址块轮询；默认 500ms 一轮（扭矩子集）；失败点位置空；每轮记录总耗时。
+    /// 欧姆龙 CIP 符号采集：旁路平台地址块轮询；周期取自本机配置（默认 500ms，扭矩子集）；失败点位置空；每轮记录总耗时。
     /// 厂家（先导/赢合）互斥：同一时刻只加载一家采集块与门控标签；CIP 端口固定 44818。
     /// 每轮先读 Andon 状态（INT16）；状态=7 采扭矩；由 7 变为异常后宽限再采 3 秒，仍异常则停采落盘。
     /// 数组整段连读；结构体成员按批 multi-tag Read（现场实测 batch=20）。
     /// 若单轮 CIP 超过周期，则不等待、立即进入下一轮（实际周期以耗时为准）。
-    /// CSV 仅写 500ms 粒度（仅扭矩实际采集的轮次）。厂家/IP 取本机配置（改后保存并重连生效）。
+    /// CSV 文件名标签与周期绑定（改周期即切 <c>AIPredictive_{N}ms_*.csv</c>）；周期可运行中热切换，厂家/IP 保存后重连。
     /// </summary>
     public sealed class AIPredictiveAcquisitionService : IAIPredictiveAcquisitionService, IDisposable
     {
-        public const int DefaultIntervalMs = 500;
-        /// <summary>500ms 周期下约每秒汇总一条 Info。</summary>
-        public const int RoundLogEveryN = 2;
+        public const int DefaultIntervalMs = AIPredictivePlcEndpoint.DefaultIntervalMs;
         /// <summary>结构体成员多标签批量大小（现场探针验证可用）。</summary>
         public const int StructMultiBatchSize = 20;
         /// <summary>设备状态=运行，允许采扭矩。</summary>
@@ -30,6 +28,8 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
         private string _andonTag = AIPredictiveVendorNames.AndonTag(AIPredictiveVendorNames.XianDao);
         /// <summary>当前厂家（决定采集块与门控标签；同一时刻只跑一家）。</summary>
         private string _vendor = AIPredictiveVendorNames.XianDao;
+        /// <summary>当前采集周期（毫秒）；与 CSV 标签绑定。</summary>
+        private int _intervalMs = DefaultIntervalMs;
 
         private readonly IAIPredictiveCollectBlockLoader _loader;
         private readonly IAIPredictiveCsvStorage _csvStorage;
@@ -39,6 +39,7 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
         private readonly object _gate = new();
 
         private CancellationTokenSource? _cts;
+        private CancellationTokenSource? _delayCts;
         private Task? _loopTask;
         private OmronConnectedCipNet? _cip;
         private IReadOnlyList<AIPredictiveCollectBlock> _blocks = Array.Empty<AIPredictiveCollectBlock>();
@@ -52,6 +53,7 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
         public bool IsRunning { get; private set; }
         public bool IsPlcConnected { get; private set; }
         public string LastStatus { get; private set; } = "未启动";
+        public int CurrentIntervalMs => Volatile.Read(ref _intervalMs);
         public long RoundCount { get; private set; }
         public AIPredictiveRoundStats? LastRoundStats { get; private set; }
         public IReadOnlyDictionary<string, AIPredictivePointValue> LatestValues => _latest;
@@ -173,10 +175,12 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
 
                 IsPlcConnected = true;
 
+                _intervalMs = AIPredictivePlcEndpoint.ClampIntervalMs(_endpointStore.Load().IntervalMs);
+                var csvTag = AIPredictivePlcEndpoint.FormatIntervalTag(_intervalMs);
                 var points = _blocks.SelectMany(b => b.Points).ToList();
                 try
                 {
-                    _csvStorage.PrepareSession(points);
+                    _csvStorage.PrepareSession(points, _intervalMs);
                 }
                 catch (Exception ex)
                 {
@@ -190,17 +194,65 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
                 _collectAllowedLastRound = false;
                 _abnormalGraceStartedUtc = null;
                 LastStatus =
-                    $"运行中（厂家={_vendor}，周期 {DefaultIntervalMs}ms，门控={_andonTag}=={AndonStatusRunning}，异常宽限 {AbnormalGraceSeconds}s）";
+                    $"运行中（厂家={_vendor}，周期 {_intervalMs}ms，门控={_andonTag}=={AndonStatusRunning}，异常宽限 {AbnormalGraceSeconds}s）";
                 _loopTask = Task.Run(() => RunLoopAsync(_cts.Token), _cts.Token);
                 _logger.Info(
                     $"AIPredictive 采集启动：厂家={_vendor}，{ip}:{port}，块={_blocks.Count}，点≈{points.Count}，" +
-                    $"周期={DefaultIntervalMs}ms，门控={_andonTag}（运行={AndonStatusRunning}，异常宽限={AbnormalGraceSeconds}s），" +
-                    $"CSV根={_csvStorage.RootPath}，CSV粒度=500ms",
+                    $"周期={_intervalMs}ms，门控={_andonTag}（运行={AndonStatusRunning}，异常宽限={AbnormalGraceSeconds}s），" +
+                    $"CSV根={_csvStorage.RootPath}，CSV粒度={csvTag}",
                     false);
                 RaiseState();
             }
 
             return Task.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public int ApplyIntervalMs(int intervalMs)
+        {
+            var clamped = AIPredictivePlcEndpoint.ClampIntervalMs(intervalMs);
+            var tag = AIPredictivePlcEndpoint.FormatIntervalTag(clamped);
+
+            lock (_gate)
+            {
+                Volatile.Write(ref _intervalMs, clamped);
+
+                if (IsRunning && _blocks.Count > 0)
+                {
+                    var points = _blocks.SelectMany(b => b.Points).ToList();
+                    try
+                    {
+                        _csvStorage.PrepareSession(points, clamped);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error("AIPredictive 热切换周期时 CSV 会话准备失败", ex, true);
+                    }
+
+                    LastStatus =
+                        $"周期已热切换为 {clamped}ms（CSV={tag}）；厂家={_vendor}，门控={_andonTag}";
+                    _logger.Info(
+                        $"AIPredictive 采集周期热切换：{clamped}ms，CSV粒度={tag}，厂家={_vendor}",
+                        true);
+                }
+                else
+                {
+                    LastStatus = $"周期已设为 {clamped}ms（下次启动生效，CSV={tag}）";
+                }
+
+                try
+                {
+                    _delayCts?.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // 等待令牌已释放，忽略
+                }
+
+                RaiseState();
+            }
+
+            return clamped;
         }
 
         /// <summary>从本机配置刷新厂家与门控标签（先导/赢合互斥）。</summary>
@@ -209,6 +261,13 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
             var ep = _endpointStore.Load();
             _vendor = AIPredictiveVendorNames.Normalize(ep.Vendor);
             _andonTag = AIPredictiveVendorNames.AndonTag(_vendor);
+        }
+
+        /// <summary>约每秒一条 Info（按当前周期折算轮次）。</summary>
+        private static int ResolveRoundLogEveryN(int intervalMs)
+        {
+            var ms = AIPredictivePlcEndpoint.ClampIntervalMs(intervalMs);
+            return Math.Max(1, (int)Math.Round(1000.0 / ms));
         }
 
         /// <summary>优先本机配置 IP；端口永远 44818。</summary>
@@ -320,15 +379,17 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
                         : $"第{RoundCount}轮 运行中 耗时{stats.ElapsedMs}ms 成功{stats.SuccessCount} 失败{stats.FailCount} 状态={andonText}")
                     : $"第{RoundCount}轮 门控跳过 耗时{stats.ElapsedMs}ms 状态={andonText}";
 
-                var overrun = stats.TorqueCollected && stats.ElapsedMs > DefaultIntervalMs;
+                var intervalMs = CurrentIntervalMs;
+                var overrun = stats.TorqueCollected && stats.ElapsedMs > intervalMs;
                 if (overrun)
                 {
                     _logger.Warn(
-                        $"AIPredictive 采集超时：轮次={RoundCount}，总耗时={stats.ElapsedMs}ms > 周期={DefaultIntervalMs}ms，" +
+                        $"AIPredictive 采集超时：轮次={RoundCount}，总耗时={stats.ElapsedMs}ms > 周期={intervalMs}ms，" +
                         $"成功={stats.SuccessCount}，失败={stats.FailCount}，状态={andonText}",
                         false);
                 }
-                else if (stats.TorqueCollected && (RoundCount == 1 || RoundCount % RoundLogEveryN == 0))
+                else if (stats.TorqueCollected
+                         && (RoundCount == 1 || RoundCount % ResolveRoundLogEveryN(intervalMs) == 0))
                 {
                     _logger.Info(
                         $"AIPredictive 采集完成：轮次={RoundCount}，总耗时={stats.ElapsedMs}ms，" +
@@ -353,16 +414,26 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
 
                 RaiseState();
 
-                var wait = DefaultIntervalMs - (int)sw.ElapsedMilliseconds;
+                var wait = intervalMs - (int)sw.ElapsedMilliseconds;
                 if (wait > 0)
                 {
+                    CancellationTokenSource? delayCts = null;
                     try
                     {
-                        await Task.Delay(wait, ct).ConfigureAwait(false);
+                        delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        Volatile.Write(ref _delayCts, delayCts);
+                        await Task.Delay(wait, delayCts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
-                        break;
+                        if (ct.IsCancellationRequested)
+                            break;
+                        // 周期热切换打断等待：立即进入下一轮
+                    }
+                    finally
+                    {
+                        Interlocked.CompareExchange(ref _delayCts, null, delayCts);
+                        delayCts?.Dispose();
                     }
                 }
             }

@@ -9,9 +9,9 @@ using SUNWODA_SEVB.Core.Models.Project.AIPredictive;
 namespace SUNWODA_SEVB.Services.Project.AIPredictive
 {
     /// <summary>
-    /// CSV 落盘（仅 500ms）：
-    /// {Root}/yyyy-MM-dd/AIPredictive_500ms_yyyyMMdd_001.csv
-    /// 与 CIP 基周期对齐，每采一轮写一行。
+    /// CSV 落盘（与 CIP 基周期绑定）：
+    /// {Root}/yyyy-MM-dd/AIPredictive_{IntervalMs}ms_yyyyMMdd_001.csv
+    /// 每采一轮写一行；周期变更时重新 PrepareSession，文件名标签同步切换。
     /// 单文件上限 100MB；跨日换目录；启动时清理超过 30 天的日期文件夹。
     /// </summary>
     public sealed class AIPredictiveCsvStorage : IAIPredictiveCsvStorage, IDisposable
@@ -22,15 +22,10 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
         public const int DefaultRetentionDays = 30;
         public const string DefaultRootPath = @"D:\AIPredictiveData";
 
-        /// <summary>与采集基周期对齐的落盘粒度（毫秒）及文件名标签。</summary>
-        public static readonly (int IntervalMs, string Tag)[] RecordChannels =
-        {
-            (500, "500ms"),
-        };
-
         private static readonly Regex DayFolderRegex = new(@"^\d{4}-\d{2}-\d{2}$", RegexOptions.Compiled);
+        /// <summary>匹配任意周期标签：AIPredictive_500ms_20260922_001.csv</summary>
         private static readonly Regex PartFileRegex = new(
-            @"^AIPredictive_(500ms)_(\d{8})_(\d{3})\.csv$",
+            @"^AIPredictive_(\d+ms)_(\d{8})_(\d{3})\.csv$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private readonly ILoggerService<AIPredictiveCsvStorage> _logger;
@@ -42,9 +37,13 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
         private IReadOnlyList<string> _columnHeaders = Array.Empty<string>();
         private string? _headerLine;
         private ChannelWriter[] _channels = Array.Empty<ChannelWriter>();
+        private int _intervalMs;
+        private string? _intervalTag;
 
         public string RootPath { get; }
         public string? CurrentFilePath { get; private set; }
+        public int CurrentIntervalMs => _intervalMs;
+        public string? CurrentIntervalTag => _intervalTag;
 
         public AIPredictiveCsvStorage(ILoggerService<AIPredictiveCsvStorage> logger)
         {
@@ -52,11 +51,14 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
             RootPath = DefaultRootPath;
         }
 
-        public void PrepareSession(IReadOnlyList<AIPredictivePointDef> points)
+        public void PrepareSession(IReadOnlyList<AIPredictivePointDef> points, int intervalMs)
         {
             ArgumentNullException.ThrowIfNull(points);
             if (points.Count == 0)
                 throw new ArgumentException("点位列不能为空", nameof(points));
+
+            var baseMs = AIPredictivePlcEndpoint.ClampIntervalMs(intervalMs);
+            var tag = AIPredictivePlcEndpoint.FormatIntervalTag(baseMs);
 
             var keys = new string[points.Count];
             var headers = BuildUniqueColumnHeaders(points);
@@ -70,31 +72,26 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
                 _columnHeaders = headers;
                 _headerLine = BuildHeader(_columnHeaders);
                 CurrentFilePath = null;
+                _intervalMs = baseMs;
+                _intervalTag = tag;
 
-                var baseMs = AIPredictiveAcquisitionService.DefaultIntervalMs;
-                _channels = new ChannelWriter[RecordChannels.Length];
-                for (var i = 0; i < RecordChannels.Length; i++)
+                // 单通道：基周期=落盘周期，每轮写一行
+                _channels = new[]
                 {
-                    var (intervalMs, tag) = RecordChannels[i];
-                    if (intervalMs % baseMs != 0)
-                        throw new InvalidOperationException(
-                            $"CSV 粒度 {intervalMs}ms 必须能被采集基周期 {baseMs}ms 整除");
-
-                    _channels[i] = new ChannelWriter
+                    new ChannelWriter
                     {
-                        IntervalMs = intervalMs,
+                        IntervalMs = baseMs,
                         Tag = tag,
-                        EveryNRounds = intervalMs / baseMs,
-                    };
-                }
+                        EveryNRounds = 1,
+                    },
+                };
             }
 
             Directory.CreateDirectory(RootPath);
             var removed = CleanupExpiredFolders(DefaultRetentionDays);
-            var tags = string.Join("/", RecordChannels.Select(c => c.Tag));
             _logger.Info(
                 $"AIPredictive CSV 会话就绪：根目录={RootPath}，列数={points.Count}（表头用参数名），" +
-                $"粒度={tags}（基周期={AIPredictiveAcquisitionService.DefaultIntervalMs}ms），" +
+                $"粒度={tag}（基周期={baseMs}ms），" +
                 $"单文件上限={MaxFileBytes / (1024 * 1024)}MB，清理过期目录={removed}",
                 false);
         }

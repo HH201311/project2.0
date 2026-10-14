@@ -27,6 +27,7 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
 
         private readonly ILoggerService<AIPredictiveGradingAlertService> _logger;
         private readonly IAIPredictiveCsvStorage _csvStorage;
+        private readonly IAIPredictivePlcEndpointStore _endpointStore;
         private readonly object _gate = new();
         private readonly SemaphoreSlim _runLock = new(1, 1);
 
@@ -45,10 +46,12 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
 
         public AIPredictiveGradingAlertService(
             ILoggerService<AIPredictiveGradingAlertService> logger,
-            IAIPredictiveCsvStorage csvStorage)
+            IAIPredictiveCsvStorage csvStorage,
+            IAIPredictivePlcEndpointStore endpointStore)
         {
             _logger = logger;
             _csvStorage = csvStorage;
+            _endpointStore = endpointStore;
             _config = LoadConfigOrDefault();
         }
 
@@ -116,7 +119,12 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
                 TryDelete(slicePath);
                 TryDelete(outputCsv);
 
-                var slice = BuildRecentSlice(dataRoot, windowStart, windowEnd);
+                var intervalMs = AIPredictivePlcEndpoint.ClampIntervalMs(_endpointStore.Load().IntervalMs);
+                // 优先用采集会话当前标签（热切换后与写盘一致）；否则用配置
+                var csvTag = !string.IsNullOrWhiteSpace(_csvStorage.CurrentIntervalTag)
+                    ? _csvStorage.CurrentIntervalTag!
+                    : AIPredictivePlcEndpoint.FormatIntervalTag(intervalMs);
+                var slice = BuildRecentSlice(dataRoot, windowStart, windowEnd, csvTag);
                 if (slice.RowCount == 0)
                 {
                     WriteMeta(stateDir, skipped: true, "no_rows_in_window", windowStart, windowEnd, 0);
@@ -221,8 +229,13 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
 
         /// <summary>
         /// 从采集根目录按天文件夹读取，只保留 [windowStart, windowEnd] 内行，写成带表头的临时 CSV 文本。
+        /// 文件名与采集周期绑定：<c>AIPredictive_{csvTag}_*.csv</c>。
         /// </summary>
-        private static SliceBuildResult BuildRecentSlice(string dataRoot, DateTime windowStart, DateTime windowEnd)
+        private static SliceBuildResult BuildRecentSlice(
+            string dataRoot,
+            DateTime windowStart,
+            DateTime windowEnd,
+            string csvTag)
         {
             var dayFolders = new List<string>();
             for (var d = windowStart.Date; d <= windowEnd.Date; d = d.AddDays(1))
@@ -236,12 +249,13 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
             if (dayFolders.Count == 0)
                 return SliceBuildResult.Empty;
 
+            var pattern = $"AIPredictive_{csvTag}_*.csv";
             string? headerLine = null;
             var dataLines = new List<(DateTime Ts, string Line)>();
 
             foreach (var folder in dayFolders)
             {
-                foreach (var file in Directory.EnumerateFiles(folder, "AIPredictive_500ms_*.csv", SearchOption.TopDirectoryOnly)
+                foreach (var file in Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly)
                              .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
                 {
                     // 采集侧 StreamWriter 正占用同一文件；必须 ReadWrite 共享，否则 IOException

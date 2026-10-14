@@ -12,7 +12,7 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.AIPredictive
         IReadOnlyList<AIPredictiveCollectBlock> LoadAll(string vendor);
     }
 
-    /// <summary>CIP 符号采集：默认 500ms 一轮，失败置空，并记录每轮耗时。</summary>
+    /// <summary>CIP 符号采集：周期取自本机配置（默认 500ms），失败置空，并记录每轮耗时。</summary>
     public interface IAIPredictiveAcquisitionService
     {
         bool IsRunning { get; }
@@ -22,6 +22,8 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.AIPredictive
         /// </summary>
         bool IsPlcConnected { get; }
         string LastStatus { get; }
+        /// <summary>当前生效的采集周期（毫秒）；与 CSV 标签绑定。</summary>
+        int CurrentIntervalMs { get; }
         long RoundCount { get; }
         AIPredictiveRoundStats? LastRoundStats { get; }
         IReadOnlyDictionary<string, AIPredictivePointValue> LatestValues { get; }
@@ -30,5 +32,10 @@ namespace SUNWODA_SEVB.Core.Interfaces.Project.AIPredictive
         Task TestConnectionAsync(CancellationToken cancellationToken = default);
         Task StartAsync(CancellationToken cancellationToken = default);
         Task StopAsync();
+        /// <summary>
+        /// 运行中热切换采集周期：同步切换 CSV 文件名标签，打断当前等待，下一轮按新周期。
+        /// 不重连 PLC。返回实际钳制后的毫秒值。
+        /// </summary>
+        int ApplyIntervalMs(int intervalMs);
     }
 }

@@ -7,13 +7,15 @@ using SUNWODA_SEVB.Core.Models.Project.AIPredictive;
 namespace SUNWODA_SEVB.Services.Project.AIPredictive
 {
     /// <summary>
-    /// 本机配置：程序目录 <c>AIPredictive/plc_endpoint.json</c>（厂家 + IP；端口固定 44818）。
+    /// 本机配置：程序目录 <c>AIPredictive/plc_endpoint.json</c>
+    ///（厂家 + IP + IntervalMs；端口固定 44818）。
     /// </summary>
     public sealed class AIPredictivePlcEndpointStore : IAIPredictivePlcEndpointStore
     {
         public const string RelativeFileName = @"AIPredictive\plc_endpoint.json";
         public const string DefaultIp = "10.147.72.10";
         public const int DefaultPort = AIPredictiveVendorNames.FixedCipPort;
+        public const int DefaultIntervalMs = AIPredictivePlcEndpoint.DefaultIntervalMs;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -75,7 +77,8 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
                 var json = JsonSerializer.Serialize(toSave, JsonOptions);
                 File.WriteAllText(SettingsFilePath, json);
                 _logger.Info(
-                    $"AIPredictive 配置已保存：厂家={toSave.Vendor}，{toSave.Ip}:{toSave.Port} → {SettingsFilePath}",
+                    $"AIPredictive 配置已保存：厂家={toSave.Vendor}，{toSave.Ip}:{toSave.Port}，" +
+                    $"周期={toSave.IntervalMs}ms → {SettingsFilePath}",
                     true);
             }
         }
@@ -85,6 +88,7 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
             Vendor = AIPredictiveVendorNames.Normalize(ep.Vendor),
             Ip = ep.Ip.Trim(),
             Port = AIPredictiveVendorNames.FixedCipPort,
+            IntervalMs = AIPredictivePlcEndpoint.ClampIntervalMs(ep.IntervalMs),
         };
 
         private static AIPredictivePlcEndpoint CreateDefault() => new()
@@ -92,6 +96,7 @@ namespace SUNWODA_SEVB.Services.Project.AIPredictive
             Vendor = AIPredictiveVendorNames.XianDao,
             Ip = DefaultIp,
             Port = DefaultPort,
+            IntervalMs = DefaultIntervalMs,
         };
     }
 }

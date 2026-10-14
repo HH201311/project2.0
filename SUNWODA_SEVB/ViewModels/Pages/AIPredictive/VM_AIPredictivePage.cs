@@ -13,7 +13,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
 {
     /// <summary>
     /// AI 预测分析页：启动后由 App 自动采集（无启停按钮）；
-    /// 可选手导/赢合（互斥）与 PLC IP；端口固定 44818；保存后自动重连；状态灯。
+    /// 可选手导/赢合（互斥）、PLC IP、采集周期；端口固定 44818。
+    /// 改厂家/IP 保存后重连；仅改周期则热切换（CSV 标签同步）。
     /// 另含【TEMP_BOSS_REPORT】临时资源监控（可删）。
     /// </summary>
     [Module("VM_AIPredictivePage", "AI预测分析")]
@@ -35,6 +36,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
         private string _selectedVendor = AIPredictiveVendorNames.XianDao;
         private string _plcIpText = AIPredictivePlcEndpointStore.DefaultIp;
         private string _plcPortText = AIPredictiveVendorNames.FixedCipPort.ToString();
+        private string _intervalMsText = AIPredictivePlcEndpoint.DefaultIntervalMs.ToString();
         private bool _canEditPlcEndpoint = true;
         private bool _canSavePlcEndpoint = true;
         private bool _suppressVendorIpSuggest;
@@ -122,6 +124,13 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
             set => SetProperty(ref _plcPortText, value);
         }
 
+        /// <summary>采集周期（毫秒）；与 CSV 文件名标签绑定。</summary>
+        public string IntervalMsText
+        {
+            get => _intervalMsText;
+            set => SetProperty(ref _intervalMsText, value);
+        }
+
         public bool CanEditPlcEndpoint
         {
             get => _canEditPlcEndpoint;
@@ -195,7 +204,10 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
         {
             BindingString = "AI预测分析";
             LoadPlcEndpointToUi();
-            StatusText = "启动后自动采集；选厂家（先导/赢合互斥）+ IP，端口固定 44818；保存后自动重连";
+            StatusText =
+                $"启动后自动采集；厂家/IP/周期可配；端口固定 44818；" +
+                $"周期范围 {AIPredictivePlcEndpoint.MinIntervalMs}~{AIPredictivePlcEndpoint.MaxIntervalMs}ms，" +
+                "改周期即切 CSV 文件名；改厂家/IP 保存后重连";
             RefreshStatus();
             RefreshMonitorStatus();
             if (!_acquisition.IsRunning && !_acquisition.IsPlcConnected)
@@ -253,6 +265,7 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
                 SelectedVendor = AIPredictiveVendorNames.Normalize(ep.Vendor);
                 PlcIpText = ep.Ip;
                 PlcPortText = AIPredictiveVendorNames.FixedCipPort.ToString();
+                IntervalMsText = AIPredictivePlcEndpoint.ClampIntervalMs(ep.IntervalMs).ToString();
             }
             finally
             {
@@ -260,41 +273,101 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
             }
         }
 
-        private async Task OnSavePlcEndpointAsync()
+        private bool TryBuildEndpointFromUi(out AIPredictivePlcEndpoint endpoint, out string? error)
         {
+            endpoint = null!;
+            error = null;
+
             if (string.IsNullOrWhiteSpace(PlcIpText))
             {
-                StatusText = "PLC IP 不能为空";
-                return;
+                error = "PLC IP 不能为空";
+                return false;
             }
 
-            var vendor = AIPredictiveVendorNames.Normalize(SelectedVendor);
+            if (!int.TryParse(IntervalMsText?.Trim(), out var intervalMs))
+            {
+                error =
+                    $"采集周期须为整数毫秒（{AIPredictivePlcEndpoint.MinIntervalMs}~{AIPredictivePlcEndpoint.MaxIntervalMs}）";
+                return false;
+            }
+
+            intervalMs = AIPredictivePlcEndpoint.ClampIntervalMs(intervalMs);
+            IntervalMsText = intervalMs.ToString();
             var port = AIPredictiveVendorNames.FixedCipPort;
             PlcPortText = port.ToString();
 
+            endpoint = new AIPredictivePlcEndpoint
+            {
+                Vendor = AIPredictiveVendorNames.Normalize(SelectedVendor),
+                Ip = PlcIpText.Trim(),
+                Port = port,
+                IntervalMs = intervalMs,
+            };
+            return true;
+        }
+
+        private async Task OnSavePlcEndpointAsync()
+        {
+            if (!TryBuildEndpointFromUi(out var next, out var error))
+            {
+                StatusText = error;
+                return;
+            }
+
+            var previous = _endpointStore.Load();
             CanSavePlcEndpoint = false;
             CanEditPlcEndpoint = false;
             try
             {
-                _endpointStore.Save(new AIPredictivePlcEndpoint
+                _endpointStore.Save(next);
+
+                var vendorOrIpChanged =
+                    !string.Equals(
+                        AIPredictiveVendorNames.Normalize(previous.Vendor),
+                        next.Vendor,
+                        StringComparison.Ordinal)
+                    || !string.Equals(
+                        (previous.Ip ?? "").Trim(),
+                        next.Ip,
+                        StringComparison.OrdinalIgnoreCase);
+                var intervalChanged =
+                    AIPredictivePlcEndpoint.ClampIntervalMs(previous.IntervalMs) != next.IntervalMs;
+                var csvTag = AIPredictivePlcEndpoint.FormatIntervalTag(next.IntervalMs);
+
+                if (!_acquisition.IsRunning)
                 {
-                    Vendor = vendor,
-                    Ip = PlcIpText.Trim(),
-                    Port = port,
-                });
+                    StatusText =
+                        $"已保存 厂家={next.Vendor} {next.Ip}:{next.Port} 周期={next.IntervalMs}ms（CSV={csvTag}）；采集未运行，下次启动生效";
+                    return;
+                }
 
-                if (_acquisition.IsRunning)
+                if (vendorOrIpChanged)
+                {
                     await _acquisition.StopAsync().ConfigureAwait(true);
+                    StatusText =
+                        $"已保存 厂家={next.Vendor} {next.Ip}:{next.Port} 周期={next.IntervalMs}ms，正在重连采集…";
+                    await _acquisition.StartAsync().ConfigureAwait(true);
+                    StatusText = _acquisition.IsRunning
+                        ? $"已按新配置启动采集 {_acquisition.LastStatus}"
+                        : $"配置已保存，但启动失败：{_acquisition.LastStatus}";
+                    return;
+                }
 
-                StatusText = $"已保存 厂家={vendor} {PlcIpText.Trim()}:{port}，正在重连采集…";
-                await _acquisition.StartAsync().ConfigureAwait(true);
-                StatusText = _acquisition.IsRunning
-                    ? $"已按新配置启动采集 {_acquisition.LastStatus}"
-                    : $"配置已保存，但启动失败：{_acquisition.LastStatus}";
+                if (intervalChanged)
+                {
+                    var applied = _acquisition.ApplyIntervalMs(next.IntervalMs);
+                    IntervalMsText = applied.ToString();
+                    StatusText =
+                        $"周期已热切换为 {applied}ms（CSV={AIPredictivePlcEndpoint.FormatIntervalTag(applied)}），未重连 PLC";
+                    return;
+                }
+
+                StatusText =
+                    $"配置无变化：厂家={next.Vendor} {next.Ip}:{next.Port} 周期={next.IntervalMs}ms（CSV={csvTag}）";
             }
             catch (Exception ex)
             {
-                StatusText = $"保存/重连失败：{ex.Message}";
+                StatusText = $"保存/应用失败：{ex.Message}";
                 _logger.Error("AIPredictive 保存配置失败", ex, true);
             }
             finally
@@ -308,25 +381,19 @@ namespace SUNWODA_SEVB.ViewModels.Pages.AIPredictive
             // 采集运行中无法单独测连（会占用 CIP）；提示看状态灯
             if (_acquisition.IsRunning)
             {
-                StatusText = "采集运行中，请看左侧连接灯/状态；改厂家/IP 请直接「保存」自动重连";
+                StatusText = "采集运行中，请看左侧连接灯/状态；改厂家/IP/周期请直接「保存」";
                 return;
             }
 
-            // 测试前先落盘当前 UI，保证测的是所选厂家
-            if (string.IsNullOrWhiteSpace(PlcIpText))
+            if (!TryBuildEndpointFromUi(out var ep, out var error))
             {
-                StatusText = "PLC IP 不能为空";
+                StatusText = error;
                 return;
             }
 
             try
             {
-                _endpointStore.Save(new AIPredictivePlcEndpoint
-                {
-                    Vendor = AIPredictiveVendorNames.Normalize(SelectedVendor),
-                    Ip = PlcIpText.Trim(),
-                    Port = AIPredictiveVendorNames.FixedCipPort,
-                });
+                _endpointStore.Save(ep);
             }
             catch (Exception ex)
             {

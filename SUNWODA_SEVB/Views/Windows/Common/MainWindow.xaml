@@ -13,7 +13,7 @@
     Width="800"
     Height="450"
     hc:Dialog.Token="DialogMainWindow"
-    WindowState="Maximized"
+    WindowState="Minimized"
     mc:Ignorable="d">
     <!--  添加资源和转换器  -->
     <Window.Resources>

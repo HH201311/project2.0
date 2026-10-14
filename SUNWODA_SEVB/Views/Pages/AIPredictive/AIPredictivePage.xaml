@@ -10,7 +10,180 @@
     mc:Ignorable="d">
 
     <Grid Margin="24">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶部：PLC 连接指示 + 采集控制 -->
+        <Border
+            Padding="16,12"
+            Background="#F5F7FA"
+            BorderBrush="#D0D7DE"
+            BorderThickness="1"
+            CornerRadius="4">
+            <DockPanel LastChildFill="True">
+                <StackPanel
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Left"
+                    Orientation="Horizontal">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="PLC 连接" />
+                    <Ellipse
+                        Width="18"
+                        Height="18"
+                        Margin="12,0,8,0"
+                        VerticalAlignment="Center"
+                        Fill="{Binding PlcStatusBrush}"
+                        Stroke="#333333"
+                        StrokeThickness="1"
+                        ToolTip="{Binding PlcConnectionText}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        Text="{Binding PlcConnectionText}" />
+                    <TextBlock
+                        Margin="16,0,0,0"
+                        VerticalAlignment="Center"
+                        FontSize="13"
+                        Foreground="#666666"
+                        Text="启动后自动采集（无启停按钮）" />
+                    <Button
+                        Width="110"
+                        Height="32"
+                        Margin="12,0,0,0"
+                        VerticalAlignment="Center"
+                        Command="{Binding TestConnectionCommand}"
+                        Content="测试连接"
+                        FontSize="14"
+                        IsEnabled="{Binding CanTestConnection}"
+                        ToolTip="仅在采集未运行时可用；运行中请看连接灯" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- 厂家 + PLC IP（端口固定 44818）：保存后自动停采再按新配置启动；先导/赢合互斥 -->
+        <Border
+            Grid.Row="1"
+            Margin="0,12,0,0"
+            Padding="16,12"
+            Background="#F5F7FA"
+            BorderBrush="#D0D7DE"
+            BorderThickness="1"
+            CornerRadius="4">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    FontWeight="SemiBold"
+                    Text="采集配置" />
+                <TextBlock
+                    Margin="16,0,6,0"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    Text="厂家" />
+                <ComboBox
+                    Width="100"
+                    Height="28"
+                    VerticalContentAlignment="Center"
+                    FontSize="13"
+                    IsEnabled="{Binding CanEditPlcEndpoint}"
+                    ItemsSource="{Binding VendorOptions}"
+                    SelectedItem="{Binding SelectedVendor}"
+                    ToolTip="先导 / 赢合二选一，同一时刻只采集所选厂家点位" />
+                <TextBlock
+                    Margin="16,0,6,0"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    Text="IP" />
+                <TextBox
+                    Width="160"
+                    Height="28"
+                    VerticalContentAlignment="Center"
+                    FontSize="13"
+                    IsEnabled="{Binding CanEditPlcEndpoint}"
+                    Text="{Binding PlcIpText, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock
+                    Margin="12,0,6,0"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    Text="端口" />
+                <TextBox
+                    Width="80"
+                    Height="28"
+                    VerticalContentAlignment="Center"
+                    FontSize="13"
+                    IsReadOnly="True"
+                    IsEnabled="False"
+                    Text="{Binding PlcPortText}"
+                    ToolTip="CIP 端口固定 44818，不可改" />
+                <Button
+                    Width="100"
+                    Height="32"
+                    Margin="12,0,0,0"
+                    Command="{Binding SavePlcEndpointCommand}"
+                    Content="保存并重连"
+                    FontSize="13"
+                    IsEnabled="{Binding CanSavePlcEndpoint}"
+                    ToolTip="写入本机 AIPredictive/plc_endpoint.json（厂家+IP，端口44818），并自动按新配置重连采集" />
+            </StackPanel>
+        </Border>
+
+        <!-- TEMP_BOSS_REPORT：测试汇报用资源监控，正式交付可删整块 -->
+        <Border
+            Grid.Row="2"
+            Margin="0,12,0,0"
+            Padding="16,12"
+            Background="#FFF8E8"
+            BorderBrush="#E0C080"
+            BorderThickness="1"
+            CornerRadius="4">
+            <DockPanel LastChildFill="True">
+                <StackPanel
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Left"
+                    Orientation="Horizontal">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Foreground="#8A5A00"
+                        Text="临时：资源监控（汇报用）" />
+                    <Button
+                        Width="120"
+                        Height="32"
+                        Margin="16,0,8,0"
+                        Command="{Binding StartMonitorCommand}"
+                        Content="开始资源监控"
+                        FontSize="13"
+                        IsEnabled="{Binding CanStartMonitor}" />
+                    <Button
+                        Width="120"
+                        Height="32"
+                        Command="{Binding StopMonitorCommand}"
+                        Content="停止并出报告"
+                        FontSize="13"
+                        IsEnabled="{Binding CanStopMonitor}" />
+                </StackPanel>
+                <TextBlock
+                    Margin="16,0,0,0"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    Foreground="#666666"
+                    Text="{Binding MonitorStatusText}"
+                    TextWrapping="Wrap" />
+            </DockPanel>
+        </Border>
+
+        <StackPanel
+            Grid.Row="3"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
             <TextBlock
                 HorizontalAlignment="Center"
                 FontSize="32"
@@ -21,7 +194,8 @@
                 HorizontalAlignment="Center"
                 FontSize="16"
                 Foreground="#666666"
-                Text="{Binding StatusText}" />
+                Text="{Binding StatusText}"
+                TextWrapping="Wrap" />
         </StackPanel>
     </Grid>
 </Page>

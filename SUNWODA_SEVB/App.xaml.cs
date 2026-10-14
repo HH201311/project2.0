@@ -9,6 +9,7 @@ using RemoteFileMonitor.Data;
 using SUNWODA_SEVB.Core.Common;
 using SUNWODA_SEVB.Core.Interfaces;
 using SUNWODA_SEVB.Core.Interfaces.Data;
+using SUNWODA_SEVB.Core.Interfaces.Project.AIPredictive;
 using SUNWODA_SEVB.Data;
 using SUNWODA_SEVB.Logging;
 using SUNWODA_SEVB.Logging.Targets;
@@ -24,6 +25,7 @@ using SUNWODA_SEVB.Views.Windows.Common;
 using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using SUNWODA_SEVB.Services.Project.BoxGluing;
+using SUNWODA_SEVB.Services.Project.AIPredictive;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -105,8 +107,10 @@ namespace SUNWODA_SEVB
 
                 await InitCTOLEnvironment();
 
-                // 步骤10：创建并显示主窗口
+                // 步骤10：创建主窗口（最小化启动，需查看时从任务栏还原）并自动开始 AIPredictive 采集
                 ShowMainWindow(appLogger);
+                AttachAIPredictiveGradingAlertUi(appLogger);
+                StartAIPredictiveAcquisitionInBackground(appLogger);
             }
             catch (Exception ex)
             {
@@ -241,6 +245,9 @@ namespace SUNWODA_SEVB
 
             // 口琴管涂胶业务服务
             services.AddBoxGluingServices();
+
+            // AI 预测分析采集服务
+            services.AddAIPredictiveServices();
 
             // 注册主窗口的ViewModel和View
             services.AddSingleton<VM_MainWindow>();
@@ -727,15 +734,14 @@ namespace SUNWODA_SEVB
         }
 
         /// <summary>
-        /// 显示主窗口
+        /// 显示主窗口（默认最小化到任务栏，需要时再点开）。
         /// </summary>
         private void ShowMainWindow(ILoggerService<App>? logger)
         {
             var globalSettingRepo = _host!.Services.GetService<IGlobalSettingRepository>();
             if (globalSettingRepo == null)
             {
-                var mainWindow = _host!.Services.GetRequiredService<MainWindow>();
-                mainWindow.Show();
+                ShowWindowMinimized(_host!.Services.GetRequiredService<MainWindow>());
                 return;
             }
             var appStartMainWindow = globalSettingRepo!.GetSettingValue("AppStartMainWindow");
@@ -755,19 +761,75 @@ namespace SUNWODA_SEVB
             appStartMainWindow = globalSettingRepo!.GetSettingValue("AppStartMainWindow");
             if (appStartMainWindow == "MainWindow")
             {
-                var mainWindow = _host!.Services.GetRequiredService<MainWindow>();
-                mainWindow.Show();
+                ShowWindowMinimized(_host!.Services.GetRequiredService<MainWindow>());
                 return;
             }
             if (appStartMainWindow == "CCTBMainWindow")
             {
-                var mainWindow = _host!.Services.GetRequiredService<CCTBMainWindow>();
-                mainWindow.Show();
+                ShowWindowMinimized(_host!.Services.GetRequiredService<CCTBMainWindow>());
                 return;
             }
             throw new Exception(
                 $"未能加载[{appStartMainWindow}]程序！请检查[AppStartMainWindow]数据库配置！"
             );
+        }
+
+        private static void ShowWindowMinimized(Window window)
+        {
+            // 先设最小化再 Show，避免先闪出最大化再缩下去
+            window.WindowState = WindowState.Minimized;
+            window.Show();
+            window.WindowState = WindowState.Minimized;
+        }
+
+        /// <summary>
+        /// 挂接分级预警红遮罩（主窗置顶；确认仅关窗）；周期由 HostedService 驱动。
+        /// </summary>
+        private void AttachAIPredictiveGradingAlertUi(ILoggerService<App>? logger)
+        {
+            if (_host is null)
+                return;
+
+            try
+            {
+                var binder = _host.Services.GetRequiredService<AIPredictiveGradingAlertUiBinder>();
+                binder.Attach();
+                logger?.Info("AIPredictive 分级预警 UI 已挂接", false);
+            }
+            catch (Exception ex)
+            {
+                logger?.Error("AIPredictive 分级预警 UI 挂接失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 应用启动后自动拉起 AIPredictive CIP 采集（不依赖是否打开该页）。
+        /// </summary>
+        private void StartAIPredictiveAcquisitionInBackground(ILoggerService<App>? logger)
+        {
+            if (_host is null)
+                return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // 略等 UI/模块注册稳定
+                    await Task.Delay(1500).ConfigureAwait(false);
+                    var acquisition = _host.Services.GetRequiredService<IAIPredictiveAcquisitionService>();
+                    if (acquisition.IsRunning)
+                        return;
+
+                    await acquisition.StartAsync().ConfigureAwait(false);
+                    logger?.Info(
+                        $"AIPredictive 启动自动采集：{(acquisition.IsRunning ? "已启动" : "未启动")} — {acquisition.LastStatus}",
+                        true);
+                }
+                catch (Exception ex)
+                {
+                    logger?.Error("AIPredictive 启动自动采集失败", ex);
+                }
+            });
         }
 
         /// <summary>

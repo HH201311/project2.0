@@ -1,0 +1,71 @@
+<Window
+    x:Class="SUNWODA_SEVB.Views.Windows.Project.AIPredictive.GradingAlertOverlayWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="分级预警"
+    AllowsTransparency="True"
+    Background="#CC8B0000"
+    ResizeMode="NoResize"
+    ShowInTaskbar="True"
+    Topmost="True"
+    WindowStartupLocation="Manual"
+    WindowState="Maximized"
+    WindowStyle="None">
+    <Grid Margin="40">
+        <Border
+            MaxWidth="920"
+            Padding="28"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Background="#EE1A0000"
+            BorderBrush="#FFFF4444"
+            BorderThickness="2"
+            CornerRadius="8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                    <TextBlock
+                        FontSize="28"
+                        FontWeight="Bold"
+                        Foreground="White"
+                        Text="伺服扭矩分级预警" />
+                    <TextBlock
+                        Margin="0,8,0,0"
+                        FontSize="14"
+                        Foreground="#FFFFCCCC"
+                        Text="以下轴触发一级/二级巡检优先级，请现场核验后点击确认。"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Button
+                    x:Name="ConfirmButton"
+                    MinWidth="160"
+                    MinHeight="44"
+                    Margin="0,20,0,0"
+                    Padding="24,10"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Background="#FFFF3333"
+                    BorderBrush="White"
+                    BorderThickness="1"
+                    Click="ConfirmButton_OnClick"
+                    Content="确认"
+                    DockPanel.Dock="Bottom"
+                    FontSize="18"
+                    FontWeight="SemiBold"
+                    Foreground="White" />
+
+                <ScrollViewer
+                    MaxHeight="520"
+                    VerticalScrollBarVisibility="Auto">
+                    <TextBlock
+                        x:Name="DetailText"
+                        FontFamily="Consolas"
+                        FontSize="15"
+                        Foreground="White"
+                        LineHeight="24"
+                        TextWrapping="Wrap" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

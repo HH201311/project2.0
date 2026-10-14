@@ -37,6 +37,10 @@
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingChartDataService.cs" />
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingConfigService.cs" />
     <Compile Include="Interfaces\Project\BoxGluing\IBoxGluingCsvStorage.cs" />
+    <Compile Include="Interfaces\Project\AIPredictive\IAIPredictiveAcquisitionService.cs" />
+    <Compile Include="Interfaces\Project\AIPredictive\IAIPredictiveCsvStorage.cs" />
+    <Compile Include="Interfaces\Project\AIPredictive\IAIPredictivePlcEndpointStore.cs" />
+    <Compile Include="Interfaces\Project\AIPredictive\IAIPredictiveGradingAlertService.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,9 @@
+{
+  "Enabled": true,
+  "PythonExe": "python",
+  "DeviceName": "先导3号机",
+  "IntervalMinutes": 120,
+  "LookbackHours": 2,
+  "TimeoutSeconds": 180,
+  "AlertLevels": [ "一级", "二级" ]
+}

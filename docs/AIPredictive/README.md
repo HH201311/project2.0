@@ -13,24 +13,26 @@ AI 预测分析业务模块，基于 SUNWODA SEVB（`develop`）平台。当前�
 
 | 文档 | 角色 | 何时改 |
 |------|------|--------|
-| [AIPredictive进度存档.md](./AIPredictive进度存档.md) | **热层 / 索引**：状态、待办、代码入口、指向详规的链接 | 每次开发后 |
-| [AIPredictive版本变更记录.md](./AIPredictive版本变更记录.md) | **变更历史**：背景 / 做法 / 落点（按日倒序） | 每次开发后 |
-| [AIPredictive项目开发规划.md](./AIPredictive项目开发规划.md) | **冷层 / 详规**：范围、架构、资料与对接说明 | 需求或设计变更时 |
-| [开发资料/](./开发资料/) | **原始资料投放区**（已投放 3 份；其中 2 份点位 txt 已转为 CSV） | 现场资料变更时 |
-| [点位表 CSV](./AIPredictive点位表_伺服.csv) | **点位数据真相**（[伺服](./AIPredictive点位表_伺服.csv) / [气缸](./AIPredictive点位表_气缸.csv)，UTF-8 BOM + CRLF，列定义见规划 §2.2.1） | 现场点位变更时 |
-| CSV / SQL | **数据真相**（整理后的定稿） | 录入或现场变更后 |
+| [AIPredictive进度存档.md](./AIPredictive进度存档.md) | **热层 / 索引** | 每次开发后 |
+| [AIPredictive版本变更记录.md](./AIPredictive版本变更记录.md) | **变更历史** | 每次开发后 |
+| [AIPredictive项目开发规划.md](./AIPredictive项目开发规划.md) | **冷层 / 详规** | 需求或设计变更时 |
+| [开发资料/](./开发资料/) | **原始资料 + 采集块 CSV** | 现场资料变更时 |
+| [现场结论简报-20260911.md](./现场结论简报-20260911.md) | 现场采集结论（给老板，已合并原两份汇报） | 结论变更时 |
+| [采集块 CSV](./开发资料/AIPredictive采集块_伺服.csv) | **程序采集真相**（2026-09-14 起仅扭矩；全量见备份） | 符号或聚合规则变更时 |
 
 ## 附件
 
 | 文件 | 说明 |
 |------|------|
 | [enable_aipredictive_module.sql](./enable_aipredictive_module.sql) | 启用模块 SQL（已在 `sunwoda_demo` 执行） |
-| [AIPredictive点位表_伺服.csv](./AIPredictive点位表_伺服.csv) | 伺服点位表（10 列 × 920 行；源自 `开发资料/伺服.txt`） |
-| [AIPredictive点位表_气缸.csv](./AIPredictive点位表_气缸.csv) | 气缸点位表（12 列 × 1674 行；源自 `开发资料/气缸.txt`） |
+| [现场结论简报-20260911.md](./现场结论简报-20260911.md) | 采集现场结论（给管理层） |
+| [开发资料/AIPredictive采集块_伺服.csv](./开发资料/AIPredictive采集块_伺服.csv) | 伺服采集块（仅最大扭矩 60 行 / 230 点） |
+| [开发资料/AIPredictive采集块_气缸.csv](./开发资料/AIPredictive采集块_气缸.csv) | 气缸采集块（本期 0 点） |
+| [开发资料/备份_全量采集块_20260914/](./开发资料/备份_全量采集块_20260914/) | 切扭矩前的全量备份（伺服 920 + 气缸 1674） |
 
 ## 平台文档
 
-- [Agent协作开发规程](../Agent协作开发规程.md) — 建项目 / 会话规则 / Prompt 规程
+- [Agent协作开发规程](../Agent协作开发规程.md)
 - [项目架构说明](../项目架构说明.md)
 - [新增业务模块上手指南](../新增业务模块上手指南.md)
-- [docs/README.md](../README.md) — 全仓库文档约定
+- [docs/README.md](../README.md)

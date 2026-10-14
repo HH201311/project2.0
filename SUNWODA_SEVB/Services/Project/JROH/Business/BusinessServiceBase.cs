@@ -13,6 +13,7 @@ using SUNWODA_SEVB.Core.Interfaces.Project.JROH;
 using SUNWODA_SEVB.Core.Models.PLC;
 using SUNWODA_SEVB.Core.Models.Project.JROH.Core;
 using SUNWODA_SEVB.Core.Models.Project.JROH.MCBusinessModels;
+using SUNWODA_SEVB.Core.Models.Project.JROH.MisBusinessModels;
 using SUNWODA_SEVB.Core.Models.Project.JROH.OHBusinessModels;
 using SUNWODA_SEVB.Core.Models.Project.JROH.PWBusinessModels;
 using SUNWODA_SEVB.Tool.Extension;
@@ -269,6 +270,7 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                 EBusinessType.PoleWidth => _projectSettingRepository.LoadPWBusinessParamProjectParameters() as TConfig,
                 EBusinessType.CoatedOH => _projectSettingRepository.LoadOHBusinessParamProjectParameters() as TConfig,
                 EBusinessType.MultiCorrect => _projectSettingRepository.LoadMCBusinessParamProjectParameters() as TConfig,
+                EBusinessType.Mismatch => _projectSettingRepository.LoadMisBusinessParamProjectParameters() as TConfig,
                 _ => throw new ArgumentException($"未实现的业务类型 {BusinessType}"),
             };
         }
@@ -287,6 +289,7 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                 EBusinessType.PoleWidth => _projectSettingRepository.SavePWBusinessParamProjectParameters(config as PWBusinessParamModel),
                 EBusinessType.CoatedOH => _projectSettingRepository.SaveOHBusinessParamProjectParameters(config as OHBusinessParamModel),
                 EBusinessType.MultiCorrect => _projectSettingRepository.SaveMCBusinessParamProjectParameters(config as MCBusinessParamModel),
+                EBusinessType.Mismatch => _projectSettingRepository.SaveMisBusinessParamProjectParameters(config as MisBusinessParamModel),
                 _ => false
             };
         }
@@ -303,6 +306,7 @@ namespace SUNWODA_SEVB.Services.Project.JROH.Business
                 EBusinessType.PoleWidth => "极片宽度闭环",
                 EBusinessType.CoatedOH => "包覆OH闭环",
                 EBusinessType.MultiCorrect => "多级联动闭环",
+                EBusinessType.Mismatch => "极耳错位闭环",
                 _ => "Unknow"
             };
         }

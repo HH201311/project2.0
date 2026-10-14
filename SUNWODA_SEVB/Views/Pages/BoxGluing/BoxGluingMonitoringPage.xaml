@@ -235,12 +235,20 @@
                                                     <TextBlock FontWeight="SemiBold" Text="{Binding TorqueB}" />
                                                 </StackPanel>
                                                 <StackPanel Margin="0,2" Orientation="Horizontal">
-                                                    <TextBlock Foreground="#FFFFA500" Text="压力A  " />
+                                                    <TextBlock Foreground="#FFFFA500" Text="入口压力A  " />
                                                     <TextBlock FontWeight="SemiBold" Text="{Binding PressureA}" />
                                                 </StackPanel>
                                                 <StackPanel Margin="0,2" Orientation="Horizontal">
-                                                    <TextBlock Foreground="#FFFFA500" Text="压力B  " />
+                                                    <TextBlock Foreground="#FFFFA500" Text="入口压力B  " />
                                                     <TextBlock FontWeight="SemiBold" Text="{Binding PressureB}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,2" Orientation="Horizontal">
+                                                    <TextBlock Foreground="#FFDC143C" Text="计量压力A  " />
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding MeteringPressureA}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,2" Orientation="Horizontal">
+                                                    <TextBlock Foreground="#FFDC143C" Text="计量压力B  " />
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding MeteringPressureB}" />
                                                 </StackPanel>
                                                 <StackPanel Margin="0,2" Orientation="Horizontal">
                                                     <TextBlock Foreground="#FF228B22" Text="液位A  " />

@@ -1,0 +1,99 @@
+﻿<Border
+    x:Class="SUNWODA_SEVB.Views.Dialogs.NCLCCT.NCLCCTMonitorPathSelectDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:local="clr-namespace:SUNWODA_SEVB.Views.Dialogs.NCLCCT"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Width="560"
+    Height="230"
+    Background="White"
+    CornerRadius="10"
+    mc:Ignorable="d">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Button
+            HorizontalAlignment="Right"
+            hc:IconElement.Geometry="{StaticResource CloseGeometry}"
+            BorderThickness="0"
+            Command="{Binding CloseCommand}">
+            <Button.Style>
+                <Style BasedOn="{StaticResource ButtonIconCircular}" TargetType="Button">
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#ff5858" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="False">
+                            <Setter Property="Background" Value="#e1e1e1" />
+                            <Setter Property="Foreground" Value="Black" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+        </Button>
+
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="40" />
+            </Grid.RowDefinitions>
+
+            <DockPanel Margin="0,0,0,10" VerticalAlignment="Center">
+                <TextBlock
+                    Width="110"
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Left"
+                    Text="左环监听路径：" />
+                <Button
+                    Width="60"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Command="{Binding ChangeMonitorPath1Command}"
+                    Content="更改"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource ButtonWarning}" />
+                <TextBox
+                    VerticalAlignment="Center"
+                    IsReadOnly="True"
+                    Text="{Binding MonitorPath1}" />
+            </DockPanel>
+
+            <DockPanel
+                Grid.Row="1"
+                Margin="0,0,0,10"
+                VerticalAlignment="Center">
+                <TextBlock
+                    Width="110"
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Left"
+                    Text="右环监听路径：" />
+                <Button
+                    Width="60"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Command="{Binding ChangeMonitorPath2Command}"
+                    Content="更改"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource ButtonWarning}" />
+                <TextBox
+                    VerticalAlignment="Center"
+                    IsReadOnly="True"
+                    Text="{Binding MonitorPath2}" />
+            </DockPanel>
+
+            <Button
+                Grid.Row="2"
+                HorizontalAlignment="Stretch"
+                Command="{Binding AffirmMonitorPathCommand}"
+                Content="确认"
+                Style="{StaticResource ButtonSuccess}" />
+        </Grid>
+    </Grid>
+</Border>

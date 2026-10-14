@@ -4,6 +4,7 @@ using HandyControl.Controls;
 using HandyControl.Data;
 using HandyControl.Tools.Extension;
 using HslCommunication;
+using Masuit.Tools;
 using Newtonsoft.Json;
 using OxyPlot;
 using OxyPlot.Annotations;
@@ -143,40 +144,123 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
         #endregion
 
         #region 数据图表
-        private double targetOfInput = 0, targetOfCourse = 0, targetOfUnreel = 0;
-
         /// <summary>
-        /// 入料纠偏设定值
+        /// 正极入料纠偏数据曲线
         /// </summary>
-        public double TargetOfInput { get => targetOfInput; set => SetProperty(ref targetOfInput, value); }
+        public ObservableCollection<(DateTime, double)> InfeedOfPosSeries1 { get; set; } = [];
 
         /// <summary>
-        /// 过程纠偏设定值
+        /// 正极入料纠偏设定值数据曲线
         /// </summary>
-        public double TargetOfCourse { get => targetOfCourse; set => SetProperty(ref targetOfCourse, value); }
+        public ObservableCollection<(DateTime, double)> InfeedOfPosSeries2 { get; set; } = [];
 
         /// <summary>
-        /// 放卷纠偏设定值
+        /// 正极蛇形4纠偏数据曲线
         /// </summary>
-        public double TargetOfUnreel { get => targetOfUnreel; set => SetProperty(ref targetOfUnreel, value); }
+        public ObservableCollection<(DateTime, double)> Snake4OfPosSeries1 { get; set; } = [];
 
         /// <summary>
-        /// 入料纠偏检测值
+        /// 正极蛇形4纠偏设定值数据曲线
         /// </summary>
-        public ObservableCollection<(DateTime, double)> InputSeriesOfTop { get; set; } = [];
+        public ObservableCollection<(DateTime, double)> Snake4OfPosSeries2 { get; set; } = [];
 
         /// <summary>
-        /// 过程纠偏检测值
+        /// 正极蛇形3纠偏数据曲线
         /// </summary>
-        public ObservableCollection<(DateTime, double)> CourseSeriesOfTop { get; set; } = [];
+        public ObservableCollection<(DateTime, double)> Snake3OfPosSeries1 { get; set; } = [];
 
         /// <summary>
-        /// 放卷纠偏检测值
+        /// 正极蛇形3纠偏设定值数据曲线
         /// </summary>
-        public ObservableCollection<(DateTime, double)> UnreelSeriesOfBottom { get; set; } = [];
+        public ObservableCollection<(DateTime, double)> Snake3OfPosSeries2 { get; set; } = [];
 
         /// <summary>
-        /// 当接受数据时触发
+        /// 正极蛇形2纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake2OfPosSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 正极蛇形2纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake2OfPosSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 正极蛇形1纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake1OfPosSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 正极蛇形1纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake1OfPosSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 负极入料纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> InfeedOfNegSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 负极入料纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> InfeedOfNegSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 负极蛇形3纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake3OfNegSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 负极蛇形3纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake3OfNegSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 负极蛇形2纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake2OfNegSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 负极蛇形2纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake2OfNegSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 负极蛇形1纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake1OfNegSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 负极蛇形1纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> Snake1OfNegSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 上隔膜纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> UpperDiaSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 上隔膜纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> UpperDiaSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 下隔膜纠偏数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> LowerDiaSeries1 { get; set; } = [];
+
+        /// <summary>
+        /// 下隔膜纠偏设定值数据曲线
+        /// </summary>
+        public ObservableCollection<(DateTime, double)> LowerDiaSeries2 { get; set; } = [];
+
+        /// <summary>
+        /// 单条曲线最多保留的采样点数
+        /// </summary>
+        private const int MaxPlotPointsPerSeries = 2000;
+
+        /// <summary>
+        /// 当接受数据时触发（一个卷芯解析完成后一次性追加）
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -191,36 +275,75 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
                 return;
             }
 
-            if (gatherData != null)
-            {
-                InputSeriesOfTop.Add((DateTime.Now, gatherData.ModuleWidthOfPos));
-                while (InputSeriesOfTop.Count > 1000) InputSeriesOfTop.RemoveAt(0);
-                CourseSeriesOfTop.Add((DateTime.Now, gatherData.ModuleWidthOfNeg));
-                while (CourseSeriesOfTop.Count > 1000) CourseSeriesOfTop.RemoveAt(0);
-                UnreelSeriesOfBottom.Add((DateTime.Now, gatherData.ModuleWidthOfPos));
-                while (UnreelSeriesOfBottom.Count > 1000) UnreelSeriesOfBottom.RemoveAt(0);
-            }
+            if (gatherData == null) return;
+
+            AppendSeries(InfeedOfPosSeries1, InfeedOfPosSeries2, gatherData.InfeedDataOfPos);
+            AppendSeries(Snake4OfPosSeries1, Snake4OfPosSeries2, gatherData.Snake4DataOfPos);
+            AppendSeries(Snake3OfPosSeries1, Snake3OfPosSeries2, gatherData.Snake3DataOfPos);
+            AppendSeries(Snake2OfPosSeries1, Snake2OfPosSeries2, gatherData.Snake2DataOfPos);
+            AppendSeries(Snake1OfPosSeries1, Snake1OfPosSeries2, gatherData.Snake1DataOfPos);
+
+            AppendSeries(InfeedOfNegSeries1, InfeedOfNegSeries2, gatherData.InfeedDataOfNeg);
+            AppendSeries(Snake3OfNegSeries1, Snake3OfNegSeries2, gatherData.Snake3DataOfNeg);
+            AppendSeries(Snake2OfNegSeries1, Snake2OfNegSeries2, gatherData.Snake2DataOfNeg);
+            AppendSeries(Snake1OfNegSeries1, Snake1OfNegSeries2, gatherData.Snake1DataOfNeg);
+
+            AppendSeries(UpperDiaSeries1, UpperDiaSeries2, gatherData.UpperDiaphragmData);
+            AppendSeries(LowerDiaSeries1, LowerDiaSeries2, gatherData.LowerDiaphragmData);
         }
+
+        /// <summary>
+        /// 追加一路通道的检测值/设定值曲线，并按上限裁剪历史点
+        /// </summary>
+        /// <param name="detectSeries">检测值曲线</param>
+        /// <param name="targetSeries">设定值曲线</param>
+        /// <param name="data">通道采集数据</param>
+        private static void AppendSeries(
+            ObservableCollection<(DateTime, double)> detectSeries,
+            ObservableCollection<(DateTime, double)> targetSeries,
+            MCGatherData? data)
+        {
+            if (data?.Values == null || data.Values.Count == 0) return;
+
+            foreach (var value in data.Values)
+            {
+                detectSeries.Add((value.time, value.detValue));
+                targetSeries.Add((value.time, value.tarValue));
+            }
+
+            TrimSeries(detectSeries);
+            TrimSeries(targetSeries);
+        }
+
+        /// <summary>
+        /// 按上限裁剪曲线历史点
+        /// <para>原实现按 param.T 清空曲线，T = 1 时每帧都被清空、曲线只剩最后一个点。</para>
+        /// </summary>
+        private static void TrimSeries(ObservableCollection<(DateTime, double)> series)
+        {
+            while (series.Count > MaxPlotPointsPerSeries) series.RemoveAt(0);
+        }
+
         #endregion
 
         #region 调机记录数据
-        private DataTable inputRecords = new(), courseRecords = new(), unreelRecords = new();
-        private DataView? inputRecordsView, courseRecordsView, unreelRecordsView;
+        private DataTable posRecords = new(), negRecords = new(), diaphragmRecords = new();
+        private DataView? posRecordsView, negRecordsView, diaphragmRecordsView;
 
         /// <summary>
-        /// 调机记录界面绑定数据-入料纠偏
+        /// 调机记录界面绑定数据-正极多级纠偏
         /// </summary>
-        public DataView? InputRecordsView { get => inputRecordsView; set => SetProperty(ref inputRecordsView, value); }
+        public DataView? PosRecordsView { get => posRecordsView; set => SetProperty(ref posRecordsView, value); }
 
         /// <summary>
-        /// 调机记录界面绑定数据-过程纠偏
+        /// 调机记录界面绑定数据-负极多级纠偏
         /// </summary>
-        public DataView? CourseRecordsView { get => courseRecordsView; set => SetProperty(ref courseRecordsView, value); }
+        public DataView? NegRecordsView { get => negRecordsView; set => SetProperty(ref negRecordsView, value); }
 
         /// <summary>
-        /// 调机记录界面绑定数据-方娟纠偏
+        /// 调机记录界面绑定数据-隔膜多级纠偏
         /// </summary>
-        public DataView? UnreelRecordsView { get => unreelRecordsView; set => SetProperty(ref unreelRecordsView, value); }
+        public DataView? DiaphragmRecordsView { get => diaphragmRecordsView; set => SetProperty(ref diaphragmRecordsView, value); }
 
         /// <summary>
         /// 当接收到数据时触发
@@ -241,24 +364,24 @@ namespace SUNWODA_SEVB.ViewModels.Pages.JROH
             }
 
             // 代做判断
-            if (cl == "InputCorrect" && RefreshRecords(record, ref inputRecords))
+            if (cl == "PosCorrect" && RefreshRecords(record, ref posRecords))
             {
-                InputRecordsView = null;
-                InputRecordsView = inputRecords.DefaultView;
+                PosRecordsView = null;
+                PosRecordsView = posRecords.DefaultView;
                 return;
             }
 
-            if (cl == "CourseCorrect" && RefreshRecords(record, ref courseRecords))
+            if (cl == "NegCorrect" && RefreshRecords(record, ref negRecords))
             {
-                CourseRecordsView = null;
-                CourseRecordsView = courseRecords.DefaultView;
+                NegRecordsView = null;
+                NegRecordsView = negRecords.DefaultView;
                 return;
             }
 
-            if (cl == "UnreelCorrect" && RefreshRecords(record, ref unreelRecords))
+            if (cl == "DiaphragmCorrect" && RefreshRecords(record, ref diaphragmRecords))
             {
-                UnreelRecordsView = null;
-                UnreelRecordsView = unreelRecords.DefaultView;
+                DiaphragmRecordsView = null;
+                DiaphragmRecordsView = diaphragmRecords.DefaultView;
                 return;
             }
         }

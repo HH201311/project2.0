@@ -169,6 +169,8 @@ namespace SUNWODA_SEVB.ViewModels.Pages.BoxGluing
                     LastY(snapshot, row.Station, "Torque", "B"),
                     LastY(snapshot, row.Station, "Pressure", "A"),
                     LastY(snapshot, row.Station, "Pressure", "B"),
+                    LastY(snapshot, row.Station, "MeteringPressure", "A"),
+                    LastY(snapshot, row.Station, "MeteringPressure", "B"),
                     LastY(snapshot, row.Station, "Level", "A"),
                     LastY(snapshot, row.Station, "Level", "B"));
             }

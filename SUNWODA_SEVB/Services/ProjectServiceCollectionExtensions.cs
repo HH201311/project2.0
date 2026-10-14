@@ -199,9 +199,11 @@ namespace SUNWODA_SEVB.Services
             // 注册具体业务类型
             services.AddSingleton<YWC05BusinessService>();
             services.AddSingleton<DYC04BusinessService>();
+            services.AddSingleton<DYC04BusinessService>();
 
             // 注册接口映射
             services.AddSingleton<IJRCWBusinessService>(sp => sp.GetRequiredService<YWC05BusinessService>());
+            services.AddSingleton<IJRCWBusinessService>(sp => sp.GetRequiredService<DYC04BusinessService>());
             services.AddSingleton<IJRCWBusinessService>(sp => sp.GetRequiredService<DYC04BusinessService>());
 
             // 注册工厂和管理器
@@ -222,11 +224,13 @@ namespace SUNWODA_SEVB.Services
             services.AddSingleton<PWBusinessService>();
             services.AddSingleton<OHBusinessService>();
             services.AddSingleton<MCBusinessService>();
+            services.AddSingleton<MisBusinessService>();
 
             // 注册接口映射
             services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<PWBusinessService>());
             services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<OHBusinessService>());
             services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<MCBusinessService>());
+            services.AddSingleton<IJROHBusinessService>(sp => sp.GetRequiredService<MisBusinessService>());
 
             // 注册工厂和管理器
             services.AddSingleton<JROHBusinessServiceFactory>();

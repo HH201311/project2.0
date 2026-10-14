@@ -16,7 +16,7 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
                 UseSimulation = false,
                 Channels =
                 [
-                    // CSV 列序仍为扭矩→压力→液位；地址按现场 PLC 点位表（压力 D1600～、扭矩 D1608～）
+                    // CSV 列序：扭矩→入口压力→计量压力→液位；地址按现场 PLC 点位表
                     Chan("伺服扭矩A1", "D1608", "Torque", 1, "A", true),
                     Chan("伺服扭矩B1", "D1609", "Torque", 1, "B", true),
                     Chan("伺服扭矩A2", "D1610", "Torque", 2, "A", true),
@@ -33,6 +33,12 @@ namespace SUNWODA_SEVB.Core.Models.Project.BoxGluing
                     Chan("入口压力B3", "D1605", "Pressure", 3, "B", true),
                     Chan("入口压力A4", "D1606", "Pressure", 4, "A", false),
                     Chan("入口压力B4", "D1607", "Pressure", 4, "B", false),
+                    Chan("计量1压力A", "D1639", "MeteringPressure", 1, "A", true),
+                    Chan("计量1压力B", "D1640", "MeteringPressure", 1, "B", true),
+                    Chan("计量2压力A", "D1641", "MeteringPressure", 2, "A", true),
+                    Chan("计量2压力B", "D1642", "MeteringPressure", 2, "B", true),
+                    Chan("计量3压力A", "D1643", "MeteringPressure", 3, "A", true),
+                    Chan("计量3压力B", "D1644", "MeteringPressure", 3, "B", true),
                     Chan("中转液位A1", "D1616", "Level", 1, "A", true),
                     Chan("中转液位B1", "D1617", "Level", 1, "B", true),
                     Chan("中转液位A2", "D1618", "Level", 2, "A", false),

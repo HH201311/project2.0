@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using SqlSugar;
 using SUNWODA_SEVB.Core.Attributes;
 using SUNWODA_SEVB.Core.Common;
@@ -138,7 +138,7 @@ namespace SUNWODA_SEVB.Data
 
                 foreach (var assembly in assemblies)
                 {
-                    var types = assembly.GetTypes()
+                    var types = GetLoadableTypes(assembly)
                         .Where(t => t.Namespace == "SUNWODA_SEVB.Data.Models"
                             && t.IsClass
                             && !t.IsAbstract
@@ -157,6 +157,21 @@ namespace SUNWODA_SEVB.Data
             {
                 _logger.Error($"获取模型类型失败: {ex.Message}", ex);
                 return new List<Type>();
+            }
+        }
+
+        /// <summary>
+        /// 安全枚举类型：缺第三方依赖时 GetTypes 抛 ReflectionTypeLoadException，保留已加载类型。
+        /// </summary>
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                return ex.Types.Where(t => t != null)!;
             }
         }
 
@@ -363,7 +378,7 @@ namespace SUNWODA_SEVB.Data
                 int addedCount = 0;
                 foreach (var assembly in assemblies)
                 {
-                    var viewModelTypes = assembly.GetTypes()
+                    var viewModelTypes = GetLoadableTypes(assembly)
                         .Where(t => t.IsClass && !t.IsAbstract
                             && t.IsSubclassOf(typeof(ViewModelBase))
                             && t.GetCustomAttribute<ModuleAttribute>() != null);

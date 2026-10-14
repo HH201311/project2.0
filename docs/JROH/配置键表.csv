@@ -1,0 +1,151 @@
+业务	分类	参数键名	BelongToVM	Value类型	RoleRank	源码默认值	说明
+项目级	项目设置	FileSaveRootPath	VM_JROHClosedLoopPage	string	2	D:\通用上位机\JROHDatas	闭环结果 CSV 落盘根目录；LoadJROHFileSaveRootPathProjectParameter
+PW	参数键	PWBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	—	PWBusinessParamModel 整表 JSON；页面 VM_PWOfJROHPage；对话框 PWBusinessParamDialog
+PW	基础	IsUse	(同上)	bool	4	FALSE	是否启用
+PW	CP管控-隔膜总宽度	TotalWidthOfMold_Center	(同上)	int	4	196000	基准值；参数表 196（mm）
+PW	CP管控-隔膜总宽度	TotalWidthOfMold_LowerLimit	(同上)	int	4	195500	范围下限；参数表 195.5（mm）
+PW	CP管控-隔膜总宽度	TotalWidthOfMold_UpperLimit	(同上)	int	4	196500	范围上限；参数表 196.5（mm）
+PW	CP管控-负极极片总宽	PoleWidthOfNeg_Center	(同上)	int	4	191000	基准值；参数表 191（mm）
+PW	CP管控-负极极片总宽	PoleWidthOfNeg_LowerLimit	(同上)	int	4	190500	范围下限；参数表 190.5（mm）
+PW	CP管控-负极极片总宽	PoleWidthOfNeg_UpperLimit	(同上)	int	4	191500	范围上限；参数表 191.5（mm）
+PW	CP管控-正极极片总宽	PoleWidthOfPos_Center	(同上)	int	4	190800	基准值；参数表 190.8（mm）
+PW	CP管控-正极极片总宽	PoleWidthOfPos_LowerLimit	(同上)	int	4	190300	范围下限；参数表 190.3（mm）
+PW	CP管控-正极极片总宽	PoleWidthOfPos_UpperLimit	(同上)	int	4	191300	范围上限；参数表 191.3（mm）
+PW	CP管控-正极极片涂膜宽度	CoatedWidthOfPos_Center	(同上)	int	4	188300	基准值；参数表 188.3（mm）
+PW	CP管控-正极极片涂膜宽度	CoatedWidthOfPos_LowerLimit	(同上)	int	4	187800	范围下限；参数表 187.8（mm）
+PW	CP管控-正极极片涂膜宽度	CoatedWidthOfPos_UpperLimit	(同上)	int	4	188800	范围上限；参数表 188.8（mm）
+PW	CP管控-正极CIL基准宽度	CilWidthOfPos_Center	(同上)	int	4	2500	基准值；参数表 2.5（mm）
+PW	CP管控-正极CIL基准宽度	CilWidthOfPos_LowerLimit	(同上)	int	4	2000	范围下限；参数表 2（mm）
+PW	CP管控-正极CIL基准宽度	CilWidthOfPos_UpperLimit	(同上)	int	4	3000	范围上限；参数表 3（mm）
+PW	CP管控-负极到正极AC(顶部)	NegToPosACTop_Center	(同上)	int	4	1600	基准值；参数表 1.6（mm）
+PW	CP管控-负极到正极AC(顶部)	NegToPosACTop_LowerLimit	(同上)	int	4	600	范围下限；参数表 0.6（mm）
+PW	CP管控-负极到正极AC(顶部)	NegToPosACTop_UpperLimit	(同上)	int	4	3500	范围上限；参数表 3.5（mm）
+PW	CP管控-负极到正极AC(底部)	NegToPosACBottom_Center	(同上)	int	4	1100	基准值；参数表 1.1（mm）
+PW	CP管控-负极到正极AC(底部)	NegToPosACBottom_LowerLimit	(同上)	int	4	400	范围下限；参数表 0.4（mm）
+PW	CP管控-负极到正极AC(底部)	NegToPosACBottom_UpperLimit	(同上)	int	4	3200	范围上限；参数表 3.2（mm）
+PW	CP管控-隔膜到负极SA(顶部)	MoldToNegSATop_Center	(同上)	int	4	2800	基准值；参数表 2.8（mm）
+PW	CP管控-隔膜到负极SA(顶部)	MoldToNegSATop_LowerLimit	(同上)	int	4	500	范围下限；参数表 0.5（mm）
+PW	CP管控-隔膜到负极SA(顶部)	MoldToNegSATop_UpperLimit	(同上)	int	4	4000	范围上限；参数表 4（mm）
+PW	CP管控-隔膜到负极SA(底部)	MoldToNegSABottom_Center	(同上)	int	4	2200	基准值；参数表 2.2（mm）
+PW	CP管控-隔膜到负极SA(底部)	MoldToNegSABottom_LowerLimit	(同上)	int	4	1000	范围下限；参数表 1（mm）
+PW	CP管控-隔膜到负极SA(底部)	MoldToNegSABottom_UpperLimit	(同上)	int	4	4500	范围上限；参数表 4.5（mm）
+PW	CP管控-隔膜到CIL(顶部)	MoldToCILTop_Center	(同上)	int	4	1900	基准值；参数表 1.9（mm）
+PW	CP管控-隔膜到CIL(顶部)	MoldToCILTop_LowerLimit	(同上)	int	4	500	范围下限；参数表 0.5（mm）
+PW	CP管控-隔膜到CIL(顶部)	MoldToCILTop_UpperLimit	(同上)	int	4	5000	范围上限；参数表 5（mm）
+PW	CP管控-CIL超负极(顶部)	CilOverNegTop_Center	(同上)	int	4	900	基准值；参数表 0.9（mm）
+PW	CP管控-CIL超负极(顶部)	CilOverNegTop_LowerLimit	(同上)	int	4	90	范围下限；参数表 0.09（mm）
+PW	CP管控-CIL超负极(顶部)	CilOverNegTop_UpperLimit	(同上)	int	4	33500	范围上限；参数表 3.5（mm）?? 与代码差 10 倍待确认
+PW	闭环控制	AdjustCorrectionOfPos	(同上)	float	4	1	方向修正系数-正极；参数表 1
+PW	闭环控制	AdjustCorrectionOfNeg	(同上)	float	4	-1	方向修正系数-负极；参数表 -1
+PW	闭环控制	MaxAdjustmentLimitPos	(同上)	int	4	400	限幅调整最大值-正极；参数表 0.4（mm）
+PW	闭环控制	MaxAdjustmentLimitNeg	(同上)	int	4	400	限幅调整最大值-负极；参数表 0.4（mm）
+PW	闭环控制	MinAdjustmentLimitPos	(同上)	int	4	100	限幅调整最小值-正极（死区）；参数表 0.1（mm）
+PW	闭环控制	MinAdjustmentLimitNeg	(同上)	int	4	100	限幅调整最小值-负极（死区）；参数表 0.1（mm）
+PW	闭环控制	CpControlEnablePos	(同上)	bool	4	TRUE	极片总宽CP管控-正极；参数表 开
+PW	闭环控制	CpControlEnableNeg	(同上)	bool	4	TRUE	极片总宽CP管控-负极；参数表 关
+PW	闭环控制	OhWidthCheckValuePos	(同上)	int	4	1000	OH总宽防呆尺寸-正极；参数表 1（mm）
+PW	闭环控制	OhWidthCheckValueNeg	(同上)	int	4	1000	OH总宽防呆尺寸-负极；参数表 1（mm）
+PW	闭环控制	ClosedLoopEnablePos	(同上)	bool	4	TRUE	闭环功能开启按钮-正极；参数表 已启用
+PW	闭环控制	ClosedLoopEnableNeg	(同上)	bool	4	TRUE	闭环功能开启按钮-负极；参数表 已关闭
+PW	闭环控制	AdjustFrequency	(同上)	byte	4	2	调节频次（电芯数）；?? 参数表为 4 与代码不一致待确认
+PW	闭环控制	AdjustInterval	(同上)	byte	4	1	正负极调节间隔（n）；?? 声明但代码未使用
+PW	落盘	EBusinessType	(同目录)	枚举	—	PoleWidth	落盘目录层级用值；业务中文名 极片宽度闭环
+PW	CSV输出列	缓存数据_极片宽度闭环	VM_PWOfJROHPage	CSV列	—	—	采集时间|虚拟码 |正极A面CCD模宽数据|正极B面CCD模宽数据|正极CCD模宽数据|负极CCD模宽数据|正极飞行原点Y|负极飞行原点Y|闭环计算时间|正极是否调机|正极总宽目标值|正极宽度偏差值|正极调机下发值|负极是否调机|负极总宽目标值|负极宽度偏差值|负极调机下发值|闭环结果信息
+OH	参数键	OHBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	—	OHBusinessParamModel 整表 JSON；页面 VM_OHOfJROHPage；对话框 OHBusinessParamDialog
+OH	基础	IsUse	(同上)	bool	4	FALSE	是否启用；?? 模型有该字段但未使用
+OH	CP管控-隔膜总宽度	TotalWidthOfMold_Center	(同上)	int	4	78900	基准值；参数表 78.9（mm）
+OH	CP管控-隔膜总宽度	TotalWidthOfMold_LowerLimit	(同上)	int	4	78500	范围下限；参数表 78.5（mm）
+OH	CP管控-隔膜总宽度	TotalWidthOfMold_UpperLimit	(同上)	int	4	79300	范围上限；参数表 79.3（mm）
+OH	CP管控-负极极片总宽	PoleWidthOfNeg_Center	(同上)	int	4	72700	基准值；参数表 72.7（mm）
+OH	CP管控-负极极片总宽	PoleWidthOfNeg_LowerLimit	(同上)	int	4	72200	范围下限；参数表 72.2（mm）
+OH	CP管控-负极极片总宽	PoleWidthOfNeg_UpperLimit	(同上)	int	4	73200	范围上限；参数表 73.2（mm）
+OH	CP管控-正极极片总宽	PoleWidthOfPos_Center	(同上)	int	4	72900	基准值；参数表 72.9（mm）
+OH	CP管控-正极极片总宽	PoleWidthOfPos_LowerLimit	(同上)	int	4	72400	范围下限；参数表 72.4（mm）
+OH	CP管控-正极极片总宽	PoleWidthOfPos_UpperLimit	(同上)	int	4	73400	范围上限；参数表 73.4（mm）
+OH	CP管控-正极极片涂膜宽度	CoatedWidthOfPos_Center	(同上)	int	4	70500	基准值；参数表 70.5（mm）
+OH	CP管控-正极极片涂膜宽度	CoatedWidthOfPos_LowerLimit	(同上)	int	4	70000	范围下限；参数表 70（mm）
+OH	CP管控-正极极片涂膜宽度	CoatedWidthOfPos_UpperLimit	(同上)	int	4	71000	范围上限；参数表 71（mm）
+OH	CP管控-正极CIL基准宽度	CilWidthOfPos_Center	(同上)	int	4	3100	基准值；参数表 3.1（mm）
+OH	CP管控-正极CIL基准宽度	CilWidthOfPos_LowerLimit	(同上)	int	4	2200	范围下限；参数表 2.2（mm）
+OH	CP管控-正极CIL基准宽度	CilWidthOfPos_UpperLimit	(同上)	int	4	3700	范围上限；参数表 3.7（mm）
+OH	CP管控-负极到正极AC(顶部)	NegToPosACTop_Center	(同上)	int	4	1700	基准值；参数表 1.7（mm）
+OH	CP管控-负极到正极AC(顶部)	NegToPosACTop_LowerLimit	(同上)	int	4	300	范围下限；参数表 0.3（mm）
+OH	CP管控-负极到正极AC(顶部)	NegToPosACTop_UpperLimit	(同上)	int	4	3700	范围上限；参数表 3.7（mm）
+OH	CP管控-负极到正极AC(底部)	NegToPosACBottom_Center	(同上)	int	4	1000	基准值；参数表 1.0（mm）
+OH	CP管控-负极到正极AC(底部)	NegToPosACBottom_LowerLimit	(同上)	int	4	300	范围下限；参数表 0.3（mm）
+OH	CP管控-负极到正极AC(底部)	NegToPosACBottom_UpperLimit	(同上)	int	4	3700	范围上限；参数表 3.7（mm）
+OH	CP管控-隔膜到负极SA(顶部)	MoldToNegSATop_Center	(同上)	int	4	2500	基准值；参数表 2.5（mm）
+OH	CP管控-隔膜到负极SA(顶部)	MoldToNegSATop_LowerLimit	(同上)	int	4	100	范围下限；参数表 1（mm）?? 与代码差 10 倍待确认
+OH	CP管控-隔膜到负极SA(顶部)	MoldToNegSATop_UpperLimit	(同上)	int	4	5600	范围上限；参数表 5.6（mm）
+OH	CP管控-隔膜到负极SA(底部)	MoldToNegSABottom_Center	(同上)	int	4	3300	基准值；参数表 3.3（mm）
+OH	CP管控-隔膜到负极SA(底部)	MoldToNegSABottom_LowerLimit	(同上)	int	4	500	范围下限；参数表 0.5（mm）
+OH	CP管控-隔膜到负极SA(底部)	MoldToNegSABottom_UpperLimit	(同上)	int	4	5600	范围上限；参数表 5.6（mm）
+OH	CP管控-隔膜到CIL(顶部)	MoldToCILTop_Center	(同上)	int	4	1800	基准值；参数表 1.8（mm）
+OH	CP管控-隔膜到CIL(顶部)	MoldToCILTop_LowerLimit	(同上)	int	4	500	范围下限；参数表 0.5（mm）
+OH	CP管控-隔膜到CIL(顶部)	MoldToCILTop_UpperLimit	(同上)	int	4	5600	范围上限；参数表 5.6（mm）
+OH	CP管控-CIL超负极(顶部)	CilOverNegTop_Center	(同上)	int	4	1400	基准值；参数表 1.4（mm）
+OH	CP管控-CIL超负极(顶部)	CilOverNegTop_LowerLimit	(同上)	int	4	100	范围下限；参数表 0.1（mm）
+OH	CP管控-CIL超负极(顶部)	CilOverNegTop_UpperLimit	(同上)	int	4	3900	范围上限；参数表 3.9（mm）
+OH	闭环控制	IsSigleClosedLoop	(同上)	bool	4	FALSE	是否单边闭环；?? 参数界面无对应控件
+OH	闭环控制	AdjustCorrectionOfPos	(同上)	float	4	1	方向修正系数-正极；参数表 1
+OH	闭环控制	AdjustCorrectionOfNeg	(同上)	float	4	-1	方向修正系数-负极；参数表 -1
+OH	闭环控制	CountOfFront	(同上)	byte	4	5	OH数据前分段个数 n；?? 界面绑定写作 CountOfFrontEnd 与字段名不一致
+OH	闭环控制	CountOfBack	(同上)	byte	4	5	OH数据后分段个数 m；?? 界面绑定写作 CountOfBackEnd 与字段名不一致
+OH	闭环控制	IsFrontOfPosDetextion	(同上)	bool	4	TRUE	正极卷绕CCD检测面；参数表 正面/反面
+OH	闭环控制	DoubleSideEnableOfPos	(同上)	bool	4	TRUE	正极双面OH控制开启；参数表 已启用/已关闭
+OH	闭环控制	K	(同上)	int	4	1000	料线向大板移动0.15所需要的纠偏值 K（±0.15）
+OH	闭环控制	MaxLimitOfPos	(同上)	int	4	300	限幅调整最大值-正极；参数表 0.3（mm）
+OH	闭环控制	MaxLimitOfNeg	(同上)	int	4	300	限幅调整最大值-负极；参数表 0.3（mm）
+OH	闭环控制	MinLimitOfPos	(同上)	int	4	50	限幅调整最小值-正极（死区）；参数表 0.05（mm）
+OH	闭环控制	MinLimitOfNeg	(同上)	int	4	50	限幅调整最小值-负极（死区）；参数表 0.05（mm）
+OH	闭环控制	ClosedLoopEnablePos	(同上)	bool	4	TRUE	闭环功能开启按钮-正极；参数表 已启用
+OH	闭环控制	ClosedLoopEnableNeg	(同上)	bool	4	TRUE	闭环功能开启按钮-负极；参数表 已关闭
+OH	闭环控制	AdjustFrequency	(同上)	byte	4	2	调节频次（S电芯数）；参数表 2（间隔）
+OH	落盘	EBusinessType	(同目录)	枚举	—	CoatedOH	落盘目录层级用值；业务中文名 包覆OH闭环
+OH	CSV输出列	缓存数据_包覆OH闭环	VM_OHOfJROHPage	CSV列	—	—	采集时间|虚拟码 |负极入料基准纠偏设定值|负极前段补偿采集值|负极后段补偿采集值|负极入料纠偏发送值|负极前段补偿发送值|负极后段补偿发送值|正极入料基准纠偏设定值|正极前段补偿采集值|正极后段补偿采集值|正极正反面模宽补偿值A/2|正极入料纠偏发送值|正极前段补偿发送值|正极后段补偿发送值|闭环结果信息
+MC	参数键	MCBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	—	MCBusinessParamModel 整表 JSON；页面 VM_MCOfJROHPage；对话框 MCBusinessParamDialog
+MC	数据源	WatcherRootPath	(同上)	string	4	D:\MESDATA\12_张力数据-TensionData-????????????	张力 CSV 监听根目录（MC 独有）
+MC	闭环控制	AdjustCorrectionOfPos	(同上)	float	4	1	方向修正系数K-极片侧；参数表 1
+MC	闭环控制	AdjustCorrectionOfNeg	(同上)	float	4	-1	方向修正系数K-隔膜侧；参数表 -1
+MC	闭环控制	T	(同上)	byte	4	1	数据采集周期 T（采集 T 个调整一次、间隔 T 后再采集）
+MC	闭环控制	K	(同上)	float	4	0.5	触发调整阈值 Kn（50%~80% 范围防呆）
+MC	闭环控制	D	(同上)	float	4	0.05	调整反馈值 D 偏差值（0.05~0.3 范围防呆）
+MC	闭环控制	ClosedLoopEnablePos	(同上)	bool	4	TRUE	功能开启按钮-极片侧；参数表 已启用
+MC	闭环控制	ClosedLoopEnableNeg	(同上)	bool	4	TRUE	功能开启按钮-隔膜侧；参数表 已关闭
+MC	落盘	EBusinessType	(同目录)	枚举	—	MultiCorrect	落盘目录层级用值；业务中文名 多级联动闭环
+MC	CSV输出列	缓存数据_多级联动闭环	VM_MCOfJROHPage	CSV列	—	—	采集时间|虚拟码 |11 路纠偏通道实时值-中值|（11 路 × 采集总数/正值个数/负值个数/纠偏值/纠偏信息）|闭环结果信息
+Mis	参数键	MisBusinessParam	VM_JROHClosedLoopPage	string(JSON)	4	—	MisBusinessParamModel 整表 JSON；页面 VM_MisOfJROHPage；对话框 MisBusinessParamDialog
+Mis	CP控制-极耳错位量	MisalignmentOfTab	(同上)	float	4	0	参数表记作 d ? 待现场数值
+Mis	CP控制-电芯结构	IsSingleTab	(同上)	bool	4	TRUE	true=单极耳 / false=双极耳（二选一开关）
+Mis	CP控制-卷针周长	NeedleCircumference	(同上)	float	4	265	参数表 265
+Mis	CP控制-正极近边距	NearEdgeOfPos	(同上)	float	4	24	参数表 24
+Mis	CP控制-负极近边距	NearEdgeOfNeg	(同上)	float	4	24	参数表 24
+Mis	CP控制-电芯隔膜长度	DiaphragmLengthOfCell	(同上)	float	4	0	参数表记作 L0标准 ? 待现场数值
+Mis	CP控制-每卷隔膜总长	TotalDiaphragmLengthPerRoll	(同上)	float	4	0	参数表记作 L总 ? 待现场数值
+Mis	设备控制-缓存与卷针	CacheCountOfPos	(同上)	int	4	0	正极缓存个数 a ? 待现场数值
+Mis	设备控制-缓存与卷针	CacheCountOfNeg	(同上)	int	4	0	负极缓存个数 b ? 待现场数值
+Mis	设备控制-缓存与卷针	NeedleCount	(同上)	int	4	3	设备卷针个数；参数表 3
+Mis	设备控制-缓存与卷针	DiameterChangePerMm	(同上)	float	4	0	1mm周长变径 △S ? 待现场数值
+Mis	设备控制-缓存与卷针	DiameterAdjustFrequency	(同上)	int	4	1	变径调节频次；参数表 1
+Mis	设备控制-缓存与卷针	IsPosConsistency	(同上)	bool	4	TRUE	周长一致性数据 true=正极 / false=负极
+Mis	设备控制-换卷收集数	CollectCountOfDiaphragm	(同上)	int	4	5	换隔膜收集数；参数表 5
+Mis	设备控制-换卷收集数	CollectCountOfPos	(同上)	int	4	5	换正极收集数；参数表 5
+Mis	设备控制-换卷收集数	CollectCountOfNeg	(同上)	int	4	5	换负极收集数；参数表 5
+Mis	设备控制-限幅	MaxLimitOfDieCut	(同上)	float	4	15	模切最大限幅；参数表 15
+Mis	设备控制-限幅	MinLimitOfDieCut	(同上)	float	4	2	模切最小限幅；参数表 2
+Mis	设备控制-限幅	MaxLimitOfDiameterChange	(同上)	float	4	30	变径最大限幅；参数表 30
+Mis	设备控制-限幅	MinLimitOfDiameterChange	(同上)	float	4	3	变径最小限幅；参数表 3
+Mis	设备控制-限幅	MaxLimitOfInfeed	(同上)	float	4	2	入料最大限幅；参数表 2
+Mis	设备控制-限幅	MinLimitOfInfeed	(同上)	float	4	0.5	入料最小限幅；参数表 0.5
+Mis	设备控制-调节频次	Is2nInfeedFrequency	(同上)	bool	4	TRUE	入料调节频次 true=2n / false=3n
+Mis	设备控制-前馈错位	FeedforwardMiddleMisalignmentOfDiaphragm	(同上)	float	4	0	隔膜前馈中间错位 D中 ? 待现场数值
+Mis	设备控制-前馈错位	FeedforwardEndMisalignmentOfDiaphragm	(同上)	float	4	0	隔膜前馈首尾错位 D尾 ? 待现场数值
+Mis	设备控制-前馈错位	FeedforwardMiddleMisalignmentOfPos	(同上)	float	4	0	正极前馈中间错位 D中 ? 待现场数值
+Mis	设备控制-前馈错位	FeedforwardEndMisalignmentOfPos	(同上)	float	4	0	正极前馈首尾错位 D尾 ? 待现场数值
+Mis	设备控制-前馈错位	FeedforwardMiddleMisalignmentOfNeg	(同上)	float	4	0	负极前馈中间错位 D中 ? 待现场数值
+Mis	设备控制-前馈错位	FeedforwardEndMisalignmentOfNeg	(同上)	float	4	0	负极前馈首尾错位 D尾 ? 待现场数值
+Mis	落盘	EBusinessType	(同目录)	枚举	—	Mismatch	落盘目录层级用值；业务中文名 极耳错位闭环
+Mis	CSV输出列	缓存数据_极耳错位闭环	VM_MisOfJROHPage	CSV列	—	—	采集时间|虚拟码 |正极极耳错位实时值-目标值|负极极耳错位实时值-目标值|正极是否调机|正极调机下发值|负极是否调机|负极调机下发值|闭环结果信息（?? 模板占位列 随后续资料调整）
+通用	落盘路径	目录模板	—	路径	—	—	{FileSaveRootPath}/{EBusinessType}/缓存数据_{BusinessName}/{yyyyMMdd}/
+通用	落盘路径	CSV分卷阈值	—	字节	—	—	104857600（100MB 超出转 {name}.csv.cache{n}）
+通用	量纲说明	尺寸类字段单位	—	说明	—	—	代码整数单位 = ?m（0.001mm）：196000=196mm、78900=78.9mm、2500=2.5mm（依据 参数表 mm 值 × 1000 = 代码默认值）

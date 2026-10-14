@@ -8,13 +8,14 @@ namespace SUNWODA_SEVB.Services.Project.BoxGluing
 {
     /// <summary>
     /// PerLane 采集：出胶N=1 时采工位N 启用通道；80ms 采样，50ms 轮询触发。
-    /// 连续区 D1600～D1622 一次读 23 字。
+    /// 连续区 D1600～D1644 一次读 45 字（含触发/反馈空隙；过程量按通道地址取）。
     /// </summary>
     public class BoxGluingAcquisitionService : IBoxGluingAcquisitionService, IDisposable
     {
         private const string BlockStart = "D1600";
-        private const ushort BlockLength = 23;
-        private const int ProcessWordCount = 20;
+        /// <summary>D1600～D1644 含计量压力；中间 D1623～D1638 反馈字一并读入但不入通道。</summary>
+        private const ushort BlockLength = 45;
+        private const int ProcessWordCount = 45;
 
         private readonly IBoxGluingConfigService _configService;
         private readonly IBoxGluingCsvStorage _csvStorage;
@@ -276,13 +277,15 @@ namespace SUNWODA_SEVB.Services.Project.BoxGluing
             }
 
             var block = await _plcService.ReadInt16BlockAsync(BlockStart, BlockLength, token);
-            if (block is null || block.Length < ProcessWordCount + config.Triggers.Count)
+            // 至少覆盖到触发位 D1622（偏移 22）；计量压力在尾部，长度不足时按实际长度取
+            if (block is null || block.Length < 23)
             {
                 var emptyTriggers = config.Triggers.ToDictionary(t => t.Station, _ => false);
                 return (Array.Empty<short>(), emptyTriggers, _plcService.HasConnectedDevice ? "PLC读失败" : "PLC未连接");
             }
 
-            var processWords = block.Take(ProcessWordCount).ToArray();
+            var processWords = new short[ProcessWordCount];
+            Array.Copy(block, processWords, Math.Min(block.Length, ProcessWordCount));
             var triggerMap = new Dictionary<int, bool>();
             foreach (var trigger in config.Triggers)
             {
@@ -319,6 +322,10 @@ namespace SUNWODA_SEVB.Services.Project.BoxGluing
                         40),
                     "Pressure" => (short)Math.Clamp(
                         (channel.Meter >= 3 ? 58 : 42) + 14 * sideScale * Math.Sin(t * 1.2 + channel.Meter + sideShift),
+                        0,
+                        100),
+                    "MeteringPressure" => (short)Math.Clamp(
+                        (channel.Meter >= 3 ? 52 : 36) + 12 * sideScale * Math.Sin(t * 1.35 + channel.Meter + sideShift + 0.4),
                         0,
                         100),
                     "Level" => (short)Math.Clamp(

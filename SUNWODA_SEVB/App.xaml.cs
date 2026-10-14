@@ -26,6 +26,9 @@ using SUNWODA_SEVB.Views.Windows.Project;
 using SUNWODA_SEVB.WEB;
 using SUNWODA_SEVB.Services.Project.BoxGluing;
 using SUNWODA_SEVB.Services.Project.AIPredictive;
+using SUNWODA_SEVB.Services.Project.NJSIX;
+using SUNWODA_SEVB.Services.Project.YWSIX;
+using SUNWODA_SEVB.Services.Project.ZZSIX;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -179,11 +182,15 @@ namespace SUNWODA_SEVB
                             reloadOnChange: true
                         );
 
-                        // 添加远程监控文件配置
-                        config.AddJsonFile(
-                            "remote_file_monitor_config.json",
+                        // 远程监控配置：与 appsettings 同一套加密/明文加载器。
+                        // 勿用 AddJsonFile——现场 Configuration.Json 版本混用时，文件存在但解析失败会直接启动崩溃；
+                        // 且 optional:true 只忽略“文件不存在”，不忽略“文件损坏/解析失败”。
+                        config.AddEncryptedJsonFile(
+                            path: "remote_file_monitor_config.json",
                             optional: true,
-                            reloadOnChange: false
+                            reloadOnChange: false,
+                            encryptionKey: null,
+                            encryptionIV: null
                         );
 
                         config.AddEnvironmentVariables();
@@ -248,6 +255,15 @@ namespace SUNWODA_SEVB
 
             // AI 预测分析采集服务
             services.AddAIPredictiveServices();
+
+            // ZZSIX PACK 六面检
+            services.AddZZSIXPack6Services();
+
+            // NJSIX PACK 六面检（由 ZZSIX 全量对照移植，算法 DLL 仍为 ZZTWPack）
+            services.AddNJSIXPack6Services();
+
+            // YWSIX 义乌六面检（YWX01Pack：白标签/铭牌/上盖1-4/PIN；UseSimulation 可关）
+            services.AddYWSIXPack6Services();
 
             // 注册主窗口的ViewModel和View
             services.AddSingleton<VM_MainWindow>();

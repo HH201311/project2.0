@@ -209,7 +209,10 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-                                    <CheckBox IsChecked="{Binding IsChecked}" />
+                                    <CheckBox
+                                        Command="{Binding DataContext.ItemCheckedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"
+                                        IsChecked="{Binding IsChecked}" />
                                     <TextBlock Style="{StaticResource ItemTextBlockStyle}" Text="{Binding DisplayName}" />
                                 </StackPanel>
                             </DataTemplate>
